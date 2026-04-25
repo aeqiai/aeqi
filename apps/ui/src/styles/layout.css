@@ -756,25 +756,23 @@
 
 /* Sidebar bottom — sticks below the tree's scroll viewport. Holds
    destructive / least-frequent actions (sign out today; could carry
-   workspace switcher / help in the future). Hairline above so the
-   row reads as a deliberate footer slot, not orphaned chrome. */
+   workspace switcher / help in the future). Mirrors .sidebar-user-
+   zone's horizontal padding so the sign-out row aligns visually with
+   the Inbox / Settings rows up top — same inset, same row geometry. */
 .sidebar-bottom {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-top: 6px;
-  margin-top: 6px;
-  border-top: 1px solid var(--color-border-faint, rgba(0, 0, 0, 0.06));
-}
-.left-sidebar.collapsed .sidebar-bottom {
-  border-top-color: transparent;
+  padding: 4px 8px 8px;
 }
 
-/* Danger variant of .sidebar-nav-item — sign out, destructive
-   actions. Same row geometry as siblings (no shape change), but the
-   color shifts to error-red on hover. At rest it stays muted so it
-   doesn't compete with primary nav. */
+/* Danger variant of .sidebar-nav-item — sign out, destructive actions.
+   Identical geometry to every other nav row (inherits min-height /
+   padding / gap / radius from .sidebar-nav-item); only the color +
+   hover treatment differ. The button-vs-anchor reset (background /
+   border / font-family / text-align / cursor) mirrors what
+   .sidebar-nav-item--search uses for the same reason. */
 .sidebar-nav-item--danger {
   background: transparent;
   border: 0;
@@ -782,13 +780,16 @@
   cursor: pointer;
   font-family: var(--font-sans);
   text-align: left;
-  color: var(--text-muted);
 }
 .sidebar-nav-item--danger:hover,
 .sidebar-nav-item--danger:focus-visible {
   background: var(--state-hover);
   color: var(--color-error, #c83838);
   outline: none;
+}
+.sidebar-nav-item--danger:hover > svg,
+.sidebar-nav-item--danger:focus-visible > svg {
+  color: var(--color-error, #c83838);
 }
 .sidebar-surface-nav .sidebar-section-label {
   padding: 8px 8px 4px;
