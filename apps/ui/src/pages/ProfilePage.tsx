@@ -191,7 +191,7 @@ export default function ProfilePage() {
 
   return (
     <div className="settings-layout">
-      <PageRail tabs={TABS} defaultTab="profile" />
+      <PageRail tabs={TABS} defaultTab="profile" title="Settings" />
       <div className="account-page settings-content">
         {activeTab === "profile" && (
           <>

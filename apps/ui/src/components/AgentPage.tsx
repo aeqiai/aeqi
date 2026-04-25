@@ -10,7 +10,7 @@ import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import AgentIntegrationsTab from "@/pages/Agent/Integrations";
 import AgentOrgChart from "./AgentOrgChart";
-import PageTabs from "./PageTabs";
+import PageRail from "./PageRail";
 import { Button, EmptyState } from "./ui";
 import ModelPicker from "./ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
@@ -241,9 +241,9 @@ function AgentsTab({
  */
 function SettingsShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="settings-shell">
-      <PageTabs tabs={SETTINGS_SUB_TABS} mode="path" />
-      <div className="settings-shell-body">{children}</div>
+    <div className="settings-layout">
+      <PageRail tabs={SETTINGS_SUB_TABS} mode="path" title="Settings" />
+      <div className="settings-content settings-shell-body">{children}</div>
     </div>
   );
 }
