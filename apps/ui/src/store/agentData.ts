@@ -10,6 +10,17 @@ import type { AgentEvent, Idea } from "@/lib/types";
  * doesn't re-fetch and the two views stay in sync.
  */
 
+/**
+ * One entry in a channel's whitelist. `reply_allowed=false` is "read-only" —
+ * the agent receives the message (it shows up in the session) but its
+ * auto-reply pipeline is suppressed. `reply_allowed=true` is the legacy
+ * "allowed" state.
+ */
+export interface AllowedChat {
+  chat_id: string;
+  reply_allowed: boolean;
+}
+
 export interface ChannelEntry {
   id: string;
   agent_id: string;
@@ -18,8 +29,9 @@ export interface ChannelEntry {
   enabled: boolean;
   /** Whitelisted external chat ids (telegram chat_id, slack channel, etc.).
    *  Empty = no restriction. Lives in the `channel_allowed_chats` table
-   *  server-side; joined into the channel row on read. */
-  allowed_chats: string[];
+   *  server-side; joined into the channel row on read. Each entry carries
+   *  its own `reply_allowed` flag — `false` = read-only (no auto-reply). */
+  allowed_chats: AllowedChat[];
 }
 
 interface AgentDataState {
@@ -72,13 +84,34 @@ export const useAgentDataStore = create<AgentDataState>((set, get) => ({
         const config = (r.config as Record<string, unknown>) || {};
         const kind = (r.kind as string) || (config.kind as string) || "unknown";
         const allowed = (r.allowed_chats as unknown[]) || [];
+        // Normalize legacy (`string[]`) and typed (`{chat_id, reply_allowed}[]`)
+        // wire shapes into a single internal representation. Strings from the
+        // legacy shape default to `reply_allowed: true` (the only state the
+        // legacy backend could express).
+        const allowed_chats: AllowedChat[] = allowed
+          .map((v): AllowedChat | null => {
+            if (typeof v === "string") {
+              return { chat_id: v, reply_allowed: true };
+            }
+            if (v && typeof v === "object") {
+              const o = v as Record<string, unknown>;
+              const chat_id = o.chat_id;
+              if (typeof chat_id !== "string") return null;
+              return {
+                chat_id,
+                reply_allowed: o.reply_allowed === false ? false : true,
+              };
+            }
+            return null;
+          })
+          .filter((v): v is AllowedChat => v !== null);
         return {
           id: r.id as string,
           agent_id: r.agent_id as string,
           kind,
           config,
           enabled: (r.enabled as boolean) ?? true,
-          allowed_chats: allowed.map((v) => String(v)),
+          allowed_chats,
         };
       });
       set((s) => ({ channelsByAgent: { ...s.channelsByAgent, [agentId]: channels } }));

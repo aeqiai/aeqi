@@ -56,11 +56,20 @@ pub(crate) struct SpawnContext {
 pub(crate) fn dispatch(channel: Channel, ctx: &SpawnContext) -> bool {
     match channel.config {
         ChannelConfig::Telegram(cfg) => {
+            // Telegram doesn't yet split inbound/outbound — every whitelisted
+            // chat is treated as reply-allowed. Flatten to chat_ids for the
+            // existing i64-parsing path; the read-only flag is ignored on
+            // this transport in this pass and will be wired in a follow-up.
+            let chat_ids: Vec<String> = channel
+                .allowed_chats
+                .iter()
+                .map(|a| a.chat_id.clone())
+                .collect();
             telegram::spawn_telegram_gateway(
                 cfg,
                 channel.id,
                 channel.agent_id,
-                channel.allowed_chats,
+                chat_ids,
                 ctx.clone(),
             );
             true
@@ -75,6 +84,11 @@ pub(crate) fn dispatch(channel: Channel, ctx: &SpawnContext) -> bool {
             false
         }
         ChannelConfig::WhatsappBaileys(cfg) => {
+            // The Baileys gateway honors the inbound/outbound split: every
+            // whitelisted JID is ingested, but only those with
+            // `reply_allowed=true` are reachable by the agent's reply/react
+            // tools. The full `Vec<AllowedChat>` is forwarded so the spawner
+            // can compute both sets without re-querying the DB.
             whatsapp_baileys::spawn_whatsapp_baileys_gateway(
                 cfg,
                 channel.id,

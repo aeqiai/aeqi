@@ -283,6 +283,26 @@ fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Idempotent migration: adds the `reply_allowed` column to
+/// `channel_allowed_chats`. DEFAULT 1 preserves the legacy semantics for
+/// pre-existing rows — every previously-whitelisted chat keeps its ability
+/// to receive auto-replies. New "read-only" rows are written with 0.
+pub(crate) fn ensure_channel_allowed_chats_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(channel_allowed_chats)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "reply_allowed") {
+        conn.execute_batch(
+            "ALTER TABLE channel_allowed_chats
+             ADD COLUMN reply_allowed INTEGER NOT NULL DEFAULT 1;",
+        )?;
+    }
+    Ok(())
+}
+
 fn normalize_agent_names(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE agents
@@ -514,16 +534,24 @@ impl AgentRegistry {
 
         // Per-channel chat whitelist. `chat_id` is TEXT so every transport fits:
         // Telegram i64, Discord snowflake strings, UUIDs, phone numbers.
+        //
+        // `reply_allowed` separates inbound and outbound: rows with
+        // reply_allowed=1 (the default — preserves legacy "act on this chat"
+        // behavior) let the agent's outbound tools target the JID; rows with
+        // reply_allowed=0 are read-only — the gateway still ingests the
+        // message, but the reply/react tools refuse to dispatch.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS channel_allowed_chats (
                  channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
                  chat_id TEXT NOT NULL,
                  added_at TEXT NOT NULL,
+                 reply_allowed INTEGER NOT NULL DEFAULT 1,
                  PRIMARY KEY (channel_id, chat_id)
              );
              CREATE INDEX IF NOT EXISTS idx_channel_allowed_chats_channel
                  ON channel_allowed_chats(channel_id);",
         )?;
+        ensure_channel_allowed_chats_columns(&conn)?;
 
         // Files table — Drive storage, scoped to an agent.
         conn.execute_batch(

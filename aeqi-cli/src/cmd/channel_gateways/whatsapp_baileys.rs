@@ -28,9 +28,11 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use std::collections::HashSet;
+
 use aeqi_core::traits::{Channel as ChannelTrait, OutgoingMessage, SessionGateway};
 use aeqi_gates::{WhatsAppBaileysChannel, WhatsappBaileysGateway, whatsapp_baileys};
-use aeqi_orchestrator::WhatsappBaileysConfig;
+use aeqi_orchestrator::{AllowedChat, WhatsappBaileysConfig};
 use aeqi_tools::{WhatsAppReactTool, WhatsAppReplyTool};
 use tracing::{info, warn};
 
@@ -75,7 +77,7 @@ pub(super) fn spawn_whatsapp_baileys_gateway(
     cfg: WhatsappBaileysConfig,
     channel_id: String,
     agent_id: String,
-    allowed_chats_raw: Vec<String>,
+    allowed_chats_raw: Vec<AllowedChat>,
     ctx: SpawnContext,
 ) {
     let script = resolve_bridge_script();
@@ -94,14 +96,43 @@ pub(super) fn spawn_whatsapp_baileys_gateway(
     // let the agent message any JID that arrived. Merge + dedupe so
     // either path produces the same effective filter; empty union still
     // means "no whitelist" exactly like before.
+    //
+    // **Inbound vs outbound split**: every JID in the union (regardless of
+    // `reply_allowed`) gates *ingestion* — read-only chats still feed the
+    // transcript. The reply-tool layer is gated by a tighter set of JIDs
+    // where `reply_allowed=true`, so a chat marked read-only goes through
+    // the gateway but the agent's outbound tools refuse to send to it.
+    // Legacy JIDs from `cfg.allowed_jids` are treated as reply-allowed —
+    // that has always been their meaning.
     let mut allowed: Vec<String> =
         Vec::with_capacity(cfg.allowed_jids.len() + allowed_chats_raw.len());
-    for j in cfg.allowed_jids.iter().chain(allowed_chats_raw.iter()) {
+    let mut reply_allowed: HashSet<String> = HashSet::new();
+    for j in cfg.allowed_jids.iter() {
         let trimmed = j.trim();
-        if !trimmed.is_empty() && !allowed.iter().any(|a| a == trimmed) {
-            allowed.push(trimmed.to_string());
+        if !trimmed.is_empty() {
+            if !allowed.iter().any(|a| a == trimmed) {
+                allowed.push(trimmed.to_string());
+            }
+            reply_allowed.insert(trimmed.to_string());
         }
     }
+    for entry in allowed_chats_raw.iter() {
+        let trimmed = entry.chat_id.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !allowed.iter().any(|a| a == trimmed) {
+            allowed.push(trimmed.to_string());
+        }
+        if entry.reply_allowed {
+            reply_allowed.insert(trimmed.to_string());
+        } else {
+            // An explicit read-only entry must not be silently promoted by
+            // a stale legacy duplicate sitting in `cfg.allowed_jids`.
+            reply_allowed.remove(trimmed);
+        }
+    }
+    let reply_allowed = Arc::new(reply_allowed);
 
     tokio::spawn(async move {
         let ch = match WhatsAppBaileysChannel::connect(script, session_dir, allowed).await {
@@ -120,7 +151,7 @@ pub(super) fn spawn_whatsapp_baileys_gateway(
             "whatsapp-baileys gateway connected (awaiting QR/auth)"
         );
 
-        run_gateway(ch, agent_id, channel_id, ctx).await;
+        run_gateway(ch, agent_id, channel_id, reply_allowed, ctx).await;
     });
 }
 
@@ -128,6 +159,7 @@ async fn run_gateway(
     ch: Arc<WhatsAppBaileysChannel>,
     agent_id: String,
     _channel_id: String,
+    reply_allowed: Arc<HashSet<String>>,
     ctx: SpawnContext,
 ) {
     let SpawnContext {
@@ -204,6 +236,7 @@ async fn run_gateway(
         let aid = agent_id.clone();
         let session_store_clone = session_store.clone();
         let pattern_dispatcher = pattern_dispatcher.clone();
+        let reply_allowed = reply_allowed.clone();
 
         tokio::spawn(async move {
             let user_sender_id = if let Some(ref ss) = session_store_clone {
@@ -294,9 +327,11 @@ async fn run_gateway(
             let wa_tools: Vec<Arc<dyn aeqi_core::traits::Tool>> = vec![
                 Arc::new(WhatsAppReplyTool {
                     channel: ch_clone.clone(),
+                    reply_allowed_jids: reply_allowed.clone(),
                 }),
                 Arc::new(WhatsAppReactTool {
                     channel: ch_clone.clone(),
+                    reply_allowed_jids: reply_allowed.clone(),
                 }),
             ];
             let executor: Arc<dyn aeqi_orchestrator::session_queue::SessionExecutor> =

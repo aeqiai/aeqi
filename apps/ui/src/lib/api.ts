@@ -9,6 +9,7 @@ import type {
   Quest,
   ScopeValue,
 } from "@/lib/types";
+import type { AllowedChat } from "@/store/agentData";
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
@@ -376,11 +377,14 @@ export const api = {
     }),
   // Replace the channel's allowed_chats whitelist. Empty array = no
   // restriction. Writes to the dedicated `channel_allowed_chats` table —
-  // does not touch the config blob.
-  setChannelAllowedChats: (id: string, chatIds: string[]) =>
+  // does not touch the config blob. Each entry carries a `reply_allowed`
+  // flag: `true` = auto-reply, `false` = read-only (receive but stay silent).
+  // The IPC accepts either the legacy `string[]` or the typed shape; we
+  // always send the typed shape going forward.
+  setChannelAllowedChats: (id: string, chats: AllowedChat[]) =>
     request<Record<string, unknown>>(`/channels/${encodeURIComponent(id)}/allowed-chats`, {
       method: "PATCH",
-      body: JSON.stringify({ chat_ids: chatIds }),
+      body: JSON.stringify({ chat_ids: chats }),
     }),
   // WhatsApp Baileys pairing: poll for QR + connection state. Returns
   // `{ status: null }` while the gateway task hasn't registered yet

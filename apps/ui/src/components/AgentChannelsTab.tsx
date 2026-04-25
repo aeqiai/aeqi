@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
-import { useAgentDataStore, type ChannelEntry } from "@/store/agentData";
+import { useAgentDataStore, type AllowedChat, type ChannelEntry } from "@/store/agentData";
 import { Button, EmptyState } from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
 
@@ -153,7 +153,14 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   // Compare as strings, never coerce to Number — WhatsApp JIDs like
   // `[email protected]` and `[email protected]` parse to NaN and would
   // silently drop from the whitelist.
-  const getAllowed = (ch: ChannelEntry): string[] => ch.allowed_chats;
+  const getAllowed = (ch: ChannelEntry): AllowedChat[] => ch.allowed_chats;
+  /** Three-state visibility for a single chat row. */
+  type ChatMode = "auto" | "read" | "off";
+  const chatModeFor = (allowed: AllowedChat[], chatId: string): ChatMode => {
+    const entry = allowed.find((a) => a.chat_id === chatId);
+    if (!entry) return "off";
+    return entry.reply_allowed ? "auto" : "read";
+  };
   /**
    * Transport-aware DM/Group label. Telegram chat_ids are signed integers
    * (negative = group / channel, positive = DM). WhatsApp uses JIDs that
@@ -185,7 +192,10 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
    * is the one source of truth and costs one extra round-trip on the
    * (rare) failure path.
    */
-  const updateAllowed = async (channelId: string, reducer: (current: string[]) => string[]) => {
+  const updateAllowed = async (
+    channelId: string,
+    reducer: (current: AllowedChat[]) => AllowedChat[],
+  ) => {
     const storeState = useAgentDataStore.getState();
     const ch = storeState.channelsByAgent[agentId]?.find((c) => c.id === channelId);
     if (!ch) return;
@@ -423,8 +433,13 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                   if (e.target.checked) {
                     // Use `chat_id` as-is. Coercing to Number drops every
                     // WhatsApp JID and any non-numeric chat_id (the bug
-                    // that made this toggle no-op for WhatsApp).
-                    const allChats = chats.map((s) => s.chat_id).filter(Boolean);
+                    // that made this toggle no-op for WhatsApp). New entries
+                    // default to `reply_allowed: true` (auto-reply); the
+                    // user can demote to read-only per-row below.
+                    const allChats: AllowedChat[] = chats
+                      .map((s) => s.chat_id)
+                      .filter(Boolean)
+                      .map((chat_id) => ({ chat_id, reply_allowed: true }));
                     updateAllowed(selected.id, () => allChats);
                   } else {
                     // Turning whitelist OFF clears the entire server-side
@@ -444,8 +459,12 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               Whitelist
             </label>
           </div>
+          <p className="agent-settings-hint" style={{ marginTop: 4, marginBottom: 8 }}>
+            <strong>Auto-reply</strong> = agent answers automatically. <strong>Read-only</strong> =
+            messages arrive, agent stays silent. <strong>Off</strong> = drop entirely.
+          </p>
           {chats.map((s) => {
-            const isAllowed = allowed.includes(s.chat_id);
+            const mode = chatModeFor(allowed, s.chat_id);
             const kindLabel = chatKindLabel(s.transport, s.chat_id);
             return (
               <div
@@ -466,19 +485,24 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                   )}
                 </div>
                 {whitelist ? (
-                  <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                    <input
-                      type="checkbox"
-                      checked={isAllowed}
-                      onChange={(e) => {
-                        const add = e.target.checked;
-                        updateAllowed(selected.id, (current) =>
-                          add ? [...current, s.chat_id] : current.filter((v) => v !== s.chat_id),
-                        );
-                      }}
-                    />{" "}
-                    Allow
-                  </label>
+                  <select
+                    aria-label={`Reply mode for ${s.chat_id}`}
+                    className="agent-settings-input"
+                    style={{ fontSize: 11, padding: "2px 6px", width: "auto" }}
+                    value={mode}
+                    onChange={(e) => {
+                      const next = e.target.value as ChatMode;
+                      updateAllowed(selected.id, (current) => {
+                        const without = current.filter((v) => v.chat_id !== s.chat_id);
+                        if (next === "off") return without;
+                        return [...without, { chat_id: s.chat_id, reply_allowed: next === "auto" }];
+                      });
+                    }}
+                  >
+                    <option value="auto">Auto-reply</option>
+                    <option value="read">Read-only</option>
+                    <option value="off">Off</option>
+                  </select>
                 ) : (
                   <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Allowed</span>
                 )}

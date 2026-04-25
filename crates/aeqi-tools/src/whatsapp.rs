@@ -3,7 +3,20 @@
 //! These tools are only injected into sessions that are bound to a
 //! `WhatsAppBaileysChannel`. They give the agent the ability to send
 //! quoted replies and emoji reactions on WhatsApp.
+//!
+//! ## Inbound vs outbound split
+//!
+//! Each tool carries a `reply_allowed_jids` set built by the gateway from the
+//! `channel_allowed_chats` table. The set contains exactly the JIDs whose
+//! whitelist row has `reply_allowed=true`. Read-only contacts (whose row has
+//! `reply_allowed=false`) are absent from this set, so the agent's outbound
+//! tools refuse to dispatch to them — even though the gateway has already
+//! ingested their inbound messages into the session transcript. An empty set
+//! means "no whitelist configured": treat as the legacy permissive behavior
+//! and let every send through, identical to how the inbound filter handles
+//! an empty whitelist.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
@@ -11,9 +24,24 @@ use aeqi_gates::WhatsAppBaileysChannel;
 use anyhow::Result;
 use async_trait::async_trait;
 
+/// Error message returned to the LLM when an outbound send is blocked. Keep
+/// this verbatim so a UI test or operator grep can locate the gate.
+const READ_ONLY_BLOCK_MSG: &str = "this contact is set to read-only — auto-reply blocked at the channel layer; \
+     remove the read-only flag in channel settings if you want the agent to respond";
+
+/// Returns `true` when the gateway-supplied whitelist permits an outbound
+/// send to `jid`. An empty set is treated as "no whitelist" (permissive)
+/// — the inbound filter follows the same rule, so the two stay in sync.
+fn outbound_permitted(set: &HashSet<String>, jid: &str) -> bool {
+    set.is_empty() || set.contains(jid)
+}
+
 /// Send a quoted reply to a WhatsApp message.
 pub struct WhatsAppReplyTool {
     pub channel: Arc<WhatsAppBaileysChannel>,
+    /// JIDs the gateway explicitly authorized for outbound traffic. An empty
+    /// set is "no whitelist" → permissive, matching the inbound filter.
+    pub reply_allowed_jids: Arc<HashSet<String>>,
 }
 
 #[async_trait]
@@ -23,6 +51,9 @@ impl Tool for WhatsAppReplyTool {
             Some(j) => j.to_string(),
             None => return Ok(ToolResult::error("missing required argument: jid")),
         };
+        if !outbound_permitted(&self.reply_allowed_jids, &jid) {
+            return Ok(ToolResult::error(READ_ONLY_BLOCK_MSG));
+        }
         let text = match args.get("text").and_then(|v| v.as_str()) {
             Some(t) => t.to_string(),
             None => return Ok(ToolResult::error("missing required argument: text")),
@@ -115,6 +146,10 @@ impl Tool for WhatsAppReplyTool {
 /// Send an emoji reaction to a WhatsApp message.
 pub struct WhatsAppReactTool {
     pub channel: Arc<WhatsAppBaileysChannel>,
+    /// Same gate as `WhatsAppReplyTool::reply_allowed_jids`. Reactions count
+    /// as outbound traffic — a read-only contact mustn't see thumb-ups
+    /// either.
+    pub reply_allowed_jids: Arc<HashSet<String>>,
 }
 
 #[async_trait]
@@ -124,6 +159,9 @@ impl Tool for WhatsAppReactTool {
             Some(j) => j.to_string(),
             None => return Ok(ToolResult::error("missing required argument: jid")),
         };
+        if !outbound_permitted(&self.reply_allowed_jids, &jid) {
+            return Ok(ToolResult::error(READ_ONLY_BLOCK_MSG));
+        }
         let message_id = match args.get("message_id").and_then(|v| v.as_str()) {
             Some(id) => id.to_string(),
             None => return Ok(ToolResult::error("missing required argument: message_id")),
@@ -294,5 +332,61 @@ mod tests {
         let recorded = recorder.recorded();
         assert_eq!(recorded.len(), 1);
         assert_eq!(recorded[0].0, "send_reply");
+    }
+
+    // ── Reply-allowed gate ──
+    //
+    // The constructor takes an `Arc<HashSet<String>>` of reply-allowed JIDs.
+    // Empty set = no whitelist (permissive); non-empty set = strict membership
+    // check. We test the gate function directly because the tool's `execute`
+    // would need a real `WhatsAppBaileysChannel` (Node bridge) to run the
+    // success path — the deny path is short-circuited at the gate.
+
+    #[test]
+    fn outbound_permitted_empty_set_is_permissive() {
+        let set = HashSet::new();
+        // Matches inbound filter behavior: empty whitelist = accept all.
+        assert!(outbound_permitted(&set, "anyone@s.whatsapp.net"));
+        assert!(outbound_permitted(&set, ""));
+    }
+
+    #[test]
+    fn outbound_permitted_strict_when_set_is_nonempty() {
+        let mut set = HashSet::new();
+        set.insert("alice@s.whatsapp.net".to_string());
+        assert!(outbound_permitted(&set, "alice@s.whatsapp.net"));
+        // Non-member is blocked even if it's a substring or a near-miss.
+        assert!(!outbound_permitted(&set, "bob@s.whatsapp.net"));
+        assert!(!outbound_permitted(&set, "alice"));
+    }
+
+    #[test]
+    fn read_only_block_msg_is_user_friendly() {
+        // If this constant ever changes, it changes here — the IPC layer
+        // and UI tests grep for the substring "read-only".
+        assert!(READ_ONLY_BLOCK_MSG.contains("read-only"));
+        assert!(READ_ONLY_BLOCK_MSG.contains("auto-reply"));
+    }
+
+    /// End-to-end gate check: a JID outside the reply-allowed set must be
+    /// rejected before any bridge interaction happens. We exercise this
+    /// via the gate function plus the user-facing message constant —
+    /// constructing a real `WhatsAppBaileysChannel` would require the
+    /// Node bridge process, which is out of scope for a unit test.
+    #[test]
+    fn gate_blocks_jid_not_in_reply_allowed_set() {
+        let mut allowed = HashSet::new();
+        allowed.insert("alice@s.whatsapp.net".to_string());
+        // Reply tool would call `outbound_permitted` with the recipient JID;
+        // we mirror that here. A non-member is rejected; a member is permitted.
+        assert!(!outbound_permitted(&allowed, "bob@s.whatsapp.net"));
+        assert!(outbound_permitted(&allowed, "alice@s.whatsapp.net"));
+    }
+
+    #[test]
+    fn gate_permits_when_set_empty_legacy_no_whitelist() {
+        // Mirrors the inbound-filter rule — empty whitelist = accept all.
+        let allowed: HashSet<String> = HashSet::new();
+        assert!(outbound_permitted(&allowed, "anyone@s.whatsapp.net"));
     }
 }

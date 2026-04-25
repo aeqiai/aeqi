@@ -126,10 +126,59 @@ pub struct WhatsappBaileysConfig {
     pub allowed_jids: Vec<String>,
 }
 
+/// One row of the per-channel whitelist.
+///
+/// `reply_allowed` separates inbound and outbound: when `true` (the legacy
+/// default) the gateway ingests messages from this chat *and* the agent's
+/// outbound reply/react tools may target it; when `false` the chat is
+/// **read-only** — messages still flow into transcripts so an agent can
+/// observe the conversation, but any attempt to send a reply or reaction is
+/// refused at the tool layer with a user-facing error.
+///
+/// Wire format mirrors the struct: `{ "chat_id": "...", "reply_allowed": true }`.
+/// Legacy callers that send a flat `["chat_id", ...]` array are accepted via
+/// the `Channel.allowed_chats` deserializer (`reply_allowed` defaults to true).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AllowedChat {
+    pub chat_id: String,
+    /// Whether the agent's outbound tools may send to this chat.
+    /// Defaults to `true` so legacy/string-only deserialization keeps the
+    /// historical "ingest = act" behavior.
+    #[serde(default = "default_reply_allowed")]
+    pub reply_allowed: bool,
+}
+
+fn default_reply_allowed() -> bool {
+    true
+}
+
+impl AllowedChat {
+    /// Construct an entry with reply enabled (the legacy default).
+    pub fn allow(chat_id: impl Into<String>) -> Self {
+        Self {
+            chat_id: chat_id.into(),
+            reply_allowed: true,
+        }
+    }
+
+    /// Construct a read-only entry (ingest only, outbound blocked).
+    pub fn read_only(chat_id: impl Into<String>) -> Self {
+        Self {
+            chat_id: chat_id.into(),
+            reply_allowed: false,
+        }
+    }
+}
+
 /// A channel row: one transport binding for one agent.
 ///
 /// `allowed_chats` is populated from the separate `channel_allowed_chats`
 /// table, not the config blob. Empty vec = no whitelist (accept all).
+///
+/// Deserialization accepts either the typed shape (`[{chat_id, reply_allowed}, ...]`)
+/// or the legacy flat-string shape (`["chat_id", ...]`); flat strings are
+/// promoted to `AllowedChat { chat_id, reply_allowed: true }` so older
+/// IPC/HTTP clients keep working unchanged.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Channel {
     pub id: String,
@@ -137,10 +186,37 @@ pub struct Channel {
     pub kind: ChannelKind,
     pub config: ChannelConfig,
     pub enabled: bool,
-    #[serde(default)]
-    pub allowed_chats: Vec<String>,
+    #[serde(default, deserialize_with = "deserialize_allowed_chats")]
+    pub allowed_chats: Vec<AllowedChat>,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// Custom deserializer that accepts either the typed shape or the legacy
+/// flat-string array. Used for inbound IPC/HTTP payloads where the UI may
+/// still send a `["chat_id", ...]` list during the transition.
+fn deserialize_allowed_chats<'de, D>(de: D) -> Result<Vec<AllowedChat>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum LegacyOrTyped {
+        Typed(AllowedChat),
+        Legacy(String),
+    }
+
+    let raw: Vec<LegacyOrTyped> = Vec::deserialize(de)?;
+    Ok(raw
+        .into_iter()
+        .map(|v| match v {
+            LegacyOrTyped::Typed(a) => a,
+            LegacyOrTyped::Legacy(s) => AllowedChat {
+                chat_id: s,
+                reply_allowed: true,
+            },
+        })
+        .collect())
 }
 
 /// For creating a new channel.
@@ -353,13 +429,23 @@ impl ChannelStore {
     // --- allowed_chats CRUD ----------------------------------------------
 
     /// List the whitelist for a channel. Empty = no whitelist (accept all).
-    pub async fn list_allowed_chats(&self, channel_id: &str) -> Result<Vec<String>> {
+    /// Returns `AllowedChat` rows so callers see both the chat id and the
+    /// outbound `reply_allowed` flag — needed to split inbound ingestion
+    /// from outbound reply authorization in the gateways and tools.
+    pub async fn list_allowed_chats(&self, channel_id: &str) -> Result<Vec<AllowedChat>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT chat_id FROM channel_allowed_chats
+            "SELECT chat_id, reply_allowed FROM channel_allowed_chats
              WHERE channel_id = ?1 ORDER BY added_at",
         )?;
-        let rows = stmt.query_map(params![channel_id], |row| row.get::<_, String>(0))?;
+        let rows = stmt.query_map(params![channel_id], |row| {
+            let chat_id: String = row.get(0)?;
+            let reply_allowed: i64 = row.get(1)?;
+            Ok(AllowedChat {
+                chat_id,
+                reply_allowed: reply_allowed != 0,
+            })
+        })?;
         let mut out = Vec::new();
         for r in rows {
             out.push(r?);
@@ -368,12 +454,18 @@ impl ChannelStore {
     }
 
     /// Add one chat to the whitelist. Idempotent (INSERT OR IGNORE).
-    pub async fn add_allowed_chat(&self, channel_id: &str, chat_id: &str) -> Result<()> {
+    pub async fn add_allowed_chat(&self, channel_id: &str, entry: &AllowedChat) -> Result<()> {
         let db = self.db.lock().await;
         db.execute(
-            "INSERT OR IGNORE INTO channel_allowed_chats (channel_id, chat_id, added_at)
-             VALUES (?1, ?2, ?3)",
-            params![channel_id, chat_id, Utc::now().to_rfc3339()],
+            "INSERT OR IGNORE INTO channel_allowed_chats
+                 (channel_id, chat_id, added_at, reply_allowed)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                channel_id,
+                entry.chat_id,
+                Utc::now().to_rfc3339(),
+                if entry.reply_allowed { 1 } else { 0 }
+            ],
         )?;
         Ok(())
     }
@@ -389,9 +481,9 @@ impl ChannelStore {
         Ok(())
     }
 
-    /// Replace the whitelist entirely with `chat_ids`. Atomic (transaction).
+    /// Replace the whitelist entirely with `chats`. Atomic (transaction).
     /// Used by the UI's "toggle whitelist mode" flow.
-    pub async fn set_allowed_chats(&self, channel_id: &str, chat_ids: &[String]) -> Result<()> {
+    pub async fn set_allowed_chats(&self, channel_id: &str, chats: &[AllowedChat]) -> Result<()> {
         let mut db = self.db.lock().await;
         let tx = db.transaction()?;
         tx.execute(
@@ -399,11 +491,17 @@ impl ChannelStore {
             params![channel_id],
         )?;
         let now = Utc::now().to_rfc3339();
-        for chat_id in chat_ids {
+        for entry in chats {
             tx.execute(
-                "INSERT OR IGNORE INTO channel_allowed_chats (channel_id, chat_id, added_at)
-                 VALUES (?1, ?2, ?3)",
-                params![channel_id, chat_id, now],
+                "INSERT OR IGNORE INTO channel_allowed_chats
+                     (channel_id, chat_id, added_at, reply_allowed)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    channel_id,
+                    entry.chat_id,
+                    now,
+                    if entry.reply_allowed { 1 } else { 0 }
+                ],
             )?;
         }
         tx.commit()?;
@@ -638,5 +736,204 @@ mod tests {
             ChannelConfig::Whatsapp(w) => assert_eq!(w.phone_number_id, "PNI"),
             _ => panic!("expected Whatsapp"),
         }
+    }
+
+    /// `set_allowed_chats` round-trips the `reply_allowed` flag — both the
+    /// allow path (true, the legacy default) and the read-only path
+    /// (false). Without this, the schema migration could land but the
+    /// CRUD layer would silently coerce everything back to true.
+    #[tokio::test]
+    async fn set_allowed_chats_roundtrips_reply_allowed_flag() {
+        let reg = test_registry().await;
+        let alice = reg.spawn("alice", None, None).await.unwrap();
+        let store = ChannelStore::new(reg.db());
+
+        let ch = store
+            .create(&NewChannel {
+                agent_id: alice.id.clone(),
+                config: tg("alice-token"),
+            })
+            .await
+            .unwrap();
+
+        let chats = vec![
+            AllowedChat {
+                chat_id: "100".to_string(),
+                reply_allowed: true,
+            },
+            AllowedChat {
+                chat_id: "200".to_string(),
+                reply_allowed: false,
+            },
+        ];
+        store.set_allowed_chats(&ch.id, &chats).await.unwrap();
+
+        let got = store.list_allowed_chats(&ch.id).await.unwrap();
+        assert_eq!(got.len(), 2, "both rows must persist");
+        let by_id: std::collections::HashMap<_, _> = got
+            .iter()
+            .map(|a| (a.chat_id.clone(), a.reply_allowed))
+            .collect();
+        assert_eq!(by_id.get("100"), Some(&true));
+        assert_eq!(by_id.get("200"), Some(&false));
+    }
+
+    /// `add_allowed_chat` writes the flag through, not the default. Guards
+    /// against a regression where the helper hard-codes `reply_allowed=1`
+    /// while only `set_allowed_chats` honours the input shape.
+    #[tokio::test]
+    async fn add_allowed_chat_preserves_read_only_flag() {
+        let reg = test_registry().await;
+        let alice = reg.spawn("alice", None, None).await.unwrap();
+        let store = ChannelStore::new(reg.db());
+
+        let ch = store
+            .create(&NewChannel {
+                agent_id: alice.id.clone(),
+                config: tg("alice-token"),
+            })
+            .await
+            .unwrap();
+
+        store
+            .add_allowed_chat(&ch.id, &AllowedChat::read_only("readonly-jid"))
+            .await
+            .unwrap();
+        store
+            .add_allowed_chat(&ch.id, &AllowedChat::allow("active-jid"))
+            .await
+            .unwrap();
+
+        let got = store.list_allowed_chats(&ch.id).await.unwrap();
+        let by_id: std::collections::HashMap<_, _> = got
+            .iter()
+            .map(|a| (a.chat_id.clone(), a.reply_allowed))
+            .collect();
+        assert_eq!(by_id.get("readonly-jid"), Some(&false));
+        assert_eq!(by_id.get("active-jid"), Some(&true));
+    }
+
+    /// Migration from the pre-`reply_allowed` schema must:
+    ///   1. add the column,
+    ///   2. backfill every existing row to `reply_allowed=1` (legacy
+    ///      "ingest = act" semantics — operators expect their previously
+    ///      whitelisted chats to keep responding after the upgrade),
+    ///   3. be idempotent on subsequent calls.
+    ///
+    /// We rebuild the legacy table shape directly so the test cannot rely
+    /// on the modern `CREATE TABLE` doing the right thing for us.
+    #[tokio::test]
+    async fn ensure_channel_allowed_chats_columns_migrates_legacy() {
+        use crate::agent_registry::ConnectionPool;
+        let pool = ConnectionPool::in_memory().unwrap();
+        let conn = pool.lock().await;
+
+        // Synthesize a pre-migration shape — the `channels` parent is also
+        // recreated minimally so the FK has somewhere to point.
+        conn.execute_batch(
+            "CREATE TABLE channels (
+                 id TEXT PRIMARY KEY,
+                 agent_id TEXT NOT NULL,
+                 kind TEXT NOT NULL,
+                 config TEXT NOT NULL,
+                 enabled INTEGER NOT NULL DEFAULT 1,
+                 created_at TEXT NOT NULL,
+                 updated_at TEXT
+             );
+             CREATE TABLE channel_allowed_chats (
+                 channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+                 chat_id TEXT NOT NULL,
+                 added_at TEXT NOT NULL,
+                 PRIMARY KEY (channel_id, chat_id)
+             );
+             INSERT INTO channels (id, agent_id, kind, config, created_at)
+                 VALUES ('ch1', 'a1', 'telegram', '{\"kind\":\"telegram\"}', '2026-01-01T00:00:00Z');
+             INSERT INTO channel_allowed_chats (channel_id, chat_id, added_at)
+                 VALUES ('ch1', '111', '2026-01-01T00:00:00Z'),
+                        ('ch1', '222', '2026-01-01T00:00:00Z');",
+        )
+        .unwrap();
+
+        // No `reply_allowed` column yet.
+        let pre_cols: std::collections::HashSet<String> = {
+            let mut stmt = conn
+                .prepare("PRAGMA table_info(channel_allowed_chats)")
+                .unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        assert!(!pre_cols.contains("reply_allowed"));
+
+        crate::agent_registry::ensure_channel_allowed_chats_columns(&conn).unwrap();
+        // Idempotent — second call must not error.
+        crate::agent_registry::ensure_channel_allowed_chats_columns(&conn).unwrap();
+
+        let post_cols: std::collections::HashSet<String> = {
+            let mut stmt = conn
+                .prepare("PRAGMA table_info(channel_allowed_chats)")
+                .unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        assert!(post_cols.contains("reply_allowed"));
+
+        // Existing rows backfilled to 1 (preserve legacy "act" behavior).
+        let mut stmt = conn
+            .prepare("SELECT chat_id, reply_allowed FROM channel_allowed_chats ORDER BY chat_id")
+            .unwrap();
+        let rows: Vec<(String, i64)> = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(rows, vec![("111".to_string(), 1), ("222".to_string(), 1)]);
+    }
+
+    /// Inbound IPC payloads may still arrive in the legacy flat-string
+    /// shape. The `Channel.allowed_chats` deserializer must accept both,
+    /// promoting strings to `AllowedChat { chat_id, reply_allowed: true }`.
+    #[test]
+    fn channel_deserialize_accepts_legacy_string_array() {
+        // Build a minimal Channel JSON in the legacy shape.
+        let json = serde_json::json!({
+            "id": "ch1",
+            "agent_id": "a1",
+            "kind": "telegram",
+            "config": {"kind": "telegram"},
+            "enabled": true,
+            "allowed_chats": ["100", "200"],
+            "created_at": "2026-01-01T00:00:00Z"
+        });
+        let ch: Channel = serde_json::from_value(json).expect("legacy shape must deserialize");
+        assert_eq!(ch.allowed_chats.len(), 2);
+        assert!(ch.allowed_chats.iter().all(|a| a.reply_allowed));
+        assert_eq!(ch.allowed_chats[0].chat_id, "100");
+        assert_eq!(ch.allowed_chats[1].chat_id, "200");
+    }
+
+    #[test]
+    fn channel_deserialize_accepts_typed_array() {
+        let json = serde_json::json!({
+            "id": "ch1",
+            "agent_id": "a1",
+            "kind": "telegram",
+            "config": {"kind": "telegram"},
+            "enabled": true,
+            "allowed_chats": [
+                {"chat_id": "100", "reply_allowed": true},
+                {"chat_id": "200", "reply_allowed": false}
+            ],
+            "created_at": "2026-01-01T00:00:00Z"
+        });
+        let ch: Channel = serde_json::from_value(json).expect("typed shape must deserialize");
+        assert_eq!(ch.allowed_chats.len(), 2);
+        assert!(ch.allowed_chats[0].reply_allowed);
+        assert!(!ch.allowed_chats[1].reply_allowed);
     }
 }

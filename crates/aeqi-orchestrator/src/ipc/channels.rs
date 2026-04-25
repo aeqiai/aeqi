@@ -17,7 +17,9 @@ use aeqi_core::credentials::{CredentialInsert, CredentialStore, ScopeKind};
 
 use super::request_field;
 use super::tenancy::check_agent_access;
-use crate::channel_registry::{ChannelConfig, ChannelError, ChannelKind, ChannelStore, NewChannel};
+use crate::channel_registry::{
+    AllowedChat, ChannelConfig, ChannelError, ChannelKind, ChannelStore, NewChannel,
+};
 
 fn store(ctx: &super::CommandContext) -> Arc<ChannelStore> {
     Arc::new(ChannelStore::new(ctx.agent_registry.db()))
@@ -308,10 +310,19 @@ pub async fn handle_channels_baileys_logout(
     }
 }
 
-/// `channels_set_allowed_chats { id, chat_ids: [string] }` → `{ ok, channel }`
+/// `channels_set_allowed_chats { id, chat_ids: [...] }` → `{ ok, channel }`
 ///
 /// Replaces the full allowed_chats set for the channel. Empty list = no
 /// whitelist (all chats allowed). Tenancy derived from the row.
+///
+/// Wire format for `chat_ids` accepts both shapes:
+/// - **Typed**: `[{ "chat_id": "...", "reply_allowed": true|false }, ...]`
+/// - **Legacy**: `["chat_id", ...]` — every entry is treated as
+///   `reply_allowed=true` (the historical "ingest = act" semantics).
+///
+/// The split between inbound (always allowed when whitelisted) and outbound
+/// (gated by `reply_allowed`) lets operators mark a contact as read-only:
+/// the agent can read the conversation but its reply tools refuse to send.
 pub async fn handle_channels_set_allowed_chats(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -320,15 +331,34 @@ pub async fn handle_channels_set_allowed_chats(
     let Some(id) = request_field(request, "id") else {
         return serde_json::json!({"ok": false, "error": "id required"});
     };
-    let chat_ids: Vec<String> = match request.get("chat_ids") {
-        Some(serde_json::Value::Array(arr)) => arr
-            .iter()
-            .filter_map(|v| match v {
-                serde_json::Value::String(s) => Some(s.clone()),
-                serde_json::Value::Number(n) => Some(n.to_string()),
-                _ => None,
-            })
-            .collect(),
+    let chats: Vec<AllowedChat> = match request.get("chat_ids") {
+        Some(serde_json::Value::Array(arr)) => {
+            let mut out = Vec::with_capacity(arr.len());
+            for v in arr {
+                match v {
+                    serde_json::Value::String(s) => out.push(AllowedChat::allow(s.clone())),
+                    serde_json::Value::Number(n) => out.push(AllowedChat::allow(n.to_string())),
+                    serde_json::Value::Object(_) => {
+                        match serde_json::from_value::<AllowedChat>(v.clone()) {
+                            Ok(a) => out.push(a),
+                            Err(e) => {
+                                return serde_json::json!({
+                                    "ok": false,
+                                    "error": format!("invalid allowed-chat entry: {e}")
+                                });
+                            }
+                        }
+                    }
+                    _ => {
+                        return serde_json::json!({
+                            "ok": false,
+                            "error": "chat_ids entries must be string or object"
+                        });
+                    }
+                }
+            }
+            out
+        }
         None => {
             return serde_json::json!({"ok": false, "error": "chat_ids required"});
         }
@@ -348,7 +378,7 @@ pub async fn handle_channels_set_allowed_chats(
     if !check_agent_access(&ctx.agent_registry, allowed, &channel.agent_id).await {
         return serde_json::json!({"ok": true, "updated": false});
     }
-    if let Err(e) = store.set_allowed_chats(id, &chat_ids).await {
+    if let Err(e) = store.set_allowed_chats(id, &chats).await {
         return serde_json::json!({"ok": false, "error": e.to_string()});
     }
     match store.get_by_id(id).await {
