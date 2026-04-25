@@ -74,6 +74,14 @@ Outstanding candidate principle imports: Zettelkasten atomic-notes rule.
 - `meta:evaluation-criteria` — import checklist.
 - `meta:pack-catalog` — this file.
 
+## Wisdom packs (1)
+
+- `meta:pack:google-workspace` — eleven native tools (Gmail / Calendar /
+  Meet) backed by T1.9's `oauth2` lifecycle. Per-agent scoping;
+  refresh-on-401 retry at the framework level. Crate
+  `aeqi-pack-google-workspace`, default-on feature
+  `google-workspace` on `aeqi-orchestrator`.
+
 ## Known gaps (things we should NOT re-import if encountered)
 
 - None of the current content ideas duplicate each other; every idea has

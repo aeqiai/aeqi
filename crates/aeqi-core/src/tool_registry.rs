@@ -293,7 +293,51 @@ impl ToolRegistry {
             }
         }
 
-        tool.execute_with_credentials(args, resolved).await
+        let result = tool
+            .execute_with_credentials(args.clone(), resolved.clone())
+            .await?;
+
+        // Refresh-on-401 retry: a tool that hit a 401 from the upstream
+        // provider returns `is_error=true` with `data = {"reason_code":
+        // "auth_expired", "credential_id": "..."}`. The registry refreshes
+        // the offending credential and re-invokes the tool exactly once.
+        // If the second attempt also returns `auth_expired` we surface the
+        // result verbatim — the framework guarantees at-most-one retry.
+        if result.is_error
+            && result.data.get("reason_code").and_then(|v| v.as_str()) == Some("auth_expired")
+            && let Some(credential_id) = result.data.get("credential_id").and_then(|v| v.as_str())
+        {
+            let refreshed = match resolver.refresh_by_id(credential_id).await {
+                Ok(c) => c,
+                Err(e) => {
+                    warn!(
+                        tool = %tool_name,
+                        credential_id,
+                        code = %e.code,
+                        "refresh-on-401 failed",
+                    );
+                    return Ok(ToolResult::error(format!(
+                        "{}: {} (credential_id={credential_id})",
+                        e.code, e.message
+                    )));
+                }
+            };
+            // Replace the matching slot in `resolved` with the freshly-minted
+            // credential. We match by id so multi-credential tools retry only
+            // the slot that 401'd.
+            for slot in resolved.iter_mut() {
+                if slot
+                    .as_ref()
+                    .map(|c| c.id == credential_id)
+                    .unwrap_or(false)
+                {
+                    *slot = Some(refreshed.clone());
+                }
+            }
+            return tool.execute_with_credentials(args, resolved).await;
+        }
+
+        Ok(result)
     }
 
     /// Whether the named tool's `output` is context (e.g. `ideas.assemble`)

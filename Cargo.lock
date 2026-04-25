@@ -160,6 +160,7 @@ dependencies = [
  "aeqi-gates",
  "aeqi-graph",
  "aeqi-ideas",
+ "aeqi-pack-google-workspace",
  "aeqi-providers",
  "aeqi-quests",
  "aeqi-test-support",
@@ -181,6 +182,28 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "aeqi-pack-google-workspace"
+version = "0.10.0"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "base64",
+ "chrono",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "urlencoding",
  "uuid",
 ]
 

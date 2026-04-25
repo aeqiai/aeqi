@@ -565,6 +565,13 @@ pub fn build_orchestration_tools(
     // 6. Web tool (fetch/search)
     tools.push(Arc::new(WebTool));
 
+    // 7. Wisdom-pack tools (feature-gated). Each pack ships a flat list of
+    // `Arc<dyn Tool>` from `all_tools()`; the orchestrator extends the
+    // registry without knowing what's inside. Adding another pack is a
+    // single new feature flag + extend call.
+    #[cfg(feature = "google-workspace")]
+    tools.extend(aeqi_pack_google_workspace::all_tools());
+
     tools
 }
 
