@@ -225,7 +225,7 @@ fn test_fresh_db_has_final_shape() {
 
     let conn = Connection::open(&db_path).expect("inspect db");
 
-    // 1. schema_version is stamped at 11 — the baseline marker (T1.8).
+    // 1. schema_version is stamped at 12 — the baseline marker (T1.9).
     let max_version: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -234,8 +234,8 @@ fn test_fresh_db_has_final_shape() {
         )
         .expect("read schema_version");
     assert_eq!(
-        max_version, 11,
-        "fresh DB should be stamped at baseline version 11, got {max_version}"
+        max_version, 12,
+        "fresh DB should be stamped at baseline version 12, got {max_version}"
     );
 
     // 2. ideas has every required column.
@@ -256,7 +256,7 @@ fn test_fresh_db_has_final_shape() {
     }
 
     // 4. Every auxiliary table exists. T1.8 renamed `idea_edges` →
-    //    `entity_edges` with kind columns.
+    //    `entity_edges` with kind columns; T1.9 added `credentials`.
     for tbl in &[
         "idea_tags",
         "entity_edges",
@@ -264,6 +264,7 @@ fn test_fresh_db_has_final_shape() {
         "idea_access_log",
         "idea_feedback",
         "schema_version",
+        "credentials",
     ] {
         assert!(table_exists(&conn, tbl), "table {tbl} should exist");
     }
@@ -360,11 +361,12 @@ fn test_legacy_db_with_schema_version_9_runs_v11() {
         .expect("query")
         .filter_map(Result::ok)
         .collect();
-    // T1.8 appends v11 to the schema_version table when catching up.
+    // T1.8 appended v11; T1.9 appends v12. Legacy DBs catching up land
+    // both rows.
     assert_eq!(
         versions,
-        (1..=9).chain(std::iter::once(11)).collect::<Vec<_>>(),
-        "legacy 1..9 rows must be preserved; v11 must be stamped"
+        (1..=9).chain([11, 12]).collect::<Vec<_>>(),
+        "legacy 1..9 rows must be preserved; v11 + v12 must be stamped"
     );
 
     let idea_count: i64 = conn

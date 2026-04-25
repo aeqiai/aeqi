@@ -49,9 +49,9 @@ use rusqlite::Connection;
 
 /// The version stamped on a fresh DB after `initial_schema` runs. Legacy
 /// DBs that ran the old v1..v9 chain carry rows 1..9 and are not re-stamped;
-/// they catch up via the `migrations` table below. The current head is v11
-/// (T1.8 — connection-primitive collapse + cross-kind edges).
-const BASELINE_VERSION: i64 = 11;
+/// they catch up via the `migrations` table below. The current head is v12
+/// (T1.9 — credential lifecycle substrate).
+const BASELINE_VERSION: i64 = 12;
 
 impl SqliteIdeas {
     pub fn prepare_schema(conn: &Connection) -> Result<()> {
@@ -98,7 +98,10 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     // columns and collapses the legacy typed-relation vocabulary down to
     // mention / embed / link.
     type Migration = fn(&Connection) -> Result<()>;
-    let migrations: &[(i64, Migration)] = &[(11, migration_v11_entity_edges)];
+    let migrations: &[(i64, Migration)] = &[
+        (11, migration_v11_entity_edges),
+        (12, migration_v12_credentials),
+    ];
     for (version, f) in migrations {
         if *version > current {
             let tx = conn.unchecked_transaction()?;
@@ -271,6 +274,37 @@ fn initial_schema(conn: &Connection) -> Result<()> {
              INSERT INTO ideas_fts(ideas_fts, rowid, name, content) VALUES('delete', old.rowid, old.name, old.content);
              INSERT INTO ideas_fts(rowid, name, content) VALUES (new.rowid, new.name, new.content);
          END;",
+    )?;
+
+    // T1.9 — credential lifecycle substrate. One table holds every named
+    // credential the runtime needs (LLM keys, OAuth tokens, device sessions,
+    // GitHub App keys, GCP service-account JSON). The blob is encrypted
+    // with ChaCha20-Poly1305 using the SecretStore key.
+    conn.execute_batch(
+        "CREATE TABLE credentials (
+            id TEXT PRIMARY KEY,
+            scope_kind TEXT NOT NULL,
+            scope_id TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            name TEXT NOT NULL,
+            lifecycle_kind TEXT NOT NULL,
+            encrypted_blob BLOB NOT NULL,
+            metadata_json TEXT,
+            expires_at TEXT,
+            created_at TEXT NOT NULL,
+            last_refreshed_at TEXT,
+            last_used_at TEXT,
+            UNIQUE (scope_kind, scope_id, provider, name)
+         );
+         CREATE INDEX idx_credentials_scope
+            ON credentials(scope_kind, scope_id);
+         CREATE INDEX idx_credentials_provider
+            ON credentials(provider);
+         CREATE INDEX idx_credentials_lifecycle
+            ON credentials(lifecycle_kind);
+         CREATE INDEX idx_credentials_expires
+            ON credentials(expires_at)
+            WHERE expires_at IS NOT NULL;",
     )?;
 
     // ANN virtual table — feature-gated, best-effort. Matches production
@@ -550,5 +584,44 @@ fn migration_v11_entity_edges(conn: &Connection) -> Result<()> {
         [],
     )?;
 
+    Ok(())
+}
+
+/// T1.9 — credential lifecycle substrate.
+///
+/// One additive table for every named credential the runtime holds. Five
+/// lifecycle kinds (`static_secret`, `oauth2`, `device_session`,
+/// `github_app`, `service_account`) share the same row schema; the
+/// `encrypted_blob` is JSON-shaped per lifecycle and decrypted with the
+/// SecretStore key. Existing filesystem-backed `SecretStore` entries
+/// migrate via a separate runtime backfill (not here — the migration
+/// runs against a Connection only).
+fn migration_v12_credentials(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS credentials (
+            id TEXT PRIMARY KEY,
+            scope_kind TEXT NOT NULL,
+            scope_id TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            name TEXT NOT NULL,
+            lifecycle_kind TEXT NOT NULL,
+            encrypted_blob BLOB NOT NULL,
+            metadata_json TEXT,
+            expires_at TEXT,
+            created_at TEXT NOT NULL,
+            last_refreshed_at TEXT,
+            last_used_at TEXT,
+            UNIQUE (scope_kind, scope_id, provider, name)
+         );
+         CREATE INDEX IF NOT EXISTS idx_credentials_scope
+            ON credentials(scope_kind, scope_id);
+         CREATE INDEX IF NOT EXISTS idx_credentials_provider
+            ON credentials(provider);
+         CREATE INDEX IF NOT EXISTS idx_credentials_lifecycle
+            ON credentials(lifecycle_kind);
+         CREATE INDEX IF NOT EXISTS idx_credentials_expires
+            ON credentials(expires_at)
+            WHERE expires_at IS NOT NULL;",
+    )?;
     Ok(())
 }
