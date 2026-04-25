@@ -312,13 +312,25 @@ function ToolsDetail({
     );
   }
 
-  const allowed = !agent?.tool_deny?.includes(selected.id);
+  // question.ask uses the dedicated `can_ask_director` flag on the
+  // agent (default off, opt-in) rather than the tool_deny array
+  // (default on, opt-out). Surface stays uniform with the rest of the
+  // tools tab; the toggle just routes through the right API for this
+  // one tool id.
+  const isAskDirector = selected.id === "question.ask";
+  const allowed = isAskDirector
+    ? !!agent?.can_ask_director
+    : !agent?.tool_deny?.includes(selected.id);
 
   const toggle = async () => {
-    const current = agent?.tool_deny || [];
-    const next = allowed ? [...current, selected.id] : current.filter((t) => t !== selected.id);
     try {
-      await api.setAgentTools(resolvedAgentId, next);
+      if (isAskDirector) {
+        await api.setCanAskDirector(resolvedAgentId, !allowed);
+      } else {
+        const current = agent?.tool_deny || [];
+        const next = allowed ? [...current, selected.id] : current.filter((t) => t !== selected.id);
+        await api.setAgentTools(resolvedAgentId, next);
+      }
       showToast("Tools saved");
     } catch (err) {
       showToast(`Error: ${err instanceof Error ? err.message : "Failed to save tools"}`, true);
@@ -413,49 +425,6 @@ function SettingsPanel({
     [agent?.model, fetchAgents, resolvedAgentId, showToast],
   );
 
-  // Optimistic local toggle state for can_ask_director — mirror the model
-  // pattern: flip the local flag the moment the checkbox is clicked, then
-  // reconcile from the server refetch.
-  const [localCanAskDirector, setLocalCanAskDirector] = useState<boolean>(
-    !!agent?.can_ask_director,
-  );
-  useEffect(() => {
-    setLocalCanAskDirector(!!agent?.can_ask_director);
-  }, [agent?.can_ask_director]);
-
-  const [askDirectorSave, setAskDirectorSave] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle",
-  );
-  const [askDirectorError, setAskDirectorError] = useState<string | null>(null);
-  const askDirectorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const saveCanAskDirector = useCallback(
-    async (value: boolean) => {
-      if (value === !!agent?.can_ask_director) return;
-      setLocalCanAskDirector(value);
-      setAskDirectorSave("saving");
-      setAskDirectorError(null);
-      try {
-        const resp = await api.setCanAskDirector(resolvedAgentId, value);
-        if (resp && resp.ok === false) {
-          throw new Error(resp.error || "Failed to save");
-        }
-        await fetchAgents();
-        setAskDirectorSave("saved");
-        if (askDirectorTimer.current) clearTimeout(askDirectorTimer.current);
-        askDirectorTimer.current = setTimeout(() => setAskDirectorSave("idle"), 1800);
-      } catch (err) {
-        // Rollback the optimistic flip so the UI reflects server truth.
-        setLocalCanAskDirector(!!agent?.can_ask_director);
-        const msg = err instanceof Error ? err.message : "Failed to save";
-        setAskDirectorError(msg);
-        setAskDirectorSave("error");
-        showToast(`Error: ${msg}`, true);
-      }
-    },
-    [agent?.can_ask_director, fetchAgents, resolvedAgentId, showToast],
-  );
-
   return (
     <div className="page-content">
       <div className="agent-settings-section">
@@ -475,42 +444,6 @@ function SettingsPanel({
           </span>
         </div>
         <ModelPicker value={localModel} onChange={saveModel} disabled={modelSave === "saving"} />
-      </div>
-
-      <div className="agent-settings-section">
-        <div className="agent-settings-heading-row">
-          <h3 className="agent-settings-heading">Ask the director</h3>
-          <span
-            className={`agent-settings-save-pill${
-              askDirectorSave === "saved" || askDirectorSave === "error"
-                ? " agent-settings-save-pill--visible"
-                : ""
-            }${askDirectorSave === "error" ? " agent-settings-save-pill--error" : ""}`}
-            role="status"
-            aria-live="polite"
-          >
-            <span className="agent-settings-save-pill-dot" aria-hidden="true" />
-            {askDirectorSave === "saved"
-              ? "Saved"
-              : askDirectorSave === "error"
-                ? askDirectorError
-                : ""}
-          </span>
-        </div>
-        <label className="agent-settings-toggle-row">
-          <input
-            type="checkbox"
-            className="agent-settings-toggle-input"
-            checked={localCanAskDirector}
-            disabled={askDirectorSave === "saving"}
-            onChange={(e) => saveCanAskDirector(e.target.checked)}
-          />
-          <span className="agent-settings-toggle-label">{localCanAskDirector ? "On" : "Off"}</span>
-        </label>
-        <p className="agent-settings-hint">
-          When on, this agent can fire <code>question.ask</code> to surface a question to your
-          home-page inbox. Off by default — flip on for agents you trust to ask sparingly.
-        </p>
       </div>
 
       <div className="agent-settings-section">
