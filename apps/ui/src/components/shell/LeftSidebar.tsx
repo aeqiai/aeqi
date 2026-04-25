@@ -91,11 +91,13 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   const userEmail = user?.name && user?.email ? user.email : null;
   // Primitive nav is scoped to the selected agent. On `/` and `/profile`
-  // no agent is picked yet, so the items can't navigate anywhere — but we
-  // still render them as inert placeholders so the sidebar's silhouette is
-  // identical across surfaces and clicking into an agent doesn't yank the
-  // layout. The nav row is always mounted; disabled state is purely visual.
-  const primitivesDisabled = !agentId;
+  // no agent is picked yet, so the four primitives have nowhere to point.
+  // Rather than render them as inert ghosts, we swap the whole block for
+  // a single Launch-agent CTA that occupies the same vertical footprint —
+  // the rail's silhouette stays identical across scopes (no twitch when
+  // a root is picked) and the empty space turns into the page's primary
+  // call to action instead of dead pixels.
+  const userScope = !agentId;
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
   // Profile row = "you" as a scope, always pointing at the user root.
   // Clicking it lands on `/` (your home); the gear in the topbar takes
@@ -117,36 +119,43 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
-  const renderNav = (item: NavItem) => {
-    if (primitivesDisabled) {
-      return (
-        <span
-          key={item.id}
-          className="sidebar-nav-item disabled"
-          title="Pick a root agent to open this primitive"
-          aria-disabled="true"
-        >
-          {item.icon}
-          <span className="sidebar-nav-label">{item.label}</span>
-        </span>
-      );
-    }
-    return (
-      <a
-        key={item.id}
-        className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
-        href={navHref(item.id)}
-        title={item.title}
-        onClick={(e) => {
-          e.preventDefault();
-          navigate(navHref(item.id));
-        }}
-      >
-        {item.icon}
-        <span className="sidebar-nav-label">{item.label}</span>
-      </a>
-    );
-  };
+  const renderNav = (item: NavItem) => (
+    <a
+      key={item.id}
+      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
+      href={navHref(item.id)}
+      title={item.title}
+      onClick={(e) => {
+        e.preventDefault();
+        navigate(navHref(item.id));
+      }}
+    >
+      {item.icon}
+      <span className="sidebar-nav-label">{item.label}</span>
+    </a>
+  );
+
+  const renderLaunchCTA = () => (
+    <button
+      type="button"
+      className="sidebar-launch-cta"
+      onClick={() => navigate("/new")}
+      title="Launch a new autonomous agent"
+      aria-label="Launch agent"
+    >
+      <span className="sidebar-launch-cta-plus" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 4v16M4 12h16"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+      <span className="sidebar-launch-cta-label">Launch agent</span>
+    </button>
+  );
 
   return (
     <div className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
@@ -237,10 +246,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
 
       <div className="left-sidebar-body">
         <nav
-          className={`sidebar-surface-nav${primitivesDisabled ? " disabled" : ""}`}
-          aria-disabled={primitivesDisabled || undefined}
+          className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
+          aria-label={userScope ? "Launch agent" : "Agent surfaces"}
         >
-          {PRIMITIVES.map(renderNav)}
+          {userScope ? renderLaunchCTA() : PRIMITIVES.map(renderNav)}
         </nav>
 
         <div className="sidebar-tree-slot">

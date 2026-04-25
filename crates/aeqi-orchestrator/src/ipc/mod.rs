@@ -9,6 +9,7 @@ pub mod chat;
 pub mod events;
 pub mod files;
 pub mod ideas;
+pub mod inbox;
 pub mod quests;
 pub mod roots;
 pub mod seed;

@@ -430,6 +430,14 @@ impl SessionManager {
             .as_ref()
             .map(|a| a.can_self_delegate)
             .unwrap_or(false);
+        // Resolve director-asking capability from the agent record.
+        // Same posture as self-delegation: off by default for agents that
+        // exist in the DB without it set, off entirely for bare-CLI
+        // ephemeral runs that have no DB record.
+        let agent_can_ask_director = agent_opt
+            .as_ref()
+            .map(|a| a.can_ask_director)
+            .unwrap_or(false);
 
         // Pre-generate the session_id so it can be:
         //   (a) used as the key for the per-session execution lock
@@ -847,6 +855,96 @@ impl SessionManager {
             tools.extend(orch_tools);
         } else {
             warn!(agent = %agent_name, "skipping orchestration tools: unresolved agent id");
+        }
+
+        // `question.ask` — director-inbox tool. Capability-gated; off-by-default.
+        // The closure captures the SessionStore, ActivityLog, optional pattern
+        // dispatcher, plus the session_id and agent_id at registry-build time
+        // so the LLM cannot influence inbox routing through args. The tool is
+        // LLM-only by virtue of NOT being added to the runtime registry that
+        // events dispatch through — events firing this would let an operator-
+        // configured pattern manufacture questions the agent never asked,
+        // which is the wrong primitive boundary.
+        if let (Some(ss), Some(agent_id)) = (self.session_store.clone(), agent_uuid.clone()) {
+            let session_id_for_ask = pregenerated_session_id.clone();
+            let activity_log_for_ask = activity_log.clone();
+            let dispatcher_for_ask = pattern_dispatcher.clone();
+            let agent_id_for_ask = agent_id.clone();
+            let agent_name_for_ask = agent_name.clone();
+            let ask_fn: crate::runtime_tools::AskFn =
+                Arc::new(move |req: crate::runtime_tools::AskRequest| {
+                    let ss = ss.clone();
+                    let activity_log = activity_log_for_ask.clone();
+                    let dispatcher = dispatcher_for_ask.clone();
+                    let session_id = session_id_for_ask.clone();
+                    let agent_id = agent_id_for_ask.clone();
+                    let agent_name = agent_name_for_ask.clone();
+                    Box::pin(async move {
+                        // 1. Append the question to the transcript as an
+                        //    `assistant` message so the inbox + the session
+                        //    view both surface it as the agent's last word.
+                        ss.record_event_by_session(
+                            &session_id,
+                            "message",
+                            "assistant",
+                            &req.prompt,
+                            Some("question.ask"),
+                            Some(&serde_json::json!({"subject": req.subject})),
+                        )
+                        .await
+                        .map_err(|e| {
+                            anyhow::anyhow!("question.ask: failed to record message: {e}")
+                        })?;
+                        // 2. Stamp the awaiting bit so the inbox query picks
+                        //    this session up.
+                        ss.set_awaiting(&session_id, &req.subject)
+                            .await
+                            .map_err(|e| {
+                                anyhow::anyhow!("question.ask: failed to set awaiting: {e}")
+                            })?;
+                        // 3. Activity-log emit so downstream observers (UI
+                        //    timeline, audit log) see the ask.
+                        let _ = activity_log
+                            .emit(
+                                "question_awaiting",
+                                Some(&agent_id),
+                                Some(&session_id),
+                                None,
+                                &serde_json::json!({"subject": req.subject}),
+                            )
+                            .await;
+                        // 4. Best-effort pattern dispatch. Operators can wire
+                        //    `question:awaiting` events to fire side effects
+                        //    (telegram ping, consolidation, …). Fire-and-forget
+                        //    so a slow event chain doesn't block the agent's
+                        //    return-from-tool path.
+                        if let Some(dispatcher) = dispatcher {
+                            let prompt_preview: String = req.prompt.chars().take(200).collect();
+                            let trigger_args = serde_json::json!({
+                                "session_id": session_id,
+                                "agent_id": agent_id,
+                                "agent_name": agent_name,
+                                "subject": req.subject,
+                                "prompt_preview": prompt_preview,
+                            });
+                            let ctx = aeqi_core::tool_registry::ExecutionContext {
+                                session_id: session_id.clone(),
+                                agent_id: agent_id.clone(),
+                                ..Default::default()
+                            };
+                            tokio::spawn(async move {
+                                let _ = dispatcher
+                                    .dispatch("question:awaiting", &ctx, &trigger_args)
+                                    .await;
+                            });
+                        }
+                        Ok(())
+                    })
+                });
+            tools.push(Arc::new(crate::runtime_tools::QuestionAskTool::new(
+                ask_fn,
+                agent_can_ask_director,
+            )));
         }
 
         // T1.10 — append MCP-discovered tools. Snapshot is captured at

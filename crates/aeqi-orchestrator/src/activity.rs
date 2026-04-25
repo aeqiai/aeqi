@@ -69,12 +69,6 @@ pub enum Activity {
         #[serde(skip_serializing_if = "Option::is_none")]
         runtime: Option<RuntimeExecution>,
     },
-    /// An approval is required before the worker can continue.
-    ApprovalRequired {
-        quest_id: String,
-        pattern: String,
-        description: String,
-    },
     /// The worker needs clarification before continuing.
     ClarificationNeeded {
         quest_id: String,
@@ -163,8 +157,7 @@ impl Activity {
                 Some(quest_id.clone()),
                 content,
             ),
-            Self::ApprovalRequired { quest_id, .. }
-            | Self::ClarificationNeeded { quest_id, .. } => (
+            Self::ClarificationNeeded { quest_id, .. } => (
                 "execution.blocked".into(),
                 None,
                 Some(quest_id.clone()),

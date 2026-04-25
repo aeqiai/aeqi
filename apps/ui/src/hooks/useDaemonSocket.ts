@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { getScopedRoot } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
+import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 
 export function useDaemonSocket() {
@@ -12,6 +13,7 @@ export function useDaemonSocket() {
   const setWsConnected = useDaemonStore((s) => s.setWsConnected);
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const pushInboxUpdate = useInboxStore((s) => s.pushInboxUpdate);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -43,6 +45,9 @@ export function useDaemonSocket() {
           if (msg.event === "agent_update") {
             fetchAgents();
           }
+          if (msg.event === "inbox_update" && msg.data) {
+            pushInboxUpdate(msg.data);
+          }
         } catch {
           // ignore malformed messages
         }
@@ -66,5 +71,14 @@ export function useDaemonSocket() {
       wsRef.current?.close();
       setWsConnected(false);
     };
-  }, [token, appMode, activeRoot, pushWorkerEvent, setWsConnected, fetchQuests, fetchAgents]);
+  }, [
+    token,
+    appMode,
+    activeRoot,
+    pushWorkerEvent,
+    setWsConnected,
+    fetchQuests,
+    fetchAgents,
+    pushInboxUpdate,
+  ]);
 }

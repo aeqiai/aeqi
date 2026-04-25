@@ -88,6 +88,11 @@ pub struct QueuedMessage {
     /// for web chat and quest runs.
     #[serde(default)]
     pub initial_message_recorded: bool,
+    /// Director-inbox attribution: the user id that authored a `user_reply`
+    /// payload. Optional and `#[serde(default)]` so legacy rows deserialize
+    /// untouched. Audit-only today; future role checks read it.
+    #[serde(default)]
+    pub source_user_id: Option<String>,
 }
 
 impl QueuedMessage {
@@ -110,6 +115,7 @@ impl QueuedMessage {
             creator_session_id: None,
             budget_usd: None,
             initial_message_recorded: false,
+            source_user_id: None,
         }
     }
 
@@ -141,6 +147,33 @@ impl QueuedMessage {
             creator_session_id,
             budget_usd,
             initial_message_recorded: false,
+            source_user_id: None,
+        }
+    }
+
+    /// Director-inbox reply payload. Built when a user answers a `question.ask`
+    /// from the home-page inbox: the answer body is the user's text; the
+    /// `transport` is `"inbox"` so downstream activity emits the right channel
+    /// label; the `source_user_id` carries the answering director for audit.
+    /// Routing is identical to a chat reply — the executor's existing path
+    /// re-enters `spawn_session`, the agent reads the message at the next
+    /// step boundary as a normal user message.
+    pub fn user_reply(
+        agent_hint: impl Into<String>,
+        message: impl Into<String>,
+        source_user_id: Option<String>,
+    ) -> Self {
+        Self {
+            agent_hint: agent_hint.into(),
+            message: message.into(),
+            sender_id: source_user_id.clone(),
+            transport: Some("inbox".to_string()),
+            kind: Some("user_reply".to_string()),
+            quest_id: None,
+            creator_session_id: None,
+            budget_usd: None,
+            initial_message_recorded: false,
+            source_user_id,
         }
     }
 
@@ -154,6 +187,10 @@ impl QueuedMessage {
 
     pub fn is_quest(&self) -> bool {
         self.kind.as_deref() == Some("quest") && self.quest_id.is_some()
+    }
+
+    pub fn is_user_reply(&self) -> bool {
+        self.kind.as_deref() == Some("user_reply")
     }
 }
 

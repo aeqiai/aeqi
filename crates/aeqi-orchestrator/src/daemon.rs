@@ -1420,12 +1420,9 @@ impl Daemon {
                     crate::ipc::agents::handle_create_budget_policy(&ctx, &request, &allowed_roots)
                         .await
                 }
-                "approvals" => {
-                    crate::ipc::agents::handle_approvals(&ctx, &request, &allowed_roots).await
-                }
-                "resolve_approval" => {
-                    crate::ipc::agents::handle_resolve_approval(&ctx, &request, &allowed_roots)
-                        .await
+                "inbox" => crate::ipc::inbox::handle_inbox(&ctx, &request, &allowed_roots).await,
+                "answer_inbox" => {
+                    crate::ipc::inbox::handle_answer_inbox(&ctx, &request, &allowed_roots).await
                 }
 
                 "seed_ideas" => {

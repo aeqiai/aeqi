@@ -83,6 +83,12 @@ pub struct Agent {
     /// for interactive continuation.
     #[serde(default)]
     pub can_self_delegate: bool,
+    /// Whether this agent is allowed to fire `question.ask` to surface a
+    /// question/decision to a director via the home-page inbox. Defaults to
+    /// `false` — operator opts in per agent. Same posture as
+    /// `can_self_delegate`: dangerous-by-default tool, off until trusted.
+    #[serde(default)]
+    pub can_ask_director: bool,
 }
 
 fn default_max_concurrent() -> u32 {
@@ -264,6 +270,14 @@ fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
         conn.execute_batch(
             "UPDATE agents SET can_self_delegate = 1
              WHERE id IN (SELECT DISTINCT agent_id FROM channels);",
+        )?;
+    }
+    if !cols.iter().any(|c| c == "can_ask_director") {
+        // Same shape as `can_self_delegate`: nullable-style boolean stored as
+        // INTEGER NOT NULL DEFAULT 0. No backfill — every existing agent
+        // stays opted-out until the operator flips the bit.
+        conn.execute_batch(
+            "ALTER TABLE agents ADD COLUMN can_ask_director INTEGER NOT NULL DEFAULT 0;",
         )?;
     }
     Ok(())
@@ -693,6 +707,7 @@ impl AgentRegistry {
             worker_timeout_secs: None,
             tool_deny: Vec::new(),
             can_self_delegate: false,
+            can_ask_director: false,
         };
 
         let db = self.db.lock().await;
@@ -1402,6 +1417,22 @@ impl AgentRegistry {
         Ok(())
     }
 
+    /// Set `can_ask_director` for an agent. Toggles whether this agent is
+    /// allowed to fire `question.ask` and surface a question to the
+    /// home-page director inbox. Off-by-default; same posture as
+    /// `set_can_self_delegate`.
+    pub async fn set_can_ask_director(&self, id: &str, value: bool) -> Result<()> {
+        let db = self.db.lock().await;
+        let updated = db.execute(
+            "UPDATE agents SET can_ask_director = ?1 WHERE id = ?2",
+            params![value as i64, id],
+        )?;
+        if updated == 0 {
+            anyhow::bail!("agent '{id}' not found");
+        }
+        Ok(())
+    }
+
     /// Set the model for an agent.
     pub async fn set_model(&self, id: &str, model: &str) -> Result<()> {
         let db = self.db.lock().await;
@@ -1579,91 +1610,6 @@ impl AgentRegistry {
         )?;
         if updated == 0 {
             anyhow::bail!("budget policy '{policy_id}' not found");
-        }
-        Ok(())
-    }
-
-    // -----------------------------------------------------------------------
-    // Approval queue
-    // -----------------------------------------------------------------------
-
-    pub async fn create_approval(
-        &self,
-        agent_id: &str,
-        task_id: Option<&str>,
-        request_type: &str,
-        payload: &serde_json::Value,
-    ) -> Result<String> {
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = chrono::Utc::now().to_rfc3339();
-        let payload_json = serde_json::to_string(payload)?;
-        let db = self.db.lock().await;
-        db.execute(
-            "INSERT INTO approvals (id, agent_id, task_id, request_type, payload_json, status, created_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6)",
-            params![id, agent_id, task_id, request_type, payload_json, now],
-        )?;
-        info!(id = %id, agent_id = %agent_id, request_type = %request_type, "approval request created");
-        Ok(id)
-    }
-
-    pub async fn list_approvals(&self, status: Option<&str>) -> Result<Vec<serde_json::Value>> {
-        let db = self.db.lock().await;
-        let (sql, params_vec): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = match status {
-            Some(s) => (
-                "SELECT id, agent_id, task_id, request_type, payload_json, status, decided_by, decision_note, created_at, decided_at \
-                 FROM approvals WHERE status = ?1 ORDER BY created_at DESC"
-                    .to_string(),
-                vec![Box::new(s.to_string())],
-            ),
-            None => (
-                "SELECT id, agent_id, task_id, request_type, payload_json, status, decided_by, decision_note, created_at, decided_at \
-                 FROM approvals ORDER BY created_at DESC"
-                    .to_string(),
-                vec![],
-            ),
-        };
-        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
-            params_vec.iter().map(|p| p.as_ref()).collect();
-        let mut stmt = db.prepare(&sql)?;
-        let approvals = stmt
-            .query_map(params_refs.as_slice(), |row| {
-                let payload_str: String = row.get(4)?;
-                let payload: serde_json::Value =
-                    serde_json::from_str(&payload_str).unwrap_or(serde_json::Value::Null);
-                Ok(serde_json::json!({
-                    "id": row.get::<_, String>(0)?,
-                    "agent_id": row.get::<_, String>(1)?,
-                    "task_id": row.get::<_, Option<String>>(2)?,
-                    "request_type": row.get::<_, String>(3)?,
-                    "payload": payload,
-                    "status": row.get::<_, String>(5)?,
-                    "decided_by": row.get::<_, Option<String>>(6)?,
-                    "decision_note": row.get::<_, Option<String>>(7)?,
-                    "created_at": row.get::<_, String>(8)?,
-                    "decided_at": row.get::<_, Option<String>>(9)?,
-                }))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(approvals)
-    }
-
-    pub async fn resolve_approval(
-        &self,
-        approval_id: &str,
-        status: &str,
-        decided_by: &str,
-        note: Option<&str>,
-    ) -> Result<()> {
-        let now = chrono::Utc::now().to_rfc3339();
-        let db = self.db.lock().await;
-        let updated = db.execute(
-            "UPDATE approvals SET status = ?1, decided_by = ?2, decision_note = ?3, decided_at = ?4 \
-             WHERE id = ?5",
-            params![status, decided_by, note, now, approval_id],
-        )?;
-        if updated == 0 {
-            anyhow::bail!("approval '{approval_id}' not found");
         }
         Ok(())
     }
@@ -2807,6 +2753,7 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default(),
         can_self_delegate: row.get::<_, i64>("can_self_delegate").unwrap_or(0) != 0,
+        can_ask_director: row.get::<_, i64>("can_ask_director").unwrap_or(0) != 0,
     }
 }
 

@@ -85,6 +85,11 @@ async fn handle_socket(
     let poll_interval = std::time::Duration::from_secs(5);
     let mut interval = tokio::time::interval(poll_interval);
     let mut worker_cursor: Option<u64> = None;
+    // Director-inbox count from the previous tick. Push-based broadcast is
+    // a v2 — for now the WS poll fires `inbox_update` only when the count
+    // (or first-N items signature) changes from the last tick. ≤5s
+    // latency is acceptable for an MVP director inbox.
+    let mut last_inbox_signature: Option<String> = None;
 
     loop {
         tokio::select! {
@@ -116,6 +121,45 @@ async fn handle_socket(
                 if let Some(ref roots) = user_roots {
                     worker_req["allowed_roots"] = serde_json::json!(roots);
                 }
+                // Director-inbox tick. Cheap (partial-indexed query); only
+                // emits when the signature changes so quiet inboxes don't
+                // spam the WS. The signature is `count|first_session_id|
+                // first_awaiting_at` — covers add/remove + reorder of the
+                // top item, which is what the UI actually rerenders on.
+                if let Ok(inbox_resp) = state.ipc.cmd_with("inbox", scope_params.clone()).await
+                    && inbox_resp.get("ok").and_then(|v| v.as_bool()) == Some(true)
+                {
+                    let items = inbox_resp
+                        .get("items")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let count = items.len();
+                    let head_id = items
+                        .first()
+                        .and_then(|i| i.get("session_id"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let head_at = items
+                        .first()
+                        .and_then(|i| i.get("awaiting_at"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let signature = format!("{count}|{head_id}|{head_at}");
+                    if last_inbox_signature.as_deref() != Some(&signature) {
+                        last_inbox_signature = Some(signature);
+                        let msg = serde_json::json!({
+                            "event": "inbox_update",
+                            "data": { "count": count, "items": items },
+                        });
+                        if let Ok(text) = serde_json::to_string(&msg)
+                            && socket.send(Message::Text(text.into())).await.is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+
                 if let Ok(events_resp) = state.ipc.cmd_with("worker_events", worker_req).await {
                     if let Some(next_cursor) = events_resp.get("next_cursor").and_then(|v| v.as_u64()) {
                         worker_cursor = Some(next_cursor);

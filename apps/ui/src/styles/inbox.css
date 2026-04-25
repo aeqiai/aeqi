@@ -1,0 +1,448 @@
+/*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  AEQI Director Inbox — `/` page surface
+ *
+ *  The home page when a user has ≥1 agent. Replaces the prior
+ *  greeting + companies-list dashboard. Single job: actionables.
+ *
+ *  Design constraints (from memory + plan):
+ *    • Graphite + Ink palette only — jade is reserved for success,
+ *      "awaiting" uses near-black ink for the accent rail + dot.
+ *    • One typographic gesture per section: greeting (Exo 2 small)
+ *      + eyebrow (mono uppercase) + rows (Inter). Empty state owns
+ *      the only Exo 2 display gesture when the list is empty.
+ *    • Live but not loud: rows slide in, status dot pulses, resolve
+ *      collapses with a brief height animation. No color flourishes.
+ *    • Restraint over flourish — match neighbor weight; don't stack
+ *      editorial gestures.
+ *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── Page container ─────────────────────────────────────────── */
+
+.inbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  /* 760px (vs the old home's 920) — rows read like email at a
+     comfortable line length; tighter rhythm signals "this is
+     a working surface, not a marketing page". */
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 48px) clamp(16px, 4vw, 48px) 64px;
+}
+
+.inbox-greeting {
+  margin: 0;
+  font-family: var(--font-display);
+  /* Stepped DOWN from the old hero greeting (clamp 36-56px). With
+     the launch CTA gone the greeting no longer competes with a
+     hero element; it hands page weight to the inbox rows below. */
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+}
+
+.inbox-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.inbox-eyebrow-sep {
+  opacity: 0.5;
+}
+
+/* ── List ──────────────────────────────────────────────────── */
+
+.inbox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.inbox-list > li {
+  /* `data-leaving="true"` collapse animation needs overflow:hidden
+     so max-height: 0 actually clips the row. */
+  overflow: hidden;
+}
+
+/* ── Row ──────────────────────────────────────────────────── */
+
+.inbox-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  grid-template-rows: auto auto auto;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  width: 100%;
+  /* Extra 2px on the left makes room for the accent rail without
+     shifting content when active vs idle. */
+  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) + 2px);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  animation: inbox-row-slide-in 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.inbox-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+.inbox-row:hover,
+.inbox-row:focus-visible,
+.inbox-row[data-expanded="true"] {
+  background: var(--state-hover);
+  outline: none;
+}
+.inbox-row:hover::before,
+.inbox-row:focus-visible::before,
+.inbox-row[data-expanded="true"]::before {
+  /* Near-black ink — NOT jade. Jade is reserved for success states;
+     "awaiting" is neutral attention. Every row has it; using jade
+     here would desaturate its meaning. */
+  background: var(--text-primary);
+}
+.inbox-row[data-leaving="true"] {
+  pointer-events: none;
+  animation: inbox-row-collapse 240ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Avatar column — spans all three text rows so the dot floats over
+   the top-right of the avatar without disturbing the grid. */
+.inbox-row-avatar {
+  position: relative;
+  grid-row: 1 / span 3;
+  align-self: start;
+  margin-top: 2px;
+}
+.inbox-row-avatar-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  /* The pulse signals "this agent is waiting on you" without any
+     color cue — animating opacity + scale is the only flourish. */
+  animation: inbox-pulse 1.6s ease-in-out infinite;
+  /* A 2px halo of card bg makes the dot read as floating over the
+     avatar even when scaled small. */
+  box-shadow: 0 0 0 2px var(--color-card);
+}
+
+.inbox-row-meta {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inbox-row-meta-root {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.inbox-row-meta-sep {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.inbox-row-subject {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-row-excerpt {
+  grid-column: 2;
+  grid-row: 3;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.inbox-row-time {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.inbox-row-arrow {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: end;
+  font-size: 14px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition:
+    transform var(--transition-normal),
+    opacity var(--transition-fast),
+    color var(--transition-fast);
+}
+.inbox-row:hover .inbox-row-arrow,
+.inbox-row:focus-visible .inbox-row-arrow {
+  opacity: 1;
+  transform: translateX(2px);
+  color: var(--accent);
+}
+.inbox-row[data-expanded="true"] .inbox-row-arrow {
+  opacity: 1;
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+/* ── Inline reply panel ───────────────────────────────────── */
+
+.inbox-row-reply {
+  /* Lives under the row inside the same <li>, OUTSIDE the .inbox-row
+     button (a button cannot contain a textarea). The accordion state
+     toggles its presence. */
+  padding: 8px var(--space-4) 12px calc(var(--space-4) + 2px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: inbox-reply-expand 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.inbox-row-reply-textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  resize: vertical;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.inbox-row-reply-textarea:focus {
+  outline: none;
+  border-color: var(--input-border-focus);
+  box-shadow: var(--input-ring-focus);
+}
+.inbox-row-reply-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.inbox-row-reply-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: color var(--transition-fast);
+}
+.inbox-row-reply-link:hover {
+  color: var(--text-primary);
+}
+.inbox-row-reply-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--error);
+}
+
+/* ── Empty state (caught up) ─────────────────────────────── */
+
+.inbox-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: center;
+  /* Vertically centered in the page below the greeting+eyebrow
+     so "you're caught up" lands at the optical sweet spot, not
+     pinned to the top. */
+  min-height: 40vh;
+  padding-top: var(--space-4);
+}
+.inbox-empty-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.inbox-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+.inbox-empty-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 36ch;
+}
+
+/* ── Loading skeleton ───────────────────────────────────── */
+
+.inbox-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.inbox-skeleton-row {
+  height: 76px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--state-hover) 0%,
+    var(--state-selected) 50%,
+    var(--state-hover) 100%
+  );
+  background-size: 200% 100%;
+  animation: cam-skeleton-shine 1.4s linear infinite;
+}
+
+/* ── Mobile ──────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .inbox {
+    padding: 24px 16px 56px;
+  }
+  .inbox-row {
+    grid-template-columns: 24px 1fr;
+    grid-template-rows: auto auto auto auto;
+    column-gap: 12px;
+  }
+  /* Time falls below excerpt; arrow is hidden (tap-only) */
+  .inbox-row-time {
+    grid-column: 2;
+    grid-row: 4;
+    align-self: start;
+    margin-top: 4px;
+  }
+  .inbox-row-arrow {
+    display: none;
+  }
+}
+
+/* ── Keyframes ─────────────────────────────────────────── */
+
+@keyframes inbox-row-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes inbox-row-collapse {
+  from {
+    opacity: 1;
+    max-height: 320px;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes inbox-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+@keyframes inbox-reply-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced-motion: kill every keyframe-driven animation and the
+   arrow's transform-on-hover. The hover background-color tint
+   stays since color transitions don't trigger vestibular issues. */
+@media (prefers-reduced-motion: reduce) {
+  .inbox-row,
+  .inbox-row[data-leaving="true"],
+  .inbox-row-reply,
+  .inbox-row-avatar-dot,
+  .inbox-skeleton-row {
+    animation: none !important;
+  }
+  .inbox-row-arrow {
+    transition: opacity var(--transition-fast) !important;
+    transform: none !important;
+  }
+  .inbox-row:hover .inbox-row-arrow,
+  .inbox-row:focus-visible .inbox-row-arrow,
+  .inbox-row[data-expanded="true"] .inbox-row-arrow {
+    transform: none !important;
+  }
+}

@@ -4,10 +4,9 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
-import AgentAvatar from "./AgentAvatar";
+import Inbox from "./inbox";
 import SpawnTemplateModal from "./SpawnTemplateModal";
 import TemplateGallery from "./TemplateGallery";
-import { Button, EmptyState, Panel } from "./ui";
 import type { Agent, CompanyTemplate } from "@/lib/types";
 
 const NO_AGENTS: Agent[] = [];
@@ -61,13 +60,6 @@ export default function HomeDashboard() {
   const heading = name ? `${greet}, ${name}` : greet;
 
   const companies = useMemo(() => agents.filter((a) => !a.parent_id), [agents]);
-  const agentCountsByRoot = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const a of agents) {
-      if (a.parent_id) counts.set(a.parent_id, (counts.get(a.parent_id) ?? 0) + 1);
-    }
-    return counts;
-  }, [agents]);
 
   // Zero-state detection: the daemon store is the source of truth for
   // "which companies does this user own?". We only flip into zero-state
@@ -139,8 +131,6 @@ export default function HomeDashboard() {
     [cleanDeepLink, navigate],
   );
 
-  const openCompany = (id: string) => navigate(`/${encodeURIComponent(id)}`);
-
   // Zero state — gallery + one Cinzel sentence above it.
   if (isZeroState) {
     return (
@@ -166,57 +156,8 @@ export default function HomeDashboard() {
     );
   }
 
-  // Returning-user dashboard — untouched.
-  const ctaLabel =
-    companies.length === 0 ? "Launch your first autonomous company" : "Launch autonomous company";
-
-  return (
-    <div className="home">
-      <h1 className="home-greeting">{heading}</h1>
-
-      <Button
-        variant="primary"
-        size="lg"
-        fullWidth
-        className="home-cta"
-        onClick={() => navigate("/new")}
-      >
-        <span className="home-cta-label">{ctaLabel}</span>
-        <span className="home-cta-arrow" aria-hidden>
-          →
-        </span>
-      </Button>
-
-      <Panel
-        title="Autonomous companies"
-        actions={<span className="home-panel-count">{companies.length}</span>}
-      >
-        {companies.length === 0 ? (
-          <EmptyState
-            eyebrow="Nothing spun up"
-            title="No companies yet"
-            description="Spin one up with the button above."
-          />
-        ) : (
-          <ul className="home-companies" role="list">
-            {companies.map((c) => {
-              const label = c.name;
-              const childCount = agentCountsByRoot.get(c.id) ?? 0;
-              return (
-                <li key={c.id}>
-                  <button type="button" className="home-company" onClick={() => openCompany(c.id)}>
-                    <AgentAvatar name={label} />
-                    <span className="home-company-name">{label}</span>
-                    <span className="home-company-meta">
-                      {childCount} {childCount === 1 ? "agent" : "agents"}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Panel>
-    </div>
-  );
+  // Returning user — the home page is now the director inbox. Greeting,
+  // eyebrow, and rows live inside `<Inbox />`; we just hand it the
+  // computed heading. The launch CTA has moved to the sidebar.
+  return <Inbox heading={heading} />;
 }

@@ -119,10 +119,16 @@ impl TestHarness {
         let idea_store_impl = SqliteIdeas::open(&ideas_db, 30.0)?;
         let idea_store: Arc<dyn IdeaStore> = Arc::new(idea_store_impl);
 
-        // Infra with trivial constructors.
+        // Infra with trivial constructors. ActivityLog and SessionStore
+        // both live in sessions.db (the journal), not aeqi.db (the
+        // template). Production wiring uses the same split — see
+        // `agent_registry::open` where ActivityLog/SessionStore tables
+        // are created on the sessions_db connection. Pre-fix the harness
+        // pointed both at aeqi.db; that worked only because no prior
+        // test wrote to the sessions table through the harness path.
         let metrics = Arc::new(AEQIMetrics::new());
-        let activity_log = Arc::new(ActivityLog::new(agent_registry.db()));
-        let session_store = Arc::new(SessionStore::new(agent_registry.db()));
+        let activity_log = Arc::new(ActivityLog::new(agent_registry.sessions_db()));
+        let session_store = Arc::new(SessionStore::new(agent_registry.sessions_db()));
         let event_handler_store = Arc::new(EventHandlerStore::new(agent_registry.db()));
         let session_manager = Arc::new(SessionManager::new());
         let dispatcher = Arc::new(Dispatcher::new(DispatchConfig::default()));

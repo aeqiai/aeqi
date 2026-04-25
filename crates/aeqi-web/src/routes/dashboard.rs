@@ -2,11 +2,11 @@ use axum::{
     Json, Router,
     extract::{Query, State},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::get,
 };
 use serde::{Deserialize, Serialize};
 
-use super::helpers::{ipc_proxy, merge_path_id, query_to_params};
+use super::helpers::{ipc_proxy, query_to_params};
 use crate::extractors::Scope;
 use crate::server::AppState;
 
@@ -19,8 +19,6 @@ pub fn routes() -> Router<AppState> {
         .route("/activity/events", get(activity_events))
         .route("/expertise", get(expertise))
         .route("/rate-limit", get(rate_limit))
-        .route("/approvals", get(approvals))
-        .route("/approvals/{id}/resolve", post(resolve_approval))
 }
 
 async fn status(State(state): State<AppState>, scope: Scope) -> Response {
@@ -102,32 +100,4 @@ async fn expertise(
 
 async fn rate_limit(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(state, scope.as_ref(), "rate_limit", serde_json::Value::Null).await
-}
-
-#[derive(Deserialize, Serialize, Default)]
-struct ApprovalsQuery {
-    status: Option<String>,
-}
-
-async fn approvals(
-    State(state): State<AppState>,
-    scope: Scope,
-    Query(q): Query<ApprovalsQuery>,
-) -> Response {
-    ipc_proxy(state, scope.as_ref(), "approvals", query_to_params(&q)).await
-}
-
-async fn resolve_approval(
-    State(state): State<AppState>,
-    scope: Scope,
-    axum::extract::Path(id): axum::extract::Path<String>,
-    Json(body): Json<serde_json::Value>,
-) -> Response {
-    ipc_proxy(
-        state,
-        scope.as_ref(),
-        "resolve_approval",
-        merge_path_id(body, "approval_id", id),
-    )
-    .await
 }

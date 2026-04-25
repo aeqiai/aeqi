@@ -788,6 +788,32 @@ export const api = {
     request<{ ok: boolean; deleted?: boolean }>(`/drive/${encodeURIComponent(fid)}`, {
       method: "DELETE",
     }),
+
+  // Director inbox — sessions awaiting a human reply.
+  getInbox: () => request<{ ok: boolean; items: InboxItem[] }>("/inbox"),
+
+  answerInbox: (sessionId: string, answer: string) =>
+    request<{ ok: boolean; session_id?: string; error?: string }>(
+      `/inbox/${encodeURIComponent(sessionId)}/answer`,
+      {
+        method: "POST",
+        body: JSON.stringify({ answer }),
+      },
+    ),
 };
+
+/// One row of the director-inbox query — see `crates/aeqi-orchestrator/src/ipc/inbox.rs`.
+/// `agent_name` and `root_agent_id` are joined server-side; `last_agent_message`
+/// is the truncated assistant message that immediately precedes the ask.
+export interface InboxItem {
+  session_id: string;
+  agent_id: string | null;
+  agent_name: string | null;
+  root_agent_id: string | null;
+  session_name: string;
+  awaiting_subject: string | null;
+  awaiting_at: string;
+  last_agent_message: string | null;
+}
 
 export { ApiError };

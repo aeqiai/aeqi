@@ -24,6 +24,21 @@ pub struct SessionMessage {
     pub source: Option<String>,
 }
 
+/// One row of the director-inbox query — a session that has fired
+/// `question.ask` and is currently waiting on a human reply. Returned raw
+/// from `SessionStore::list_awaiting`; the IPC layer joins the agent name
+/// and walks the parent chain to the root agent before serializing for
+/// the wire.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AwaitingSessionRow {
+    pub session_id: String,
+    pub agent_id: Option<String>,
+    pub session_name: String,
+    pub awaiting_subject: Option<String>,
+    pub awaiting_at: String,
+    pub last_agent_message: Option<String>,
+}
+
 /// A session with UUID addressing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
@@ -235,6 +250,35 @@ fn ensure_invocation_outcome_columns(conn: &Connection) -> rusqlite::Result<()> 
     Ok(())
 }
 
+/// Idempotent migration that adds the director-inbox columns
+/// (`awaiting_at TEXT`, `awaiting_subject TEXT`) to legacy `sessions` tables.
+/// Fresh DBs already get them from `create_tables`'s CREATE TABLE — this
+/// helper exists for DBs that were created before the inbox feature landed.
+/// Both columns are nullable; existing rows become NULL with no further work.
+fn ensure_session_awaiting_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: std::collections::HashSet<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(sessions)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.contains("awaiting_at") {
+        conn.execute("ALTER TABLE sessions ADD COLUMN awaiting_at TEXT", [])?;
+    }
+    if !cols.contains("awaiting_subject") {
+        conn.execute("ALTER TABLE sessions ADD COLUMN awaiting_subject TEXT", [])?;
+    }
+    // The partial index is idempotent (`CREATE INDEX IF NOT EXISTS`) — safe to
+    // run on every boot. Lives here rather than in the CREATE TABLE batch so a
+    // legacy DB that skipped the batch's `CREATE INDEX` still gets it.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sess_awaiting ON sessions(awaiting_at) \
+         WHERE awaiting_at IS NOT NULL",
+        [],
+    )?;
+    Ok(())
+}
+
 impl SessionStore {
     /// Create a SessionStore sharing a connection pool (from AgentRegistry).
     pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
@@ -291,12 +335,15 @@ impl SessionStore {
                  closed_at TEXT,
                  parent_id TEXT,
                  quest_id TEXT,
-                 first_message TEXT
+                 first_message TEXT,
+                 awaiting_at TEXT,
+                 awaiting_subject TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_sess_agent ON sessions(agent_id);
              CREATE INDEX IF NOT EXISTS idx_sess_type ON sessions(session_type);
              CREATE INDEX IF NOT EXISTS idx_sess_parent ON sessions(parent_id);
              CREATE INDEX IF NOT EXISTS idx_sess_quest ON sessions(quest_id);
+             CREATE INDEX IF NOT EXISTS idx_sess_awaiting ON sessions(awaiting_at) WHERE awaiting_at IS NOT NULL;
 
              CREATE TABLE IF NOT EXISTS senders (
                  id           TEXT PRIMARY KEY,
@@ -400,6 +447,8 @@ impl SessionStore {
 
         ensure_invocation_outcome_columns(conn)
             .context("failed to ensure outcome columns on event_invocations")?;
+        ensure_session_awaiting_columns(conn)
+            .context("failed to ensure awaiting columns on sessions")?;
         Ok(())
     }
 
@@ -492,11 +541,21 @@ impl SessionStore {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        // Mid-turn step-boundary injection (consumed in `agent::run`) writes
+        // `content` directly into a `Role::User` message. Pre-fix this method
+        // returned the raw `payload` JSON, which meant the LLM saw the
+        // `QueuedMessage` envelope instead of the user's words. Parse here
+        // and surface the inner text. Legacy raw-string payloads (test
+        // fixtures, old daemon writes) fall back to the literal payload so
+        // forward-compat is preserved.
         Ok(rows
             .into_iter()
-            .map(|(id, payload)| InjectedMessage {
-                id,
-                content: payload,
+            .map(|(id, payload)| {
+                let content = match crate::queue_executor::QueuedMessage::from_payload(&payload) {
+                    Ok(qm) => qm.message,
+                    Err(_) => payload,
+                };
+                InjectedMessage { id, content }
             })
             .collect())
     }
@@ -1371,6 +1430,118 @@ impl SessionStore {
             params![session_id],
         )?;
         Ok(())
+    }
+
+    /// Mark a session as awaiting a human reply. Stamps `awaiting_at` with
+    /// the current ISO8601 timestamp and stores a short `subject` line that
+    /// the director-inbox UI uses as the row preview.
+    ///
+    /// Idempotent within a session: re-asking overwrites the prior subject
+    /// and refreshes the timestamp. Pairs with [`Self::clear_awaiting`] and
+    /// the atomic [`Self::answer_awaiting`].
+    pub async fn set_awaiting(&self, session_id: &str, subject: &str) -> Result<()> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        db.execute(
+            "UPDATE sessions SET awaiting_at = ?1, awaiting_subject = ?2 WHERE id = ?3",
+            params![now, subject, session_id],
+        )?;
+        Ok(())
+    }
+
+    /// Clear the awaiting state on a session — the human has responded (or
+    /// the agent has rescinded the question). Non-atomic counterpart used by
+    /// recovery / cleanup paths; the inbox-answer hot path uses
+    /// [`Self::answer_awaiting`] which clears + enqueues in one transaction.
+    pub async fn clear_awaiting(&self, session_id: &str) -> Result<()> {
+        let db = self.db.lock().await;
+        db.execute(
+            "UPDATE sessions SET awaiting_at = NULL, awaiting_subject = NULL WHERE id = ?1",
+            params![session_id],
+        )?;
+        Ok(())
+    }
+
+    /// List every session currently awaiting a human reply, optionally
+    /// filtered to a specific allow-set of agent ids (platform mode), or
+    /// unfiltered (runtime mode).
+    ///
+    /// Returns raw rows — joining agent name and walking the parent chain to
+    /// the root happens at the IPC layer where `AgentRegistry` is in scope.
+    /// `last_agent_message` is the most recent assistant message body (or
+    /// `None` if the agent fired the ask without ever speaking, which is
+    /// possible but rare). Sorted newest-first by `awaiting_at`.
+    pub async fn list_awaiting(
+        &self,
+        allowed_agent_ids: Option<&std::collections::HashSet<String>>,
+    ) -> Result<Vec<AwaitingSessionRow>> {
+        let db = self.db.lock().await;
+        // The partial index on `awaiting_at IS NOT NULL` makes this scan
+        // bound by the (small) inbox size, not the full session table.
+        let mut stmt = db.prepare(
+            "SELECT s.id, s.agent_id, s.name, s.awaiting_subject, s.awaiting_at,
+                    (SELECT content FROM session_messages
+                     WHERE session_id = s.id AND role = 'assistant'
+                     ORDER BY id DESC LIMIT 1) AS last_msg
+             FROM sessions s
+             WHERE s.awaiting_at IS NOT NULL
+             ORDER BY s.awaiting_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(AwaitingSessionRow {
+                session_id: row.get(0)?,
+                agent_id: row.get::<_, Option<String>>(1)?,
+                session_name: row.get(2)?,
+                awaiting_subject: row.get(3)?,
+                awaiting_at: row.get(4)?,
+                last_agent_message: row.get(5)?,
+            })
+        })?;
+        let mut out: Vec<AwaitingSessionRow> = rows.filter_map(|r| r.ok()).collect();
+        if let Some(allow) = allowed_agent_ids {
+            out.retain(|r| match &r.agent_id {
+                Some(id) => allow.contains(id),
+                None => false,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Atomic "director answers from the inbox" path. In a single
+    /// `BEGIN IMMEDIATE` transaction, this:
+    ///   1. UPDATEs `sessions` to clear `awaiting_at` IFF it was non-null
+    ///   2. If the UPDATE affected zero rows (someone else already answered
+    ///      or the session was never awaiting), ROLLBACKs and returns
+    ///      `Ok(false)` — the caller MUST treat this as "race lost".
+    ///   3. Otherwise INSERTs the supplied payload into `pending_messages`
+    ///      with `status='queued'` so the next `claim_and_run_loop` tick
+    ///      picks it up as the human's reply, COMMITs, returns `Ok(true)`.
+    ///
+    /// This is the only place outside `enqueue_pending` that writes to
+    /// `pending_messages` — kept dedicated rather than folded into a
+    /// general "enqueue and clear" helper because most enqueue paths
+    /// (quest re-runs, internal continuations) must NOT clear awaiting.
+    pub async fn answer_awaiting(&self, session_id: &str, payload: &str) -> Result<bool> {
+        let mut db = self.db.lock().await;
+        let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let cleared = tx.execute(
+            "UPDATE sessions SET awaiting_at = NULL, awaiting_subject = NULL \
+             WHERE id = ?1 AND awaiting_at IS NOT NULL",
+            params![session_id],
+        )?;
+        if cleared == 0 {
+            // Race lost — already answered or never awaiting. Tx rolls back
+            // implicitly when dropped without commit.
+            return Ok(false);
+        }
+        let now = Utc::now().timestamp();
+        tx.execute(
+            "INSERT INTO pending_messages (session_id, payload, status, created_at) \
+             VALUES (?1, ?2, 'queued', ?3)",
+            params![session_id, payload, now],
+        )?;
+        tx.commit()?;
+        Ok(true)
     }
 
     /// Get a single session by ID.
@@ -3039,5 +3210,197 @@ mod tests {
         let (row, _) = store.get_invocation_detail(inv_id).await.unwrap();
         assert!(row.outcome_score.is_none());
         assert!(row.outcome_details.is_none());
+    }
+
+    // ── Director-inbox awaiting columns ─────────────────────────────────────
+
+    /// Migration on a legacy `sessions` table: columns added, idempotent on
+    /// repeated invocation, partial index created.
+    #[tokio::test]
+    async fn ensure_session_awaiting_columns_migrates_legacy() {
+        let pool = open_test_db().await;
+        let conn = pool.lock().await;
+        // Drop the modern table and synthesize a legacy one without the
+        // awaiting_* columns (mirrors the pattern in the outcome-columns test).
+        conn.execute("DROP TABLE sessions", []).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE sessions (
+                 id TEXT PRIMARY KEY,
+                 agent_id TEXT,
+                 session_type TEXT NOT NULL,
+                 name TEXT NOT NULL,
+                 status TEXT NOT NULL DEFAULT 'active',
+                 created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                 closed_at TEXT,
+                 parent_id TEXT,
+                 quest_id TEXT,
+                 first_message TEXT
+             );",
+        )
+        .unwrap();
+
+        ensure_session_awaiting_columns(&conn).unwrap();
+        // Idempotent — running again is a no-op, not an error.
+        ensure_session_awaiting_columns(&conn).unwrap();
+
+        let cols: std::collections::HashSet<String> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(sessions)").unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        assert!(cols.contains("awaiting_at"));
+        assert!(cols.contains("awaiting_subject"));
+    }
+
+    /// `set_awaiting` / `clear_awaiting` round-trip writes and reads via the
+    /// inbox query.
+    #[tokio::test]
+    async fn set_and_clear_awaiting_round_trip() {
+        let store = test_store().await;
+        let session_id = store
+            .create_session("agent-1", "session", "ask flow", None, None)
+            .await
+            .unwrap();
+
+        // Pre-condition: nothing in the inbox.
+        let pre = store.list_awaiting(None).await.unwrap();
+        assert!(pre.iter().all(|r| r.session_id != session_id));
+
+        store
+            .set_awaiting(&session_id, "Approve $200 budget?")
+            .await
+            .unwrap();
+        let listed = store.list_awaiting(None).await.unwrap();
+        let row = listed
+            .iter()
+            .find(|r| r.session_id == session_id)
+            .expect("session must appear in inbox after set_awaiting");
+        assert_eq!(
+            row.awaiting_subject.as_deref(),
+            Some("Approve $200 budget?")
+        );
+        assert!(!row.awaiting_at.is_empty());
+
+        store.clear_awaiting(&session_id).await.unwrap();
+        let post = store.list_awaiting(None).await.unwrap();
+        assert!(post.iter().all(|r| r.session_id != session_id));
+    }
+
+    /// `list_awaiting` filters to the supplied agent allow-set when given
+    /// (platform mode); returns everything when `None` (runtime mode).
+    #[tokio::test]
+    async fn list_awaiting_respects_agent_filter() {
+        let store = test_store().await;
+        let s_a = store
+            .create_session("agent-allowed", "session", "a", None, None)
+            .await
+            .unwrap();
+        let s_b = store
+            .create_session("agent-blocked", "session", "b", None, None)
+            .await
+            .unwrap();
+        store.set_awaiting(&s_a, "subject a").await.unwrap();
+        store.set_awaiting(&s_b, "subject b").await.unwrap();
+
+        let mut allow = std::collections::HashSet::new();
+        allow.insert("agent-allowed".to_string());
+        let filtered = store.list_awaiting(Some(&allow)).await.unwrap();
+        assert!(filtered.iter().any(|r| r.session_id == s_a));
+        assert!(!filtered.iter().any(|r| r.session_id == s_b));
+
+        let unfiltered = store.list_awaiting(None).await.unwrap();
+        assert!(unfiltered.iter().any(|r| r.session_id == s_a));
+        assert!(unfiltered.iter().any(|r| r.session_id == s_b));
+    }
+
+    /// `answer_awaiting` clears the bit and enqueues a pending message in a
+    /// single transaction. Returning `Ok(true)` means we won the race.
+    #[tokio::test]
+    async fn answer_awaiting_clears_and_enqueues_atomically() {
+        let store = test_store().await;
+        let session_id = store
+            .create_session("agent-x", "session", "ask flow", None, None)
+            .await
+            .unwrap();
+        store.set_awaiting(&session_id, "subj").await.unwrap();
+
+        let won = store
+            .answer_awaiting(&session_id, "{\"kind\":\"user_reply\",\"message\":\"yes\"}")
+            .await
+            .unwrap();
+        assert!(won);
+
+        // Bit cleared.
+        let post = store.list_awaiting(None).await.unwrap();
+        assert!(post.iter().all(|r| r.session_id != session_id));
+
+        // Pending row visible to the next claim.
+        let claimed = store
+            .claim_pending_for_session(&session_id, None)
+            .await
+            .unwrap();
+        assert_eq!(claimed.len(), 1);
+    }
+
+    /// `claim_pending_for_session` must surface the inner user text from a
+    /// structured `QueuedMessage` payload — not the raw JSON envelope. This
+    /// is what the agent's step-boundary injection path consumes and feeds
+    /// into the LLM as a `Role::User` message. Pre-fix it leaked the JSON
+    /// shape into the prompt.
+    #[tokio::test]
+    async fn claim_pending_extracts_message_from_queued_payload() {
+        let store = test_store().await;
+        let sid = "sess-extract";
+
+        let qm = crate::queue_executor::QueuedMessage::user_reply(
+            "agent-x",
+            "ship it",
+            Some("user-1".to_string()),
+        );
+        let payload = qm.to_payload().unwrap();
+        store.enqueue_pending(sid, &payload).await.unwrap();
+
+        let claimed = store.claim_pending_for_session(sid, None).await.unwrap();
+        assert_eq!(claimed.len(), 1);
+        assert_eq!(
+            claimed[0].content, "ship it",
+            "structured payloads must surface the inner message text, not the JSON envelope"
+        );
+    }
+
+    /// Second `answer_awaiting` for the same session must lose — the row
+    /// count check on the UPDATE prevents a duplicate enqueue.
+    #[tokio::test]
+    async fn answer_awaiting_second_caller_loses() {
+        let store = test_store().await;
+        let session_id = store
+            .create_session("agent-y", "session", "ask flow", None, None)
+            .await
+            .unwrap();
+        store.set_awaiting(&session_id, "subj").await.unwrap();
+
+        let won = store
+            .answer_awaiting(&session_id, "{\"message\":\"first\"}")
+            .await
+            .unwrap();
+        assert!(won);
+
+        let lost = store
+            .answer_awaiting(&session_id, "{\"message\":\"second\"}")
+            .await
+            .unwrap();
+        assert!(
+            !lost,
+            "second caller must return Ok(false) once awaiting_at is cleared"
+        );
+
+        // Exactly one pending row exists.
+        let claimed = store
+            .claim_pending_for_session(&session_id, None)
+            .await
+            .unwrap();
+        assert_eq!(claimed.len(), 1);
     }
 }
