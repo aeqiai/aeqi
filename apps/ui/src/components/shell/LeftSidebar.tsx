@@ -238,7 +238,17 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           aria-label={sidebarCollapsed ? "Expand sidebar" : `${userName} — home`}
         >
           <span className="sidebar-nav-avatar">
-            <BlockAvatar name={userName} size={sidebarCollapsed ? 20 : 16} />
+            <span className="sidebar-nav-avatar-glyph" aria-hidden="true">
+              <BlockAvatar name={userName} size={sidebarCollapsed ? 20 : 16} />
+            </span>
+            {sidebarCollapsed && (
+              <span className="sidebar-nav-avatar-expand" aria-hidden="true">
+                <svg {...iconProps}>
+                  <rect x="2" y="3" width="12" height="10" rx="1.5" />
+                  <path d="M6.5 3v10" />
+                </svg>
+              </span>
+            )}
           </span>
           {!sidebarCollapsed &&
             (userEmail ? (

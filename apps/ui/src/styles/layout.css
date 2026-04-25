@@ -158,11 +158,13 @@
      transition would lag behind the cursor and feel rubber-banded.
      Toggle-collapse remains snappy via the explicit collapsed class. */
   overflow: hidden;
-  /* Bottom inset = footer strip height so the profile row's bottom edge
-     lines up with .content-card's bottom edge. Without this the sidebar
-     runs all the way to the viewport and the profile anchor dips below
-     the card's baseline, breaking the horizontal baseline the shell
-     relies on. */
+  /* Symmetric vertical insets matching .content-column's top + bottom
+     padding, so the sidebar's first row (profile) sits at the same
+     y-coordinate as .content-card's top edge, and its last row aligns
+     with the card's bottom edge. Without this the rail's top edge runs
+     flush against the viewport while the card floats — the asymmetry
+     reads as a misalignment between the two columns. */
+  padding-top: var(--shell-footer-h, 28px);
   padding-bottom: var(--shell-footer-h, 28px);
 }
 .left-sidebar.collapsed {
@@ -253,11 +255,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  /* Same horizontal padding as .sidebar-user-zone so the right-edge
+  /* Horizontal padding matches .sidebar-user-zone so the right-edge
      collapse button sits in the same column as the help (?) button
-     in the row below. Top inset is the rail's only top breathing
-     room — bottom is owned by the user-zone underneath. */
-  padding: 8px 8px 0;
+     in the row below. No top padding here — .left-sidebar owns the
+     vertical inset (mirroring .content-column) so the profile row
+     sits at the same y-coordinate as .content-card's top edge.
+     Bottom 8px mirrors .sidebar-user-zone's own bottom inset so the
+     gap between profile and the Blueprints/Economy group below
+     matches the gap between every other group on the rail. */
+  padding: 0 8px 8px;
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -339,6 +345,43 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
+}
+/* Collapsed-rail expand affordance — mirrors the old brandmark
+   pattern. The avatar is the click target to expand the sidebar; on
+   hover the avatar fades out, the panel-toggle glyph fades in, and
+   the cursor flips to e-resize so "grab me, I'll open" reads before
+   any click. */
+.sidebar-nav-avatar-glyph,
+.sidebar-nav-avatar-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+.sidebar-nav-avatar-expand {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--text-primary);
+}
+.sidebar-nav-avatar-expand svg {
+  width: 16px;
+  height: 16px;
+}
+.left-sidebar.collapsed .sidebar-header-profile {
+  cursor: e-resize;
+}
+.left-sidebar.collapsed .sidebar-header-profile:hover .sidebar-nav-avatar-glyph {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.left-sidebar.collapsed .sidebar-header-profile:hover .sidebar-nav-avatar-expand {
+  opacity: 1;
 }
 
 /* ── Agent scope (above tree) ── */
