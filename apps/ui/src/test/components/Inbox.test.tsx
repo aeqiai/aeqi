@@ -102,22 +102,14 @@ describe("Inbox", () => {
     expect(document.title).toBe("inbox · æqi");
   });
 
-  it("each row exposes aria-expanded for keyboard accordion control", () => {
+  it("row is a button — clicking navigates to the source session", () => {
     useInboxStore.setState({ items: [makeItem("a")] });
     renderInbox();
     const row = screen.getByTestId("inbox-row");
-    expect(row).toHaveAttribute("aria-expanded", "false");
-    expect(row).toHaveAttribute("aria-controls", "inbox-reply-a");
-  });
-
-  it("rows carry the awaiting data-attr so the pulse animation engages", () => {
-    useInboxStore.setState({ items: [makeItem("a")] });
-    renderInbox();
-    const row = screen.getByTestId("inbox-row");
-    expect(row).toHaveAttribute("data-awaiting", "true");
-    // The pulse dot is rendered inside the avatar wrapper.
-    const dot = row.querySelector(".inbox-row-avatar-dot");
-    expect(dot).not.toBeNull();
+    // Native <button>; no aria-expanded/aria-controls now that the
+    // accordion is gone. Tag check is enough.
+    expect(row.tagName).toBe("BUTTON");
+    expect(row).not.toHaveAttribute("aria-expanded");
   });
 
   it("renders the loading skeleton on first paint", () => {
