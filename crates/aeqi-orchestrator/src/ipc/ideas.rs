@@ -189,6 +189,18 @@ pub async fn handle_store_idea(
     response
 }
 
+/// One entry in the IPC `links` field — a kind-aware programmatic edge.
+/// The body-parser-owned `mention` / `embed` relations are NEVER written
+/// from this surface (they're recomputed from the body on every store);
+/// the IPC field is reserved for `link` edges (direct API / "+ Link"
+/// UI button).
+#[derive(Debug, Clone)]
+struct StoreLinkRequest {
+    target_kind: String,
+    target_id: String,
+    relation: String,
+}
+
 /// Parsed, validated store-request. Holds the original `links` payload so
 /// the per-action dispatchers can reconcile explicit UI/programmatic edges
 /// alongside the body-parsed inline ones.
@@ -198,7 +210,11 @@ struct StoreRequest {
     tags: Vec<String>,
     agent_id: Option<String>,
     scope: aeqi_core::Scope,
-    links: Vec<(String, String)>,
+    links: Vec<StoreLinkRequest>,
+    /// Validation errors raised while parsing the `links` field. Surfaced
+    /// to the caller as a soft warning per link rather than aborting the
+    /// store — a typoed relation should not lose the idea.
+    link_errors: Vec<String>,
     /// Who authored the content. Falls back to `agent_id` when the IPC
     /// doesn't carry a separate value.
     authored_by: Option<String>,
@@ -245,13 +261,15 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
         .map(|s| s.to_string())
         .or_else(|| agent_id.clone());
 
+    let (links, link_errors) = parse_links(request);
     Ok(StoreRequest {
         name: name.to_string(),
         content: content.to_string(),
         tags,
         agent_id,
         scope,
-        links: parse_links(request),
+        links,
+        link_errors,
         authored_by,
     })
 }
@@ -540,21 +558,21 @@ async fn finalize_write(
     redacted_content: &str,
     action: &str,
 ) -> serde_json::Value {
-    // Explicit links from the IPC `links` field. Validate the relation
-    // against `aeqi_ideas::relation::KNOWN_RELATIONS` so a typoed or
-    // malicious wire value can't slip an unknown edge-kind into the graph
-    // and corrupt downstream walks / MMR.
-    for (target_id, relation) in &input.links {
-        if !aeqi_ideas::relation::is_known(relation) {
-            tracing::warn!(
-                relation = %relation,
-                target = %target_id,
-                "unknown relation in explicit links — skipping"
-            );
-            continue;
-        }
+    // Explicit links from the IPC `links` field. Cross-kind aware after
+    // T1.8: a `kind: "session"` entry writes a true cross-kind edge
+    // (idea → session) instead of being smuggled in as a tag.
+    // Pre-validated by `parse_links`; invalid entries are already in
+    // `input.link_errors` and surfaced to the caller below.
+    for link in &input.links {
         let _ = idea_store
-            .store_idea_edge(id, target_id, relation, 1.0)
+            .store_entity_edge(
+                "idea",
+                id,
+                &link.target_kind,
+                &link.target_id,
+                &link.relation,
+                1.0,
+            )
             .await;
     }
 
@@ -575,11 +593,15 @@ async fn finalize_write(
     // Consolidation threshold check. Cheap — one COUNT per tagged policy.
     check_consolidation_threshold(ctx, idea_store.as_ref(), &input.tags, effective, id).await;
 
-    serde_json::json!({
+    let mut payload = serde_json::json!({
         "ok": true,
         "id": id,
         "action": action,
-    })
+    });
+    if !input.link_errors.is_empty() {
+        payload["link_errors"] = serde_json::json!(input.link_errors);
+    }
+    payload
 }
 
 /// Evaluate every tag on the idea against its policy's `consolidate_when`
@@ -760,40 +782,109 @@ async fn reconcile_inline_edges_in_scope(
     }
 }
 
-/// Parse a `links` field from an IPC request into (target_id, relation) pairs.
-/// Accepts either strings (defaulting to `adjacent` — the "+ Link" picker
-/// flow) or objects with `{target_id, relation}`.
-fn parse_links(request: &serde_json::Value) -> Vec<(String, String)> {
-    request
-        .get("links")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|entry| match entry {
-                    serde_json::Value::String(s) if !s.is_empty() => {
-                        Some((s.clone(), "adjacent".to_string()))
-                    }
-                    serde_json::Value::Object(obj) => {
-                        let target = obj.get("target_id").and_then(|v| v.as_str())?;
-                        if target.is_empty() {
-                            return None;
-                        }
-                        let rel = obj
-                            .get("relation")
-                            .and_then(|v| v.as_str())
-                            .filter(|s| !s.is_empty())
-                            .unwrap_or("adjacent")
-                            .to_string();
-                        Some((target.to_string(), rel))
-                    }
-                    _ => None,
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
+/// Parse the IPC `links` field on idea-create / idea-update.
+///
+/// T1.8 made the field cross-kind aware:
+///
+/// ```jsonc
+/// "links": [
+///   { "kind": "idea",    "id": "abc",  "relation": "link" },
+///   { "kind": "session", "id": "uuid", "relation": "link" }
+/// ]
+/// ```
+///
+/// The legacy bare-string form (`["target-id"]`) is still accepted as a
+/// shortcut for `{ kind: "idea", id: "target-id", relation: "link" }` so
+/// pre-T1.8 callers don't break. The legacy `target_id` field name is
+/// also accepted as an alias for `id` for the same reason.
+///
+/// Substrate writability check:
+///
+/// - `mention` / `embed` are body-parser-owned. Writing them through the
+///   IPC `links` field is rejected — they would be re-derived on the
+///   next reconcile and clobber the manual write anyway. This catches
+///   typos like `relation: "mentions"` (plural) too.
+/// - `link` is the only valid IPC-side relation (matches the "+ Link"
+///   UI button and direct API writes).
+/// - Legacy typed values (`adjacent`, `supersedes`, `contradicts`,
+///   `supports`, `distilled_into`) are rejected with a clear error
+///   pointing at the new vocabulary.
+///
+/// Returns `(valid_links, errors)` where `errors` is a list of
+/// human-readable rejection reasons for the per-call response. Invalid
+/// links never abort the store; they are logged and surfaced.
+fn parse_links(request: &serde_json::Value) -> (Vec<StoreLinkRequest>, Vec<String>) {
+    let mut out = Vec::new();
+    let mut errors = Vec::new();
 
-use aeqi_ideas::relation::KNOWN_RELATIONS;
+    let arr = match request.get("links").and_then(|v| v.as_array()) {
+        Some(a) => a,
+        None => return (out, errors),
+    };
+
+    for entry in arr {
+        match entry {
+            serde_json::Value::String(s) if !s.is_empty() => {
+                // Legacy bare-string shortcut. Defaults to a `link` edge
+                // toward an idea — same behaviour the "+ Link" UI used
+                // to expect from the old `adjacent` shape.
+                out.push(StoreLinkRequest {
+                    target_kind: "idea".to_string(),
+                    target_id: s.clone(),
+                    relation: aeqi_ideas::relation::LINK.to_string(),
+                });
+            }
+            serde_json::Value::Object(obj) => {
+                let target_id = obj
+                    .get("id")
+                    .or_else(|| obj.get("target_id"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if target_id.is_empty() {
+                    errors.push("link entry missing 'id'".to_string());
+                    continue;
+                }
+                let kind = obj
+                    .get("kind")
+                    .or_else(|| obj.get("target_kind"))
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("idea");
+                let relation = obj
+                    .get("relation")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or(aeqi_ideas::relation::LINK);
+
+                if !aeqi_ideas::relation::is_substrate_writable(relation) {
+                    errors.push(format!(
+                        "relation '{relation}' is not writable through the IPC \
+                         'links' field. Expected one of: mention, embed, link \
+                         (T1.8 collapsed the legacy typed vocabulary)."
+                    ));
+                    continue;
+                }
+                if matches!(relation, "mention" | "embed") {
+                    errors.push(format!(
+                        "relation '{relation}' is body-parser-owned and is \
+                         re-derived from the idea content; use 'link' for \
+                         direct IPC writes."
+                    ));
+                    continue;
+                }
+
+                out.push(StoreLinkRequest {
+                    target_kind: kind.to_string(),
+                    target_id: target_id.to_string(),
+                    relation: relation.to_string(),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    (out, errors)
+}
 
 /// Programmatic link between two ideas. Powers `ideas(action='link')`
 /// from the MCP surface and the "+ Link" UI flow when the user picks a
@@ -819,13 +910,13 @@ pub async fn handle_link_idea(
     if from == to {
         return serde_json::json!({"ok": false, "error": "from and to must differ"});
     }
-    let relation = request_field(request, "relation").unwrap_or("adjacent");
-    if !KNOWN_RELATIONS.contains(&relation) {
+    let relation = request_field(request, "relation").unwrap_or(aeqi_ideas::relation::LINK);
+    if !aeqi_ideas::relation::is_substrate_writable(relation) {
         return serde_json::json!({
             "ok": false,
             "error": format!(
-                "unknown relation '{relation}'. Expected one of: {}",
-                KNOWN_RELATIONS.join(", ")
+                "relation '{relation}' is not writable through ideas(action='link'). \
+                 Expected one of: mention, embed, link (T1.8 collapsed the legacy typed vocabulary)."
             ),
         });
     }
@@ -1475,18 +1566,15 @@ pub async fn handle_add_idea_edge(
     if source_id == target_id {
         return serde_json::json!({"ok": false, "error": "source and target must differ"});
     }
-    let relation = request_field(request, "relation").unwrap_or("adjacent");
-    // Mirror the guard in `handle_link_idea`: typed relations must be one of
-    // the known kinds or downstream walks / MMR / graph reasoning corrupt.
-    // This is the `aeqi-cli add-idea-edge` + MCP `ideas(action='link_edge')`
-    // entry path; prior to R7b this handler wrote any string through to
-    // `store_idea_edge` verbatim, which silently fed the graph junk edges.
-    if !aeqi_ideas::relation::is_known(relation) {
+    let relation = request_field(request, "relation").unwrap_or(aeqi_ideas::relation::LINK);
+    // Mirror the guard in `handle_link_idea`: substrate-writable relations
+    // must be one of `mention` / `embed` / `link` (T1.8 collapse).
+    if !aeqi_ideas::relation::is_substrate_writable(relation) {
         return serde_json::json!({
             "ok": false,
             "error": format!(
-                "unknown relation '{relation}'. Expected one of: {}",
-                KNOWN_RELATIONS.join(", ")
+                "relation '{relation}' is not writable through this surface. \
+                 Expected one of: mention, embed, link (T1.8 collapsed the legacy typed vocabulary)."
             ),
         });
     }
@@ -1560,6 +1648,7 @@ pub async fn handle_idea_edges(
         .into_iter()
         .map(|r| {
             serde_json::json!({
+                "target_kind": r.other_kind,
                 "target_id": r.other_id,
                 "name": r.other_name,
                 "relation": r.relation,
@@ -1572,6 +1661,7 @@ pub async fn handle_idea_edges(
         .into_iter()
         .map(|r| {
             serde_json::json!({
+                "source_kind": r.other_kind,
                 "source_id": r.other_id,
                 "name": r.other_name,
                 "relation": r.relation,
@@ -1585,6 +1675,43 @@ pub async fn handle_idea_edges(
         "links": links,
         "backlinks": backlinks,
     })
+}
+
+/// `ideas.references(idea_id)` — list every outgoing reference for an
+/// idea, kind-aware. Convenience surface added in T1.8 for UI consumers
+/// that want a flat `(kind, id, relation, strength)` list across all
+/// entity kinds (sessions, quests, agents, …) without going through
+/// `idea_edges` and re-derived names.
+pub async fn handle_idea_references(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+    let Some(idea_id) = request_field(request, "idea_id").or_else(|| request_field(request, "id"))
+    else {
+        return serde_json::json!({"ok": false, "error": "idea_id is required"});
+    };
+
+    match idea_store.idea_references(idea_id).await {
+        Ok(refs) => {
+            let payload: Vec<serde_json::Value> = refs
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "kind": r.kind,
+                        "id": r.id,
+                        "relation": r.relation,
+                        "strength": r.strength,
+                    })
+                })
+                .collect();
+            serde_json::json!({ "ok": true, "references": payload })
+        }
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
 }
 
 pub async fn handle_idea_prefix(

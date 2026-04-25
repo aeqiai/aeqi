@@ -171,14 +171,27 @@ impl IdeaValidator for TagInKnownSet {
     }
 }
 
-/// Reject items whose `distilled_into` references point at ideas that
-/// don't exist. References are looked up in two places:
+/// Reject items whose inline-mention references point at ideas that
+/// don't exist.
 ///
-/// 1. Inline-link parser output on `content` — so `distilled_into:[[Some
-///    Name]]` written into the body is honoured (matches the existing
-///    inline-links convention used by the graph reconciler).
-/// 2. Tag prefix `distilled_into:<name>` on the item's `tags` list — for
+/// T1.8 retired the `distilled_into:[[X]]` typed prefix; this validator
+/// now walks every `kind="idea"` mention parsed out of the body. The
+/// guard is most useful on consolidator output (items tagged
+/// `consolidates`), where every mention is supposed to resolve to a
+/// source idea — but it applies uniformly to any item that opts in via
+/// a tag policy's `validators = ["references_resolve"]` setting.
+///
+/// References are looked up in two places:
+///
+/// 1. Inline-link parser output on `content` — every `[[Some Name]]`
+///    mention with `kind="idea"`. Cross-kind refs (`[[session:...]]`,
+///    `[[quest:...]]`) are skipped: they don't go through the idea
+///    name resolver, so a missing session is a separate failure mode.
+/// 2. Tag prefix `mention:<name>` on the item's `tags` list — for
 ///    callers that emit references through tags rather than body prose.
+///    The legacy `distilled_into:<name>` prefix is still recognised so
+///    pre-T1.8 consolidator outputs validate cleanly during the
+///    transition.
 ///
 /// Each referenced name is resolved via `IdeaStore::get_by_name(name,
 /// None)` (global scope). This matches how the graph edge reconciler
@@ -196,26 +209,33 @@ impl IdeaValidator for ReferencesResolve {
         item: &ValidatorItem<'_>,
         ctx: &ValidatorCtx<'_>,
     ) -> Result<(), String> {
-        let mut refs: Vec<String> =
-            aeqi_ideas::inline_links::parse_links(item.content).distilled_into;
+        let parsed = aeqi_ideas::inline_links::parse_links(item.content);
+        let mut refs: Vec<String> = parsed
+            .by_relation("mention")
+            .filter(|r| r.target_kind == "idea")
+            .map(|r| r.target_id.clone())
+            .collect();
         for tag in item.tags {
-            if let Some(rest) = tag.strip_prefix("distilled_into:")
-                && !rest.trim().is_empty()
-            {
-                refs.push(rest.trim().to_string());
+            // `mention:<name>` is the canonical tag-based ref shape;
+            // `distilled_into:<name>` is the pre-T1.8 form preserved
+            // for one release while authors migrate.
+            for prefix in ["mention:", "distilled_into:"] {
+                if let Some(rest) = tag.strip_prefix(prefix)
+                    && !rest.trim().is_empty()
+                {
+                    refs.push(rest.trim().to_string());
+                }
             }
         }
         // Dedup case-insensitively, preserving first-seen casing.
         let mut seen = std::collections::HashSet::<String>::new();
-        refs.retain(|name| seen.insert(name.to_lowercase()));
+        refs.retain(|name: &String| seen.insert(name.to_lowercase()));
 
         for name in &refs {
             match ctx.store.get_by_name(name, None).await {
                 Ok(Some(_)) => continue,
                 Ok(None) => {
-                    return Err(format!(
-                        "distilled_into reference '{name}' does not resolve"
-                    ));
+                    return Err(format!("mention reference '{name}' does not resolve"));
                 }
                 Err(e) => {
                     return Err(format!(

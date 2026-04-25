@@ -336,6 +336,35 @@ pub trait IdeaStore: Send + Sync {
         Ok(())
     }
 
+    /// Store a cross-kind entity edge (e.g. idea → session, idea → quest).
+    /// Default delegates to `store_idea_edge` when both kinds are
+    /// `"idea"`; everything else is a no-op so non-SQLite stores stay
+    /// usable. T1.8 backends override with a real implementation.
+    async fn store_entity_edge(
+        &self,
+        source_kind: &str,
+        source_id: &str,
+        target_kind: &str,
+        target_id: &str,
+        relation: &str,
+        strength: f32,
+    ) -> anyhow::Result<()> {
+        if source_kind == "idea" && target_kind == "idea" {
+            return self
+                .store_idea_edge(source_id, target_id, relation, strength)
+                .await;
+        }
+        let _ = (
+            source_kind,
+            source_id,
+            target_kind,
+            target_id,
+            relation,
+            strength,
+        );
+        Ok(())
+    }
+
     /// Remove one or more idea graph edges. If `relation` is Some, deletes only
     /// edges with that exact relation; if None, deletes all edges between the
     /// two ideas. Returns the number of rows removed.
@@ -353,6 +382,14 @@ pub trait IdeaStore: Send + Sync {
     /// Each tuple: (other_idea_id, other_idea_name, relation, strength).
     async fn idea_edges(&self, _idea_id: &str) -> anyhow::Result<IdeaEdges> {
         Ok(IdeaEdges::default())
+    }
+
+    /// Fetch outgoing references for an idea across all entity kinds.
+    /// Returns `(target_kind, target_id, relation, strength)` rows.
+    /// Substrates without cross-kind support fall back to an empty vec
+    /// so the trait stays usable from non-SQLite backends.
+    async fn idea_references(&self, _idea_id: &str) -> anyhow::Result<Vec<EntityRef>> {
+        Ok(Vec::new())
     }
 
     /// Return ideas that carry any of the given tags (OR match), newest first.
@@ -584,20 +621,46 @@ pub struct IdeaEdges {
     pub backlinks: Vec<IdeaEdgeRow>,
 }
 
-/// One row in an edge list — the "other side" of the edge.
+/// One row in an edge list — the "other side" of the edge. T1.8 added
+/// `other_kind` so cross-kind targets (sessions, quests, agents) are
+/// distinguishable from idea→idea edges. Defaults to `"idea"` so legacy
+/// serialised payloads deserialise unchanged.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdeaEdgeRow {
+    /// Entity kind of the other side of the edge: `"idea"`, `"session"`,
+    /// `"quest"`, `"agent"`, …
+    #[serde(default = "default_idea_kind")]
+    pub other_kind: String,
     pub other_id: String,
+    /// Resolved name when `other_kind = "idea"`; `None` for cross-kind
+    /// targets (UI consumers fetch the entity by id separately).
     pub other_name: Option<String>,
     pub relation: String,
     pub strength: f32,
 }
 
+fn default_idea_kind() -> String {
+    "idea".to_string()
+}
+
 /// A full directed edge between two ideas, returned by graph queries.
+/// Idea-only view; cross-kind edges are exposed via [`EntityRef`] /
+/// `idea_edges`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdeaGraphEdge {
     pub source_id: String,
     pub target_id: String,
+    pub relation: String,
+    pub strength: f32,
+}
+
+/// One outgoing reference from an idea, kind-aware. Returned by
+/// `ideas.references` (T1.8 IPC addition) so UI consumers can render
+/// cross-kind references uniformly.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityRef {
+    pub kind: String,
+    pub id: String,
     pub relation: String,
     pub strength: f32,
 }

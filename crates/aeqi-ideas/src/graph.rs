@@ -15,12 +15,20 @@ use serde::{Deserialize, Serialize};
 
 // ── Edges ───────────────────────────────────────────────────────────────────
 
-/// A directed edge in the idea graph.
+/// A directed edge between two entities (ideas, sessions, quests, agents).
+///
+/// T1.8 generalised the edge table from `idea_edges` (idea→idea only) to
+/// `entity_edges` (any kind → any kind). The `source_kind` / `target_kind`
+/// fields default to `"idea"` so legacy callers compose unchanged.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IdeaEdge {
-    /// Source idea node ID.
+pub struct EntityEdge {
+    /// Source entity kind: `"idea"`, `"session"`, `"quest"`, `"agent"`, …
+    pub source_kind: String,
+    /// Source entity ID.
     pub source_id: String,
-    /// Target idea node ID.
+    /// Target entity kind.
+    pub target_kind: String,
+    /// Target entity ID.
     pub target_id: String,
     /// Type of relationship — one of the strings in
     /// [`crate::relation::KNOWN_RELATIONS`].
@@ -31,18 +39,34 @@ pub struct IdeaEdge {
     pub created_at: DateTime<Utc>,
 }
 
-impl IdeaEdge {
-    /// Create a new edge with the given relation and strength.
+impl EntityEdge {
+    /// Create a new idea→idea edge with the given relation and strength.
     ///
-    /// Strength is clamped to `[0.0, 1.0]`.
+    /// Strength is clamped to `[0.0, 1.0]`. Both endpoints default to
+    /// `"idea"` kind — use [`Self::new_cross_kind`] for sessions, quests,
+    /// or other entity kinds.
     pub fn new(
         source_id: impl Into<String>,
         target_id: impl Into<String>,
         relation: impl Into<String>,
         strength: f32,
     ) -> Self {
+        Self::new_cross_kind("idea", source_id, "idea", target_id, relation, strength)
+    }
+
+    /// Create a new edge with explicit source / target kinds.
+    pub fn new_cross_kind(
+        source_kind: impl Into<String>,
+        source_id: impl Into<String>,
+        target_kind: impl Into<String>,
+        target_id: impl Into<String>,
+        relation: impl Into<String>,
+        strength: f32,
+    ) -> Self {
         Self {
+            source_kind: source_kind.into(),
             source_id: source_id.into(),
+            target_kind: target_kind.into(),
             target_id: target_id.into(),
             relation: relation.into(),
             strength: strength.clamp(0.0, 1.0),
@@ -212,19 +236,37 @@ mod tests {
 
     #[test]
     fn idea_edge_creation() {
-        let edge = IdeaEdge::new("src-1", "tgt-2", crate::relation::EMBEDS, 0.9);
+        let edge = EntityEdge::new("src-1", "tgt-2", crate::relation::EMBED, 0.9);
+        assert_eq!(edge.source_kind, "idea");
+        assert_eq!(edge.target_kind, "idea");
         assert_eq!(edge.source_id, "src-1");
         assert_eq!(edge.target_id, "tgt-2");
-        assert_eq!(edge.relation, "embeds");
+        assert_eq!(edge.relation, "embed");
         assert!((edge.strength - 0.9).abs() < f32::EPSILON);
     }
 
     #[test]
     fn edge_strength_clamped() {
-        let edge = IdeaEdge::new("a", "b", crate::relation::ADJACENT, 1.5);
+        let edge = EntityEdge::new("a", "b", crate::relation::LINK, 1.5);
         assert!((edge.strength - 1.0).abs() < f32::EPSILON);
-        let edge2 = IdeaEdge::new("a", "b", crate::relation::ADJACENT, -0.5);
+        let edge2 = EntityEdge::new("a", "b", crate::relation::LINK, -0.5);
         assert!(edge2.strength.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn cross_kind_edge_carries_both_kinds() {
+        let edge = EntityEdge::new_cross_kind(
+            "idea",
+            "abc",
+            "session",
+            "xyz-uuid",
+            crate::relation::MENTION,
+            1.0,
+        );
+        assert_eq!(edge.source_kind, "idea");
+        assert_eq!(edge.target_kind, "session");
+        assert_eq!(edge.target_id, "xyz-uuid");
+        assert_eq!(edge.relation, "mention");
     }
 
     #[test]

@@ -495,11 +495,17 @@ impl SqliteIdeas {
             // 2. Insert the replacement row (tags + row in one shot).
             let new_id = insert_full_row_on_conn(&tx, &input, &content, &tags)?;
 
-            // 3. Write the `supersedes` edge new → old.
+            // 3. Write a `link` edge new → old. The supersession
+            //    relationship itself is captured by `ideas.status =
+            //    'superseded'` on the old row; the edge is a structural
+            //    breadcrumb so graph walks still surface the lineage,
+            //    not a typed semantic relation. T1.8 retired the
+            //    `supersedes` relation.
             tx.execute(
-                "INSERT INTO idea_edges \
-                    (source_id, target_id, relation, strength, created_at) \
-                 VALUES (?1, ?2, 'supersedes', 1.0, ?3)",
+                "INSERT INTO entity_edges \
+                    (source_kind, source_id, target_kind, target_id, \
+                     relation, strength, created_at) \
+                 VALUES ('idea', ?1, 'idea', ?2, 'link', 1.0, ?3)",
                 rusqlite::params![new_id, old, now],
             )?;
 

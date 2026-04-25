@@ -1,120 +1,109 @@
-//! Body parser for inline idea links.
+//! Body parser for inline entity links.
 //!
-//! Ideas reference each other in prose with wikilink-style syntax:
+//! Ideas reference other entities in prose with wikilink-style syntax:
 //!
-//! - `[[X]]` — **mention**: render as a link to X; pull nothing inline.
-//! - `![[X]]` — **embed**: transclude X's full content when rendering.
-//! - `supersedes:[[X]]`, `contradicts:[[X]]`, `supports:[[X]]`,
-//!   `distilled_into:[[X]]` — **typed** mentions that emit the matching
-//!   graph relation instead of a plain mention edge.
+//! - `[[X]]` — **mention**: lightweight reference; surrounding prose carries
+//!   the semantic meaning.
+//! - `![[X]]` — **embed**: transclude the target's full content when
+//!   rendering.
 //!
-//! The leading `!` takes precedence — `![[X]]` is an embed, not a mention of
-//! `[X`. A typed prefix (word immediately followed by `:[[`) takes precedence
-//! over a plain mention: `supersedes:[[X]]` does NOT also create a mention
-//! of `X`. Whitespace inside the brackets is trimmed. Names are deduplicated
-//! case-insensitively within each relation (the first-seen casing wins).
+//! Targets default to `kind = "idea"` and `id = X`. T1.8 added a
+//! `<kind>:<id>` form recognised inside `[[...]]` and `![[...]]`:
+//!
+//! - `[[session:abc-123]]` — mention of a session.
+//! - `![[session:abc-123]]` — embed of a session (transcludes the
+//!   transcript on render).
+//! - `[[quest:<id>]]`, `[[agent:<id>]]` — same pattern, future-proof.
+//!
+//! Unknown kinds (`[[unknown:foo]]`) fall back to a plain idea-mention with
+//! the literal `unknown:foo` as the target name — preserves existing
+//! behaviour and never crashes.
+//!
+//! The leading `!` takes precedence — `![[X]]` is an embed, not a mention
+//! of `[X`. Whitespace inside the brackets is trimmed. Refs are
+//! deduplicated case-insensitively per `(target_kind, relation)` group
+//! (the first-seen casing wins).
 //!
 //! This parser is a pure function: no DB, no network. Edge reconciliation
-//! that turns [`ParsedLinks`] into graph rows lives on the `IdeaStore` trait.
+//! that turns [`ParsedLinks`] into graph rows lives on the `IdeaStore`
+//! trait.
 
 use std::collections::HashSet;
 
-/// Every relation a body can reference. Each `Vec<String>` holds target
-/// names in first-seen order, deduplicated case-insensitively.
+/// Recognised entity kinds for the `<kind>:<id>` prefix inside `[[...]]`.
+/// Anything not in this list falls back to `"idea"` with the raw token as
+/// the target name (preserves existing behaviour).
+const KNOWN_KINDS: &[&str] = &["idea", "session", "quest", "agent", "pack"];
+
+/// One parsed reference, kind-aware.
+///
+/// `target_id` is the literal token after the `<kind>:` prefix when one
+/// was present, or the full bracket contents when no prefix was given. For
+/// `kind = "idea"` the consumer treats this as a name to resolve against
+/// the idea store; for other kinds it is the entity's id directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedRef {
+    pub target_kind: String,
+    pub target_id: String,
+    /// One of `"mention"` or `"embed"`. The body parser never emits
+    /// `"link"` — that relation is reserved for direct API / "+ Link"
+    /// UI writes.
+    pub relation: String,
+}
+
+/// Every reference parsed from a body, in first-seen order. Deduplicated
+/// case-insensitively per `(target_kind, relation)` so the same `[[X]]`
+/// twice in one body produces a single edge.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ParsedLinks {
-    /// Names referenced with `[[X]]`.
-    pub mentions: Vec<String>,
-    /// Names referenced with `![[X]]`.
-    pub embeds: Vec<String>,
-    /// Names referenced with `supersedes:[[X]]`.
-    pub supersedes: Vec<String>,
-    /// Names referenced with `contradicts:[[X]]`.
-    pub contradicts: Vec<String>,
-    /// Names referenced with `supports:[[X]]`.
-    pub supports: Vec<String>,
-    /// Names referenced with `distilled_into:[[X]]`.
-    pub distilled_into: Vec<String>,
+    pub refs: Vec<TypedRef>,
 }
 
 impl ParsedLinks {
-    /// Flatten into `(relation, name)` pairs, preserving the first-seen
-    /// order within each relation group. Callers resolve names → ids
-    /// and persist via `IdeaStore::store_idea_edge`.
-    ///
-    /// `adjacent` is intentionally *not* part of this surface — it is
-    /// emitted only by the IPC `links` field (explicit "+ Link" UI flow),
-    /// never from body parsing.
-    pub fn as_relation_pairs(&self) -> Vec<(&str, &str)> {
-        let mut out: Vec<(&str, &str)> = Vec::with_capacity(self.total_len());
-        for name in &self.mentions {
-            out.push(("mentions", name.as_str()));
-        }
-        for name in &self.embeds {
-            out.push(("embeds", name.as_str()));
-        }
-        for name in &self.supersedes {
-            out.push(("supersedes", name.as_str()));
-        }
-        for name in &self.contradicts {
-            out.push(("contradicts", name.as_str()));
-        }
-        for name in &self.supports {
-            out.push(("supports", name.as_str()));
-        }
-        for name in &self.distilled_into {
-            out.push(("distilled_into", name.as_str()));
-        }
-        out
+    /// Total number of refs across all kinds and relations.
+    pub fn len(&self) -> usize {
+        self.refs.len()
     }
 
-    fn total_len(&self) -> usize {
-        self.mentions.len()
-            + self.embeds.len()
-            + self.supersedes.len()
-            + self.contradicts.len()
-            + self.supports.len()
-            + self.distilled_into.len()
+    /// True when no refs were parsed.
+    pub fn is_empty(&self) -> bool {
+        self.refs.is_empty()
+    }
+
+    /// Filter to refs matching a specific relation (`"mention"` or
+    /// `"embed"`).
+    pub fn by_relation<'a>(&'a self, relation: &'a str) -> impl Iterator<Item = &'a TypedRef> + 'a {
+        self.refs.iter().filter(move |r| r.relation == relation)
+    }
+
+    /// Filter to refs with a specific target kind.
+    pub fn by_kind<'a>(&'a self, kind: &'a str) -> impl Iterator<Item = &'a TypedRef> + 'a {
+        self.refs.iter().filter(move |r| r.target_kind == kind)
+    }
+
+    /// All `kind="idea"` refs, regardless of relation. Convenience for
+    /// callers that resolve idea names to ids.
+    pub fn idea_refs(&self) -> impl Iterator<Item = &TypedRef> {
+        self.by_kind("idea")
     }
 }
 
-/// The typed relation prefixes recognised before a `:[[...]]` block.
-/// Order doesn't matter; lookup is by exact match.
-const TYPED_PREFIXES: &[(&str, TypedRelation)] = &[
-    ("supersedes", TypedRelation::Supersedes),
-    ("contradicts", TypedRelation::Contradicts),
-    ("supports", TypedRelation::Supports),
-    ("distilled_into", TypedRelation::DistilledInto),
-];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TypedRelation {
-    Supersedes,
-    Contradicts,
-    Supports,
-    DistilledInto,
-}
-
-/// Parse a body string and return every referenced name, split by relation.
+/// Parse a body string and return every referenced entity.
 ///
-/// Names are trimmed and empty matches skipped. Each output list is
-/// deduplicated case-insensitively (the first casing seen is retained).
-/// A reference cannot appear in multiple relation buckets from one match:
-/// typed prefix > embed > mention. The same name may appear in multiple
-/// buckets across different occurrences in the body (e.g. `[[X]]` and
-/// later `![[X]]` put `X` in both `mentions` and `embeds`).
+/// The leading `!` on `![[X]]` takes precedence (it's an embed, never a
+/// mention of `[X`). Whitespace inside brackets is trimmed; empty matches
+/// are skipped. Refs are deduplicated case-insensitively per
+/// `(target_kind, relation)` group; the same name across different
+/// relations (e.g. `[[X]]` and later `![[X]]`) emits two refs.
 pub fn parse_links(body: &str) -> ParsedLinks {
     let bytes = body.as_bytes();
     let mut out = ParsedLinks::default();
-    let mut seen = SeenSets::default();
+    let mut seen = SeenSet::default();
 
     let mut i = 0;
     while i + 1 < bytes.len() {
-        // Detect `[[` with an optional leading `!` for embeds, or a
-        // typed `word:[[` prefix.
         if bytes[i] == b'[' && bytes[i + 1] == b'[' {
-            let (typed, typed_prefix_start) = detect_typed_prefix(bytes, i);
-            let is_embed = typed.is_none() && i > 0 && bytes[i - 1] == b'!';
+            let is_embed = i > 0 && bytes[i - 1] == b'!';
             let start = i + 2;
 
             // Scan until `]]` or a disqualifying char (`]`, `\n`, `[`).
@@ -137,20 +126,16 @@ pub fn parse_links(body: &str) -> ParsedLinks {
             match end {
                 Some(e) => {
                     let raw = &body[start..e];
-                    let name = raw.trim();
-                    if !name.is_empty() {
-                        record_match(typed, is_embed, name, &mut out, &mut seen);
+                    let trimmed = raw.trim();
+                    if !trimmed.is_empty() {
+                        record_match(trimmed, is_embed, &mut out, &mut seen);
                     }
-                    // Skip past the typed prefix too so we don't re-match
-                    // the `[[...]]` as a plain mention.
-                    let _ = typed_prefix_start;
                     i = e + 2;
                     continue;
                 }
                 None => {
-                    // Unterminated `[[` — continue scanning from the next
-                    // byte after the opening bracket so we can still pick
-                    // up a later well-formed link.
+                    // Unterminated `[[` — keep scanning past the opening
+                    // bracket so we still pick up later well-formed links.
                     i = start;
                     continue;
                 }
@@ -163,98 +148,56 @@ pub fn parse_links(body: &str) -> ParsedLinks {
 }
 
 #[derive(Default)]
-struct SeenSets {
-    mentions: HashSet<String>,
-    embeds: HashSet<String>,
-    supersedes: HashSet<String>,
-    contradicts: HashSet<String>,
-    supports: HashSet<String>,
-    distilled_into: HashSet<String>,
+struct SeenSet {
+    /// Lowercased `(target_kind, relation, target_id)` triples.
+    set: HashSet<(String, String, String)>,
 }
 
-fn record_match(
-    typed: Option<TypedRelation>,
-    is_embed: bool,
-    name: &str,
-    out: &mut ParsedLinks,
-    seen: &mut SeenSets,
-) {
-    let key = name.to_lowercase();
-    match typed {
-        Some(TypedRelation::Supersedes) => {
-            if seen.supersedes.insert(key) {
-                out.supersedes.push(name.to_string());
-            }
-        }
-        Some(TypedRelation::Contradicts) => {
-            if seen.contradicts.insert(key) {
-                out.contradicts.push(name.to_string());
-            }
-        }
-        Some(TypedRelation::Supports) => {
-            if seen.supports.insert(key) {
-                out.supports.push(name.to_string());
-            }
-        }
-        Some(TypedRelation::DistilledInto) => {
-            if seen.distilled_into.insert(key) {
-                out.distilled_into.push(name.to_string());
-            }
-        }
-        None if is_embed => {
-            if seen.embeds.insert(key) {
-                out.embeds.push(name.to_string());
-            }
-        }
-        None => {
-            if seen.mentions.insert(key) {
-                out.mentions.push(name.to_string());
-            }
-        }
+impl SeenSet {
+    fn insert(&mut self, kind: &str, relation: &str, id: &str) -> bool {
+        self.set
+            .insert((kind.to_string(), relation.to_string(), id.to_lowercase()))
     }
 }
 
-/// Look backward from `bracket_pos` (the first `[` of `[[`) for a typed
-/// prefix of the form `word:` where `word` is one of [`TYPED_PREFIXES`]
-/// and the char between `word` and `:` is immediately adjacent (no
-/// whitespace). Returns the matched relation and the byte index at
-/// which the prefix word begins, or `None` if no typed prefix matches.
-fn detect_typed_prefix(bytes: &[u8], bracket_pos: usize) -> (Option<TypedRelation>, usize) {
-    if bracket_pos < 2 || bytes[bracket_pos - 1] != b':' {
-        return (None, bracket_pos);
+fn record_match(token: &str, is_embed: bool, out: &mut ParsedLinks, seen: &mut SeenSet) {
+    let relation = if is_embed { "embed" } else { "mention" };
+    let (kind, id) = split_kind_id(token);
+    if seen.insert(kind, relation, id) {
+        out.refs.push(TypedRef {
+            target_kind: kind.to_string(),
+            target_id: id.to_string(),
+            relation: relation.to_string(),
+        });
     }
-    // Walk backward from the `:` collecting identifier chars
-    // (`a-z`, `_`) — stop on any non-identifier byte or on the start
-    // of the slice.
-    let word_end = bracket_pos - 1; // points at `:`
-    let mut word_start = word_end;
-    while word_start > 0 {
-        let c = bytes[word_start - 1];
-        if c.is_ascii_lowercase() || c == b'_' {
-            word_start -= 1;
-        } else {
-            break;
+}
+
+/// Split a bracket token into `(kind, id)`. Recognises `<kind>:<id>` only
+/// when `<kind>` is in [`KNOWN_KINDS`]; anything else (including unknown
+/// kinds like `unknown:foo`) returns `("idea", token)` — the full token
+/// becomes the idea name. Preserves existing behaviour for tokens that
+/// happen to contain a colon for non-kind reasons (e.g. `[[meta:tag]]`).
+fn split_kind_id(token: &str) -> (&str, &str) {
+    if let Some((maybe_kind, rest)) = token.split_once(':') {
+        let kind = maybe_kind.trim();
+        let id = rest.trim();
+        if KNOWN_KINDS.contains(&kind) && !id.is_empty() {
+            return (kind_static(kind), id);
         }
     }
-    if word_start == word_end {
-        return (None, bracket_pos);
-    }
-    // Guard against accidental matches in the middle of a longer word
-    // like `notsupersedes:[[X]]` — the byte immediately before
-    // `word_start` must not itself be an identifier char.
-    if word_start > 0 {
-        let prev = bytes[word_start - 1];
-        if prev.is_ascii_alphanumeric() || prev == b'_' {
-            return (None, bracket_pos);
+    ("idea", token)
+}
+
+/// Map a runtime kind string back to its static slot in [`KNOWN_KINDS`].
+/// Lets us return `&'static str` for the kind so the caller can hold a
+/// borrow with no allocation when writing into [`TypedRef`].
+fn kind_static(kind: &str) -> &'static str {
+    for k in KNOWN_KINDS {
+        if *k == kind {
+            return k;
         }
     }
-    let word = std::str::from_utf8(&bytes[word_start..word_end]).unwrap_or("");
-    for (needle, rel) in TYPED_PREFIXES {
-        if word == *needle {
-            return (Some(*rel), word_start);
-        }
-    }
-    (None, bracket_pos)
+    "idea"
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -263,186 +206,200 @@ fn detect_typed_prefix(bytes: &[u8], bracket_pos: usize) -> (Option<TypedRelatio
 mod tests {
     use super::*;
 
+    fn mention(kind: &str, id: &str) -> TypedRef {
+        TypedRef {
+            target_kind: kind.to_string(),
+            target_id: id.to_string(),
+            relation: "mention".to_string(),
+        }
+    }
+
+    fn embed(kind: &str, id: &str) -> TypedRef {
+        TypedRef {
+            target_kind: kind.to_string(),
+            target_id: id.to_string(),
+            relation: "embed".to_string(),
+        }
+    }
+
     #[test]
     fn mentions_are_parsed() {
         let p = parse_links("see [[Auth System]] and [[Deploy]] for context");
-        assert_eq!(p.mentions, vec!["Auth System", "Deploy"]);
-        assert!(p.embeds.is_empty());
+        assert_eq!(
+            p.refs,
+            vec![mention("idea", "Auth System"), mention("idea", "Deploy")]
+        );
     }
 
     #[test]
     fn embeds_are_parsed() {
         let p = parse_links("body: ![[Prelude]]\n\n![[Appendix]]");
-        assert_eq!(p.embeds, vec!["Prelude", "Appendix"]);
-        assert!(p.mentions.is_empty());
+        assert_eq!(
+            p.refs,
+            vec![embed("idea", "Prelude"), embed("idea", "Appendix")]
+        );
     }
 
     #[test]
     fn bang_takes_precedence_over_mention() {
         let p = parse_links("![[X]]");
-        assert!(p.mentions.is_empty());
-        assert_eq!(p.embeds, vec!["X"]);
+        assert_eq!(p.refs, vec![embed("idea", "X")]);
     }
 
     #[test]
     fn mixed_body_splits_by_relation() {
         let p = parse_links("intro [[A]] then ![[B]] and finally [[C]]");
-        assert_eq!(p.mentions, vec!["A", "C"]);
-        assert_eq!(p.embeds, vec!["B"]);
+        assert_eq!(
+            p.refs,
+            vec![
+                mention("idea", "A"),
+                embed("idea", "B"),
+                mention("idea", "C"),
+            ]
+        );
     }
 
     #[test]
     fn whitespace_is_stripped() {
         let p = parse_links("see [[  spaced name  ]] and ![[  embedded  ]]");
-        assert_eq!(p.mentions, vec!["spaced name"]);
-        assert_eq!(p.embeds, vec!["embedded"]);
+        assert_eq!(
+            p.refs,
+            vec![mention("idea", "spaced name"), embed("idea", "embedded"),]
+        );
     }
 
     #[test]
     fn case_insensitive_dedupe_per_relation() {
         let p = parse_links("[[Foo]] and [[foo]] and [[FOO]]");
-        assert_eq!(p.mentions, vec!["Foo"]);
+        // First-seen casing wins.
+        assert_eq!(p.refs, vec![mention("idea", "Foo")]);
     }
 
     #[test]
     fn same_name_can_be_mention_and_embed() {
         let p = parse_links("[[X]] and later ![[X]]");
-        assert_eq!(p.mentions, vec!["X"]);
-        assert_eq!(p.embeds, vec!["X"]);
+        assert_eq!(p.refs, vec![mention("idea", "X"), embed("idea", "X")]);
     }
 
     #[test]
     fn unterminated_brackets_do_not_match() {
         let p = parse_links("this [[unfinished and [[real]] one");
-        assert_eq!(p.mentions, vec!["real"]);
+        assert_eq!(p.refs, vec![mention("idea", "real")]);
     }
 
     #[test]
     fn newline_inside_brackets_breaks_match() {
         let p = parse_links("[[line one\nline two]]");
-        assert!(p.mentions.is_empty());
+        assert!(p.refs.is_empty());
     }
 
     #[test]
     fn empty_brackets_are_ignored() {
         let p = parse_links("nothing here: [[]] and ![[]]");
-        assert!(p.mentions.is_empty());
-        assert!(p.embeds.is_empty());
+        assert!(p.refs.is_empty());
     }
 
     #[test]
     fn whitespace_only_brackets_are_ignored() {
         let p = parse_links("[[   ]]");
-        assert!(p.mentions.is_empty());
+        assert!(p.refs.is_empty());
     }
 
     #[test]
     fn empty_body_returns_empty() {
         let p = parse_links("");
-        assert!(p.mentions.is_empty());
-        assert!(p.embeds.is_empty());
+        assert!(p.refs.is_empty());
     }
 
     #[test]
     fn no_links_in_plain_prose() {
         let p = parse_links("this has no wikilinks at all, [single brackets] only");
-        assert!(p.mentions.is_empty());
-        assert!(p.embeds.is_empty());
+        assert!(p.refs.is_empty());
     }
 
     #[test]
     fn bang_without_brackets_is_not_an_embed() {
         let p = parse_links("exciting! [[Regular]] mention after");
-        assert_eq!(p.mentions, vec!["Regular"]);
-        assert!(p.embeds.is_empty());
+        assert_eq!(p.refs, vec![mention("idea", "Regular")]);
     }
 
-    // ── Typed prefix tests ─────────────────────────────────────────────
+    // ── Cross-kind tests (T1.8) ────────────────────────────────────────
 
     #[test]
-    fn supersedes_is_parsed() {
-        let p = parse_links("We moved on supersedes:[[Old Plan]] now.");
-        assert_eq!(p.supersedes, vec!["Old Plan"]);
-        assert!(p.mentions.is_empty());
-    }
-
-    #[test]
-    fn contradicts_is_parsed() {
-        let p = parse_links("But contradicts:[[Stale Fact]] — see new data.");
-        assert_eq!(p.contradicts, vec!["Stale Fact"]);
-        assert!(p.mentions.is_empty());
+    fn session_mention_parses() {
+        let p = parse_links("see [[session:abc-123]] for what we said");
+        assert_eq!(p.refs, vec![mention("session", "abc-123")]);
     }
 
     #[test]
-    fn supports_is_parsed() {
-        let p = parse_links("Evidence: supports:[[Main Claim]].");
-        assert_eq!(p.supports, vec!["Main Claim"]);
+    fn session_embed_parses() {
+        let p = parse_links("transclude: ![[session:abc-123]]");
+        assert_eq!(p.refs, vec![embed("session", "abc-123")]);
     }
 
     #[test]
-    fn distilled_into_is_parsed() {
-        let p = parse_links("Old notes distilled_into:[[Summary Idea]].");
-        assert_eq!(p.distilled_into, vec!["Summary Idea"]);
+    fn quest_mention_parses() {
+        let p = parse_links("blocked by [[quest:Q-42]]");
+        assert_eq!(p.refs, vec![mention("quest", "Q-42")]);
     }
 
     #[test]
-    fn typed_prefixes_mix_with_plain_mentions() {
-        let p = parse_links(
-            "plain [[A]], supersedes:[[B]], then ![[C]] and supports:[[D]] and [[A]] again",
-        );
-        assert_eq!(p.mentions, vec!["A"]);
-        assert_eq!(p.embeds, vec!["C"]);
-        assert_eq!(p.supersedes, vec!["B"]);
-        assert_eq!(p.supports, vec!["D"]);
+    fn agent_mention_parses() {
+        let p = parse_links("dispatched to [[agent:hermes]]");
+        assert_eq!(p.refs, vec![mention("agent", "hermes")]);
     }
 
     #[test]
-    fn typed_prefix_suppresses_plain_mention() {
-        // `supersedes:[[X]]` must NOT also appear in `mentions`.
-        let p = parse_links("supersedes:[[X]]");
-        assert!(p.mentions.is_empty());
-        assert_eq!(p.supersedes, vec!["X"]);
+    fn unknown_kind_falls_back_to_idea_with_full_token() {
+        // Preserves existing behaviour: `unknown:foo` is treated as an
+        // idea name, never crashes.
+        let p = parse_links("[[unknown:foo]]");
+        assert_eq!(p.refs, vec![mention("idea", "unknown:foo")]);
     }
 
     #[test]
-    fn typed_prefix_case_insensitive_dedupe() {
-        let p = parse_links("supersedes:[[Foo]] supersedes:[[foo]] supersedes:[[FOO]]");
-        assert_eq!(p.supersedes, vec!["Foo"]);
+    fn bare_brackets_default_to_idea_kind() {
+        let p = parse_links("[[just-a-name]]");
+        assert_eq!(p.refs, vec![mention("idea", "just-a-name")]);
     }
 
     #[test]
-    fn unknown_typed_prefix_falls_back_to_mention() {
-        // `causes` is not (yet) a recognised typed prefix — must fall
-        // back to a plain mention, not silently drop.
-        let p = parse_links("causes:[[Event]]");
-        assert_eq!(p.mentions, vec!["Event"]);
-        assert!(p.supersedes.is_empty());
+    fn cross_kind_dedupe_is_per_kind() {
+        let p = parse_links("[[X]] [[idea:X]]");
+        // `[[idea:X]]` resolves to the same `(idea, X, mention)` triple
+        // as `[[X]]` — second is a duplicate.
+        assert_eq!(p.refs, vec![mention("idea", "X")]);
     }
 
     #[test]
-    fn prefix_embedded_in_larger_word_does_not_match() {
-        // `notsupersedes:[[X]]` must NOT be parsed as a typed prefix.
-        let p = parse_links("notsupersedes:[[X]]");
-        assert_eq!(p.mentions, vec!["X"]);
-        assert!(p.supersedes.is_empty());
-    }
-
-    #[test]
-    fn as_relation_pairs_round_trips() {
-        let p = parse_links(
-            "[[A]] ![[B]] supersedes:[[C]] contradicts:[[D]] supports:[[E]] distilled_into:[[F]]",
-        );
-        let pairs = p.as_relation_pairs();
+    fn cross_kind_session_then_idea_with_same_id() {
+        let p = parse_links("[[session:abc]] and [[abc]]");
+        // Different kinds — both kept.
         assert_eq!(
-            pairs,
-            vec![
-                ("mentions", "A"),
-                ("embeds", "B"),
-                ("supersedes", "C"),
-                ("contradicts", "D"),
-                ("supports", "E"),
-                ("distilled_into", "F"),
-            ]
+            p.refs,
+            vec![mention("session", "abc"), mention("idea", "abc")]
         );
+    }
+
+    #[test]
+    fn whitespace_around_kind_prefix_is_tolerated() {
+        let p = parse_links("[[ session : abc-123 ]]");
+        assert_eq!(p.refs, vec![mention("session", "abc-123")]);
+    }
+
+    #[test]
+    fn empty_id_after_known_kind_falls_back_to_idea() {
+        // `[[session:]]` — empty id should not match the kind path.
+        let p = parse_links("[[session:]]");
+        assert_eq!(p.refs, vec![mention("idea", "session:")]);
+    }
+
+    #[test]
+    fn meta_colon_tag_is_idea_name_not_kind_prefix() {
+        // `[[meta:tag]]` — `meta` is not a known kind; the whole token is
+        // the idea name (this matches the legacy `[[meta:thing]]` shape
+        // that some seeds use).
+        let p = parse_links("[[meta:tag]]");
+        assert_eq!(p.refs, vec![mention("idea", "meta:tag")]);
     }
 }

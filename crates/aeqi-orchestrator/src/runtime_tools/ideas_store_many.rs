@@ -1084,9 +1084,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn t1_4_references_resolve_rejects_dangling_distilled_into() {
-        // Item with `distilled_into:[[nonexistent]]` in the body fails;
-        // sibling whose distilled_into target exists passes.
+    async fn t1_4_references_resolve_rejects_dangling_mention() {
+        // T1.8: the validator now walks plain `[[X]]` mentions
+        // instead of typed `distilled_into:[[X]]` prefixes. The
+        // typed prefix was retired; meaning lives in tags + prose.
         let (store, _dir) = make_store();
         store
             .store("real-target", "I exist.", &["fact".to_string()], None)
@@ -1107,12 +1108,12 @@ mod tests {
                 "from_json": [
                     {
                         "name": "ok-link",
-                        "content": "see distilled_into:[[real-target]] for context",
+                        "content": "see [[real-target]] for context",
                         "tags": ["validated"],
                     },
                     {
                         "name": "dangling",
-                        "content": "see distilled_into:[[nonexistent]] for context",
+                        "content": "see [[nonexistent]] for context",
                         "tags": ["validated"],
                     },
                 ],
@@ -1134,6 +1135,43 @@ mod tests {
             Some("references_resolve")
         );
         assert_eq!(fv[0].get("item").and_then(|v| v.as_str()), Some("dangling"));
+    }
+
+    #[tokio::test]
+    async fn t1_8_references_resolve_skips_cross_kind_session_refs() {
+        // T1.8: `[[session:<id>]]` refs are cross-kind — they don't
+        // resolve through the idea-name resolver, so the validator
+        // must skip them. Only idea-kind mentions are checked.
+        let (store, _dir) = make_store();
+        seed_policy(
+            &store,
+            "validated",
+            r#"
+            tag = "validated"
+            validators = ["references_resolve"]
+        "#,
+        )
+        .await;
+        let tool = make_validator_tool(&store);
+        let result = tool
+            .execute(serde_json::json!({
+                "from_json": [
+                    {
+                        "name": "session-link",
+                        "content": "see [[session:abc-no-such-session]] for what we said",
+                        "tags": ["validated"],
+                    },
+                ],
+                "authored_by": "test",
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error);
+        assert_eq!(
+            result.data.get("stored").and_then(|v| v.as_u64()),
+            Some(1),
+            "cross-kind session refs must NOT trip the idea-name resolver"
+        );
     }
 
     #[tokio::test]
