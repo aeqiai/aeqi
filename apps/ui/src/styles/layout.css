@@ -69,7 +69,10 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  /* Tight vertical padding — the line height carries the breathing
+     room. Mirrored by a 4px top inset on .content-column so the card
+     floats with symmetric breathing on both edges. */
+  padding: 4px 14px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.015)), var(--bg-sidebar);
   color: var(--text-muted);
@@ -584,17 +587,19 @@
 }
 
 /* Search row is a <button> rendered as a sidebar-nav-item. Reset only
- * the native button defaults that differ from <a> — never `font:
- * inherit` (the shorthand also resets font-size, breaking the
- * --font-size-xs the .sidebar-nav-item class set). */
+ * the box defaults that differ from <a>. NEVER touch font-size or
+ * color: .sidebar-nav-item already declares both correctly, and
+ * `inherit` here would override the class with whatever the body
+ * has (14px / default color), making the search row read larger and
+ * darker than its siblings. font-family is the one thing the UA
+ * stylesheet pins on <button>; pin it back to --font-sans explicitly
+ * so it doesn't inherit a UA value that might not match. */
 .sidebar-nav-item--search {
   background: transparent;
   border: 0;
   width: 100%;
   cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
+  font-family: var(--font-sans);
   text-align: left;
 }
 
@@ -918,6 +923,10 @@
   flex-direction: column;
   overflow: hidden;
   background: transparent;
+  /* Small top inset mirrors the .shell-footer's bottom strip — content
+     card floats with matching small gaps on both vertical edges. Same
+     "small symmetric breathing room" rule the sidebar wears. */
+  padding-top: 4px;
 }
 
 /* Content card — the tinted frame. Holds the topbar and the paper

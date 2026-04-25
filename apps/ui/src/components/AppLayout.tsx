@@ -9,6 +9,7 @@ import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
 import ShortcutsOverlay from "./ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
+import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonSocket } from "@/hooks/useDaemonSocket";
@@ -26,6 +27,7 @@ const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 // HomeDashboard is the `/` landing — user-scoped summary across every
 // company the user has.
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
+const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
 /** Walk up parent_id to find the root ancestor. */
 function findRoot(agents: Agent[], id: string): Agent | null {
@@ -250,6 +252,20 @@ export default function AppLayout() {
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
+
+  // Derive the user-scope session id early — both the inbox-store hook
+  // below and the post-early-return logic need it. Pure path parsing,
+  // no hook involved.
+  const userSessionMatch = path.match(/^\/sessions\/([^/]+)\/?$/);
+  const userSessionId = userSessionMatch ? decodeURIComponent(userSessionMatch[1]) : null;
+  // Resolve the inbox-item's agent_id when we're at /sessions/:id so the
+  // composer can show the agent's name + route the type-anywhere fallback.
+  // Must be called unconditionally, before any early return — React's
+  // rules-of-hooks.
+  const inboxAgentId = useInboxStore((s) =>
+    userSessionId ? (s.items.find((i) => i.session_id === userSessionId)?.agent_id ?? null) : null,
+  );
+
   if (!initialLoaded) return <BootLoader />;
 
   // URL points at an agent that no longer exists (e.g., after a data reset
@@ -274,11 +290,18 @@ export default function AppLayout() {
   // matcher and so isHome can exclude them cleanly.
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
-  // `/` — user-scoped landing. Doubles as the Inbox surface: agent
-  // pings, company switcher, summary all live on a single home page.
-  // No agent in scope here, so no composer or sessions rail; the
-  // topbar still renders, carrying user identity + the Settings gear.
-  const isHome = !agentId && !isSettings && !isBlueprints && !isEconomy;
+  // `/sessions/:sessionId` — user-scope inbox session view. Same shell
+  // as the agent-scope sessions surface, but the rail shows inbox items
+  // (across every agent the user can see) and the agent_id is resolved
+  // from the inbox item. (userSessionId derived above; declared early
+  // so the inbox-agent hook can be called without violating
+  // rules-of-hooks.)
+  const isUserSession = !!userSessionId;
+  // `/` — user-scoped landing. Doubles as the Inbox surface root: the
+  // sessions rail surfaces awaiting items, the main column carries
+  // greeting + caught-up status. Composer is hidden here — there's no
+  // session to be texting to until the user picks one from the rail.
+  const isHome = !agentId && !isSettings && !isBlueprints && !isEconomy && !isUserSession;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
@@ -309,6 +332,7 @@ export default function AppLayout() {
   }
 
   const mainContent = (() => {
+    if (isUserSession && userSessionId) return <UserInboxSessionView sessionId={userSessionId} />;
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
@@ -317,23 +341,31 @@ export default function AppLayout() {
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
-  // AgentSessionView only mounts when AgentPage is rendered on the
-  // per-agent sessions surface.
+  // AgentSessionView mounts on the per-agent sessions surface and on the
+  // user-scope inbox session view. Both want the persistent composer +
+  // streaming-state event bridge; the user-scope variant just resolves
+  // its agent from the inbox row instead of from the URL.
   const sessionsMounted =
-    !isDrive &&
-    !isSettings &&
-    !isHome &&
-    !isBlueprints &&
-    !isEconomy &&
-    effectiveTab === "sessions";
-  // Composer lives with the sessions surface only — the other W-primitive
-  // surfaces (agents/events/quests/ideas) own their own editing
-  // affordances and don't need a persistent composer eating vertical space.
+    isUserSession ||
+    (!isDrive &&
+      !isSettings &&
+      !isHome &&
+      !isBlueprints &&
+      !isEconomy &&
+      effectiveTab === "sessions");
+  // Composer lives with the sessions surface. At user scope, hide it
+  // when no session is selected — there's nothing to be texting to.
   const showComposer = sessionsMounted;
-  // Sessions surface gets its own left-adjacent sessions rail. Every other
-  // tab owns its full width and embeds its own picker in the page body.
-  const showSessionsRail =
-    effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome;
+  // Sessions rail variants:
+  //   - inbox mode: at /, /sessions/:id (and only at user scope) — list
+  //     of awaiting items across every agent.
+  //   - agent mode: at /:agentId/sessions[/...] — that agent's session list.
+  // Other tabs render their own inline picker inside the content column
+  // and own their full width.
+  const inboxRail = (isHome || isUserSession) && !isSettings && !isBlueprints && !isEconomy;
+  const agentRail = effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome;
+  const showSessionsRail = inboxRail || agentRail;
+  const railMode: "inbox" | "agent" = inboxRail ? "inbox" : "agent";
 
   return (
     <>
@@ -352,7 +384,7 @@ export default function AppLayout() {
               <div className="content-body-row">
                 {showSessionsRail && (
                   <aside className="sessions-rail-col">
-                    <SessionsRail />
+                    <SessionsRail mode={railMode} selectedSessionId={userSessionId} />
                   </aside>
                 )}
                 <div className="content-main-col">
@@ -361,9 +393,10 @@ export default function AppLayout() {
                   </div>
                   {showComposer && (
                     <ComposerRow
-                      agentId={agentId || null}
+                      agentId={agentId || inboxAgentId || null}
                       base={base}
                       sessionsMounted={sessionsMounted}
+                      sessionId={isUserSession ? userSessionId : undefined}
                     />
                   )}
                 </div>

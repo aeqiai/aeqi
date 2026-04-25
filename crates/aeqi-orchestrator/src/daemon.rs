@@ -1894,6 +1894,13 @@ impl Daemon {
                                     .to_payload()
                                     .expect("QueuedMessage serialization is infallible");
 
+                                // A user reply lands as a regular session_send when the
+                                // user types in the agent-scope session view. The session
+                                // may have `awaiting_at` set (agent fired question.ask);
+                                // clear it as a side effect so the inbox row dismisses.
+                                // Idempotent: no-op when awaiting_at is null.
+                                let _ = ss.clear_awaiting(&resolved_session_id).await;
+
                                 if let Err(e) = crate::session_queue::enqueue(
                                     ss,
                                     executor,

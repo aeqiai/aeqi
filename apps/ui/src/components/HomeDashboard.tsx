@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
+import { useInboxStore, selectInboxCount } from "@/store/inbox";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
-import Inbox from "./inbox";
 import SpawnTemplateModal from "./SpawnTemplateModal";
 import BlueprintGallery from "./BlueprintGallery";
 import type { Agent, CompanyTemplate } from "@/lib/types";
@@ -156,8 +156,41 @@ export default function HomeDashboard() {
     );
   }
 
-  // Returning user — the home page is now the director inbox. Greeting,
-  // eyebrow, and rows live inside `<Inbox />`; we just hand it the
-  // computed heading. The launch CTA has moved to the sidebar.
-  return <Inbox heading={heading} />;
+  // Returning user — the home page is the director inbox's intro. The
+  // sessions rail (left of this column) carries the actual list of
+  // awaiting items; this column is just the greeting and a one-line
+  // status. No list, no composer — picking a row from the rail loads
+  // /sessions/:id and the conversation renders here.
+  return <InboxIntro heading={heading} />;
+}
+
+function InboxIntro({ heading }: { heading: string }) {
+  const fetchInbox = useInboxStore((s) => s.fetchInbox);
+  const wsConnected = useDaemonStore((s) => s.wsConnected);
+  const count = useInboxStore(selectInboxCount);
+
+  // Initial fetch + resync after WS reconnect — same contract as the
+  // old Inbox component had, kept here so the rail is populated even
+  // when the user lands on / directly without ever opening a session.
+  useEffect(() => {
+    void fetchInbox();
+  }, [fetchInbox, wsConnected]);
+
+  useEffect(() => {
+    document.title = count > 0 ? `(${count}) inbox · æqi` : "inbox · æqi";
+  }, [count]);
+
+  const status =
+    count === 0
+      ? "all caught up"
+      : count === 1
+        ? "1 pending decision"
+        : `${count} pending decisions`;
+
+  return (
+    <section className="inbox-intro" aria-label="Director inbox">
+      <h1 className="inbox-greeting">{heading}</h1>
+      <p className="inbox-intro-status">{status}</p>
+    </section>
+  );
 }

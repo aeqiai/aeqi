@@ -107,6 +107,13 @@ export default function App() {
                     <Route path="settings" element={null} />
                     <Route path="blueprints" element={null} />
                     <Route path="economy" element={null} />
+                    {/* User-scope inbox session viewer: opens a single
+                        awaiting session inline at user scope, with the
+                        sessions rail showing all pending items across
+                        every agent the user has access to. The agent_id
+                        is resolved from the inbox item by session_id,
+                        not from the URL. */}
+                    <Route path="sessions/:sessionId" element={null} />
                     {/* Legacy redirects: /profile → /settings, /library →
                         /blueprints, /protocol → /economy, /templates →
                         /blueprints. Old links / bookmarks don't dead-end. */}

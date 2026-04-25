@@ -12,6 +12,12 @@ interface ComposerRowProps {
   base: string;
   /** True iff AgentSessionView is mounted and listening for send events. */
   sessionsMounted: boolean;
+  /**
+   * Active session id if the URL points at one (agent-scope or user-
+   * scope inbox). When provided, supersedes the params-derived itemId
+   * and powers the streaming-indicator + history-seed logic.
+   */
+  sessionId?: string | null;
 }
 
 /**
@@ -29,7 +35,12 @@ interface ComposerRowProps {
  *      view drains `pendingMessage` on mount and the send continues
  *      seamlessly.
  */
-export default function ComposerRow({ agentId, base, sessionsMounted }: ComposerRowProps) {
+export default function ComposerRow({
+  agentId,
+  base,
+  sessionsMounted,
+  sessionId: explicitSessionId,
+}: ComposerRowProps) {
   const navigate = useNavigate();
   const { tab, itemId } = useParams<{ tab?: string; itemId?: string }>();
   const agents = useDaemonStore((s) => s.agents);
@@ -37,7 +48,12 @@ export default function ComposerRow({ agentId, base, sessionsMounted }: Composer
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const agentDisplayName = agent?.name || agentId || "";
-  const currentSessionId = tab === "sessions" ? itemId || null : null;
+  const currentSessionId =
+    explicitSessionId !== undefined
+      ? explicitSessionId
+      : tab === "sessions"
+        ? itemId || null
+        : null;
 
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);

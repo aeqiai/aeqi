@@ -1,6 +1,7 @@
-import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
+import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useNav } from "@/hooks/useNav";
 import { ThinkingDot } from "@/components/ui";
@@ -15,19 +16,39 @@ interface SessionRow {
   badge?: string;
   time: string;
   status?: string;
+  awaiting?: boolean;
   group: RecencyBucket;
   sortKey: number;
 }
 
+interface SessionsRailProps {
+  /**
+   * "agent" — per-agent rail at /:agentId/sessions; reads from chat
+   * store. Default for agent-scope routes.
+   *
+   * "inbox" — user-scope rail at /sessions/:id (and /). Reads from
+   * inbox store; rows are awaiting questions across every agent the
+   * user has access to. Click navigates to /sessions/:id (no agent
+   * prefix) so the same shell handles both flows.
+   */
+  mode: "agent" | "inbox";
+  /** When mode="inbox", the currently-selected session_id from the URL. */
+  selectedSessionId?: string | null;
+}
+
 /**
- * Sessions rail — the left-adjacent index column for the Inbox surface.
- *
- * Mounted between the primary LeftSidebar and the main content column when
- * the current tab is Inbox (sessions). Other tabs render their own inline
- * picker inside the content column. Dense single-line rows with a status
- * dot, the session label, and a right-aligned relative timestamp.
+ * Sessions rail — the left-adjacent index column. Two modes:
+ *   - agent: per-agent session list (chat store, default)
+ *   - inbox: user-scope inbox items (awaiting questions across all
+ *            agents). Inbox rows surface the agent name in place of
+ *            the session label so the user knows who's asking.
  */
-export default function SessionsRail() {
+export default function SessionsRail({ mode, selectedSessionId }: SessionsRailProps) {
+  if (mode === "inbox") return <InboxRail selectedSessionId={selectedSessionId ?? null} />;
+  return <AgentRail />;
+}
+
+function AgentRail() {
   const { agentId, itemId } = useParams<{ agentId?: string; itemId?: string }>();
   const { goAgent } = useNav();
 
@@ -59,17 +80,15 @@ export default function SessionsRail() {
           id: s.id,
           name: sessionLabel(s),
           badge,
-          // `timeShort` matches the home inbox's compact mono column —
-          // `5m` / `3h` / `2d` / `Apr 12` — same vocabulary across both
-          // surfaces.
           time: timeShort(tsRaw ?? null),
           status: s.status,
+          awaiting: awaitingSessionIds.has(s.id),
           group: recencyBucket(tsRaw ?? null),
           sortKey: ts,
         };
       })
       .sort((a, b) => b.sortKey - a.sortKey);
-  }, [sessions]);
+  }, [sessions, awaitingSessionIds]);
 
   const handleSelect = (id: string) => {
     if (!agentId) return;
@@ -77,12 +96,94 @@ export default function SessionsRail() {
   };
 
   return (
+    <RailShell
+      items={items}
+      selectedId={itemId ?? null}
+      onSelect={handleSelect}
+      streamingSessions={streamingSessions}
+      emptyTitle="no sessions yet"
+      emptyHint="type below to start one"
+    />
+  );
+}
+
+function InboxRail({ selectedSessionId }: { selectedSessionId: string | null }) {
+  const navigate = useNavigate();
+  const rawItems = useInboxStore((s) => s.items);
+  const pendingDismissal = useInboxStore((s) => s.pendingDismissal);
+  const fetchInbox = useInboxStore((s) => s.fetchInbox);
+  const wsConnected = useDaemonStore((s) => s.wsConnected);
+  const streamingSessions = useChatStore((s) => s.streamingSessions);
+
+  // Hydrate the inbox so deep links (e.g. directly opening
+  // `/sessions/:id`) get a populated rail. Resync on WS reconnect for
+  // any updates dropped while disconnected.
+  useEffect(() => {
+    void fetchInbox();
+  }, [fetchInbox, wsConnected]);
+
+  const items = useMemo<SessionRow[]>(() => {
+    const visible = rawItems.filter((i) => !pendingDismissal.has(i.session_id));
+    return visible
+      .map((it) => {
+        const ts = it.awaiting_at ? new Date(it.awaiting_at).getTime() : 0;
+        // The "name" in inbox mode is the AGENT name — the user is
+        // looking at "who's asking me", not "which session". Subject is
+        // a secondary line we surface below the agent. Falls back
+        // gracefully when joins aren't populated.
+        const agentLabel = it.agent_name ?? "agent";
+        return {
+          id: it.session_id,
+          name: agentLabel,
+          badge: it.awaiting_subject || undefined,
+          time: timeShort(it.awaiting_at ?? null),
+          status: "awaiting",
+          awaiting: true,
+          group: recencyBucket(it.awaiting_at ?? null),
+          sortKey: ts,
+        };
+      })
+      .sort((a, b) => b.sortKey - a.sortKey);
+  }, [rawItems, pendingDismissal]);
+
+  const handleSelect = (id: string) => {
+    navigate(`/sessions/${encodeURIComponent(id)}`, { replace: true });
+  };
+
+  return (
+    <RailShell
+      items={items}
+      selectedId={selectedSessionId}
+      onSelect={handleSelect}
+      streamingSessions={streamingSessions}
+      emptyTitle="all caught up"
+      emptyHint="agents will surface things here when they need you"
+    />
+  );
+}
+
+function RailShell({
+  items,
+  selectedId,
+  onSelect,
+  streamingSessions,
+  emptyTitle,
+  emptyHint,
+}: {
+  items: SessionRow[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  streamingSessions: Record<string, boolean>;
+  emptyTitle: string;
+  emptyHint: string;
+}) {
+  return (
     <div className="sessions-rail">
       <div className="sessions-rail-list">
         {items.length === 0 && (
           <div className="sessions-rail-empty">
-            <div className="sessions-rail-empty-title">no sessions yet</div>
-            <div className="sessions-rail-empty-hint">type below to start one</div>
+            <div className="sessions-rail-empty-title">{emptyTitle}</div>
+            <div className="sessions-rail-empty-hint">{emptyHint}</div>
           </div>
         )}
         {items.map((item, i) => {
@@ -97,10 +198,10 @@ export default function SessionsRail() {
               )}
               <button
                 type="button"
-                className={`sessions-rail-row${item.id === itemId ? " active" : ""}`}
+                className={`sessions-rail-row${item.id === selectedId ? " active" : ""}`}
                 data-status={item.status}
-                aria-current={item.id === itemId ? "true" : undefined}
-                onClick={() => handleSelect(item.id)}
+                aria-current={item.id === selectedId ? "true" : undefined}
+                onClick={() => onSelect(item.id)}
               >
                 {streamingSessions[item.id] ? (
                   <ThinkingDot size="md" className="sessions-rail-row-thinking" />
@@ -113,7 +214,7 @@ export default function SessionsRail() {
                 )}
                 <span className="sessions-rail-row-name">{item.name}</span>
                 {item.badge && <span className="sessions-rail-row-badge">{item.badge}</span>}
-                {awaitingSessionIds.has(item.id) && (
+                {item.awaiting && (
                   <span className="sessions-rail-awaiting-dot" aria-label="awaiting your reply" />
                 )}
                 <span className="sessions-rail-row-time">{item.time}</span>
