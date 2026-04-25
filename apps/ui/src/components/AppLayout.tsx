@@ -22,6 +22,8 @@ import type { Agent } from "@/lib/types";
 // (never namespaced under an agent) — it inherits the sidebar + tree chrome.
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
+const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 // HomeDashboard is the `/` landing — user-scoped summary across every
 // company the user has.
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
@@ -268,11 +270,16 @@ export default function AppLayout() {
   // Legacy /profile URLs redirect there in App.tsx; we also match
   // `tab === "profile"` defensively for any stale in-memory links.
   const isSettings = path === "/settings" || path === "/profile" || tab === "profile";
+  // User-scoped surfaces that share the shell but render their own page
+  // content. Detected from path so they don't get caught by the agentId
+  // matcher and so isHome can exclude them cleanly.
+  const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
+  const isEconomy = path === "/economy" || path.startsWith("/economy/");
   // `/` — user-scoped landing. Doubles as the Inbox surface: agent
   // pings, company switcher, summary all live on a single home page.
   // No agent in scope here, so no composer or sessions rail; the
   // topbar still renders, carrying user identity + the Settings gear.
-  const isHome = !agentId && !isSettings;
+  const isHome = !agentId && !isSettings && !isBlueprints && !isEconomy;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
 
@@ -306,6 +313,8 @@ export default function AppLayout() {
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
+    if (isBlueprints) return <BlueprintsPage />;
+    if (isEconomy) return <EconomyPage />;
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
@@ -315,7 +324,13 @@ export default function AppLayout() {
   const showTopBar = true;
   // AgentSessionView only mounts when AgentPage is rendered on the
   // per-agent sessions surface.
-  const sessionsMounted = !isDrive && !isSettings && !isHome && effectiveTab === "sessions";
+  const sessionsMounted =
+    !isDrive &&
+    !isSettings &&
+    !isHome &&
+    !isBlueprints &&
+    !isEconomy &&
+    effectiveTab === "sessions";
   // Composer lives with the sessions surface only — the other W-primitive
   // surfaces (agents/events/quests/ideas) own their own editing
   // affordances and don't need a persistent composer eating vertical space.

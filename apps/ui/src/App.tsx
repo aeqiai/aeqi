@@ -15,8 +15,6 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 // App pages -- lazy-loaded for route-level code splitting
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
-const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
-const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 
 const LoadingSpinner = () => (
@@ -93,33 +91,29 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Routes>
-                  {/* User-level routes */}
+                  {/* Standalone full-page routes — wizard-style surfaces
+                      that intentionally do NOT inherit the shell. */}
                   <Route path="new" element={<NewAgentPage />} />
-                  <Route path="blueprints" element={<BlueprintsPage />} />
-                  <Route path="economy" element={<EconomyPage />} />
-                  {/* Back-compat redirects: old links keep working */}
-                  <Route path="library" element={<Navigate to="/blueprints" replace />} />
-                  <Route path="protocol" element={<Navigate to="/economy" replace />} />
-                  <Route path="templates" element={<Navigate to="/blueprints" replace />} />
                   <Route path="agents" element={<AgentsPage />} />
-
-                  {/* Account-action routes — auth-style standalone pages
-                      (wordmark + card + footer), reached from the profile
-                      security tab. Password changes never share a surface
-                      with daily profile editing. */}
                   <Route path="change-password" element={<ChangePasswordPage />} />
 
-                  {/* Home dashboard + profile + every agent at /:agentId/...
-                      share the same shell — AppLayout decides content from
-                      path + params. Profile is a top-level user-scoped route
-                      (no agent context needed), registered before :agentId
-                      so react-router prefers the literal match. */}
+                  {/* Home dashboard + profile + blueprints + economy + every
+                      agent at /:agentId/... share the same shell — AppLayout
+                      decides content from path + params. User-scoped routes
+                      are registered before :agentId so react-router prefers
+                      the literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="settings" element={null} />
-                    {/* Legacy /profile → /settings; preserved so old
-                        links (email CTAs, bookmarks) don't dead-end. */}
+                    <Route path="blueprints" element={null} />
+                    <Route path="economy" element={null} />
+                    {/* Legacy redirects: /profile → /settings, /library →
+                        /blueprints, /protocol → /economy, /templates →
+                        /blueprints. Old links / bookmarks don't dead-end. */}
                     <Route path="profile" element={<Navigate to="/settings" replace />} />
+                    <Route path="library" element={<Navigate to="/blueprints" replace />} />
+                    <Route path="protocol" element={<Navigate to="/economy" replace />} />
+                    <Route path="templates" element={<Navigate to="/blueprints" replace />} />
                     <Route path=":agentId" element={null}>
                       <Route index element={null} />
                       <Route path=":tab" element={null} />
