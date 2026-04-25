@@ -236,6 +236,14 @@ function foldEventFiresIntoTrails(messages: Message[]): Message[] {
       }));
       m.segments = [...fireSegs, ...(m.segments ?? [])];
       pending = [];
+    } else if (m.role === "user" && pending.length > 0) {
+      // Abandoned fires from a previous failed turn — the agent never
+      // replied, then a new user message arrived. Without this flush
+      // they'd accumulate across every silent turn and dump onto the
+      // next successful assistant trail (renders as 5+ stacked
+      // execution_start pairs). Drop them in their own trail row so
+      // each turn's lifecycle stays scoped to that turn.
+      flushPendingAsTrail();
     }
     out.push(m);
   }
