@@ -515,6 +515,150 @@ pub fn apply_snapshot_to_registry(
     }
 }
 
+/// **Test-only.** Install a server using a pre-built [`Transport`] (the
+/// in-process mock). Used by integration tests so they don't have to
+/// fork a real subprocess. The reconnect loop still runs but loops on
+/// the same in-memory transport, so tests get the production code paths
+/// without I/O.
+pub async fn test_install_with_transport(
+    registry: &McpRegistry,
+    config: McpServerConfig,
+    transport: Arc<dyn Transport>,
+) -> Result<(), McpError> {
+    config
+        .validate()
+        .map_err(|e| McpError::protocol(format!("invalid mcp config: {e}")))?;
+    let name = config.name.clone();
+    {
+        let mut servers = registry.handle.inner.servers.write().await;
+        servers.insert(
+            name.clone(),
+            ServerEntry {
+                name: name.clone(),
+                config: config.clone(),
+                client: None,
+                descriptors: Vec::new(),
+                unavailable_reason: Some("starting".into()),
+            },
+        );
+    }
+    let inner = registry.handle.inner.clone();
+    let transport = transport.clone();
+    let task = tokio::spawn(async move {
+        run_server_loop_with_transport(inner, name, transport).await;
+    });
+    let mut joins = registry._join_handles.lock().await;
+    joins.push(task);
+    Ok(())
+}
+
+/// **Test-only.** Force a server's client into the disconnected state so
+/// downstream tools observe `unavailable` without waiting for the real
+/// transport to crash.
+pub async fn test_force_disconnect(registry: &McpRegistry, server: &str) {
+    let mut servers = registry.handle.inner.servers.write().await;
+    if let Some(entry) = servers.get_mut(server) {
+        entry.client = None;
+        entry.unavailable_reason = Some("forced for test".into());
+    }
+}
+
+/// **Test-only.** Run the credential resolver for a given config without
+/// spawning a subprocess. Surfaces what would be passed to the real
+/// transport.
+pub async fn test_resolve_credential(
+    config: &McpServerConfig,
+    resolver: Option<&aeqi_core::credentials::CredentialResolver>,
+) -> Result<Option<UsableCredential>, McpError> {
+    let inner = Arc::new(RegistryInner {
+        servers: RwLock::new(HashMap::new()),
+        credentials: resolver.cloned(),
+    });
+    resolve_credential(&inner, config).await
+}
+
+/// Variant of [`run_server_loop`] that takes a pre-built transport and
+/// re-uses it on every reconnect. Test-only.
+async fn run_server_loop_with_transport(
+    inner: Arc<RegistryInner>,
+    name: String,
+    transport: Arc<dyn Transport>,
+) {
+    let mut backoff = Duration::from_millis(50);
+    loop {
+        let config = match read_config(&inner, &name).await {
+            Some(c) => c,
+            None => return,
+        };
+        let max_backoff = Duration::from_secs(config.backoff_max_secs.max(1));
+
+        match McpClientBuilder::new(transport.clone()).connect().await {
+            Ok((client, closed_rx)) => {
+                let mut subscriber = client.subscribe();
+                match client.list_tools().await {
+                    Ok(tools) => {
+                        set_state(&inner, &name, Some(client.clone()), tools, None).await;
+                    }
+                    Err(e) => {
+                        set_state(
+                            &inner,
+                            &name,
+                            Some(client.clone()),
+                            Vec::new(),
+                            Some(format!("tools/list: {e}")),
+                        )
+                        .await;
+                    }
+                }
+
+                let close_or_notif = tokio::select! {
+                    res = closed_rx => match res {
+                        Ok(c) => c.reason,
+                        Err(_) => "closed channel dropped".into(),
+                    },
+                    _ = async {
+                        while let Ok(notif) = subscriber.recv().await {
+                            if matches!(notif, Notification::ToolsListChanged)
+                                && let Ok(tools) = client.list_tools().await
+                            {
+                                set_state(&inner, &name, Some(client.clone()), tools, None).await;
+                            }
+                        }
+                    } => "notification stream ended".into(),
+                };
+                client
+                    .mark_closed(crate::transport::TransportClosed {
+                        reason: close_or_notif.clone(),
+                    })
+                    .await;
+                set_state(
+                    &inner,
+                    &name,
+                    None,
+                    current_descriptors(&inner, &name).await,
+                    Some(format!("disconnected: {close_or_notif}")),
+                )
+                .await;
+            }
+            Err(e) => {
+                set_state(
+                    &inner,
+                    &name,
+                    None,
+                    Vec::new(),
+                    Some(format!("connect failed: {e}")),
+                )
+                .await;
+            }
+        }
+        sleep(backoff).await;
+        backoff = (backoff * 2).min(max_backoff);
+        if !still_installed(&inner, &name).await {
+            return;
+        }
+    }
+}
+
 /// Quick helper: build a [`ToolRegistry`](aeqi_core::tool_registry::ToolRegistry)
 /// pre-populated with the MCP snapshot. Used by tests.
 pub fn registry_with_snapshot(

@@ -36,6 +36,11 @@ struct MockState {
     /// Filled when the client connects — lets `push_tools_list_changed`
     /// signal the live transport.
     initialised: bool,
+    /// Live close-channel senders. We hold them so the corresponding
+    /// `closed_rx` doesn't fire spuriously when the connection is
+    /// healthy. Tests that want to simulate a crash drain this via
+    /// [`MockServer::trigger_close`].
+    close_senders: Vec<oneshot::Sender<TransportClosed>>,
 }
 
 impl Default for MockServer {
@@ -52,6 +57,7 @@ impl MockServer {
                 handlers: HashMap::new(),
                 push_inbound: None,
                 initialised: false,
+                close_senders: Vec::new(),
             })),
         }
     }
@@ -78,6 +84,20 @@ impl MockServer {
     pub fn transport(&self) -> MockTransport {
         MockTransport {
             state: self.inner.clone(),
+        }
+    }
+
+    /// Simulate a server crash — fires the oldest still-attached
+    /// `closed_rx`. Returns true if a live transport observed the close.
+    pub async fn trigger_close(&self, reason: impl Into<String>) -> bool {
+        let mut s = self.inner.lock().await;
+        if let Some(tx) = s.close_senders.pop() {
+            tx.send(TransportClosed {
+                reason: reason.into(),
+            })
+            .is_ok()
+        } else {
+            false
         }
     }
 
@@ -110,13 +130,15 @@ impl Transport for MockTransport {
     async fn connect(&self) -> Result<TransportChannels, McpError> {
         let (outbound_tx, mut outbound_rx) = mpsc::channel::<String>(64);
         let (inbound_tx, inbound_rx) = mpsc::channel::<String>(64);
-        let (_closed_tx, closed_rx) = oneshot::channel::<TransportClosed>();
+        let (closed_tx, closed_rx) = oneshot::channel::<TransportClosed>();
 
-        // Wire the push-notification channel into shared state.
+        // Wire the push-notification channel + close sender into shared
+        // state so the close-channel survives the lifetime of `connect`.
         {
             let mut s = self.state.lock().await;
             s.push_inbound = Some(inbound_tx.clone());
             s.initialised = true;
+            s.close_senders.push(closed_tx);
         }
 
         let state = self.state.clone();
