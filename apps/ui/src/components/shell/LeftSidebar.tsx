@@ -225,19 +225,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         )}
       </div>
 
+      {/* Global rail items above search — always show the same content
+          regardless of which agent is in scope. Blueprints and Economy
+          are operator-level surfaces, not per-agent ones. */}
       <div className="sidebar-user-zone">
-        <a
-          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-          href={inboxHref}
-          title={agentId ? "Agent inbox" : "Your inbox"}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(inboxHref);
-          }}
-        >
-          <InboxIcon />
-          <span className="sidebar-nav-label">Inbox</span>
-        </a>
         <a
           className={`sidebar-nav-item ${path === "/blueprints" || path.startsWith("/blueprints/") ? "active" : ""}`}
           href="/blueprints"
@@ -290,6 +281,22 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
+        {/* Scope-aware Inbox sits below search — it's the entry point
+            into whichever scope you're currently in (your home at user
+            root, the agent's home in agent scope), unlike the global
+            Blueprints / Economy rail items above search. */}
+        <a
+          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+          href={inboxHref}
+          title={agentId ? "Agent inbox" : "Your inbox"}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(inboxHref);
+          }}
+        >
+          <InboxIcon />
+          <span className="sidebar-nav-label">Inbox</span>
+        </a>
         <nav
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
           aria-label={userScope ? "Launch agent" : "Agent surfaces"}
