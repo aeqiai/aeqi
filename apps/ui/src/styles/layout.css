@@ -677,14 +677,12 @@
      never collapses smaller than the agent-scope version of itself. */
   min-height: 140px;
   padding: 18px 14px;
-  /* Identity/scope slot at user-root. Wears the black border at all
-     times — same treatment an active nav row wears — because it IS the
-     scope marker for "you, the human" (mirror of the active-agent
-     marker in agent scope). The rail's rule: black border once per
-     scope-identity, once per navigation, never elsewhere. */
+  /* Same hover-only border rule as the nav rows — nothing on the rail
+     wears the black border at rest. Reserve the 1px so hover doesn't
+     reflow the card. */
   background: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--color-accent);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-weight: 500;
@@ -693,15 +691,14 @@
   text-align: center;
   transition:
     background var(--transition-normal),
+    border-color var(--transition-normal),
     color var(--transition-normal),
     transform var(--transition-normal);
 }
 .sidebar-launch-cta:hover {
-  /* Border stays solid-accent at rest already; only bg + color shift on
-     hover. Matches .sidebar-nav-item hover bg so the rail reads as a
-     single material across hover surfaces. */
   background: var(--state-hover);
   color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 .sidebar-launch-cta:active {
   transform: scale(0.985);
