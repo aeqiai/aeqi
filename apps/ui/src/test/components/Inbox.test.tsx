@@ -48,12 +48,10 @@ describe("Inbox", () => {
 
   it("renders the empty state when there are no items", () => {
     renderInbox();
-    // The bespoke empty-state title (Exo 2 lowercase).
+    // The Exo 2 lowercase title is the empty state's only typographic
+    // gesture; the page-level eyebrow that used to also appear on
+    // empty was removed in the editorial-record redesign.
     expect(screen.getByText("you're caught up")).toBeInTheDocument();
-    // The eyebrow flips from "N AWAITING" to "CAUGHT UP" — uppercase
-    // mono. (The empty-state title is lowercase, so an exact match
-    // disambiguates from the eyebrow.)
-    expect(screen.getByText("CAUGHT UP")).toBeInTheDocument();
   });
 
   it("renders one row per visible inbox item", () => {
@@ -67,10 +65,20 @@ describe("Inbox", () => {
     expect(screen.getByText("subject for c")).toBeInTheDocument();
   });
 
-  it("shows the awaiting count in the eyebrow", () => {
-    useInboxStore.setState({ items: [makeItem("a"), makeItem("b")] });
+  it("groups rows by recency under section labels", () => {
+    // Both items are within today (the test fixtures use a fresh
+    // date string each call), so the "today" group label must
+    // render once with both rows under it.
+    useInboxStore.setState({
+      items: [
+        { ...makeItem("a"), awaiting_at: new Date().toISOString() },
+        { ...makeItem("b"), awaiting_at: new Date().toISOString() },
+      ],
+    });
     renderInbox();
-    expect(screen.getByText(/2 AWAITING/)).toBeInTheDocument();
+    // The recency-bucket label renders as an <h2>, lowercase.
+    expect(screen.getByRole("heading", { level: 2, name: "today" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("inbox-row")).toHaveLength(2);
   });
 
   it("hides items that are currently in pendingDismissal", () => {

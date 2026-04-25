@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import BlockAvatar from "@/components/BlockAvatar";
-import { timeAgo } from "@/lib/format";
+import { timeShort } from "@/lib/format";
 import type { InboxItem as InboxItemData } from "@/lib/api";
 
 interface InboxItemProps {
@@ -8,23 +8,21 @@ interface InboxItemProps {
 }
 
 /**
- * Single inbox row. Clicking the row navigates to the source session
- * — there is no inline reply panel and no expanded state. The work
- * happens in the session view; the inbox is purely a directory of
- * pending items.
+ * Single inbox row. Editorial-record layout: a 16px inline avatar
+ * sits next to the agent name (whisper-meta), the subject is the only
+ * confident line below, and the time anchors the right column in
+ * tabular-num mono. Click navigates to the source session.
  *
- * Visual language is intentionally restrained: small avatar, single
- * line of subject text, monospaced relative time. No accent rail, no
- * pulse dot, no entry animation. Hover is a quiet background tint;
- * focus reuses the same tint plus a focus ring from the button
- * primitive defaults.
+ * Two grid rows, two columns: left content stack + right time column.
+ * Avatar is INLINE inside the meta line (not its own column) — this
+ * removes the "two-column card" feel of the previous shape and lets
+ * the subject occupy the full row width.
  */
 export default function InboxItem({ item }: InboxItemProps) {
   const navigate = useNavigate();
   const subject = item.awaiting_subject ?? item.session_name;
-  // The agent_name join is best-effort; if the registry didn't surface
-  // a name (orphaned/deleted), fall back to the session name so the
-  // row never reads as nameless.
+  // The agent_name join is best-effort; fall back to session_name so
+  // the row is never nameless.
   const agentLabel = item.agent_name ?? item.session_name ?? "agent";
   const showRoot =
     item.root_agent_id != null && item.agent_id != null && item.root_agent_id !== item.agent_id;
@@ -39,10 +37,10 @@ export default function InboxItem({ item }: InboxItemProps) {
   return (
     <li>
       <button type="button" className="inbox-row" data-testid="inbox-row" onClick={onClick}>
-        <span className="inbox-row-avatar">
-          <BlockAvatar name={agentLabel} size={24} />
-        </span>
         <span className="inbox-row-meta">
+          <span className="inbox-row-meta-avatar" aria-hidden="true">
+            <BlockAvatar name={agentLabel} size={16} />
+          </span>
           <span className="inbox-row-meta-agent">{agentLabel}</span>
           {showRoot && (
             <>
@@ -54,7 +52,9 @@ export default function InboxItem({ item }: InboxItemProps) {
           )}
         </span>
         <span className="inbox-row-subject">{subject}</span>
-        <span className="inbox-row-time">{timeAgo(item.awaiting_at)}</span>
+        <time className="inbox-row-time" dateTime={item.awaiting_at}>
+          {timeShort(item.awaiting_at)}
+        </time>
       </button>
     </li>
   );

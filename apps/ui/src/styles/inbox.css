@@ -1,15 +1,20 @@
 /*  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- *  AEQI Director Inbox — `/` page surface
+ *  aeqi Director Inbox — `/` page surface
  *
- *  The home page when a user has ≥1 agent. Replaces the prior
- *  greeting + companies-list dashboard. Single job: actionables.
+ *  Editorial-record layout: a single Exo 2 greeting at the top, then
+ *  date-grouped rows. Each row is one editorial line — the subject —
+ *  flanked by whisper-meta on the left and a mono time anchor on the
+ *  right. Click navigates to the source session.
  *
- *  Design language is intentionally restrained — this is a directory
- *  of pending items, not a rich preview pane. The work happens in
- *  the session view; clicking a row navigates there. No inline
- *  reply, no accordion, no entry animation, no pulse dot, no accent
- *  rail. Hover is a quiet background tint. One line of subject
- *  carries the row.
+ *  Design principles enforced here (see .impeccable.md):
+ *    • Restraint over flourish — one typographic gesture per section.
+ *    • Information density first — Linear-tight rhythm, not marketing
+ *      whitespace.
+ *    • Jade is sacred — never used here. "Awaiting" reads as ink.
+ *    • Lowercase prose throughout.
+ *    • Click = navigate (no inline accordion / inline reply).
+ *    • Mono for numbers (time column, tabular-nums always on).
+ *    • Hairlines between rows (no boxes, no shadows).
  *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 /* ── Page container ─────────────────────────────────────────── */
@@ -17,40 +22,67 @@
 .inbox {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  /* 760px (vs the old home's 920) — rows read like email at a
-     comfortable line length; tighter rhythm signals "this is a
-     working surface, not a marketing page". */
-  max-width: 760px;
+  gap: var(--space-7, 32px);
+  /* 720px — same line-length register as long-form publishing. The
+     subject line is the editorial unit, sized to be read at a glance,
+     so we cap before content gets blown out. */
+  max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  padding: clamp(20px, 4vw, 48px) clamp(16px, 4vw, 48px) 64px;
+  padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 48px) 80px;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+
+.inbox-header {
+  /* The page's only typographic gesture is the greeting. No mono
+     eyebrow under it (the count lives in the tab title; the page
+     name is implied by being on /). One editorial moment, full
+     stop. */
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .inbox-greeting {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.2vw, 26px);
+  font-size: clamp(22px, 2.4vw, 28px);
   font-weight: 400;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   line-height: 1.1;
-  color: var(--text-secondary);
+  color: var(--color-ink-primary);
   text-transform: lowercase;
+  /* Subtle weight modulation — the comma sits at the visual seam
+     between greeting and name. CSS can't easily italicize half a
+     line, so we lean on `letter-spacing` and the lowercase
+     instruction to give it a hand-set feel. */
 }
 
-.inbox-eyebrow {
+/* ── Groups (today / yesterday / earlier this week / older) ── */
+
+.inbox-groups {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  flex-direction: column;
+  gap: 28px;
 }
-.inbox-eyebrow-sep {
-  opacity: 0.5;
+.inbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.inbox-group-label {
+  margin: 0 0 2px;
+  /* Lowercase weight 500 sans for the group eyebrow — readable but
+     deferential to the rows below. Mono would be too clinical for a
+     plain English label like "earlier this week"; we save the mono
+     register for IDs and timestamps where it earns its keep. */
+  font-family: var(--font-sans, inherit);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-ink-muted);
+  text-transform: lowercase;
 }
 
 /* ── List ──────────────────────────────────────────────────── */
@@ -63,110 +95,129 @@
   flex-direction: column;
 }
 .inbox-list > li + li {
-  /* Hairline divider between rows — quieter than the previous
-     gap-based separation, more like a list of records than a
-     list of cards. */
-  border-top: 1px solid var(--border-faint);
+  /* Hairline divider — the only group chrome. No box, no shadow.
+     `--border-faint` is rgba(0,0,0,~.06) so it whispers between
+     rows on the white card. */
+  border-top: 1px solid var(--color-border-faint, rgba(0, 0, 0, 0.06));
 }
 
 /* ── Row ──────────────────────────────────────────────────── */
 
 .inbox-row {
   display: grid;
-  grid-template-columns: 24px 1fr auto;
+  grid-template-columns: 1fr auto;
   grid-template-rows: auto auto;
-  column-gap: 12px;
-  row-gap: 2px;
+  column-gap: 16px;
+  row-gap: 4px;
   width: 100%;
-  padding: 12px var(--space-3);
+  padding: 14px 12px 14px 4px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background 100ms ease;
 }
 .inbox-row:hover,
 .inbox-row:focus-visible {
-  background: var(--state-hover);
+  background: var(--state-hover, rgba(0, 0, 0, 0.03));
   outline: none;
 }
-
-/* Avatar column spans both text rows so it sits left-aligned
-   against the meta + subject stack. */
-.inbox-row-avatar {
-  grid-row: 1 / span 2;
-  align-self: center;
+.inbox-row:focus-visible {
+  /* Accessibility: a faint focus ring keyboard users can locate.
+     Inset so it doesn't push the row off-axis. */
+  box-shadow: inset 0 0 0 1px var(--color-accent, #0a0a0b);
 }
 
+/* Meta line (top): inline avatar · agent · root */
 .inbox-row-meta {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-ink-secondary);
+  line-height: 1;
   letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.inbox-row-meta-agent {
-  color: var(--text-secondary);
-  font-weight: 500;
+.inbox-row-meta-avatar {
+  display: inline-flex;
+  align-items: center;
+  /* Inline 16px avatar — small enough to read as a glyph next to
+     the name, not as its own column. The BlockAvatar's deterministic
+     pattern is still useful at this size. */
+  flex-shrink: 0;
 }
-.inbox-row-meta-root {
-  color: var(--text-muted);
+.inbox-row-meta-agent {
+  color: var(--color-ink-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .inbox-row-meta-sep {
-  font-family: var(--font-mono);
-  color: var(--text-muted);
+  color: var(--color-ink-muted);
   font-size: 10px;
-  opacity: 0.6;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.inbox-row-meta-root {
+  color: var(--color-ink-muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Subject (bottom-left): the editorial line — single typographic
+   gesture per row. Inter, weight 500, slight optical letter-spacing
+   pull for tight subjects. Single-line ellipsis; the reader clicks
+   through for the full text. */
 .inbox-row-subject {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 2;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary);
-  letter-spacing: -0.005em;
-  line-height: 1.35;
+  color: var(--color-ink-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Time (right column, spans both rows): mono tabular-nums anchor.
+   Top-aligned to the meta baseline so the eye locates it without
+   scanning. */
 .inbox-row-time {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  align-self: center;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  margin-top: 0;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--text-muted);
+  font-weight: 400;
+  color: var(--color-ink-muted);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
-/* ── Sessions-rail awaiting dot ──
-   Lives on the per-agent SessionsRail row when the session is in
-   the user's inbox. Not on the inbox surface itself — that one is
-   already the canonical "things that need attention" list, no
-   redundant cue needed. Kept here because the styling shares the
-   inbox color register. */
+/* ── Sessions-rail awaiting dot (lives on the per-agent sidebar) ── */
 .sessions-rail-awaiting-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
-  background: var(--text-primary);
-  animation: inbox-pulse 1.6s ease-in-out infinite;
+  background: var(--color-ink-primary);
   box-shadow: 0 0 0 2px var(--bg-sidebar);
 }
 
@@ -175,33 +226,33 @@
 .inbox-empty {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
   justify-content: center;
-  min-height: 40vh;
-  padding-top: var(--space-4);
+  min-height: 44vh;
+  padding-top: 24px;
 }
 .inbox-empty-eyebrow {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-ink-muted);
 }
 .inbox-empty-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(22px, 2.6vw, 28px);
   font-weight: 400;
-  letter-spacing: -0.005em;
-  line-height: 1.15;
-  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--color-ink-primary);
   text-transform: lowercase;
 }
 .inbox-empty-sub {
   margin: 0;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--color-ink-muted);
   line-height: 1.5;
   max-width: 36ch;
 }
@@ -211,16 +262,17 @@
 .inbox-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+}
+.inbox-skeleton > * + * {
+  border-top: 1px solid var(--color-border-faint, rgba(0, 0, 0, 0.06));
 }
 .inbox-skeleton-row {
   height: 56px;
-  border-radius: var(--radius-sm);
   background: linear-gradient(
     90deg,
-    var(--state-hover) 0%,
-    var(--state-selected) 50%,
-    var(--state-hover) 100%
+    var(--state-hover, rgba(0, 0, 0, 0.03)) 0%,
+    var(--state-selected, rgba(0, 0, 0, 0.07)) 50%,
+    var(--state-hover, rgba(0, 0, 0, 0.03)) 100%
   );
   background-size: 200% 100%;
   animation: cam-skeleton-shine 1.4s linear infinite;
@@ -231,39 +283,24 @@
 @media (max-width: 640px) {
   .inbox {
     padding: 24px 16px 56px;
+    gap: 24px;
   }
   .inbox-row {
-    grid-template-columns: 24px 1fr;
-    grid-template-rows: auto auto auto;
+    padding: 12px 8px 12px 4px;
     column-gap: 12px;
   }
-  .inbox-row-time {
-    grid-column: 2;
-    grid-row: 3;
-    margin-top: 2px;
+  .inbox-row-subject {
+    font-size: 13px;
   }
 }
 
-/* ── Keyframes ─────────────────────────────────────────── */
-
-/* Only one keyframe survives: the SessionsRail pulse dot.
-   Inbox rows render instantly — no entry animation, no flourish.
-   Skeleton uses the existing `cam-skeleton-shine` from elsewhere. */
-@keyframes inbox-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.55;
-    transform: scale(0.92);
-  }
-}
+/* ── Reduced motion ─────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .sessions-rail-awaiting-dot,
   .inbox-skeleton-row {
     animation: none !important;
+  }
+  .inbox-row {
+    transition: none !important;
   }
 }

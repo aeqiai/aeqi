@@ -11,17 +11,24 @@ interface InboxProps {
 }
 
 /**
- * The director inbox — replaces the prior home dashboard for users with
- * ≥1 agent. Owns three regions stacked vertically:
- *   1. greeting (Exo 2, stepped DOWN from the old hero size — the page
- *      weight now belongs to the inbox rows below, per the design plan)
- *   2. mono eyebrow with the awaiting count
- *   3. either the rows, the loading skeleton, or the caught-up empty state
+ * The director inbox — replaces the prior home dashboard for users
+ * with ≥1 agent. Two regions:
+ *   1. greeting (Exo 2, restrained — one typographic gesture per
+ *      page; nothing else competes with it for emphasis)
+ *   2. either the row groups, the loading skeleton, or the caught-up
+ *      empty state. Rows are date-grouped (today / yesterday / earlier
+ *      this week / older); group labels are the only chrome between
+ *      clusters.
+ *
+ * The "INBOX · N AWAITING" eyebrow that lived between the greeting
+ * and the rows has been removed — the count is in the document title
+ * already, and the page name is implied by being on /. One less
+ * editorial gesture per the "restraint over flourish" memory.
  *
  * Real-time updates land via `useDaemonSocket` (the existing single
  * websocket) which dispatches `inbox_update` events into the store.
- * On mount we kick off a fresh fetch; we also re-fetch when the WS
- * reconnects, since the in-flight tick window can drop events.
+ * Initial fetch on mount + on WS reconnect to resync any window of
+ * dropped events.
  */
 export default function Inbox({ heading }: InboxProps) {
   // Subscribe to the raw fields, derive `items` + `count` inside the
@@ -58,12 +65,9 @@ export default function Inbox({ heading }: InboxProps) {
 
   return (
     <section className="inbox" aria-label="Director inbox">
-      <h1 className="inbox-greeting">{heading}</h1>
-      <div className="inbox-eyebrow" aria-hidden="true">
-        <span>INBOX</span>
-        <span className="inbox-eyebrow-sep">·</span>
-        <span>{count > 0 ? `${count} AWAITING` : "CAUGHT UP"}</span>
-      </div>
+      <header className="inbox-header">
+        <h1 className="inbox-greeting">{heading}</h1>
+      </header>
       {showSkeleton ? <InboxLoading /> : showEmpty ? <InboxEmpty /> : <InboxList items={items} />}
     </section>
   );
