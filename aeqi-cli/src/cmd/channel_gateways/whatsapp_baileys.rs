@@ -10,6 +10,20 @@
 //! protocol. We never see Noise frames, Signal ratchets, or QR raw bytes
 //! in Rust — those stay inside the bridge. Rust sees JSON events and
 //! outgoing send calls.
+//!
+//! ## Credential substrate (T1.9)
+//!
+//! The new `device_session` lifecycle in `aeqi-core` is the canonical home
+//! for paired WhatsApp sessions, scoped per-channel. Live channels still
+//! read their auth state from the filesystem `session_dir` below — this
+//! gateway is **deliberately** not migrated in T1.9 to avoid risking the
+//! loss of live, paired sessions during the substrate landing. The
+//! follow-up plan: the gateway calls
+//! `CredentialStore::find(scope=channel, provider=whatsapp_baileys,
+//! name=session_state)`, falls back to `session_dir`, and on first
+//! successful pair writes through to the credentials table. Operators can
+//! re-pair any device once and end up on the new substrate without
+//! disrupting the active connection.
 
 use std::path::PathBuf;
 use std::sync::Arc;
