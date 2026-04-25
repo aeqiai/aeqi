@@ -405,13 +405,15 @@
    of the brand. Single colour (inherits currentColor); the rejected
    "two-tone accent-initial" pattern is a different treatment that
    splits the label itself — this one replaces the icon entirely. */
-.sidebar-nav-letter {
-  display: inline-flex;
-  align-items: center;
+/* Primitive nav row — full lowercase word in the brand typeface, no
+ * separate icon slot. The wordmark voice carries the row. Centered
+ * so the four primitives stack like a column of brand glyphs inside
+ * the surface-nav block. */
+.sidebar-nav-item--primitive {
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
+  padding: 0;
+}
+.sidebar-nav-primitive-label {
   font-family: var(--font-brand);
   font-weight: 500;
   font-size: 13px;
@@ -420,8 +422,8 @@
   color: var(--text-muted);
   user-select: none;
 }
-.sidebar-nav-item:hover .sidebar-nav-letter,
-.sidebar-nav-item.active .sidebar-nav-letter {
+.sidebar-nav-item--primitive:hover .sidebar-nav-primitive-label,
+.sidebar-nav-item--primitive.active .sidebar-nav-primitive-label {
   color: var(--color-accent);
 }
 

@@ -12,18 +12,10 @@ interface LeftSidebarProps {
   path: string;
 }
 
-interface NavItem {
-  id: string;
-  label: React.ReactNode;
-  icon: React.ReactNode;
-  /** Hover tooltip — hosts the `g + letter` jump shortcut hint. */
-  title?: string;
-}
-
 /*
- * SVG props for the brand glyph + chrome icons (search, help, collapse).
- * Primitive nav items use Zen Dots letter-as-icon instead — see
- * PrimitiveLetter below.
+ * SVG props for the user-zone glyphs (Inbox, Blueprints, Economy)
+ * and chrome icons (collapse, search). Primitive nav rows have no
+ * icon — they render the full word in the brand typeface.
  */
 const iconProps = {
   viewBox: "0 0 16 16",
@@ -33,18 +25,6 @@ const iconProps = {
   strokeLinecap: "round",
   strokeLinejoin: "round",
 } as const;
-
-/**
- * Primitive letter-as-icon — the first letter of the primitive's name
- * rendered in the brand typeface (Zen Dots), pinned into the same 16×16
- * slot a Lucide glyph would occupy. Threads the wordmark's dotted
- * geometry through the navigation rail.
- */
-const PrimitiveLetter = ({ ch }: { ch: string }) => (
-  <span className="sidebar-nav-letter" aria-hidden="true">
-    {ch}
-  </span>
-);
 
 const InboxIcon = () => (
   <svg {...iconProps}>
@@ -74,11 +54,16 @@ const EconomyIcon = () => (
   </svg>
 );
 
-const PRIMITIVES: NavItem[] = [
-  { id: "agents", label: "Agents", icon: <PrimitiveLetter ch="a" />, title: "Agents · G then A" },
-  { id: "events", label: "Events", icon: <PrimitiveLetter ch="e" />, title: "Events · G then E" },
-  { id: "quests", label: "Quests", icon: <PrimitiveLetter ch="q" />, title: "Quests · G then Q" },
-  { id: "ideas", label: "Ideas", icon: <PrimitiveLetter ch="i" />, title: "Ideas · G then I" },
+/* Primitive nav rows show the full lowercase word in the brand
+ * typeface — no separate icon slot. The wordmark's dotted geometry
+ * carries the row by itself; pairing a letter-as-icon with a
+ * regular-type label always read like two voices arguing for the
+ * same row. */
+const PRIMITIVES: { id: string; label: string; title: string }[] = [
+  { id: "agents", label: "agents", title: "Agents · G then A" },
+  { id: "events", label: "events", title: "Events · G then E" },
+  { id: "quests", label: "quests", title: "Quests · G then Q" },
+  { id: "ideas", label: "ideas", title: "Ideas · G then I" },
 ];
 
 /**
@@ -140,10 +125,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
 
-  const renderNav = (item: NavItem) => (
+  const renderPrimitive = (item: { id: string; label: string; title: string }) => (
     <a
       key={item.id}
-      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
+      className={`sidebar-nav-item sidebar-nav-item--primitive ${isActive(item.id) ? "active" : ""}`}
       href={navHref(item.id)}
       title={item.title}
       onClick={(e) => {
@@ -151,8 +136,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         navigate(navHref(item.id));
       }}
     >
-      {item.icon}
-      <span className="sidebar-nav-label">{item.label}</span>
+      <span className="sidebar-nav-primitive-label">{item.label}</span>
     </a>
   );
 
@@ -306,7 +290,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
           aria-label={userScope ? "Launch agent" : "Agent surfaces"}
         >
-          {userScope ? renderLaunchCTA() : PRIMITIVES.map(renderNav)}
+          {userScope ? renderLaunchCTA() : PRIMITIVES.map(renderPrimitive)}
         </nav>
 
         <div className="sidebar-tree-slot">
