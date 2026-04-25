@@ -379,6 +379,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
         <div className="asv-messages" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
           {messages.length === 0 && queuedDrafts.length === 0 && !streaming && (
             <EmptyState
+              agentId={agentId}
               agentName={agentName}
               displayName={displayName}
               activeSessionId={activeSessionId}

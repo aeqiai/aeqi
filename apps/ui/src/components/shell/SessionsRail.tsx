@@ -5,6 +5,7 @@ import { useInboxStore } from "@/store/inbox";
 import { useNav } from "@/hooks/useNav";
 import { ThinkingDot } from "@/components/ui";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
+import { recencyBucket, timeShort, type RecencyBucket } from "@/lib/format";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
@@ -14,32 +15,8 @@ interface ThreadRow {
   badge?: string;
   time: string;
   status?: string;
-  group: string;
+  group: RecencyBucket;
   sortKey: number;
-}
-
-function recencyBucket(ts: number): string {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const dayMs = 86_400_000;
-  if (ts >= today) return "Today";
-  if (ts >= today - dayMs) return "Yesterday";
-  if (ts >= today - 7 * dayMs) return "This week";
-  if (ts >= today - 30 * dayMs) return "This month";
-  return "Earlier";
-}
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function relativeTime(ts: number): string {
-  if (!ts) return "";
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return "now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
-  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d`;
-  const d = new Date(ts);
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
 /**
@@ -83,9 +60,12 @@ export default function SessionsRail() {
           id: s.id,
           name: sessionLabel(s),
           badge,
-          time: relativeTime(ts),
+          // `timeShort` matches the home inbox's compact mono column —
+          // `5m` / `3h` / `2d` / `Apr 12` — same vocabulary across both
+          // surfaces.
+          time: timeShort(tsRaw ?? null),
           status: s.status,
-          group: ts ? recencyBucket(ts) : "Earlier",
+          group: recencyBucket(tsRaw ?? null),
           sortKey: ts,
         };
       })

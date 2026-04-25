@@ -133,7 +133,7 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: var(--space-1);
@@ -141,18 +141,44 @@
 
 .asv-empty-title {
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 500;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 400;
   color: var(--text-primary);
   letter-spacing: -0.01em;
-  line-height: 1.1;
+  line-height: 1.05;
+  text-transform: lowercase;
+  margin: 0;
+}
+
+/* Context strip — mono numbers + plain-English segments separated by
+   a thin dot. Lives directly under the title so the agent's status
+   reads as a quiet caption, not a stats panel. */
+.asv-empty-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.asv-empty-stats-segment {
+  white-space: nowrap;
+}
+.asv-empty-stats-sep {
+  color: var(--text-muted);
+  opacity: 0.5;
 }
 
 .asv-empty-hint {
+  margin-top: var(--space-3);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  letter-spacing: 0.01em;
-  max-width: 48ch;
+  letter-spacing: 0;
+  max-width: 52ch;
   line-height: 1.55;
 }
 
@@ -162,16 +188,24 @@
   gap: 6px;
   margin-top: var(--space-5);
 }
+/* Suggestions read as discoverable openings, not as a CTA wall.
+   Hairline border, no fill, lowercase Inter. Hover swaps to the
+   subtle slab tint and pulls the border ink up — same register as
+   the surrounding chat. */
 .asv-empty-suggestion {
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
+  font-weight: 400;
   color: var(--text-secondary);
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  padding: 5px 10px;
+  padding: 6px 10px;
   cursor: pointer;
-  transition: all 0.12s;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
 }
 .asv-empty-suggestion:hover {
   border-color: var(--border-hover);

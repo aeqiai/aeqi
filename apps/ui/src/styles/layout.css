@@ -1046,11 +1046,15 @@
   padding-top: 10px;
 }
 .threads-rail-group-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
+  /* Lowercase plain-English label, matching the home-inbox group
+     vocabulary (`today` / `yesterday` / `earlier this week` / `older`).
+     Mono uppercase here was over-shouting — these are stations along a
+     stream, not data table headers. */
+  font-family: var(--font-sans);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: lowercase;
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -1062,10 +1066,10 @@
 }
 /* Row — single-line dense: [live dot] [name, flex] [badge?] [time].
    36px min-height creates a calmer cadence than the old 48px + pill
-   layout. Selection is carried by the .active state alone (background
-   tint + 2px left bar); the live dot marks sessions that are still active. */
+   layout. Selection is carried by background tint + name weight alone
+   — no left-edge accent stripe. The live dot marks sessions that are
+   still active. */
 .threads-rail-row {
-  position: relative;
   display: grid;
   /* Fixed 14px gutter for the lifecycle/thinking dot so the column doesn't
      reflow when the 4px idle dot is swapped for the 7px+glow ThinkingDot. */
@@ -1076,39 +1080,25 @@
   min-height: 36px;
   padding: 6px 14px;
   border: 0;
+  border-radius: 4px;
   background: transparent;
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 100ms ease;
 }
-/* Left-edge accent rail — 2px graphite column slides in on hover and
-   holds the active row. Matches the ideas/quests list convention so the
-   threads rail reads as a member of the same primitive-list family. */
-.threads-rail-row::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--accent-bar-running);
-  transform: scaleY(0);
-  transform-origin: center;
-  transition: transform 0.12s ease;
-}
+/* No left-edge accent rail. The colored side-stripe pattern is the
+   single most-overused "design touch" in admin UIs and is on impeccable's
+   absolute-ban list. AEQI memory also flags it as rejected-and-reverted
+   on tabs/primitives. Active state is carried by `--state-selected` bg +
+   font-weight shift on the row name. */
 .threads-rail-row:hover,
 .threads-rail-row:focus-visible {
   background: var(--state-hover);
 }
 .threads-rail-row:focus-visible {
   outline: none;
-}
-.threads-rail-row:hover::before,
-.threads-rail-row:focus-visible::before,
-.threads-rail-row.active::before {
-  transform: scaleY(1);
 }
 .threads-rail-row.active {
   background: var(--state-selected);
