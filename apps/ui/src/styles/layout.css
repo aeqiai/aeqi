@@ -252,11 +252,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* 6px top inset mirrors .sidebar-footer's 6px bottom inset — small
-     symmetric gap top + bottom so the rail content reads as floating
-     inside the chrome, not flush against the viewport edges. */
-  padding: 6px 12px 0 16px;
-  height: 52px;
+  gap: 4px;
+  /* Same horizontal padding as .sidebar-user-zone so the right-edge
+     collapse button sits in the same column as the help (?) button
+     in the row below. Top inset is the rail's only top breathing
+     room — bottom is owned by the user-zone underneath. */
+  padding: 8px 8px 0;
   box-sizing: border-box;
   flex-shrink: 0;
 }
@@ -621,7 +622,10 @@
  * both children align. */
 .sidebar-row-pair {
   display: flex;
-  align-items: stretch;
+  /* Center the trailing action button (e.g. ? help) vertically inside
+     the paired row so it lines up with the collapse button in the
+     header above — both are 24×24 ghosts on the rail's right edge. */
+  align-items: center;
   gap: 4px;
 }
 .sidebar-row-pair > .sidebar-nav-item {
@@ -907,7 +911,8 @@
 .left-sidebar.collapsed .sidebar-footer .sidebar-help-btn {
   display: none;
 }
-.sidebar-help-btn {
+.sidebar-help-btn,
+.sidebar-collapse-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -928,8 +933,14 @@
     border-color 0.12s ease,
     background 0.12s ease;
 }
+.sidebar-collapse-btn > svg {
+  width: 14px;
+  height: 14px;
+}
 .sidebar-help-btn:hover,
-.sidebar-help-btn:focus-visible {
+.sidebar-help-btn:focus-visible,
+.sidebar-collapse-btn:hover,
+.sidebar-collapse-btn:focus-visible {
   color: var(--text-primary);
   border-color: var(--border-hover);
   background: var(--state-hover);

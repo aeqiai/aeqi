@@ -3,7 +3,6 @@ import AgentTree from "@/components/Sidebar";
 import BlockAvatar from "@/components/BlockAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
-import { IconButton } from "@/components/ui";
 
 // BrandMark / Wordmark are no longer rendered by the authed
 // LeftSidebar — the profile row replaces them in the top-left slot
@@ -38,13 +37,14 @@ const InboxIcon = () => (
   </svg>
 );
 
-/* Blueprints: a 4×4 grid in a frame — architectural plan paper.
- * Reads as "specs / drawings the runtime spawns from". Same stroke
- * weight as InboxIcon so the rail keeps even visual rhythm. */
+/* Blueprints: three stacked sheets, slightly offset. Reads as
+ * "a stack of plans" — the catalog metaphor — without leaning on the
+ * grid-paper cliché the rail used previously. */
 const BlueprintsIcon = () => (
   <svg {...iconProps}>
-    <rect x="2.5" y="2.5" width="11" height="11" rx="0.5" />
-    <path d="M2.5 6h11M2.5 9.5h11M6 2.5v11M9.5 2.5v11" />
+    <path d="M5 2.5h7v7" />
+    <path d="M3.5 4.5h7v7" />
+    <rect x="2" y="6.5" width="9" height="7" rx="0.5" />
   </svg>
 );
 
@@ -253,9 +253,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             ))}
         </a>
         {!sidebarCollapsed && (
-          <IconButton
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             className="sidebar-collapse-btn"
             onClick={toggleSidebar}
             aria-label="Collapse sidebar"
@@ -265,7 +264,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
               <rect x="2" y="3" width="12" height="10" rx="1.5" />
               <path d="M6.5 3v10" />
             </svg>
-          </IconButton>
+          </button>
         )}
       </div>
 
