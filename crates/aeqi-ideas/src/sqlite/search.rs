@@ -30,6 +30,7 @@
 
 use super::SqliteIdeas;
 use crate::hybrid::mmr_rerank;
+use crate::sqlite::fts::sanitise_fts5_query;
 use crate::sqlite::tags::tag_set_jaccard;
 use crate::tag_policy::{TagPolicy, TagPolicyCache};
 use crate::tag_ranker::TagRanker;
@@ -129,7 +130,7 @@ impl SqliteIdeas {
         limit: usize,
         include_superseded: bool,
     ) -> Result<Vec<(String, f32)>> {
-        let fts_query = build_fts_query(&query.text);
+        let fts_query = sanitise_fts5_query(&query.text);
 
         let mut conditions: Vec<String> = vec![
             "ideas_fts MATCH ?1".into(),
@@ -855,31 +856,6 @@ impl SqliteIdeas {
                 .collect()
         })
         .unwrap_or_default()
-    }
-}
-
-/// Compile an FTS5 MATCH expression. Strips metacharacters per word and
-/// adds prefix wildcards so `"auth"` matches `"authentication"`.
-fn build_fts_query(text: &str) -> String {
-    let words: Vec<String> = text
-        .split_whitespace()
-        .filter(|w| !w.is_empty())
-        .map(|w| {
-            let safe = w.replace(['"', '\'', '*', '^', '-', '(', ')'], "");
-            if safe.is_empty() {
-                String::new()
-            } else {
-                format!("{safe}*")
-            }
-        })
-        .filter(|w| !w.is_empty())
-        .collect();
-    if words.is_empty() {
-        "\"\"".into()
-    } else if words.len() == 1 {
-        words.into_iter().next().unwrap()
-    } else {
-        words.join(" ")
     }
 }
 

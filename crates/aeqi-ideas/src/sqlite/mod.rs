@@ -1,5 +1,6 @@
 mod edges;
 mod embeddings;
+pub mod fts;
 mod hotness;
 mod queries;
 mod schema;
