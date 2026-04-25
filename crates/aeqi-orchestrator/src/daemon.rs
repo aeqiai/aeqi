@@ -232,6 +232,8 @@ struct IpcContext {
     /// Handed to every CommandContext so IPC handlers can fire patterns
     /// like `ideas:threshold_reached` outside a live session.
     pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
+    // ── T1.9.1 (Move B.4) credentials substrate handle ─────────────────
+    credentials: Option<Arc<aeqi_core::credentials::CredentialStore>>,
 }
 
 /// The Daemon: background process that runs the scheduler patrol loop
@@ -297,6 +299,10 @@ pub struct Daemon {
     /// avoids three independently-built registries with subtly different
     /// capability flags.
     pub pattern_dispatcher: Option<Arc<dyn aeqi_core::tool_registry::PatternDispatcher>>,
+    /// T1.9.1 — Move B.4: Substrate handle wired through to IPC handlers
+    /// so `channels.create` writes the inbound token to the credentials
+    /// table instead of the channel row's config blob.
+    pub credentials: Option<Arc<aeqi_core::credentials::CredentialStore>>,
 }
 
 impl Daemon {
@@ -342,6 +348,7 @@ impl Daemon {
             embedder: None,
             recall_cache: Arc::new(aeqi_ideas::RecallCache::default()),
             pattern_dispatcher: None,
+            credentials: None,
         }
     }
 
@@ -350,6 +357,13 @@ impl Daemon {
         spawner: Arc<dyn crate::channel_registry::ChannelSpawner>,
     ) {
         self.channel_spawner = Some(spawner);
+    }
+
+    /// T1.9.1 — wire the credentials substrate handle into the daemon so
+    /// IPC handlers (notably `channels.create`) and gateway spawners can
+    /// route token reads / writes through the canonical store.
+    pub fn set_credentials(&mut self, credentials: Arc<aeqi_core::credentials::CredentialStore>) {
+        self.credentials = Some(credentials);
     }
 
     // ── Round 3 retrieval-side additions (Agent R) ──────────────────────
@@ -814,6 +828,8 @@ impl Daemon {
                     recall_cache: self.recall_cache.clone(),
                     // ── Round 6 additions ──────────────────────────────
                     pattern_dispatcher,
+                    // ── T1.9.1 Move B.4: substrate handle ──────────────
+                    credentials: self.credentials.clone(),
                 });
                 let agent_registry = self.agent_registry.clone();
                 let message_router = self.message_router.clone();
@@ -1204,6 +1220,8 @@ impl Daemon {
                 recall_cache: ipc_ctx.recall_cache.clone(),
                 // ── Round 6 additions ──────────────────────────────────
                 pattern_dispatcher: ipc_ctx.pattern_dispatcher.clone(),
+                // ── T1.9.1 Move B.4 ────────────────────────────────────
+                credentials: ipc_ctx.credentials.clone(),
             };
 
             let response = match cmd {

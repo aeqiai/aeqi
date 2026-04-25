@@ -14,23 +14,22 @@ use aeqi_tools::{TelegramReactTool, TelegramReplyTool};
 use tracing::{info, warn};
 
 use super::SpawnContext;
+use super::util::resolve_channel_token;
 
 /// Public entry point called by the dispatcher.
 ///
 /// The dispatcher owns parsing (kind → `TelegramConfig`) and whitelist
-/// conversion (db strings → i64); this function just owns the runtime task.
+/// conversion (db strings → i64); this function owns the runtime task and
+/// the credential resolution. `_cfg` is kept on the signature for symmetry
+/// with the other channel kinds even though `TelegramConfig` is now an
+/// empty marker (T1.9.1 — token lives in the substrate).
 pub(super) fn spawn_telegram_gateway(
-    cfg: TelegramConfig,
+    _cfg: TelegramConfig,
     channel_id: String,
     agent_id: String,
     allowed_chats_raw: Vec<String>,
     ctx: SpawnContext,
 ) {
-    if cfg.token.is_empty() {
-        warn!(channel_id = %channel_id, "telegram channel has empty token, skipping");
-        return;
-    }
-
     // allowed_chats lives on the channel row (joined from
     // channel_allowed_chats) as strings — Telegram expects i64, so parse
     // and drop malformed entries with a warning rather than failing the
@@ -46,36 +45,36 @@ pub(super) fn spawn_telegram_gateway(
         })
         .collect();
 
-    let tg_channel = Arc::new(TelegramChannel::new(cfg.token, allowed_chats.clone()));
+    // The substrate is the sole source of truth — there is no
+    // `cfg.token` fallback because the field doesn't exist on
+    // `TelegramConfig` any more. A missing credential means the operator
+    // has not provisioned this channel yet; skip without crashing the
+    // daemon.
+    let Some(credentials) = ctx.credentials.clone() else {
+        warn!(
+            channel_id = %channel_id,
+            "telegram gateway: no credential substrate available — skipping spawn"
+        );
+        return;
+    };
 
-    tokio::spawn(run_telegram_gateway(
-        agent_id.clone(),
-        allowed_chats,
-        tg_channel,
-        ctx,
-    ));
-    info!(agent_id = %agent_id, channel_id = %channel_id, "started agent telegram gateway from channels table");
-}
-
-/// Public shim used by the legacy `[channels.telegram]` TOML config path.
-///
-/// `daemon.rs` still owns the secret-store lookup + root-agent resolution for
-/// the pre-channels-table config block. Once the channel type exists in the
-/// DB we route through the normal dispatcher; this is the one-shot fallback.
-pub(crate) fn spawn_legacy_telegram_gateway(
-    agent_id: String,
-    token: String,
-    allowed_chats: Vec<i64>,
-    ctx: SpawnContext,
-) {
-    let tg_channel = Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
-    tokio::spawn(run_telegram_gateway(
-        agent_id.clone(),
-        allowed_chats,
-        tg_channel,
-        ctx,
-    ));
-    info!(agent_id = %agent_id, "started legacy telegram gateway from [channels.telegram]");
+    tokio::spawn(async move {
+        let token =
+            match resolve_channel_token(&credentials, &channel_id, "telegram", "token").await {
+                Some(t) => t,
+                None => {
+                    warn!(
+                        channel_id = %channel_id,
+                        "telegram gateway: no token in credentials substrate — skipping. \
+                         Re-add via Settings → Integrations or `aeqi credentials set`."
+                    );
+                    return;
+                }
+            };
+        let tg_channel = Arc::new(TelegramChannel::new(token, allowed_chats.clone()));
+        info!(agent_id = %agent_id, channel_id = %channel_id, "started agent telegram gateway from channels table");
+        run_telegram_gateway(agent_id, allowed_chats, tg_channel, ctx).await;
+    });
 }
 
 /// Agent-driven Telegram gateway task.
@@ -98,6 +97,7 @@ async fn run_telegram_gateway(
         stream_registry,
         execution_registry,
         pattern_dispatcher,
+        credentials: _credentials,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(tg_channel.as_ref()).await {

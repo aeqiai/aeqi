@@ -122,6 +122,7 @@ async fn run_gateway(
         stream_registry,
         execution_registry,
         pattern_dispatcher,
+        credentials: _credentials,
     } = ctx;
 
     let mut rx = match ChannelTrait::start(ch.as_ref()).await {

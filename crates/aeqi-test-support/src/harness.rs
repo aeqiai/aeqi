@@ -99,6 +99,7 @@ pub struct TestHarness {
     recall_cache: Arc<RecallCache>,
     activity_buffer: Arc<Mutex<aeqi_orchestrator::daemon::ActivityBuffer>>,
     pattern_dispatcher: Option<Arc<dyn PatternDispatcher>>,
+    credentials: Option<Arc<aeqi_core::credentials::CredentialStore>>,
 }
 
 impl TestHarness {
@@ -166,7 +167,19 @@ impl TestHarness {
             recall_cache,
             activity_buffer,
             pattern_dispatcher: None,
+            credentials: None,
         })
+    }
+
+    /// Install a credentials substrate handle (T1.9.1 Move B.4). Tests
+    /// that exercise the channels IPC create path or the credential pool
+    /// pass an in-memory store; everything else can leave it `None`.
+    pub fn with_credentials(
+        mut self,
+        credentials: Arc<aeqi_core::credentials::CredentialStore>,
+    ) -> Self {
+        self.credentials = Some(credentials);
+        self
     }
 
     /// Install a pattern dispatcher (e.g. an `EventPatternDispatcher` with
@@ -204,6 +217,7 @@ impl TestHarness {
             embedder: None,
             recall_cache: self.recall_cache.clone(),
             pattern_dispatcher: self.pattern_dispatcher.clone(),
+            credentials: self.credentials.clone(),
         }
     }
 
