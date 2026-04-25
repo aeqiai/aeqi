@@ -1,0 +1,24 @@
+[package]
+name = "aeqi-pack-slack"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Wisdom pack — Slack channels / messages / reactions / users / search backed by T1.9's oauth2 lifecycle"
+
+[dependencies]
+aeqi-core = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+tracing = { workspace = true }
+urlencoding = { workspace = true }
+
+[dev-dependencies]
+axum = { workspace = true }
+tempfile = { workspace = true }
+rusqlite = { workspace = true }
+uuid = { workspace = true }

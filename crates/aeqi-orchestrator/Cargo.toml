@@ -6,7 +6,7 @@ license.workspace = true
 description = "Agent orchestration engine — worker pool, workers, chat, dispatch, and daemon"
 
 [features]
-default = ["google-workspace", "github"]
+default = ["google-workspace", "github", "slack"]
 # Wisdom-pack tools that ship native Gmail / Calendar / Meet integrations
 # backed by T1.9's `oauth2` credential lifecycle. Off-by-default callers can
 # disable to slim the binary or to substitute their own provider pack.
@@ -14,6 +14,9 @@ google-workspace = ["dep:aeqi-pack-google-workspace"]
 # Wisdom-pack tools that ship native GitHub issues / PRs / files / releases
 # / search backed by T1.9's `github_app` (preferred) or `oauth2` lifecycle.
 github = ["dep:aeqi-pack-github"]
+# Wisdom-pack tools that ship native Slack channels / messages / reactions /
+# users / search backed by T1.9's `oauth2` lifecycle.
+slack = ["dep:aeqi-pack-slack"]
 
 [dependencies]
 aeqi-core = { workspace = true }
@@ -26,6 +29,7 @@ aeqi-graph = { workspace = true }
 aeqi-gates = { workspace = true }
 aeqi-pack-google-workspace = { workspace = true, optional = true }
 aeqi-pack-github = { workspace = true, optional = true }
+aeqi-pack-slack = { workspace = true, optional = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
