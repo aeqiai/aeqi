@@ -288,8 +288,7 @@ async fn chat_post_message(
     }
     // form-encoded
     let s_str = String::from_utf8_lossy(&bytes).to_string();
-    let pairs: Vec<(String, String)> =
-        serde_urlencoded::from_str(&s_str).unwrap_or_default();
+    let pairs: Vec<(String, String)> = serde_urlencoded::from_str(&s_str).unwrap_or_default();
     let pairs_v: Vec<(String, String)> = pairs.clone();
     let map: std::collections::HashMap<String, String> = pairs.into_iter().collect();
     *s.last_form.lock().unwrap() = Some(("chat.postMessage".into(), pairs_v));
@@ -325,8 +324,7 @@ async fn chat_update(
         return Json(json!({ "ok": true, "channel": channel, "ts": ts })).into_response();
     }
     let s_str = String::from_utf8_lossy(&bytes).to_string();
-    let pairs: Vec<(String, String)> =
-        serde_urlencoded::from_str(&s_str).unwrap_or_default();
+    let pairs: Vec<(String, String)> = serde_urlencoded::from_str(&s_str).unwrap_or_default();
     let pairs_v = pairs.clone();
     let map: std::collections::HashMap<String, String> = pairs.into_iter().collect();
     *s.last_form.lock().unwrap() = Some(("chat.update".into(), pairs_v));
@@ -747,7 +745,10 @@ async fn t01_channels_list_returns_mapped_fields() {
         qmap.get("types").map(String::as_str),
         Some("public_channel,private_channel")
     );
-    assert_eq!(qmap.get("exclude_archived").map(String::as_str), Some("false"));
+    assert_eq!(
+        qmap.get("exclude_archived").map(String::as_str),
+        Some("false")
+    );
     assert_eq!(qmap.get("limit").map(String::as_str), Some("100"));
 }
 
@@ -1023,7 +1024,10 @@ async fn t08_reactions_add_strips_colons() {
     assert_eq!(result.data["name"], "thumbsup");
     let captured = mock_state.last_form.lock().unwrap().clone().unwrap();
     let m: std::collections::HashMap<_, _> = captured.1.into_iter().collect();
-    assert_eq!(m.get("timestamp").map(String::as_str), Some("1700000000.000100"));
+    assert_eq!(
+        m.get("timestamp").map(String::as_str),
+        Some("1700000000.000100")
+    );
     assert_eq!(m.get("name").map(String::as_str), Some("thumbsup"));
 }
 

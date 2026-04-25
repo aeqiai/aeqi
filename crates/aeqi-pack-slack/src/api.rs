@@ -320,9 +320,7 @@ async fn check_response<T: DeserializeOwned>(
         if slack_error == "ratelimited" {
             return Err(SlackApiError::RateLimited { retry_after: None });
         }
-        return Err(SlackApiError::SlackErr {
-            error: slack_error,
-        });
+        return Err(SlackApiError::SlackErr { error: slack_error });
     }
     serde_json::from_value(envelope).map_err(|e| SlackApiError::Transport(e.to_string()))
 }

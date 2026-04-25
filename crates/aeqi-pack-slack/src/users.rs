@@ -144,19 +144,14 @@ impl Tool for UsersListTool {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         let params: Vec<(&str, &str)> = vec![("limit", "100")];
-        let (items, truncated) = match client.paginate_get("users.list", &params, "members").await
-        {
+        let (items, truncated) = match client.paginate_get("users.list", &params, "members").await {
             Ok(pair) => pair,
             Err(e) => return Ok(into_tool_error(e)),
         };
         let users: Vec<Value> = items
             .into_iter()
             .filter(|u| {
-                include_deleted
-                    || !u
-                        .get("deleted")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false)
+                include_deleted || !u.get("deleted").and_then(|v| v.as_bool()).unwrap_or(false)
             })
             .map(|u| project_user(&u))
             .collect();
@@ -278,10 +273,7 @@ impl Tool for UsersLookupByEmailTool {
             Ok(s) => s,
             Err(r) => return Ok(*r),
         };
-        let envelope: Value = match client
-            .get("users.lookupByEmail", &[("email", email)])
-            .await
-        {
+        let envelope: Value = match client.get("users.lookupByEmail", &[("email", email)]).await {
             Ok(v) => v,
             Err(e) => return Ok(into_tool_error(e)),
         };

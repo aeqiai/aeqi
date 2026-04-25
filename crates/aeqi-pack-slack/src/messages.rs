@@ -176,10 +176,12 @@ impl Tool for MessagesPostTool {
         };
         let ts = envelope.get("ts").cloned().unwrap_or(Value::Null);
         let resolved_channel = envelope.get("channel").cloned().unwrap_or(Value::Null);
-        Ok(ToolResult::success(format!("posted ts={ts}")).with_data(json!({
-            "ts":        ts,
-            "channel":   resolved_channel,
-        })))
+        Ok(
+            ToolResult::success(format!("posted ts={ts}")).with_data(json!({
+                "ts":        ts,
+                "channel":   resolved_channel,
+            })),
+        )
     }
 }
 
@@ -266,8 +268,7 @@ impl Tool for MessagesUpdateTool {
         } else {
             // text guaranteed Some by the early return above.
             let t = text.unwrap();
-            let form: Vec<(&str, &str)> =
-                vec![("channel", channel), ("ts", ts), ("text", t)];
+            let form: Vec<(&str, &str)> = vec![("channel", channel), ("ts", ts), ("text", t)];
             client.post_form("chat.update", &form).await
         };
         let envelope: Value = match envelope_result {

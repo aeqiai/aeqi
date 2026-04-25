@@ -146,8 +146,7 @@ impl Tool for ReactionsAddTool {
             Err(r) => return Ok(*r),
         };
         let name = strip_colons(name_raw);
-        let form: Vec<(&str, &str)> =
-            vec![("channel", channel), ("timestamp", ts), ("name", name)];
+        let form: Vec<(&str, &str)> = vec![("channel", channel), ("timestamp", ts), ("name", name)];
         match client.post_form::<Value>("reactions.add", &form).await {
             Ok(_) => Ok(
                 ToolResult::success(format!("added :{name}: to ts={ts}")).with_data(json!({
@@ -227,8 +226,7 @@ impl Tool for ReactionsRemoveTool {
             Err(r) => return Ok(*r),
         };
         let name = strip_colons(name_raw);
-        let form: Vec<(&str, &str)> =
-            vec![("channel", channel), ("timestamp", ts), ("name", name)];
+        let form: Vec<(&str, &str)> = vec![("channel", channel), ("timestamp", ts), ("name", name)];
         match client.post_form::<Value>("reactions.remove", &form).await {
             Ok(_) => Ok(
                 ToolResult::success(format!("removed :{name}: from ts={ts}")).with_data(json!({
