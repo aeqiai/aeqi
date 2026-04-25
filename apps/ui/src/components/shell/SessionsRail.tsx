@@ -10,6 +10,22 @@ import { recencyBucket, timeShort, type RecencyBucket } from "@/lib/format";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
+/**
+ * Resolve a session's origin — the answer to "why does this session
+ * exist?". Returns a short lowercase string when we can name it
+ * confidently (telegram / whatsapp / web), or undefined for the
+ * generic catchalls (`interactive`, `perpetual`) where the rail row
+ * should stay single-line. Event- and agent-spawned origins would
+ * need a richer backend signal; not surfaced today.
+ */
+function deriveOrigin(s: SessionInfo): string | undefined {
+  const n = s.name?.toLowerCase() || "";
+  if (n.includes("telegram")) return "telegram";
+  if (n.includes("whatsapp")) return "whatsapp";
+  if (s.session_type === "web") return "web";
+  return undefined;
+}
+
 interface SessionRow {
   id: string;
   /** Bold body line — what the user is actually here to read. */
@@ -74,27 +90,22 @@ function AgentRail() {
     return sessions
       .filter((s) => s.session_type !== "task")
       .map((s) => {
-        const n = s.name?.toLowerCase() || "";
-        // Channel resolves from the session name first (caught
-        // upstream when a transport-prefixed session lands), then
-        // from session_type. We render this as the secondary meta
-        // line — same grammar as inbox mode's agent_name secondary.
-        const channel = n.includes("telegram")
-          ? "telegram"
-          : n.includes("whatsapp")
-            ? "whatsapp"
-            : s.session_type === "web"
-              ? "web"
-              : s.session_type === "interactive"
-                ? "interactive"
-                : s.session_type;
+        // Origin = where the session came from. Only render when
+        // it's something meaningful (real transport / event hook /
+        // sub-agent chain). Sessions started by typing into the
+        // composer leave this empty — the session label IS the row.
+        // "interactive" and "perpetual" are internal catchalls and
+        // tell the user nothing, so they're omitted.
+        const origin = deriveOrigin(s);
         const tsRaw = s.last_active || s.created_at;
         const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
         return {
           id: s.id,
           primary: sessionLabel(s),
-          secondary: channel,
-          wrapPrimary: true,
+          secondary: origin,
+          // Wrap only when there's a secondary line to balance —
+          // otherwise the row stays single-line and tight.
+          wrapPrimary: !!origin,
           time: timeShort(tsRaw ?? null),
           status: s.status,
           awaiting: awaitingSessionIds.has(s.id),
