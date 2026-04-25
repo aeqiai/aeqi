@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "aeqi-gates",
@@ -59,7 +59,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-core"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-gates"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "anyhow",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-graph"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-hosting"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -126,7 +126,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-ideas"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "anyhow",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-orchestrator"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "aeqi-gates",
@@ -178,7 +178,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-providers"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "anyhow",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-quests"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "anyhow",
@@ -210,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-test-support"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "aeqi-ideas",
@@ -228,7 +228,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-tools"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "aeqi-gates",
@@ -245,7 +245,7 @@ dependencies = [
 
 [[package]]
 name = "aeqi-web"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "aeqi-core",
  "aeqi-hosting",
