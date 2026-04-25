@@ -189,6 +189,39 @@ impl CredentialResolver {
         Ok(usable)
     }
 
+    /// Force a refresh by credential id — public entry point for the on-401
+    /// retry path. Looks up the row, dispatches to the lifecycle's `refresh`,
+    /// persists the new blob, and returns the freshly-resolved
+    /// [`UsableCredential`]. The substrate version of "the token endpoint
+    /// said our access_token is dead — please mint another one."
+    pub async fn refresh_by_id(
+        &self,
+        credential_id: &str,
+    ) -> Result<UsableCredential, CredentialResolveError> {
+        let row = self
+            .store
+            .get(credential_id)
+            .await
+            .map_err(|e| CredentialResolveError {
+                code: CredentialReasonCode::MissingCredential,
+                message: format!("get failed: {e}"),
+            })?
+            .ok_or_else(|| CredentialResolveError {
+                code: CredentialReasonCode::MissingCredential,
+                message: format!("credential id={credential_id} not found"),
+            })?;
+        let lifecycle = self
+            .lifecycles
+            .get(row.lifecycle_kind.as_str())
+            .cloned()
+            .ok_or_else(|| CredentialResolveError {
+                code: CredentialReasonCode::UnsupportedLifecycle,
+                message: format!("no handler for lifecycle '{}'", row.lifecycle_kind),
+            })?;
+        let refreshed_row = self.refresh_row(&row, lifecycle.as_ref()).await?;
+        self.resolve_row(&refreshed_row).await
+    }
+
     /// Force a refresh and persist the new blob.
     async fn refresh_row(
         &self,
