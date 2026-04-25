@@ -10,6 +10,7 @@ pub mod agent;
 pub mod chat_stream;
 pub mod checkpoint;
 pub mod config;
+pub mod credentials;
 pub mod detector;
 pub mod frontmatter;
 pub mod hooks;
@@ -34,6 +35,13 @@ pub use config::{
     AEQIConfig, AgentSpawnConfig, AgentSystemConfig, AgentTriggerConfig, ContextBudgetConfig,
     ExecutionMode, ModelTierConfig, PeerAgentConfig, ProviderKind, RuntimePresetConfig, TeamConfig,
     discover_agents, load_agent_config,
+};
+pub use credentials::{
+    BootstrapHandle, BootstrappedRow, CredentialBootstrapContext, CredentialCipher, CredentialDb,
+    CredentialInsert, CredentialKey, CredentialLifecycle, CredentialNeed, CredentialReasonCode,
+    CredentialResolveContext, CredentialResolveError, CredentialResolver, CredentialRow,
+    CredentialStore, CredentialUpdate, RefreshResult, ResolutionScope, ScopeHint, ScopeKind,
+    UsableCredential,
 };
 pub use detector::{DetectedPattern, DetectionContext, PatternDetector, ToolCallRecord};
 pub use hooks::{
