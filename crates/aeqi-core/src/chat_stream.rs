@@ -143,6 +143,15 @@ pub enum ChatStreamEvent {
         step: u32,
         prompt_tokens: u32,
         completion_tokens: u32,
+        /// (T1.11) Anthropic prompt-cache telemetry — the number of
+        /// **freshly cached** input tokens this step paid to write into
+        /// the cache. `0` for providers that don't support cache_control
+        /// or for steps where no cache write occurred.
+        cache_creation_input_tokens: u32,
+        /// (T1.11) Anthropic prompt-cache telemetry — the number of input
+        /// tokens this step **read from cache** instead of re-billing as
+        /// fresh prompt tokens. `0` when no cache hit occurred.
+        cache_read_input_tokens: u32,
     },
 
     /// The entire agent run is finished.

@@ -468,6 +468,13 @@ pub struct Agent {
     pub(super) tools: Vec<Arc<dyn Tool>>,
     pub(super) observer: Arc<dyn Observer>,
     pub(super) system_prompt: String,
+    /// (T1.11) Optional per-segment view of the system prompt. When set,
+    /// the agent emits the initial `Role::System` message with
+    /// `MessageContent::Parts` so each segment carries its own
+    /// `cache_control` marker; providers that respect cache_control
+    /// (Anthropic) emit per-block annotations on the wire, others strip.
+    /// `None` (default) means the legacy single-block flat-string path.
+    pub(super) system_prompt_segments: Option<Vec<crate::prompt::AssembledPromptSegment>>,
     /// Step-level ideas re-read from disk before each API call. Mutable at
     /// runtime — messages can amend step ideas mid-session.
     pub(super) step_ideas: Mutex<Vec<StepIdeaSpec>>,
@@ -533,6 +540,7 @@ impl Agent {
             tools,
             observer,
             system_prompt,
+            system_prompt_segments: None,
             step_ideas: Mutex::new(Vec::new()),
             step_events: Mutex::new(Vec::new()),
             idea_store: None,
@@ -609,6 +617,24 @@ impl Agent {
     /// every LLM request within this spawn. Lifetime matches a single turn.
     pub fn with_execution_context(mut self, ctx: String) -> Self {
         self.execution_context = ctx;
+        self
+    }
+
+    /// (T1.11) Attach the segmented view of the system prompt. When set,
+    /// the agent emits the initial system message with
+    /// `MessageContent::Parts` so per-segment cache_control markers reach
+    /// the provider. The flat-string `system_prompt` constructor argument
+    /// remains the source of truth for transcripts and observability —
+    /// segments are only consulted when constructing the LLM request.
+    /// Empty segment vec is treated as "no override" so callers can pass
+    /// `Some(vec)` unconditionally.
+    pub fn with_system_prompt_segments(
+        mut self,
+        segments: Vec<crate::prompt::AssembledPromptSegment>,
+    ) -> Self {
+        if !segments.is_empty() {
+            self.system_prompt_segments = Some(segments);
+        }
         self
     }
 
@@ -745,9 +771,34 @@ impl Agent {
             .await;
 
         // Build initial messages.
+        //
+        // (T1.11) When `system_prompt_segments` is set, emit the system
+        // message as `MessageContent::Parts` so per-segment cache_control
+        // markers reach providers that respect them (Anthropic). Otherwise
+        // fall back to a flat-text system message — byte-identical to the
+        // pre-T1.11 path.
+        let system_content = match &self.system_prompt_segments {
+            Some(segments) => {
+                use crate::traits::ContentPart;
+                let parts: Vec<ContentPart> = segments
+                    .iter()
+                    .filter(|s| !s.content.is_empty())
+                    .map(|s| ContentPart::Text {
+                        text: s.content.clone(),
+                        cache_control: s.cache_control,
+                    })
+                    .collect();
+                if parts.is_empty() {
+                    MessageContent::text(&self.system_prompt)
+                } else {
+                    MessageContent::Parts(parts)
+                }
+            }
+            None => MessageContent::text(&self.system_prompt),
+        };
         let mut messages = vec![Message {
             role: Role::System,
-            content: MessageContent::text(&self.system_prompt),
+            content: system_content,
         }];
 
         // Inject prior conversation history (forked sessions).
@@ -1133,6 +1184,8 @@ impl Agent {
                 step: iterations,
                 prompt_tokens: response.usage.prompt_tokens,
                 completion_tokens: response.usage.completion_tokens,
+                cache_creation_input_tokens: response.usage.cache_creation_input_tokens,
+                cache_read_input_tokens: response.usage.cache_read_input_tokens,
             });
 
             // --- after_model hook ---
@@ -1353,7 +1406,7 @@ impl Agent {
             // --- Build assistant message ---
             let mut assistant_parts: Vec<ContentPart> = Vec::new();
             if let Some(ref text) = response.content {
-                assistant_parts.push(ContentPart::Text { text: text.clone() });
+                assistant_parts.push(ContentPart::text(text.clone()));
             }
             for tc in &response.tool_calls {
                 assistant_parts.push(ContentPart::ToolUse {

@@ -83,7 +83,7 @@ pub(crate) fn estimate_tokens_from_messages(messages: &[Message]) -> u32 {
             MessageContent::Parts(parts) => {
                 for part in parts {
                     match part {
-                        ContentPart::Text { text } => {
+                        ContentPart::Text { text, .. } => {
                             total_tokens += text.len() / CHARS_PER_TOKEN;
                         }
                         ContentPart::ToolUse { input, name, .. } => {
@@ -286,7 +286,7 @@ pub(crate) fn context_collapse(
                 MessageContent::Parts(parts) => parts
                     .iter()
                     .map(|p| match p {
-                        ContentPart::Text { text } => text.len(),
+                        ContentPart::Text { text, .. } => text.len(),
                         ContentPart::ToolUse { input, name, .. } => {
                             name.len() + input.to_string().len()
                         }
@@ -394,7 +394,7 @@ pub(crate) fn build_compaction_transcript(messages: &[Message]) -> String {
             MessageContent::Parts(parts) => parts
                 .iter()
                 .map(|p| match p {
-                    ContentPart::Text { text } => {
+                    ContentPart::Text { text, .. } => {
                         if text.len() > MAX_TEXT_BLOCK {
                             format!("{}...", &text[..MAX_TEXT_BLOCK])
                         } else {

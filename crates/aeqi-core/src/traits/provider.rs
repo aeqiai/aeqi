@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
+use crate::prompt::CacheControl;
+
 /// A single message in the conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -45,7 +47,7 @@ impl MessageContent {
                 let mut texts = Vec::new();
                 for part in parts {
                     match part {
-                        ContentPart::Text { text } => texts.push(text.clone()),
+                        ContentPart::Text { text, .. } => texts.push(text.clone()),
                         ContentPart::ToolUse { name, input, .. } => {
                             let input_str = serde_json::to_string(input).unwrap_or_default();
                             let preview: String = input_str.chars().take(500).collect();
@@ -70,7 +72,25 @@ impl MessageContent {
 #[serde(tag = "type")]
 pub enum ContentPart {
     #[serde(rename = "text")]
-    Text { text: String },
+    Text {
+        text: String,
+        /// (T1.11) Provider-neutral cache-control marker. Substrate-level
+        /// callers (`idea_assembly`) emit `Some(CacheControl::Ephemeral)`
+        /// on text parts that should be wrapped with a cache breakpoint.
+        /// Each provider impl decides what to do with the marker —
+        /// Anthropic emits the corresponding `cache_control: {type:
+        /// "ephemeral"}` annotation on the wire, OpenRouter/OpenAI strip
+        /// it. Defaults to `None` so historical callers that build
+        /// `ContentPart::Text { text, cache_control: None }` (or use the
+        /// helper [`ContentPart::text`]) preserve byte-identical request
+        /// shapes.
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            rename = "cache_control"
+        )]
+        cache_control: Option<CacheControl>,
+    },
     #[serde(rename = "tool_use")]
     ToolUse {
         id: String,
@@ -83,6 +103,28 @@ pub enum ContentPart {
         content: String,
         is_error: bool,
     },
+}
+
+impl ContentPart {
+    /// Convenience constructor for a plain text part with no cache marker.
+    /// Existing call sites that don't care about prompt-cache breakpoints
+    /// use this to keep their request shape byte-identical to pre-T1.11.
+    pub fn text(text: impl Into<String>) -> Self {
+        Self::Text {
+            text: text.into(),
+            cache_control: None,
+        }
+    }
+
+    /// Convenience constructor for a text part marked with an `Ephemeral`
+    /// cache breakpoint. Used by the substrate when assembling a prompt
+    /// from ideas tagged `cache_breakpoint=true`.
+    pub fn text_cached(text: impl Into<String>) -> Self {
+        Self::Text {
+            text: text.into(),
+            cache_control: Some(CacheControl::Ephemeral),
+        }
+    }
 }
 
 /// Request to an LLM provider.

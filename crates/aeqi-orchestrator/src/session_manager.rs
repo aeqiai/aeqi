@@ -255,6 +255,12 @@ pub struct SessionManager {
     /// — so a `tools/list_changed` notification or a server reconnect
     /// surfaces in subsequent sessions without restarting the daemon.
     mcp_registry: Option<Arc<aeqi_mcp::McpRegistry>>,
+    /// (T1.11) Optional tag-policy cache. When set, idea assembly decorates
+    /// segments whose tag-policy votes `cache_breakpoint=true` with an
+    /// `Ephemeral` cache marker so the Anthropic provider can apply
+    /// `cache_control` annotations on the wire. `None` preserves the
+    /// pre-T1.11 behaviour (no markers emitted).
+    tag_policy_cache: Option<Arc<aeqi_ideas::tag_policy::TagPolicyCache>>,
 }
 
 impl SessionManager {
@@ -274,7 +280,17 @@ impl SessionManager {
             data_dir: None,
             default_provider: None,
             mcp_registry: None,
+            tag_policy_cache: None,
         }
+    }
+
+    /// (T1.11) Wire a `TagPolicyCache` so prompt assembly emits cache
+    /// breakpoints on segments tagged `cache_breakpoint=true`. Calling this
+    /// is optional — the daemon plumbs the same cache it already uses for
+    /// `ideas.store_many` so seed-side opt-ins (`identity`, `evergreen`)
+    /// take effect end-to-end.
+    pub fn set_tag_policy_cache(&mut self, cache: Arc<aeqi_ideas::tag_policy::TagPolicyCache>) {
+        self.tag_policy_cache = Some(cache);
     }
 
     /// Wire an MCP registry so each spawned session receives the latest
@@ -475,6 +491,9 @@ impl SessionManager {
             .clone()
             .unwrap_or_else(|| Arc::new(EventHandlerStore::new(agent_registry.db())));
         let mut execution_context: String = String::new();
+        // (T1.11) Captured alongside the flat `system_prompt` so the agent can
+        // re-emit the per-segment cache_control markers on the wire.
+        let mut system_prompt_segments: Vec<aeqi_core::AssembledPromptSegment> = Vec::new();
         let mut system_prompt = if let Some(ref id) = agent_uuid {
             // Build a runtime tool registry so event tool_calls can execute.
             // The session_id is not yet known at this point (created in step 9),
@@ -554,13 +573,14 @@ impl SessionManager {
                 ctx: &exec_ctx,
                 session_store: None,
             };
-            let assembled = crate::idea_assembly::assemble_ideas(
+            let assembled = crate::idea_assembly::assemble_ideas_with_cache(
                 agent_registry,
                 self.idea_store.as_ref(),
                 &event_store,
                 id,
                 &[],
                 Some(&dispatch),
+                self.tag_policy_cache.as_ref(),
             )
             .await;
             // `record_fire` / `event_fired` row writes are owned by the
@@ -575,16 +595,21 @@ impl SessionManager {
             // in the outer `execution_context` binding so the agent can inject
             // it as a system message after the user prompt on every LLM
             // request within this spawn. Ephemeral: rebuilt each spawn.
-            let exec_assembled = crate::idea_assembly::assemble_execution_context(
+            let exec_assembled = crate::idea_assembly::assemble_execution_context_with_cache(
                 agent_registry,
                 self.idea_store.as_ref(),
                 &event_store,
                 id,
                 Some(&dispatch),
+                self.tag_policy_cache.as_ref(),
             )
             .await;
             let _ = &exec_assembled.fired_event_ids;
             execution_context = exec_assembled.system;
+
+            // (T1.11) Capture segments for the agent so per-segment
+            // cache_control markers reach the provider boundary.
+            system_prompt_segments = assembled.segments;
 
             // Safety net: if assembly returned empty, use a sensible default.
             if assembled.system.trim().is_empty() {
@@ -1158,7 +1183,8 @@ impl SessionManager {
                 .with_chat_stream(stream_sender.clone())
                 .with_step_ideas(step_idea_specs)
                 .with_step_events(step_event_metas)
-                .with_execution_context(execution_context);
+                .with_execution_context(execution_context)
+                .with_system_prompt_segments(system_prompt_segments);
 
         if let Some(ref mem) = idea_store_for_agent {
             agent = agent.with_idea_store(mem.clone());
