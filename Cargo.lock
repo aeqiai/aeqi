@@ -153,6 +153,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "aeqi-mcp"
+version = "0.10.0"
+dependencies = [
+ "aeqi-core",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "aeqi-orchestrator"
 version = "0.10.0"
 dependencies = [
