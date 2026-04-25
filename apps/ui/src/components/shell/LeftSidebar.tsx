@@ -63,12 +63,14 @@ const BlueprintsIcon = () => (
   </svg>
 );
 
-/* Economy: a slot-coin glyph (circle with a horizontal slit). Reads
- * as currency / value without leaning on a culturally-loaded $ mark. */
+/* Economy: a pie-chart slice (circle outline + filled 90° wedge).
+ * Reads as ownership share / cap-table allocation — directly matches
+ * what the page contains (wallets, cap tables, ownership graph) rather
+ * than leaning on a culturally-loaded currency mark. */
 const EconomyIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="8" r="5.5" />
-    <path d="M5.5 8h5" />
+    <path d="M8 8 L8 2.5 A5.5 5.5 0 0 1 13.5 8 Z" fill="currentColor" stroke="none" />
   </svg>
 );
 
