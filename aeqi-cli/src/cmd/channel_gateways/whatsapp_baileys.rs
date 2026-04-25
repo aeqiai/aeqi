@@ -294,6 +294,25 @@ async fn run_gateway(
                 None
             };
 
+            // Read-only short-circuit. If the sender is in the inbound
+            // whitelist but NOT in `reply_allowed` (i.e., the operator
+            // marked them read-only via the channel UI), the user's
+            // message has already been persisted to the transcript above
+            // — but we MUST NOT spawn the agent. Spawning would burn
+            // LLM tokens producing a reply that the gateway gate would
+            // then drop anyway. Cleaner + cheaper to never run.
+            //
+            // Empty `reply_allowed` set means "no whitelist configured"
+            // — treat as permissive, matches the inbound filter.
+            if !reply_allowed.is_empty() && !reply_allowed.contains(&jid) {
+                tracing::info!(
+                    jid = %jid,
+                    session_id = %session_id,
+                    "whatsapp-baileys: read-only contact, persisting message but skipping agent spawn"
+                );
+                return;
+            }
+
             let Some(provider) = provider else {
                 let out = OutgoingMessage {
                     channel: "whatsapp-baileys".to_string(),
