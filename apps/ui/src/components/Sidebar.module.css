@@ -48,14 +48,8 @@
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
-  /* Reserve a 1px transparent border so hover doesn't reflow the row;
-     same hover-only black-border rule as .sidebar-nav-item / Launch
-     CTA — the rail's "you are here" indicator is hover-only across
-     every clickable row. */
-  border: 1px solid transparent;
   transition:
     background 0.1s ease,
-    border-color 0.1s ease,
     color 0.1s ease;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -67,7 +61,6 @@
 .row:hover {
   color: var(--text-primary);
   background: var(--state-hover);
-  border-color: var(--color-accent);
 }
 .row:focus-visible {
   outline: 1px solid var(--border-hover);

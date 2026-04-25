@@ -487,19 +487,12 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-decoration: none;
-  /* Reserve a 1px border at all times so the hover state doesn't
-     reflow the row. Default is transparent; only hover paints the
-     accent border. Active rows do NOT get a border — they're already
-     marked by bg + color + weight; the hover border is a transient
-     pointer indicator, not an active-state one. */
-  border: 1px solid transparent;
   border-radius: var(--radius-md);
   transition: all 0.1s ease;
 }
 .sidebar-nav-item:hover {
   color: var(--text-primary);
   background: var(--state-hover);
-  border-color: var(--color-accent);
 }
 .sidebar-nav-item.active {
   color: var(--text-primary);
@@ -601,6 +594,14 @@
   flex-direction: column;
   gap: 1px;
   padding: 8px;
+  /* One accent border around the whole block — wraps the Launch CTA in
+     user scope, wraps the four primitives in agent scope. Always on,
+     same shape in both scopes; the rail's persistent "you are here as
+     identity X" indicator. The 8px inner padding leaves the inset that
+     used to live on the launch CTA itself. */
+  margin: 4px 8px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
 }
 
 /* Agent tree takes the flexible bottom region — scrolls inside itself
@@ -677,12 +678,12 @@
      never collapses smaller than the agent-scope version of itself. */
   min-height: 140px;
   padding: 18px 14px;
-  /* Same hover-only border rule as the nav rows — nothing on the rail
-     wears the black border at rest. Reserve the 1px so hover doesn't
-     reflow the card. */
+  /* The accent border lives on the parent .sidebar-surface-nav (one
+     border around the whole block — Launch CTA in user scope, the four
+     primitives in agent scope). The CTA itself wears no border. */
   background: transparent;
   color: var(--text-muted);
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-weight: 500;
@@ -691,14 +692,12 @@
   text-align: center;
   transition:
     background var(--transition-normal),
-    border-color var(--transition-normal),
     color var(--transition-normal),
     transform var(--transition-normal);
 }
 .sidebar-launch-cta:hover {
   background: var(--state-hover);
   color: var(--color-accent);
-  border-color: var(--color-accent);
 }
 .sidebar-launch-cta:active {
   transform: scale(0.985);

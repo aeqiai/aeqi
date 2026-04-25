@@ -284,19 +284,24 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         {/* Scope-aware Inbox sits below search — it's the entry point
             into whichever scope you're currently in (your home at user
             root, the agent's home in agent scope), unlike the global
-            Blueprints / Economy rail items above search. */}
-        <a
-          className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-          href={inboxHref}
-          title={agentId ? "Agent inbox" : "Your inbox"}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(inboxHref);
-          }}
-        >
-          <InboxIcon />
-          <span className="sidebar-nav-label">Inbox</span>
-        </a>
+            Blueprints / Economy rail items above search. Wrapped in
+            sidebar-user-zone for the same 4px/8px/8px padding as the
+            global zone — keeps Inbox visually anchored, not crammed
+            against the search row above. */}
+        <div className="sidebar-user-zone">
+          <a
+            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+            href={inboxHref}
+            title={agentId ? "Agent inbox" : "Your inbox"}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(inboxHref);
+            }}
+          >
+            <InboxIcon />
+            <span className="sidebar-nav-label">Inbox</span>
+          </a>
+        </div>
         <nav
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
           aria-label={userScope ? "Launch agent" : "Agent surfaces"}
