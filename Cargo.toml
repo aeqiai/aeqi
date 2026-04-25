@@ -13,6 +13,7 @@ members = [
     "crates/aeqi-graph",
     "crates/aeqi-hosting",
     "crates/aeqi-test-support",
+    "crates/aeqi-pack-google-workspace",
 ]
 
 [workspace.package]
@@ -118,6 +119,7 @@ aeqi-web = { version = "0.10.0", path = "crates/aeqi-web" }
 aeqi-graph = { version = "0.10.0", path = "crates/aeqi-graph" }
 aeqi-hosting = { version = "0.10.0", path = "crates/aeqi-hosting" }
 aeqi-test-support = { version = "0.10.0", path = "crates/aeqi-test-support" }
+aeqi-pack-google-workspace = { version = "0.10.0", path = "crates/aeqi-pack-google-workspace" }
 
 
 [profile.release]
