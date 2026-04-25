@@ -26,12 +26,36 @@ description: When and how to fire question.ask to surface a decision to a human 
 
 ```
 question.ask({
-  prompt: "Should I proceed with X, given the trade-off Y?",
-  subject: "Optional one-line label, ≤80 chars"
+  prompt: "<the FULL question — context + options + the ask, in one message>",
+  subject: "<optional one-line preview ≤80 chars; defaults to a truncated prompt>"
 })
 ```
 
-The `subject` becomes the inbox row preview. The `prompt` becomes your last message in the session. After firing, your turn ends; the session reappears for the director at `/`. When they answer, you re-spawn with their reply as the next user message.
+**The `prompt` IS the question body — not a title.** It's the message the director reads. Include the context they need to decide in one read. The `subject` is only a short preview line for the inbox row; if you skip it the system truncates the prompt automatically. They are NOT a title-and-body pair where you put a title in `prompt` and continue the body in chat afterward.
+
+After firing, **your turn ends.** Do not keep talking. Do not say "I'll wait for a response," "is there anything else I can help you with," or any other chat continuation — none of that reaches the director, and the chat user reads it as confused noise. The session disappears from active and reappears at `/` for the director. When they answer, you re-spawn with their reply as your next user message and pick up from there.
+
+## Worked examples
+
+**Bad — title-only prompt + chat continuation (this is wrong):**
+
+```
+question.ask({ prompt: "Should I deploy?" })
+[then in chat:] "I've posted your question to the inbox. In the meantime, is there anything else?"
+```
+
+The director sees a one-liner with no context. The chat user reads redundant noise. Both are bad.
+
+**Good — full question, no continuation:**
+
+```
+question.ask({
+  prompt: "I'm ready to deploy v1.2 to staging. Diff is +312/-87, all tests green, no migration. Two options: (a) deploy now and monitor, (b) wait until tomorrow's standup. Which?",
+  subject: "Deploy v1.2 to staging now or wait?"
+})
+```
+
+[then nothing — turn ends]
 
 ## Discipline
 

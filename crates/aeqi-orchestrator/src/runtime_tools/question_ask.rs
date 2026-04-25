@@ -128,21 +128,28 @@ impl Tool for QuestionAskTool {
         ToolSpec {
             name: "question.ask".into(),
             description: "Surface a question or decision to a human director via the home-page \
-                          inbox. Use this when you genuinely need a human answer to proceed and \
-                          there is no human in the current chat — your turn ends after firing; \
-                          a fresh spawn resumes once a director answers from the inbox."
+                          inbox. Use only when you genuinely need a human answer to proceed and \
+                          there is no human in the current chat. Your turn ends after firing — \
+                          do not say 'I'll wait' or 'is there anything else' afterward; that \
+                          chat continuation does NOT reach the director and reads as noise to \
+                          the chat user. The director answers from /, you re-spawn with their \
+                          reply as your next user message."
                 .into(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "prompt": {
                         "type": "string",
-                        "description": "The question body. Plain text or markdown."
+                        "description": "The FULL question body the director reads — context + \
+                                        options + the ask, in one message. NOT a title. Be \
+                                        specific enough that the director can decide in one \
+                                        read."
                     },
                     "subject": {
                         "type": "string",
-                        "description": "Short label (≤80 chars) shown as the inbox row preview. \
-                                        Defaults to a truncated prompt."
+                        "description": "Optional ≤80-char preview line for the inbox row. \
+                                        Defaults to a truncated prompt. Use this when the \
+                                        prompt is long and you want a punchier preview."
                     }
                 },
                 "required": ["prompt"]
