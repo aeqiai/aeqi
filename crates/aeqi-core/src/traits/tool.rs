@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use super::provider::ToolSpec;
+use crate::credentials::{CredentialNeed, UsableCredential};
 
 /// Modification to apply to the agent context after a tool executes.
 /// Tools return these to evolve the agent's capabilities mid-session.
@@ -176,5 +177,36 @@ pub trait Tool: Send + Sync {
     /// which always feed `output` back as a tool_result message.
     fn produces_context(&self) -> bool {
         false
+    }
+
+    /// Credentials this tool needs from the substrate before execution.
+    ///
+    /// The runtime resolves these into concrete `UsableCredential`s before
+    /// calling `execute()`. Tools that don't need any credential (the
+    /// majority — file reads, shell, ideas.*) leave this as the default
+    /// empty list and run unchanged.
+    ///
+    /// Resolution policy and reason-code mapping live in
+    /// `aeqi_core::credentials::CredentialResolver`. A required credential
+    /// that fails to resolve becomes a `ToolResult::error` carrying the
+    /// stable reason code (see `CredentialReasonCode`).
+    fn required_credentials(&self) -> Vec<CredentialNeed> {
+        Vec::new()
+    }
+
+    /// Execute with credentials resolved by the runtime.
+    ///
+    /// Default implementation delegates to `execute(args)` and ignores the
+    /// credentials. Tools that declare `required_credentials()` override
+    /// this method to consume the resolved credentials.
+    ///
+    /// `credentials[i]` corresponds to `required_credentials()[i]`. For
+    /// optional needs that resolved to `None`, the slot is `None`.
+    async fn execute_with_credentials(
+        &self,
+        args: serde_json::Value,
+        _credentials: Vec<Option<UsableCredential>>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute(args).await
     }
 }

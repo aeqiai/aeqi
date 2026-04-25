@@ -1,7 +1,17 @@
 use aeqi_core::SecretStore;
+use aeqi_core::credentials::{
+    CredentialCipher, CredentialReasonCode, CredentialResolver, CredentialRow, CredentialStore,
+    lifecycles::{
+        DeviceSessionLifecycle, GithubAppLifecycle, OAuth2Lifecycle, ServiceAccountLifecycle,
+        StaticSecretLifecycle,
+    },
+};
 use aeqi_tools::Prompt;
 use anyhow::{Result, bail};
-use std::path::PathBuf;
+use chrono::Utc;
+use rusqlite::Connection;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use crate::helpers::{
     build_provider_for_runtime, find_agent_dir, find_project_dir, load_config_with_agents,
@@ -260,6 +270,40 @@ pub(crate) async fn cmd_doctor(
                 mem_path.display()
             );
 
+            // T1.9 — credential lifecycle audit. Lists every row in the
+            // `credentials` table with its reason code (stable strings —
+            // see `CredentialReasonCode`).
+            if mem_path.exists() {
+                match audit_credentials(&mem_path, &store_path).await {
+                    Ok(report) => {
+                        println!("[OK] Credentials: {} row(s)", report.total);
+                        for entry in &report.entries {
+                            let tag = if entry.code == CredentialReasonCode::Ok {
+                                "OK"
+                            } else {
+                                "WARN"
+                            };
+                            if entry.code != CredentialReasonCode::Ok {
+                                issues_found += 1;
+                            }
+                            println!(
+                                "    [{}] {}/{}#{} ({}): {}",
+                                tag,
+                                entry.scope,
+                                entry.provider,
+                                entry.name,
+                                entry.lifecycle,
+                                entry.code,
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        println!("[WARN] Credentials audit: {e}");
+                        issues_found += 1;
+                    }
+                }
+            }
+
             // Check event handlers.
             match aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir()) {
                 Ok(reg) => {
@@ -310,4 +354,75 @@ pub(crate) async fn cmd_doctor(
     }
 
     Ok(())
+}
+
+struct CredentialEntry {
+    scope: String,
+    provider: String,
+    name: String,
+    lifecycle: String,
+    code: CredentialReasonCode,
+}
+
+struct CredentialReport {
+    total: usize,
+    entries: Vec<CredentialEntry>,
+}
+
+/// Walk every credential row, return per-row reason codes.
+///
+/// The check is offline: we open the row, decode the blob, and consult the
+/// matching lifecycle handler's static schema. We do NOT call refresh
+/// endpoints from `aeqi doctor` (avoids consuming a refresh_token on every
+/// `--strict` invocation; leave actual refresh to the runtime path).
+async fn audit_credentials(aeqi_db: &Path, secrets_dir: &Path) -> Result<CredentialReport> {
+    let conn = Connection::open(aeqi_db)?;
+    let cipher = CredentialCipher::open(secrets_dir)?;
+    let store = CredentialStore::new(Arc::new(Mutex::new(conn)), cipher);
+    let lifecycles: Vec<Arc<dyn aeqi_core::credentials::CredentialLifecycle>> = vec![
+        Arc::new(StaticSecretLifecycle),
+        Arc::new(OAuth2Lifecycle),
+        Arc::new(DeviceSessionLifecycle),
+        Arc::new(GithubAppLifecycle),
+        Arc::new(ServiceAccountLifecycle),
+    ];
+    let resolver = CredentialResolver::new(store.clone(), lifecycles);
+    let rows = store.list_all().await?;
+    let total = rows.len();
+    let mut entries = Vec::with_capacity(total);
+    for row in rows {
+        let code = classify_row(&row, &resolver, &store);
+        entries.push(CredentialEntry {
+            scope: format!("{}:{}", row.scope_kind.as_str(), row.scope_id),
+            provider: row.provider,
+            name: row.name,
+            lifecycle: row.lifecycle_kind,
+            code,
+        });
+    }
+    Ok(CredentialReport { total, entries })
+}
+
+fn classify_row(
+    row: &CredentialRow,
+    resolver: &CredentialResolver,
+    store: &CredentialStore,
+) -> CredentialReasonCode {
+    let lifecycle = match resolver.lifecycle_for(row.lifecycle_kind.as_str()) {
+        Some(l) => l,
+        None => return CredentialReasonCode::UnsupportedLifecycle,
+    };
+    let plaintext = match store.decrypt(row) {
+        Ok(p) => p,
+        Err(_) => return CredentialReasonCode::RefreshFailed,
+    };
+    if let Err(_e) = lifecycle.validate(&plaintext, &row.metadata) {
+        return CredentialReasonCode::RefreshFailed;
+    }
+    if let Some(exp) = row.expires_at
+        && exp <= Utc::now()
+    {
+        return CredentialReasonCode::Expired;
+    }
+    CredentialReasonCode::Ok
 }

@@ -145,4 +145,54 @@ impl SecretStore {
         }
         Ok(secrets)
     }
+
+    /// One-shot migration helper: copy every filesystem-backed secret into
+    /// the new credentials table as `(scope_kind='global', scope_id='',
+    /// provider='legacy', name=<existing>, lifecycle_kind='static_secret')`.
+    ///
+    /// Idempotent — already-migrated entries fall through with a duplicate-
+    /// key SQLite error which is logged and ignored. Returns `(inserted,
+    /// skipped)` counts so callers can report progress.
+    pub async fn migrate_to_credentials(
+        &self,
+        store: &crate::credentials::CredentialStore,
+    ) -> Result<(usize, usize)> {
+        use crate::credentials::{CredentialInsert, ScopeKind};
+        let mut inserted = 0usize;
+        let mut skipped = 0usize;
+        for name in self.list()? {
+            let value = match self.get(&name) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!(name = %name, error = %e, "skipping unreadable secret");
+                    skipped += 1;
+                    continue;
+                }
+            };
+            let ins = CredentialInsert {
+                scope_kind: ScopeKind::Global,
+                scope_id: String::new(),
+                provider: "legacy".to_string(),
+                name: name.clone(),
+                lifecycle_kind: "static_secret".to_string(),
+                plaintext_blob: value.into_bytes(),
+                metadata: serde_json::json!({"source": "secret_store_migration"}),
+                expires_at: None,
+            };
+            match store.insert(ins).await {
+                Ok(_) => inserted += 1,
+                Err(e) => {
+                    // Duplicate-key (already migrated) is not fatal.
+                    let msg = e.to_string();
+                    if msg.contains("UNIQUE") || msg.contains("constraint") {
+                        skipped += 1;
+                    } else {
+                        tracing::warn!(name = %name, error = %msg, "secret migration insert failed");
+                        skipped += 1;
+                    }
+                }
+            }
+        }
+        Ok((inserted, skipped))
+    }
 }
