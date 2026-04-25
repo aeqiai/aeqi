@@ -70,6 +70,17 @@ export default function AppLayout() {
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const activeRoot = useUIStore((s) => s.activeRoot);
 
+  // userSessionId derivation lifted up here so the inbox-store hook
+  // below can sit alongside every other hook at the top of the
+  // component — keeps eslint react-hooks/rules-of-hooks happy.
+  const _userSessionMatch = location.pathname.match(/^\/sessions\/([^/]+)\/?$/);
+  const _userSessionId = _userSessionMatch ? decodeURIComponent(_userSessionMatch[1]) : null;
+  const inboxAgentId = useInboxStore((s) =>
+    _userSessionId
+      ? (s.items.find((i) => i.session_id === _userSessionId)?.agent_id ?? null)
+      : null,
+  );
+
   // Resolve current agent + derive the root of its tree.
   const { currentAgent, rootAgent } = useMemo(() => {
     const current = agents.find((a) => a.id === agentId || a.name === agentId) || null;
@@ -253,18 +264,10 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
 
-  // Derive the user-scope session id early — both the inbox-store hook
-  // below and the post-early-return logic need it. Pure path parsing,
-  // no hook involved.
-  const userSessionMatch = path.match(/^\/sessions\/([^/]+)\/?$/);
-  const userSessionId = userSessionMatch ? decodeURIComponent(userSessionMatch[1]) : null;
-  // Resolve the inbox-item's agent_id when we're at /sessions/:id so the
-  // composer can show the agent's name + route the type-anywhere fallback.
-  // Must be called unconditionally, before any early return — React's
-  // rules-of-hooks.
-  const inboxAgentId = useInboxStore((s) =>
-    userSessionId ? (s.items.find((i) => i.session_id === userSessionId)?.agent_id ?? null) : null,
-  );
+  // userSessionId derived above (next to the inbox-store hook) for
+  // hook-ordering reasons; aliased here so the rest of this scope
+  // reads naturally.
+  const userSessionId = _userSessionId;
 
   if (!initialLoaded) return <BootLoader />;
 
