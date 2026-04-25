@@ -110,7 +110,10 @@ async fn link_handler_rejects_unknown_relation() {
 
     assert_eq!(resp["ok"], serde_json::json!(false), "expected reject");
     let err = resp["error"].as_str().unwrap_or("");
-    assert!(err.contains("unknown relation"), "got: {err}");
+    assert!(
+        err.contains("not writable") || err.contains("foobar"),
+        "got: {err}"
+    );
 
     // Edge did NOT land.
     let edges = h.idea_store().idea_edges(&a).await.unwrap();
@@ -151,7 +154,7 @@ async fn add_idea_edge_rejects_unknown_relation() {
     assert_eq!(resp["ok"], serde_json::json!(false));
     let err = resp["error"].as_str().unwrap_or("");
     assert!(
-        err.contains("unknown relation"),
+        err.contains("not writable") || err.contains("not-a-relation"),
         "error must name the guard: {err}"
     );
 
@@ -159,11 +162,11 @@ async fn add_idea_edge_rejects_unknown_relation() {
     assert!(edges.links.is_empty(), "no edge must land: {edges:?}");
 }
 
-// Same handler with a KNOWN relation must succeed. Keeps the happy path
-// honest so a future tightening of the validator doesn't silently start
-// rejecting legitimate traffic.
+// Same handler with a substrate-writable relation must succeed. T1.8
+// collapsed the legacy typed vocabulary to `mention` / `embed` /
+// `link`; `link` is the canonical IPC-side relation.
 #[tokio::test]
-async fn add_idea_edge_accepts_known_relation() {
+async fn add_idea_edge_accepts_substrate_relation() {
     let h = TestHarness::build().await.unwrap();
 
     let a = h.add_idea("ok-a", "body", &["fact"], None).await.unwrap();
@@ -173,7 +176,7 @@ async fn add_idea_edge_accepts_known_relation() {
     let req = serde_json::json!({
         "source_id": a,
         "target_id": b,
-        "relation": "adjacent",
+        "relation": "link",
     });
     let resp = handle_add_idea_edge(&ctx, &req, &None).await;
     assert_eq!(resp["ok"], serde_json::json!(true), "got: {resp}");
@@ -183,8 +186,38 @@ async fn add_idea_edge_accepts_known_relation() {
         edges
             .links
             .iter()
-            .any(|e| e.other_id == b && e.relation == "adjacent"),
+            .any(|e| e.other_id == b && e.relation == "link"),
         "edge must persist: {edges:?}"
+    );
+}
+
+// Adjacent (legacy) must be rejected by the substrate-writability
+// guard. Locks in the T1.8 vocabulary collapse.
+#[tokio::test]
+async fn add_idea_edge_rejects_legacy_adjacent() {
+    let h = TestHarness::build().await.unwrap();
+
+    let a = h
+        .add_idea("legacy-a", "body", &["fact"], None)
+        .await
+        .unwrap();
+    let b = h
+        .add_idea("legacy-b", "body", &["fact"], None)
+        .await
+        .unwrap();
+
+    let ctx = h.ctx();
+    let req = serde_json::json!({
+        "source_id": a,
+        "target_id": b,
+        "relation": "adjacent",
+    });
+    let resp = handle_add_idea_edge(&ctx, &req, &None).await;
+    assert_eq!(resp["ok"], serde_json::json!(false));
+    let err = resp["error"].as_str().unwrap_or("");
+    assert!(
+        err.contains("adjacent") || err.contains("not writable"),
+        "T1.8 must reject the retired 'adjacent' relation; got: {err}"
     );
 }
 

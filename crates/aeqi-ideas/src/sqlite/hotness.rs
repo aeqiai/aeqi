@@ -193,10 +193,12 @@ impl SqliteIdeas {
             // feedback accumulates visibly.
             if signal == "wrong" || signal == "corrected" {
                 conn.execute(
-                    "INSERT INTO idea_edges \
-                        (source_id, target_id, relation, strength, created_at) \
-                     VALUES (?1, ?1, ?2, 1.0, ?3) \
-                     ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
+                    "INSERT INTO entity_edges \
+                        (source_kind, source_id, target_kind, target_id, \
+                         relation, strength, created_at) \
+                     VALUES ('idea', ?1, 'idea', ?1, ?2, 1.0, ?3) \
+                     ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+                     DO UPDATE SET \
                         strength = MIN(1.0, strength + 0.1), \
                         created_at = excluded.created_at",
                     rusqlite::params![idea_id, CONTRADICTION, now],
@@ -282,8 +284,9 @@ mod tests {
         let conn = mem.conn.lock().unwrap();
         let (src, tgt, rel, strength): (String, String, String, f64) = conn
             .query_row(
-                "SELECT source_id, target_id, relation, strength FROM idea_edges \
-                 WHERE source_id = ?1 AND relation = 'contradiction'",
+                "SELECT source_id, target_id, relation, strength FROM entity_edges \
+                 WHERE source_kind = 'idea' AND source_id = ?1 \
+                   AND relation = 'contradiction'",
                 rusqlite::params![id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
@@ -309,8 +312,10 @@ mod tests {
         let conn = mem.conn.lock().unwrap();
         let count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM idea_edges \
-                 WHERE source_id = ?1 AND target_id = ?1 AND relation = 'contradiction'",
+                "SELECT COUNT(*) FROM entity_edges \
+                 WHERE source_kind = 'idea' AND source_id = ?1 \
+                   AND target_kind = 'idea' AND target_id = ?1 \
+                   AND relation = 'contradiction'",
                 rusqlite::params![id],
                 |row| row.get(0),
             )

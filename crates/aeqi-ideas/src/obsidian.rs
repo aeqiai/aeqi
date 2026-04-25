@@ -510,30 +510,31 @@ fn split_relations(body: &str) -> (String, Vec<ParsedRelation>) {
     }
 }
 
-/// Map any legacy or unknown relation name to one of the relations the
-/// inline-link / picker surface recognises: `mentions`, `embeds`,
-/// `supersedes`, `contradicts`, `supports`, `distilled_into`, `adjacent`.
-/// Everything else (legacy `caused_by`, `related_to`, `triggered_by`, …)
-/// collapses to `adjacent` so old vaults round-trip without reintroducing
-/// retired relation names.
+/// Map any relation name (current or legacy) to one of the three
+/// substrate primitives plus the system-emitted relations. T1.8
+/// retired the typed semantic vocabulary; old vaults round-trip by
+/// collapsing every legacy variant onto `mention`.
 ///
-/// Note: `caused_by` / `co_retrieved` / `contradiction` are valid on the
-/// store side (see [`crate::relation::KNOWN_RELATIONS`]) but aren't
-/// emissable through inline-link syntax, so the Obsidian parser downgrades
-/// them here to stay consistent with the writer.
+/// - `embed` (was `embeds`) is the only non-mention body-parsable
+///   relation.
+/// - `link` is reserved for direct API / "+ Link" UI writes; we keep
+///   it round-tripable so an exported `link` edge re-imports as the
+///   same relation.
+/// - `co_retrieved` / `contradiction` are system-emitted; they don't
+///   arise from inline links but a vault dump may carry them and
+///   re-import should preserve them.
 fn normalize_relation(raw: &str) -> String {
-    use crate::relation::{
-        ADJACENT, CONTRADICTS, DISTILLED_INTO, EMBEDS, MENTIONS, SUPERSEDES, SUPPORTS,
-    };
+    use crate::relation::{CO_RETRIEVED, CONTRADICTION, EMBED, LINK, MENTION};
     match raw.trim() {
-        MENTIONS => MENTIONS.to_string(),
-        EMBEDS => EMBEDS.to_string(),
-        SUPERSEDES => SUPERSEDES.to_string(),
-        CONTRADICTS => CONTRADICTS.to_string(),
-        SUPPORTS => SUPPORTS.to_string(),
-        DISTILLED_INTO => DISTILLED_INTO.to_string(),
-        ADJACENT => ADJACENT.to_string(),
-        _ => ADJACENT.to_string(),
+        MENTION | "mentions" => MENTION.to_string(),
+        EMBED | "embeds" => EMBED.to_string(),
+        LINK => LINK.to_string(),
+        CO_RETRIEVED => CO_RETRIEVED.to_string(),
+        CONTRADICTION => CONTRADICTION.to_string(),
+        // Every legacy typed variant collapses to mention — the
+        // semantic distinction was decorative, the substrate dropped
+        // it in T1.8.
+        _ => MENTION.to_string(),
     }
 }
 
@@ -590,9 +591,11 @@ fn parse_relations(section: &str) -> Vec<ParsedRelation> {
                 });
             }
         } else {
+            // Wikilink without an explicit relation suffix — default
+            // to `mention` (the lightest substrate primitive).
             relations.push(ParsedRelation {
                 target_key,
-                relation: crate::relation::ADJACENT.to_string(),
+                relation: crate::relation::MENTION.to_string(),
                 strength: 0.5,
                 outgoing,
             });
@@ -633,27 +636,24 @@ mod tests {
 
     #[test]
     fn test_parse_relations() {
-        // Legacy relation names (caused_by, related_to) must be mapped to
-        // `adjacent` so round-trip export→import doesn't reintroduce the
-        // old taxonomy.
+        // Legacy relation names (caused_by, related_to) collapse to
+        // `mention` after T1.8 — round-trip export→import doesn't
+        // reintroduce the old typed taxonomy.
         let section = "## Relations\n\n- → [[auth-system]] — caused_by (0.80)\n- ← [[user-schema]] — related_to (0.50)\n";
         let rels = parse_relations(section);
         assert_eq!(rels.len(), 2);
         assert_eq!(rels[0].target_key, "auth-system");
-        assert_eq!(rels[0].relation, "adjacent");
+        assert_eq!(rels[0].relation, "mention");
         assert!((rels[0].strength - 0.80).abs() < 0.01);
         assert_eq!(rels[1].target_key, "user-schema");
-        assert_eq!(rels[1].relation, "adjacent");
+        assert_eq!(rels[1].relation, "mention");
     }
 
     #[test]
     fn test_parse_relations_records_direction_marker() {
-        // `→` lines are outgoing from the current file; `←` lines are
-        // incoming (the current file is the edge's TARGET). The importer
-        // drops incoming lines to avoid double-counting undirected edges.
         let section = "## Relations\n\n\
-             - → [[A]] — adjacent (0.50)\n\
-             - ← [[B]] — adjacent (0.50)\n";
+             - → [[A]] — link (0.50)\n\
+             - ← [[B]] — link (0.50)\n";
         let rels = parse_relations(section);
         assert_eq!(rels.len(), 2);
         assert_eq!(rels[0].target_key, "A");
@@ -663,13 +663,16 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_relations_preserves_new_taxonomy() {
+    fn test_parse_relations_legacy_plurals_collapse() {
+        // The old plural forms (`mentions` / `embeds`) round-trip onto
+        // the new singular T1.8 vocabulary.
         let section = "## Relations\n\n- → [[a]] — mentions (0.50)\n- → [[b]] — embeds (1.00)\n- → [[c]] — adjacent (0.50)\n";
         let rels = parse_relations(section);
         assert_eq!(rels.len(), 3);
-        assert_eq!(rels[0].relation, "mentions");
-        assert_eq!(rels[1].relation, "embeds");
-        assert_eq!(rels[2].relation, "adjacent");
+        assert_eq!(rels[0].relation, "mention");
+        assert_eq!(rels[1].relation, "embed");
+        // `adjacent` was retired — collapses to mention.
+        assert_eq!(rels[2].relation, "mention");
     }
 
     #[test]
@@ -823,28 +826,52 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_relations_preserves_typed_prefixes() {
-        // Round-trip for supersedes / contradicts / supports / distilled_into —
-        // these are emitted in the exporter now and must survive re-import.
+    fn test_parse_relations_collapses_legacy_typed_to_mention() {
+        // T1.8 retired the typed semantic vocabulary. Legacy vault dumps
+        // that carry `supersedes` / `contradicts` / `supports` /
+        // `distilled_into` / `adjacent` round-trip as plain `mention`
+        // edges — the connection is preserved, the decorative semantics
+        // is dropped on import.
         let section = "## Relations\n\n\
              - → [[Old Plan]] — supersedes (1.00)\n\
              - → [[Stale Fact]] — contradicts (0.80)\n\
              - → [[Main Claim]] — supports (0.90)\n\
-             - → [[Summary]] — distilled_into (1.00)\n";
+             - → [[Summary]] — distilled_into (1.00)\n\
+             - → [[Sibling]] — adjacent (0.50)\n";
         let rels = parse_relations(section);
-        assert_eq!(rels.len(), 4);
-        assert_eq!(rels[0].relation, "supersedes");
-        assert_eq!(rels[1].relation, "contradicts");
-        assert_eq!(rels[2].relation, "supports");
-        assert_eq!(rels[3].relation, "distilled_into");
+        assert_eq!(rels.len(), 5);
+        for rel in &rels {
+            assert_eq!(
+                rel.relation, "mention",
+                "legacy typed relation must collapse to mention on import; got {}",
+                rel.relation
+            );
+        }
     }
 
-    /// Adjacent edges emitted by `ideas(action='link', relation='adjacent')`
-    /// or the UI picker must round-trip through export → import. The
-    /// exporter writes them into the `## Relations` section; the importer's
+    #[test]
+    fn test_parse_relations_preserves_substrate_relations() {
+        // The three substrate primitives plus system-emitted edges
+        // round-trip unchanged.
+        let section = "## Relations\n\n\
+             - → [[A]] — mention (1.00)\n\
+             - → [[B]] — embed (0.90)\n\
+             - → [[C]] — link (0.80)\n\
+             - → [[D]] — co_retrieved (0.30)\n";
+        let rels = parse_relations(section);
+        assert_eq!(rels.len(), 4);
+        assert_eq!(rels[0].relation, "mention");
+        assert_eq!(rels[1].relation, "embed");
+        assert_eq!(rels[2].relation, "link");
+        assert_eq!(rels[3].relation, "co_retrieved");
+    }
+
+    /// `link` edges emitted by `ideas(action='link')` or the UI "+ Link"
+    /// picker must round-trip through export → import. The exporter
+    /// writes them into the `## Relations` section; the importer's
     /// second-pass edge loop (via `store_idea_edge`) must restore them.
     #[tokio::test]
-    async fn test_adjacent_edges_roundtrip_through_relations_section() {
+    async fn test_link_edges_roundtrip_through_relations_section() {
         use crate::sqlite::SqliteIdeas;
         use aeqi_core::traits::IdeaStore;
 
@@ -867,26 +894,21 @@ mod tests {
                 .unwrap();
             ids.push(id);
         }
-        // Five adjacent edges forming a ring: n0→n1, n1→n2, …, n4→n0.
+        // Five `link` edges forming a ring: n0→n1, n1→n2, …, n4→n0.
         for i in 0..5 {
             let next = (i + 1) % 5;
             store
-                .store_idea_edge(&ids[i], &ids[next], "adjacent", 0.5)
+                .store_idea_edge(&ids[i], &ids[next], "link", 0.5)
                 .await
                 .unwrap();
         }
 
-        // Export → fresh DB import.
         let exported = export(&store, &vault).await.unwrap();
         assert_eq!(exported, 5);
         let store2 = SqliteIdeas::open(&dst_db, 30.0).unwrap();
         let (imported, _) = import(&store2, &vault).await.unwrap();
         assert_eq!(imported, 5);
 
-        // Count `adjacent` edges in the destination store. The exporter
-        // writes each edge from BOTH endpoints' perspectives (→ and ←),
-        // so each of the five directed edges appears twice in the
-        // markdown; upsert collapses the duplicates back down.
         let all_names: Vec<String> = (0..5).map(|i| format!("node-{i}")).collect();
         let mut name_to_id: std::collections::HashMap<String, String> =
             std::collections::HashMap::new();
@@ -898,85 +920,68 @@ mod tests {
             .map(|n| name_to_id.get(n).cloned().unwrap())
             .collect();
         let edges = store2.edges_between(&all_ids).await.unwrap();
-        let adjacent_count = edges.iter().filter(|e| e.relation == "adjacent").count();
+        let link_count = edges.iter().filter(|e| e.relation == "link").count();
         assert_eq!(
-            adjacent_count, 5,
-            "all five adjacent edges must round-trip through ## Relations section; got {adjacent_count}"
+            link_count, 5,
+            "all five link edges must round-trip through ## Relations section; got {link_count}"
         );
     }
 
     #[tokio::test]
-    async fn test_export_preserves_typed_edges_in_wikilinks() {
-        // Typed edges written by the inline-link reconciler must come out
-        // as `supersedes` / `contradicts` / `supports` / `distilled_into`
-        // strings in the exported ## Relations section — regression guard
-        // for the original enum-downgrade bug that Agent G fixed.
+    async fn test_export_emits_substrate_relations_in_wikilinks() {
+        // Body-parser edges (mention / embed) round-trip through the
+        // ## Relations section after T1.8 retired the typed prefixes.
         use crate::sqlite::SqliteIdeas;
         use aeqi_core::traits::IdeaStore;
 
         let dir = tempfile::TempDir::new().unwrap();
-        let db_path = dir.path().join("typed.db");
+        let db_path = dir.path().join("substrate.db");
         let vault_dir = dir.path().join("vault");
         let store = SqliteIdeas::open(&db_path, 30.0).unwrap();
 
-        // Four targets, one per typed relation.
-        let old_plan_id = store
-            .store("old-plan", "original approach", &["fact".to_string()], None)
+        let target_a = store
+            .store("target-a", "first target", &["fact".to_string()], None)
             .await
             .unwrap();
-        let stale_id = store
-            .store("stale-fact", "older claim", &["fact".to_string()], None)
-            .await
-            .unwrap();
-        let claim_id = store
-            .store("main-claim", "the headline", &["fact".to_string()], None)
-            .await
-            .unwrap();
-        let summary_id = store
-            .store("summary", "distilled notes", &["fact".to_string()], None)
+        let target_b = store
+            .store("target-b", "second target", &["fact".to_string()], None)
             .await
             .unwrap();
 
-        // Source idea with a body that references each target via a
-        // typed prefix. `reconcile_inline_edges` is the production path
-        // that actually writes typed strings into `idea_edges.relation`.
-        let body = "supersedes:[[old-plan]] contradicts:[[stale-fact]] \
-                    supports:[[main-claim]] distilled_into:[[summary]]";
-        let new_id = store
-            .store("new-plan", body, &["fact".to_string()], None)
+        let body = "see [[target-a]] and ![[target-b]]";
+        let source_id = store
+            .store("source", body, &["fact".to_string()], None)
             .await
             .unwrap();
 
         let resolver = {
-            let map: std::collections::HashMap<&str, String> = [
-                ("old-plan", old_plan_id.clone()),
-                ("stale-fact", stale_id.clone()),
-                ("main-claim", claim_id.clone()),
-                ("summary", summary_id.clone()),
-            ]
-            .into_iter()
-            .collect();
+            let map: std::collections::HashMap<String, String> =
+                [("target-a", target_a), ("target-b", target_b)]
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v))
+                    .collect();
             move |name: &str| map.get(name.to_lowercase().as_str()).cloned()
         };
         store
-            .reconcile_inline_edges(&new_id, body, &resolver)
+            .reconcile_inline_edges(&source_id, body, &resolver)
             .await
             .unwrap();
 
-        // Export and scan the new-plan file for the typed relations.
         let exported = export(&store, &vault_dir).await.unwrap();
-        assert_eq!(exported, 5);
+        assert_eq!(exported, 3);
 
-        let md = std::fs::read_to_string(vault_dir.join("fact/new-plan.md")).unwrap();
+        let md = std::fs::read_to_string(vault_dir.join("fact/source.md")).unwrap();
         assert!(
             md.contains("## Relations"),
             "exported file missing Relations section: {md}"
         );
-        for rel in ["supersedes", "contradicts", "supports", "distilled_into"] {
-            assert!(
-                md.contains(rel),
-                "exported file missing relation {rel} — markdown was:\n{md}"
-            );
-        }
+        assert!(
+            md.contains("mention"),
+            "exported file missing 'mention' relation:\n{md}"
+        );
+        assert!(
+            md.contains("embed"),
+            "exported file missing 'embed' relation:\n{md}"
+        );
     }
 }

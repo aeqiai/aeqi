@@ -211,6 +211,26 @@ impl IdeaStore for SqliteIdeas {
             .await
     }
 
+    async fn store_entity_edge(
+        &self,
+        source_kind: &str,
+        source_id: &str,
+        target_kind: &str,
+        target_id: &str,
+        relation: &str,
+        strength: f32,
+    ) -> Result<()> {
+        self.store_entity_edge_impl(
+            source_kind,
+            source_id,
+            target_kind,
+            target_id,
+            relation,
+            strength,
+        )
+        .await
+    }
+
     async fn remove_idea_edge(
         &self,
         source_id: &str,
@@ -223,6 +243,10 @@ impl IdeaStore for SqliteIdeas {
 
     async fn idea_edges(&self, idea_id: &str) -> Result<aeqi_core::traits::IdeaEdges> {
         self.idea_edges_impl(idea_id).await
+    }
+
+    async fn idea_references(&self, idea_id: &str) -> Result<Vec<aeqi_core::traits::EntityRef>> {
+        self.idea_references_impl(idea_id).await
     }
 
     async fn ideas_by_tags(&self, tags: &[String], limit: usize) -> Result<Vec<Idea>> {
@@ -908,24 +932,24 @@ mod tests {
             .await
             .unwrap();
 
-        mem.store_idea_edge(&a, &b, "mentions", 0.8).await.unwrap();
-        mem.store_idea_edge(&a, &c, "embeds", 1.0).await.unwrap();
-        mem.store_idea_edge(&c, &a, "adjacent", 0.5).await.unwrap();
+        mem.store_idea_edge(&a, &b, "mention", 0.8).await.unwrap();
+        mem.store_idea_edge(&a, &c, "embed", 1.0).await.unwrap();
+        mem.store_idea_edge(&c, &a, "link", 0.5).await.unwrap();
 
         let edges = mem.idea_edges(&a).await.unwrap();
         assert_eq!(edges.links.len(), 2, "a has two outgoing edges");
         assert_eq!(edges.backlinks.len(), 1, "a has one incoming edge");
 
-        // Outgoing edges should be ordered by strength DESC — embeds (1.0) first.
+        // Outgoing edges should be ordered by strength DESC — embed (1.0) first.
         assert_eq!(edges.links[0].other_id, c);
-        assert_eq!(edges.links[0].relation, "embeds");
+        assert_eq!(edges.links[0].relation, "embed");
         assert_eq!(edges.links[0].other_name.as_deref(), Some("legacy-auth"));
         assert_eq!(edges.links[1].other_id, b);
-        assert_eq!(edges.links[1].relation, "mentions");
+        assert_eq!(edges.links[1].relation, "mention");
 
-        // Incoming: c → a adjacent.
+        // Incoming: c → a link.
         assert_eq!(edges.backlinks[0].other_id, c);
-        assert_eq!(edges.backlinks[0].relation, "adjacent");
+        assert_eq!(edges.backlinks[0].relation, "link");
     }
 
     #[tokio::test]
@@ -935,18 +959,15 @@ mod tests {
         let a = mem.store("a", "A", &[], None).await.unwrap();
         let b = mem.store("b", "B", &[], None).await.unwrap();
 
-        mem.store_idea_edge(&a, &b, "mentions", 1.0).await.unwrap();
-        mem.store_idea_edge(&a, &b, "adjacent", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "mention", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "link", 1.0).await.unwrap();
 
-        let removed = mem
-            .remove_idea_edge(&a, &b, Some("mentions"))
-            .await
-            .unwrap();
+        let removed = mem.remove_idea_edge(&a, &b, Some("mention")).await.unwrap();
         assert_eq!(removed, 1);
 
         let edges = mem.idea_edges(&a).await.unwrap();
         assert_eq!(edges.links.len(), 1);
-        assert_eq!(edges.links[0].relation, "adjacent");
+        assert_eq!(edges.links[0].relation, "link");
     }
 
     #[tokio::test]
@@ -956,8 +977,8 @@ mod tests {
         let a = mem.store("a", "A", &[], None).await.unwrap();
         let b = mem.store("b", "B", &[], None).await.unwrap();
 
-        mem.store_idea_edge(&a, &b, "mentions", 1.0).await.unwrap();
-        mem.store_idea_edge(&a, &b, "adjacent", 0.5).await.unwrap();
+        mem.store_idea_edge(&a, &b, "mention", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "link", 0.5).await.unwrap();
 
         let removed = mem.remove_idea_edge(&a, &b, None).await.unwrap();
         assert_eq!(removed, 2);
@@ -1029,8 +1050,8 @@ mod tests {
         let b = mem.store("b", "B", &[], None).await.unwrap();
         let c = mem.store("c", "C", &[], None).await.unwrap();
 
-        mem.store_idea_edge(&a, &b, "mentions", 0.8).await.unwrap();
-        mem.store_idea_edge(&c, &a, "adjacent", 0.5).await.unwrap();
+        mem.store_idea_edge(&a, &b, "mention", 0.8).await.unwrap();
+        mem.store_idea_edge(&c, &a, "link", 0.5).await.unwrap();
 
         let edges = mem.edges_between(&[a.clone(), b.clone()]).await.unwrap();
         // Includes a→b (both in set) AND c→a (a is in set, c isn't — caller filters).
@@ -1047,7 +1068,7 @@ mod tests {
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].source_id, a);
         assert_eq!(filtered[0].target_id, b);
-        assert_eq!(filtered[0].relation, "mentions");
+        assert_eq!(filtered[0].relation, "mention");
     }
 
     // ── inline-link reconciliation ──────────────────────────────────────
@@ -1081,8 +1102,8 @@ mod tests {
             .iter()
             .map(|e| (e.other_id.as_str(), e.relation.as_str()))
             .collect();
-        assert_eq!(by_target.get(a.as_str()).copied(), Some("mentions"));
-        assert_eq!(by_target.get(b.as_str()).copied(), Some("embeds"));
+        assert_eq!(by_target.get(a.as_str()).copied(), Some("mention"));
+        assert_eq!(by_target.get(b.as_str()).copied(), Some("embed"));
         assert_eq!(edges.links.len(), 2);
     }
 
@@ -1108,16 +1129,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_reconcile_inline_edges_leaves_adjacent_alone() {
+    async fn test_reconcile_inline_edges_leaves_link_alone() {
+        // Direct API / "+ Link" UI writes (relation = "link") must
+        // survive body-parser reconciliation. Only the body-parser-owned
+        // relations (`mention`, `embed`) get re-derived from content.
         let (mem, _dir) = test_ideas();
         let src = mem.store("src", "body", &[], None).await.unwrap();
         let a = mem.store("a", "A", &[], None).await.unwrap();
         let side = mem.store("side", "S", &[], None).await.unwrap();
 
-        // Seed an adjacent edge directly — this one must survive reconciliation.
-        mem.store_idea_edge(&src, &side, "adjacent", 0.7)
-            .await
-            .unwrap();
+        mem.store_idea_edge(&src, &side, "link", 0.7).await.unwrap();
 
         let resolver = resolver_from_pairs(&[("a", &a)]);
         mem.reconcile_inline_edges(&src, "see [[A]]", resolver.as_ref())
@@ -1132,10 +1153,10 @@ mod tests {
             .collect();
         assert_eq!(
             by_target.get(side.as_str()).copied(),
-            Some("adjacent"),
-            "adjacent edge must survive inline reconciliation"
+            Some("link"),
+            "link edge must survive inline reconciliation"
         );
-        assert_eq!(by_target.get(a.as_str()).copied(), Some("mentions"));
+        assert_eq!(by_target.get(a.as_str()).copied(), Some("mention"));
         assert_eq!(edges.links.len(), 2);
     }
 

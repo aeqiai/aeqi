@@ -103,16 +103,16 @@ async fn supersede_via_body_syntax_emits_edge_and_hides_old() {
     // the new row if we ever reused the same name.
     ideas.set_status(&old_id, "superseded").await.unwrap();
 
-    let new_body = "second version of the policy body — supersedes:[[policy-rule-v1]]";
+    // T1.8 retired typed prefixes — the body now uses a plain `[[X]]`
+    // mention. The `supersedes` relationship lives in `ideas.status =
+    // 'superseded'` (set by `set_status` above), not in the edge label.
+    let new_body = "second version of the policy body — see [[policy-rule-v1]]";
     let new_id = ideas
         .store_full(store_full("policy-rule-v2", new_body, &["fact"]))
         .await
         .unwrap();
     assert_ne!(new_id, old_id);
 
-    // Resolve "policy-rule-v1" → old_id and reconcile. This emits the
-    // `supersedes` edge via the inline-link parser (which writes the
-    // typed relation directly, not through the store_idea_edge fallback).
     let old_id_c = old_id.clone();
     let resolver = move |name: &str| -> Option<String> {
         if name.eq_ignore_ascii_case("policy-rule-v1") {
@@ -126,14 +126,15 @@ async fn supersede_via_body_syntax_emits_edge_and_hides_old() {
         .await
         .unwrap();
 
-    // Edge exists and carries the typed relation.
+    // Edge exists as a plain `mention` — the connection is preserved,
+    // the typed semantic is dropped per T1.8.
     let edges = ideas.idea_edges(&new_id).await.unwrap();
     assert!(
         edges
             .links
             .iter()
-            .any(|e| e.other_id == old_id && e.relation == "supersedes"),
-        "new row must carry a 'supersedes' edge to the old row; got {:?}",
+            .any(|e| e.other_id == old_id && e.relation == "mention"),
+        "new row must carry a 'mention' edge to the old row; got {:?}",
         edges.links
     );
 
@@ -162,17 +163,16 @@ async fn supersede_via_body_syntax_emits_edge_and_hides_old() {
     );
 }
 
-// ── 2b. Dispatch-level `store_idea_edge("supersedes", ...)` round-trip ─
+// ── 2b. Dispatch-level `store_idea_edge("link", ...)` round-trip ──────
 //
-// This test exercises the path Agent W's `dispatch_supersede` uses: a
-// direct `IdeaStore::store_idea_edge(new, old, "supersedes", 1.0)` call.
-// Originally `#[ignore]`-tagged because `store_idea_edge_impl` silently
-// downgraded typed relations to `adjacent` via the legacy 3-variant
-// enum. Agent G fixed the impl inline (raw relation strings) and the
-// enum itself has since been retired in favour of `aeqi_ideas::relation`
-// constants; the test is live and guards the fix.
+// `supersede_atomic` writes a `link` edge new → old after T1.8 — the
+// supersedes typed relation was retired in favour of the
+// `ideas.status = 'superseded'` column. This test guards the
+// substrate-vocabulary contract: a direct `IdeaStore::store_idea_edge`
+// call with a substrate primitive lands the edge with that relation,
+// no silent rewriting.
 #[tokio::test]
-async fn supersede_via_store_idea_edge_writes_typed_relation() {
+async fn supersede_via_store_idea_edge_writes_link_relation() {
     let (ideas, _dir) = make_store();
 
     let old_id = ideas
@@ -195,7 +195,7 @@ async fn supersede_via_store_idea_edge_writes_typed_relation() {
         .unwrap();
 
     ideas
-        .store_idea_edge(&new_id, &old_id, "supersedes", 1.0)
+        .store_idea_edge(&new_id, &old_id, "link", 1.0)
         .await
         .unwrap();
 
@@ -204,8 +204,8 @@ async fn supersede_via_store_idea_edge_writes_typed_relation() {
         edges
             .links
             .iter()
-            .any(|e| e.other_id == old_id && e.relation == "supersedes"),
-        "store_idea_edge('supersedes') must persist the typed relation, not downgrade it"
+            .any(|e| e.other_id == old_id && e.relation == "link"),
+        "store_idea_edge('link') must persist the substrate relation"
     );
 }
 
@@ -372,14 +372,17 @@ async fn supersede_atomic_commits_all_three_effects() {
     assert_eq!(rows[0].name, "policy-rule");
     assert!(rows[0].content.contains("second version"));
 
-    // 3. Supersedes edge new → old.
+    // 3. Link edge new → old. T1.8 retired the `supersedes` relation;
+    //    the lineage breadcrumb is now a plain `link`. The supersession
+    //    semantic is captured by `ideas.status = 'superseded'` on the
+    //    old row, asserted in (1) above.
     let edges = ideas.idea_edges(&new_id).await.unwrap();
     assert!(
         edges
             .links
             .iter()
-            .any(|e| e.other_id == old_id && e.relation == "supersedes"),
-        "supersedes edge new → old must land atomically"
+            .any(|e| e.other_id == old_id && e.relation == "link"),
+        "lineage edge new → old must land atomically"
     );
 }
 
@@ -444,10 +447,11 @@ async fn supersede_atomic_rejects_when_new_name_collides_with_active() {
         "row-b must stay active after rollback"
     );
 
-    // No supersedes edge should have been written from any new id.
+    // No lineage edge should have been written from any new id —
+    // `supersede_atomic` rolled back without writing the new→old `link`.
     let a_edges = ideas.idea_edges(&a_id).await.unwrap();
     assert!(
-        a_edges.backlinks.iter().all(|e| e.relation != "supersedes"),
-        "no supersedes edge should point at row-a after rollback"
+        a_edges.backlinks.iter().all(|e| e.relation != "link"),
+        "no lineage edge should point at row-a after rollback"
     );
 }

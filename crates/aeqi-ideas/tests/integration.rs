@@ -622,3 +622,105 @@ async fn embedder_with_small_dims_does_not_panic() {
         .unwrap();
     assert!(hits.iter().any(|h| h.idea.id == id));
 }
+
+/// T1.8 — `idea_references` returns every outgoing edge across all
+/// kinds: idea→idea, idea→session, idea→quest. The convenience surface
+/// for UI consumers that want a flat `(kind, id, relation, strength)`
+/// view without the legacy `idea_edges` `links`/`backlinks` split.
+#[tokio::test]
+async fn t1_8_idea_references_returns_cross_kind_outgoing_edges() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().join("refs.db");
+    let ideas = SqliteIdeas::open(&db, 30.0).unwrap();
+
+    let src = ideas.store("src", "body", &[], None).await.unwrap();
+    let target_idea = ideas.store("target", "body", &[], None).await.unwrap();
+
+    // idea→idea link.
+    ideas
+        .store_idea_edge(&src, &target_idea, "link", 0.8)
+        .await
+        .unwrap();
+
+    // idea→session mention (cross-kind).
+    ideas
+        .store_entity_edge("idea", &src, "session", "session-uuid-1", "mention", 0.9)
+        .await
+        .unwrap();
+
+    // idea→quest mention.
+    ideas
+        .store_entity_edge("idea", &src, "quest", "Q-42", "mention", 0.7)
+        .await
+        .unwrap();
+
+    let refs = ideas.idea_references(&src).await.unwrap();
+    assert_eq!(refs.len(), 3, "all three outgoing edges must be returned");
+
+    // Sorted by strength DESC inside the impl: session (0.9), idea (0.8), quest (0.7).
+    assert_eq!(refs[0].kind, "session");
+    assert_eq!(refs[0].id, "session-uuid-1");
+    assert_eq!(refs[0].relation, "mention");
+
+    assert_eq!(refs[1].kind, "idea");
+    assert_eq!(refs[1].id, target_idea);
+    assert_eq!(refs[1].relation, "link");
+
+    assert_eq!(refs[2].kind, "quest");
+    assert_eq!(refs[2].id, "Q-42");
+
+    // Backlinks (the inverse of references) shouldn't appear here —
+    // `idea_references` is outgoing only.
+    let other = ideas.store("other", "body", &[], None).await.unwrap();
+    ideas
+        .store_idea_edge(&other, &src, "link", 0.5)
+        .await
+        .unwrap();
+    let refs2 = ideas.idea_references(&src).await.unwrap();
+    assert_eq!(
+        refs2.len(),
+        3,
+        "incoming edges must NOT appear in references"
+    );
+}
+
+/// T1.8 — body parser writes cross-kind edges. A `[[session:abc]]`
+/// reference produces an `idea → session` mention edge with no name
+/// resolution (the session id is taken verbatim).
+#[tokio::test]
+async fn t1_8_inline_links_writes_cross_kind_session_mention() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().join("cross-kind.db");
+    let ideas = SqliteIdeas::open(&db, 30.0).unwrap();
+
+    let src = ideas
+        .store(
+            "reflection",
+            "see [[session:s1]] for context and ![[session:s2]] for transcript",
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
+
+    let resolver = |_name: &str| -> Option<String> { None };
+    ideas
+        .reconcile_inline_edges(
+            &src,
+            "see [[session:s1]] for context and ![[session:s2]] for transcript",
+            &resolver,
+        )
+        .await
+        .unwrap();
+
+    let refs = ideas.idea_references(&src).await.unwrap();
+    let by_relation: std::collections::HashMap<&str, &str> = refs
+        .iter()
+        .map(|r| (r.relation.as_str(), r.id.as_str()))
+        .collect();
+
+    assert_eq!(refs.len(), 2);
+    assert_eq!(by_relation.get("mention").copied(), Some("s1"));
+    assert_eq!(by_relation.get("embed").copied(), Some("s2"));
+    assert!(refs.iter().all(|r| r.kind == "session"));
+}

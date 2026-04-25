@@ -191,8 +191,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "to": {"type": "string", "description": "Target idea ID (for link action)"},
                     "relation": {
                         "type": "string",
-                        "enum": ["mentions", "embeds", "adjacent", "supersedes", "supports", "contradicts", "distilled_into", "caused_by", "co_retrieved", "contradiction"],
-                        "description": "Edge relation (for link). supersedes: new replaces old. contradicts: disagrees with. supports: reinforces. distilled_into: summarized into. adjacent: generic association."
+                        "enum": ["mention", "embed", "link"],
+                        "description": "Edge relation (for link action). mention/embed are body-parser-owned (`[[X]]` / `![[X]]` in content); use 'link' for direct API writes (default)."
                     },
                     "strength": {"type": "number", "description": "Edge strength 0.0–1.0 (for link, default 1.0)"},
                     "signal": {"type": "string", "enum": ["used", "useful", "ignored", "corrected", "wrong", "pinned"], "description": "Feedback signal (for feedback). used/useful lift hotness; ignored dampens it; wrong/corrected drop it sharply; pinned tags the idea."},

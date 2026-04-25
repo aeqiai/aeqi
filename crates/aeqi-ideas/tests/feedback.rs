@@ -107,7 +107,7 @@ async fn wrong_signal_crushes_boost() {
 // ── 2b. `wrong` / `corrected` feedback emits a contradiction self-edge ─
 //
 // Spec (hotness.rs): on `wrong` / `corrected`, alongside the boost math,
-// record a self-loop `contradiction` edge on `idea_edges`. The edge is a
+// record a self-loop `contradiction` edge on `entity_edges`. The edge is a
 // durable marker that survives hotness decay so graph walks and MMR can
 // downweight contradicted ideas. Repeated negative feedback bumps the
 // edge strength (capped at 1.0) instead of duplicating rows.
@@ -132,8 +132,9 @@ async fn wrong_feedback_writes_contradiction_edge() {
     let conn = rusqlite::Connection::open(dir.path().join("feedback.db")).unwrap();
     let (src, tgt, rel, strength): (String, String, String, f64) = conn
         .query_row(
-            "SELECT source_id, target_id, relation, strength FROM idea_edges \
-             WHERE source_id = ?1 AND relation = 'contradiction'",
+            "SELECT source_id, target_id, relation, strength FROM entity_edges \
+             WHERE source_kind = 'idea' AND source_id = ?1 \
+               AND relation = 'contradiction'",
             rusqlite::params![id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
@@ -170,8 +171,9 @@ async fn repeat_wrong_feedback_bumps_contradiction_strength() {
     let rows: Vec<(String, f64)> = {
         let mut stmt = conn
             .prepare(
-                "SELECT relation, strength FROM idea_edges \
-                 WHERE source_id = ?1 AND target_id = ?1",
+                "SELECT relation, strength FROM entity_edges \
+                 WHERE source_kind = 'idea' AND source_id = ?1 \
+                   AND target_kind = 'idea' AND target_id = ?1",
             )
             .unwrap();
         stmt.query_map(rusqlite::params![id], |r| {

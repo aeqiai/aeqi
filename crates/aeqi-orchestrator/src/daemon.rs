@@ -2160,6 +2160,9 @@ impl Daemon {
                 "idea_edges" => {
                     crate::ipc::ideas::handle_idea_edges(&ctx, &request, &allowed_roots).await
                 }
+                "idea_references" => {
+                    crate::ipc::ideas::handle_idea_references(&ctx, &request, &allowed_roots).await
+                }
                 "add_idea_edge" => {
                     crate::ipc::ideas::handle_add_idea_edge(&ctx, &request, &allowed_roots).await
                 }

@@ -1,11 +1,17 @@
-//! Idea graph edge operations.
+//! Entity-edge graph operations.
 //!
-//! Edges live in the `idea_edges` table: (source_id, target_id, relation,
-//! strength). This module owns every path that touches that table plus the
-//! derived `compute_graph_boost` used by the search pipeline.
+//! Edges live in the `entity_edges` table: (source_kind, source_id,
+//! target_kind, target_id, relation, strength). T1.8 generalised the
+//! legacy `idea_edges` (idea→idea only) into a polymorphic table that
+//! supports cross-kind edges (idea→session, idea→quest, …). The default
+//! kind on both sides is `'idea'` so existing read paths compose
+//! unchanged.
+//!
+//! This module owns every path that touches that table plus the derived
+//! `compute_graph_boost` used by the search pipeline.
 
 use super::SqliteIdeas;
-use crate::graph::IdeaEdge;
+use crate::graph::EntityEdge;
 use aeqi_core::traits::WalkStep;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -13,19 +19,25 @@ use std::collections::{HashSet, VecDeque};
 use tracing::debug;
 
 impl SqliteIdeas {
-    /// Store an idea edge (upsert on conflict).
-    pub fn store_edge(&self, edge: &IdeaEdge) -> Result<()> {
+    /// Store an entity edge (upsert on conflict). Defaults source / target
+    /// kinds to `'idea'` when the caller passes the legacy [`EntityEdge::new`]
+    /// constructor; cross-kind callers use `EntityEdge::new_cross_kind`.
+    pub fn store_edge(&self, edge: &EntityEdge) -> Result<()> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| anyhow::anyhow!("lock poisoned in store_edge: {e}"))?;
         conn.execute(
-            "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(source_id, target_id, relation) DO UPDATE SET
-                strength = MAX(excluded.strength, idea_edges.strength)",
+            "INSERT INTO entity_edges \
+                (source_kind, source_id, target_kind, target_id, relation, \
+                 strength, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+             ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+             DO UPDATE SET strength = MAX(excluded.strength, entity_edges.strength)",
             rusqlite::params![
+                edge.source_kind,
                 edge.source_id,
+                edge.target_kind,
                 edge.target_id,
                 edge.relation,
                 edge.strength,
@@ -33,54 +45,67 @@ impl SqliteIdeas {
             ],
         )?;
         debug!(
+            source_kind = %edge.source_kind,
             source = %edge.source_id,
+            target_kind = %edge.target_kind,
             target = %edge.target_id,
             relation = %edge.relation,
             strength = edge.strength,
-            "stored idea edge"
+            "stored entity edge"
         );
         Ok(())
     }
 
-    /// Fetch all edges where this idea is source or target.
-    pub fn fetch_edges(&self, idea_id: &str) -> Result<Vec<IdeaEdge>> {
+    /// Fetch all edges where this idea is source or target. Cross-kind
+    /// edges are included — callers that only care about idea→idea filter
+    /// downstream by `target_kind == "idea"`.
+    pub fn fetch_edges(&self, idea_id: &str) -> Result<Vec<EntityEdge>> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| anyhow::anyhow!("lock poisoned in fetch_edges: {e}"))?;
         let mut stmt = conn.prepare(
-            "SELECT source_id, target_id, relation, strength, created_at
-             FROM idea_edges
-             WHERE source_id = ?1 OR target_id = ?1",
+            "SELECT source_kind, source_id, target_kind, target_id, \
+                    relation, strength, created_at \
+             FROM entity_edges \
+             WHERE (source_kind = 'idea' AND source_id = ?1) \
+                OR (target_kind = 'idea' AND target_id = ?1)",
         )?;
         let edges = stmt
             .query_map(rusqlite::params![idea_id], |row| {
-                let source_id: String = row.get(0)?;
-                let target_id: String = row.get(1)?;
-                let relation: String = row.get(2)?;
-                let strength: f32 = row.get(3)?;
-                let created_str: String = row.get(4)?;
-                Ok((source_id, target_id, relation, strength, created_str))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, f32>(5)?,
+                    row.get::<_, String>(6)?,
+                ))
             })?
             .filter_map(|r| r.ok())
-            .filter_map(|(source_id, target_id, relation, strength, created_str)| {
-                let created_at = DateTime::parse_from_rfc3339(&created_str)
-                    .ok()?
-                    .with_timezone(&Utc);
-                Some(IdeaEdge {
-                    source_id,
-                    target_id,
-                    relation,
-                    strength,
-                    created_at,
-                })
-            })
+            .filter_map(
+                |(source_kind, source_id, target_kind, target_id, relation, strength, created)| {
+                    let created_at = DateTime::parse_from_rfc3339(&created)
+                        .ok()?
+                        .with_timezone(&Utc);
+                    Some(EntityEdge {
+                        source_kind,
+                        source_id,
+                        target_kind,
+                        target_id,
+                        relation,
+                        strength,
+                        created_at,
+                    })
+                },
+            )
             .collect();
         Ok(edges)
     }
 
-    /// Fetch all edges where any of the given IDs is involved.
-    pub fn fetch_edges_for_set(&self, ids: &[String]) -> Result<Vec<IdeaEdge>> {
+    /// Fetch all edges where any of the given idea IDs is involved.
+    pub fn fetch_edges_for_set(&self, ids: &[String]) -> Result<Vec<EntityEdge>> {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -88,10 +113,29 @@ impl SqliteIdeas {
         for id in ids {
             all_edges.extend(self.fetch_edges(id)?);
         }
-        // Deduplicate by (source, target, relation).
-        all_edges.sort_by(|a, b| (&a.source_id, &a.target_id).cmp(&(&b.source_id, &b.target_id)));
+        // Deduplicate by (source_kind, source_id, target_kind, target_id, relation).
+        all_edges.sort_by(|a, b| {
+            (
+                &a.source_kind,
+                &a.source_id,
+                &a.target_kind,
+                &a.target_id,
+                &a.relation,
+            )
+                .cmp(&(
+                    &b.source_kind,
+                    &b.source_id,
+                    &b.target_kind,
+                    &b.target_id,
+                    &b.relation,
+                ))
+        });
         all_edges.dedup_by(|a, b| {
-            a.source_id == b.source_id && a.target_id == b.target_id && a.relation == b.relation
+            a.source_kind == b.source_kind
+                && a.source_id == b.source_id
+                && a.target_kind == b.target_kind
+                && a.target_id == b.target_id
+                && a.relation == b.relation
         });
         Ok(all_edges)
     }
@@ -116,13 +160,16 @@ impl SqliteIdeas {
     ) -> f32 {
         let result_set: std::collections::HashSet<&str> =
             result_ids.iter().map(|s| s.as_str()).collect();
-        // Exclude self-edges — R6b's `contradiction` self-loops are durable
+        // Boost only sums idea→idea edges — cross-kind targets (sessions,
+        // quests) aren't in the result set and would compute as zero
+        // anyway, but filtering at SQL avoids deserialising them.
+        // Exclude self-edges — `contradiction` self-loops are durable
         // markers for "this idea was flagged wrong", not relevance signals.
-        // Strength to self is meaningless for graph-boost ranking.
         let Ok(mut stmt) = conn.prepare(
             "SELECT source_id, target_id, relation, strength \
-             FROM idea_edges \
-             WHERE (source_id = ?1 OR target_id = ?1) \
+             FROM entity_edges \
+             WHERE source_kind = 'idea' AND target_kind = 'idea' \
+               AND (source_id = ?1 OR target_id = ?1) \
                AND source_id != target_id",
         ) else {
             return 0.0;
@@ -147,12 +194,11 @@ impl SqliteIdeas {
                 continue;
             }
             let weight = match relation_str.as_str() {
-                "embeds" => 0.6,
-                "mentions" => 0.4,
-                "adjacent" => 0.3,
-                // Usage-derived edges reinforce co-access; authoritative
-                // relations (supersedes, distilled_into, caused_by) are
-                // not score-boosters but routing hints.
+                "embed" => 0.6,
+                "mention" => 0.4,
+                "link" => 0.3,
+                // Usage-derived edges reinforce co-access at a lower
+                // weight than authored connections.
                 "co_retrieved" => 0.25,
                 _ => 0.0,
             };
@@ -170,24 +216,46 @@ impl SqliteIdeas {
         relation: &str,
         strength: f32,
     ) -> Result<()> {
-        // The `idea_edges.relation` column is an open-enum TEXT — the
-        // v4 migration expanded the vocabulary to include `supersedes`,
-        // `supports`, `contradicts`, `distilled_into`, `caused_by`,
-        // `co_retrieved`, `contradiction` (plus the legacy `mentions`,
-        // `embeds`, `adjacent`). The canonical string list lives in
-        // [`crate::relation::KNOWN_RELATIONS`]; we write the raw string
-        // straight through so the full vocabulary round-trips.
+        // Default to idea→idea — explicit cross-kind callers use
+        // `store_entity_edge_impl` directly.
+        self.store_entity_edge_impl("idea", source_id, "idea", target_id, relation, strength)
+            .await
+    }
+
+    /// Cross-kind edge writer. The trait-facing `store_idea_edge` is a
+    /// thin wrapper that pins both kinds to `'idea'`.
+    pub(super) async fn store_entity_edge_impl(
+        &self,
+        source_kind: &str,
+        source_id: &str,
+        target_kind: &str,
+        target_id: &str,
+        relation: &str,
+        strength: f32,
+    ) -> Result<()> {
+        let source_kind = source_kind.to_string();
         let source = source_id.to_string();
+        let target_kind = target_kind.to_string();
         let target = target_id.to_string();
         let relation = relation.to_string();
         let created = Utc::now().to_rfc3339();
         self.blocking(move |conn| {
             conn.execute(
-                "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5) \
-                 ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
-                    strength = MAX(excluded.strength, idea_edges.strength)",
-                rusqlite::params![source, target, relation, strength, created],
+                "INSERT INTO entity_edges \
+                    (source_kind, source_id, target_kind, target_id, \
+                     relation, strength, created_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+                 ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+                 DO UPDATE SET strength = MAX(excluded.strength, entity_edges.strength)",
+                rusqlite::params![
+                    source_kind,
+                    source,
+                    target_kind,
+                    target,
+                    relation,
+                    strength,
+                    created
+                ],
             )?;
             Ok(())
         })
@@ -206,12 +274,17 @@ impl SqliteIdeas {
         self.blocking(move |conn| {
             let rows = if let Some(rel) = relation {
                 conn.execute(
-                    "DELETE FROM idea_edges WHERE source_id = ?1 AND target_id = ?2 AND relation = ?3",
+                    "DELETE FROM entity_edges \
+                     WHERE source_kind = 'idea' AND source_id = ?1 \
+                       AND target_kind = 'idea' AND target_id = ?2 \
+                       AND relation = ?3",
                     rusqlite::params![source, target, rel],
                 )?
             } else {
                 conn.execute(
-                    "DELETE FROM idea_edges WHERE source_id = ?1 AND target_id = ?2",
+                    "DELETE FROM entity_edges \
+                     WHERE source_kind = 'idea' AND source_id = ?1 \
+                       AND target_kind = 'idea' AND target_id = ?2",
                     rusqlite::params![source, target],
                 )?
             };
@@ -227,39 +300,49 @@ impl SqliteIdeas {
         use aeqi_core::traits::{IdeaEdgeRow, IdeaEdges};
         let idea_id = idea_id.to_string();
         self.blocking(move |conn| {
+            // Outgoing — every edge where this idea is the source. The
+            // target may be an idea (left-join populates `name`) or a
+            // cross-kind target (session/quest/agent — `other_name` is
+            // None). The kind is exposed so UI consumers can render the
+            // ref correctly.
             let mut links_stmt = conn.prepare(
-                "SELECT e.target_id, i.name, e.relation, e.strength \
-                 FROM idea_edges e \
-                 LEFT JOIN ideas i ON i.id = e.target_id \
-                 WHERE e.source_id = ?1 \
+                "SELECT e.target_kind, e.target_id, i.name, e.relation, e.strength \
+                 FROM entity_edges e \
+                 LEFT JOIN ideas i ON e.target_kind = 'idea' AND i.id = e.target_id \
+                 WHERE e.source_kind = 'idea' AND e.source_id = ?1 \
                  ORDER BY e.strength DESC, e.created_at DESC",
             )?;
             let links: Vec<IdeaEdgeRow> = links_stmt
                 .query_map(rusqlite::params![idea_id], |row| {
                     Ok(IdeaEdgeRow {
-                        other_id: row.get(0)?,
-                        other_name: row.get(1)?,
-                        relation: row.get(2)?,
-                        strength: row.get::<_, f64>(3)? as f32,
+                        other_kind: row.get(0)?,
+                        other_id: row.get(1)?,
+                        other_name: row.get(2)?,
+                        relation: row.get(3)?,
+                        strength: row.get::<_, f64>(4)? as f32,
                     })
                 })?
                 .filter_map(|r| r.ok())
                 .collect();
 
+            // Incoming — only idea→idea backlinks make sense in this
+            // surface (a session can't author a mention edge to an
+            // idea), so we keep `target_kind = 'idea'` here.
             let mut backlinks_stmt = conn.prepare(
-                "SELECT e.source_id, i.name, e.relation, e.strength \
-                 FROM idea_edges e \
-                 LEFT JOIN ideas i ON i.id = e.source_id \
-                 WHERE e.target_id = ?1 \
+                "SELECT e.source_kind, e.source_id, i.name, e.relation, e.strength \
+                 FROM entity_edges e \
+                 LEFT JOIN ideas i ON e.source_kind = 'idea' AND i.id = e.source_id \
+                 WHERE e.target_kind = 'idea' AND e.target_id = ?1 \
                  ORDER BY e.strength DESC, e.created_at DESC",
             )?;
             let backlinks: Vec<IdeaEdgeRow> = backlinks_stmt
                 .query_map(rusqlite::params![idea_id], |row| {
                     Ok(IdeaEdgeRow {
-                        other_id: row.get(0)?,
-                        other_name: row.get(1)?,
-                        relation: row.get(2)?,
-                        strength: row.get::<_, f64>(3)? as f32,
+                        other_kind: row.get(0)?,
+                        other_id: row.get(1)?,
+                        other_name: row.get(2)?,
+                        relation: row.get(3)?,
+                        strength: row.get::<_, f64>(4)? as f32,
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -280,10 +363,14 @@ impl SqliteIdeas {
         let ids = ids.to_vec();
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
+            // Idea-only view: callers that pass idea IDs expect
+            // idea→idea edges back. Cross-kind edges are exposed via
+            // `idea_edges_impl` instead.
             let sql = format!(
                 "SELECT source_id, target_id, relation, strength \
-                 FROM idea_edges \
-                 WHERE source_id IN ({ph}) OR target_id IN ({ph})",
+                 FROM entity_edges \
+                 WHERE source_kind = 'idea' AND target_kind = 'idea' \
+                   AND (source_id IN ({ph}) OR target_id IN ({ph}))",
                 ph = placeholders.join(", ")
             );
             let params: Vec<&dyn rusqlite::types::ToSql> = ids
@@ -342,10 +429,12 @@ impl SqliteIdeas {
         let now = Utc::now().to_rfc3339();
         for (src, dst) in pairs {
             tx.execute(
-                "INSERT INTO idea_edges \
-                    (source_id, target_id, relation, strength, created_at, last_reinforced_at) \
-                 VALUES (?1, ?2, 'co_retrieved', 0.05, ?3, ?3) \
-                 ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
+                "INSERT INTO entity_edges \
+                    (source_kind, source_id, target_kind, target_id, \
+                     relation, strength, created_at, last_reinforced_at) \
+                 VALUES ('idea', ?1, 'idea', ?2, 'co_retrieved', 0.05, ?3, ?3) \
+                 ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+                 DO UPDATE SET \
                     strength = MIN(1.0, strength + 0.05), \
                     last_reinforced_at = excluded.last_reinforced_at",
                 rusqlite::params![src, dst, now],
@@ -357,8 +446,7 @@ impl SqliteIdeas {
 
     /// Decay `co_retrieved` edges that haven't been reinforced in `days`.
     /// Applies a multiplicative decay (×0.5) then deletes edges that fall
-    /// below 0.01. Authoritative relations (`supersedes`, `distilled_into`,
-    /// `caused_by`, etc.) are untouched.
+    /// below 0.01.
     ///
     /// Returns the number of edges updated + deleted so the background
     /// patrol can log progress.
@@ -370,13 +458,13 @@ impl SqliteIdeas {
             .map_err(|e| anyhow::anyhow!("lock poisoned in decay_co_retrieval_older_than: {e}"))?;
         let tx = conn.unchecked_transaction()?;
         let updated = tx.execute(
-            "UPDATE idea_edges SET strength = strength * 0.5 \
+            "UPDATE entity_edges SET strength = strength * 0.5 \
              WHERE relation = 'co_retrieved' \
                AND (last_reinforced_at IS NULL OR last_reinforced_at < ?1)",
             rusqlite::params![cutoff],
         )?;
         let deleted = tx.execute(
-            "DELETE FROM idea_edges WHERE relation = 'co_retrieved' AND strength < 0.01",
+            "DELETE FROM entity_edges WHERE relation = 'co_retrieved' AND strength < 0.01",
             [],
         )?;
         tx.commit()?;
@@ -391,14 +479,13 @@ impl SqliteIdeas {
     /// across the BFS frontier so `A → B → A` terminates at depth 2 (the
     /// second visit to `A` is suppressed).
     ///
+    /// Walks stay on the idea→idea slice of the graph — cross-kind edges
+    /// (idea→session etc.) are NOT traversed because there's no concept
+    /// of "session→X" edges to follow.
+    ///
     /// Strength accumulation: each edge multiplies the path's accumulator
-    /// by the edge strength, with an additional per-relation weight for
-    /// usage-derived / downweighted relations. Authoritative relations
-    /// (`supersedes`, `distilled_into`, `caused_by`) and high-confidence
-    /// semantic relations (`mentions`, `embeds`, `supports`) carry full
-    /// weight (1.0); `adjacent`, `co_retrieved`, `contradicts` multiply
-    /// by 0.7; `contradiction` by 0.5 so walks through contradictions
-    /// still surface but rank lower.
+    /// by the edge strength, with an additional per-relation weight (see
+    /// [`relation_weight`]).
     ///
     /// Results are ordered by `strength_accum DESC`, capped at 100 rows
     /// internally. The caller's `limit` is applied downstream.
@@ -417,17 +504,11 @@ impl SqliteIdeas {
             .lock()
             .map_err(|e| anyhow::anyhow!("lock poisoned in walk_impl: {e}"))?;
 
-        // Make the set of allowed relations cheap to probe. Empty set
-        // means no filter (allow all).
         let relation_filter: HashSet<String> = relations.iter().cloned().collect();
 
-        // Visited-ids dedup. The start node is seeded so we never emit
-        // an edge that loops back to it.
         let mut visited: HashSet<String> = HashSet::new();
         visited.insert(from.to_string());
 
-        // Frontier items track (id, depth, strength_accum). We consume
-        // from the front and push successors to the back — standard BFS.
         let mut frontier: VecDeque<(String, u32, f32)> = VecDeque::new();
         frontier.push_back((from.to_string(), 0, 1.0));
 
@@ -435,8 +516,9 @@ impl SqliteIdeas {
 
         let mut stmt = conn.prepare(
             "SELECT target_id, relation, strength \
-             FROM idea_edges \
-             WHERE source_id = ?1 AND strength >= ?2",
+             FROM entity_edges \
+             WHERE source_kind = 'idea' AND target_kind = 'idea' \
+               AND source_id = ?1 AND strength >= ?2",
         )?;
 
         while let Some((node, depth, strength_accum)) = frontier.pop_front() {
@@ -456,12 +538,9 @@ impl SqliteIdeas {
                     Ok(t) => t,
                     Err(_) => continue,
                 };
-                // Optional relation filter.
                 if !relation_filter.is_empty() && !relation_filter.contains(&relation) {
                     continue;
                 }
-                // Cycle / duplicate suppression — first visit wins (BFS
-                // guarantees shortest-path visitation).
                 if visited.contains(&target_id) {
                     continue;
                 }
@@ -478,15 +557,12 @@ impl SqliteIdeas {
                     strength: next_strength,
                 });
 
-                // Only extend the frontier while there's depth left.
                 if depth + 1 < max_hops {
                     frontier.push_back((target_id, depth + 1, next_strength));
                 }
             }
         }
 
-        // Stable-sort by strength descending; keep insertion order within
-        // ties so BFS ordering shows through on the tie-break.
         out.sort_by(|a, b| {
             b.strength
                 .partial_cmp(&a.strength)
@@ -502,62 +578,59 @@ impl SqliteIdeas {
         body: &str,
         resolver: &(dyn for<'r> Fn(&'r str) -> Option<String> + Send + Sync),
     ) -> Result<()> {
-        // Resolve every referenced name up front, before we suspend on the
-        // blocking task. Unresolved names are dropped; self-edges are dropped
-        // too (meaningless to link an idea to itself).
+        // Resolve every referenced idea name up front, before we suspend
+        // on the blocking task. Unresolved names are dropped; self-edges
+        // are dropped too (meaningless to link an idea to itself).
+        // Cross-kind refs (`[[session:abc]]` etc.) are written without
+        // the resolver step — the id is taken verbatim.
         //
-        // ── Agent W (write path) note ────────────────────────────────────
-        // Typed prefixes (`supersedes`, `contradicts`, `supports`,
-        // `distilled_into`) emit their matching relation. Plain `[[X]]`
-        // and `![[X]]` keep the legacy `mentions` / `embeds` relations.
-        // The DELETE-then-INSERT below scrubs exactly the relations this
-        // parser owns — authoritative edges emitted by code paths outside
-        // inline parsing (e.g. supersede dispatch) are untouched.
-        let resolved: Vec<(String, &'static str)> = {
-            let parsed = crate::inline_links::parse_links(body);
-            let mut out: Vec<(String, &'static str)> = Vec::new();
-            for (relation, name) in parsed.as_relation_pairs() {
-                if let Some(target) = resolver(name)
+        // The DELETE-then-INSERT below scrubs exactly the relations the
+        // body parser owns (`mention`, `embed`) for this source. Edges
+        // emitted by other code paths (`link` edges from "+ Link" UI,
+        // `co_retrieved` from co-access) are untouched.
+        let parsed = crate::inline_links::parse_links(body);
+
+        // Pre-resolve idea-kind refs through the supplied lookup; non-idea
+        // refs pass through unchanged.
+        let mut resolved: Vec<(String, String, String)> = Vec::new();
+        for r in &parsed.refs {
+            if r.target_kind == "idea" {
+                if let Some(target) = resolver(&r.target_id)
                     && target != source_id
                 {
-                    // Convert to a &'static str by matching the parser's
-                    // fixed enum of relations. An unknown relation here
-                    // would be a parser bug — fall back to "mentions".
-                    let rel: &'static str = match relation {
-                        "mentions" => "mentions",
-                        "embeds" => "embeds",
-                        "supersedes" => "supersedes",
-                        "contradicts" => "contradicts",
-                        "supports" => "supports",
-                        "distilled_into" => "distilled_into",
-                        _ => "mentions",
-                    };
-                    out.push((target, rel));
+                    resolved.push(("idea".to_string(), target, r.relation.clone()));
                 }
+            } else {
+                resolved.push((
+                    r.target_kind.clone(),
+                    r.target_id.clone(),
+                    r.relation.clone(),
+                ));
             }
-            out
-        };
+        }
 
         let source_id = source_id.to_string();
         let created = chrono::Utc::now().to_rfc3339();
         self.blocking(move |conn| {
             let tx = conn.unchecked_transaction()?;
-            // Scrub every relation the inline parser owns so a removed
-            // reference in the body disappears from the graph.
+            // Scrub the body-parser-owned relations for this source
+            // (across all target kinds) so a removed reference in the
+            // body disappears from the graph.
             tx.execute(
-                "DELETE FROM idea_edges WHERE source_id = ?1 \
-                 AND relation IN ('mentions', 'embeds', 'supersedes', \
-                                  'contradicts', 'supports', 'distilled_into')",
+                "DELETE FROM entity_edges \
+                 WHERE source_kind = 'idea' AND source_id = ?1 \
+                   AND relation IN ('mention', 'embed')",
                 rusqlite::params![source_id],
             )?;
-            for (target_id, relation) in &resolved {
+            for (target_kind, target_id, relation) in &resolved {
                 tx.execute(
-                    "INSERT INTO idea_edges \
-                        (source_id, target_id, relation, strength, created_at) \
-                     VALUES (?1, ?2, ?3, ?4, ?5) \
-                     ON CONFLICT(source_id, target_id, relation) DO UPDATE SET \
-                        strength = MAX(excluded.strength, idea_edges.strength)",
-                    rusqlite::params![source_id, target_id, *relation, 1.0_f64, created],
+                    "INSERT INTO entity_edges \
+                        (source_kind, source_id, target_kind, target_id, \
+                         relation, strength, created_at) \
+                     VALUES ('idea', ?1, ?2, ?3, ?4, 1.0, ?5) \
+                     ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+                     DO UPDATE SET strength = MAX(excluded.strength, entity_edges.strength)",
+                    rusqlite::params![source_id, target_kind, target_id, relation, created],
                 )?;
             }
             tx.commit()?;
@@ -565,25 +638,53 @@ impl SqliteIdeas {
         })
         .await
     }
+
+    /// Cross-kind reference list for a single idea. Used by
+    /// `ideas.references` IPC.
+    pub(super) async fn idea_references_impl(
+        &self,
+        idea_id: &str,
+    ) -> Result<Vec<aeqi_core::traits::EntityRef>> {
+        use aeqi_core::traits::EntityRef;
+        let idea_id = idea_id.to_string();
+        self.blocking(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT target_kind, target_id, relation, strength \
+                 FROM entity_edges \
+                 WHERE source_kind = 'idea' AND source_id = ?1 \
+                 ORDER BY strength DESC, created_at DESC",
+            )?;
+            let refs: Vec<EntityRef> = stmt
+                .query_map(rusqlite::params![idea_id], |row| {
+                    Ok(EntityRef {
+                        kind: row.get(0)?,
+                        id: row.get(1)?,
+                        relation: row.get(2)?,
+                        strength: row.get::<_, f64>(3)? as f32,
+                    })
+                })?
+                .filter_map(|r| r.ok())
+                .collect();
+            Ok(refs)
+        })
+        .await
+    }
 }
 
 /// Per-relation weighting factor applied on every hop of the graph walk.
 ///
-/// Rationale:
-/// - Authoritative (`supersedes`, `distilled_into`, `caused_by`) and
-///   high-confidence semantic relations (`mentions`, `embeds`, `supports`)
-///   propagate strength at full weight.
-/// - Usage-derived / soft edges (`adjacent`, `co_retrieved`, `contradicts`)
-///   multiply by 0.7 so multi-hop walks along them decay naturally.
-/// - `contradiction` (the `wrong` feedback signal emits this) multiplies
-///   by 0.5 — still surfaces in walks but ranks below supportive paths.
-/// - Unknown relations default to 1.0 so open-enum extensions don't silently
-///   drop out of the ranking.
+/// - `embed` propagates strongest (transclusion implies tight coupling).
+/// - `mention` and `link` carry full weight for one-hop boosts.
+/// - `co_retrieved` decays at 0.7 — usage-derived, weaker signal.
+/// - `contradiction` propagates at 0.5 — surfaces but ranks below
+///   supportive paths.
+/// - Unknown relations default to 1.0 so open-enum extensions don't
+///   silently drop out of the ranking.
 fn relation_weight(relation: &str) -> f32 {
     match relation {
-        "supersedes" | "distilled_into" | "caused_by" => 1.0,
-        "mentions" | "embeds" | "supports" => 1.0,
-        "adjacent" | "co_retrieved" | "contradicts" => 0.7,
+        "embed" => 1.0,
+        "mention" | "link" => 1.0,
+        "co_retrieved" => 0.7,
         "contradiction" => 0.5,
         _ => 1.0,
     }
@@ -600,8 +701,7 @@ mod walk_tests {
         (store, dir)
     }
 
-    /// Helper: build a 3-node `A → B → C` chain with `supports` edges at
-    /// full strength. Returns the (a, b, c) ids.
+    /// Helper: build a 3-node `A → B → C` chain. Returns the (a, b, c) ids.
     async fn chain_abc(mem: &SqliteIdeas, rel_ab: &str, rel_bc: &str) -> (String, String, String) {
         use aeqi_core::traits::IdeaStore;
         let a = mem.store("node-a", "body A", &[], None).await.unwrap();
@@ -615,7 +715,7 @@ mod walk_tests {
     #[tokio::test]
     async fn walk_chain_two_hops_returns_b_and_c() {
         let (mem, _dir) = test_store();
-        let (a, b, c) = chain_abc(&mem, "supports", "supports").await;
+        let (a, b, c) = chain_abc(&mem, "mention", "mention").await;
 
         let steps = mem.walk_impl(&a, 2, &[], 0.0).unwrap();
         let ids: std::collections::HashSet<&str> = steps.iter().map(|s| s.to.as_str()).collect();
@@ -624,7 +724,6 @@ mod walk_tests {
         assert!(ids.contains(c.as_str()), "walk should reach C at depth 2");
         assert_eq!(ids.len(), 2);
 
-        // Depth annotations.
         let by_id: std::collections::HashMap<&str, u32> =
             steps.iter().map(|s| (s.to.as_str(), s.depth)).collect();
         assert_eq!(by_id.get(b.as_str()).copied(), Some(1));
@@ -634,7 +733,7 @@ mod walk_tests {
     #[tokio::test]
     async fn walk_chain_one_hop_only_returns_b() {
         let (mem, _dir) = test_store();
-        let (a, b, _c) = chain_abc(&mem, "supports", "supports").await;
+        let (a, b, _c) = chain_abc(&mem, "mention", "mention").await;
 
         let steps = mem.walk_impl(&a, 1, &[], 0.0).unwrap();
         assert_eq!(steps.len(), 1, "max_hops=1 must stop at depth 1");
@@ -645,27 +744,26 @@ mod walk_tests {
     #[tokio::test]
     async fn walk_filter_unknown_relation_returns_empty() {
         let (mem, _dir) = test_store();
-        let (a, _b, _c) = chain_abc(&mem, "supports", "supports").await;
+        let (a, _b, _c) = chain_abc(&mem, "mention", "mention").await;
 
-        let filter = vec!["supersedes".to_string()];
+        let filter = vec!["link".to_string()];
         let steps = mem.walk_impl(&a, 3, &filter, 0.0).unwrap();
         assert!(
             steps.is_empty(),
-            "no supersedes edges in the chain — walk must be empty"
+            "no link edges in the chain — walk must be empty"
         );
     }
 
     #[tokio::test]
     async fn walk_filter_to_matching_relation_only() {
         let (mem, _dir) = test_store();
-        let (a, b, _c) = chain_abc(&mem, "supports", "mentions").await;
+        let (a, b, _c) = chain_abc(&mem, "mention", "embed").await;
 
-        // Only `supports` allowed — A→B keeps, B→C drops.
-        let filter = vec!["supports".to_string()];
+        let filter = vec!["mention".to_string()];
         let steps = mem.walk_impl(&a, 3, &filter, 0.0).unwrap();
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].to, b);
-        assert_eq!(steps[0].relation, "supports");
+        assert_eq!(steps[0].relation, "mention");
     }
 
     #[tokio::test]
@@ -674,14 +772,10 @@ mod walk_tests {
         let (mem, _dir) = test_store();
         let a = mem.store("cyc-a", "A", &[], None).await.unwrap();
         let b = mem.store("cyc-b", "B", &[], None).await.unwrap();
-        // A → B → A cycle.
-        mem.store_idea_edge(&a, &b, "supports", 1.0).await.unwrap();
-        mem.store_idea_edge(&b, &a, "supports", 1.0).await.unwrap();
+        mem.store_idea_edge(&a, &b, "mention", 1.0).await.unwrap();
+        mem.store_idea_edge(&b, &a, "mention", 1.0).await.unwrap();
 
-        // max_hops=10 would loop forever without visited-set suppression.
         let steps = mem.walk_impl(&a, 10, &[], 0.0).unwrap();
-        // Exactly one step: A → B. The reverse edge would revisit A
-        // (the start node, already in `visited`), so it's dropped.
         assert_eq!(
             steps.len(),
             1,
@@ -697,10 +791,9 @@ mod walk_tests {
         let a = mem.store("s-a", "A", &[], None).await.unwrap();
         let b = mem.store("s-b", "B", &[], None).await.unwrap();
         let c = mem.store("s-c", "C", &[], None).await.unwrap();
-        mem.store_idea_edge(&a, &b, "supports", 0.9).await.unwrap();
-        mem.store_idea_edge(&a, &c, "supports", 0.05).await.unwrap();
+        mem.store_idea_edge(&a, &b, "mention", 0.9).await.unwrap();
+        mem.store_idea_edge(&a, &c, "mention", 0.05).await.unwrap();
 
-        // Threshold 0.1 keeps A→B (0.9) but drops A→C (0.05).
         let steps = mem.walk_impl(&a, 1, &[], 0.1).unwrap();
         let targets: std::collections::HashSet<&str> =
             steps.iter().map(|s| s.to.as_str()).collect();
@@ -711,7 +804,7 @@ mod walk_tests {
     #[tokio::test]
     async fn walk_max_hops_zero_returns_empty() {
         let (mem, _dir) = test_store();
-        let (a, _b, _c) = chain_abc(&mem, "supports", "supports").await;
+        let (a, _b, _c) = chain_abc(&mem, "mention", "mention").await;
 
         let steps = mem.walk_impl(&a, 0, &[], 0.0).unwrap();
         assert!(steps.is_empty(), "max_hops=0 disables the walk");
@@ -724,9 +817,13 @@ mod walk_tests {
         let a = mem.store("w-a", "A", &[], None).await.unwrap();
         let b = mem.store("w-b", "B", &[], None).await.unwrap();
         let c = mem.store("w-c", "C", &[], None).await.unwrap();
-        // Path through `adjacent` edges (weight 0.7 per hop).
-        mem.store_idea_edge(&a, &b, "adjacent", 1.0).await.unwrap();
-        mem.store_idea_edge(&b, &c, "adjacent", 1.0).await.unwrap();
+        // Path through `co_retrieved` edges (weight 0.7 per hop).
+        mem.store_idea_edge(&a, &b, "co_retrieved", 1.0)
+            .await
+            .unwrap();
+        mem.store_idea_edge(&b, &c, "co_retrieved", 1.0)
+            .await
+            .unwrap();
 
         let steps = mem.walk_impl(&a, 2, &[], 0.0).unwrap();
         let by_id: std::collections::HashMap<&str, f32> =
@@ -744,8 +841,7 @@ mod walk_tests {
     }
 
     /// `contradiction` self-edges are durable markers left by the `wrong`
-    /// feedback path (R6b). They must not feed into graph_boost — strength
-    /// to self is meaningless for ranking and would double-count the idea.
+    /// feedback path. They must not feed into graph_boost.
     #[tokio::test]
     async fn graph_boost_excludes_self_edge() {
         use aeqi_core::traits::IdeaStore;
@@ -753,25 +849,22 @@ mod walk_tests {
         let x = mem.store("x", "body", &[], None).await.unwrap();
         let y = mem.store("y", "body", &[], None).await.unwrap();
 
-        // Self-edge on X (contradiction marker) + a normal edge X→Y.
         mem.store_idea_edge(&x, &x, "contradiction", 1.0)
             .await
             .unwrap();
-        mem.store_idea_edge(&x, &y, "adjacent", 1.0).await.unwrap();
+        mem.store_idea_edge(&x, &y, "link", 1.0).await.unwrap();
 
         let result_ids = vec![x.clone(), y.clone()];
         let boost = mem.compute_graph_boost(&x, &result_ids);
 
-        // Only the X→Y `adjacent` edge (weight 0.3) should contribute.
-        // Self-edge must be excluded.
+        // Only the X→Y `link` edge (weight 0.3) should contribute. Self-
+        // edge must be excluded.
         assert!(
             (boost - 0.3).abs() < 1e-5,
-            "expected boost ≈ 0.3 (adjacent only); got {boost}"
+            "expected boost ≈ 0.3 (link only); got {boost}"
         );
     }
 
-    /// Sanity check: co-retrieval edges between distinct ideas are
-    /// unaffected by the self-edge filter.
     #[tokio::test]
     async fn graph_boost_co_retrieved_between_distinct_ideas_still_counts() {
         use aeqi_core::traits::IdeaStore;
@@ -784,7 +877,6 @@ mod walk_tests {
 
         let result_ids = vec![a.clone(), b.clone()];
         let boost = mem.compute_graph_boost(&a, &result_ids);
-        // co_retrieved weight is 0.25, strength 1.0 → boost 0.25.
         assert!(
             (boost - 0.25).abs() < 1e-5,
             "co_retrieved edge must contribute; got {boost}"

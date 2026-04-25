@@ -147,12 +147,12 @@ impl SqliteIdeas {
         idx += 1;
 
         if !include_superseded {
+            // T1.8 collapse: the `supersedes` relation was retired. The
+            // `ideas.status` column already says the same thing — every
+            // superseded idea has its status flipped by
+            // `supersede_atomic_impl`, so the status filter is the
+            // single source of truth.
             conditions.push("m.status = 'active'".into());
-            conditions.push(
-                "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
-                 AND se.relation = 'supersedes')"
-                    .into(),
-            );
         }
 
         apply_scope_clause(query, &mut conditions, &mut params, &mut idx);
@@ -211,12 +211,12 @@ impl SqliteIdeas {
         let mut idx = 2usize;
 
         if !include_superseded {
+            // T1.8 collapse: the `supersedes` relation was retired. The
+            // `ideas.status` column already says the same thing — every
+            // superseded idea has its status flipped by
+            // `supersede_atomic_impl`, so the status filter is the
+            // single source of truth.
             conditions.push("m.status = 'active'".into());
-            conditions.push(
-                "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
-                 AND se.relation = 'supersedes')"
-                    .into(),
-            );
         }
 
         // Rows mid-reembed carry a stale embedding (the content_hash on the
@@ -313,12 +313,12 @@ impl SqliteIdeas {
         let mut idx = 4usize;
 
         if !include_superseded {
+            // T1.8 collapse: the `supersedes` relation was retired. The
+            // `ideas.status` column already says the same thing — every
+            // superseded idea has its status flipped by
+            // `supersede_atomic_impl`, so the status filter is the
+            // single source of truth.
             conditions.push("m.status = 'active'".into());
-            conditions.push(
-                "NOT EXISTS(SELECT 1 FROM idea_edges se WHERE se.source_id = m.id \
-                 AND se.relation = 'supersedes')"
-                    .into(),
-            );
         }
 
         // Mirror the brute-force path: skip rows mid-reembed. `idea_vec`

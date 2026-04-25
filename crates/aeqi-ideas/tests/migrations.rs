@@ -59,8 +59,8 @@ const DROPPED_IDEAS_COLUMNS: &[&str] = &[
     "source_ref",
 ];
 
-/// Every index the baseline creates on `ideas` / `idea_edges` / `idea_tags` /
-/// log/feedback tables.
+/// Every index the baseline creates on `ideas` / `entity_edges` /
+/// `idea_tags` / log/feedback tables.
 const REQUIRED_INDEXES: &[&str] = &[
     "idx_ideas_name",
     "idx_ideas_created",
@@ -75,10 +75,10 @@ const REQUIRED_INDEXES: &[&str] = &[
     "idx_ideas_time_context",
     "idx_ideas_agent_name_active_unique",
     "idx_idea_tags_tag",
-    "idx_idea_edges_source",
-    "idx_idea_edges_target",
-    "idx_idea_edges_relation",
-    "idx_idea_edges_reinforced",
+    "idx_entity_edges_source",
+    "idx_entity_edges_target",
+    "idx_entity_edges_relation",
+    "idx_entity_edges_reinforced",
     "idx_access_log_idea",
     "idx_access_log_query",
     "idx_feedback_idea",
@@ -225,7 +225,7 @@ fn test_fresh_db_has_final_shape() {
 
     let conn = Connection::open(&db_path).expect("inspect db");
 
-    // 1. schema_version is stamped at 10 — the baseline marker.
+    // 1. schema_version is stamped at 11 — the baseline marker (T1.8).
     let max_version: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -234,8 +234,8 @@ fn test_fresh_db_has_final_shape() {
         )
         .expect("read schema_version");
     assert_eq!(
-        max_version, 10,
-        "fresh DB should be stamped at baseline version 10, got {max_version}"
+        max_version, 11,
+        "fresh DB should be stamped at baseline version 11, got {max_version}"
     );
 
     // 2. ideas has every required column.
@@ -255,10 +255,11 @@ fn test_fresh_db_has_final_shape() {
         );
     }
 
-    // 4. Every auxiliary table exists.
+    // 4. Every auxiliary table exists. T1.8 renamed `idea_edges` →
+    //    `entity_edges` with kind columns.
     for tbl in &[
         "idea_tags",
-        "idea_edges",
+        "entity_edges",
         "idea_embeddings",
         "idea_access_log",
         "idea_feedback",
@@ -266,6 +267,10 @@ fn test_fresh_db_has_final_shape() {
     ] {
         assert!(table_exists(&conn, tbl), "table {tbl} should exist");
     }
+    assert!(
+        !table_exists(&conn, "idea_edges"),
+        "legacy idea_edges table must NOT exist after T1.8"
+    );
 
     // 5. FTS5 virtual table exists.
     assert!(
@@ -291,21 +296,23 @@ fn test_fresh_db_has_final_shape() {
         );
     }
 
-    // 8. `idea_edges.last_reinforced_at` column exists — v4's addition.
-    let edge_cols = columns_on(&conn, "idea_edges");
-    assert!(
-        edge_cols.iter().any(|c| c == "last_reinforced_at"),
-        "idea_edges.last_reinforced_at column missing; got {edge_cols:?}"
-    );
+    // 8. `entity_edges` carries every legacy column plus the new kind
+    //    columns (T1.8).
+    let edge_cols = columns_on(&conn, "entity_edges");
+    for required in &["last_reinforced_at", "source_kind", "target_kind"] {
+        assert!(
+            edge_cols.iter().any(|c| c == required),
+            "entity_edges.{required} column missing; got {edge_cols:?}"
+        );
+    }
 }
 
 /// A DB that was migrated by the full legacy v1..v9 chain carries
-/// `schema_version` rows 1..9. Opening it through the new runner must be a
-/// pure no-op: no re-running of CREATE TABLE (which would error), no extra
-/// schema_version rows, no data loss. This is the permanent legacy path
-/// now that v8 and v9 migration functions have been deleted.
+/// `schema_version` rows 1..9. Opening it through the T1.8 runner must
+/// run migration v11 (rename + retire-typed-relations) without
+/// re-running CREATE TABLE for the schema-baseline tables.
 #[test]
-fn test_legacy_db_with_schema_version_9_is_noop() {
+fn test_legacy_db_with_schema_version_9_runs_v11() {
     let dir = TempDir::new().expect("tempdir");
     let db_path = dir.path().join("legacy-v9.db");
 
@@ -353,10 +360,11 @@ fn test_legacy_db_with_schema_version_9_is_noop() {
         .expect("query")
         .filter_map(Result::ok)
         .collect();
+    // T1.8 appends v11 to the schema_version table when catching up.
     assert_eq!(
         versions,
-        (1..=9).collect::<Vec<_>>(),
-        "legacy 1..9 rows must be preserved, nothing appended"
+        (1..=9).chain(std::iter::once(11)).collect::<Vec<_>>(),
+        "legacy 1..9 rows must be preserved; v11 must be stamped"
     );
 
     let idea_count: i64 = conn
@@ -376,11 +384,29 @@ fn test_legacy_db_with_schema_version_9_is_noop() {
             "column {required} missing on legacy DB post-open"
         );
     }
+
+    // T1.8 invariant: the legacy `idea_edges` table must be retired in
+    // favour of `entity_edges` with kind columns.
+    assert!(
+        table_exists(&conn, "entity_edges"),
+        "T1.8 must materialise entity_edges on legacy DBs"
+    );
+    assert!(
+        !table_exists(&conn, "idea_edges"),
+        "legacy idea_edges table must be dropped after v11"
+    );
+    let edge_cols = columns_on(&conn, "entity_edges");
+    for required in &["source_kind", "target_kind"] {
+        assert!(
+            edge_cols.iter().any(|c| c == required),
+            "entity_edges.{required} column missing post-migration"
+        );
+    }
 }
 
 /// Opening the same fresh DB twice is a no-op: the first open stamps
-/// version 10, the second sees current >= 10 and skips. No errors, no
-/// duplicate rows.
+/// the baseline (v11 after T1.8), the second sees current >= 11 and
+/// skips. No errors, no duplicate rows.
 #[test]
 fn test_open_is_idempotent() {
     let dir = TempDir::new().expect("tempdir");
@@ -410,5 +436,313 @@ fn test_open_is_idempotent() {
     assert_eq!(
         distinct_versions, total_rows,
         "every schema_version row must be unique"
+    );
+}
+
+// ── T1.8 — connection vocabulary collapse + cross-kind edges ───────────
+
+/// Seed a v9 DB with the full legacy relation vocabulary, run the v11
+/// migration, and verify every typed relation collapses to `mention` (or
+/// `embed` for the plural `embeds`) while the connection itself is
+/// preserved. Strength is preserved via the MAX-on-conflict upsert.
+#[test]
+fn test_t1_8_legacy_relations_collapse_to_substrate_vocabulary() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("legacy-edges.db");
+
+    {
+        let conn = Connection::open(&db_path).expect("open");
+        build_post_v7_shape(&conn);
+        conn.execute_batch(
+            "CREATE UNIQUE INDEX idx_ideas_agent_name_active_unique
+                ON ideas(COALESCE(agent_id, ''), name)
+                WHERE status = 'active';",
+        )
+        .expect("v8 idx");
+        for v in 1..=9 {
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![v, "2026-04-20T00:00:00Z"],
+            )
+            .expect("stamp");
+        }
+
+        // Seed two ideas and one edge per legacy relation. We give the
+        // edges distinct (source, target) pairs so the relation→mention
+        // collapse doesn't trip the PK during materialisation.
+        conn.execute_batch(
+            "INSERT INTO ideas (id, name, content, created_at) VALUES \
+                ('a', 'a', 'body', '2024-01-01T00:00:00Z'), \
+                ('b', 'b', 'body', '2024-01-01T00:00:00Z'), \
+                ('c', 'c', 'body', '2024-01-01T00:00:00Z'), \
+                ('d', 'd', 'body', '2024-01-01T00:00:00Z'), \
+                ('e', 'e', 'body', '2024-01-01T00:00:00Z'), \
+                ('f', 'f', 'body', '2024-01-01T00:00:00Z');",
+        )
+        .expect("seed ideas");
+        conn.execute_batch(
+            "INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at) VALUES \
+                ('a', 'b', 'mentions', 0.8, '2026-04-20T00:00:00Z'), \
+                ('a', 'c', 'embeds', 0.9, '2026-04-20T00:00:00Z'), \
+                ('a', 'd', 'adjacent', 0.5, '2026-04-20T00:00:00Z'), \
+                ('a', 'e', 'supersedes', 1.0, '2026-04-20T00:00:00Z'), \
+                ('a', 'f', 'distilled_into', 1.0, '2026-04-20T00:00:00Z'), \
+                ('b', 'c', 'contradicts', 0.7, '2026-04-20T00:00:00Z'), \
+                ('b', 'd', 'supports', 0.6, '2026-04-20T00:00:00Z'), \
+                ('c', 'a', 'co_retrieved', 0.4, '2026-04-20T00:00:00Z');",
+        )
+        .expect("seed edges");
+    }
+
+    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open + migrate v11");
+    let conn = Connection::open(&db_path).expect("inspect");
+
+    // 1. Substrate-vocabulary check: only `mention`, `embed`, `link`,
+    //    `co_retrieved`, `contradiction` should be present.
+    let relations: std::collections::HashSet<String> = conn
+        .prepare("SELECT DISTINCT relation FROM entity_edges")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(0))
+        .unwrap()
+        .filter_map(Result::ok)
+        .collect();
+    let allowed: std::collections::HashSet<String> = ["mention", "embed", "co_retrieved"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    for r in &relations {
+        assert!(
+            allowed.contains(r),
+            "post-T1.8 vocabulary must collapse legacy relations; saw '{r}'"
+        );
+    }
+
+    // 2. Specific edges: `a → b` was `mentions` → now `mention`.
+    let rel: String = conn
+        .query_row(
+            "SELECT relation FROM entity_edges WHERE source_id = 'a' AND target_id = 'b'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rel, "mention");
+
+    // `a → c` was `embeds` → now `embed`.
+    let rel: String = conn
+        .query_row(
+            "SELECT relation FROM entity_edges WHERE source_id = 'a' AND target_id = 'c'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rel, "embed");
+
+    // `a → d` was `adjacent` → now `mention`.
+    let rel: String = conn
+        .query_row(
+            "SELECT relation FROM entity_edges WHERE source_id = 'a' AND target_id = 'd'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rel, "mention");
+
+    // `a → e` was `supersedes` → now `mention`.
+    let rel: String = conn
+        .query_row(
+            "SELECT relation FROM entity_edges WHERE source_id = 'a' AND target_id = 'e'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rel, "mention");
+
+    // `a → f` was `distilled_into` → now `mention`.
+    let rel: String = conn
+        .query_row(
+            "SELECT relation FROM entity_edges WHERE source_id = 'a' AND target_id = 'f'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rel, "mention");
+
+    // `c → a` was `co_retrieved` — system-emitted, NOT collapsed.
+    let rel: String = conn
+        .query_row(
+            "SELECT relation FROM entity_edges WHERE source_id = 'c' AND target_id = 'a'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rel, "co_retrieved");
+
+    // 3. Default kinds — every existing row was idea→idea.
+    let kind_rows: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM entity_edges \
+             WHERE source_kind = 'idea' AND target_kind = 'idea'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let total: i64 = conn
+        .query_row("SELECT COUNT(*) FROM entity_edges", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        kind_rows, total,
+        "every legacy edge must default to idea→idea; got {kind_rows}/{total}"
+    );
+
+    // 4. Strength preservation via MAX-on-conflict.
+    let strength: f64 = conn
+        .query_row(
+            "SELECT strength FROM entity_edges WHERE source_id = 'a' AND target_id = 'e'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(
+        (strength - 1.0).abs() < 1e-6,
+        "strength must survive the collapse; got {strength}"
+    );
+}
+
+/// Tag-based session provenance migrates to a real cross-kind
+/// `idea → session` mention edge. The legacy tag stays in place for
+/// one release.
+#[test]
+fn test_t1_8_source_session_tag_migrates_to_cross_kind_mention_edge() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("session-tags.db");
+
+    {
+        let conn = Connection::open(&db_path).expect("open");
+        build_post_v7_shape(&conn);
+        conn.execute_batch(
+            "CREATE UNIQUE INDEX idx_ideas_agent_name_active_unique
+                ON ideas(COALESCE(agent_id, ''), name)
+                WHERE status = 'active';",
+        )
+        .expect("v8 idx");
+        for v in 1..=9 {
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![v, "2026-04-20T00:00:00Z"],
+            )
+            .expect("stamp");
+        }
+        conn.execute_batch(
+            "INSERT INTO ideas (id, name, content, created_at) VALUES \
+                ('idea-1', 'reflection-from-session', 'body', '2024-01-01T00:00:00Z'), \
+                ('idea-2', 'untagged', 'body', '2024-01-01T00:00:00Z');
+             INSERT INTO idea_tags (idea_id, tag) VALUES \
+                ('idea-1', 'fact'), \
+                ('idea-1', 'source:session:abc-uuid-123');",
+        )
+        .expect("seed ideas + tags");
+    }
+
+    let _ideas = SqliteIdeas::open(&db_path, 30.0).expect("open + migrate");
+    let conn = Connection::open(&db_path).expect("inspect");
+
+    // Cross-kind edge materialised: idea-1 → session abc-uuid-123.
+    let (kind, target, relation): (String, String, String) = conn
+        .query_row(
+            "SELECT target_kind, target_id, relation FROM entity_edges \
+             WHERE source_kind = 'idea' AND source_id = 'idea-1'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .expect("session edge must materialise");
+    assert_eq!(kind, "session");
+    assert_eq!(target, "abc-uuid-123");
+    assert_eq!(relation, "mention");
+
+    // Legacy tag stays in place for one release (deprecation cycle).
+    let tag_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM idea_tags WHERE tag = 'source:session:abc-uuid-123'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        tag_count, 1,
+        "legacy source:session:* tag must survive the migration"
+    );
+}
+
+/// Re-running the migration on an already-migrated DB is a no-op:
+/// no duplicate rows, no errors. Verified by opening the same DB twice
+/// after seeding legacy data — the second open re-runs every step on
+/// the already-converted schema.
+#[test]
+fn test_t1_8_migration_is_idempotent() {
+    let dir = TempDir::new().expect("tempdir");
+    let db_path = dir.path().join("idem-t1-8.db");
+
+    {
+        let conn = Connection::open(&db_path).expect("open");
+        build_post_v7_shape(&conn);
+        conn.execute_batch(
+            "CREATE UNIQUE INDEX idx_ideas_agent_name_active_unique
+                ON ideas(COALESCE(agent_id, ''), name)
+                WHERE status = 'active';",
+        )
+        .expect("v8 idx");
+        for v in 1..=9 {
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![v, "2026-04-20T00:00:00Z"],
+            )
+            .expect("stamp");
+        }
+        conn.execute_batch(
+            "INSERT INTO ideas (id, name, content, created_at) VALUES \
+                ('a', 'a', 'body', '2024-01-01T00:00:00Z'), \
+                ('b', 'b', 'body', '2024-01-01T00:00:00Z');
+             INSERT INTO idea_tags (idea_id, tag) VALUES \
+                ('a', 'source:session:s1');
+             INSERT INTO idea_edges (source_id, target_id, relation, strength, created_at) \
+             VALUES ('a', 'b', 'adjacent', 0.5, '2026-04-20T00:00:00Z');",
+        )
+        .expect("seed");
+    }
+
+    // First open runs migration.
+    let _a = SqliteIdeas::open(&db_path, 30.0).expect("first migrate");
+    drop(_a);
+    let edges_after_first: i64 = {
+        let conn = Connection::open(&db_path).unwrap();
+        conn.query_row("SELECT COUNT(*) FROM entity_edges", [], |r| r.get(0))
+            .unwrap()
+    };
+
+    // Second open: re-running is a no-op (the legacy `idea_edges`
+    // table is already gone, the relation strings already match the
+    // new vocabulary, the cross-kind edge already exists).
+    let _b = SqliteIdeas::open(&db_path, 30.0).expect("second open is idempotent");
+    drop(_b);
+
+    let conn = Connection::open(&db_path).unwrap();
+    let edges_after_second: i64 = conn
+        .query_row("SELECT COUNT(*) FROM entity_edges", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        edges_after_first, edges_after_second,
+        "re-running the migration must not duplicate rows"
+    );
+
+    let v11_rows: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM schema_version WHERE version = 11",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        v11_rows, 1,
+        "schema_version 11 must be stamped exactly once across re-opens"
     );
 }

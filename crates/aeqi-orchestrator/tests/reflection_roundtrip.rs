@@ -281,7 +281,7 @@ async fn reflector_output_with_markdown_fences_still_persists() {
 async fn threshold_reached_persists_consolidator_output() {
     let canned = r#"[
         {"name": "consolidated/test-tag/2026-04-24",
-         "content": "Synthesis of several related facts. distilled_into:[[a]] [[b]]",
+         "content": "Synthesis of several related facts. [[a]] [[b]]",
          "tags": ["test-tag", "consolidated"]}
     ]"#;
     let h = build_harness(canned).await;

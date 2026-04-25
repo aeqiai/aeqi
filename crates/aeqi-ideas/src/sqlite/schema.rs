@@ -49,8 +49,9 @@ use rusqlite::Connection;
 
 /// The version stamped on a fresh DB after `initial_schema` runs. Legacy
 /// DBs that ran the old v1..v9 chain carry rows 1..9 and are not re-stamped;
-/// both are considered "at baseline" for future migration purposes.
-const BASELINE_VERSION: i64 = 10;
+/// they catch up via the `migrations` table below. The current head is v11
+/// (T1.8 — connection-primitive collapse + cross-kind edges).
+const BASELINE_VERSION: i64 = 11;
 
 impl SqliteIdeas {
     pub fn prepare_schema(conn: &Connection) -> Result<()> {
@@ -93,10 +94,11 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     }
 
     // Legacy DBs at v1..v9 already have every table, index, and trigger.
-    // Future incremental migrations slot into the list below; today it's
-    // empty, so the loop is a no-op.
+    // v11 (T1.8) generalises `idea_edges` → `entity_edges` with kind
+    // columns and collapses the legacy typed-relation vocabulary down to
+    // mention / embed / link.
     type Migration = fn(&Connection) -> Result<()>;
-    let migrations: &[(i64, Migration)] = &[];
+    let migrations: &[(i64, Migration)] = &[(11, migration_v11_entity_edges)];
     for (version, f) in migrations {
         if *version > current {
             let tx = conn.unchecked_transaction()?;
@@ -165,10 +167,16 @@ fn initial_schema(conn: &Connection) -> Result<()> {
         );",
     )?;
 
-    // idea_edges — typed relations between ideas with reinforcement tracking.
+    // entity_edges — typed relations between entities (idea → idea by
+    // default; cross-kind edges to sessions / quests / agents allowed).
+    // Renamed from `idea_edges` in T1.8 with `source_kind` / `target_kind`
+    // columns added. The PRIMARY KEY includes both kinds so an idea→idea
+    // and idea→session edge with the same id pair can coexist.
     conn.execute_batch(
-        "CREATE TABLE idea_edges (
+        "CREATE TABLE entity_edges (
+            source_kind TEXT NOT NULL DEFAULT 'idea',
             source_id TEXT NOT NULL,
+            target_kind TEXT NOT NULL DEFAULT 'idea',
             target_id TEXT NOT NULL,
             relation TEXT NOT NULL,
             strength REAL NOT NULL DEFAULT 0.5,
@@ -176,7 +184,7 @@ fn initial_schema(conn: &Connection) -> Result<()> {
             task_id TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_reinforced_at TEXT,
-            PRIMARY KEY (source_id, target_id, relation)
+            PRIMARY KEY (source_kind, source_id, target_kind, target_id, relation)
         );",
     )?;
 
@@ -235,10 +243,10 @@ fn initial_schema(conn: &Connection) -> Result<()> {
          CREATE INDEX idx_ideas_valid_until ON ideas(valid_until);
          CREATE INDEX idx_ideas_time_context ON ideas(time_context);
          CREATE INDEX idx_idea_tags_tag ON idea_tags(tag);
-         CREATE INDEX idx_idea_edges_source ON idea_edges(source_id);
-         CREATE INDEX idx_idea_edges_target ON idea_edges(target_id);
-         CREATE INDEX idx_idea_edges_relation ON idea_edges(relation);
-         CREATE INDEX idx_idea_edges_reinforced ON idea_edges(last_reinforced_at)
+         CREATE INDEX idx_entity_edges_source ON entity_edges(source_kind, source_id);
+         CREATE INDEX idx_entity_edges_target ON entity_edges(target_kind, target_id);
+         CREATE INDEX idx_entity_edges_relation ON entity_edges(relation);
+         CREATE INDEX idx_entity_edges_reinforced ON entity_edges(last_reinforced_at)
             WHERE relation = 'co_retrieved';
          CREATE INDEX idx_access_log_idea ON idea_access_log(idea_id, accessed_at);
          CREATE INDEX idx_access_log_query ON idea_access_log(query_hash, accessed_at);
@@ -356,3 +364,191 @@ pub(super) fn rebuild_idea_vec_table(conn: &Connection, dimensions: usize) {
 
 #[cfg(not(feature = "ann-sqlite-vec"))]
 pub(super) fn rebuild_idea_vec_table(_conn: &Connection, _dimensions: usize) {}
+
+/// T1.8 — collapse the connection vocabulary and generalise the edge
+/// table to support cross-kind edges.
+///
+/// Three substrate moves, all idempotent:
+///
+/// 1. Rename `idea_edges` → `entity_edges` and add `source_kind` /
+///    `target_kind` columns (default `'idea'` so existing rows keep
+///    working unchanged). The PRIMARY KEY changes from
+///    `(source_id, target_id, relation)` to
+///    `(source_kind, source_id, target_kind, target_id, relation)` so a
+///    cross-kind edge with the same id-pair as an idea→idea edge can
+///    coexist. SQLite can't `ALTER TABLE ... ADD CONSTRAINT`, so legacy
+///    DBs go through a CREATE-NEW + INSERT-FROM-OLD + DROP-OLD swap.
+/// 2. Collapse the legacy 7-relation vocabulary down to three:
+///    `mention` (was `mentions` / `adjacent` / `supersedes` /
+///    `contradicts` / `supports` / `distilled_into`), `embed` (was
+///    `embeds`), and `link` (new — direct API write only). The old
+///    typed semantics were decorative; mention preserves the connection.
+/// 3. Migrate `source:session:<id>` tags into proper cross-kind
+///    `idea → session` mention edges. The legacy tag is left in place
+///    for one release (deprecation cycle) so consumers that read it can
+///    migrate.
+///
+/// Re-running the migration is a no-op: every step uses
+/// `CREATE TABLE IF NOT EXISTS`, idempotent table-swap detection,
+/// `INSERT OR IGNORE`, and `INSERT … ON CONFLICT DO UPDATE`.
+fn migration_v11_entity_edges(conn: &Connection) -> Result<()> {
+    // ── Step 1 — Bring `entity_edges` into existence with the new
+    //              PRIMARY KEY. ──
+    //
+    // Three possible starting states:
+    //
+    // * Fresh DB: `entity_edges` already exists with the new shape (the
+    //   `initial_schema` baseline created it). Nothing to do.
+    // * Legacy DB at v9: `idea_edges` exists with the old PK. We need a
+    //   full table swap to land the new PK + kind columns.
+    // * Mid-migration crash recovery: `entity_edges` exists alongside
+    //   `idea_edges`. Re-running drops the leftover `idea_edges`.
+
+    let entity_edges_exists: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='entity_edges'",
+            [],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+    let idea_edges_exists: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='idea_edges'",
+            [],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+
+    if !entity_edges_exists {
+        // Legacy or crash-recovery path: build the new table, copy
+        // rows over, drop the old table.
+        conn.execute_batch(
+            "CREATE TABLE entity_edges (
+                source_kind TEXT NOT NULL DEFAULT 'idea',
+                source_id TEXT NOT NULL,
+                target_kind TEXT NOT NULL DEFAULT 'idea',
+                target_id TEXT NOT NULL,
+                relation TEXT NOT NULL,
+                strength REAL NOT NULL DEFAULT 0.5,
+                agent TEXT,
+                task_id TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_reinforced_at TEXT,
+                PRIMARY KEY (source_kind, source_id, target_kind, target_id, relation)
+            );",
+        )?;
+
+        if idea_edges_exists {
+            conn.execute(
+                "INSERT INTO entity_edges \
+                    (source_kind, source_id, target_kind, target_id, \
+                     relation, strength, agent, task_id, created_at, \
+                     last_reinforced_at) \
+                 SELECT 'idea', source_id, 'idea', target_id, relation, \
+                        strength, agent, task_id, created_at, last_reinforced_at \
+                 FROM idea_edges",
+                [],
+            )?;
+        }
+    }
+
+    if idea_edges_exists {
+        conn.execute("DROP TABLE idea_edges", [])?;
+    }
+
+    // Refresh indexes — the renamed table still carries the old
+    // `idx_idea_edges_*` index names on legacy DBs. Drop and recreate
+    // against entity_edges with kind-aware coverage.
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_idea_edges_source;
+         DROP INDEX IF EXISTS idx_idea_edges_target;
+         DROP INDEX IF EXISTS idx_idea_edges_relation;
+         DROP INDEX IF EXISTS idx_idea_edges_reinforced;
+         CREATE INDEX IF NOT EXISTS idx_entity_edges_source
+            ON entity_edges(source_kind, source_id);
+         CREATE INDEX IF NOT EXISTS idx_entity_edges_target
+            ON entity_edges(target_kind, target_id);
+         CREATE INDEX IF NOT EXISTS idx_entity_edges_relation
+            ON entity_edges(relation);
+         CREATE INDEX IF NOT EXISTS idx_entity_edges_reinforced
+            ON entity_edges(last_reinforced_at) WHERE relation = 'co_retrieved';",
+    )?;
+
+    // ── Step 2 — Collapse legacy relation vocabulary ──
+    //
+    // The PRIMARY KEY includes `relation`, so two rows with the same
+    // (source, target) but different legacy relations would collapse
+    // into the same `mention` edge under a naive UPDATE — and the
+    // second UPDATE would trip the PK uniqueness. Two-phase plan:
+    //
+    //   a. INSERT OR IGNORE the canonical `mention` / `embed` / `link`
+    //      row for every legacy relation row;
+    //   b. DELETE every legacy relation row.
+    //
+    // Strength is preserved via MAX-style upsert when both shapes
+    // already exist (e.g. an `adjacent` and a `mentions` between the
+    // same pair).
+
+    // a. Materialise canonical rows. ON CONFLICT keeps the higher
+    //    strength so a strong `adjacent` doesn't get clobbered by a
+    //    weaker `mentions`.
+    conn.execute(
+        "INSERT INTO entity_edges \
+            (source_kind, source_id, target_kind, target_id, relation, \
+             strength, agent, task_id, created_at, last_reinforced_at) \
+         SELECT source_kind, source_id, target_kind, target_id, 'mention', \
+                strength, agent, task_id, created_at, last_reinforced_at \
+         FROM entity_edges \
+         WHERE relation IN ('mentions', 'adjacent', 'supersedes', \
+                            'contradicts', 'supports', 'distilled_into', \
+                            'caused_by') \
+         ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+         DO UPDATE SET strength = MAX(excluded.strength, entity_edges.strength)",
+        [],
+    )?;
+    conn.execute(
+        "INSERT INTO entity_edges \
+            (source_kind, source_id, target_kind, target_id, relation, \
+             strength, agent, task_id, created_at, last_reinforced_at) \
+         SELECT source_kind, source_id, target_kind, target_id, 'embed', \
+                strength, agent, task_id, created_at, last_reinforced_at \
+         FROM entity_edges \
+         WHERE relation = 'embeds' \
+         ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+         DO UPDATE SET strength = MAX(excluded.strength, entity_edges.strength)",
+        [],
+    )?;
+
+    // b. Delete the legacy rows now that their canonical counterparts
+    //    exist.
+    conn.execute(
+        "DELETE FROM entity_edges \
+         WHERE relation IN ('mentions', 'embeds', 'adjacent', 'supersedes', \
+                            'contradicts', 'supports', 'distilled_into', \
+                            'caused_by')",
+        [],
+    )?;
+
+    // ── Step 3 — Tag-derived `source:session:<id>` → cross-kind edge ──
+    //
+    // For every `source:session:<id>` tag on an idea, materialise a
+    // cross-kind `idea → session` mention edge. The tag stays in place
+    // for one release (deprecation cycle).
+    conn.execute(
+        "INSERT INTO entity_edges \
+            (source_kind, source_id, target_kind, target_id, relation, \
+             strength, created_at) \
+         SELECT 'idea', t.idea_id, 'session', \
+                SUBSTR(t.tag, LENGTH('source:session:') + 1), \
+                'mention', 1.0, COALESCE(i.created_at, CURRENT_TIMESTAMP) \
+         FROM idea_tags t \
+         LEFT JOIN ideas i ON i.id = t.idea_id \
+         WHERE t.tag LIKE 'source:session:%' \
+           AND LENGTH(t.tag) > LENGTH('source:session:') \
+         ON CONFLICT(source_kind, source_id, target_kind, target_id, relation) \
+         DO UPDATE SET strength = MAX(excluded.strength, entity_edges.strength)",
+        [],
+    )?;
+
+    Ok(())
+}
