@@ -487,16 +487,24 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-decoration: none;
+  /* Reserve a 1px border at all times so hover/active doesn't reflow
+     the row. Color is transparent until the row becomes active or
+     hovered — the black border is the rail's "you are here" indicator,
+     present once per scope-slot (Launch CTA / agent identity) and
+     once per navigation (active or hover-targeted row). */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   transition: all 0.1s ease;
 }
 .sidebar-nav-item:hover {
   color: var(--text-primary);
   background: var(--state-hover);
+  border-color: var(--color-accent);
 }
 .sidebar-nav-item.active {
   color: var(--text-primary);
   background: var(--state-selected);
+  border-color: var(--color-accent);
   font-weight: 500;
 }
 .sidebar-nav-item > svg {
@@ -670,14 +678,14 @@
      never collapses smaller than the agent-scope version of itself. */
   min-height: 140px;
   padding: 18px 14px;
-  /* Quiet by default — peer-weight to the four primitive nav rows in
-     agent scope. The card holds the 140px slot the primitives would
-     occupy, but its surface stays calm: transparent fill, dashed-subtle
-     border, muted text. Hover/focus brings the accent forward; until
-     then it doesn't compete with brand or wordmark for attention. */
+  /* Identity/scope slot at user-root. Wears the black border at all
+     times — same treatment an active nav row wears — because it IS the
+     scope marker for "you, the human" (mirror of the active-agent
+     marker in agent scope). The rail's rule: black border once per
+     scope-identity, once per navigation, never elsewhere. */
   background: transparent;
   color: var(--text-muted);
-  border: 1px dashed var(--border-subtle);
+  border: 1px solid var(--color-accent);
   border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-weight: 500;
@@ -686,26 +694,21 @@
   text-align: center;
   transition:
     background var(--transition-normal),
-    border-color var(--transition-normal),
     color var(--transition-normal),
     transform var(--transition-normal);
 }
 .sidebar-launch-cta:hover {
-  /* Matches .sidebar-nav-item:hover so the rail's hover surface reads
-     as a single material — not "primitive rows look like X, the launch
-     card looks like Y". */
+  /* Border stays solid-accent at rest already; only bg + color shift on
+     hover. Matches .sidebar-nav-item hover bg so the rail reads as a
+     single material across hover surfaces. */
   background: var(--state-hover);
   color: var(--color-accent);
-  border-color: var(--color-accent);
-  border-style: solid;
 }
 .sidebar-launch-cta:active {
   transform: scale(0.985);
 }
 .sidebar-launch-cta:focus-visible {
   outline: none;
-  border-color: var(--color-accent);
-  border-style: solid;
   box-shadow:
     0 0 0 2px var(--bg-sidebar),
     0 0 0 4px var(--color-accent);
