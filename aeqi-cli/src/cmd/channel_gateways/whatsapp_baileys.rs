@@ -75,7 +75,7 @@ pub(super) fn spawn_whatsapp_baileys_gateway(
     cfg: WhatsappBaileysConfig,
     channel_id: String,
     agent_id: String,
-    _allowed_chats_raw: Vec<String>,
+    allowed_chats_raw: Vec<String>,
     ctx: SpawnContext,
 ) {
     let script = resolve_bridge_script();
@@ -85,9 +85,26 @@ pub(super) fn spawn_whatsapp_baileys_gateway(
         .map(PathBuf::from)
         .unwrap_or_else(|| default_session_dir(&channel_id));
 
+    // The Baileys gateway filters by JID. There are two sources of truth
+    // historically: `cfg.allowed_jids` (legacy, lived on the JSON config
+    // blob — the only one the gateway used to read) and the
+    // `channel_allowed_chats` table (what the UI's whitelist toggle
+    // writes to, surfaced here as `allowed_chats_raw`). The two never
+    // synced, which left the table-based whitelist silently inert and
+    // let the agent message any JID that arrived. Merge + dedupe so
+    // either path produces the same effective filter; empty union still
+    // means "no whitelist" exactly like before.
+    let mut allowed: Vec<String> =
+        Vec::with_capacity(cfg.allowed_jids.len() + allowed_chats_raw.len());
+    for j in cfg.allowed_jids.iter().chain(allowed_chats_raw.iter()) {
+        let trimmed = j.trim();
+        if !trimmed.is_empty() && !allowed.iter().any(|a| a == trimmed) {
+            allowed.push(trimmed.to_string());
+        }
+    }
+
     tokio::spawn(async move {
-        let allowed_jids = cfg.allowed_jids.clone();
-        let ch = match WhatsAppBaileysChannel::connect(script, session_dir, allowed_jids).await {
+        let ch = match WhatsAppBaileysChannel::connect(script, session_dir, allowed).await {
             Ok(c) => Arc::new(c),
             Err(e) => {
                 warn!(channel_id = %channel_id, error = %e, "failed to connect whatsapp-baileys bridge");
