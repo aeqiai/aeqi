@@ -281,7 +281,7 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::
                     MessageContent::Parts(parts) => parts
                         .iter()
                         .filter_map(|p| match p {
-                            ContentPart::Text { text } => Some(text.as_str()),
+                            ContentPart::Text { text, .. } => Some(text.as_str()),
                             _ => None,
                         })
                         .collect::<Vec<_>>()
@@ -303,7 +303,7 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::
                     MessageContent::Parts(parts) => parts
                         .iter()
                         .filter_map(|p| match p {
-                            ContentPart::Text { text } => Some(text.as_str()),
+                            ContentPart::Text { text, .. } => Some(text.as_str()),
                             _ => None,
                         })
                         .collect::<Vec<_>>()
@@ -330,7 +330,7 @@ fn convert_messages(messages: &[aeqi_core::traits::Message]) -> Vec<serde_json::
                         let texts: Vec<&str> = parts
                             .iter()
                             .filter_map(|p| match p {
-                                ContentPart::Text { text } => Some(text.as_str()),
+                                ContentPart::Text { text, .. } => Some(text.as_str()),
                                 _ => None,
                             })
                             .collect();
@@ -619,5 +619,56 @@ impl Provider for OpenRouterProvider {
         } else {
             anyhow::bail!("OpenRouter health check failed: {}", response.status())
         }
+    }
+}
+
+#[cfg(test)]
+mod cache_control_tests {
+    use super::*;
+    use aeqi_core::CacheControl;
+    use aeqi_core::traits::{ContentPart, Message, MessageContent, Role};
+
+    /// (T1.11) OpenRouter's request shape is OpenAI-flavored — the
+    /// substrate's `CacheControl::Ephemeral` marker has no analog and must
+    /// be stripped silently. The legacy OpenRouter `cache_control` rules
+    /// on the last 3 non-system messages still apply to the wire shape;
+    /// substrate markers do not surface as additional fields. This test
+    /// pins: a substrate-marked `ContentPart::Text` inside a system
+    /// `MessageContent::Parts` does NOT raise an error and the marker is
+    /// not echoed inside the wire-shape's content.
+    #[test]
+    fn openrouter_strips_substrate_cache_marker_silently() {
+        let messages = vec![Message {
+            role: Role::System,
+            content: MessageContent::Parts(vec![
+                ContentPart::Text {
+                    text: "marked".to_string(),
+                    cache_control: Some(CacheControl::Ephemeral),
+                },
+                ContentPart::Text {
+                    text: " plain".to_string(),
+                    cache_control: None,
+                },
+            ]),
+        }];
+
+        let api_messages = convert_messages(&messages);
+        assert_eq!(api_messages.len(), 1, "one system message produced");
+        let content = api_messages[0]
+            .get("content")
+            .expect("system message carries content");
+        // The legacy OpenRouter system-message shape is an array of text
+        // blocks; the substrate marker is never surfaced as an extra
+        // field on the block — only the legacy "always pin" cache_control
+        // is present (which is independent of T1.11 substrate markers).
+        let arr = content
+            .as_array()
+            .expect("system content rendered as block array");
+        assert_eq!(arr.len(), 1, "system content folded into one block");
+        assert_eq!(
+            arr[0]["text"].as_str(),
+            Some("marked plain"),
+            "OpenRouter joins parts into a single text block",
+        );
     }
 }

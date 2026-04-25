@@ -630,6 +630,31 @@ mod tests {
                 "tag policy '{required}' must carry the meta:tag-policy tag"
             );
         }
+
+        // (T1.11) The default identity + evergreen tag policies opt into
+        // prompt-cache breakpoints. This pins the seed-side contract so a
+        // file rename or accidental TOML edit surfaces as a test failure.
+        const CACHE_PINNED_POLICIES: &[(&str, &str)] = &[
+            ("meta:tag-policy:identity", "identity"),
+            ("meta:tag-policy:evergreen", "evergreen"),
+        ];
+        for (idea_name, fallback_tag) in CACHE_PINNED_POLICIES {
+            let db = store.db.lock().await;
+            let body: String = db
+                .query_row(
+                    "SELECT content FROM ideas WHERE name = ?1",
+                    rusqlite::params![idea_name],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            let policy = aeqi_ideas::tag_policy::TagPolicy::from_toml(&body, fallback_tag).unwrap();
+            assert_eq!(
+                policy.cache_breakpoint,
+                Some(true),
+                "default seed '{idea_name}' must opt into cache_breakpoint=true",
+            );
+        }
     }
 
     /// Founder MVP contract: every vanilla agent must be able to discover

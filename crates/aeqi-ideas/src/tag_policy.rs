@@ -110,6 +110,14 @@ pub struct TagPolicy {
     /// `ideas.store_many`.
     #[serde(default)]
     pub validators: Option<Vec<String>>,
+    /// (T1.11) Whether ideas carrying this tag should be wrapped with a
+    /// provider cache breakpoint when their content is assembled into a
+    /// prompt. `Some(true)` opts the tag into cache pinning; `None` or
+    /// `Some(false)` preserves the pre-T1.11 behaviour where assembled
+    /// content is sent without any cache_control marker. The merge across
+    /// overlapping tags is OR — any tag voting yes pins the segment.
+    #[serde(default)]
+    pub cache_breakpoint: Option<bool>,
 }
 
 /// Consolidation threshold config embedded inside a [`TagPolicy`].
@@ -174,6 +182,7 @@ impl Default for TagPolicy {
             dedup_window_hours: None,
             include_superseded_default: None,
             validators: None,
+            cache_breakpoint: None,
         }
     }
 }
@@ -382,6 +391,12 @@ pub struct EffectivePolicy {
     /// collapsed case-sensitively. Empty when no policy declares
     /// validators — preserving the pre-T1.4 behaviour.
     pub validators: Vec<String>,
+    /// (T1.11) Whether assembled content tagged with this set should carry a
+    /// provider cache_control breakpoint. Merged with OR across the
+    /// contributing policies — any tag voting `Some(true)` flips this on.
+    /// `false` when no policy opts in (or every policy opts out), preserving
+    /// the pre-T1.11 behaviour where no cache breakpoints are emitted.
+    pub cache_breakpoint: bool,
 }
 
 impl Default for EffectivePolicy {
@@ -395,6 +410,7 @@ impl Default for EffectivePolicy {
             dedup_window_hours: None,
             include_superseded_default: false,
             validators: Vec::new(),
+            cache_breakpoint: false,
         }
     }
 }
@@ -417,6 +433,7 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
         dedup_window_hours: None,
         include_superseded_default: false,
         validators: Vec::new(),
+        cache_breakpoint: false,
     };
     let mut saw_non_default_time = false;
 
@@ -476,6 +493,15 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
                     effective.validators.push(name.clone());
                 }
             }
+        }
+
+        // T1.11 — `cache_breakpoint` OR-merges across overlapping tags.
+        // Any tag voting `Some(true)` flips the effective bit on so a single
+        // pinning tag (e.g. `identity`) is enough to wrap the assembled
+        // segment with a cache_control marker, even when other co-tags
+        // explicitly opt out.
+        if policy.cache_breakpoint == Some(true) {
+            effective.cache_breakpoint = true;
         }
     }
 
@@ -787,6 +813,68 @@ mod tests {
         };
         let eff = merge_policies(&[a, b]);
         assert!(eff.validators.is_empty());
+    }
+
+    // ── T1.11 dial tests ───────────────────────────────────────────────
+
+    #[test]
+    fn t1_11_cache_breakpoint_round_trips_alone() {
+        // Independent activation: only `cache_breakpoint` is set. Other
+        // T1.x dials remain `None` so the dial activates in isolation.
+        let body = r#"
+            tag = "identity"
+            cache_breakpoint = true
+        "#;
+        let policy = TagPolicy::from_toml(body, "identity").unwrap();
+        assert_eq!(policy.cache_breakpoint, Some(true));
+        assert!(policy.max_items_per_call.is_none());
+        assert!(policy.dedup_window_hours.is_none());
+        assert!(policy.include_superseded_default.is_none());
+        assert!(policy.validators.is_none());
+    }
+
+    #[test]
+    fn t1_11_unset_cache_breakpoint_is_none() {
+        let body = r#"
+            tag = "fact"
+        "#;
+        let policy = TagPolicy::from_toml(body, "fact").unwrap();
+        assert!(policy.cache_breakpoint.is_none());
+    }
+
+    #[test]
+    fn t1_11_merge_policies_or_merges_cache_breakpoint() {
+        // OR-merge: any tag voting `Some(true)` flips the effective bit on,
+        // even when another tag explicitly opts out.
+        let a = TagPolicy {
+            tag: "a".into(),
+            cache_breakpoint: Some(false),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            cache_breakpoint: Some(true),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(eff.cache_breakpoint);
+    }
+
+    #[test]
+    fn t1_11_merge_policies_no_dial_set_keeps_neutral_effective() {
+        // Baseline preservation: no opt-in → effective remains `false`,
+        // matching the pre-T1.11 behaviour where no cache markers are
+        // emitted.
+        let a = TagPolicy {
+            tag: "a".into(),
+            ..TagPolicy::default()
+        };
+        let b = TagPolicy {
+            tag: "b".into(),
+            ..TagPolicy::default()
+        };
+        let eff = merge_policies(&[a, b]);
+        assert!(!eff.cache_breakpoint);
     }
 
     #[test]

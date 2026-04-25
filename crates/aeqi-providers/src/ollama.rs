@@ -147,7 +147,7 @@ fn convert_messages(messages: &[Message]) -> Vec<OllamaMessage> {
                         let mut tool_calls = Vec::new();
                         for part in parts {
                             match part {
-                                ContentPart::Text { text: t } => text.push_str(t),
+                                ContentPart::Text { text: t, .. } => text.push_str(t),
                                 ContentPart::ToolUse { name, input, .. } => {
                                     tool_calls.push(OllamaToolCall {
                                         function: OllamaFunctionCall {

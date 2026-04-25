@@ -40,6 +40,7 @@ pub mod pipeline;
 pub mod placeholder_resolver;
 pub mod preset_seeder;
 pub mod progress_tracker;
+pub mod prompt_cache;
 pub mod quest_context;
 pub mod quest_enqueuer;
 pub mod queue_executor;

@@ -114,16 +114,32 @@ struct AnthropicErrorDetail {
 }
 
 fn convert_messages(messages: &[Message]) -> (Option<serde_json::Value>, Vec<AnthropicMessage>) {
-    let mut system_texts: Vec<String> = Vec::new();
+    // (T1.11) Each system block carries the text + an explicit
+    // "substrate marked this as cache-pinned" bit. The legacy "first system
+    // text always gets cache_control" rule is preserved below so that
+    // historical callers (which build a single `Role::System` message with
+    // `MessageContent::Text`) keep their byte-identical request shape.
+    let mut system_blocks: Vec<(String, bool)> = Vec::new();
     let mut converted = Vec::new();
 
     for msg in messages {
         match msg.role {
-            Role::System => {
-                if let Some(text) = msg.content.as_text() {
-                    system_texts.push(text.to_string());
+            Role::System => match &msg.content {
+                MessageContent::Text(text) => {
+                    system_blocks.push((text.clone(), false));
                 }
-            }
+                MessageContent::Parts(parts) => {
+                    for part in parts {
+                        if let ContentPart::Text {
+                            text,
+                            cache_control,
+                        } = part
+                        {
+                            system_blocks.push((text.clone(), cache_control.is_some()));
+                        }
+                    }
+                }
+            },
             Role::User => {
                 if let Some(text) = msg.content.as_text() {
                     converted.push(AnthropicMessage {
@@ -143,11 +159,23 @@ fn convert_messages(messages: &[Message]) -> (Option<serde_json::Value>, Vec<Ant
                     let mut content_blocks = Vec::new();
                     for part in parts {
                         match part {
-                            ContentPart::Text { text } => {
-                                content_blocks.push(serde_json::json!({
+                            ContentPart::Text {
+                                text,
+                                cache_control,
+                            } => {
+                                let mut block = serde_json::json!({
                                     "type": "text",
                                     "text": text,
-                                }));
+                                });
+                                if cache_control.is_some()
+                                    && let Some(obj) = block.as_object_mut()
+                                {
+                                    obj.insert(
+                                        "cache_control".to_string(),
+                                        serde_json::json!({"type": "ephemeral"}),
+                                    );
+                                }
+                                content_blocks.push(block);
                             }
                             ContentPart::ToolUse { id, name, input } => {
                                 content_blocks.push(serde_json::json!({
@@ -193,24 +221,55 @@ fn convert_messages(messages: &[Message]) -> (Option<serde_json::Value>, Vec<Ant
         }
     }
 
-    // Apply prompt caching: first system text (stable system prompt) gets
-    // cache_control: ephemeral. Subsequent system texts (step-context, memory
-    // recalls) go into a second content block WITHOUT cache_control so they
-    // don't bust the cache on the stable prefix.
-    let system = if system_texts.is_empty() {
+    // Apply prompt caching to system content.
+    //
+    // Pre-T1.11 behaviour (preserved): when no substrate-driven cache markers
+    // are present, the very first system block gets a `cache_control:
+    // ephemeral` annotation (the "stable system prompt" prefix) and any
+    // remaining system text is folded into a second block WITHOUT a marker
+    // so it doesn't bust the cache on the stable prefix.
+    //
+    // T1.11 behaviour: when at least one block carries an explicit substrate
+    // marker, the per-block markers are honored verbatim and the legacy
+    // "always pin the first" fallback is skipped — the substrate has made an
+    // intentional decision and we don't second-guess it.
+    let system = if system_blocks.is_empty() {
         None
     } else {
-        let mut blocks = vec![serde_json::json!({
-            "type": "text",
-            "text": system_texts[0],
-            "cache_control": {"type": "ephemeral"}
-        })];
-        if system_texts.len() > 1 {
-            blocks.push(serde_json::json!({
+        let any_substrate_marked = system_blocks.iter().any(|(_, marked)| *marked);
+        let blocks: Vec<serde_json::Value> = if any_substrate_marked {
+            system_blocks
+                .iter()
+                .map(|(text, marked)| {
+                    let mut b = serde_json::json!({"type": "text", "text": text});
+                    if *marked && let Some(obj) = b.as_object_mut() {
+                        obj.insert(
+                            "cache_control".to_string(),
+                            serde_json::json!({"type": "ephemeral"}),
+                        );
+                    }
+                    b
+                })
+                .collect()
+        } else {
+            let mut out = vec![serde_json::json!({
                 "type": "text",
-                "text": system_texts[1..].join("\n\n"),
-            }));
-        }
+                "text": system_blocks[0].0,
+                "cache_control": {"type": "ephemeral"}
+            })];
+            if system_blocks.len() > 1 {
+                let tail = system_blocks[1..]
+                    .iter()
+                    .map(|(t, _)| t.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                out.push(serde_json::json!({
+                    "type": "text",
+                    "text": tail,
+                }));
+            }
+            out
+        };
         Some(serde_json::Value::Array(blocks))
     };
 
@@ -708,5 +767,96 @@ impl Provider for AnthropicProvider {
         } else {
             anyhow::bail!("Anthropic health check failed: {}", response.status());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aeqi_core::CacheControl;
+
+    /// (T1.11) When a system message is built from `MessageContent::Parts`
+    /// with substrate-level cache markers, the Anthropic provider must
+    /// emit per-block `cache_control: {type: "ephemeral"}` annotations
+    /// matching the marked parts only — not the legacy
+    /// "always pin the first block" fallback.
+    #[test]
+    fn anthropic_emits_cache_control_per_marked_part() {
+        let messages = vec![Message {
+            role: Role::System,
+            content: MessageContent::Parts(vec![
+                ContentPart::text_cached("identity prefix"),
+                ContentPart::text("volatile suffix"),
+            ]),
+        }];
+
+        let (system, _converted) = convert_messages(&messages);
+        let system = system.expect("system block produced");
+        let arr = system.as_array().expect("system is an array of blocks");
+        assert_eq!(arr.len(), 2, "two parts → two blocks");
+        // Marked → cache_control present.
+        assert_eq!(
+            arr[0].get("cache_control"),
+            Some(&serde_json::json!({"type": "ephemeral"})),
+            "marked part keeps cache_control on the wire"
+        );
+        // Unmarked → cache_control absent.
+        assert!(
+            arr[1].get("cache_control").is_none(),
+            "unmarked part is sent without cache_control"
+        );
+        assert_eq!(
+            arr[0]["text"].as_str(),
+            Some("identity prefix"),
+            "marked part's text is preserved verbatim",
+        );
+        assert_eq!(arr[1]["text"].as_str(), Some("volatile suffix"));
+    }
+
+    /// (T1.11) Pre-T1.11 callers that emit a single flat-text system
+    /// message must continue to receive the legacy
+    /// "first system block always gets cache_control" treatment so the
+    /// existing prompt-prefix cache hit rate stays intact.
+    #[test]
+    fn anthropic_legacy_flat_text_system_keeps_legacy_pin() {
+        let messages = vec![Message {
+            role: Role::System,
+            content: MessageContent::Text("legacy system prompt".to_string()),
+        }];
+        let (system, _) = convert_messages(&messages);
+        let system = system.expect("system block produced");
+        let arr = system.as_array().expect("array");
+        assert_eq!(arr.len(), 1);
+        assert_eq!(
+            arr[0].get("cache_control"),
+            Some(&serde_json::json!({"type": "ephemeral"})),
+            "flat-text system preserves the pre-T1.11 always-pin-first behaviour",
+        );
+    }
+
+    /// (T1.11) The marker plumbed through `ContentPart::Text { cache_control }`
+    /// is honored on assistant content blocks too, not only system. This
+    /// keeps the Anthropic provider symmetric across roles.
+    #[test]
+    fn anthropic_emits_cache_control_on_assistant_text_part() {
+        let messages = vec![Message {
+            role: Role::Assistant,
+            content: MessageContent::Parts(vec![ContentPart::Text {
+                text: "stable assistant prefix".to_string(),
+                cache_control: Some(CacheControl::Ephemeral),
+            }]),
+        }];
+        let (_, converted) = convert_messages(&messages);
+        assert_eq!(converted.len(), 1);
+        let blocks = converted[0]
+            .content
+            .as_array()
+            .expect("assistant Parts → array");
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(
+            blocks[0].get("cache_control"),
+            Some(&serde_json::json!({"type": "ephemeral"})),
+            "assistant text part also carries cache_control on the wire",
+        );
     }
 }

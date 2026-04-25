@@ -47,7 +47,9 @@ pub use detector::{DetectedPattern, DetectionContext, PatternDetector, ToolCallR
 pub use hooks::{
     HookAction, HookRule, HookTrigger, HooksObserver, load_hooks_from_dir, match_hooks,
 };
-pub use prompt::{AssembledContext, PromptScope, ToolRestrictions};
+pub use prompt::{
+    AssembledContext, AssembledPromptSegment, CacheControl, PromptScope, ToolRestrictions,
+};
 pub use scope::Scope;
 pub use security::SecretStore;
 pub use tool_registry::{CallerKind, ExecutionContext, PatternDispatcher, ToolRegistry};

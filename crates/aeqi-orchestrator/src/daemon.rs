@@ -2014,10 +2014,32 @@ impl Daemon {
                                                         }
                                                     }
                                                     aeqi_core::ChatStreamEvent::StepComplete {
+                                                        cache_creation_input_tokens,
+                                                        cache_read_input_tokens,
                                                         ..
                                                     } => {
                                                         if !step_text.is_empty() {
                                                             if let Some(ref cs) = session_store {
+                                                                // (T1.11) When the provider reports
+                                                                // non-zero prompt-cache token counts,
+                                                                // surface them in the recorded
+                                                                // message's metadata so operators
+                                                                // can see the cache hit rate per
+                                                                // step. Zero values omit the keys
+                                                                // so historical rows stay clean.
+                                                                let metadata =
+                                                                    if *cache_creation_input_tokens
+                                                                        > 0
+                                                                        || *cache_read_input_tokens
+                                                                            > 0
+                                                                    {
+                                                                        Some(serde_json::json!({
+                                                                            "cache_creation_input_tokens": *cache_creation_input_tokens,
+                                                                            "cache_read_input_tokens": *cache_read_input_tokens,
+                                                                        }))
+                                                                    } else {
+                                                                        None
+                                                                    };
                                                                 let _ = cs
                                                                         .record_event_by_session_with_sender(
                                                                             &resolved_session_id,
@@ -2025,7 +2047,7 @@ impl Daemon {
                                                                             "assistant",
                                                                             &step_text,
                                                                             Some("web"),
-                                                                            None,
+                                                                            metadata.as_ref(),
                                                                             agent_sender_id.as_deref(),
                                                                             Some("web"),
                                                                         )

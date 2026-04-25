@@ -30,13 +30,15 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use aeqi_core::prompt::{AssembledContext, PromptScope, ToolRestrictions};
+use aeqi_core::prompt::{AssembledContext, AssembledPromptSegment, PromptScope, ToolRestrictions};
 use aeqi_core::tool_registry::{CallerKind, ExecutionContext, ToolRegistry};
 use aeqi_core::traits::{Idea, IdeaStore};
+use aeqi_ideas::tag_policy::{TagPolicyCache, merge_policies};
 
 use crate::agent_registry::AgentRegistry;
 use crate::event_handler::EventHandlerStore;
 use crate::placeholder_resolver::{ResolverContext, resolve_placeholder_providers};
+use crate::prompt_cache;
 use crate::scope_visibility;
 use crate::session_store::SessionStore;
 
@@ -85,6 +87,33 @@ pub async fn assemble_ideas(
     task_idea_ids: &[String],
     tool_dispatch: Option<&ToolDispatch<'_>>,
 ) -> AssembledContext {
+    assemble_ideas_with_cache(
+        registry,
+        idea_store,
+        event_store,
+        agent_id,
+        task_idea_ids,
+        tool_dispatch,
+        None,
+    )
+    .await
+}
+
+/// (T1.11) Variant of [`assemble_ideas`] that accepts an optional
+/// `TagPolicyCache`. When provided, ideas whose tag-policy set votes
+/// `cache_breakpoint=true` are emitted as `AssembledPromptSegment`s with an
+/// `Ephemeral` cache marker so the Anthropic provider can apply
+/// `cache_control` annotations on the wire. `None` preserves the pre-T1.11
+/// behaviour (no markers).
+pub async fn assemble_ideas_with_cache(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+    task_idea_ids: &[String],
+    tool_dispatch: Option<&ToolDispatch<'_>>,
+    tag_policy_cache: Option<&Arc<TagPolicyCache>>,
+) -> AssembledContext {
     assemble_ideas_for_patterns(
         registry,
         idea_store,
@@ -94,6 +123,7 @@ pub async fn assemble_ideas(
         &["session:start"],
         &AssemblyContext::default(),
         tool_dispatch,
+        tag_policy_cache,
     )
     .await
 }
@@ -112,6 +142,28 @@ pub async fn assemble_execution_context(
     agent_id: &str,
     tool_dispatch: Option<&ToolDispatch<'_>>,
 ) -> AssembledContext {
+    assemble_execution_context_with_cache(
+        registry,
+        idea_store,
+        event_store,
+        agent_id,
+        tool_dispatch,
+        None,
+    )
+    .await
+}
+
+/// (T1.11) Variant of [`assemble_execution_context`] that accepts an
+/// optional `TagPolicyCache` for cache-breakpoint annotation. See
+/// [`assemble_ideas_with_cache`] for semantics.
+pub async fn assemble_execution_context_with_cache(
+    registry: &AgentRegistry,
+    idea_store: Option<&Arc<dyn IdeaStore>>,
+    event_store: &EventHandlerStore,
+    agent_id: &str,
+    tool_dispatch: Option<&ToolDispatch<'_>>,
+    tag_policy_cache: Option<&Arc<TagPolicyCache>>,
+) -> AssembledContext {
     assemble_ideas_for_patterns(
         registry,
         idea_store,
@@ -121,6 +173,7 @@ pub async fn assemble_execution_context(
         &["session:execution_start"],
         &AssemblyContext::default(),
         tool_dispatch,
+        tag_policy_cache,
     )
     .await
 }
@@ -156,6 +209,7 @@ pub async fn assemble_ideas_for_quest_start(
         &["session:start", "session:quest_start"],
         &context,
         tool_dispatch,
+        None,
     )
     .await
 }
@@ -272,6 +326,7 @@ pub async fn assemble_ideas_for_pattern(
         &[event_pattern],
         context,
         tool_dispatch,
+        None,
     )
     .await
 }
@@ -294,6 +349,7 @@ pub async fn assemble_ideas_for_patterns(
     event_patterns: &[&str],
     context: &AssemblyContext,
     tool_dispatch: Option<&ToolDispatch<'_>>,
+    tag_policy_cache: Option<&Arc<TagPolicyCache>>,
 ) -> AssembledContext {
     // get_ancestors returns [self, parent, grandparent, ..., root].
     // We want root-first ordering.
@@ -312,7 +368,7 @@ pub async fn assemble_ideas_for_patterns(
     let placeholder_providers =
         resolve_placeholder_providers(idea_store, Some(registry), &resolver_ctx).await;
 
-    let mut parts: Vec<String> = Vec::new();
+    let mut parts: Vec<AssembledPromptSegment> = Vec::new();
     let mut allow_sets: Vec<Vec<String>> = Vec::new();
     let mut deny_all: Vec<String> = Vec::new();
     let mut collected_idea_ids: HashSet<String> = HashSet::new();
@@ -393,7 +449,14 @@ pub async fn assemble_ideas_for_patterns(
                         .flat_map(|e| e.idea_ids.iter().map(move |i| (i.as_str(), e.id.as_str())))
                         .collect();
                     for idea in ideas {
-                        append_idea(&idea, is_self, &mut parts, &mut allow_sets, &mut deny_all);
+                        append_idea(
+                            &idea,
+                            is_self,
+                            &mut parts,
+                            &mut allow_sets,
+                            &mut deny_all,
+                            tag_policy_cache,
+                        );
                         if let Some(owner) = event_owner.get(idea.id.as_str())
                             && fired_event_seen.insert(owner.to_string())
                         {
@@ -438,6 +501,7 @@ pub async fn assemble_ideas_for_patterns(
                                     &mut parts,
                                     &mut allow_sets,
                                     &mut deny_all,
+                                    tag_policy_cache,
                                 );
                                 injected_any = true;
                             }
@@ -472,7 +536,14 @@ pub async fn assemble_ideas_for_patterns(
             match store.get_by_ids(&task_ids).await {
                 Ok(ideas) => {
                     for idea in ideas {
-                        append_idea(&idea, true, &mut parts, &mut allow_sets, &mut deny_all);
+                        append_idea(
+                            &idea,
+                            true,
+                            &mut parts,
+                            &mut allow_sets,
+                            &mut deny_all,
+                            tag_policy_cache,
+                        );
                     }
                 }
                 Err(e) => {
@@ -494,13 +565,22 @@ pub async fn assemble_ideas_for_patterns(
     deny_all.sort();
     deny_all.dedup();
 
+    // (T1.11) Cap cache breakpoints to the Anthropic per-request limit.
+    // This is substrate-level: we never emit more markers than the API
+    // accepts. The text content is preserved verbatim; only the cache
+    // annotations on the earliest-marked segments are dropped when we
+    // exceed the cap.
+    prompt_cache::apply_breakpoint_cap(&mut parts);
+    let system = prompt_cache::segments_to_system_string(&parts);
+
     AssembledContext {
-        system: parts.join("\n\n---\n\n"),
+        system,
         tools: ToolRestrictions {
             allow: merged_allow,
             deny: deny_all,
         },
         fired_event_ids,
+        segments: parts,
     }
 }
 
@@ -541,7 +621,7 @@ async fn dispatch_event_tool_calls(
     dispatch: &ToolDispatch<'_>,
     assembly_ctx: &AssemblyContext,
     placeholder_providers: Option<&HashMap<String, String>>,
-    parts: &mut Vec<String>,
+    parts: &mut Vec<AssembledPromptSegment>,
 ) -> bool {
     dispatch_event_tool_calls_with_trigger(
         event,
@@ -565,7 +645,7 @@ async fn dispatch_event_tool_calls_with_trigger(
     assembly_ctx: &AssemblyContext,
     trigger_args: Option<&serde_json::Value>,
     placeholder_providers: Option<&HashMap<String, String>>,
-    parts: &mut Vec<String>,
+    parts: &mut Vec<AssembledPromptSegment>,
 ) -> bool {
     // Build substitution context from AssemblyContext fields.
     let mut sub_ctx: HashMap<String, String> = HashMap::new();
@@ -771,7 +851,10 @@ async fn dispatch_event_tool_calls_with_trigger(
                         && !result.output.is_empty()
                         && result.output != "(no ideas assembled)"
                     {
-                        parts.push(result.output.clone());
+                        // Tool-emitted context (ideas.recall, etc.) is
+                        // dynamic — not a candidate for substrate-level
+                        // cache breakpoints. Emit as a plain segment.
+                        parts.push(AssembledPromptSegment::plain(result.output.clone()));
                         produced_output = true;
 
                         if tc.tool.starts_with("ideas.") {
@@ -1062,13 +1145,44 @@ pub fn expand_template_with_providers(
     out
 }
 
+/// (T1.11) Decide whether `idea` should be emitted as a cache-pinned
+/// segment. Returns `true` only when a `TagPolicyCache` is wired AND the
+/// merged effective policy across the idea's tags votes
+/// `cache_breakpoint=true`. Returns `false` (= plain segment) when no cache
+/// is provided, when the idea has no tags, or when no contributing tag
+/// policy opts in. The `get_or_default` path is sync and never blocks the
+/// hot assembly loop on a cache refresh.
+fn idea_wants_cache_pin(idea: &Idea, tag_policy_cache: Option<&Arc<TagPolicyCache>>) -> bool {
+    let Some(cache) = tag_policy_cache else {
+        return false;
+    };
+    if idea.tags.is_empty() {
+        return false;
+    }
+    let policies: Vec<_> = idea
+        .tags
+        .iter()
+        .map(|tag| cache.get_or_default(tag))
+        .collect();
+    let effective = merge_policies(&policies);
+    effective.cache_breakpoint
+}
+
 /// Append a single idea to the output buffers, checking scope rules.
+///
+/// (T1.11) When `tag_policy_cache` is `Some`, the idea's tags are resolved
+/// to per-tag policies, the policies are merged with `merge_policies`, and
+/// the resulting `EffectivePolicy::cache_breakpoint` flag (OR-merged across
+/// every contributing tag) decides whether the emitted segment carries an
+/// `Ephemeral` cache marker. When `tag_policy_cache` is `None`, every
+/// segment is emitted plain — the pre-T1.11 behaviour.
 fn append_idea(
     idea: &Idea,
     is_self: bool,
-    parts: &mut Vec<String>,
+    parts: &mut Vec<AssembledPromptSegment>,
     allow_sets: &mut Vec<Vec<String>>,
     deny_all: &mut Vec<String>,
+    tag_policy_cache: Option<&Arc<TagPolicyCache>>,
 ) {
     let include = match idea.scope() {
         PromptScope::Descendants => true,
@@ -1077,7 +1191,13 @@ fn append_idea(
     if !include || idea.content.is_empty() {
         return;
     }
-    parts.push(idea.content.clone());
+    let pin = idea_wants_cache_pin(idea, tag_policy_cache);
+    let segment = if pin {
+        AssembledPromptSegment::ephemeral(idea.content.clone())
+    } else {
+        AssembledPromptSegment::plain(idea.content.clone())
+    };
+    parts.push(segment);
     if let Some(tools) = idea.tool_restrictions() {
         if !tools.allow.is_empty() {
             allow_sets.push(tools.allow);
@@ -1162,7 +1282,7 @@ impl aeqi_core::tool_registry::PatternDispatcher for EventPatternDispatcher {
             };
 
             let assembly_ctx = AssemblyContext::default();
-            let mut parts: Vec<String> = Vec::new();
+            let mut parts: Vec<AssembledPromptSegment> = Vec::new();
             let mut handled = false;
 
             // T1.3: pre-resolve placeholder providers once for this dispatch
@@ -1953,6 +2073,284 @@ mod tests {
              and are not on the dry-run allowlist: {offenders:?}. \
              Either wire `record_fire` for every contributing event, or add the file to \
              DRY_RUN_PATHS in this test with a comment explaining why it's a preview/dry-run path."
+        );
+    }
+
+    // ── T1.11 prompt-cache annotation tests ──────────────────────────
+
+    /// Stub idea store that returns a fixed `idea` from `get_by_ids` and
+    /// also serves a tag-policy meta-idea via `ideas_by_tags` so the
+    /// `TagPolicyCache` can resolve `cache_breakpoint=true` for the
+    /// configured tag.
+    struct PolicyAwareStubStore {
+        target: Idea,
+        policy_tag: String,
+    }
+
+    #[async_trait]
+    impl IdeaStore for PolicyAwareStubStore {
+        async fn store(
+            &self,
+            _: &str,
+            _: &str,
+            _: &[String],
+            _: Option<&str>,
+        ) -> anyhow::Result<String> {
+            unreachable!("not used by these tests")
+        }
+        async fn search(&self, _q: &IdeaQuery) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+        async fn hierarchical_search(
+            &self,
+            _: &str,
+            _: &[String],
+            _: usize,
+        ) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+        async fn hierarchical_search_with_tags(
+            &self,
+            _: &str,
+            _: &[String],
+            _: usize,
+            _: &[String],
+        ) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+        async fn get_by_ids(&self, ids: &[String]) -> anyhow::Result<Vec<Idea>> {
+            if ids.iter().any(|id| id == &self.target.id) {
+                Ok(vec![self.target.clone()])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+        async fn ideas_by_tags(&self, tags: &[String], _limit: usize) -> anyhow::Result<Vec<Idea>> {
+            if tags.iter().any(|t| t == "meta:tag-policy") {
+                let body = format!("tag = \"{}\"\ncache_breakpoint = true\n", self.policy_tag);
+                let policy_idea = Idea {
+                    id: format!("meta:tag-policy:{}", self.policy_tag),
+                    name: format!("meta:tag-policy:{}", self.policy_tag),
+                    content: body,
+                    tags: vec!["meta:tag-policy".into()],
+                    agent_id: None,
+                    created_at: Utc::now(),
+                    session_id: None,
+                    score: 1.0,
+                    scope: aeqi_core::Scope::Global,
+                    inheritance: "self".to_string(),
+                    tool_allow: Vec::new(),
+                    tool_deny: Vec::new(),
+                };
+                Ok(vec![policy_idea])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+        async fn delete(&self, _id: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
+        fn name(&self) -> &str {
+            "policy-aware-stub"
+        }
+    }
+
+    #[tokio::test]
+    async fn t1_11_segment_is_marked_when_cache_breakpoint_policy_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let identity_idea = Idea {
+            id: "id-1".into(),
+            name: "identity-core".into(),
+            content: "I am the AEQI assistant.".into(),
+            tags: vec!["identity".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let event_store = EventHandlerStore::new(registry.db());
+        event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "session-start-identity".into(),
+                pattern: "session:start".into(),
+                idea_ids: vec![identity_idea.id.clone()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let stub = Arc::new(PolicyAwareStubStore {
+            target: identity_idea,
+            policy_tag: "identity".into(),
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        // Force the cache to load policies from the stub now so the sync
+        // `get_or_default` path inside `append_idea` finds the marker.
+        let _ = cache.resolve(&*store, &["identity".to_string()]).await;
+
+        let assembled = assemble_ideas_with_cache(
+            &registry,
+            Some(&store),
+            &event_store,
+            &agent.id,
+            &[],
+            None,
+            Some(&cache),
+        )
+        .await;
+
+        assert_eq!(assembled.segments.len(), 1, "exactly one idea assembled");
+        assert_eq!(
+            assembled.segments[0].cache_control,
+            Some(aeqi_core::CacheControl::Ephemeral),
+            "identity tag with cache_breakpoint=true must mark its segment as Ephemeral",
+        );
+        assert!(
+            assembled.system.contains("I am the AEQI assistant."),
+            "flat system string still carries the content verbatim"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_11_segment_is_unmarked_when_no_policy_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let plain_idea = Idea {
+            id: "plain-1".into(),
+            name: "plain".into(),
+            content: "Some advice.".into(),
+            // Tag not in the policy cache → no `cache_breakpoint=true` vote.
+            tags: vec!["fact".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let event_store = EventHandlerStore::new(registry.db());
+        event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "session-start-plain".into(),
+                pattern: "session:start".into(),
+                idea_ids: vec![plain_idea.id.clone()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        // The stub serves a policy for `identity` only — `fact` resolves to
+        // the default policy which leaves `cache_breakpoint=None`.
+        let stub = Arc::new(PolicyAwareStubStore {
+            target: plain_idea,
+            policy_tag: "identity".into(),
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        let cache = aeqi_ideas::tag_policy::default_cache();
+        let _ = cache.resolve(&*store, &["fact".to_string()]).await;
+
+        let assembled = assemble_ideas_with_cache(
+            &registry,
+            Some(&store),
+            &event_store,
+            &agent.id,
+            &[],
+            None,
+            Some(&cache),
+        )
+        .await;
+
+        assert_eq!(assembled.segments.len(), 1);
+        assert!(
+            assembled.segments[0].cache_control.is_none(),
+            "no cache_breakpoint policy → segment must be plain"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_11_no_tag_policy_cache_means_no_markers() {
+        // Baseline preservation: when no TagPolicyCache is wired (the
+        // pre-T1.11 codepath), every assembled segment is plain.
+        let dir = tempfile::tempdir().unwrap();
+        let registry = AgentRegistry::open(dir.path()).unwrap();
+        let agent = registry
+            .spawn("assistant", None, Some("claude-sonnet-4.6"))
+            .await
+            .unwrap();
+
+        let identity_idea = Idea {
+            id: "id-2".into(),
+            name: "identity-core".into(),
+            content: "I am the AEQI assistant.".into(),
+            tags: vec!["identity".into()],
+            agent_id: Some(agent.id.clone()),
+            created_at: Utc::now(),
+            session_id: None,
+            score: 1.0,
+            scope: aeqi_core::Scope::SelfScope,
+            inheritance: "self".to_string(),
+            tool_allow: Vec::new(),
+            tool_deny: Vec::new(),
+        };
+
+        let event_store = EventHandlerStore::new(registry.db());
+        event_store
+            .create(&NewEvent {
+                agent_id: Some(agent.id.clone()),
+                name: "session-start-no-cache".into(),
+                pattern: "session:start".into(),
+                idea_ids: vec![identity_idea.id.clone()],
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        let stub = Arc::new(PolicyAwareStubStore {
+            target: identity_idea,
+            policy_tag: "identity".into(),
+        });
+        let store: Arc<dyn IdeaStore> = stub.clone();
+
+        // Note: passing `None` for tag_policy_cache.
+        let assembled = assemble_ideas_with_cache(
+            &registry,
+            Some(&store),
+            &event_store,
+            &agent.id,
+            &[],
+            None,
+            None,
+        )
+        .await;
+
+        assert_eq!(assembled.segments.len(), 1);
+        assert!(
+            assembled.segments[0].cache_control.is_none(),
+            "no policy cache wired → segments must remain plain"
         );
     }
 
