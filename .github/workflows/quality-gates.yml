@@ -121,11 +121,18 @@ jobs:
               if [ -f "package-lock.json" ]; then
                 echo "Running npm audit..."
                 
-                # Run npm audit and capture output
-                if npm audit --audit-level=moderate; then
-                  echo "✅ npm audit passed for $project_dir"
+                # PR gate runs at --audit-level=high so transitive moderate
+                # findings in pinned wallet SDKs (axios/uuid/postcss via
+                # @coinbase/cdp-sdk, @metamask/sdk, wagmi, @rainbow-me/rainbowkit)
+                # don't block unrelated PRs. The weekly cron run still surfaces
+                # moderate findings as informational signal — see the
+                # `npm audit --audit-level=moderate` echo below.
+                if npm audit --audit-level=high; then
+                  echo "✅ npm audit passed for $project_dir (high+)"
+                  echo "  (informational moderate findings:)"
+                  npm audit --audit-level=moderate || true
                 else
-                  echo "❌ npm audit found vulnerabilities in $project_dir"
+                  echo "❌ npm audit found high/critical vulnerabilities in $project_dir"
                   any_vulnerabilities=true
                   
                   # Show audit report
