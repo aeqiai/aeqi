@@ -27,11 +27,7 @@ argon2 = { version = "0.5", features = ["std"] }
 zeroize = { version = "1.8", features = ["derive"] }
 secrecy = "0.10"
 
-# Threshold ECDSA — pinned to v0.7.x (post-CVE-2025-66017 patch).
-# `cggmp21` is the umbrella crate; CGGMP24 protocol lives inside it.
-cggmp21 = { version = "0.6", default-features = false, features = ["all-curves"] }
-
-# secp256k1 primitives for low-level work outside the MPC ceremony
+# secp256k1 primitives for ECDSA + EVM address derivation
 k256 = { version = "0.13", features = ["ecdsa", "schnorr", "arithmetic"] }
 
 # BIP-39 mnemonic (recovery seeds)
@@ -48,16 +44,6 @@ time = "0.3"
 [dev-dependencies]
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-# cggmp21 with spof feature (trusted dealer) for the spike example
-cggmp21 = { version = "0.6", default-features = false, features = ["all-curves", "spof"] }
-# round-based sim harness for wiring two simulated parties
-round-based = { version = "0.4", features = ["sim"] }
-# rand_core 0.6 — cggmp21 expects this version (workspace rand uses 0.9)
-rand_core = "0.6"
-
-[[example]]
-name = "cggmp_spike"
-path = "examples/cggmp_spike.rs"
 
 [[example]]
 name = "argon_kek_spike"

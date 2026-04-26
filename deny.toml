@@ -3,13 +3,24 @@
 [advisories]
 unmaintained = "workspace"
 unsound = "all"
-ignore = []
+ignore = [
+    # bincode 1.3.x is unmaintained — only reaches us transitively via syntect
+    # for syntax highlighting in the CLI/TUI. No CVE, no security implication;
+    # bincode 1 is stable and widely-used despite the maintenance status. Will
+    # clear when syntect updates (or we drop it). Tracking:
+    # https://rustsec.org/advisories/RUSTSEC-2025-0141
+    "RUSTSEC-2025-0141",
+]
 
 [licenses]
 confidence-threshold = 0.93
 allow = [
     "Apache-2.0",
     "BUSL-1.1",
+    # CC0-1.0 is a public-domain dedication, more permissive than MIT — used
+    # by bip39 + bitcoin_hashes (transitive). Compatible with our BUSL-1.1
+    # source distribution; no obligations attach.
+    "CC0-1.0",
     "CDLA-Permissive-2.0",
     "MIT",
     "BSD-3-Clause",
