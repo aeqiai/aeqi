@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
+import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
 import { Button, Input, Spinner } from "@/components/ui";
@@ -29,6 +30,8 @@ const GoogleIcon = () => (
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const redirectAfter = () => getRedirectAfterAuth(params);
   const {
     authMode,
     googleOAuth,
@@ -84,7 +87,7 @@ export default function LoginPage() {
   }, [step]);
 
   useEffect(() => {
-    if (isAuthenticated()) navigate("/", { replace: true });
+    if (isAuthenticated()) navigate(redirectAfter(), { replace: true });
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
@@ -104,7 +107,7 @@ export default function LoginPage() {
   const handleSecretSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await login(secret);
-    if (ok) navigate("/");
+    if (ok) navigate(redirectAfter());
   };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -127,7 +130,7 @@ export default function LoginPage() {
       return;
     }
     if (result === "ok") {
-      navigate("/");
+      navigate(redirectAfter());
     }
   };
 
@@ -147,7 +150,7 @@ export default function LoginPage() {
         setVerifyLoading(false);
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate("/", { replace: true });
+          navigate(redirectAfter(), { replace: true });
         } else {
           setVerifyError("Invalid or expired code");
         }
@@ -173,7 +176,7 @@ export default function LoginPage() {
         setVerifyLoading(false);
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate("/", { replace: true });
+          navigate(redirectAfter(), { replace: true });
         } else {
           setVerifyError("Invalid or expired code");
         }
@@ -202,7 +205,7 @@ export default function LoginPage() {
       verify2fa(email, full).then((ok) => {
         setTwoFaLoading(false);
         if (ok) {
-          navigate("/", { replace: true });
+          navigate(redirectAfter(), { replace: true });
         } else {
           setTwoFaError("Invalid or expired code");
         }
@@ -227,7 +230,7 @@ export default function LoginPage() {
       verify2fa(email, text).then((ok) => {
         setTwoFaLoading(false);
         if (ok) {
-          navigate("/", { replace: true });
+          navigate(redirectAfter(), { replace: true });
         } else {
           setTwoFaError("Invalid or expired code");
         }
@@ -256,7 +259,7 @@ export default function LoginPage() {
       verifyTotp(email, full).then((ok) => {
         setTwoFaLoading(false);
         if (ok) {
-          navigate("/", { replace: true });
+          navigate(redirectAfter(), { replace: true });
         } else {
           setTwoFaError("Invalid or expired code");
         }
@@ -610,7 +613,7 @@ export default function LoginPage() {
                   verifyTotp(email, pasted).then((ok) => {
                     setTwoFaLoading(false);
                     if (ok) {
-                      navigate("/", { replace: true });
+                      navigate(redirectAfter(), { replace: true });
                     } else {
                       setTwoFaError("Invalid code");
                     }

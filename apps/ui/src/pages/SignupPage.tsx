@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
+import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
 import { Button, Input, Spinner } from "@/components/ui";
@@ -127,7 +128,7 @@ export default function SignupPage() {
       template || undefined,
     );
     if (result === "pending") setStep("verify");
-    else if (result === "verified") navigate("/", { replace: true });
+    else if (result === "verified") navigate(getRedirectAfterAuth(params), { replace: true });
   };
 
   const handleCodeChange = (index: number, value: string) => {
@@ -144,7 +145,7 @@ export default function SignupPage() {
         setVerifyLoading(false);
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate("/", { replace: true });
+          navigate(getRedirectAfterAuth(params), { replace: true });
         } else setVerifyError("Invalid or expired code");
       });
     }
@@ -166,7 +167,7 @@ export default function SignupPage() {
         setVerifyLoading(false);
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate("/", { replace: true });
+          navigate(getRedirectAfterAuth(params), { replace: true });
         } else setVerifyError("Invalid or expired code");
       });
     }
