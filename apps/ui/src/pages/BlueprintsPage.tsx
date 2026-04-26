@@ -88,15 +88,40 @@ export default function BlueprintsPage() {
     return templates.filter((t) => matches(t.name) || matches(t.tagline) || matches(t.description));
   }, [templates, filter, matches]);
 
-  const selected = useMemo(
-    () => (selectedSlug ? templates.find((t) => t.slug === selectedSlug) || null : null),
-    [selectedSlug, templates],
-  );
+  const [details, setDetails] = useState<Record<string, CompanyTemplate>>({});
+
+  const selected = useMemo(() => {
+    if (!selectedSlug) return null;
+    return details[selectedSlug] || templates.find((t) => t.slug === selectedSlug) || null;
+  }, [selectedSlug, templates, details]);
 
   useEffect(() => {
     setCompanyName(selected?.name || "");
     setSubmitError(null);
   }, [selected?.slug, selected?.name]);
+
+  // The list endpoint returns counts only — fetch the full detail once a
+  // card is selected so the preview can show real event patterns + idea
+  // titles. Cache by slug; offline-fallback templates already carry the
+  // seed arrays so we skip the fetch when seed_events is already present.
+  useEffect(() => {
+    if (!selectedSlug) return;
+    if (details[selectedSlug]) return;
+    const summary = templates.find((t) => t.slug === selectedSlug);
+    if (summary?.seed_events && summary.seed_events.length > 0) return;
+    let cancelled = false;
+    api
+      .getTemplate(selectedSlug)
+      .then((resp) => {
+        if (cancelled) return;
+        const tpl = (resp as { template?: CompanyTemplate })?.template;
+        if (tpl) setDetails((d) => ({ ...d, [selectedSlug]: tpl }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSlug, templates, details]);
 
   useEffect(() => {
     const deepSlug = searchParams.get("start") || searchParams.get("template");
@@ -426,6 +451,8 @@ function BlueprintDetail({
         </li>
       </ul>
 
+      <BlueprintSeedSamples template={template} />
+
       <form
         className="bp-detail-spawn"
         onSubmit={(e) => {
@@ -488,6 +515,41 @@ function BlueprintDetail({
           </>
         )}
       </form>
+    </div>
+  );
+}
+
+function BlueprintSeedSamples({ template }: { template: CompanyTemplate }) {
+  const events = (template.seed_events ?? []).slice(0, 3);
+  const ideas = (template.seed_ideas ?? []).slice(0, 3);
+  if (events.length === 0 && ideas.length === 0) return null;
+  return (
+    <div className="bp-detail-samples">
+      {events.length > 0 && (
+        <section className="bp-detail-sample-block">
+          <h3 className="bp-detail-sample-title">Events that fire</h3>
+          <ul className="bp-detail-sample-list">
+            {events.map((e, i) => (
+              <li key={i}>
+                <code className="bp-detail-sample-pattern">{e.pattern}</code>
+                {e.name && <span className="bp-detail-sample-name"> · {e.name}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {ideas.length > 0 && (
+        <section className="bp-detail-sample-block">
+          <h3 className="bp-detail-sample-title">Ideas seeded</h3>
+          <ul className="bp-detail-sample-list">
+            {ideas.map((idea, i) => (
+              <li key={i}>
+                <span className="bp-detail-sample-name">{idea.name}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

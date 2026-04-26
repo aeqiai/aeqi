@@ -545,6 +545,12 @@ export const api = {
   // quests atomically and returns the new root_agent_id.
   getTemplates: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/templates"),
 
+  // Full Template including seed_agents/events/ideas/quests arrays. The
+  // list endpoint returns counts only to keep the catalog payload small;
+  // the detail endpoint is what the store calls when a card is selected.
+  getTemplate: (slug: string) =>
+    request<{ ok: boolean; template: CompanyTemplate }>(`/templates/${encodeURIComponent(slug)}`),
+
   spawnTemplate: (data: { template: string; name?: string }) =>
     request<{ ok: boolean; root_agent_id: string }>("/templates/spawn", {
       method: "POST",
