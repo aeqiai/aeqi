@@ -29,6 +29,8 @@
 }
 
 .pickerMain {
+  /* position:relative anchors the .pickerMainActive::before accent bar. */
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -54,6 +56,23 @@
 .pickerMain:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: -1px;
+}
+/* Active state: route is on the root agent itself (not a descendant).
+   Mirrors the .rowActive treatment — state-selected bg + 2px accent
+   left bar — so the picker feels like part of the same selection
+   language, not a perma-bold scope label. */
+.pickerMainActive {
+  background: var(--state-selected);
+}
+.pickerMainActive::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
 }
 
 .pickerLabel {
@@ -289,6 +308,8 @@
  * vertical connector is perfectly under the parent's chevron at the
  * depth above. */
 .row {
+  /* position:relative anchors the .rowActive::before accent left-bar. */
+  position: relative;
   min-height: var(--sidebar-row-h);
   padding: 0 8px;
   font-size: var(--font-size-xs);
@@ -319,14 +340,25 @@
 }
 .rowActive {
   composes: row;
-  /* Title ink (92%) + semibold so the active row pops without needing a
-     heavy panel tint. The signal stack on active is: title-weight label,
-     semibold, 7% bg, AND the rail glyphs lighting up to full accent
-     (see .rowActive .guideLine below) — a stronger and more contextual
-     "you are here" than a generic left bar would be next to the rails. */
+  /* Title ink (92%) + semibold + state-selected bg + the rail glyphs
+     lighting up to full accent + a 2px accent left bar (::before). Same
+     "you are here" vocabulary as .sidebar-nav-item.active in layout.css
+     so the rail speaks one selection language top to bottom. The bar
+     sits at left:0 of the row — that's the sidebar edge, before any
+     rail-column glyphs, so the lineage drawing isn't disturbed. */
   color: var(--color-text-title);
   background: var(--state-selected);
   font-weight: 600;
+}
+.rowActive::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
 }
 
 /* Rail columns — one per ancestor depth. Each is 16px wide (matches the

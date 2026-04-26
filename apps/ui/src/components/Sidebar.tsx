@@ -308,6 +308,7 @@ function CloseGlyph() {
 function RootPicker({
   activeRoot,
   allRoots,
+  isRootSelected,
   open,
   onOpenChange,
   onSelectRoot,
@@ -315,6 +316,8 @@ function RootPicker({
 }: {
   activeRoot: Agent;
   allRoots: Agent[];
+  /** True when the current route is the root agent itself (not a descendant). */
+  isRootSelected: boolean;
   open: boolean;
   onOpenChange: (next: boolean) => void;
   onSelectRoot: (agent: Agent) => void;
@@ -356,7 +359,7 @@ function RootPicker({
       <div className={styles.pickerRow}>
         <button
           type="button"
-          className={styles.pickerMain}
+          className={`${styles.pickerMain} ${isRootSelected ? styles.pickerMainActive : ""}`}
           onClick={() => {
             if (open) onOpenChange(false);
             else onSelectRoot(activeRoot);
@@ -509,6 +512,7 @@ export default function AgentTree() {
           <RootPicker
             activeRoot={activeRootAgent}
             allRoots={roots}
+            isRootSelected={selectedId === activeRootAgent.id}
             open={pickerOpen}
             onOpenChange={setPickerOpen}
             onSelectRoot={(a) =>
