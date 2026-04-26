@@ -240,3 +240,15 @@ a {
 a:hover {
   color: var(--text-primary);
 }
+
+/* Caret default — pin every input / textarea / contenteditable surface
+   to the ink accent so the cursor stays readable on the paper canvas.
+   Explicit value beats the browser's `auto` fallback, which has drifted
+   between Chrome/Safari and was rendering white-on-white on the ideas
+   canvas. The chat composer overrides this back to white inside its
+   own .composer-wrap scope, since that surface is dark. */
+input,
+textarea,
+[contenteditable] {
+  caret-color: var(--accent);
+}

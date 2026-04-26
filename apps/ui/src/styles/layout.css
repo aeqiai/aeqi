@@ -5082,6 +5082,11 @@
   letter-spacing: 0.01em;
   line-height: 1.18;
   color: var(--text-primary);
+  /* Pin the caret to ink. Without this the browser falls back to a
+     hard-to-debug `auto` (currentColor in spec, but Safari/Chrome have
+     drifted) and on the white paper surface the caret has been
+     reported showing up white-on-white. Explicit > mysterious. */
+  caret-color: var(--accent);
   background: transparent;
   border: none;
   outline: none;
@@ -5148,6 +5153,7 @@
   line-height: 1.72;
   letter-spacing: 0.002em;
   color: var(--text-primary);
+  caret-color: var(--accent);
   background: transparent;
   border: none;
   outline: none;
