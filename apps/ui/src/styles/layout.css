@@ -1090,9 +1090,10 @@
 }
 
 /* ── Public sidebar (unauthed) ──
-   The unauthed shell shares the rail's geometry but trades the profile
-   row for the wordmark and pins a Sign up / Log in CTA cluster to the
-   bottom. Same width, same insets, same nav-item styling. */
+   Shares the rail's geometry: wordmark in the header, Blueprints +
+   Economy in the first nav zone, Log in + Sign up as normal nav rows
+   in a second zone (no separate CTA cluster). Collapse toggle works
+   the same as on the authed rail. */
 .public-sidebar .sidebar-public-brand {
   display: inline-flex;
   align-items: center;
@@ -1102,49 +1103,11 @@
   color: var(--color-accent);
   border-radius: var(--radius-md);
   transition: opacity 0.12s ease;
+  flex: 1;
+  min-width: 0;
 }
 .public-sidebar .sidebar-public-brand:hover {
   opacity: 0.85;
-}
-.sidebar-public-cta {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 8px 12px;
-}
-.sidebar-public-cta-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-.sidebar-public-cta-btn.primary {
-  background: var(--text-primary);
-  color: var(--color-card);
-  border: 1px solid var(--text-primary);
-}
-.sidebar-public-cta-btn.primary:hover {
-  opacity: 0.88;
-}
-.sidebar-public-cta-btn.ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-.sidebar-public-cta-btn.ghost:hover {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--state-hover);
 }
 
 /* ── Content column — stacks the content card above the compact
