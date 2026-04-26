@@ -24,6 +24,12 @@ interface PageRailProps {
    *     settings sub-tabs.
    */
   mode?: "query" | "path";
+  /**
+   * Optional content rendered at the bottom of the rail, separated by a
+   * faint divider. Use for affordances that aren't tabs (e.g. a "+ New"
+   * action that lives next to the navigation but isn't part of it).
+   */
+  footer?: React.ReactNode;
 }
 
 /**
@@ -38,7 +44,13 @@ interface PageRailProps {
  * Pages wire it inside a two-column container — the rail on the left,
  * the active section's content on the right.
  */
-export default function PageRail({ tabs, defaultTab, title, mode = "query" }: PageRailProps) {
+export default function PageRail({
+  tabs,
+  defaultTab,
+  title,
+  mode = "query",
+  footer,
+}: PageRailProps) {
   const { go } = useNav();
   const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -80,6 +92,7 @@ export default function PageRail({ tabs, defaultTab, title, mode = "query" }: Pa
           )}
         </button>
       ))}
+      {footer && <div className="page-rail-footer">{footer}</div>}
     </nav>
   );
 }

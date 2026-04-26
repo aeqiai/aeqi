@@ -18,6 +18,7 @@ const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
+const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 
 const LoadingSpinner = () => (
@@ -125,6 +126,10 @@ export default function App() {
           <Route
             path="/blueprints"
             element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
+          <Route
+            path="/blueprints/:slug"
+            element={<PublicOrAppShell publicPage={<BlueprintDetailPage />} />}
           />
           <Route path="/economy" element={<PublicOrAppShell publicPage={<EconomyPage />} />} />
           {/* Legacy public-surface aliases — kept here so unauthed
