@@ -3842,6 +3842,124 @@
   color: var(--accent);
   border-color: var(--accent-dim);
 }
+
+/* Scope picker on the canvas header — same visual register as the toolbar
+   buttons but wider since it carries a label (the active scope name).
+   Locked variant (edit mode) drops the chevron's hover lift but keeps the
+   button shape so the row composition stays stable across modes. */
+.ideas-scope-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.ideas-scope-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-row);
+  border-color: var(--border-hover);
+}
+.ideas-scope-btn.open {
+  color: var(--accent);
+  background: var(--bg-base);
+  border-color: var(--accent-dim);
+}
+.ideas-scope-btn.locked {
+  cursor: pointer;
+}
+.ideas-scope-btn-label {
+  letter-spacing: 0.005em;
+}
+.ideas-scope-btn-chevron {
+  opacity: 0.55;
+  transition:
+    opacity 0.12s ease,
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ideas-scope-btn:hover .ideas-scope-btn-chevron {
+  opacity: 0.9;
+}
+.ideas-scope-btn.open .ideas-scope-btn-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+/* Scope dot — a 6px disc that codes each scope's "shape of reach".
+   Used both inside the trigger and as the radio mark in the popover.
+   self = inked ink, branches/global = open ring, etc., so the popover's
+   list reads as a tiny visual taxonomy of how each scope spreads. */
+.scope-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-secondary);
+  flex-shrink: 0;
+}
+.scope-dot--self {
+  background: var(--accent);
+}
+.scope-dot--siblings {
+  background: var(--text-muted);
+  box-shadow: 0 0 0 1.5px var(--bg-row);
+}
+.scope-dot--children {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+}
+.scope-dot--branch {
+  background: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent-bg);
+}
+.scope-dot--global {
+  background: transparent;
+  border: 1.5px solid var(--accent);
+}
+.ideas-scope-btn .scope-dot {
+  margin-right: 1px;
+}
+/* Wider popover for scope — needs room for the dot + label + hint. */
+.ideas-scope-popover {
+  width: 280px;
+}
+.ideas-scope-popover .ideas-filter-row {
+  grid-template-columns: 18px 1fr auto;
+}
+.ideas-scope-popover-note {
+  margin: 4px 8px 4px;
+  padding-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  border-top: 1px dashed var(--border-faint);
+}
+/* Inline hint shown after the label on each scope row — explains the
+   scope's reach in one line so the popover teaches as it picks. */
+.ideas-filter-row-hint {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.ideas-filter-row.active .ideas-filter-row-hint {
+  color: var(--text-secondary);
+}
 /* Sort segmented control — sits flush right of the search input so the
    head stays single-row and the two filter axes (text / shelf-order)
    read as a coherent toolbar. Linear/Notion-style: small mono-ish text,
@@ -4380,36 +4498,7 @@
 .ideas-list-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-}
-.ideas-list-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
-}
-.ideas-list-tag:hover {
-  color: var(--text-primary);
-  border-color: var(--accent-dim);
-}
-.ideas-list-tag.active {
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-color: var(--accent-dim);
-}
-.ideas-list-tag-count {
-  font-size: 9px;
-  opacity: 0.7;
+  gap: 6px;
 }
 .ideas-list-body {
   flex: 1;
@@ -5040,34 +5129,103 @@
   flex: 1 1 auto;
   min-height: 280px;
 }
-/* Scope chip strip — only ever shows the "Global" badge when viewing a
-   root-scope idea (agent_id == null). Back-navigation is not here; the
-   topbar crumb owns that (the "Ideas" crumb becomes a link on detail). */
-.ideas-canvas-eyebrow {
+/* Canvas header — the only place the user reaches for back / scope /
+   save / new / delete. One band, hairline-bottom, every action visible
+   at rest. Replaces the old eyebrow + title-row + bottom footer trio so
+   the document below reads as the actual content of the page. */
+.ideas-canvas-header {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 10px;
-  user-select: none;
-}
-.ideas-canvas-eyebrow-scope {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent);
-  font-weight: 600;
-}
-.ideas-canvas-head {
-  display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-faint);
 }
-.ideas-canvas-head .ideas-canvas-title {
-  margin-bottom: 0;
+.ideas-canvas-header-spacer {
   flex: 1;
   min-width: 0;
+}
+/* Back button — labeled, not a bare arrow. The chevron lives in a fixed
+   slot so the row never reflows on hover. Outlined like the toolbar
+   buttons on the list view so the canvas reads as a sibling surface to
+   the index, not a different app. */
+.ideas-canvas-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.ideas-canvas-back svg {
+  opacity: 0.7;
+  transition:
+    opacity 0.12s ease,
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ideas-canvas-back:hover {
+  color: var(--text-primary);
+  background: var(--bg-row);
+  border-color: var(--border-hover);
+}
+.ideas-canvas-back:hover svg {
+  opacity: 1;
+  transform: translateX(-2px);
+}
+.ideas-canvas-back:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
+}
+/* New-idea button inside the canvas header — visually identical to the
+   back button so the row reads as a flat strip of ghost actions. The
+   primary 'Save' button is the only filled control in this band, which
+   makes the save action visually inevitable when there's something to
+   save. */
+.ideas-canvas-header-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.ideas-canvas-header-new svg {
+  opacity: 0.7;
+  transition: opacity 0.12s ease;
+}
+.ideas-canvas-header-new:hover {
+  color: var(--accent);
+  background: var(--bg-row);
+  border-color: var(--border-hover);
+}
+.ideas-canvas-header-new:hover svg {
+  opacity: 1;
 }
 /* Editorial title — display face (Exo 2) mirrors the home hero. Subtle
    optical letterspacing because small-caps-esque serifs tighten naturally
@@ -5327,40 +5485,6 @@
   color: var(--text-muted);
   font-size: 0.85em;
 }
-.ideas-canvas-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding-top: 12px;
-  margin-top: 18px;
-  border-top: 1px solid var(--border-faint);
-}
-.ideas-canvas-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  min-height: 18px;
-}
-.ideas-canvas-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-.ideas-canvas-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ideas-canvas-count {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  opacity: 0.75;
-}
 .ideas-canvas-error {
   font-size: 11px;
   color: var(--destructive);
@@ -5450,6 +5574,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
   font-size: 11px;
   font-family: var(--font-mono);
   color: var(--text-muted);
@@ -5509,7 +5634,7 @@
 .ideas-tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
   padding: 1px 8px 1px 7px;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -5518,13 +5643,30 @@
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 999px;
+  cursor: pointer;
   transition:
     border-color 0.15s,
-    color 0.15s;
+    color 0.15s,
+    background 0.15s;
 }
-.ideas-tag-chip.removable:hover {
+.ideas-tag-chip.removable:hover,
+button.ideas-tag-chip:hover {
   color: var(--text-primary);
   border-color: var(--border-hover);
+}
+button.ideas-tag-chip.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+}
+.ideas-tag-chip-count {
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+  letter-spacing: 0;
+}
+button.ideas-tag-chip.active .ideas-tag-chip-count {
+  opacity: 0.9;
 }
 .ideas-tag-chip-x {
   display: inline-flex;

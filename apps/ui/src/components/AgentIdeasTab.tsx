@@ -312,7 +312,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       <IdeasCanvasView
         agentId={agentId}
         idea={selected}
-        composing={composing}
         presetName={presetName}
         onBack={() => goAgent(agentId, "ideas")}
         onNew={() => fireNewIdea()}

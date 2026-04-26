@@ -355,10 +355,11 @@ export default function IdeasListView({
                   key={t}
                   type="button"
                   aria-pressed={isActive}
-                  className={`ideas-list-tag${isActive ? " active" : ""}`}
+                  className={`ideas-tag-chip${isActive ? " active" : ""}`}
                   onClick={() => toggleTag(t)}
                 >
-                  {t} <span className="ideas-list-tag-count">{n}</span>
+                  #{t}
+                  <span className="ideas-tag-chip-count">{n}</span>
                 </button>
               );
             })}
