@@ -18,6 +18,7 @@ members = [
     "crates/aeqi-pack-github",
     "crates/aeqi-pack-notion",
     "crates/aeqi-pack-slack",
+    "crates/aeqi-wallets",
 ]
 
 [workspace.package]
