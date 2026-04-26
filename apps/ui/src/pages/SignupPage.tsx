@@ -320,27 +320,31 @@ export default function SignupPage() {
                 <span>or</span>
               </div>
               <div className="auth-oauth-group">
-                {googleOAuth && (
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    fullWidth
-                    onClick={handleGoogle}
-                    type="button"
-                  >
-                    <GoogleIcon /> Continue with Google
-                  </Button>
-                )}
-                {githubOAuth && (
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    fullWidth
-                    onClick={handleGithub}
-                    type="button"
-                  >
-                    <GithubIcon /> Continue with GitHub
-                  </Button>
+                {(googleOAuth || githubOAuth) && (
+                  <div className="auth-oauth-row">
+                    {googleOAuth && (
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        fullWidth
+                        onClick={handleGoogle}
+                        type="button"
+                      >
+                        <GoogleIcon /> Google
+                      </Button>
+                    )}
+                    {githubOAuth && (
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        fullWidth
+                        onClick={handleGithub}
+                        type="button"
+                      >
+                        <GithubIcon /> GitHub
+                      </Button>
+                    )}
+                  </div>
                 )}
                 <ConnectWalletButton
                   onAuthenticated={() =>

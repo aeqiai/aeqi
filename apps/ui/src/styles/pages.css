@@ -168,6 +168,19 @@
   gap: var(--space-5);
 }
 
+/* Two half-width buttons sharing a row, matching the column gap above/below
+   so the rhythm stays uniform. Each child Button keeps its `fullWidth`
+   prop on; flex distributes the available row evenly. */
+.auth-oauth-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.auth-oauth-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
