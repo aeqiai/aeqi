@@ -111,7 +111,7 @@ export default function BlueprintDetailPage() {
     return (
       <div className="page-rail-shell">
         <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
-        <main className="page-rail-content">
+        <main className="page-rail-content page-rail-content--full">
           <div className="bp-status">
             <Spinner size="sm" /> Loading Blueprint…
           </div>
@@ -124,7 +124,7 @@ export default function BlueprintDetailPage() {
     return (
       <div className="page-rail-shell">
         <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
-        <main className="page-rail-content">
+        <main className="page-rail-content page-rail-content--full">
           <EmptyState
             title="Blueprint not found."
             description={error || "We couldn't find a blueprint with that slug."}
@@ -148,7 +148,7 @@ export default function BlueprintDetailPage() {
         basePath={`/blueprints/${encodeURIComponent(template.slug)}`}
         currentValue={activeSection}
       />
-      <main className="page-rail-content">
+      <main className="page-rail-content page-rail-content--full">
         <div className="ideas-list-head bp-detail-head">
           <div className="ideas-toolbar bp-detail-toolbar">
             <button
