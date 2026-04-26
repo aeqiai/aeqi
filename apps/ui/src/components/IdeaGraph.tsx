@@ -181,6 +181,9 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
   const zoomBehaviorRef = useRef<ZoomBehavior<HTMLCanvasElement, unknown> | null>(null);
   const hasFitRef = useRef(false);
   const fitTickCountRef = useRef(0);
+  // Degree (edge count) per node — drives the zoom-gated label priority so
+  // the hubs label first when zoomed out, the leaves only when zoomed in.
+  const degreeRef = useRef<Map<string, number>>(new Map());
   const [dimensions, setDimensions] = useState({ w: 800, h: 500 });
 
   useEffect(() => {
@@ -219,6 +222,15 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     // Re-fit on data change so adding/removing many nodes re-centers.
     hasFitRef.current = false;
     fitTickCountRef.current = 0;
+
+    // Pre-compute degree once per data change so the per-frame label gate
+    // doesn't have to rescan the edge list.
+    const deg = new Map<string, number>();
+    for (const e of edges) {
+      deg.set(e.source, (deg.get(e.source) ?? 0) + 1);
+      deg.set(e.target, (deg.get(e.target) ?? 0) + 1);
+    }
+    degreeRef.current = deg;
 
     simRef.current?.stop();
     simRef.current = forceSimulation<SimNode, SimLink>(simNodes)
@@ -404,6 +416,45 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       }
       ctx!.setLineDash([]);
 
+      // Tag-cluster watermarks: group nodes by primary tag, render the tag
+      // name at each group's centroid as faint large text. Most visible when
+      // zoomed out (where individual labels are hidden), fades as the user
+      // zooms into the per-node detail. This is how clusters get their
+      // identity without running community detection.
+      const tagWatermarkAlpha = Math.max(0, Math.min(0.45, 0.5 - k * 0.28));
+      if (tagWatermarkAlpha > 0.04) {
+        const groups = new Map<string, { sx: number; sy: number; n: number }>();
+        for (const n of sim) {
+          if (n.x == null || n.y == null) continue;
+          const tag = primaryTag(n);
+          if (tag === "untagged") continue;
+          const g = groups.get(tag);
+          if (g) {
+            g.sx += n.x;
+            g.sy += n.y;
+            g.n += 1;
+          } else {
+            groups.set(tag, { sx: n.x, sy: n.y, n: 1 });
+          }
+        }
+        ctx!.textAlign = "center";
+        ctx!.textBaseline = "middle";
+        for (const [tag, g] of groups) {
+          // Skip lone members — a "cluster" of one is just clutter.
+          if (g.n < 3) continue;
+          const cx2 = g.sx / g.n;
+          const cy2 = g.sy / g.n;
+          // Bigger groups get bigger labels. Counter-scale so size is in
+          // screen pixels, not world units.
+          const screenPx = Math.min(34, 14 + g.n * 1.6);
+          ctx!.font = `600 ${screenPx / k}px 'Inter', system-ui, sans-serif`;
+          ctx!.fillStyle = pal.ink;
+          ctx!.globalAlpha = tagWatermarkAlpha;
+          ctx!.fillText(tag.toUpperCase(), cx2, cy2);
+          ctx!.globalAlpha = 1;
+        }
+      }
+
       // Cold-node opacity floor stays at 0.55 — 0.4 left stale memories
       // as near-invisible shadows.
       for (const n of sim) {
@@ -445,9 +496,15 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         ctx!.strokeStyle = isSelected ? pal.accent : isHovered ? pal.accentSoft : pal.border;
         ctx!.stroke();
 
-        // Hidden by default; shown for selection/hover/neighbor/hot/sparse.
+        // Zoom-gated label visibility: hubs (high degree) and hot ideas
+        // label first when zoomed out, leaves only as you zoom in. Same idea
+        // as Obsidian's graph view — keeps clusters readable instead of
+        // burying them under a wall of names.
+        const degree = degreeRef.current.get(n.id) ?? 0;
+        const priority = n.hotness * 1.2 + Math.min(1.5, degree * 0.08);
+        const labelScore = priority * Math.sqrt(k);
         const shouldLabel =
-          isSelected || isHovered || isNeighbor || n.hotness > 0.6 || sim.length < 24;
+          isSelected || isHovered || isNeighbor || labelScore > 0.55 || sim.length < 16;
         if (shouldLabel) {
           // Counter-scale labels so they stay readable when zoomed out.
           const fontPx = 11 / k;
