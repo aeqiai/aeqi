@@ -90,6 +90,23 @@
   margin: 0;
   font-size: 13px;
   color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 60ch;
+}
+.billing-summary-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.billing-summary-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.05;
+  color: var(--text-primary);
 }
 .billing-summary-aside {
   display: flex;
@@ -319,13 +336,6 @@
 .billing-footer-secondary {
   border-top: 0;
   padding-top: 0;
-}
-.billing-headline-suffix {
-  font-family: var(--font-sans);
-  font-weight: 400;
-  font-size: 14px;
-  color: var(--text-muted);
-  letter-spacing: 0;
 }
 
 .billing-link {

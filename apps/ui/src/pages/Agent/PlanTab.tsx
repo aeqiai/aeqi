@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Spinner } from "@/components/ui";
+import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import type { Agent } from "@/lib/types";
 import type { BillingInterval, PlanId } from "@/lib/pricing";
@@ -24,12 +24,23 @@ type Overview = {
   companies: Company[];
 };
 
+const PLAN_LABEL: Record<Company["plan"], string> = {
+  free: "Free",
+  launch: "Launch",
+  scale: "Scale",
+};
+const PLAN_BADGE_VARIANT: Record<Company["plan"], "neutral" | "info" | "success"> = {
+  free: "neutral",
+  launch: "info",
+  scale: "success",
+};
+
 /** Walk parent_id chain back to the root (parent_id == null). */
 function findRoot(agents: Agent[], id: string): Agent | null {
   let current = agents.find((a) => a.id === id || a.name === id) || null;
   const seen = new Set<string>();
   while (current && current.parent_id) {
-    if (seen.has(current.id)) return null; // defend against cycles
+    if (seen.has(current.id)) return null;
     seen.add(current.id);
     const next = agents.find((a) => a.id === current!.parent_id) || null;
     if (!next) return current;
@@ -39,14 +50,15 @@ function findRoot(agents: Agent[], id: string): Agent | null {
 }
 
 /**
- * `/{agentId}/settings/plan` — per-Company plan surface inside the
- * agent's own settings shell. Shows the same plan info whether the
+ * `/{agentId}/plan` (and `/{agentId}/settings/plan`) — per-Company plan
+ * surface inside the agent shell. Shows the same plan info whether the
  * user is viewing the root or any sub-agent (plan is per-Company,
  * shared across the tree).
  *
- * Reuses the same `CompanyPlanCard` the user-level `/settings/billing`
- * uses, so upgrade ceremony + manage-in-portal stays in lockstep
- * across both surfaces.
+ * Layout mirrors `/settings/billing` so the visual rhythm + upgrade
+ * ceremony stays in lockstep across both surfaces. The hero summary
+ * Card uses the same `.billing-summary` shape as the user-level
+ * rollup; the action card is the shared `CompanyPlanCard`.
  */
 export default function PlanTab({ agentId }: PlanTabProps) {
   const agents = useDaemonStore((s) => s.agents);
@@ -79,10 +91,6 @@ export default function PlanTab({ agentId }: PlanTabProps) {
     };
   }, []);
 
-  // Find the Company record matching this agent's root. Backend keys
-  // off the placement slug (root_name) — the agent_id is the UUID
-  // assigned by the runtime once the sandbox boots, so it may not
-  // match yet. Match on either to be resilient.
   const company = useMemo<Company | null>(() => {
     if (!overview || !root) return null;
     return overview.companies.find((c) => c.agent_id === root.id || c.name === root.name) ?? null;
@@ -100,8 +108,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
         if (!url) throw new Error("Checkout returned no URL.");
         window.location.href = url;
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Could not start checkout.";
-        setError(msg);
+        setError(e instanceof Error ? e.message : "Could not start checkout.");
         setActionPending(null);
       }
     },
@@ -115,8 +122,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
       if (!url) throw new Error("Portal returned no URL.");
       window.location.href = url;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not open Stripe portal.";
-      setError(msg);
+      setError(e instanceof Error ? e.message : "Could not open Stripe portal.");
       setActionPending(null);
     }
   }, []);
@@ -134,9 +140,12 @@ export default function PlanTab({ agentId }: PlanTabProps) {
   if (error && !overview) {
     return (
       <div className="billing-panel billing-panel-padded">
-        <div className="account-feedback account-feedback-error" role="alert">
-          {error}
-        </div>
+        <Card padding="lg" className="billing-summary">
+          <div className="billing-summary-main">
+            <p className="billing-eyebrow">Plan</p>
+            <p className="billing-summary-sub">{error}</p>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -144,7 +153,12 @@ export default function PlanTab({ agentId }: PlanTabProps) {
   if (!root) {
     return (
       <div className="billing-panel billing-panel-padded">
-        <p className="billing-empty-sub">Couldn't resolve this Company's root agent.</p>
+        <Card padding="lg" className="billing-summary">
+          <div className="billing-summary-main">
+            <p className="billing-eyebrow">Plan</p>
+            <p className="billing-summary-sub">Couldn't resolve this Company's root agent.</p>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -152,33 +166,45 @@ export default function PlanTab({ agentId }: PlanTabProps) {
   if (!company) {
     return (
       <div className="billing-panel billing-panel-padded">
-        <header className="billing-header">
-          <p className="billing-eyebrow">Plan</p>
-          <h2 className="billing-headline">{root.name}</h2>
-          <p className="billing-empty-sub">
-            No subscription on file for this Company yet. The first plan stamps when you launch.
-          </p>
-        </header>
+        <Card padding="lg" className="billing-summary">
+          <div className="billing-summary-main">
+            <p className="billing-eyebrow">Plan</p>
+            <h2 className="billing-summary-name">{root.name}</h2>
+            <p className="billing-summary-sub">
+              No subscription on file for this Company yet — the first plan stamps when it launches.
+            </p>
+          </div>
+          <div className="billing-summary-aside">
+            <Link to="/settings/billing" className="billing-link">
+              View user-level billing →
+            </Link>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="billing-panel">
-      <header className="billing-header">
-        <p className="billing-eyebrow">Plan</p>
-        <h2 className="billing-headline">
-          {company.name} <span className="billing-headline-suffix">— per-Company subscription</span>
-        </h2>
-        <p className="billing-empty-sub">
-          The plan applies to the whole Company — every agent in this tree shares it. Manage payment
-          methods + invoices in the{" "}
-          <Link to="/settings/billing" className="billing-link">
-            user-level billing tab
-          </Link>
-          .
-        </p>
-      </header>
+    <div className="billing-panel billing-panel-padded">
+      <Card padding="lg" className="billing-summary">
+        <div className="billing-summary-main">
+          <p className="billing-eyebrow">Plan</p>
+          <div className="billing-summary-name-row">
+            <h2 className="billing-summary-name">{company.name}</h2>
+            <Badge variant={PLAN_BADGE_VARIANT[company.plan]} size="md">
+              {PLAN_LABEL[company.plan]}
+            </Badge>
+          </div>
+          <p className="billing-summary-sub">
+            Per-Company subscription. Every agent in this tree shares this plan. See all your
+            Companies + payment methods in the{" "}
+            <Link to="/settings/billing" className="billing-link">
+              user-level billing tab
+            </Link>
+            .
+          </p>
+        </div>
+      </Card>
 
       <div className="billing-companies" role="list">
         <CompanyPlanCard
