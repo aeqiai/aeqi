@@ -274,40 +274,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Footer custom-agent affordance ──────────────── */
-
-.bp-foot-custom {
-  display: flex;
-  justify-content: center;
-  padding-top: var(--space-3);
-  margin-top: var(--space-2);
-  border-top: 1px dashed var(--border-faint);
-}
-.bp-foot-custom-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: transparent;
-  border: 0;
-  font: inherit;
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-md);
-  transition:
-    color 0.12s,
-    background 0.12s;
-}
-.bp-foot-custom-btn:hover {
-  color: var(--text-primary);
-  background: var(--state-hover);
-}
-.bp-foot-custom-btn > span:first-child {
-  font-family: var(--font-mono);
-  font-size: 14px;
-}
-
 /* ── Detail page (/blueprints/:slug) ─────────────── */
 
 .bp-detail-page {

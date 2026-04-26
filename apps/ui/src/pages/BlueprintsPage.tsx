@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
-import { useAuthStore } from "@/store/auth";
 import { Popover, Spinner } from "@/components/ui";
 import { BlueprintCard } from "@/components/blueprints/BlueprintCard";
 import "@/styles/templates.css";
@@ -42,13 +41,10 @@ const VIEW_ORDER: View[] = ["grid", "list"];
 export default function BlueprintsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const token = useAuthStore((s) => s.token);
-  const authMode = useAuthStore((s) => s.authMode);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const importIntoId = searchParams.get("import_into") || null;
   const isImportMode = !!importIntoId;
-  const isAuthed = authMode === "none" || !!token;
 
   const [templates, setTemplates] = useState<CompanyTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,14 +127,6 @@ export default function BlueprintsPage() {
   }, [templates, kind, matches, sort]);
 
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
-
-  const handleCustom = useCallback(() => {
-    if (!isAuthed) {
-      navigate("/signup?next=/new");
-      return;
-    }
-    navigate(`/new${importTargetSuffix}`);
-  }, [isAuthed, navigate, importTargetSuffix]);
 
   // "/" focuses search; Esc clears or blurs.
   useEffect(() => {
@@ -310,15 +298,6 @@ export default function BlueprintsPage() {
             {filtered.map((t, i) => (
               <BlueprintCard key={t.slug} template={t} index={i} />
             ))}
-          </div>
-        )}
-
-        {!loading && (
-          <div className="bp-foot-custom">
-            <button type="button" className="bp-foot-custom-btn" onClick={handleCustom}>
-              <span aria-hidden="true">+</span>
-              <span>Start blank — custom agent without a Blueprint</span>
-            </button>
           </div>
         )}
       </main>
