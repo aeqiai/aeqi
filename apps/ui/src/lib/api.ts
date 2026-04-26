@@ -204,6 +204,19 @@ export const api = {
 
   getActivity: () => request<Record<string, unknown>>("/auth/activity"),
 
+  getAuthSessions: () => request<Record<string, unknown>>("/auth/sessions"),
+
+  revokeAuthSession: (jti: string) =>
+    request<{ ok: boolean }>("/auth/sessions/revoke", {
+      method: "POST",
+      body: JSON.stringify({ jti }),
+    }),
+
+  revokeOtherAuthSessions: () =>
+    request<{ ok: boolean; revoked: number }>("/auth/sessions/revoke-others", {
+      method: "POST",
+    }),
+
   updateAvatar: (dataUrl: string) =>
     request<{ ok: boolean }>("/auth/update-avatar", {
       method: "POST",

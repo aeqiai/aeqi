@@ -2,6 +2,7 @@ import { useActiveTab } from "@/components/PageTabs";
 import PageRail from "@/components/PageRail";
 import ProfilePanel from "@/pages/Settings/ProfilePanel";
 import SecurityPanel from "@/pages/Settings/SecurityPanel";
+import DevicesPanel from "@/pages/Settings/DevicesPanel";
 import SettingsIntegrationsPage from "@/pages/Settings/Integrations";
 import ApiKeyPanel from "@/pages/Settings/ApiKeyPanel";
 import InvitesPanel from "@/pages/Settings/InvitesPanel";
@@ -10,6 +11,7 @@ import PreferencesPanel from "@/pages/Settings/PreferencesPanel";
 const TABS = [
   { id: "profile", label: "Profile" },
   { id: "security", label: "Security" },
+  { id: "devices", label: "Devices" },
   { id: "integrations", label: "Integrations" },
   { id: "api", label: "API keys" },
   { id: "invites", label: "Invites" },
@@ -34,6 +36,7 @@ export default function ProfilePage() {
       <div className="account-page settings-content">
         {activeTab === "profile" && <ProfilePanel />}
         {activeTab === "security" && <SecurityPanel />}
+        {activeTab === "devices" && <DevicesPanel />}
         {activeTab === "integrations" && <SettingsIntegrationsPage />}
         {activeTab === "api" && <ApiKeyPanel />}
         {activeTab === "invites" && <InvitesPanel />}

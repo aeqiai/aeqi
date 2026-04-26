@@ -5,7 +5,6 @@ import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
 
 type Feedback = { type: "success" | "error"; msg: string } | null;
-type ActivityRow = { action: string; detail?: string; ip?: string; created_at: string };
 
 const CheckIcon = () => (
   <svg
@@ -47,26 +46,11 @@ const GitHubIcon = () => (
   </svg>
 );
 
-function formatActivityAgo(iso: string): string {
-  try {
-    const diff = Date.now() - new Date(iso).getTime();
-    if (diff < 60_000) return "Just now";
-    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-    return `${Math.floor(diff / 86_400_000)}d ago`;
-  } catch {
-    return "";
-  }
-}
-
 /**
  * Settings → Security tab. TOTP setup, email phishing phrase, password
- * change link, OAuth provider connections, danger zone, activity log.
+ * change link, OAuth provider connections, danger zone.
  *
- * Each subsection owns its own narrow state — TOTP setup state is
- * unrelated to the activity log fetch, etc. Splitting them further
- * inside this file (one component per subsection) is the next move
- * once any of them grow.
+ * Login/IP history and connected devices live under the Devices tab.
  */
 export default function SecurityPanel() {
   const navigate = useNavigate();
@@ -87,9 +71,6 @@ export default function SecurityPanel() {
   const [totpFeedback, setTotpFeedback] = useState<Feedback>(null);
   const [totpLoading, setTotpLoading] = useState(false);
 
-  // Activity log
-  const [activity, setActivity] = useState<ActivityRow[]>([]);
-
   useEffect(() => {
     api
       .getMe()
@@ -97,13 +78,6 @@ export default function SecurityPanel() {
         const u = data as Record<string, unknown>;
         if (typeof u.phishing_code === "string") setPhishingCode(u.phishing_code);
         if (typeof u.provider === "string") setProvider(u.provider);
-      })
-      .catch(() => {});
-    api
-      .getActivity()
-      .then((data: Record<string, unknown>) => {
-        const events = (data as { events?: ActivityRow[] }).events;
-        if (Array.isArray(events)) setActivity(events);
       })
       .catch(() => {});
   }, []);
@@ -385,42 +359,6 @@ export default function SecurityPanel() {
         <Button variant="danger" className="account-danger-btn" onClick={handleDeleteAccount}>
           Delete account
         </Button>
-      </div>
-
-      <div className="account-activity-section">
-        <label className="account-field-label">Activity log</label>
-        <p className="account-field-desc account-activity-desc">
-          Recent security events on your account.
-        </p>
-        {activity.length === 0 ? (
-          <div className="account-activity-empty">No activity recorded yet.</div>
-        ) : (
-          <div className="account-activity-list">
-            {activity.slice(0, 20).map((event, i) => {
-              const isError = event.action.includes("failed") || event.action.includes("error");
-              return (
-                <div key={i} className="account-activity-item">
-                  <div
-                    className={`account-activity-dot ${isError ? "account-activity-dot--error" : "account-activity-dot--success"}`}
-                    aria-hidden="true"
-                  />
-                  <div className="account-activity-body">
-                    <span className="account-activity-action">
-                      {event.action.replace(/_/g, " ")}
-                    </span>
-                    {event.detail && (
-                      <span className="account-activity-detail">{event.detail}</span>
-                    )}
-                  </div>
-                  {event.ip && <span className="account-activity-meta">{event.ip}</span>}
-                  <span className="account-activity-time">
-                    {formatActivityAgo(event.created_at)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </>
   );
