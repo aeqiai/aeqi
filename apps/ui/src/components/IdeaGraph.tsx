@@ -9,6 +9,8 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from "d3-force";
+import { select } from "d3-selection";
+import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3-zoom";
 
 export interface GraphNode {
   id: string;
@@ -118,6 +120,45 @@ type SimNode = GraphNode & SimulationNodeDatum;
 // resolved node references; we keep `relation` and `strength` for rendering.
 type SimLink = SimulationLinkDatum<SimNode> & { relation: string; strength: number };
 
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 6;
+const FIT_PADDING = 0.12;
+
+// Compute a transform that fits the simulation's bounding box into the
+// viewport with FIT_PADDING margin. Returns null when the layout hasn't
+// settled into anything fittable yet (single point, NaN positions).
+function computeFitTransform(
+  nodes: SimNode[],
+  width: number,
+  height: number,
+): ZoomTransform | null {
+  if (nodes.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const n of nodes) {
+    if (n.x == null || n.y == null || !Number.isFinite(n.x) || !Number.isFinite(n.y)) continue;
+    const r = nodeRadius(n) + 12;
+    if (n.x - r < minX) minX = n.x - r;
+    if (n.y - r < minY) minY = n.y - r;
+    if (n.x + r > maxX) maxX = n.x + r;
+    if (n.y + r > maxY) maxY = n.y + r;
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX)) return null;
+  const bw = Math.max(1, maxX - minX);
+  const bh = Math.max(1, maxY - minY);
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const scale = Math.min(
+    ZOOM_MAX,
+    Math.max(ZOOM_MIN, (1 - FIT_PADDING * 2) * Math.min(width / bw, height / bh)),
+  );
+  const tx = width / 2 - cx * scale;
+  const ty = height / 2 - cy * scale;
+  return zoomIdentity.translate(tx, ty).scale(scale);
+}
+
 export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simNodesRef = useRef<SimNode[]>([]);
@@ -136,6 +177,10 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
   const pendingDeselectRef = useRef(false);
   const paletteRef = useRef<Palette | null>(null);
   const selectedIdRef = useRef<string | null>(selectedId ?? null);
+  const transformRef = useRef<ZoomTransform>(zoomIdentity);
+  const zoomBehaviorRef = useRef<ZoomBehavior<HTMLCanvasElement, unknown> | null>(null);
+  const hasFitRef = useRef(false);
+  const fitTickCountRef = useRef(0);
   const [dimensions, setDimensions] = useState({ w: 800, h: 500 });
 
   useEffect(() => {
@@ -145,7 +190,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
   // Rebuild the d3-force simulation whenever the data or canvas size changes.
   // d3-force does the heavy lifting — Barnes-Hut quadtree repulsion (no
   // distance-cutoff bug), link distance, collision avoidance, centering.
-  // Proven layout that actually spreads instead of collapsing into a blob.
   useEffect(() => {
     const cx = dimensions.w / 2;
     const cy = dimensions.h / 2;
@@ -172,6 +216,9 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
 
     simNodesRef.current = simNodes;
     simLinksRef.current = simLinks;
+    // Re-fit on data change so adding/removing many nodes re-centers.
+    hasFitRef.current = false;
+    fitTickCountRef.current = 0;
 
     simRef.current?.stop();
     simRef.current = forceSimulation<SimNode, SimLink>(simNodes)
@@ -218,6 +265,51 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return () => ro.disconnect();
   }, []);
 
+  // Wire d3-zoom to the canvas. d3-zoom owns wheel + drag-on-empty-bg + pinch
+  // + dblclick. Node-drag interferes, so we filter wheel/touch zoom always
+  // and let pan happen only when the gesture didn't start on a node.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const sel = select<HTMLCanvasElement, unknown>(canvas);
+    const beh = zoom<HTMLCanvasElement, unknown>()
+      .scaleExtent([ZOOM_MIN, ZOOM_MAX])
+      .filter((event: Event) => {
+        // Don't pan when starting a drag on a node — the node-drag code
+        // takes over instead. Wheel/dblclick/touch-pinch always zoom.
+        if (event.type === "mousedown") {
+          const me = event as MouseEvent;
+          const rect = canvas.getBoundingClientRect();
+          const x = me.clientX - rect.left;
+          const y = me.clientY - rect.top;
+          const t = transformRef.current;
+          const wx = (x - t.x) / t.k;
+          const wy = (y - t.y) / t.k;
+          for (let i = simNodesRef.current.length - 1; i >= 0; i--) {
+            const n = simNodesRef.current[i];
+            if (n.x == null || n.y == null) continue;
+            const r = nodeRadius(n) + 4;
+            const dx = wx - n.x;
+            const dy = wy - n.y;
+            if (dx * dx + dy * dy < r * r) return false;
+          }
+          return me.button === 0;
+        }
+        return !(event as MouseEvent).ctrlKey;
+      })
+      .on("zoom", (event) => {
+        transformRef.current = event.transform;
+      });
+
+    sel.call(beh);
+    zoomBehaviorRef.current = beh;
+    return () => {
+      sel.on(".zoom", null);
+      zoomBehaviorRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -231,18 +323,38 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     canvas.height = dimensions.h * dpr;
     canvas.style.width = `${dimensions.w}px`;
     canvas.style.height = `${dimensions.h}px`;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     function draw() {
       const sim = simNodesRef.current;
       const edgs = simLinksRef.current;
       const pal = paletteRef.current ?? loadPalette();
       const sel = selectedIdRef.current;
+      const t = transformRef.current;
 
-      ctx!.clearRect(0, 0, dimensions.w, dimensions.h);
+      // Reset, then apply DPR + pan/zoom transform together. Anything drawn
+      // below now lives in world coordinates.
+      ctx!.setTransform(dpr * t.k, 0, 0, dpr * t.k, dpr * t.x, dpr * t.y);
+      ctx!.clearRect(-t.x / t.k, -t.y / t.k, dimensions.w / t.k, dimensions.h / t.k);
+
       if (sim.length === 0) {
         animRef.current = requestAnimationFrame(draw);
         return;
+      }
+
+      // Once the layout has had a few hundred ticks to settle, fit it into
+      // the viewport so the user lands on a fully-visible graph rather than
+      // a centered cluster they have to discover by zooming out.
+      if (!hasFitRef.current) {
+        fitTickCountRef.current += 1;
+        if (fitTickCountRef.current > 80 || (simRef.current?.alpha() ?? 1) < 0.3) {
+          const fit = computeFitTransform(sim, dimensions.w, dimensions.h);
+          const beh = zoomBehaviorRef.current;
+          if (fit && beh) {
+            select<HTMLCanvasElement, unknown>(canvas!).call(beh.transform, fit);
+            transformRef.current = fit;
+            hasFitRef.current = true;
+          }
+        }
       }
 
       const selectedNeighbors = new Set<string>();
@@ -260,20 +372,23 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       // Two passes so connected-to-selected edges paint OVER the quiet
       // background layer; otherwise selection neighbors get buried.
       ctx!.lineCap = "round";
+      // Compensate stroke widths for zoom — keeps lines visually consistent
+      // instead of fattening with scale-up and disappearing on zoom-out.
+      const k = t.k;
       for (const pass of [0, 1] as const) {
         for (const e of edgs) {
           const s = typeof e.source === "object" ? (e.source as SimNode) : null;
-          const t = typeof e.target === "object" ? (e.target as SimNode) : null;
-          if (!s || !t || s.x == null || s.y == null || t.x == null || t.y == null) continue;
-          const isConnected = sel !== null && (s.id === sel || t.id === sel);
+          const tn = typeof e.target === "object" ? (e.target as SimNode) : null;
+          if (!s || !tn || s.x == null || s.y == null || tn.x == null || tn.y == null) continue;
+          const isConnected = sel !== null && (s.id === sel || tn.id === sel);
           if (pass === 0 && isConnected) continue;
           if (pass === 1 && !isConnected) continue;
 
           const sty = styleFor(e.relation);
           ctx!.beginPath();
           ctx!.moveTo(s.x, s.y);
-          ctx!.lineTo(t.x, t.y);
-          if (sty.dash.length) ctx!.setLineDash(sty.dash);
+          ctx!.lineTo(tn.x, tn.y);
+          if (sty.dash.length) ctx!.setLineDash(sty.dash.map((d) => d / k));
           else ctx!.setLineDash([]);
           if (isConnected) {
             ctx!.strokeStyle = pal.accent;
@@ -282,7 +397,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
             ctx!.strokeStyle = pal.ink;
             ctx!.globalAlpha = sel ? 0.04 + e.strength * 0.03 : 0.1 + e.strength * 0.12;
           }
-          ctx!.lineWidth = sty.weight;
+          ctx!.lineWidth = sty.weight / k;
           ctx!.stroke();
           ctx!.globalAlpha = 1;
         }
@@ -326,7 +441,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         ctx!.fill();
         ctx!.globalAlpha = 1;
 
-        ctx!.lineWidth = isSelected || isHovered ? 1.5 : 0.75;
+        ctx!.lineWidth = (isSelected || isHovered ? 1.5 : 0.75) / k;
         ctx!.strokeStyle = isSelected ? pal.accent : isHovered ? pal.accentSoft : pal.border;
         ctx!.stroke();
 
@@ -334,7 +449,9 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         const shouldLabel =
           isSelected || isHovered || isNeighbor || n.hotness > 0.6 || sim.length < 24;
         if (shouldLabel) {
-          ctx!.font = `${isSelected ? 600 : 500} 11px 'Inter', system-ui, sans-serif`;
+          // Counter-scale labels so they stay readable when zoomed out.
+          const fontPx = 11 / k;
+          ctx!.font = `${isSelected ? 600 : 500} ${fontPx}px 'Inter', system-ui, sans-serif`;
           ctx!.fillStyle = isSelected ? pal.accent : isDim ? pal.inkDim : pal.ink;
           ctx!.globalAlpha = isSelected ? 1 : isDim ? 0.5 : 0.8;
           ctx!.textAlign = "center";
@@ -342,14 +459,17 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           // Paper rect behind the label so it doesn't collide with edge lines.
           const label = n.name.length > 42 ? n.name.slice(0, 40) + "…" : n.name;
           const m = ctx!.measureText(label);
-          const lx = n.x - m.width / 2 - 3;
-          const ly = n.y + radius + 7;
+          const padX = 3 / k;
+          const padY = 7 / k;
+          const boxH = 14 / k;
+          const lx = n.x - m.width / 2 - padX;
+          const ly = n.y + radius + padY;
           ctx!.globalAlpha = isDim ? 0.35 : isSelected ? 0.9 : 0.75;
           ctx!.fillStyle = pal.paper;
-          ctx!.fillRect(lx, ly, m.width + 6, 14);
+          ctx!.fillRect(lx, ly, m.width + padX * 2, boxH);
           ctx!.globalAlpha = isSelected ? 1 : isDim ? 0.6 : 0.9;
           ctx!.fillStyle = isSelected ? pal.accent : pal.ink;
-          ctx!.fillText(label, n.x, ly + 1);
+          ctx!.fillText(label, n.x, ly + 1 / k);
           ctx!.globalAlpha = 1;
         }
       }
@@ -361,14 +481,19 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return () => cancelAnimationFrame(animRef.current);
   }, [dimensions]);
 
-  const hitTest = useCallback((x: number, y: number): SimNode | null => {
+  // Hit testing: convert the screen coords to world coords via the inverse
+  // of the current pan/zoom transform, then run the same disc test.
+  const hitTest = useCallback((screenX: number, screenY: number): SimNode | null => {
+    const t = transformRef.current;
+    const wx = (screenX - t.x) / t.k;
+    const wy = (screenY - t.y) / t.k;
     const sim = simNodesRef.current;
     for (let i = sim.length - 1; i >= 0; i--) {
       const n = sim[i];
       if (n.x == null || n.y == null) continue;
       const r = nodeRadius(n) + 4;
-      const dx = x - n.x;
-      const dy = y - n.y;
+      const dx = wx - n.x;
+      const dy = wy - n.y;
       if (dx * dx + dy * dy < r * r) return n;
     }
     return null;
@@ -391,10 +516,13 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       const pos = getCanvasPos(e);
       const node = hitTest(pos.x, pos.y);
       if (node && node.x != null && node.y != null) {
+        const t = transformRef.current;
+        const wx = (pos.x - t.x) / t.k;
+        const wy = (pos.y - t.y) / t.k;
         dragRef.current = {
           node,
-          offsetX: pos.x - node.x,
-          offsetY: pos.y - node.y,
+          offsetX: wx - node.x,
+          offsetY: wy - node.y,
           startX: pos.x,
           startY: pos.y,
           moved: false,
@@ -402,6 +530,8 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         // Reheat so the rest of the graph reacts to the drag.
         simRef.current?.alphaTarget(0.3).restart();
       } else {
+        // d3-zoom owns the pan gesture; only treat this as a deselect if no
+        // pan motion happens between down and up.
         pendingDeselectRef.current = true;
       }
     },
@@ -421,16 +551,19 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           if (canvas) canvas.style.cursor = "grabbing";
         }
         if (drag.moved) {
+          const t = transformRef.current;
+          const wx = (pos.x - t.x) / t.k;
+          const wy = (pos.y - t.y) / t.k;
           // d3-force respects fx/fy as fixed coordinates each tick — the
           // canonical drag handle, much cleaner than zeroing velocities.
-          drag.node.fx = pos.x - drag.offsetX;
-          drag.node.fy = pos.y - drag.offsetY;
+          drag.node.fx = wx - drag.offsetX;
+          drag.node.fy = wy - drag.offsetY;
         }
       } else {
         const node = hitTest(pos.x, pos.y);
         hoverRef.current = node;
         const canvas = canvasRef.current;
-        if (canvas) canvas.style.cursor = node ? "pointer" : "default";
+        if (canvas) canvas.style.cursor = node ? "pointer" : "grab";
       }
     },
     [hitTest, getCanvasPos],
@@ -451,6 +584,23 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     const canvas = canvasRef.current;
     if (canvas) canvas.style.cursor = "default";
   }, [onSelect]);
+
+  // `0` resets the view to fit-all, matching the convention in Figma /
+  // tldraw / Obsidian's canvas.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (e.key !== "0") return;
+      const beh = zoomBehaviorRef.current;
+      const canvas = canvasRef.current;
+      if (!beh || !canvas) return;
+      const fit = computeFitTransform(simNodesRef.current, dimensions.w, dimensions.h);
+      if (fit) select<HTMLCanvasElement, unknown>(canvas).call(beh.transform, fit);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dimensions]);
 
   return (
     <canvas
