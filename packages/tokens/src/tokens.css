@@ -321,6 +321,16 @@
   --prose-width: 48rem;
   --content-width: 56rem;
   --prose-line-height: 1.75;
+
+  /* === Breakpoints ===================================================
+   * Page-level layout breakpoints. Primitives stay flex-fluid and do
+   * not reach for these — they belong in page CSS only.
+   * ============================================================== */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
 }
 
 /* ── Base resets ──────────────────────────────────── */

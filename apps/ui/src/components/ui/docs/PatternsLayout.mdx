@@ -1,0 +1,110 @@
+import { Meta } from "@storybook/blocks";
+import { Stack } from "../Stack";
+import { Inline } from "../Inline";
+import { Button } from "../Button";
+
+<Meta title="Patterns/Layout" />
+
+# Layout
+
+`<Stack>` and `<Inline>` are the canonical replacements for the
+`style={{ display: 'flex', gap: ... }}` pattern scattered across the
+codebase. They keep token values in CSS, keep props out of component
+bodies, and give the type system a contract: gap values are always a
+valid `--space-N` token, never an ad-hoc pixel count.
+
+## When to use
+
+- **Page layouts** — a main content area stacked top to bottom.
+- **Card internals** — header, body, and footer as a `<Stack gap="4">`.
+- **Toolbars** — action groups in an `<Inline justify="between">`.
+- **Form sections** — label + input pairs stacked with `<Stack gap="1">`,
+  the whole form with `<Stack gap="4">`.
+
+## When not to use
+
+- **Inside a primitive's own CSS Module.** A component that is
+  fundamentally a row — `Tabs`, `IconButton`, `Badge` — already owns its
+  flex layout in its `.module.css`. Reaching for `<Inline>` inside that
+  component is a layering violation: the primitive should be the source of
+  truth for its own geometry.
+- **One-off micro-spacing inside a component you're already styling.**
+  If you're in a `DetailField.module.css` and need two items 4 px apart,
+  use `var(--space-1)` directly in that file. Don't import a layout
+  primitive to fix a single interior gap.
+
+## Examples
+
+### 1 — Form actions row
+
+`<Inline justify="end" gap="2">` pushes the action group to the trailing
+edge of its container. Cancel lands left of Submit because DOM order is
+preserved.
+
+<div style={{ maxWidth: 480, padding: "24px", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 12, background: "#ffffff", margin: "24px 0" }}>
+  <Inline justify="end" gap="2">
+    <Button variant="ghost">Cancel</Button>
+    <Button variant="primary">Submit</Button>
+  </Inline>
+</div>
+
+### 2 — Card header
+
+`<Inline justify="between" align="center">` puts the title on the left
+and the badge on the right without any spacer divs or margin hacks.
+
+<div style={{ maxWidth: 420, padding: "16px 20px", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 12, background: "#ffffff", margin: "24px 0" }}>
+  <Inline justify="between" align="center">
+    <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(10,10,11,0.92)" }}>
+      Research Lead
+    </span>
+    <span style={{ padding: "3px 8px", fontSize: 12, fontWeight: 500, color: "#2e8f71", background: "rgba(46,143,113,0.1)", border: "1px solid rgba(46,143,113,0.22)", borderRadius: 999 }}>
+      active
+    </span>
+  </Inline>
+</div>
+
+### 3 — Detail ladder
+
+`<Stack gap="2">` creates an evenly-spaced column of label-value pairs.
+Each row is itself an `<Inline>` if the label and value sit side by side.
+
+<div style={{ maxWidth: 420, padding: "20px 24px", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 12, background: "#ffffff", margin: "24px 0" }}>
+  <Stack gap="2">
+    {[
+      { label: "Parent", value: "orchestrator" },
+      { label: "Quests in flight", value: "3" },
+      { label: "Last event", value: "2 minutes ago" },
+    ].map(({ label, value }) => (
+      <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, color: "rgba(10,10,11,0.54)" }}>{label}</span>
+        <span style={{ fontSize: 13, fontFamily: '"JetBrains Mono", monospace', color: "rgba(10,10,11,0.85)" }}>{value}</span>
+      </div>
+    ))}
+  </Stack>
+</div>
+
+## Token mapping
+
+The `gap` prop is a key into the spacing scale. Values outside this table
+are a type error.
+
+| `gap` prop | CSS token    | Computed value |
+| ---------- | ------------ | -------------- |
+| `"0"`      | `--space-0`  | 2px            |
+| `"1"`      | `--space-1`  | 4px            |
+| `"2"`      | `--space-2`  | 8px            |
+| `"3"`      | `--space-3`  | 12px           |
+| `"4"`      | `--space-4`  | 16px           |
+| `"5"`      | `--space-5`  | 20px           |
+| `"6"`      | `--space-6`  | 24px           |
+| `"8"`      | `--space-8`  | 32px           |
+
+> The scale skips `7` because `--space-7` is not defined in `tokens.css`.
+> The 4 px grid jumps from 24 px to 32 px at the large end — use `"6"` for
+> section breathing room, `"8"` for page-level separation.
+
+## See also
+
+- **Primitives → Containers → Stack** — vertical flex, full API and all variants.
+- **Primitives → Containers → Inline** — horizontal flex, full API and all variants.

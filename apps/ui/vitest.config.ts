@@ -32,6 +32,12 @@ export default defineConfig({
         functions: 60,
         branches: 50,
         statements: 60,
+        "src/components/ui/**": {
+          lines: 80,
+          functions: 80,
+          branches: 70,
+          statements: 80,
+        },
       },
     },
   },
