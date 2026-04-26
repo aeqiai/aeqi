@@ -401,16 +401,16 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             document.body.style.cursor = "col-resize";
             document.body.style.userSelect = "none";
 
-            // The shell is centered (max-width: 1440px; margin: 0 auto),
-            // so the sidebar's left edge is NOT at viewport x=0 on wide
-            // screens. New width = mouseX − sidebarLeftOffset, not raw
-            // clientX, otherwise the centering margin gets baked into
-            // every drag and the width pins to the clamp ceiling.
-            const sidebarEl = (e.currentTarget as HTMLElement).closest(".left-sidebar");
-            const leftOffset = sidebarEl ? sidebarEl.getBoundingClientRect().left : 0;
+            // Delta-based drag: width changes by the cursor's *movement*
+            // since mousedown, not by the cursor's absolute position. This
+            // way the click point doesn't snap the width — it stays put
+            // until the user actually drags. Anchor on (startX, startWidth)
+            // captured here, then add (clientX − startX) on every move.
+            const startX = e.clientX;
+            const startWidth = sidebarWidth;
 
             const onMove = (ev: MouseEvent) => {
-              setSidebarWidth(ev.clientX - leftOffset);
+              setSidebarWidth(startWidth + (ev.clientX - startX));
             };
             const onUp = () => {
               document.body.style.cursor = "";
