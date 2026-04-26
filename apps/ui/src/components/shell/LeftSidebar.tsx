@@ -401,8 +401,16 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             document.body.style.cursor = "col-resize";
             document.body.style.userSelect = "none";
 
+            // The shell is centered (max-width: 1440px; margin: 0 auto),
+            // so the sidebar's left edge is NOT at viewport x=0 on wide
+            // screens. New width = mouseX − sidebarLeftOffset, not raw
+            // clientX, otherwise the centering margin gets baked into
+            // every drag and the width pins to the clamp ceiling.
+            const sidebarEl = (e.currentTarget as HTMLElement).closest(".left-sidebar");
+            const leftOffset = sidebarEl ? sidebarEl.getBoundingClientRect().left : 0;
+
             const onMove = (ev: MouseEvent) => {
-              setSidebarWidth(ev.clientX);
+              setSidebarWidth(ev.clientX - leftOffset);
             };
             const onUp = () => {
               document.body.style.cursor = "";
