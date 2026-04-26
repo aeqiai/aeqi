@@ -1,61 +1,23 @@
-/* /blueprints — two-column catalog (rail + grid) and a dedicated
-   /blueprints/:slug detail surface. The catalog navigates to the detail
-   page on click rather than mounting a sticky right-side preview pane;
-   the URL is the source of truth for "which blueprint is open." */
+/* /blueprints — single-column catalog with the Ideas-style toolbar
+   pattern (search + sort + filter + view popovers across the top, no
+   add button). Cards navigate to /blueprints/:slug for inspect; launch
+   happens on /start?blueprint=:slug. */
 
 .bp-page {
-  /* Match the Settings layout — flex with stretch + zero gap so the
-     PageRail's border-right runs floor-to-ceiling and meets the content
-     edge directly. Page padding lives on .bp-content; the rail owns its
-     own padding from .page-rail. */
-  display: flex;
-  align-items: stretch;
-  gap: 0;
   width: 100%;
   min-height: 100%;
 }
 
-/* ── Hero + toolbar ───────────────────────────────── */
+/* ── Toolbar shell ──────────────────────────────── */
 
 .bp-content {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding: 32px 32px 56px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
-.bp-hero {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.bp-hero-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  color: var(--text-primary);
-  line-height: 1.05;
-}
-.bp-hero-lede {
-  margin: 0;
-  max-width: 56ch;
-  font-size: var(--font-size-md);
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-.bp-toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.bp-search-input {
-  width: 100%;
-  max-width: 420px;
-}
-
 .bp-error {
   font-size: 12px;
   color: var(--color-warning);
@@ -253,6 +215,99 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+/* ── List view (alternative to grid) ───────────── */
+
+.bp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+.bp-list-row + .bp-list-row {
+  border-top: 1px solid var(--border-faint);
+}
+.bp-list-row-btn {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 18px;
+  width: 100%;
+  padding: 14px 18px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.bp-list-row-btn:hover {
+  background: var(--state-hover);
+}
+.bp-list-row-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bp-list-row-tagline {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bp-list-row-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Footer custom-agent affordance ──────────────── */
+
+.bp-foot-custom {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+  border-top: 1px dashed var(--border-faint);
+}
+.bp-foot-custom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.bp-foot-custom-btn:hover {
+  color: var(--text-primary);
+  background: var(--state-hover);
+}
+.bp-foot-custom-btn > span:first-child {
+  font-family: var(--font-mono);
+  font-size: 14px;
 }
 
 /* ── Detail page (/blueprints/:slug) ─────────────── */
