@@ -4,21 +4,26 @@
    the URL is the source of truth for "which blueprint is open." */
 
 .bp-page {
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 28px;
+  /* Match the Settings layout — flex with stretch + zero gap so the
+     PageRail's border-right runs floor-to-ceiling and meets the content
+     edge directly. Page padding lives on .bp-content; the rail owns its
+     own padding from .page-rail. */
+  display: flex;
+  align-items: stretch;
+  gap: 0;
   width: 100%;
-  padding: 32px 32px 56px;
-  align-items: start;
   min-height: 100%;
 }
 
 /* ── Hero + toolbar ───────────────────────────────── */
 
 .bp-content {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding: 32px 32px 56px;
 }
 .bp-hero {
   display: flex;
@@ -572,10 +577,6 @@
 /* ── Responsive ──────────────────────────────────── */
 
 @media (max-width: 1080px) {
-  .bp-page {
-    grid-template-columns: 180px minmax(0, 1fr);
-    gap: 24px;
-  }
   .bp-detail-page-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -589,8 +590,7 @@
   }
 }
 @media (max-width: 720px) {
-  .bp-page {
-    grid-template-columns: 1fr;
+  .bp-content {
     padding: 24px 18px 48px;
   }
   .bp-detail-page {
