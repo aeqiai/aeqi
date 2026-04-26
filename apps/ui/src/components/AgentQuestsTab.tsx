@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Input, Modal, Select, Spinner } from "./ui";
+import { Button, Input, Modal, Popover, Select, Spinner } from "./ui";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 
@@ -37,7 +37,13 @@ function QuestScopeChip({ scope }: { scope: ScopeValue }) {
   return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
 }
 
-function QuestScopeFilterBar({
+/**
+ * Single Filter button + popover. Mirrors IdeasFilterPopover so Quests
+ * reads as visually parallel to Ideas in the toolbar. Counts move
+ * inside the popover rows; the trigger gets a dot when a non-default
+ * scope is active.
+ */
+function QuestsFilterPopover({
   agentId,
   quests,
   filter,
@@ -48,6 +54,8 @@ function QuestScopeFilterBar({
   filter: QuestFilter;
   onChange: (next: QuestFilter) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const popoverId = useId();
   const counts = useMemo(() => {
     const c = Object.fromEntries(QUEST_FILTER_VALUES.map((f) => [f, 0])) as Record<
       QuestFilter,
@@ -67,25 +75,92 @@ function QuestScopeFilterBar({
     return c;
   }, [quests, agentId]);
 
+  const active = filter !== "all";
+
   return (
-    <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
-      {QUEST_FILTER_VALUES.map((s) => {
-        const isEmpty = counts[s] === 0;
-        return (
-          <button
-            key={s}
-            type="button"
-            role="tab"
-            aria-selected={filter === s}
-            className={`primitive-scope-tab${filter === s ? " active" : ""}${isEmpty && filter !== s ? " empty" : ""}`}
-            onClick={() => onChange(s)}
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottom-end"
+      trigger={
+        <button
+          type="button"
+          className={`ideas-toolbar-btn${active ? " active" : ""}${open ? " open" : ""}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={popoverId}
+          title={active ? `Filter — ${filter}` : "Filter"}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 13 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            aria-hidden
           >
-            {s}
-            <span className="primitive-scope-tab-count">{counts[s]}</span>
-          </button>
-        );
-      })}
-    </div>
+            <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" />
+          </svg>
+          {active && <span className="ideas-toolbar-btn-dot" aria-hidden />}
+        </button>
+      }
+    >
+      <div id={popoverId} className="ideas-filter-popover" role="dialog" aria-label="Filter quests">
+        <section className="ideas-filter-popover-section">
+          <header className="ideas-filter-popover-head">
+            <span className="ideas-filter-popover-label">scope</span>
+            {filter !== "all" && (
+              <button
+                type="button"
+                className="ideas-filter-popover-reset"
+                onClick={() => onChange("all")}
+              >
+                reset
+              </button>
+            )}
+          </header>
+          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Scope">
+            {QUEST_FILTER_VALUES.map((s) => {
+              const count = counts[s] ?? 0;
+              const isActive = filter === s;
+              const isEmpty = count === 0 && s !== "all";
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  className={`ideas-filter-row${isActive ? " active" : ""}${isEmpty ? " empty" : ""}`}
+                  onClick={() => {
+                    onChange(s);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="ideas-filter-row-mark" aria-hidden>
+                    {isActive && (
+                      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+                        <path
+                          d="M2 5.2 L4.2 7.4 L8 3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="ideas-filter-row-label">{s}</span>
+                  <span className="ideas-filter-row-count">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </Popover>
   );
 }
 
@@ -374,10 +449,10 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 /**
  * Board view shown when no quest is selected.
  *
- * Toolbar — search + plus button (opens NewQuestModal). Below: scope
- * filter strip, then four kanban columns (Todo / In Progress / Blocked /
- * Done). Done is capped to 10 most-recent to keep the column from
- * blowing out after months of work.
+ * Toolbar — search + filter popover + plus button (opens NewQuestModal).
+ * Below: four kanban columns (Todo / In Progress / Blocked / Done).
+ * Done is capped to 10 most-recent to keep the column from blowing out
+ * after months of work.
  */
 function QuestBoard({
   agentId: _agentId,
@@ -619,6 +694,12 @@ function QuestBoard({
               </button>
             )}
           </span>
+          <QuestsFilterPopover
+            agentId={resolvedAgentId}
+            quests={allQuests}
+            filter={scopeFilter}
+            onChange={onScopeChange}
+          />
           <button
             type="button"
             className="ideas-toolbar-btn"
@@ -640,12 +721,6 @@ function QuestBoard({
             </svg>
           </button>
         </div>
-        <QuestScopeFilterBar
-          agentId={resolvedAgentId}
-          quests={allQuests}
-          filter={scopeFilter}
-          onChange={onScopeChange}
-        />
       </div>
       {err && <div className="quest-board-error">{err}</div>}
 
