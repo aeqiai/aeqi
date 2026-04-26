@@ -39,10 +39,11 @@ describe("BlueprintsPage (catalog)", () => {
 
     renderApp();
 
-    // Catalog uses an h2 inside the primitive-head pattern; the
-    // page-shell h1 lives at AppLayout level.
+    // The catalog has no title row anymore — the toolbar IS the
+    // header (matches the Ideas pattern). Assert the search field +
+    // a card render to prove the page mounted.
     expect(
-      await screen.findByRole("heading", { level: 2, name: /^blueprints$/i }),
+      await screen.findByRole("searchbox", { name: /search blueprints/i }),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("Solo Founder")).toBeInTheDocument();

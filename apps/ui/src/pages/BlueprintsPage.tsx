@@ -158,18 +158,9 @@ export default function BlueprintsPage() {
     return () => window.removeEventListener("keydown", handler, true);
   }, []);
 
-  const totalLabel = `${filtered.length} ${filtered.length === 1 ? "Blueprint" : "Blueprints"}`;
-
   return (
     <div className="bp-page">
       <main className="bp-content">
-        <div className="primitive-head">
-          <div className="primitive-head-lead">
-            <h2 className="primitive-head-heading">Blueprints</h2>
-            {!loading && <span className="primitive-head-count">{totalLabel}</span>}
-          </div>
-        </div>
-
         {isImportMode && (
           <div className="bp-import-banner" role="status">
             <span className="bp-import-banner-eyebrow">Import mode</span>
