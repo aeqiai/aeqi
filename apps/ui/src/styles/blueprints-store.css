@@ -434,6 +434,34 @@
   font-size: 13px;
   color: var(--text-secondary);
 }
+.bp-detail-root-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  background: var(--bg-paper);
+  border: 1px solid var(--border-faint);
+  border-radius: 999px;
+  font-size: 11px;
+  width: fit-content;
+}
+.bp-detail-root-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bp-detail-root-name {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.bp-detail-root-model {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
 .bp-detail-desc {
   margin: 0;
   font-size: 13px;

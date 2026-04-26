@@ -381,6 +381,7 @@ function BlueprintDetail({
       <header className="bp-detail-head">
         <h2 className="bp-detail-name">{template.name}</h2>
         {template.tagline && <p className="bp-detail-tagline">{template.tagline}</p>}
+        {template.root && <BlueprintRootChip root={template.root} />}
       </header>
       {template.description && <p className="bp-detail-desc">{template.description}</p>}
 
@@ -449,13 +450,36 @@ function BlueprintDetail({
   );
 }
 
+function BlueprintRootChip({ root }: { root: NonNullable<CompanyTemplate["root"]> }) {
+  const modelLabel = (root.model || "").replace(/^anthropic\//, "");
+  if (!root.model && !root.color) return null;
+  return (
+    <div className="bp-detail-root-chip">
+      {root.color && (
+        <span
+          className="bp-detail-root-swatch"
+          style={{ background: root.color }}
+          aria-hidden="true"
+        />
+      )}
+      <span className="bp-detail-root-name">{root.name}</span>
+      {modelLabel && <span className="bp-detail-root-model">{modelLabel}</span>}
+    </div>
+  );
+}
+
 function BlueprintTreePreview({ template }: { template: CompanyTemplate }) {
   const seeds = template.seed_agents ?? [];
+  const rootName = template.root?.name ?? template.name;
+  const rootColor = template.root?.color;
   return (
     <div className="bp-tree" aria-hidden="true">
       <div className="bp-tree-root">
-        <span className="bp-tree-node bp-tree-node-root">
-          <span className="bp-tree-node-name">{template.name}</span>
+        <span
+          className="bp-tree-node bp-tree-node-root"
+          style={rootColor ? { background: rootColor, borderColor: rootColor } : undefined}
+        >
+          <span className="bp-tree-node-name">{rootName}</span>
           <span className="bp-tree-node-tag">root</span>
         </span>
       </div>

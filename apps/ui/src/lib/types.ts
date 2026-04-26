@@ -258,12 +258,21 @@ export interface TemplateSeedQuest {
   priority?: string;
 }
 
+export interface RootAgentSpec {
+  name: string;
+  model?: string;
+  color?: string;
+  avatar?: string;
+  system_prompt?: string;
+}
+
 export interface CompanyTemplate {
   slug: string;
   name: string;
   tagline?: string;
   description?: string;
   tags?: string[];
+  root?: RootAgentSpec;
   seed_agents?: TemplateSeedAgent[];
   seed_events?: TemplateSeedEvent[];
   seed_ideas?: TemplateSeedIdea[];
