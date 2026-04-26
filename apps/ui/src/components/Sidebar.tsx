@@ -1,10 +1,9 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import BlockAvatar from "./BlockAvatar";
-import { Popover } from "./ui/Popover";
 import type { Agent, AgentRef } from "@/lib/types";
 import styles from "./Sidebar.module.css";
 
@@ -255,29 +254,53 @@ function AgentNodeView({
 }
 
 /**
- * RootPicker — replaces the old flat-roots-list pattern. Shows the current
- * scope root as a single sticky header at the top of the tree, with a
- * chevron-down on the right (only when there's more than one root) that
- * opens a popover to switch scope. Beneath the picker, only this root's
- * descendants render — the root itself is the picker, so we don't render
- * it twice in the tree.
+ * RootPicker — workspace-switcher pattern that takes over the tree's
+ * sidebar space inline (no overlay/popover). Two states:
  *
- * UX precedent: Linear / Notion / GitHub workspace switcher.
+ *   closed → picker row at top with switcher icon, descendants tree below
+ *   open   → picker row at top with close icon, descendants tree REPLACED
+ *            by the full root list + a "New company" CTA at the bottom.
+ *            The picker + list + footer read as one bordered card so the
+ *            takeover is visually contained.
+ *
+ * Tree visibility is owned by the AgentTree parent (it hides the subtree
+ * while open) — keeps the inline takeover seamless without animating
+ * mass node removal.
  */
-function RootSwitcherDownChevron() {
+function SwitchGlyph() {
+  // Two arrows pointing in opposite directions — the canonical "swap"
+  // affordance. Reads as switch, not as expand-disclosure.
   return (
     <svg
-      width="10"
-      height="10"
+      width="12"
+      height="12"
       viewBox="0 0 12 12"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.4"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M3 4.5l3 3 3-3" />
+      <path d="M2.5 4h6l-1.5-1.5M9.5 8h-6l1.5 1.5" />
+    </svg>
+  );
+}
+
+function CloseGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 3l6 6M9 3l-6 6" />
     </svg>
   );
 }
@@ -285,20 +308,22 @@ function RootSwitcherDownChevron() {
 function RootPicker({
   activeRoot,
   allRoots,
+  open,
+  onOpenChange,
   onSelectRoot,
   onCreateRoot,
 }: {
   activeRoot: Agent;
   allRoots: Agent[];
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
   onSelectRoot: (agent: Agent) => void;
   onCreateRoot: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const hasMany = allRoots.length > 1;
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Active root sits at the top (highlighted with a check), the rest follow
-  // alphabetically. Recency-aware ordering would be nicer once the UI store
-  // tracks recent roots — for now alphabetical is predictable.
+  // Active root sits at the top (with check), the rest follow alphabetically.
   const orderedRoots = useMemo(() => {
     return [...allRoots].sort((a, b) => {
       if (a.id === activeRoot.id) return -1;
@@ -307,105 +332,113 @@ function RootPicker({
     });
   }, [allRoots, activeRoot.id]);
 
-  const switcherTrigger = (
-    <button
-      type="button"
-      className={`${styles.pickerSwitcherBtn} ${open ? styles.pickerSwitcherBtnOpen : ""}`}
-      aria-label="Switch root agent"
-      title="Switch root agent"
-      aria-expanded={open}
-      // Popover's auto-toggle only fires in uncontrolled mode; in controlled
-      // mode (which we need so item-select can close the menu) the trigger
-      // has no implicit handler. Wire the toggle here explicitly.
-      onClick={(e) => {
-        e.stopPropagation();
-        setOpen(!open);
-      }}
-    >
-      <RootSwitcherDownChevron />
-    </button>
-  );
-
-  const popoverPanel = (
-    <div className={styles.pickerMenu} role="listbox" aria-label="Root agents">
-      {orderedRoots.map((r) => {
-        const isCurrent = r.id === activeRoot.id;
-        return (
-          <button
-            key={r.id}
-            type="button"
-            role="option"
-            aria-selected={isCurrent}
-            className={`${styles.pickerMenuItem} ${isCurrent ? styles.pickerMenuItemActive : ""}`}
-            onClick={() => {
-              onSelectRoot(r);
-              setOpen(false);
-            }}
-          >
-            <span className={styles.pickerMenuAvatar}>
-              <BlockAvatar name={r.name} size={16} />
-            </span>
-            <span className={styles.pickerMenuLabel}>{r.name}</span>
-            {isCurrent && (
-              <span className={styles.pickerMenuCheck} aria-hidden="true">
-                <svg viewBox="0 0 12 12" width="10" height="10" fill="none">
-                  <path
-                    d="M2.5 6.5l2.5 2.5 4.5-5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            )}
-          </button>
-        );
-      })}
-      <div className={styles.pickerMenuSep} role="separator" />
-      <button
-        type="button"
-        className={styles.pickerMenuCreate}
-        onClick={() => {
-          setOpen(false);
-          onCreateRoot();
-        }}
-      >
-        <span className={styles.pickerMenuPlus} aria-hidden="true">
-          +
-        </span>
-        <span>New root agent</span>
-      </button>
-    </div>
-  );
+  // Esc closes; outside-click closes (so clicking elsewhere in the rail
+  // collapses the takeover instead of stranding the user inside it).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (containerRef.current?.contains(e.target as Node)) return;
+      onOpenChange(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [open, onOpenChange]);
 
   return (
-    <div className={styles.pickerRow}>
-      <button
-        type="button"
-        className={styles.pickerMain}
-        onClick={() => onSelectRoot(activeRoot)}
-        title={`Open ${activeRoot.name}`}
-      >
-        <span className={styles.iconSlot}>
-          <BlockAvatar name={activeRoot.name} size={16} />
-        </span>
-        <span className={styles.pickerLabel}>{activeRoot.name}</span>
-      </button>
-      {hasMany ? (
-        <Popover
-          open={open}
-          onOpenChange={setOpen}
-          placement="bottom-end"
-          trigger={switcherTrigger}
+    <div ref={containerRef} className={open ? styles.pickerCardOpen : styles.pickerCard}>
+      <div className={styles.pickerRow}>
+        <button
+          type="button"
+          className={styles.pickerMain}
+          onClick={() => {
+            if (open) onOpenChange(false);
+            else onSelectRoot(activeRoot);
+          }}
+          title={open ? "Close switcher" : `Open ${activeRoot.name}`}
         >
-          {popoverPanel}
-        </Popover>
-      ) : (
-        // Reserve the chevron slot when there's only one root so the picker
-        // geometry matches the multi-root case (avoids a layout twitch when
-        // a second root is created).
-        <span className={styles.pickerChevronSpacer} aria-hidden="true" />
+          <span className={styles.iconSlot}>
+            <BlockAvatar name={activeRoot.name} size={16} />
+          </span>
+          <span className={styles.pickerLabel}>{activeRoot.name}</span>
+        </button>
+        {hasMany ? (
+          <button
+            type="button"
+            className={`${styles.pickerSwitcherBtn} ${open ? styles.pickerSwitcherBtnOpen : ""}`}
+            aria-label={open ? "Close switcher" : "Switch root agent"}
+            title={open ? "Close switcher" : "Switch root agent"}
+            aria-expanded={open}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenChange(!open);
+            }}
+          >
+            {open ? <CloseGlyph /> : <SwitchGlyph />}
+          </button>
+        ) : (
+          <span className={styles.pickerChevronSpacer} aria-hidden="true" />
+        )}
+      </div>
+
+      {open && (
+        <>
+          <div className={styles.pickerListBody} role="listbox" aria-label="Root agents">
+            {orderedRoots.map((r) => {
+              const isCurrent = r.id === activeRoot.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isCurrent}
+                  className={`${styles.pickerListItem} ${isCurrent ? styles.pickerListItemActive : ""}`}
+                  onClick={() => {
+                    onSelectRoot(r);
+                    onOpenChange(false);
+                  }}
+                >
+                  <span className={styles.pickerListAvatar}>
+                    <BlockAvatar name={r.name} size={16} />
+                  </span>
+                  <span className={styles.pickerListLabel}>{r.name}</span>
+                  {isCurrent && (
+                    <span className={styles.pickerListCheck} aria-hidden="true">
+                      <svg viewBox="0 0 12 12" width="10" height="10" fill="none">
+                        <path
+                          d="M2.5 6.5l2.5 2.5 4.5-5"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className={styles.pickerFooter}
+            onClick={() => {
+              onOpenChange(false);
+              onCreateRoot();
+            }}
+          >
+            <span className={styles.pickerFooterPlus} aria-hidden="true">
+              +
+            </span>
+            <span>New company</span>
+          </button>
+        </>
       )}
     </div>
   );
@@ -424,6 +457,9 @@ export default function AgentTree() {
   const allAgents = useDaemonStore((s) => s.agents);
   const activeRoot = useUIStore((s) => s.activeRoot);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Picker takeover state — when open, the descendants tree is hidden and
+  // the picker card shows the full root list + "New company" CTA in its place.
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { agentId } = useParams<{ agentId?: string }>();
   const selectedId = agentId || null;
@@ -473,13 +509,19 @@ export default function AgentTree() {
           <RootPicker
             activeRoot={activeRootAgent}
             allRoots={roots}
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
             onSelectRoot={(a) =>
               handleSelectAgent({ id: a.id, name: a.name, model: a.model ?? undefined })
             }
             onCreateRoot={() => navigate("/new")}
           />
         )}
-        {activeSubtree &&
+        {/* Tree hides while the picker takes over the rail space — keeps the
+            switch experience focused and avoids a tall sidebar that mixes
+            two competing surfaces. */}
+        {!pickerOpen &&
+          activeSubtree &&
           activeSubtree.children.map((child, i) => (
             <AgentNodeView
               key={child.id}

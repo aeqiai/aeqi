@@ -112,18 +112,43 @@
   flex-shrink: 0;
 }
 
-/* ── Popover panel — listbox of root agents + create CTA */
-.pickerMenu {
+/* ── Inline takeover card — picker + root list + footer share one
+   bordered surface that replaces the tree while the switcher is open.
+   Closed state has no card chrome; the picker row reads as a regular
+   tree row. The transition is the appearance of the border + the shift
+   of background, both gated on .pickerCardOpen. */
+.pickerCard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  transition:
+    border-color 0.14s ease,
+    background 0.14s ease;
+}
+.pickerCardOpen {
+  composes: pickerCard;
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-popover);
+  /* Roomier internal padding when open so the list reads as a focused
+     panel; closed state stays flush with the surrounding tree rhythm. */
+  padding: 4px;
+}
+
+/* Root option rows in the open card. Same geometry as .row so the open
+   state feels continuous with the tree it just replaced. */
+.pickerListBody {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 4px;
-  min-width: 220px;
-  max-height: 60vh;
+  margin-top: 4px;
+  max-height: 50vh;
   overflow-y: auto;
 }
 
-.pickerMenuItem {
+.pickerListItem {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -141,21 +166,21 @@
     background 0.1s ease,
     color 0.1s ease;
 }
-.pickerMenuItem:hover {
+.pickerListItem:hover {
   background: var(--state-hover);
   color: var(--color-text-title);
 }
-.pickerMenuItem:focus-visible {
+.pickerListItem:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: -1px;
 }
-.pickerMenuItemActive {
+.pickerListItemActive {
   color: var(--color-text-title);
   font-weight: 600;
   background: var(--state-selected);
 }
 
-.pickerMenuAvatar {
+.pickerListAvatar {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
@@ -164,7 +189,7 @@
   justify-content: center;
 }
 
-.pickerMenuLabel {
+.pickerListLabel {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -172,7 +197,7 @@
   white-space: nowrap;
 }
 
-.pickerMenuCheck {
+.pickerListCheck {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
@@ -182,21 +207,19 @@
   color: var(--color-accent);
 }
 
-.pickerMenuSep {
-  height: 1px;
-  background: var(--border-faint);
-  margin: 4px 0;
-}
-
-.pickerMenuCreate {
+/* Footer CTA — separated by a hairline from the list, sits on the same
+   card surface so the action reads as in-context (not floating). */
+.pickerFooter {
+  margin-top: 4px;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: var(--sidebar-row-h);
-  padding: 0 8px;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-top: 1px solid var(--border-faint);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   text-align: left;
   font-family: inherit;
   font-size: var(--font-size-xs);
@@ -206,16 +229,16 @@
     background 0.1s ease,
     color 0.1s ease;
 }
-.pickerMenuCreate:hover {
+.pickerFooter:hover {
   background: var(--state-hover);
   color: var(--color-text-title);
 }
-.pickerMenuCreate:focus-visible {
+.pickerFooter:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: -1px;
 }
 
-.pickerMenuPlus {
+.pickerFooterPlus {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
@@ -226,7 +249,7 @@
   font-weight: 600;
   color: var(--text-secondary);
 }
-.pickerMenuCreate:hover .pickerMenuPlus {
+.pickerFooter:hover .pickerFooterPlus {
   color: var(--color-accent);
 }
 
