@@ -3,7 +3,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
-import BlockAvatar from "./BlockAvatar";
+import UserAvatar from "./UserAvatar";
 import BudgetMeter from "./BudgetMeter";
 
 /**
@@ -71,7 +71,7 @@ export default function ContentTopBar() {
           (path === "/" ? (
             <span className="content-topbar-agent">
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <BlockAvatar name={userName} size={18} />
+                <UserAvatar name={userName} size={18} />
               </span>
               <span className="content-topbar-agent-name">{userName}</span>
             </span>
@@ -82,7 +82,7 @@ export default function ContentTopBar() {
               title="Back to your home"
             >
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <BlockAvatar name={userName} size={18} />
+                <UserAvatar name={userName} size={18} />
               </span>
               <span className="content-topbar-agent-name">{userName}</span>
             </Link>

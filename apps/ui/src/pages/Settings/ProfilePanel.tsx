@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import RoundAvatar from "@/components/RoundAvatar";
+import UserAvatar from "@/components/UserAvatar";
 import { Button, Input } from "@/components/ui";
 
 interface UserData {
@@ -93,7 +93,7 @@ export default function ProfilePanel() {
           {user?.avatar_url ? (
             <img src={user.avatar_url} alt="" className="account-avatar-img" />
           ) : (
-            <RoundAvatar name={displayName} size={48} />
+            <UserAvatar name={displayName} size={48} />
           )}
           <div className="account-avatar-badge" aria-hidden="true">
             <svg

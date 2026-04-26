@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import AgentTree from "@/components/Sidebar";
-import BlockAvatar from "@/components/BlockAvatar";
+import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 
@@ -194,7 +194,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         >
           <span className="sidebar-nav-avatar">
             <span className="sidebar-nav-avatar-glyph" aria-hidden="true">
-              <BlockAvatar name={userName} size={sidebarCollapsed ? 20 : 16} />
+              <UserAvatar name={userName} size={sidebarCollapsed ? 20 : 16} />
             </span>
             {sidebarCollapsed && (
               <span className="sidebar-nav-avatar-expand" aria-hidden="true">
