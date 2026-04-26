@@ -27,24 +27,6 @@ const EconomyIcon = () => (
   </svg>
 );
 
-const SignInIcon = () => (
-  // Door + arrow entering — visual mirror of the authed SignOutIcon, so the
-  // two actions read as opposites in the rail vocabulary.
-  <svg {...iconProps}>
-    <path d="M7 3h6v10H7" />
-    <path d="M9 8H2M5 5L2 8l3 3" />
-  </svg>
-);
-
-const SignUpIcon = () => (
-  // Person with a small plus — the canonical sign-up affordance.
-  <svg {...iconProps}>
-    <circle cx="6.5" cy="5.5" r="2.5" />
-    <path d="M2 13.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" />
-    <path d="M12 4v4M10 6h4" />
-  </svg>
-);
-
 const PanelGlyph = () => (
   // Same icon as the authed sidebar-collapse-btn: rectangle with a vertical
   // line on the left, suggesting "panel here / side rail".
@@ -58,9 +40,14 @@ const PanelGlyph = () => (
  * Public shell for unauthed visitors. Mirrors AppLayout's silhouette
  * (sidebar + content-card) but strips the rail down to: the wordmark,
  * the two surfaces an anonymous visitor can see (Blueprints, Economy),
- * and a Log in / Sign up group that sits in-rhythm with the rest of
- * the nav rather than as a separate CTA cluster at the bottom. The
- * collapse toggle behaves the same as on the authed rail.
+ * and the big Launch CTA — same component the authed user-scope view
+ * uses to launch a new company. Click routes to /signup. Sign-in is
+ * available as a secondary link inside the signup page itself; the
+ * rail stays focused on the one ignition action.
+ *
+ * Collapse toggle behaves the same as on the authed rail; collapsed
+ * state shows the æ brandmark on rest and morphs to the panel-glyph
+ * on hover.
  */
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -74,11 +61,9 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
 
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
-  const isSignIn = path === "/login";
-  const isLaunch = path === "/signup";
 
-  // Anonymous visitors clicking Sign in / Launch should land back on the
-  // page they came from after auth — share-link survival.
+  // Anonymous visitors clicking Launch should land back on the page
+  // they came from after auth — share-link survival.
   const here = location.pathname + location.search;
   const next = here === "/" ? "" : `?next=${encodeURIComponent(here)}`;
 
@@ -90,10 +75,10 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       >
         <div className="sidebar-header">
           {sidebarCollapsed ? (
-            // Collapsed: brandmark on rest, panel-glyph on hover. Single
-            // button, no layout shift — the two glyphs swap visibility so
-            // the cursor lands on the same target whether it sees the
-            // brand or the expand icon.
+            // Collapsed: brandmark on rest (just "æ" — the brand glyph,
+            // not the full "æqi" wordmark; the narrow rail asks for the
+            // mark, not the spelling). Hover morphs to the panel-glyph
+            // so the cursor never has to chase a different target.
             <button
               type="button"
               className="sidebar-public-brand-toggle"
@@ -102,7 +87,18 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
               title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
             >
               <span className="sidebar-public-brand-toggle-rest" aria-hidden="true">
-                <Wordmark size={20} />
+                <span
+                  style={{
+                    fontFamily: "var(--font-brand)",
+                    fontSize: 20,
+                    fontWeight: 400,
+                    letterSpacing: "-0.02em",
+                    color: "var(--color-accent)",
+                    lineHeight: 1,
+                  }}
+                >
+                  æ
+                </span>
               </span>
               <span className="sidebar-public-brand-toggle-hover" aria-hidden="true">
                 <PanelGlyph />
@@ -145,30 +141,30 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        {/* Auth zone — Sign in is a normal ghost row so the rail rhythm
-            stays calm; Launch is the primary CTA and wears the same
-            filled-graphite treatment as the landing-page hero CTA so it
-            reads as the call to action across both surfaces. */}
-        <div className="sidebar-user-zone">
+        {/* Big launch CTA — same component the authed user-scope view
+            uses for "launch agent". Routes to /signup for unauthed
+            visitors so the one prominent action is always present. */}
+        <nav className="sidebar-surface-nav is-userscope" aria-label="Launch a company">
           <button
             type="button"
-            className={`sidebar-nav-item ${isSignIn ? "active" : ""}`}
-            onClick={() => navigate(`/login${next}`)}
-            title="Sign into your account"
-          >
-            <SignInIcon />
-            <span className="sidebar-nav-label">Sign in</span>
-          </button>
-          <button
-            type="button"
-            className={`sidebar-launch-btn ${isLaunch ? "is-active" : ""}`}
+            className="sidebar-launch-cta"
             onClick={() => navigate(`/signup${next}`)}
             title="Launch your first autonomous company"
+            aria-label="Launch a company"
           >
-            <SignUpIcon />
-            <span className="sidebar-launch-btn-label">Launch</span>
+            <span className="sidebar-launch-cta-plus" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 4v16M4 12h16"
+                  stroke="currentColor"
+                  strokeWidth="2.25"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <span className="sidebar-launch-cta-label">Launch a company</span>
           </button>
-        </div>
+        </nav>
 
         <div className="left-sidebar-body" />
       </aside>
