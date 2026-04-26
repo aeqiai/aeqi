@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Select } from "./ui";
+import { Button, Select, Spinner } from "./ui";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 
@@ -89,10 +89,9 @@ function QuestScopeFilterBar({
   );
 }
 
-type SaveState = "idle" | "saving" | "saved" | "error";
+type SaveState = "idle" | "saving" | "error";
 
 const SAVE_DEBOUNCE_MS = 700;
-const SAVED_FLASH_MS = 1400;
 
 const STATUS_LABELS: Record<QuestStatus, string> = {
   pending: "Pending",
@@ -100,14 +99,6 @@ const STATUS_LABELS: Record<QuestStatus, string> = {
   blocked: "Blocked",
   done: "Done",
   cancelled: "Cancelled",
-};
-
-const STATUS_COLOR: Record<QuestStatus, string> = {
-  pending: "var(--text-muted)",
-  in_progress: "var(--info)",
-  blocked: "var(--warning)",
-  done: "var(--success)",
-  cancelled: "var(--text-muted)",
 };
 
 const PRIORITY_LABELS: Record<QuestPriority, string> = {
@@ -118,19 +109,7 @@ const PRIORITY_LABELS: Record<QuestPriority, string> = {
 };
 
 function StatusDot({ status }: { status: QuestStatus }) {
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: status === "pending" ? "transparent" : STATUS_COLOR[status],
-        border: status === "pending" ? `1.5px solid var(--text-muted)` : "none",
-        flexShrink: 0,
-      }}
-    />
-  );
+  return <span className={`quest-status-dot quest-status-dot--${status}`} />;
 }
 
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
@@ -153,7 +132,6 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const debounceRef = useRef<number | null>(null);
-  const flashRef = useRef<number | null>(null);
   const dirtyRef = useRef(false);
   const latestRef = useRef({ description, status, priority });
   latestRef.current = { description, status, priority };
@@ -176,10 +154,8 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
       const { description: d, status: s, priority: p } = latestRef.current;
       await api.updateQuest(selectedId, { description: d, status: s, priority: p });
       await fetchQuests();
-      setSaveState("saved");
+      setSaveState("idle");
       dirtyRef.current = false;
-      if (flashRef.current) clearTimeout(flashRef.current);
-      flashRef.current = window.setTimeout(() => setSaveState("idle"), SAVED_FLASH_MS);
     } catch (e) {
       setSaveState("error");
       setError(e instanceof Error ? e.message : "Failed to save");
@@ -247,15 +223,6 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     );
   }
 
-  const saveIndicator =
-    saveState === "saving"
-      ? "Saving…"
-      : saveState === "saved"
-        ? "Saved"
-        : saveState === "error"
-          ? "Error"
-          : null;
-
   const statuses: QuestStatus[] = ["pending", "in_progress", "blocked", "done", "cancelled"];
   const priorities: QuestPriority[] = ["critical", "high", "normal", "low"];
 
@@ -264,11 +231,12 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
       <div className="quest-detail-topbar">
         <StatusDot status={quest.status} />
         <span className="quest-detail-id">{quest.id}</span>
-        {saveIndicator && (
-          <span className={`quest-detail-save state-${saveState}`}>{saveIndicator}</span>
-        )}
-        {quest.updated_at && !saveIndicator && (
-          <span className="quest-detail-updated">{timeAgo(quest.updated_at)}</span>
+        {saveState === "saving" ? (
+          <Spinner size="sm" className="quest-detail-trail" />
+        ) : (
+          quest.updated_at && (
+            <span className="quest-detail-updated">{timeAgo(quest.updated_at)}</span>
+          )
         )}
       </div>
 

@@ -3182,29 +3182,42 @@
   white-space: nowrap;
   max-width: 240px;
 }
-.quest-detail-save {
-  margin-left: auto;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.quest-detail-save.state-saving {
-  color: var(--text-secondary);
-}
-.quest-detail-save.state-saved {
-  color: var(--success, var(--text-secondary));
-}
-.quest-detail-save.state-error {
-  color: var(--error, #9a3b3b);
-}
 .quest-detail-updated {
   margin-left: auto;
   font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.08em;
   color: var(--text-muted);
+}
+.quest-detail-trail {
+  margin-left: auto;
+}
+
+/* Status mark — mirrors .scope-dot. Filled circle for terminal/active
+   states, open ring for pending. 7px / 999px / token colors. */
+.quest-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+.quest-status-dot--pending {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+}
+.quest-status-dot--in_progress {
+  background: var(--info);
+}
+.quest-status-dot--blocked {
+  background: var(--warning);
+}
+.quest-status-dot--done {
+  background: var(--success);
+}
+.quest-status-dot--cancelled {
+  background: var(--text-muted);
 }
 
 .quest-detail-scroll {

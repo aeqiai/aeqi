@@ -207,6 +207,15 @@
   /* Stat card accent — top border on settings/quests stats */
   --stat-card-bg: var(--color-card-muted);
   --stat-card-border: var(--border);
+
+  /* Event canvas tone stripes — categorical accents on the top edge of
+     each event node. One token per category, defined once here so the
+     palette stays coherent. Not status colors — these are taxonomic
+     hints (which transport / which lifecycle phase). */
+  --event-tone-context: #d9a64d;
+  --event-tone-loop: #c66a4a;
+  --event-tone-webhook: var(--success);
+  --event-tone-telegram: #4fa0b8;
 }
 
 /* ── Base element styles (dashboard-specific) ──────── */

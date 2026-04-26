@@ -111,16 +111,16 @@
   background: var(--color-accent); /* graphite */
 }
 .event-canvas-node--tone-context::before {
-  background: #d9a64d; /* warm amber — budget / compaction */
+  background: var(--event-tone-context);
 }
 .event-canvas-node--tone-loop::before {
-  background: #c66a4a; /* clay — guardrail */
+  background: var(--event-tone-loop);
 }
 .event-canvas-node--tone-webhook::before {
-  background: #5aa373; /* jade — success/external */
+  background: var(--event-tone-webhook);
 }
 .event-canvas-node--tone-telegram::before {
-  background: #4fa0b8; /* teal */
+  background: var(--event-tone-telegram);
 }
 .event-canvas-node--tone-other::before {
   background: var(--text-muted);
