@@ -25,6 +25,14 @@ export default function BlueprintsPage() {
   const authMode = useAuthStore((s) => s.authMode);
   const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const allAgents = useDaemonStore((s) => s.agents);
+
+  const importIntoId = searchParams.get("import_into") || null;
+  const importTarget = useMemo(
+    () => (importIntoId ? allAgents.find((a) => a.id === importIntoId) || null : null),
+    [allAgents, importIntoId],
+  );
+  const isImportMode = !!importIntoId;
 
   const [templates, setTemplates] = useState<CompanyTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +194,16 @@ export default function BlueprintsPage() {
       </aside>
 
       <main className="bp-content">
+        {isImportMode && (
+          <div className="bp-import-banner" role="status">
+            <span className="bp-import-banner-eyebrow">Import mode</span>
+            <p className="bp-import-banner-line">
+              Browse the catalog. Picking a blueprint here will merge its seed agents, ideas,
+              events, and quests into <strong>{importTarget?.name || "the selected agent"}</strong>
+              's tree once the server merge endpoint lands.
+            </p>
+          </div>
+        )}
         <header className="bp-hero">
           <h1 className="bp-hero-title">blueprints.</h1>
           <p className="bp-hero-lede">
@@ -285,6 +303,8 @@ export default function BlueprintsPage() {
             submitting={submitting}
             submitError={submitError}
             isAuthed={isAuthed}
+            importMode={isImportMode}
+            importTargetName={importTarget?.name || null}
           />
         ) : (
           <BlueprintDetailEmpty />
@@ -351,6 +371,8 @@ function BlueprintDetail({
   submitting,
   submitError,
   isAuthed,
+  importMode,
+  importTargetName,
 }: {
   template: CompanyTemplate;
   companyName: string;
@@ -360,6 +382,8 @@ function BlueprintDetail({
   submitting: boolean;
   submitError: string | null;
   isAuthed: boolean;
+  importMode: boolean;
+  importTargetName: string | null;
 }) {
   const counts = {
     a: template.seed_agents?.length ?? 0,
@@ -406,44 +430,62 @@ function BlueprintDetail({
         className="bp-detail-spawn"
         onSubmit={(e) => {
           e.preventDefault();
+          if (importMode) return;
           onSpawn();
         }}
       >
-        <label className="bp-detail-spawn-label" htmlFor="bp-company-name">
-          Company name
-        </label>
-        <input
-          id="bp-company-name"
-          type="text"
-          className="bp-detail-spawn-input"
-          value={companyName}
-          onChange={(e) => onCompanyNameChange(e.target.value)}
-          placeholder={template.name}
-          maxLength={48}
-          disabled={submitting}
-          autoComplete="off"
-        />
-        {submitError && (
-          <p className="bp-detail-spawn-error" role="alert">
-            {submitError}
-          </p>
-        )}
-        <button type="submit" className="bp-detail-spawn-btn" disabled={submitting}>
-          {submitting ? (
-            <>
-              <Spinner size="sm" />
-              spawning…
-            </>
-          ) : isAuthed ? (
-            <>Start this company</>
-          ) : (
-            <>Sign up to start</>
-          )}
-        </button>
-        {!isAuthed && (
-          <p className="bp-detail-spawn-hint">
-            Free trial. One company on us — pick any blueprint to begin.
-          </p>
+        {importMode ? (
+          <>
+            <span className="bp-detail-spawn-label">
+              Add to {importTargetName || "selected agent"}
+            </span>
+            <button type="button" className="bp-detail-spawn-btn" disabled>
+              Coming soon
+            </button>
+            <p className="bp-detail-spawn-hint">
+              The merge endpoint isn't wired yet — picking a blueprint here will graft its seed
+              agents, ideas, events, and quests onto the target's tree once the server route ships.
+            </p>
+          </>
+        ) : (
+          <>
+            <label className="bp-detail-spawn-label" htmlFor="bp-company-name">
+              Company name
+            </label>
+            <input
+              id="bp-company-name"
+              type="text"
+              className="bp-detail-spawn-input"
+              value={companyName}
+              onChange={(e) => onCompanyNameChange(e.target.value)}
+              placeholder={template.name}
+              maxLength={48}
+              disabled={submitting}
+              autoComplete="off"
+            />
+            {submitError && (
+              <p className="bp-detail-spawn-error" role="alert">
+                {submitError}
+              </p>
+            )}
+            <button type="submit" className="bp-detail-spawn-btn" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Spinner size="sm" />
+                  spawning…
+                </>
+              ) : isAuthed ? (
+                <>Start this company</>
+              ) : (
+                <>Sign up to start</>
+              )}
+            </button>
+            {!isAuthed && (
+              <p className="bp-detail-spawn-hint">
+                Free trial. One company on us — pick any blueprint to begin.
+              </p>
+            )}
+          </>
         )}
       </form>
     </div>

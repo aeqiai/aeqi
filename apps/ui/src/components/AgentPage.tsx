@@ -155,6 +155,10 @@ function AgentsTab({
     () => navigate(`/new?parent=${encodeURIComponent(parentAgentId)}`),
     [navigate, parentAgentId],
   );
+  const goToImportBlueprint = useCallback(
+    () => navigate(`/blueprints?import_into=${encodeURIComponent(parentAgentId)}`),
+    [navigate, parentAgentId],
+  );
   useEffect(() => {
     window.addEventListener("aeqi:create", goToSpawn);
     return () => window.removeEventListener("aeqi:create", goToSpawn);
@@ -220,9 +224,14 @@ function AgentsTab({
             </>
           )}
         </div>
-        <Button variant="secondary" size="sm" onClick={goToSpawn}>
-          Spawn sub-agent
-        </Button>
+        <div className="agents-tab-actions">
+          <Button variant="ghost" size="sm" onClick={goToImportBlueprint}>
+            Import blueprint
+          </Button>
+          <Button variant="secondary" size="sm" onClick={goToSpawn}>
+            Spawn sub-agent
+          </Button>
+        </div>
       </div>
       <div className="agents-tab-body">
         <AgentOrgChart parentAgentId={parentAgentId} onSelect={onSelectChild} />

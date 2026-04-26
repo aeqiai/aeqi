@@ -4219,6 +4219,12 @@
   opacity: 0.35;
   letter-spacing: 0;
 }
+.agents-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .agents-tab-body {
   flex: 1;
   min-height: 0;
