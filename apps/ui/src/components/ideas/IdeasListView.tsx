@@ -389,22 +389,22 @@ export default function IdeasListView({
       <div className="ideas-list-body">
         {filtered.length === 0 ? (
           ideas.length === 0 ? (
-            <div className="ideas-list-empty-hero">
-              <span className="ideas-list-empty-eyebrow">a blank notebook</span>
-              <h3 className="ideas-list-empty-title">nothing thought yet.</h3>
-              <p className="ideas-list-empty-body">
+            <div className="empty-state-hero">
+              <span className="empty-state-hero-eyebrow">a blank notebook</span>
+              <h3 className="empty-state-hero-title">nothing thought yet.</h3>
+              <p className="empty-state-hero-body">
                 Ideas are how this agent remembers — instructions, decisions, references. The first
                 idea seeds the next thousand.
               </p>
-              <div className="ideas-list-empty-actions">
+              <div className="empty-state-hero-actions">
                 <Button variant="primary" size="sm" onClick={() => fireNew()}>
                   Write the first idea
                 </Button>
-                <span className="ideas-list-empty-kbd" aria-hidden>
+                <span className="empty-state-hero-kbd" aria-hidden>
                   or press <kbd>N</kbd>
                 </span>
               </div>
-              <dl className="ideas-list-empty-syntax" aria-label="Writing syntax">
+              <dl className="empty-state-hero-syntax" aria-label="Writing syntax">
                 <div>
                   <dt>
                     <code>#tag</code>
@@ -426,29 +426,29 @@ export default function IdeasListView({
               </dl>
             </div>
           ) : (
-            <div className="ideas-list-empty-hero muted">
-              <span className="ideas-list-empty-eyebrow">
+            <div className="empty-state-hero muted">
+              <span className="empty-state-hero-eyebrow">
                 {noMatchTrimmed ? "no match" : "no rows"}
-                <span className="ideas-list-empty-eyebrow-sep" aria-hidden>
+                <span className="empty-state-hero-eyebrow-sep" aria-hidden>
                   ·
                 </span>
-                <span className="ideas-list-empty-eyebrow-count">{totalInScope} in scope</span>
+                <span className="empty-state-hero-eyebrow-count">{totalInScope} in scope</span>
               </span>
-              <h3 className="ideas-list-empty-title">
+              <h3 className="empty-state-hero-title">
                 {noMatchTrimmed ? (
                   <>
-                    nothing for <span className="ideas-list-empty-query">{noMatchTrimmed}</span>
+                    nothing for <span className="empty-state-hero-query">{noMatchTrimmed}</span>
                   </>
                 ) : (
                   <>no ideas match these filters.</>
                 )}
               </h3>
-              <p className="ideas-list-empty-body">
+              <p className="empty-state-hero-body">
                 {noMatchTrimmed
                   ? "Capture it as a new idea, or widen the filter."
                   : "Drop a chip, widen the scope, or clear all filters to bring rows back."}
               </p>
-              <div className="ideas-list-empty-actions">
+              <div className="empty-state-hero-actions">
                 {noMatchTrimmed && (
                   <Button variant="primary" size="sm" onClick={() => fireNew(noMatchTrimmed)}>
                     Create &ldquo;{noMatchTrimmed}&rdquo;
@@ -458,7 +458,7 @@ export default function IdeasListView({
                   Reset filters
                 </Button>
                 {noMatchTrimmed && (
-                  <span className="ideas-list-empty-kbd" aria-hidden>
+                  <span className="empty-state-hero-kbd" aria-hidden>
                     or press <kbd>↵</kbd>
                   </span>
                 )}

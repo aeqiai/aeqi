@@ -101,21 +101,21 @@
   height: 28px;
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
 }
 
 .md {
   height: var(--input-h);
   padding: 0 var(--space-4);
   font-size: var(--font-size-sm);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
 }
 
 .lg {
   height: 40px;
   padding: 0 var(--space-5);
   font-size: var(--font-size-base);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
 }
 
 /* Modifier — full-width button for auth/modal primary actions. */

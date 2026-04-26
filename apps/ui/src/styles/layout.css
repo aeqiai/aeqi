@@ -3765,7 +3765,7 @@
   width: 180px;
 }
 /* Keyboard-shortcut hint inside the view popover — mirrors the global
-   style used in the empty hero (kbd inside .ideas-list-empty-kbd) but
+   style used in the empty hero (kbd inside .empty-state-hero-kbd) but
    tighter for popover density. */
 .ideas-filter-row-kbd {
   display: inline-flex;
@@ -4555,23 +4555,35 @@
 .ideas-list-clear-all:hover {
   color: var(--text-primary);
 }
-.ideas-list-empty-hero {
+/* ──────────────────────────────────────────────────────────────────
+   First-run empty state — the centered hero used on every primitive
+   when the surface is brand new. One layout for every page so the
+   "nothing here yet" moment never reads like a different product.
+
+   Stack (top → bottom):
+     eyebrow       — micro-caps datasheet label
+     title         — the editorial gesture (display font)
+     body          — short copy (max ~44ch)
+     actions       — pill <Button> + optional kbd hint
+     extras        — page-specific children (e.g. Ideas syntax legend)
+
+   Centered with `margin: auto`, content left-aligned within a 520px
+   container so the eye lands on the title's left edge regardless of
+   viewport width.
+   ────────────────────────────────────────────────────────────────── */
+.empty-state-hero {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 14px;
-  padding: 64px 36px 44px;
+  padding: 0 32px;
   max-width: 520px;
-  margin: 0;
+  margin: 56px auto 44px;
 }
-.ideas-list-empty-hero.muted .ideas-list-empty-title {
+.empty-state-hero.muted .empty-state-hero-title {
   color: var(--text-secondary);
 }
-/* Mono micro-eyebrow above the title. Positioned just above so the
-   title still feels like the page's main editorial gesture, but the
-   eyebrow gives the empty state a quiet "datasheet" framing — like
-   the small printed labels in a museum exhibit. */
-.ideas-list-empty-eyebrow {
+.empty-state-hero-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -4583,15 +4595,15 @@
   color: var(--text-muted);
   margin-bottom: -4px;
 }
-.ideas-list-empty-eyebrow-sep {
+.empty-state-hero-eyebrow-sep {
   color: var(--border);
   font-size: 12px;
   letter-spacing: 0;
 }
-.ideas-list-empty-eyebrow-count {
+.empty-state-hero-eyebrow-count {
   font-variant-numeric: tabular-nums;
 }
-.ideas-list-empty-title {
+.empty-state-hero-title {
   margin: 0;
   font-family: var(--font-display, inherit);
   font-size: 30px;
@@ -4600,14 +4612,14 @@
   line-height: 1.16;
   color: var(--text-primary);
 }
-.ideas-list-empty-body {
+.empty-state-hero-body {
   margin: 0;
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--text-secondary);
   max-width: 44ch;
 }
-.ideas-list-empty-actions {
+.empty-state-hero-actions {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
@@ -4615,9 +4627,8 @@
   margin-top: 4px;
 }
 /* Echo the user's typed query inline in the no-match title so the
-   create-from-query path is obvious at a glance. Mono keeps it aligned
-   with the rest of the primitive's quiet metadata voice. */
-.ideas-list-empty-query {
+   create-from-query path is obvious at a glance. */
+.empty-state-hero-query {
   font-family: var(--font-sans);
   font-size: 0.72em;
   font-weight: 500;
@@ -4634,7 +4645,7 @@
   text-overflow: ellipsis;
   display: inline-block;
 }
-.ideas-list-empty-kbd {
+.empty-state-hero-kbd {
   font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -4644,7 +4655,7 @@
   align-items: center;
   gap: 4px;
 }
-.ideas-list-empty-kbd kbd {
+.empty-state-hero-kbd kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4659,11 +4670,9 @@
   border: 1px solid var(--border);
   border-radius: 3px;
 }
-/* Empty state syntax legend — teaches the three inline affordances
-   (#tag, [[link]], ![[embed]]) on the first-run "nothing thought yet"
-   screen. Reads as a dictionary: glyph → one-word meaning. Mono for
-   the glyph, sans for the gloss so the syntax is scannable. */
-.ideas-list-empty-syntax {
+/* Optional syntax legend — page-specific extra (Ideas teaches its
+   inline affordances: #tag, [[link]], ![[embed]]). */
+.empty-state-hero-syntax {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 22px;
@@ -4671,21 +4680,21 @@
   padding: 12px 0 0;
   border-top: 1px dashed var(--border-faint);
 }
-.ideas-list-empty-syntax > div {
+.empty-state-hero-syntax > div {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
   font-size: 11px;
   color: var(--text-muted);
 }
-.ideas-list-empty-syntax dt {
+.empty-state-hero-syntax dt {
   margin: 0;
 }
-.ideas-list-empty-syntax dd {
+.empty-state-hero-syntax dd {
   margin: 0;
   letter-spacing: 0.01em;
 }
-.ideas-list-empty-syntax code {
+.empty-state-hero-syntax code {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;

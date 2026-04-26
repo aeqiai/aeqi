@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { AgentEvent, ToolCall } from "@/lib/types";
+import { Button } from "./ui";
 import {
   type LifecycleGroup,
   LIFECYCLE_HINT,
@@ -47,17 +48,22 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
 
   if (events.length === 0) {
     return (
-      <div className="events-overview-empty">
-        <div className="events-overview-empty-eyebrow">events</div>
-        <div className="events-overview-empty-title">No pipelines yet</div>
-        <p className="events-overview-empty-body">
+      <div className="empty-state-hero">
+        <span className="empty-state-hero-eyebrow">a blank canvas</span>
+        <h3 className="empty-state-hero-title">no pipelines yet.</h3>
+        <p className="empty-state-hero-body">
           Events are when-and-then. A pattern fires — a session starts, a webhook lands, a cron
           ticks — and the event runs an ordered chain of tool calls. This is where you replace
           n8n-style automation, scoped to this agent.
         </p>
-        <button type="button" className="events-overview-empty-cta" onClick={onNew}>
-          New event
-        </button>
+        <div className="empty-state-hero-actions">
+          <Button variant="primary" size="sm" onClick={onNew}>
+            Wire the first event
+          </Button>
+          <span className="empty-state-hero-kbd" aria-hidden>
+            or press <kbd>N</kbd>
+          </span>
+        </div>
       </div>
     );
   }

@@ -924,7 +924,7 @@ function QuestBoard({
  * lifts both surfaces at once. Status dot is inline left of the name;
  * priority renders as a quiet text label (critical pops via the
  * `--critical` modifier). Empty + no-match states use the canonical
- * `.ideas-list-empty-hero` markup that IdeasListView uses.
+ * `.empty-state-hero` markup that IdeasListView uses.
  */
 function QuestList({
   quests,
@@ -945,11 +945,11 @@ function QuestList({
     const hasSearch = search.trim().length > 0;
     return (
       <div className="ideas-list-body">
-        <div className="ideas-list-empty-hero">
-          <h3 className="ideas-list-empty-title">
+        <div className="empty-state-hero">
+          <h3 className="empty-state-hero-title">
             {hasSearch ? "No quests match." : "No quests yet."}
           </h3>
-          <p className="ideas-list-empty-body">
+          <p className="empty-state-hero-body">
             {hasSearch
               ? "Try a different search, or start a new quest."
               : "Create the first quest to populate this board."}
