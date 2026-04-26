@@ -66,3 +66,12 @@ export type { ComboboxProps, ComboboxOption } from "./Combobox";
 
 export { Menu } from "./Menu";
 export type { MenuProps, MenuItem } from "./Menu";
+
+export { Icon } from "./Icon";
+export type { IconProps, IconComponent } from "./Icon";
+
+export { Stack } from "./Stack";
+export type { StackProps, StackAlign, SpaceToken } from "./Stack";
+
+export { Inline } from "./Inline";
+export type { InlineProps, InlineAlign, InlineJustify } from "./Inline";

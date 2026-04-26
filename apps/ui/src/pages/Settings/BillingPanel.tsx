@@ -1,27 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import {
-  BACKEND_PLAN_ID,
-  PLANS,
-  findPlan,
-  formatCents,
-  type BillingInterval,
-  type PlanId,
-} from "@/lib/pricing";
+import { formatCents, type BillingInterval, type PlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
-import { Badge, Button, Card, Spinner, type BadgeVariant } from "@/components/ui";
+import { Button, Card, Spinner } from "@/components/ui";
+import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import "@/styles/billing.css";
-
-type Company = {
-  name: string;
-  agent_id: string | null;
-  plan: "launch" | "scale" | "free";
-  stripe_subscription_id: string | null;
-  status: "active" | "trialing" | "past_due" | "canceled" | "free";
-  next_charge_at: string | null;
-};
 
 type Overview = {
   ok: boolean;
@@ -33,27 +18,6 @@ type Overview = {
 };
 
 type SpawnState = { kind: "idle" } | { kind: "running" } | { kind: "error"; message: string };
-
-const PLAN_BADGE: Record<Company["plan"], { variant: BadgeVariant; label: string }> = {
-  free: { variant: "neutral", label: "Free" },
-  launch: { variant: "info", label: "Launch" },
-  scale: { variant: "success", label: "Scale" },
-};
-
-const STATUS_BADGE: Record<Company["status"], { variant: BadgeVariant; label: string }> = {
-  active: { variant: "success", label: "Active" },
-  trialing: { variant: "info", label: "Trialing" },
-  past_due: { variant: "warning", label: "Past due" },
-  canceled: { variant: "error", label: "Canceled" },
-  free: { variant: "neutral", label: "Free" },
-};
-
-function formatNextCharge(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
 
 /**
  * `/settings/billing` — user-level rollup of every Company subscription
@@ -70,7 +34,6 @@ export default function BillingPanel() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [openUpgradeFor, setOpenUpgradeFor] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [spawn, setSpawn] = useState<SpawnState>({ kind: "idle" });
 
@@ -245,80 +208,15 @@ export default function BillingPanel() {
         </div>
       ) : (
         <div className="billing-companies" role="list">
-          {companies.map((company) => {
-            const planBadge = PLAN_BADGE[company.plan];
-            const statusBadge = STATUS_BADGE[company.status];
-            const showStatus =
-              company.status !== "active" &&
-              company.status !== "free" &&
-              company.status !== "trialing";
-            const upgradeOpen = openUpgradeFor === company.name;
-            return (
-              <Card
-                key={company.name}
-                variant="surface"
-                padding="md"
-                className="billing-company"
-                role="listitem"
-              >
-                <div className="billing-company-row">
-                  <div className="billing-company-meta">
-                    <h3 className="billing-company-name">{company.name}</h3>
-                    <div className="billing-company-tags">
-                      <Badge variant={planBadge.variant} size="sm">
-                        {planBadge.label}
-                      </Badge>
-                      {showStatus && (
-                        <Badge variant={statusBadge.variant} size="sm" dot>
-                          {statusBadge.label}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="billing-company-charge">
-                    <span className="billing-company-charge-label">Next charge</span>
-                    <span className="billing-company-charge-value">
-                      {formatNextCharge(company.next_charge_at)}
-                    </span>
-                  </div>
-                  <div className="billing-company-actions">
-                    {company.plan === "free" ? (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setOpenUpgradeFor(upgradeOpen ? null : company.name)}
-                      >
-                        {upgradeOpen ? "Cancel" : "Upgrade →"}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handlePortal}
-                        loading={actionPending === "portal"}
-                      >
-                        Manage →
-                      </Button>
-                    )}
-                    <Link
-                      to={`/${encodeURIComponent(company.name)}/sessions`}
-                      className="billing-company-open"
-                    >
-                      Open Company →
-                    </Link>
-                  </div>
-                </div>
-
-                {upgradeOpen && (
-                  <UpgradeSelector
-                    rootSlug={company.name}
-                    actionPending={actionPending}
-                    onSubscribe={handleSubscribe}
-                  />
-                )}
-              </Card>
-            );
-          })}
+          {companies.map((company) => (
+            <CompanyPlanCard
+              key={company.name}
+              company={company}
+              actionPending={actionPending}
+              onSubscribe={handleSubscribe}
+              onPortal={handlePortal}
+            />
+          ))}
         </div>
       )}
 
@@ -344,73 +242,6 @@ export default function BillingPanel() {
           Per-Company billing. Each Company runs on its own subscription.
         </p>
       </div>
-    </div>
-  );
-}
-
-interface UpgradeSelectorProps {
-  rootSlug: string;
-  actionPending: string | null;
-  onSubscribe: (rootSlug: string, plan: PlanId, interval: BillingInterval) => void;
-}
-
-function UpgradeSelector({ rootSlug, actionPending, onSubscribe }: UpgradeSelectorProps) {
-  const [selected, setSelected] = useState<PlanId>("launch");
-  const [interval, setInterval] = useState<BillingInterval>("monthly");
-
-  const plan = findPlan(selected);
-  const monthly = interval === "annual" ? plan.annualPrice : plan.price;
-  const subscribeKey = `subscribe:${rootSlug}:${selected}`;
-  const submitting = actionPending === subscribeKey;
-
-  return (
-    <div className="billing-upgrade">
-      <div className="billing-upgrade-plans" role="radiogroup" aria-label="Choose a plan">
-        {PLANS.map((p) => {
-          const isActive = selected === p.id;
-          const price = interval === "annual" ? p.annualPrice : p.price;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={isActive}
-              className={`billing-upgrade-plan${isActive ? " is-active" : ""}`}
-              onClick={() => setSelected(p.id)}
-            >
-              <div className="billing-upgrade-plan-name">{p.name}</div>
-              <div className="billing-upgrade-plan-price">
-                <span>${price}</span>
-                <span className="billing-upgrade-plan-suffix">/mo</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="billing-upgrade-controls">
-        <label className="billing-upgrade-toggle">
-          <input
-            type="checkbox"
-            checked={interval === "annual"}
-            onChange={(e) => setInterval(e.target.checked ? "annual" : "monthly")}
-          />
-          <span>Annual billing (save with annual)</span>
-        </label>
-        <Button
-          variant="primary"
-          size="sm"
-          loading={submitting}
-          disabled={submitting}
-          onClick={() => onSubscribe(rootSlug, selected, interval)}
-        >
-          Subscribe — ${monthly}/mo →
-        </Button>
-      </div>
-      <p className="billing-upgrade-hint">
-        You'll be sent to Stripe to confirm the {BACKEND_PLAN_ID[selected]} subscription for{" "}
-        <code>{rootSlug}</code>.
-      </p>
     </div>
   );
 }

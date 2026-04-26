@@ -8,6 +8,13 @@
   flex-direction: column;
   gap: var(--space-6);
 }
+/* Agent-shell variant — when the panel sits inside SettingsShell on
+   /:agentId/settings/plan, the parent provides no padding (unlike the
+   user-level wrapper, which already has .account-page padding). This
+   variant gives the same outer rhythm so both surfaces look identical. */
+.billing-panel-padded {
+  padding: var(--space-6);
+}
 
 /* ── Loading / spawn / error ───────────────────── */
 
@@ -83,6 +90,23 @@
   margin: 0;
   font-size: 13px;
   color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 60ch;
+}
+.billing-summary-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.billing-summary-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.05;
+  color: var(--text-primary);
 }
 .billing-summary-aside {
   display: flex;
@@ -308,6 +332,10 @@
   margin: 0;
   font-size: 11px;
   color: var(--text-muted);
+}
+.billing-footer-secondary {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .billing-link {

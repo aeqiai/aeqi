@@ -39,8 +39,11 @@ describe("BlueprintsPage (catalog)", () => {
 
     renderApp();
 
+    // The catalog has no title row anymore — the toolbar IS the
+    // header (matches the Ideas pattern). Assert the search field +
+    // a card render to prove the page mounted.
     expect(
-      await screen.findByRole("heading", { level: 1, name: /blueprints/i }),
+      await screen.findByRole("searchbox", { name: /search blueprints/i }),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("Solo Founder")).toBeInTheDocument();

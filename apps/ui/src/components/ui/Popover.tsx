@@ -83,10 +83,15 @@ export function Popover({
 
   return (
     <div ref={rootRef} className={styles.root}>
-      {/* Trigger wrapper: intercepts clicks in uncontrolled mode. */}
+      {/* Trigger wrapper: intercepts clicks in BOTH controlled and
+          uncontrolled mode. setOpen() always fires onOpenChange when
+          provided and only mutates internal state when uncontrolled,
+          so wiring `toggle` here is safe in either mode and is what
+          lets controlled consumers (Menu, IdeasFilterPopover, ...)
+          actually open via the trigger button. */}
       <div
         className={styles.triggerSlot}
-        onClick={isControlled ? undefined : toggle}
+        onClick={toggle}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={id}

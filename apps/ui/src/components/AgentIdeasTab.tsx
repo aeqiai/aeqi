@@ -15,6 +15,8 @@ import {
   IDEA_SCOPE_VALUES,
   parseScope,
   parseSort,
+  parseTags,
+  serializeTags,
 } from "./ideas/types";
 
 const NO_IDEAS: Idea[] = [];
@@ -41,7 +43,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   const filter: FilterState = {
     scope: parseScope(searchParams.get("scope")),
     search: searchParams.get("q") ?? "",
-    tag: searchParams.get("tag"),
+    tags: parseTags(searchParams.get("tags") ?? searchParams.get("tag")),
     sort: parseSort(searchParams.get("sort")),
     needsReview: searchParams.get("review") === "1",
   };
@@ -76,9 +78,13 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
           if (patch.search) p.set("q", patch.search);
           else p.delete("q");
         }
-        if ("tag" in patch) {
-          if (patch.tag) p.set("tag", patch.tag);
-          else p.delete("tag");
+        if ("tags" in patch) {
+          // Drop the legacy single-tag param so the URL stays clean
+          // when migrating between visits or when the user clears the
+          // last tag back to the empty state.
+          p.delete("tag");
+          if (patch.tags && patch.tags.length > 0) p.set("tags", serializeTags(patch.tags));
+          else p.delete("tags");
         }
         if ("sort" in patch) {
           if (patch.sort && patch.sort !== "tag") p.set("sort", patch.sort);
@@ -152,10 +158,15 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [scoped]);
 
+  // Multi-tag filtering — OR semantics. Picking #skill and #candidate shows
+  // ideas tagged with EITHER, so adding a tag broadens the visible set.
+  // (AND would tighten it; users typically expect "I selected more, I see
+  // more" for additive chip selection.)
   const filtered = useMemo(() => {
-    if (!filter.tag) return scoped;
-    return scoped.filter((idea) => (idea.tags || []).includes(filter.tag!));
-  }, [scoped, filter.tag]);
+    if (filter.tags.length === 0) return scoped;
+    const wanted = new Set(filter.tags);
+    return scoped.filter((idea) => (idea.tags || []).some((t) => wanted.has(t)));
+  }, [scoped, filter.tags]);
 
   const scopeCounts = useMemo(() => {
     const counts = Object.fromEntries(IDEA_FILTER_VALUES.map((f) => [f, 0])) as Record<
@@ -207,7 +218,8 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   // same predicate as an id-set, then prunes its nodes and edges so the
   // dots on screen match the rows the user just filtered.
   const filteredGraph = useMemo(() => {
-    if (filter.scope === "all" && !filter.tag && !filter.search.trim()) return graphData;
+    if (filter.scope === "all" && filter.tags.length === 0 && !filter.search.trim())
+      return graphData;
     const allowed = new Set(filtered.map((i) => i.id));
     const nodes = graphData.nodes.filter((n) => allowed.has(n.id));
     const allowedNodeIds = new Set(nodes.map((n) => n.id));
@@ -215,7 +227,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       (e) => allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target),
     );
     return { nodes, edges };
-  }, [graphData, filtered, filter.scope, filter.tag, filter.search]);
+  }, [graphData, filtered, filter.scope, filter.tags, filter.search]);
 
   // Graph → detail: push a new history entry so browser-back returns to
   // the graph view. Using `replace: true` here stranded the user on the
@@ -300,7 +312,6 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       <IdeasCanvasView
         agentId={agentId}
         idea={selected}
-        composing={composing}
         presetName={presetName}
         onBack={() => goAgent(agentId, "ideas")}
         onNew={() => fireNewIdea()}

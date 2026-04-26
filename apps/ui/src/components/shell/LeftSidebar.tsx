@@ -401,8 +401,16 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             document.body.style.cursor = "col-resize";
             document.body.style.userSelect = "none";
 
+            // Delta-based drag: width changes by the cursor's *movement*
+            // since mousedown, not by the cursor's absolute position. This
+            // way the click point doesn't snap the width — it stays put
+            // until the user actually drags. Anchor on (startX, startWidth)
+            // captured here, then add (clientX − startX) on every move.
+            const startX = e.clientX;
+            const startWidth = sidebarWidth;
+
             const onMove = (ev: MouseEvent) => {
-              setSidebarWidth(ev.clientX);
+              setSidebarWidth(startWidth + (ev.clientX - startX));
             };
             const onUp = () => {
               document.body.style.cursor = "";

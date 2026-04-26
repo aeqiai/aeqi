@@ -506,9 +506,12 @@ export default function AgentTree() {
   }
 
   return (
-    <nav className={styles.tree}>
-      <div className={styles.list} role="tree" aria-label="Agent tree">
-        {activeRootAgent && (
+    <nav className={styles.tree} role="tree" aria-label="Agent tree">
+      {/* Root picker stays pinned at the top — outside the scrolling area
+          so long subtrees can scroll without dragging the company-scope
+          row off-screen. */}
+      {activeRootAgent && (
+        <div className={styles.rootSlot}>
           <RootPicker
             activeRoot={activeRootAgent}
             allRoots={roots}
@@ -520,13 +523,13 @@ export default function AgentTree() {
             }
             onCreateRoot={() => navigate("/start")}
           />
-        )}
-        {/* Tree hides while the picker takes over the rail space — keeps the
-            switch experience focused and avoids a tall sidebar that mixes
-            two competing surfaces. */}
-        {!pickerOpen &&
-          activeSubtree &&
-          activeSubtree.children.map((child, i) => (
+        </div>
+      )}
+      {/* Scrolling children. Hidden while the picker takeover is open so
+          the switch experience stays focused. */}
+      {!pickerOpen && activeSubtree && (
+        <div className={styles.list}>
+          {activeSubtree.children.map((child, i) => (
             <AgentNodeView
               key={child.id}
               node={child}
@@ -538,7 +541,8 @@ export default function AgentTree() {
               onToggle={toggleNode}
             />
           ))}
-      </div>
+        </div>
+      )}
     </nav>
   );
 }

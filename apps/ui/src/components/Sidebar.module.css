@@ -2,12 +2,21 @@
 
 .tree {
   flex: 1;
+  min-height: 0;
   padding: 4px 8px;
-  overflow-y: auto;
   font-family: var(--font-sans);
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* The tree itself no longer scrolls — `.list` (the children) does.
+     The root picker sits in `.rootSlot` above, pinned in place. */
+  overflow: hidden;
+}
+
+/* Pinned root row — full-width, doesn't shrink, stays put while
+   `.list` below scrolls. */
+.rootSlot {
+  flex-shrink: 0;
 }
 
 /* ── Root picker (workspace-switcher pattern)
@@ -273,9 +282,12 @@
 }
 
 .list {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow-y: auto;
 }
 
 .node {

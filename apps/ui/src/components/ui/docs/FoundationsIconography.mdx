@@ -1,0 +1,60 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Foundations/Iconography" />
+
+# Iconography
+
+lucide-react is the canonical icon source. Every icon in the product comes from
+that library. Stroke weight is 1.5 — consistent, mechanical, precision-instrument
+quality. Color is always `currentColor`: icons are ink, not decoration, and they
+follow their parent's text color without a separate prop.
+
+## Size scale
+
+Icons participate in the same 4px rhythm as every other element. Four sizes cover
+every context — choose the one that matches the row height it sits in.
+
+| Token | px  | Typical use                                              |
+| ----- | --- | -------------------------------------------------------- |
+| `xs`  | 12  | Monospace labels, badge decorations, tight inline counts |
+| `sm`  | 14  | Dense rows, `--input-h` (32px) surfaces, toolbar slots   |
+| `md`  | 16  | Default. Card headers, form field prefixes, nav rail     |
+| `lg`  | 20  | Page headings, empty-state illustrations, modal titles   |
+
+## Rules
+
+**Always use `<Icon icon={Plus} />`** — never drop a raw `<svg>` into feature code.
+The primitive controls stroke weight, size scale, and accessibility in one place.
+Raw SVGs bypass all three.
+
+**Decorative by default.** An icon next to a label that already names its purpose
+is decorative: set nothing, `aria-hidden="true"` is applied for you. If the icon
+carries meaning that does not also appear in adjacent text — a standalone close
+button, an action only conveyed through shape — set `decorative={false}` and
+supply a `label`. The component warns to console in development if you forget.
+
+**Icons inherit color from their parent via `currentColor`.** Change the ink on the
+containing element, not the icon. Never pass a color token directly to `<Icon>`.
+The icon sits in the typographic flow and should read as part of the text, not as
+a colored object.
+
+**Pair size with row height.** `sm` icons (14px) belong in `--input-h` (32px) rows.
+`md` icons (16px) belong in card headers and section anchors. `lg` icons (20px)
+are for moments of visual emphasis — empty states, modal titles — not inline body
+content.
+
+## Don't
+
+- **Don't change `strokeWidth` per-instance.** If 1.5 needs revisiting, change it
+  in the design system. Per-instance overrides fragment the visual language across
+  the product.
+- **Don't fill icons with a color.** Lucide icons are stroke-based. Applying `fill`
+  produces a solid silhouette that reads as a different iconographic register.
+- **Don't import the full lucide bundle.** Always use explicit named imports:
+  `import { Plus } from "lucide-react"`. Tree-shaking depends on it; a wildcard
+  import bloats every page.
+
+---
+
+See `Primitives/Data Display/Icon` for the interactive story with all common icons,
+size scale, and accessibility examples.

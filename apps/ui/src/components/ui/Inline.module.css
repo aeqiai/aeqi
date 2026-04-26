@@ -1,0 +1,89 @@
+.inline {
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+}
+
+/* ── Gap scale — mapped to --space-N tokens ── */
+
+.inline[data-gap="0"] {
+  gap: var(--space-0);
+}
+
+.inline[data-gap="1"] {
+  gap: var(--space-1);
+}
+
+.inline[data-gap="2"] {
+  gap: var(--space-2);
+}
+
+.inline[data-gap="3"] {
+  gap: var(--space-3);
+}
+
+.inline[data-gap="4"] {
+  gap: var(--space-4);
+}
+
+.inline[data-gap="5"] {
+  gap: var(--space-5);
+}
+
+.inline[data-gap="6"] {
+  gap: var(--space-6);
+}
+
+.inline[data-gap="8"] {
+  gap: var(--space-8);
+}
+
+/* ── Alignment — cross-axis ── */
+
+.inline[data-align="start"] {
+  align-items: flex-start;
+}
+
+.inline[data-align="center"] {
+  align-items: center;
+}
+
+.inline[data-align="end"] {
+  align-items: flex-end;
+}
+
+.inline[data-align="baseline"] {
+  align-items: baseline;
+}
+
+.inline[data-align="stretch"] {
+  align-items: stretch;
+}
+
+/* ── Justification — main-axis ── */
+
+.inline[data-justify="start"] {
+  justify-content: flex-start;
+}
+
+.inline[data-justify="center"] {
+  justify-content: center;
+}
+
+.inline[data-justify="end"] {
+  justify-content: flex-end;
+}
+
+.inline[data-justify="between"] {
+  justify-content: space-between;
+}
+
+.inline[data-justify="around"] {
+  justify-content: space-around;
+}
+
+/* ── Wrap ── */
+
+.inline[data-wrap="true"] {
+  flex-wrap: wrap;
+}

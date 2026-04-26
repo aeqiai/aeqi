@@ -3,24 +3,16 @@ import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
-
-const SCOPE_OPTIONS: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
-import { Button, IconButton, Menu, Select } from "./ui";
+import { Button, IconButton, Menu } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
+import IdeasScopePopover from "./ideas/IdeasScopePopover";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type DecisionState = "idle" | "saving" | "done";
 
 const SAVED_FLASH_MS = 1200;
-
-function formatCount(text: string): string {
-  const chars = text.length;
-  if (chars < 200) return `${chars} chars`;
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return `${words} words`;
-}
 
 function extractHashtags(text: string): string[] {
   const re = /(?:^|\s)#([a-z0-9_-]+)/gi;
@@ -57,10 +49,14 @@ export default function IdeaCanvas({
   agentId,
   idea,
   initialName,
+  onBack,
+  onNew,
 }: {
   agentId: string;
   idea?: Idea;
   initialName?: string;
+  onBack: () => void;
+  onNew: () => void;
 }) {
   const { goAgent } = useNav();
   const patchIdea = useAgentDataStore((s) => s.patchIdea);
@@ -322,32 +318,81 @@ export default function IdeaCanvas({
   }, [idea, agentId, patchIdea, content, rejectRationale]);
 
   const inlineTags = mergeTags(content, typedTags);
-  const scopeLabel = idea?.agent_id == null && isEdit ? "Global" : null;
-  const scopeChipValue =
-    isEdit && idea?.scope && idea.scope !== "self" && !scopeLabel ? idea.scope : null;
+  // Resolved scope for display in the header popover. In compose mode the
+  // user-picked composeScope drives it; in edit mode we read from the idea
+  // (with `global` shadowed when agent_id is null, since legacy rows can
+  // hit edit without an explicit scope set).
+  const headerScope: ScopeValue = isEdit
+    ? (idea?.scope ?? (idea?.agent_id == null ? "global" : "self"))
+    : composeScope;
+  const showSaveBtn = !isEdit || saveState === "dirty" || saveState === "saving";
 
   return (
     <div className="asv-main ideas-canvas">
-      {(scopeLabel || scopeChipValue) && (
-        <div className="ideas-canvas-eyebrow">
-          {scopeLabel && <span className="ideas-canvas-eyebrow-scope">{scopeLabel}</span>}
-          {scopeChipValue && (
-            <span className={`scope-chip scope-chip--${scopeChipValue}`}>{scopeChipValue}</span>
-          )}
-        </div>
-      )}
-      <div className="ideas-canvas-head">
-        <input
-          ref={titleRef}
-          className="ideas-canvas-title"
-          type="text"
-          placeholder={isEdit ? "Untitled" : "Name this idea…"}
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            markDirty();
-          }}
+      <header className="ideas-canvas-header">
+        <button
+          type="button"
+          className="ideas-canvas-back"
+          onClick={onBack}
+          title="Back to ideas"
+          aria-label="Back to ideas"
+        >
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M7.5 2.5 L3 6 L7.5 9.5" />
+          </svg>
+          back
+        </button>
+        <IdeasScopePopover
+          scope={headerScope}
+          locked={isEdit}
+          onChange={!isEdit ? setComposeScope : undefined}
         />
+        <div className="ideas-canvas-header-spacer" aria-hidden />
+        <SaveIndicator state={saveState} />
+        {error && <span className="ideas-canvas-error">{error}</span>}
+        {showSaveBtn && (
+          <Button
+            variant="primary"
+            size="sm"
+            loading={saveState === "saving"}
+            onClick={isEdit ? flushSave : handleCreate}
+            title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
+          >
+            Save
+          </Button>
+        )}
+        {isEdit && (
+          <button
+            type="button"
+            className="ideas-canvas-header-new"
+            onClick={onNew}
+            title="New idea (N)"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+            new
+          </button>
+        )}
         {isEdit && (
           <Menu
             trigger={
@@ -371,7 +416,19 @@ export default function IdeaCanvas({
             placement="bottom-end"
           />
         )}
-      </div>
+      </header>
+
+      <input
+        ref={titleRef}
+        className="ideas-canvas-title"
+        type="text"
+        placeholder={isEdit ? "Untitled" : "Name this idea…"}
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          markDirty();
+        }}
+      />
 
       <TagsEditor
         tags={inlineTags}
@@ -391,6 +448,13 @@ export default function IdeaCanvas({
           }
         }}
       />
+
+      {/* Mentions / embeds / adjacent — surfaced inline next to tags so the
+          relational metadata sits in one band at the top of the canvas, not
+          buried after the body. The tags editor and the links panel share
+          the same chip language so the eye reads them as one row of
+          "what's around this idea". */}
+      {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
 
       {showDecisionBtns && (
         <div className="ideas-canvas-decision-bar">
@@ -500,41 +564,6 @@ export default function IdeaCanvas({
           </span>
         </div>
       )}
-
-      <div className="ideas-canvas-footer">
-        <div className="ideas-canvas-status">
-          <SaveIndicator state={saveState} />
-          {error && <span className="ideas-canvas-error">{error}</span>}
-        </div>
-        <div className="ideas-canvas-actions">
-          {(bodyMode === "edit" || !isEdit) && content.length > 0 && (
-            <span className="ideas-canvas-count">{formatCount(content)}</span>
-          )}
-          {!isEdit && (
-            <Select
-              size="sm"
-              value={composeScope}
-              onChange={(v) => setComposeScope(v as ScopeValue)}
-              options={SCOPE_OPTIONS.map((s) => ({ value: s, label: s }))}
-              title="Scope"
-              aria-label="Scope"
-            />
-          )}
-          {(!isEdit || saveState === "dirty" || saveState === "saving") && (
-            <Button
-              variant="primary"
-              size="sm"
-              loading={saveState === "saving"}
-              onClick={isEdit ? flushSave : handleCreate}
-              title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
-            >
-              Save
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
     </div>
   );
 }

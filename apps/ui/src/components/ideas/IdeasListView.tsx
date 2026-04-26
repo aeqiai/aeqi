@@ -2,17 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNav } from "@/hooks/useNav";
 import { Button } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { IdeasPrimitiveHead } from "./IdeasPrimitiveHead";
 import IdeasFilterPopover from "./IdeasFilterPopover";
+import IdeasSortPopover from "./IdeasSortPopover";
+import IdeasViewPopover from "./IdeasViewPopover";
 import {
   type FilterState,
   type IdeasFilter,
-  type SortMode,
   type Epoch,
   EPOCH_LABELS,
   EPOCH_ORDER,
-  SORT_MODES,
-  SORT_LABELS,
   matchRank,
   snippetFor,
   highlightMatches,
@@ -35,41 +33,6 @@ const SCOPE_LABELS: Record<IdeasFilter, string> = {
 function ScopeChip({ scope }: { scope: ScopeValue }) {
   if (scope === "self") return null;
   return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
-}
-
-// Linear-style sort segmented control. Inline with the search field so the
-// head stays single-row. Disabled under an active search because relevance
-// trumps shelf order — the visual dim signals "not in play right now".
-function SortToggle({
-  sort,
-  disabled,
-  onChange,
-}: {
-  sort: SortMode;
-  disabled: boolean;
-  onChange: (next: SortMode) => void;
-}) {
-  return (
-    <div
-      className={`ideas-list-sort${disabled ? " disabled" : ""}`}
-      role="tablist"
-      aria-label="Sort"
-    >
-      {SORT_MODES.map((m) => (
-        <button
-          key={m}
-          type="button"
-          role="tab"
-          aria-selected={sort === m}
-          disabled={disabled}
-          className={`ideas-list-sort-btn${sort === m ? " active" : ""}`}
-          onClick={() => onChange(m)}
-        >
-          {SORT_LABELS[m]}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export interface IdeasListViewProps {
@@ -174,11 +137,15 @@ export default function IdeasListView({
     : Math.min(TAG_CHIP_LIMIT, tagCounts.length);
   const hiddenTagCount = Math.max(0, tagCounts.length - visibleTagCount);
 
-  const isFiltered =
-    searchActive || filter.scope !== "all" || filter.tag !== null || filter.needsReview;
   const fireNew = (name?: string) =>
     window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
-  const clearAll = () => onFilter({ search: "", scope: "all", tag: null, needsReview: false });
+  const clearAll = () => onFilter({ search: "", scope: "all", tags: [], needsReview: false });
+  const toggleTag = (tag: string) => {
+    const next = filter.tags.includes(tag)
+      ? filter.tags.filter((t) => t !== tag)
+      : [...filter.tags, tag];
+    onFilter({ tags: next });
+  };
 
   // Pre-compute "needs review" count for the popover badge, scoped to the
   // agent's full idea set so the toggle communicates real volume even when
@@ -208,12 +175,13 @@ export default function IdeasListView({
       label: SCOPE_LABELS[filter.scope] ?? filter.scope,
       onRemove: () => onFilter({ scope: "all" }),
     });
-  if (filter.tag)
+  for (const t of filter.tags) {
     activeChips.push({
-      key: "tag",
-      label: `#${filter.tag}`,
-      onRemove: () => onFilter({ tag: null }),
+      key: `tag:${t}`,
+      label: `#${t}`,
+      onRemove: () => onFilter({ tags: filter.tags.filter((x) => x !== t) }),
     });
+  }
   if (filter.needsReview)
     activeChips.push({
       key: "review",
@@ -261,14 +229,8 @@ export default function IdeasListView({
 
   return (
     <div className="ideas-list">
-      <IdeasPrimitiveHead
-        countLabel={isFiltered ? `${filtered.length} / ${ideas.length}` : `${ideas.length}`}
-        view={view}
-        onViewChange={onViewChange}
-        onNew={() => fireNew()}
-      />
       <div className="ideas-list-head">
-        <div className="ideas-list-search-row">
+        <div className="ideas-toolbar">
           <span className="ideas-list-search-field">
             <svg
               className="ideas-list-search-glyph"
@@ -329,7 +291,7 @@ export default function IdeasListView({
               </button>
             )}
           </span>
-          <SortToggle
+          <IdeasSortPopover
             sort={filter.sort}
             disabled={searchActive}
             onChange={(next) => onFilter({ sort: next })}
@@ -340,6 +302,27 @@ export default function IdeasListView({
             needsReviewCount={needsReviewCount}
             onChange={onFilter}
           />
+          <IdeasViewPopover view={view} onChange={onViewChange} />
+          <button
+            type="button"
+            className="ideas-toolbar-new"
+            onClick={() => fireNew()}
+            title="New idea (N)"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+            new
+          </button>
         </div>
         {activeChips.length > 0 && (
           <div className="ideas-list-chips" role="list" aria-label="Active filters">
@@ -365,16 +348,21 @@ export default function IdeasListView({
         )}
         {tagCounts.length > 0 && (
           <div className="ideas-list-tags">
-            {tagCounts.slice(0, visibleTagCount).map(([t, n]) => (
-              <button
-                key={t}
-                type="button"
-                className={`ideas-list-tag${filter.tag === t ? " active" : ""}`}
-                onClick={() => onFilter({ tag: filter.tag === t ? null : t })}
-              >
-                {t} <span className="ideas-list-tag-count">{n}</span>
-              </button>
-            ))}
+            {tagCounts.slice(0, visibleTagCount).map(([t, n]) => {
+              const isActive = filter.tags.includes(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={isActive}
+                  className={`ideas-tag-chip${isActive ? " active" : ""}`}
+                  onClick={() => toggleTag(t)}
+                >
+                  #{t}
+                  <span className="ideas-tag-chip-count">{n}</span>
+                </button>
+              );
+            })}
             {hiddenTagCount > 0 && (
               <button
                 type="button"

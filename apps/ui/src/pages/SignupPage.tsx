@@ -226,7 +226,7 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Get early access</h1>
-          <p className="auth-subheading">Autonomous companies. Run by agents. Owned on-chain.</p>
+          <p className="auth-subheading">Unlock the agent economy.</p>
           <form className="auth-form" onSubmit={handleWaitlistSubmit}>
             <Input
               size="lg"
@@ -278,7 +278,7 @@ export default function SignupPage() {
                 Launch a <strong>{templateLabel}</strong> powered by AI agents
               </>
             ) : (
-              "Start building with autonomous agents"
+              "Start building your autonomous company"
             )}
           </p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
@@ -523,9 +523,7 @@ export default function SignupPage() {
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
           <h2 className="signup-pitch-heading">Build something that can work without you.</h2>
-          <p className="signup-lead">
-            Launch ownable agents that work, earn, and grow into companies.
-          </p>
+          <p className="signup-lead">Agents that work, earn, and compound through experience.</p>
           <p className="signup-trust">Open source. Self-hostable. Free to start.</p>
           <div className="signup-cta-section">
             <a
