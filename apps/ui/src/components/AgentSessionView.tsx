@@ -11,8 +11,6 @@ import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
 
-// ── Main Component ──
-
 const EMPTY_QUEUED_DRAFTS: PendingMessage[] = [];
 
 function mergeQueuedDrafts(drafts: PendingMessage[]): PendingMessage {
@@ -52,12 +50,10 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const token = useAuthStore((s) => s.token);
   const agents = useDaemonStore((s) => s.agents);
 
-  // Resolve agent info from the store
   const agentInfo = agents.find((a) => a.id === agentId || a.name === agentId);
   const agentName = agentInfo?.name || agentId;
   const displayName = agentName;
 
-  // Attachment state
   const [sessionIdeas, setSessionIdeas] = useState<string[]>([]);
   const [sessionTask, setSessionTask] = useState<{ id: string; name: string } | null>(null);
   const [showAttachPicker, setShowAttachPicker] = useState<"idea" | "quest" | null>(null);
@@ -71,8 +67,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const messagesEnd = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
-
-  // ── Hooks ──
 
   const processRawMessages = useMessageProcessor();
 
@@ -111,10 +105,9 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
 
   const { streaming, liveSegments, thinkingStart, liveStepOffset, dispatchMessage } = wsChat;
 
-  // Keep streamingRef in sync so polling pauses during streaming
+  // Keeps polling paused while streaming.
   streamingRef.current = streaming;
 
-  // Wrap handleNewConversation to also reset live segments
   const handleNewConversation = useCallback(() => {
     wsChat.resetLiveSegments();
     rawHandleNewConversation();
@@ -139,7 +132,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     [messages, handleFork, handleNewConversation],
   );
 
-  // Fetch available ideas and quests when picker opens
   useEffect(() => {
     if (showAttachPicker === "idea" && availableIdeas.length === 0) {
       api

@@ -133,11 +133,6 @@ function StatusDot({ status }: { status: QuestStatus }) {
   );
 }
 
-/**
- * Quest detail canvas. Shown in the `.asv-main` region when a quest is selected
- * via `/:agentId/quests/:itemId`. When no quest is selected, shows the kanban
- * board (`QuestBoard`) with an inline composer and the full column grid.
- */
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
@@ -163,7 +158,6 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const latestRef = useRef({ description, status, priority });
   latestRef.current = { description, status, priority };
 
-  // Reset state when quest selection changes.
   useEffect(() => {
     setDescription(quest?.description ?? "");
     setStatus(quest?.status ?? "pending");
@@ -219,9 +213,8 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     [save],
   );
 
-  // "New quest" rail action: focus the inline composer when the rail's
-  // create button fires. Navigating away from any selection takes us to the
-  // board view where the composer lives.
+  // Rail's create button — navigate to the board (where the composer
+  // lives) and focus the subject input.
   useEffect(() => {
     const handler = () => {
       goAgent(agentId, "quests", undefined, { replace: true });
@@ -233,9 +226,8 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:create", handler);
   }, [agentId, goAgent]);
 
-  // No quest selected → show the board: scope filter + inline composer + kanban columns.
   if (!quest) {
-    // All quests visible to this agent (agent's own + any cross-agent ones surfaced by API).
+    // agent.id match + cross-agent quests surfaced by the API.
     const visibleQuests = quests.filter((q) => q.agent_id === agent?.id || q.agent_id == null);
     const filteredQuests =
       questFilter === "all"

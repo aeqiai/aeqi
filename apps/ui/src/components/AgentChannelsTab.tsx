@@ -29,9 +29,7 @@ const CHANNEL_FIELDS: Record<string, { label: string; placeholder: string; type?
     { label: "Phone Number ID", placeholder: "Meta WhatsApp Phone Number ID" },
     { label: "Access Token", placeholder: "Meta Graph API access token", type: "password" },
   ],
-  // Baileys has no pre-connection fields — pairing is a QR handshake that
-  // happens after the channel row is created. The Add form shows a
-  // short explanation instead of inputs.
+  // Baileys pairs via QR after row creation — no pre-pair inputs needed.
   "whatsapp-baileys": [],
 };
 
@@ -55,19 +53,12 @@ function buildConfig(
         access_token: fields.access_token ?? "",
       };
     case "whatsapp-baileys":
-      // No pre-pair fields. Session dir defaults server-side, and any
-      // JID whitelist is added later via the allowed_chats mechanism.
       return { kind, allowed_jids: [] };
     default:
       return { kind, ...fields };
   }
 }
 
-/**
- * Channels tab. Renders the inline picker (connected channels list) on
- * one side and the selected channel's detail view on the other, plus the
- * add-channel form when the picker's "+" button fires `aeqi:new-channel`.
- */
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
@@ -108,13 +99,12 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     loadSessions();
   }, [loadSessions]);
 
-  // Rail button dispatches `aeqi:new-channel` — show the add form.
   useEffect(() => {
     const handler = () => {
       setShowAddForm(true);
       setError(null);
       setNewChannelFields({});
-      setSaving(false); // Reset stale "Connecting..." if a prior submit hung.
+      setSaving(false); // Reset stale "Connecting…" if a prior submit hung.
     };
     window.addEventListener("aeqi:new-channel", handler);
     return () => window.removeEventListener("aeqi:new-channel", handler);
@@ -154,7 +144,6 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   // `[email protected]` and `[email protected]` parse to NaN and would
   // silently drop from the whitelist.
   const getAllowed = (ch: ChannelEntry): AllowedChat[] => ch.allowed_chats;
-  /** Three-state visibility for a single chat row. */
   type ChatMode = "auto" | "read" | "off";
   const chatModeFor = (allowed: AllowedChat[], chatId: string): ChatMode => {
     const entry = allowed.find((a) => a.chat_id === chatId);
