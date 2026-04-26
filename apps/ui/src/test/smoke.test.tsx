@@ -84,7 +84,7 @@ describe("AgentQuestsTab smoke", () => {
     ).not.toThrow();
   });
 
-  it("shows the quest-board compose input on the empty board", () => {
+  it("exposes a New quest button on the empty board", () => {
     const { container } = render(
       <StrictMode>
         <MemoryRouter initialEntries={["/root-1/quests"]}>
@@ -94,9 +94,10 @@ describe("AgentQuestsTab smoke", () => {
         </MemoryRouter>
       </StrictMode>,
     );
-    // The inline composer replaces the old rail CTA: "New quest — what needs to happen?".
-    const composer = container.querySelector("[data-quest-compose-subject]");
-    expect(composer).not.toBeNull();
+    // The always-on compose strip is gone; creation now lives behind
+    // the toolbar plus button which opens NewQuestModal.
+    const trigger = container.querySelector('button[aria-label="New quest"]');
+    expect(trigger).not.toBeNull();
   });
 
   it("does not log a React error during render", () => {

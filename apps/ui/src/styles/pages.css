@@ -2952,32 +2952,26 @@
   gap: var(--space-3);
 }
 
-.quest-board-compose {
+/* New-quest modal — body layout. Modal primitive owns the chrome
+   (surface, padding, header); these classes only stack the form. */
+.quest-new-form {
   display: flex;
-  gap: 8px;
-  align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 6px;
-  background: var(--bg-surface);
-  transition: border-color 0.15s;
+  flex-direction: column;
+  gap: var(--space-4);
 }
-.quest-board-compose:focus-within {
-  border-color: var(--color-accent);
+.quest-new-fields {
+  display: flex;
+  gap: var(--space-3);
 }
-.quest-board-compose-input {
+.quest-new-fields > * {
   flex: 1;
-  border: none;
-  background: transparent;
-  padding: 6px 10px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--text-primary);
-  outline: none;
 }
-.quest-board-compose-input::placeholder {
-  color: var(--text-muted);
+.quest-new-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
+
 .quest-board-error {
   font-family: var(--font-sans);
   font-size: 11px;

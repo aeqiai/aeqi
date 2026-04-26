@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Select, Spinner } from "./ui";
+import { Button, Input, Modal, Select, Spinner } from "./ui";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 
@@ -117,6 +117,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
+  const [newOpen, setNewOpen] = useState(false);
 
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
@@ -189,14 +190,13 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     [save],
   );
 
-  // Rail's create button — navigate to the board (where the composer
-  // lives) and focus the subject input.
+  // Rail's create button — navigate to the board (where the modal lives)
+  // and open it. Modal is rendered inside QuestBoard but driven by state
+  // hoisted to this level so the open intent survives the navigation.
   useEffect(() => {
     const handler = () => {
       goAgent(agentId, "quests", undefined, { replace: true });
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLInputElement>("[data-quest-compose-subject]")?.focus();
-      });
+      setNewOpen(true);
     };
     window.addEventListener("aeqi:create", handler);
     return () => window.removeEventListener("aeqi:create", handler);
@@ -219,6 +219,8 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         onScopeChange={setQuestFilter}
         onCreated={fetchQuests}
         onPick={(id) => goAgent(agentId, "quests", id)}
+        newOpen={newOpen}
+        onNewOpenChange={setNewOpen}
       />
     );
   }
@@ -372,10 +374,10 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 /**
  * Board view shown when no quest is selected.
  *
- * Top: inline composer — subject + priority + create. Submit POSTs the
- * quest and refreshes the daemon store. Below: four kanban columns
- * (Todo / In Progress / Blocked / Done). Done is capped to 10 most-recent
- * to keep the column from blowing out after months of work.
+ * Toolbar — search + plus button (opens NewQuestModal). Below: scope
+ * filter strip, then four kanban columns (Todo / In Progress / Blocked /
+ * Done). Done is capped to 10 most-recent to keep the column from
+ * blowing out after months of work.
  */
 function QuestBoard({
   agentId: _agentId,
@@ -386,6 +388,8 @@ function QuestBoard({
   onScopeChange,
   onCreated,
   onPick,
+  newOpen,
+  onNewOpenChange,
 }: {
   agentId: string;
   resolvedAgentId: string;
@@ -395,11 +399,9 @@ function QuestBoard({
   onScopeChange: (next: QuestFilter) => void;
   onCreated: () => void;
   onPick: (id: string) => void;
+  newOpen: boolean;
+  onNewOpenChange: (next: boolean) => void;
 }) {
-  const [subject, setSubject] = useState("");
-  const [priority, setPriority] = useState<QuestPriority>("normal");
-  const [composeScope, setComposeScope] = useState<ScopeValue>("self");
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -455,30 +457,6 @@ function QuestBoard({
     },
     [quests, optimistic, onCreated],
   );
-
-  const submit = useCallback(async () => {
-    const s = subject.trim();
-    if (!s || busy) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await api.createQuest({
-        project: resolvedAgentId,
-        subject: s,
-        priority,
-        scope: composeScope,
-        agent_id: resolvedAgentId,
-      });
-      setSubject("");
-      setPriority("normal");
-      setComposeScope("self");
-      onCreated();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to create quest");
-    } finally {
-      setBusy(false);
-    }
-  }, [subject, priority, composeScope, busy, resolvedAgentId, onCreated]);
 
   const columns: Array<{ status: QuestStatus; label: string }> = [
     { status: "pending", label: "Todo" },
@@ -644,9 +622,7 @@ function QuestBoard({
           <button
             type="button"
             className="ideas-toolbar-btn"
-            onClick={() => {
-              document.querySelector<HTMLInputElement>("[data-quest-compose-subject]")?.focus();
-            }}
+            onClick={() => onNewOpenChange(true)}
             title="New quest (N)"
             aria-label="New quest"
           >
@@ -670,46 +646,6 @@ function QuestBoard({
           filter={scopeFilter}
           onChange={onScopeChange}
         />
-      </div>
-      <div className="quest-board-compose">
-        <input
-          data-quest-compose-subject
-          className="quest-board-compose-input"
-          placeholder="New quest — what needs to happen?"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          disabled={busy}
-        />
-        <Select
-          size="sm"
-          value={priority}
-          onChange={(v) => setPriority(v as QuestPriority)}
-          options={(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => ({
-            value: p,
-            label: PRIORITY_LABELS[p],
-          }))}
-          disabled={busy}
-          aria-label="Priority"
-          title="Priority"
-        />
-        <Select
-          size="sm"
-          value={composeScope}
-          onChange={(v) => setComposeScope(v as ScopeValue)}
-          options={QUEST_SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
-          disabled={busy}
-          aria-label="Scope"
-          title="Scope"
-        />
-        <Button variant="primary" size="sm" onClick={submit} disabled={!subject.trim() || busy}>
-          {busy ? "Creating…" : "Create"}
-        </Button>
       </div>
       {err && <div className="quest-board-error">{err}</div>}
 
@@ -794,7 +730,114 @@ function QuestBoard({
           );
         })}
       </div>
+      <NewQuestModal
+        open={newOpen}
+        resolvedAgentId={resolvedAgentId}
+        onClose={() => onNewOpenChange(false)}
+        onCreated={onCreated}
+      />
     </div>
+  );
+}
+
+function NewQuestModal({
+  open,
+  resolvedAgentId,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  resolvedAgentId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [subject, setSubject] = useState("");
+  const [priority, setPriority] = useState<QuestPriority>("normal");
+  const [scope, setScope] = useState<ScopeValue>("self");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Reset the form every time the modal opens — so the second creation
+  // doesn't inherit the first's subject / priority / scope.
+  useEffect(() => {
+    if (open) {
+      setSubject("");
+      setPriority("normal");
+      setScope("self");
+      setBusy(false);
+      setErr(null);
+    }
+  }, [open]);
+
+  const submit = useCallback(async () => {
+    const s = subject.trim();
+    if (!s || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.createQuest({
+        project: resolvedAgentId,
+        subject: s,
+        priority,
+        scope,
+        agent_id: resolvedAgentId,
+      });
+      onCreated();
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to create quest");
+    } finally {
+      setBusy(false);
+    }
+  }, [subject, priority, scope, busy, resolvedAgentId, onCreated, onClose]);
+
+  return (
+    <Modal open={open} onClose={onClose} title="New quest">
+      <div className="quest-new-form">
+        <Input
+          label="Subject"
+          placeholder="What needs to happen?"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+          disabled={busy}
+          autoFocus
+          error={err ?? undefined}
+        />
+        <div className="quest-new-fields">
+          <Select
+            value={priority}
+            onChange={(v) => setPriority(v as QuestPriority)}
+            options={(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => ({
+              value: p,
+              label: PRIORITY_LABELS[p],
+            }))}
+            disabled={busy}
+            aria-label="Priority"
+          />
+          <Select
+            value={scope}
+            onChange={(v) => setScope(v as ScopeValue)}
+            options={QUEST_SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
+            disabled={busy}
+            aria-label="Scope"
+          />
+        </div>
+        <div className="quest-new-actions">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={submit} disabled={!subject.trim()} loading={busy}>
+            Create
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
