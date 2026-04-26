@@ -3,7 +3,7 @@
 use mini_moka::sync::Cache;
 use rusqlite::{Connection, params};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -153,8 +153,13 @@ impl AccountStore {
     }
 
     /// Create a new user with email + password. Returns the user.
+    ///
+    /// NOTE: `bcrypt::hash` is CPU-bound (~100 ms). This method is synchronous;
+    /// callers in an async context must use [`Self::create_user_async`].
     pub fn create_user(&self, email: &str, name: &str, password: &str) -> anyhow::Result<User> {
         let id = Uuid::new_v4().to_string();
+        // Hash BEFORE acquiring the lock — bcrypt is CPU-bound and must not
+        // hold the connection mutex during the slow work.
         let hash = bcrypt::hash(password, 10)?;
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -164,6 +169,18 @@ impl AccountStore {
         drop(conn);
         self.get_user_by_id(&id)?
             .ok_or_else(|| anyhow::anyhow!("failed to read back created user"))
+    }
+
+    /// Async wrapper for [`Self::create_user`] that runs the CPU-bound bcrypt
+    /// work (and the SQLite INSERT) on the blocking-thread pool, keeping the
+    /// tokio worker free.
+    pub async fn create_user_async(
+        self: Arc<Self>,
+        email: String,
+        name: String,
+        password: String,
+    ) -> anyhow::Result<User> {
+        tokio::task::spawn_blocking(move || self.create_user(&email, &name, &password)).await?
     }
 
     /// Find or create a user from an OAuth provider (Google, GitHub, etc.).
@@ -229,30 +246,53 @@ impl AccountStore {
     }
 
     /// Verify password for email login.
+    ///
+    /// NOTE: `bcrypt::verify` is CPU-bound (~100 ms). This method is
+    /// synchronous and must never hold the connection mutex across the
+    /// bcrypt work. Callers in an async context must use
+    /// [`Self::verify_password_async`].
     pub fn verify_password(&self, email: &str, password: &str) -> anyhow::Result<Option<User>> {
-        let conn = self.conn.lock().unwrap();
-        let row: Option<(String, String)> = conn
-            .query_row(
+        // Phase 1: SELECT — acquire lock, read (id, hash), then release.
+        let row: Option<(String, String)> = {
+            let conn = self.conn.lock().unwrap();
+            conn.query_row(
                 "SELECT id, password_hash FROM users WHERE email = ?1",
                 params![email],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
-            .ok();
+            .ok()
+        }; // lock released here
 
         let Some((id, hash)) = row else {
             return Ok(None);
         };
 
+        // Phase 2: bcrypt — CPU-bound, no mutex held.
         if !bcrypt::verify(password, &hash)? {
             return Ok(None);
         }
 
-        conn.execute(
-            "UPDATE users SET last_login = datetime('now') WHERE id = ?1",
-            params![id],
-        )?;
-        drop(conn);
+        // Phase 3: UPDATE last_login — re-acquire lock only for the write.
+        {
+            let conn = self.conn.lock().unwrap();
+            conn.execute(
+                "UPDATE users SET last_login = datetime('now') WHERE id = ?1",
+                params![id],
+            )?;
+        } // lock released here
+
         self.get_user_by_id(&id)
+    }
+
+    /// Async wrapper for [`Self::verify_password`] that offloads the entire
+    /// call (including the CPU-bound bcrypt work) onto the blocking-thread
+    /// pool, keeping the tokio worker free.
+    pub async fn verify_password_async(
+        self: Arc<Self>,
+        email: String,
+        password: String,
+    ) -> anyhow::Result<Option<User>> {
+        tokio::task::spawn_blocking(move || self.verify_password(&email, &password)).await?
     }
 
     /// Set a 6-digit verification code for a user.
@@ -499,19 +539,19 @@ pub struct InviteCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
 
-    fn fresh_accounts() -> AccountStore {
-        static N: AtomicU64 = AtomicU64::new(1);
-        let id = N.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("aeqi-accounts-test-{id}"));
-        std::fs::create_dir_all(&dir).unwrap();
-        AccountStore::open(&dir).unwrap()
+    /// Returns a fresh `AccountStore` backed by a self-cleaning temp dir.
+    /// Each call gets its own unique directory so tests never share state,
+    /// even across repeated `cargo test` invocations.
+    fn fresh_accounts() -> (AccountStore, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = AccountStore::open(dir.path()).expect("AccountStore::open");
+        (store, dir)
     }
 
     #[test]
     fn oauth_state_round_trip_consumes_once() {
-        let acc = fresh_accounts();
+        let (acc, _dir) = fresh_accounts();
         acc.save_oauth_state("nonce-A").unwrap();
         assert!(acc.consume_oauth_state("nonce-A").unwrap());
         assert!(
@@ -522,13 +562,73 @@ mod tests {
 
     #[test]
     fn oauth_state_unknown_nonce_rejected() {
-        let acc = fresh_accounts();
+        let (acc, _dir) = fresh_accounts();
         assert!(!acc.consume_oauth_state("never-saved").unwrap());
+    }
+
+    /// Regression: `verify_password` must not hold the SQLite mutex across
+    /// the CPU-bound bcrypt work. If the lock were held the entire time,
+    /// N concurrent calls would serialize and take N × bcrypt time. With the
+    /// fix the calls overlap on the blocking pool and total wallclock is
+    /// close to 1 × bcrypt time.
+    ///
+    /// Tolerance: we allow up to 3× a single-call baseline to give the
+    /// blocking pool time to spin up and avoid CI flakiness on slow machines.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_verify_password_does_not_serialize() {
+        use std::sync::Arc;
+
+        const CONCURRENCY: usize = 5;
+
+        let (store, _dir) = fresh_accounts();
+        let acc = Arc::new(store);
+
+        // Create one user whose password we will verify concurrently.
+        acc.create_user("bench@example.com", "Bench", "hunter2hunter2")
+            .unwrap();
+
+        // Baseline: one sequential call to establish the bcrypt cost.
+        let baseline_start = std::time::Instant::now();
+        let _ = acc
+            .clone()
+            .verify_password_async("bench@example.com".into(), "hunter2hunter2".into())
+            .await
+            .unwrap();
+        let baseline = baseline_start.elapsed();
+
+        // Concurrent: fire CONCURRENCY futures at the same time.
+        let concurrent_start = std::time::Instant::now();
+        let handles: Vec<_> = (0..CONCURRENCY)
+            .map(|_| {
+                let store = acc.clone();
+                tokio::spawn(async move {
+                    store
+                        .verify_password_async("bench@example.com".into(), "hunter2hunter2".into())
+                        .await
+                        .unwrap()
+                })
+            })
+            .collect();
+        for h in handles {
+            let result = h.await.unwrap();
+            assert!(result.is_some(), "verify must succeed");
+        }
+        let concurrent_elapsed = concurrent_start.elapsed();
+
+        // If the mutex were held across bcrypt, concurrent_elapsed ≈ N × baseline.
+        // With the fix, concurrent_elapsed ≈ 1× baseline (parallel on blocking pool).
+        // We allow up to 3× baseline to absorb scheduling jitter.
+        let limit = baseline * 3;
+        assert!(
+            concurrent_elapsed <= limit,
+            "concurrent verify ({concurrent_elapsed:?}) exceeded 3× baseline ({baseline:?}); \
+             lock is probably held across bcrypt"
+        );
     }
 
     #[test]
     fn oauth_state_expired_nonce_rejected() {
-        let acc = fresh_accounts();
+        let (acc, _dir) = fresh_accounts();
         // Manually insert an expired state — pretend it was saved long ago.
         {
             let conn = acc.conn.lock().unwrap();

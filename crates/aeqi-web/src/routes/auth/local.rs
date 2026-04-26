@@ -141,7 +141,11 @@ async fn signup_handler(
             .into_response();
     }
 
-    let user = match accounts.create_user(email, name, password) {
+    let user = match accounts
+        .clone()
+        .create_user_async(email.to_string(), name.to_string(), password.to_string())
+        .await
+    {
         Ok(u) => u,
         Err(e) => {
             tracing::error!("signup error: {e}");
@@ -257,7 +261,11 @@ async fn email_login_handler(
         return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
     };
 
-    let user = match accounts.verify_password(&body.email, &body.password) {
+    let user = match accounts
+        .clone()
+        .verify_password_async(body.email.clone(), body.password.clone())
+        .await
+    {
         Ok(Some(u)) => u,
         Ok(None) => {
             return (
