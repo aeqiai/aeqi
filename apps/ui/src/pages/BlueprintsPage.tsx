@@ -295,8 +295,8 @@ export default function BlueprintsPage() {
           </ul>
         ) : (
           <div className="bp-grid" role="list">
-            {filtered.map((t, i) => (
-              <BlueprintCard key={t.slug} template={t} index={i} />
+            {filtered.map((t) => (
+              <BlueprintCard key={t.slug} template={t} />
             ))}
           </div>
         )}

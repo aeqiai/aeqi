@@ -1,12 +1,11 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
 import { DEFAULT_TEMPLATE_SLUG } from "@/lib/templateFixtures";
+import { Card } from "@/components/ui";
 import type { CompanyTemplate } from "@/lib/types";
 
 interface BlueprintCardProps {
   template: CompanyTemplate;
-  /** Animation index — used by parent grid for staggered reveal. */
-  index?: number;
 }
 
 /** Compact human meta — "2 agents · 1 idea · 1 event", zeros skipped. */
@@ -26,52 +25,30 @@ function formatSeedMeta(t: CompanyTemplate): string {
 }
 
 /**
- * Catalog card on `/blueprints`. Restraint over flourish — one
- * accent-colored chip (the root agent's color, if any) anchors the
- * identity; everything else is typography. Hovering surfaces the
- * Blueprint's identity by shifting the border to the root color.
- *
- * The whole card is a navigation link; URL is source of truth for
- * "which Blueprint is open" so the click → detail-page transition
- * gets browser back/forward + deep-link semantics for free.
+ * Catalog card on `/blueprints`. Uses the shared `Card` primitive in
+ * `interactive` mode so hover, border, radius, padding, and surface
+ * tone come from the design system — no bespoke colors, no per-card
+ * accents, no extra hover gestures. Pure typography hierarchy:
+ * name → tagline → meta. The "Default" marker is a quiet text suffix
+ * in the meta line, not a pill.
  */
-function BlueprintCardImpl({ template, index = 0 }: BlueprintCardProps) {
+function BlueprintCardImpl({ template }: BlueprintCardProps) {
   const isDefault = template.slug === DEFAULT_TEMPLATE_SLUG;
-  const accent = template.root?.color;
   const meta = formatSeedMeta(template);
-
-  // Stagger first 10 cards; clamp the rest at 400ms so a long catalog
-  // doesn't crawl in over multiple seconds.
-  const animationDelay = index < 10 ? `${index * 40}ms` : "400ms";
+  const fullMeta = isDefault ? `${meta} · Default` : meta;
 
   return (
     <Link
       to={`/blueprints/${encodeURIComponent(template.slug)}`}
+      className="bp-card-link"
       role="listitem"
-      className="bp-card"
-      style={
-        {
-          animationDelay,
-          // CSS custom property the hover state uses to tint the
-          // border. Falls back to var(--text-primary) when no accent.
-          ...(accent ? { ["--bp-card-accent" as string]: accent } : {}),
-        } as React.CSSProperties
-      }
       aria-label={`${template.name} blueprint${template.tagline ? ` — ${template.tagline}` : ""}`}
     >
-      <div className="bp-card-head">
-        <span
-          className="bp-card-dot"
-          aria-hidden="true"
-          style={accent ? { background: accent } : undefined}
-        />
+      <Card variant="default" padding="md" interactive className="bp-card">
         <h3 className="bp-card-name">{template.name}</h3>
-        {isDefault && <span className="bp-card-default">Default</span>}
-      </div>
-
-      {template.tagline && <p className="bp-card-tagline">{template.tagline}</p>}
-
-      <p className="bp-card-meta">{meta}</p>
+        {template.tagline && <p className="bp-card-tagline">{template.tagline}</p>}
+        <p className="bp-card-meta">{fullMeta}</p>
+      </Card>
     </Link>
   );
 }
