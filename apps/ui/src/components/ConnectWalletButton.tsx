@@ -1,33 +1,52 @@
-import { useState } from "react";
-import { useAccount, useSignMessage, useChainId, useDisconnect } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useEffect, useRef, useState } from "react";
+import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useAuthStore } from "@/store/auth";
+import { Button } from "@/components/ui";
 import { buildSiweMessage, fetchNonce, loginOrSignupWithWallet } from "@/lib/walletAuth";
+
+const WalletIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+  </svg>
+);
 
 interface Props {
   onAuthenticated?: () => void;
 }
 
 /**
- * Single button that runs the full SIWE flow: opens RainbowKit's wallet
- * picker on first click; once connected, requests a nonce, asks the wallet
- * to sign the SIWE message, and sends it to the platform's
- * /api/auth/wallet/{login,signup} endpoint. On success, stashes the JWT in
- * the existing auth store so the rest of the app behaves identically to a
- * password / OAuth login.
+ * One-click "Continue with Wallet" matching the Google / GitHub OAuth
+ * buttons. Click → RainbowKit modal → on successful connect, auto-fires
+ * the SIWE signing dance and posts to /api/auth/wallet/{login,signup}.
  */
 export default function ConnectWalletButton({ onAuthenticated }: Props) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
   const handleOAuthCallback = useAuthStore((s) => s.handleOAuthCallback);
-  const [signingIn, setSigningIn] = useState(false);
+  const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guard so the post-connect effect only runs once per connection. If the
+  // user disconnects (or auth fails and we disconnect them), this resets.
+  const ranOnce = useRef(false);
 
   async function authenticate() {
     if (!address) return;
-    setSigningIn(true);
+    setSigning(true);
     setError(null);
     try {
       const { nonce, domain } = await fetchNonce();
@@ -40,56 +59,61 @@ export default function ConnectWalletButton({ onAuthenticated }: Props) {
       });
       const signature = await signMessageAsync({ message });
       const res = await loginOrSignupWithWallet(message, signature);
-      if (!res.ok || !res.token) {
-        throw new Error("auth response missing token");
-      }
+      if (!res.ok || !res.token) throw new Error("auth response missing token");
       handleOAuthCallback(res.token);
       onAuthenticated?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      // Disconnect on auth failure so the user can try a different wallet
-      // without first manually disconnecting.
+      setError(err instanceof Error ? err.message : String(err));
+      // Disconnect on auth failure so the user can pick a different wallet
+      // without manually disconnecting first.
       disconnect();
+      ranOnce.current = false;
     } finally {
-      setSigningIn(false);
+      setSigning(false);
+    }
+  }
+
+  // After the modal closes with a successful connection, run SIWE
+  // automatically. The button itself collapses connect + sign into one
+  // user-visible action.
+  useEffect(() => {
+    if (isConnected && address && !signing && !ranOnce.current) {
+      ranOnce.current = true;
+      void authenticate();
+    }
+    if (!isConnected) {
+      ranOnce.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
+
+  function handleClick() {
+    if (signing) return;
+    if (isConnected) {
+      void authenticate();
+    } else {
+      openConnectModal?.();
     }
   }
 
   return (
-    <div className="connect-wallet-block">
-      <ConnectButton.Custom>
-        {({ account, chain, openConnectModal, mounted }) => {
-          const ready = mounted;
-          const connected = ready && account && chain;
-          if (!connected) {
-            return (
-              <button
-                type="button"
-                className="btn btn--secondary connect-wallet-btn"
-                onClick={openConnectModal}
-              >
-                Connect Wallet
-              </button>
-            );
-          }
-          return (
-            <button
-              type="button"
-              className="btn btn--primary connect-wallet-btn"
-              onClick={authenticate}
-              disabled={signingIn}
-            >
-              {signingIn ? "Signing in…" : `Sign in as ${account.displayName}`}
-            </button>
-          );
-        }}
-      </ConnectButton.Custom>
-      {isConnected && error && (
-        <div className="connect-wallet-error" role="alert">
+    <>
+      <Button
+        variant="secondary"
+        size="lg"
+        fullWidth
+        type="button"
+        onClick={handleClick}
+        disabled={signing}
+      >
+        <WalletIcon />
+        {signing ? "Signing in…" : "Continue with Wallet"}
+      </Button>
+      {error && (
+        <div className="auth-error" role="alert">
           {error}
         </div>
       )}
-    </div>
+    </>
   );
 }
