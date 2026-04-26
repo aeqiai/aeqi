@@ -576,6 +576,18 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // /start launch endpoint — platform-side. Provisions a personal
+  // sandbox seeded with the chosen Blueprint, gated by the user's
+  // lifetime free-trial Company slot. Server returns the root SLUG
+  // (the sandbox's unit name), not the agent UUID — the agent UUID
+  // is created inside the sandbox runtime and surfaces later via
+  // /api/auth/me's `roots` array.
+  launchStart: (data: { template?: string; name: string }) =>
+    request<{ ok: boolean; root: string }>("/start/launch", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   spawnAgent: (data: {
     name: string;
     template?: string;

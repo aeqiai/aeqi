@@ -149,12 +149,17 @@ export default function StartPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const resp = await api.spawnTemplate({ template: template.slug, name: trimmed });
-      const rootId = (resp as { root_agent_id?: string })?.root_agent_id;
-      if (!rootId) throw new Error("Spawn returned no root agent id.");
-      setActiveRoot(rootId);
+      // Platform-side launch — provisions a personal sandbox seeded
+      // with this Blueprint and links the placement to the user. The
+      // returned `root` is the placement slug; the agent UUID is
+      // assigned by the sandbox runtime once it boots and surfaces
+      // via /api/auth/me.
+      const resp = await api.launchStart({ template: template.slug, name: trimmed });
+      const rootSlug = (resp as { root?: string })?.root;
+      if (!rootSlug) throw new Error("Launch returned no root slug.");
+      setActiveRoot(rootSlug);
       await fetchAgents();
-      navigate(`/${encodeURIComponent(rootId)}/sessions`);
+      navigate(`/${encodeURIComponent(rootSlug)}/sessions`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not launch the Company.";
       setSubmitError(msg);
