@@ -321,7 +321,7 @@ export default function IdeasListView({
             >
               <path d="M6 2.5v7M2.5 6h7" />
             </svg>
-            new idea
+            new
           </button>
         </div>
         {activeChips.length > 0 && (
