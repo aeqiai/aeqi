@@ -400,8 +400,8 @@
    can expand or not. */
 .collapseBtn,
 .collapseSpacer {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   align-self: center;
   margin: 0 0 0 4px;
@@ -413,23 +413,25 @@
   padding: 0;
   position: relative;
   background: transparent;
-  border: 0;
-  border-radius: 4px;
-  /* Bumped from --text-muted (36%) — chevron read as a ghost. --text-secondary
-     gives it presence as an actionable affordance. */
+  /* Same idiom as .sidebar-help-btn / .sidebar-signout-btn / picker
+     switcher: round, transparent → border-on-hover. Scaled down to 20×20
+     for tree density (vs 24×24 used in the footer/picker). One button
+     language across the whole sidebar. */
+  border: 1px solid transparent;
+  border-radius: 50%;
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    background 0.1s ease,
-    color 0.1s ease;
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
 }
-.collapseBtn:hover {
-  background: var(--state-hover);
-  color: var(--color-text-title);
-}
+.collapseBtn:hover,
 .collapseBtn:focus-visible {
-  outline: 1px solid var(--border-hover);
-  outline-offset: 1px;
+  color: var(--color-text-title);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
 }
 .rowActive .collapseBtn {
   color: var(--text-primary);
