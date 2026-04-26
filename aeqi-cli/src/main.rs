@@ -130,8 +130,6 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Primer) => cmd::primer::cmd_primer(&cli.config),
         Some(Commands::Mcp) => cmd::mcp::cmd_mcp(&cli.config).map(|_| ()),
-        Some(Commands::Seed { reset_identities }) => {
-            cmd::seed::cmd_seed(&cli.config, reset_identities).await
-        }
+        Some(Commands::Seed) => cmd::seed::cmd_seed(&cli.config).await,
     }
 }

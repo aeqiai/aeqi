@@ -223,11 +223,7 @@ pub enum Commands {
     Mcp,
 
     /// Seed preset ideas (skills + vanilla identity) into the idea store.
-    Seed {
-        /// Also purge junk identity ideas (magical-loli test pack) before seeding.
-        #[arg(long)]
-        reset_identities: bool,
-    },
+    Seed,
 }
 
 #[derive(Subcommand)]
