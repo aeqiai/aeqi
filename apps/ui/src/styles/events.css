@@ -1043,9 +1043,3 @@
   color: var(--error, #c44);
   margin-top: 2px;
 }
-
-/* Toolbar head — wrap shared `.ideas-list-head` with events spacing. */
-.events-toolbar-head {
-  padding: 14px 28px 8px;
-  border-bottom: 1px solid var(--border-faint);
-}

@@ -50,7 +50,7 @@ export default function EventsToolbar({
   }, [onNew]);
 
   return (
-    <div className="ideas-list-head events-toolbar-head">
+    <div className="ideas-list-head">
       <div className="ideas-toolbar">
         {lead}
         <span className="ideas-list-search-field">
