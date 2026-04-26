@@ -181,6 +181,16 @@
   min-width: 0;
 }
 
+/* Left-align icon + label inside each auth-row button so all four icons
+   start at the same X (the button's natural padding-left), regardless of
+   label length. Without this override the Button's `justify-content: center`
+   floats the [icon][gap][label] group, so longer labels pushed icons left
+   and shorter labels pushed them right. Selector specificity beats Button's
+   own class without needing !important. */
+.auth-oauth-row button {
+  justify-content: flex-start;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
