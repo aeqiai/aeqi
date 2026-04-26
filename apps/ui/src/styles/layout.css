@@ -5123,9 +5123,15 @@
 /* Canvas head band — uses the same .ideas-list-head shell as the index
    page so when the user clicks an idea, only the contents shift; the
    band height, hairline border, and horizontal padding are continuous.
-   The .ideas-canvas-head modifier scopes any canvas-specific tweaks. */
+   Inter-row gap is tightened (6px) so tags + refs read as one strip
+   under the toolbar instead of three loosely-spaced bands. */
 .ideas-canvas-head {
-  gap: 10px;
+  gap: 6px;
+}
+.ideas-canvas-head .ideas-tags-editor,
+.ideas-canvas-head .ideas-refs {
+  min-height: 20px;
+  gap: 5px;
 }
 .ideas-canvas-toolbar {
   display: flex;

@@ -2,6 +2,86 @@
 
 Frontend for the AEQI agent runtime. Vite + React 19 + Zustand + TypeScript.
 
+## MVP charter — read this before touching any UI
+
+**The goal is to ship the MVP.** Every UI decision must be measured against
+"does this get us closer to a usable product the user can demo?" If a change
+isn't on that path, don't make it.
+
+### Hard rules
+
+1. **Use the design system. Don't invent.**
+   - Tokens live in `src/styles/primitives.css` (`--color-*`, `--text-*`,
+     `--bg-*`, `--accent`, `--border*`, `--input-*`, `--space-*`,
+     `--radius-*`, `--font-*`). Use them.
+   - Reusable components live in `src/components/ui/` (Button, IconButton,
+     Input, Select, Menu, Popover, Spinner, Badge, EmptyState, Tooltip).
+     Use them. Extend them via variants — don't fork.
+   - Surface-level patterns (`.ideas-toolbar-btn`, `.ideas-tag-chip`,
+     `.ideas-list-head`, `.scope-dot`) are canonical for their surface and
+     should be reused, not re-skinned.
+
+2. **No custom design.**
+   - No bespoke colors. No new font sizes outside the scale. No new spacing
+     values outside the 4pt grid. No new border radii. No new shadow values.
+   - If a token is missing, add it to `primitives.css` (or
+     `packages/tokens/src/tokens.css`) once, then reuse it. Don't sprinkle
+     literal values through component CSS.
+   - No "I'll just make it work for this one screen" CSS overrides. If a
+     pattern doesn't fit, surface that as feedback before forking.
+
+3. **Reuse over rewrite.**
+   - Before adding a new component, search `src/components/` for one that
+     fits. If something close exists, extend it (add a prop or variant).
+   - Before writing fresh CSS, search `src/styles/` for the pattern. If a
+     class already does this, use it.
+   - Buttons in toolbars use `.ideas-toolbar-btn` (or its design-system
+     successor). Pills use `border-radius: 999px`. Icons are 13px stroked
+     SVGs. There is one canonical answer for each — find it.
+
+4. **No flourish without function.**
+   - No animations beyond `transition: 0.12s ease` on hover/focus states.
+     No bounce, no elastic, no scroll-driven, no decorative motion.
+   - No editorial flourishes (eyebrow micro-caps, marquee headings, hero
+     typography) on internal app surfaces. Reserve those for marketing.
+   - No icons that don't disambiguate an action.
+
+5. **Drop dead code on the same commit.**
+   - When a class/component/file is no longer used, remove it. Don't leave
+     "// removed" comments. Don't leave dead CSS rules. CLAUDE.md says
+     "no dead code" — enforce it on every ship.
+
+### Anti-patterns to refuse
+
+- **Border-left coloured stripe** on cards/rows/alerts (memory has rejected
+  this twice; impeccable hard-bans it).
+- **Gradient text** (`background-clip: text` + gradient).
+- **Glassmorphism** (backdrop-blur on resting surfaces).
+- **Rounded-square buttons.** Pills (`999px`) for labeled, circles
+  (`999px`) for icon-only. Nothing in between.
+- **Verbose state labels** ("Edited — unsaved", "Saving…", "Saved").
+  Communicate state through presence (the Save button appears when there's
+  work) or a single colored dot, not prose.
+- **Custom scope/status chips per surface.** Use `.scope-chip` /
+  `.scope-dot` / the existing primitives.
+- **JetBrains Mono.** Removed from the design system; use `var(--font-mono)`
+  which now resolves to the system mono stack.
+- **Initial-letter brand accents** on tabs/nav (`a` `e` `q` `i` letters in
+  Zen Dots — rejected twice).
+- **"AEQI" in prose.** "aeqi" is always lowercase outside code identifiers.
+
+### When in doubt
+
+Ask. The user prefers a 30-second clarifying question over a 30-minute
+custom-design detour. If something feels like it needs a one-off treatment,
+that's almost always a sign the existing pattern needs a small extension —
+not a fork.
+
+The user is shipping a product, not commissioning a design system. Move
+fast, reuse hard, and don't make them puke.
+
+
+
 ## Stack
 
 - **Build:** Vite 6, React 19, TypeScript 5
