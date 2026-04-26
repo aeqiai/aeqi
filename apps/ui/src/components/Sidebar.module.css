@@ -49,7 +49,10 @@
   min-height: var(--sidebar-row-h);
   padding: 0 8px;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  /* Was --text-secondary (54%) — agent names came across as marginalia
+     against the paper-tinted shell. Body ink at 85% lets the names read
+     as primary content without overpowering the primitive labels above. */
+  color: var(--text-primary);
   background: transparent;
   cursor: pointer;
   transition:
@@ -63,19 +66,24 @@
   gap: 0;
 }
 .row:hover {
-  color: var(--text-primary);
+  color: var(--color-text-title);
   background: var(--state-hover);
 }
 .row:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: -1px;
-  color: var(--text-primary);
+  color: var(--color-text-title);
 }
 .rowActive {
   composes: row;
-  color: var(--text-primary);
+  /* Title ink (92%) + semibold so the active row pops without needing a
+     heavy panel tint. The signal stack on active is: title-weight label,
+     semibold, 7% bg, AND the rail glyphs lighting up to full accent
+     (see .rowActive .guideLine below) — a stronger and more contextual
+     "you are here" than a generic left bar would be next to the rails. */
+  color: var(--color-text-title);
   background: var(--state-selected);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Rail columns — one per ancestor depth. Each is 16px wide (matches the
@@ -164,7 +172,9 @@
   background: transparent;
   border: 0;
   border-radius: 4px;
-  color: var(--text-muted);
+  /* Bumped from --text-muted (36%) — chevron read as a ghost. --text-secondary
+     gives it presence as an actionable affordance. */
+  color: var(--text-secondary);
   cursor: pointer;
   transition:
     background 0.1s ease,
@@ -172,14 +182,14 @@
 }
 .collapseBtn:hover {
   background: var(--state-hover);
-  color: var(--text-primary);
+  color: var(--color-text-title);
 }
 .collapseBtn:focus-visible {
   outline: 1px solid var(--border-hover);
   outline-offset: 1px;
 }
 .rowActive .collapseBtn {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 /* Avatar slot — 16px footprint, identical to the SVG icon column in
