@@ -19,7 +19,7 @@ use chacha20poly1305::{
 use rand::RngCore;
 use rusqlite::Connection;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::{
@@ -132,7 +132,7 @@ pub async fn provision_custodial<K: MasterKekProvider + ?Sized>(
     };
     let db = db.clone();
     tokio::task::spawn_blocking(move || -> Result<(), WalletError> {
-        let conn = db.blocking_lock();
+        let conn = db.lock().expect("wallet db mutex poisoned");
         WalletStore::insert(&conn, &insert)?;
         Ok(())
     })
@@ -186,7 +186,7 @@ pub async fn reveal_recovery_seed<K: MasterKekProvider + ?Sized>(
     let db = db.clone();
     let id_for_block = wallet_id.clone();
     tokio::task::spawn_blocking(move || -> Result<(), WalletError> {
-        let conn = db.blocking_lock();
+        let conn = db.lock().expect("wallet db mutex poisoned");
         WalletStore::mark_recovery_revealed(&conn, &id_for_block)?;
         Ok(())
     })
@@ -197,6 +197,75 @@ pub async fn reveal_recovery_seed<K: MasterKekProvider + ?Sized>(
         mnemonic,
         address: stored.address,
     })
+}
+
+/// Idempotently ensure a user has a primary custodial wallet. Used on every
+/// signup path; safe to call multiple times. Returns:
+/// - `Some(ProvisionedWallet)` with the new mnemonic if a wallet was just
+///   created (caller can show or stash the mnemonic).
+/// - `None` if the user already had a primary wallet (no-op).
+pub async fn ensure_primary_custodial_user_wallet<K: MasterKekProvider + ?Sized>(
+    db: &SharedDb,
+    master_kek: &K,
+    user_id: &str,
+) -> Result<Option<ProvisionedWallet>, WalletError> {
+    let existing = {
+        let db = db.clone();
+        let user_id = user_id.to_string();
+        tokio::task::spawn_blocking(move || -> Result<Vec<StoredWallet>, WalletError> {
+            let conn = db.lock().expect("wallet db mutex poisoned");
+            Ok(WalletStore::list_for_user(&conn, &user_id)?)
+        })
+        .await
+        .map_err(|e| WalletError::Join(e.to_string()))??
+    };
+    if existing.iter().any(|w| w.is_primary) {
+        return Ok(None);
+    }
+    let provisioned = provision_custodial(
+        db,
+        master_kek,
+        ProvisionRequest {
+            user_id: user_id.to_string(),
+            is_primary: true,
+            provisioned_by: ProvisionedBy::Runtime,
+        },
+    )
+    .await?;
+    Ok(Some(provisioned))
+}
+
+/// Idempotently ensure an agent has a custodial wallet. Used on every agent
+/// creation path. Returns Some(ProvisionedWallet) if newly created, None if
+/// the agent already had a wallet.
+pub async fn ensure_agent_custodial_wallet<K: MasterKekProvider + ?Sized>(
+    db: &SharedDb,
+    master_kek: &K,
+    agent_id: &str,
+) -> Result<Option<ProvisionedWallet>, WalletError> {
+    let existing = {
+        let db = db.clone();
+        let agent_id = agent_id.to_string();
+        tokio::task::spawn_blocking(move || -> Result<Option<StoredAgentWallet>, WalletError> {
+            let conn = db.lock().expect("wallet db mutex poisoned");
+            Ok(AgentWalletStore::get_by_agent(&conn, &agent_id)?)
+        })
+        .await
+        .map_err(|e| WalletError::Join(e.to_string()))??
+    };
+    if existing.is_some() {
+        return Ok(None);
+    }
+    let provisioned = provision_custodial_for_agent(
+        db,
+        master_kek,
+        ProvisionAgentRequest {
+            agent_id: agent_id.to_string(),
+            provisioned_by: ProvisionedBy::Runtime,
+        },
+    )
+    .await?;
+    Ok(Some(provisioned))
 }
 
 // ── agent wallet API ──────────────────────────────────────────────────────
@@ -245,7 +314,7 @@ pub async fn provision_custodial_for_agent<K: MasterKekProvider + ?Sized>(
     };
     let db = db.clone();
     tokio::task::spawn_blocking(move || -> Result<(), WalletError> {
-        let conn = db.blocking_lock();
+        let conn = db.lock().expect("wallet db mutex poisoned");
         AgentWalletStore::insert(&conn, &insert)?;
         Ok(())
     })
@@ -305,7 +374,7 @@ pub async fn reveal_agent_recovery_seed<K: MasterKekProvider + ?Sized>(
     let db = db.clone();
     let agent_id_for_block = agent_id.to_string();
     tokio::task::spawn_blocking(move || -> Result<(), WalletError> {
-        let conn = db.blocking_lock();
+        let conn = db.lock().expect("wallet db mutex poisoned");
         AgentWalletStore::mark_recovery_revealed(&conn, &agent_id_for_block)?;
         Ok(())
     })
@@ -324,7 +393,7 @@ async fn load_stored(db: &SharedDb, wallet_id: &WalletId) -> Result<StoredWallet
     let db = db.clone();
     let id = wallet_id.clone();
     tokio::task::spawn_blocking(move || -> Result<StoredWallet, WalletError> {
-        let conn = db.blocking_lock();
+        let conn = db.lock().expect("wallet db mutex poisoned");
         let w = WalletStore::get_by_id(&conn, &id)?;
         Ok(w)
     })
@@ -339,7 +408,7 @@ async fn load_agent_wallet(
     let db = db.clone();
     let agent_id = agent_id.to_string();
     tokio::task::spawn_blocking(move || -> Result<StoredAgentWallet, WalletError> {
-        let conn = db.blocking_lock();
+        let conn = db.lock().expect("wallet db mutex poisoned");
         AgentWalletStore::get_by_agent(&conn, &agent_id)?
             .ok_or_else(|| WalletError::Store(StoreError::NotFound(agent_id.clone())))
     })
@@ -590,7 +659,7 @@ mod tests {
         let kek = fresh_kek();
         // Manually seed a self_custody wallet (no server share).
         {
-            let conn = db.lock().await;
+            let conn = db.lock().unwrap();
             conn.execute(
                 "INSERT INTO user_wallets (id, user_id, address, pubkey, custody_state,
                   is_primary, provisioned_by, server_share_ciphertext, added_at)

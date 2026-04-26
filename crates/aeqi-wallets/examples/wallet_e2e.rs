@@ -16,7 +16,7 @@ use k256::ecdsa::{Signature, VerifyingKey, signature::hazmat::PrehashVerifier};
 use rand::RngCore;
 use rusqlite::Connection;
 use sha3::{Digest, Keccak256};
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> anyhow::Result<()> {

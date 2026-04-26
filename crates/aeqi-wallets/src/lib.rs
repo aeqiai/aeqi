@@ -20,7 +20,8 @@ pub use kek::{KekError, MasterKekProvider};
 pub use keypair::Keypair;
 pub use types::{Address, EcdsaSignature, Pubkey, WalletId};
 pub use wallet::{
-    ProvisionAgentRequest, ProvisionRequest, ProvisionedWallet, RevealedRecovery, WalletError,
+    ProvisionAgentRequest, ProvisionRequest, ProvisionedWallet, RevealedRecovery, SharedDb,
+    WalletError, ensure_agent_custodial_wallet, ensure_primary_custodial_user_wallet,
     provision_custodial, provision_custodial_for_agent, reveal_agent_recovery_seed,
     reveal_recovery_seed, sign_agent_custodial, sign_custodial,
 };
