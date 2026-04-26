@@ -76,17 +76,14 @@ export async function loginOrRegisterWithPasskey(): Promise<PasskeyAuthResponse>
   try {
     return await loginWithPasskey();
   } catch (err) {
-    const status = (err as { status?: number }).status;
     const name = (err as { name?: string }).name;
-    const msg = err instanceof Error ? err.message : String(err);
-    // NotAllowedError / AbortError = user dismissed the picker. Don't
-    // automatically fall through to register — that would be surprising.
+    // User-dismissed prompts shouldn't cascade into a registration attempt.
     if (name === "NotAllowedError" || name === "AbortError") {
       throw err;
     }
-    if (status === 401 || status === 404 || msg.toLowerCase().includes("no account")) {
-      return registerWithPasskey();
-    }
-    throw err;
+    // Anything else — server doesn't know us yet, no passkeys present on
+    // this device, server returned an error on login-begin — fall through
+    // to register and let the user create a fresh credential.
+    return registerWithPasskey();
   }
 }

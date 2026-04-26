@@ -3,24 +3,8 @@ import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
+import AuthIconSlot from "@/components/AuthIconSlot";
 import { buildSiweMessage, fetchNonce, loginOrSignupWithWallet } from "@/lib/walletAuth";
-
-const WalletIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-  </svg>
-);
 
 interface Props {
   onAuthenticated?: () => void;
@@ -106,7 +90,7 @@ export default function ConnectWalletButton({ onAuthenticated }: Props) {
         onClick={handleClick}
         disabled={signing}
       >
-        <WalletIcon />
+        <AuthIconSlot />
         {signing ? "Signing in…" : "Continue with Wallet"}
       </Button>
       {error && (

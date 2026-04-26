@@ -1,24 +1,8 @@
 import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
+import AuthIconSlot from "@/components/AuthIconSlot";
 import { loginOrRegisterWithPasskey } from "@/lib/passkeyAuth";
-
-const PasskeyIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="9" cy="9" r="4" />
-    <path d="M9 13c-2.76 0-5 2.24-5 5v2h7" />
-    <path d="m15 13 6 6-1.5 1.5L18 19v3h-3v-3l-1.5 1.5L12 19l3-3v-3Z" />
-  </svg>
-);
 
 interface Props {
   onAuthenticated?: () => void;
@@ -60,7 +44,7 @@ export default function ContinueWithPasskeyButton({ onAuthenticated }: Props) {
   return (
     <>
       <Button variant="secondary" size="lg" fullWidth type="button" onClick={go} disabled={busy}>
-        <PasskeyIcon />
+        <AuthIconSlot />
         {busy ? "Verifying…" : "Continue with Passkey"}
       </Button>
       {error && (
