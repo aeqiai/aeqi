@@ -561,31 +561,54 @@
   padding: 8px 8px 8px;
 }
 .sidebar-nav-item {
+  /* position:relative anchors the ::before accent indicator on .active. */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: var(--sidebar-row-h);
   padding: 0 8px;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  /* Resting state was --text-secondary (54%) which read as marginalia on the
+     paper-tinted shell. --text-primary (85%) lets the labels feel present. */
+  color: var(--text-primary);
   text-decoration: none;
   border-radius: var(--radius-md);
   transition: all 0.1s ease;
 }
 .sidebar-nav-item:hover {
-  color: var(--text-primary);
+  color: var(--color-text-title);
   background: var(--state-hover);
 }
 .sidebar-nav-item.active {
-  color: var(--text-primary);
+  /* Title-weight ink + semibold pulls the active row out of the resting
+     register without requiring a heavy background tint. The accent left bar
+     (::before) does the unambiguous "you are here" job — same vocabulary as
+     the canonical 2px under-tab bar in Tabs.module.css. */
+  color: var(--color-text-title);
   background: var(--state-selected);
-  font-weight: 500;
+  font-weight: 600;
+}
+.sidebar-nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
 }
 .sidebar-nav-item > svg {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--text-muted);
+  /* Was --text-muted (36%) — icons read as ghosts. --text-secondary (54%)
+     gives them weight at rest so the rail doesn't feel skeletal. */
+  color: var(--text-secondary);
+  /* Bump stroke weight on the inline 1.5-stroke icons so 16px glyphs hold
+     their silhouette on hi-DPI without going chunky. */
+  stroke-width: 1.65;
 }
 .sidebar-nav-item:hover > svg,
 .sidebar-nav-item.active > svg {
