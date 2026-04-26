@@ -26,6 +26,9 @@ async fn google_auth_handler(State(state): State<AppState>) -> Response {
     let Some(google) = &state.auth_config.google else {
         return (StatusCode::BAD_REQUEST, "Google OAuth not configured").into_response();
     };
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
 
     let redirect_uri = google.redirect_uri.clone().unwrap_or_else(|| {
         let base = state
@@ -36,8 +39,15 @@ async fn google_auth_handler(State(state): State<AppState>) -> Response {
         format!("{}/api/auth/google/callback", base)
     });
 
-    // Generate state param for CSRF protection.
     let csrf_state = uuid::Uuid::new_v4().to_string();
+    if let Err(e) = accounts.save_oauth_state(&csrf_state) {
+        tracing::error!("google oauth: failed to persist csrf state: {e}");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to start OAuth flow",
+        )
+            .into_response();
+    }
 
     let url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=openid%20email%20profile&state={}&access_type=offline&prompt=consent",
@@ -63,6 +73,20 @@ async fn google_callback_handler(
     let Some(code) = params.get("code") else {
         return (StatusCode::BAD_REQUEST, "missing code parameter").into_response();
     };
+    let Some(returned_state) = params.get("state") else {
+        return (StatusCode::BAD_REQUEST, "missing state parameter").into_response();
+    };
+    match accounts.consume_oauth_state(returned_state) {
+        Ok(true) => {}
+        Ok(false) => {
+            tracing::warn!("google oauth: state mismatch or expired");
+            return (StatusCode::BAD_REQUEST, "invalid or expired state").into_response();
+        }
+        Err(e) => {
+            tracing::error!("google oauth: state lookup error: {e}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "state check failed").into_response();
+        }
+    }
 
     let redirect_uri = google.redirect_uri.clone().unwrap_or_else(|| {
         let base = state

@@ -73,6 +73,10 @@ impl AccountStore {
                 id          TEXT PRIMARY KEY,
                 email       TEXT UNIQUE NOT NULL COLLATE NOCASE,
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE IF NOT EXISTS oauth_states (
+                state       TEXT PRIMARY KEY,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
         // Migration: user_roots -> user_access.
@@ -115,6 +119,37 @@ impl AccountStore {
             "DELETE FROM invite_codes; DELETE FROM user_access; DELETE FROM waitlist; DELETE FROM users;"
         )?;
         Ok(())
+    }
+
+    /// Persist a freshly-generated OAuth `state` nonce so the corresponding
+    /// callback can verify it. The redirect handler calls this; the callback
+    /// calls [`Self::consume_oauth_state`].
+    pub fn save_oauth_state(&self, state: &str) -> anyhow::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO oauth_states (state) VALUES (?1)",
+            [state],
+        )?;
+        Ok(())
+    }
+
+    /// Atomically consume an OAuth `state` nonce. Returns `true` only if the
+    /// row existed AND was created within `OAUTH_STATE_TTL`. Any expired or
+    /// missing nonce returns `false` — the callback must reject the request.
+    /// Also opportunistically GC's all expired entries.
+    pub fn consume_oauth_state(&self, state: &str) -> anyhow::Result<bool> {
+        const OAUTH_STATE_TTL_SECS: i64 = 600;
+        let conn = self.conn.lock().unwrap();
+        // GC: drop everything older than the TTL regardless of whether `state`
+        // matches. Cheap, bounded, keeps the table from growing.
+        conn.execute(
+            "DELETE FROM oauth_states
+             WHERE created_at < datetime('now', ?1)",
+            [format!("-{OAUTH_STATE_TTL_SECS} seconds")],
+        )?;
+        // Atomic delete-and-check: only matches a row still inside the TTL.
+        let n = conn.execute("DELETE FROM oauth_states WHERE state = ?1", [state])?;
+        Ok(n > 0)
     }
 
     /// Create a new user with email + password. Returns the user.
@@ -459,4 +494,60 @@ pub struct InviteCode {
     pub used_by: Option<String>,
     pub used_at: Option<String>,
     pub created_at: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    fn fresh_accounts() -> AccountStore {
+        static N: AtomicU64 = AtomicU64::new(1);
+        let id = N.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("aeqi-accounts-test-{id}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        AccountStore::open(&dir).unwrap()
+    }
+
+    #[test]
+    fn oauth_state_round_trip_consumes_once() {
+        let acc = fresh_accounts();
+        acc.save_oauth_state("nonce-A").unwrap();
+        assert!(acc.consume_oauth_state("nonce-A").unwrap());
+        assert!(
+            !acc.consume_oauth_state("nonce-A").unwrap(),
+            "state must be single-use"
+        );
+    }
+
+    #[test]
+    fn oauth_state_unknown_nonce_rejected() {
+        let acc = fresh_accounts();
+        assert!(!acc.consume_oauth_state("never-saved").unwrap());
+    }
+
+    #[test]
+    fn oauth_state_expired_nonce_rejected() {
+        let acc = fresh_accounts();
+        // Manually insert an expired state — pretend it was saved long ago.
+        {
+            let conn = acc.conn.lock().unwrap();
+            conn.execute(
+                "INSERT INTO oauth_states (state, created_at) VALUES (?1, datetime('now', '-2 hours'))",
+                ["stale-nonce"],
+            )
+            .unwrap();
+        }
+        assert!(!acc.consume_oauth_state("stale-nonce").unwrap());
+        // GC also evicted the expired row.
+        let conn = acc.conn.lock().unwrap();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM oauth_states WHERE state = 'stale-nonce'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap();
+        assert_eq!(n, 0);
+    }
 }
