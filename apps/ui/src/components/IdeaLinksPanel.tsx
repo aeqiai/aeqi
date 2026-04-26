@@ -2,39 +2,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
-import type { Idea, IdeaEdges, IdeaBacklink, IdeaLink, IdeaRelation } from "@/lib/types";
+import type { Idea, IdeaEdges, IdeaLink } from "@/lib/types";
 
 const NO_EDGES: IdeaEdges = { ok: true, links: [], backlinks: [] };
 const NO_IDEAS: Idea[] = [];
 
-// Runtime behavior differs per relation, so the labels should reflect what
-// the user will actually see in their agent's context.
-const RELATION_LABEL: Record<IdeaRelation, string> = {
-  mentions: "mentions",
-  embeds: "embeds",
-  adjacent: "adjacent",
-};
-
-const RELATION_HINT: Record<IdeaRelation, string> = {
-  mentions: "inline [[link]] in the body",
-  embeds: "inline ![[transclusion]] in the body",
-  adjacent: "also see — not in body",
-};
-
 /**
- * Outgoing edges + backlinks for a single idea. Edge taxonomy:
- *   - mentions / embeds — derived from `[[X]]` / `![[X]]` in the body
- *     (read-only here; removed by editing the body)
- *   - adjacent — explicit picker links ("+ Link" button)
+ * Inline reference strip — one row of `§name` pills below the tag row.
+ * Collapses the three outgoing relation types (mentions / embeds /
+ * adjacent) into a single visual class: a "reference" is a reference,
+ * the runtime distinction lives in the data, not the UI.
  *
- * The picker only creates `adjacent` edges. Body parsing (backend side)
- * reconciles mentions/embeds on every save.
+ *   #tag   → categorize
+ *   §ref   → point at another idea
+ *
+ * Removable affordance only fires for `adjacent` (the explicit-picker
+ * type). Mentions and embeds are derived from the body and surface as
+ * non-removable chips — to drop one, the user removes the inline
+ * `[[name]]` / `![[name]]` from the document. The chip language stays
+ * uniform so the row reads as "what this idea points at" without the
+ * implementation noise of the three rel types.
  */
 export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; agentId: string }) {
   const { goAgent } = useNav();
   const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId] ?? NO_IDEAS);
   const [edges, setEdges] = useState<IdeaEdges>(NO_EDGES);
-  const [loading, setLoading] = useState(false);
   const [picking, setPicking] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerActive, setPickerActive] = useState(0);
@@ -42,14 +34,11 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const loadEdges = useMemo(
     () => async () => {
-      setLoading(true);
       try {
         const res = await api.getIdeaEdges(ideaId);
         setEdges(res ?? NO_EDGES);
       } catch {
         setEdges(NO_EDGES);
-      } finally {
-        setLoading(false);
       }
     },
     [ideaId],
@@ -64,10 +53,24 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
     if (!picking) setPickerActive(0);
   }, [picking]);
 
-  const linkedIds = useMemo(
-    () => new Set(edges.links.filter((l) => l.relation === "adjacent").map((l) => l.target_id)),
-    [edges.links],
-  );
+  // De-duplicate the outgoing links by target — if a single idea is both
+  // mentioned [[x]] and listed as adjacent, render one chip and prefer
+  // `adjacent` (so the chip remains removable). Body-derived rels stay
+  // non-removable; explicit picker rels surface their × affordance.
+  const refs = useMemo<IdeaLink[]>(() => {
+    const byTarget = new Map<string, IdeaLink>();
+    for (const l of edges.links) {
+      const existing = byTarget.get(l.target_id);
+      if (!existing) {
+        byTarget.set(l.target_id, l);
+      } else if (existing.relation !== "adjacent" && l.relation === "adjacent") {
+        byTarget.set(l.target_id, l);
+      }
+    }
+    return Array.from(byTarget.values());
+  }, [edges.links]);
+
+  const linkedIds = useMemo(() => new Set(refs.map((l) => l.target_id)), [refs]);
   const pickerResults = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
     return ideas
@@ -76,7 +79,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
       .slice(0, 10);
   }, [ideas, ideaId, linkedIds, pickerQuery]);
 
-  const addLink = async (targetId: string) => {
+  const addRef = async (targetId: string) => {
     try {
       await api.addIdeaEdge(ideaId, targetId, "adjacent");
       setPicking(false);
@@ -88,7 +91,8 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
     }
   };
 
-  const removeLink = async (targetId: string, relation: string) => {
+  const removeRef = async (targetId: string, relation: string) => {
+    if (relation !== "adjacent") return;
     try {
       await api.removeIdeaEdge(ideaId, targetId, relation);
       await loadEdges();
@@ -99,191 +103,110 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const goTo = (id: string) => goAgent(agentId, "ideas", id);
 
-  // Bucket outgoing edges by relation for separate rows.
-  const buckets = useMemo(() => {
-    const out: Record<IdeaRelation, IdeaLink[]> = { mentions: [], embeds: [], adjacent: [] };
-    for (const l of edges.links) {
-      const r = (l.relation in out ? l.relation : "adjacent") as IdeaRelation;
-      out[r].push(l);
-    }
-    return out;
-  }, [edges.links]);
-
-  const hasAnyLink = edges.links.length > 0;
-  const hasBacklinks = edges.backlinks.length > 0;
-
-  if (loading && !hasAnyLink && !hasBacklinks) return null;
-
   return (
-    <div className="idea-links-panel">
-      {buckets.mentions.length > 0 && (
-        <LinkRow
-          label="mentions"
-          hint={RELATION_HINT.mentions}
-          chips={buckets.mentions.map((l) => (
-            <LinkChip
-              key={`m-${l.target_id}`}
-              name={l.name}
-              id={l.target_id}
-              relation="mentions"
+    <div className="ideas-refs">
+      {refs.map((l) => {
+        const removable = l.relation === "adjacent";
+        const label = l.name ?? l.target_id.slice(0, 8);
+        return (
+          <span key={l.target_id} className={`ideas-ref-chip${removable ? " removable" : ""}`}>
+            <button
+              type="button"
+              className="ideas-ref-chip-label"
               onClick={() => goTo(l.target_id)}
-            />
-          ))}
-        />
-      )}
-      {buckets.embeds.length > 0 && (
-        <LinkRow
-          label="embeds"
-          hint={RELATION_HINT.embeds}
-          chips={buckets.embeds.map((l) => (
-            <LinkChip
-              key={`e-${l.target_id}`}
-              name={l.name}
-              id={l.target_id}
-              relation="embeds"
-              onClick={() => goTo(l.target_id)}
-            />
-          ))}
-        />
-      )}
-      <LinkRow
-        label="adjacent"
-        hint={RELATION_HINT.adjacent}
-        chips={
-          <>
-            {buckets.adjacent.map((l) => (
-              <LinkChip
-                key={`a-${l.target_id}`}
-                name={l.name}
-                id={l.target_id}
-                relation="adjacent"
-                onClick={() => goTo(l.target_id)}
-                onRemove={() => removeLink(l.target_id, "adjacent")}
-                removable
-              />
-            ))}
-            {picking ? (
-              <div className="idea-link-picker">
-                <input
-                  ref={pickerInputRef}
-                  className="idea-link-picker-input"
-                  type="text"
-                  placeholder="Search ideas…"
-                  value={pickerQuery}
-                  onChange={(e) => {
-                    setPickerQuery(e.target.value);
-                    setPickerActive(0);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      setPicking(false);
-                      setPickerQuery("");
-                    } else if (e.key === "ArrowDown" && pickerResults.length > 0) {
-                      e.preventDefault();
-                      setPickerActive((i) => Math.min(i + 1, pickerResults.length - 1));
-                    } else if (e.key === "ArrowUp" && pickerResults.length > 0) {
-                      e.preventDefault();
-                      setPickerActive((i) => Math.max(i - 1, 0));
-                    } else if (e.key === "Enter" && pickerResults.length > 0) {
-                      e.preventDefault();
-                      const target =
-                        pickerResults[Math.min(pickerActive, pickerResults.length - 1)];
-                      if (target) addLink(target.id);
-                    }
-                  }}
-                />
-                <div className="idea-link-picker-list">
-                  {pickerResults.length === 0 ? (
-                    <div className="idea-link-picker-empty">No matches</div>
-                  ) : (
-                    pickerResults.map((r, i) => (
-                      <button
-                        type="button"
-                        key={r.id}
-                        className={`idea-link-picker-item${i === pickerActive ? " active" : ""}`}
-                        onMouseEnter={() => setPickerActive(i)}
-                        onClick={() => addLink(r.id)}
-                      >
-                        {r.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : (
-              <button type="button" className="idea-link-add" onClick={() => setPicking(true)}>
-                + Link
+              title={
+                l.relation === "mentions"
+                  ? `Mentioned in body — [[${label}]]`
+                  : l.relation === "embeds"
+                    ? `Embedded in body — ![[${label}]]`
+                    : "Direct reference"
+              }
+            >
+              §{label}
+            </button>
+            {removable && (
+              <button
+                type="button"
+                className="ideas-ref-chip-x"
+                onClick={() => removeRef(l.target_id, l.relation)}
+                aria-label={`Remove reference to ${label}`}
+              >
+                ×
               </button>
             )}
-          </>
-        }
-      />
-      {hasBacklinks && (
-        <LinkRow
-          label="referenced by"
-          hint="Incoming — any relation"
-          chips={edges.backlinks.map((b: IdeaBacklink) => (
-            <LinkChip
-              key={`b-${b.source_id}-${b.relation}`}
-              name={b.name}
-              id={b.source_id}
-              relation={(b.relation in RELATION_LABEL ? b.relation : "adjacent") as IdeaRelation}
-              onClick={() => goTo(b.source_id)}
-            />
-          ))}
-        />
-      )}
-    </div>
-  );
-}
-
-function LinkRow({ label, hint, chips }: { label: string; hint: string; chips: React.ReactNode }) {
-  return (
-    <div className="idea-links-row">
-      <span className="idea-links-label" title={hint}>
-        {label}
-      </span>
-      <div className="idea-links-chips">{chips}</div>
-    </div>
-  );
-}
-
-function LinkChip({
-  id,
-  name,
-  relation,
-  onClick,
-  onRemove,
-  removable,
-}: {
-  id: string;
-  name: string | null;
-  relation: IdeaRelation;
-  onClick: () => void;
-  onRemove?: () => void;
-  removable?: boolean;
-}) {
-  const label = name ?? id.slice(0, 8);
-  return (
-    <span className={`idea-link-chip rel-${relation}`} title={RELATION_HINT[relation] ?? relation}>
-      <span className="idea-link-chip-dot" />
-      <button type="button" className="idea-link-chip-label" onClick={onClick}>
-        {label}
-      </button>
-      {removable && onRemove && (
+          </span>
+        );
+      })}
+      {picking ? (
+        <span className="ideas-ref-picker">
+          <input
+            ref={pickerInputRef}
+            className="ideas-ref-picker-input"
+            type="text"
+            placeholder="search ideas…"
+            value={pickerQuery}
+            onChange={(e) => {
+              setPickerQuery(e.target.value);
+              setPickerActive(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setPicking(false);
+                setPickerQuery("");
+              } else if (e.key === "ArrowDown" && pickerResults.length > 0) {
+                e.preventDefault();
+                setPickerActive((i) => Math.min(i + 1, pickerResults.length - 1));
+              } else if (e.key === "ArrowUp" && pickerResults.length > 0) {
+                e.preventDefault();
+                setPickerActive((i) => Math.max(i - 1, 0));
+              } else if (e.key === "Enter" && pickerResults.length > 0) {
+                e.preventDefault();
+                const target = pickerResults[Math.min(pickerActive, pickerResults.length - 1)];
+                if (target) addRef(target.id);
+              }
+            }}
+            onBlur={() => {
+              // Defer so a mouse-click on a suggestion can land first.
+              requestAnimationFrame(() => {
+                if (document.activeElement !== pickerInputRef.current) {
+                  setPicking(false);
+                  setPickerQuery("");
+                }
+              });
+            }}
+          />
+          {pickerResults.length > 0 && (
+            <span className="ideas-ref-picker-list" role="listbox">
+              {pickerResults.map((r, i) => (
+                <button
+                  type="button"
+                  key={r.id}
+                  role="option"
+                  aria-selected={i === pickerActive}
+                  className={`ideas-ref-picker-item${i === pickerActive ? " active" : ""}`}
+                  onMouseEnter={() => setPickerActive(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    addRef(r.id);
+                  }}
+                >
+                  §{r.name}
+                </button>
+              ))}
+            </span>
+          )}
+        </span>
+      ) : (
         <button
           type="button"
-          className="idea-link-chip-remove"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          aria-label="Remove link"
+          className="ideas-ref-add"
+          onClick={() => setPicking(true)}
+          aria-label="Add reference"
         >
-          ×
+          + ref
         </button>
       )}
-    </span>
+    </div>
   );
 }

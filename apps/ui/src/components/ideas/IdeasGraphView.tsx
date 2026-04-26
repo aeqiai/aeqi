@@ -112,20 +112,25 @@ export default function IdeasGraphView({
             onChange={onFilterChange}
           />
           <IdeasViewPopover view={view} onChange={onViewChange} />
-          <button type="button" className="ideas-toolbar-new" onClick={onNew} title="New idea (N)">
+          <button
+            type="button"
+            className="ideas-toolbar-btn"
+            onClick={onNew}
+            title="New idea (N)"
+            aria-label="New idea"
+          >
             <svg
-              width="11"
-              height="11"
-              viewBox="0 0 12 12"
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.6"
+              strokeWidth="1.5"
               strokeLinecap="round"
               aria-hidden
             >
-              <path d="M6 2.5v7M2.5 6h7" />
+              <path d="M6.5 2.5v8M2.5 6.5h8" />
             </svg>
-            new
           </button>
         </div>
       </div>

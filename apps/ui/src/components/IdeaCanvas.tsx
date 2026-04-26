@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { Button, IconButton, Menu } from "./ui";
+import { Button } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import TagsEditor from "./TagsEditor";
@@ -325,245 +325,259 @@ export default function IdeaCanvas({
   const headerScope: ScopeValue = isEdit
     ? (idea?.scope ?? (idea?.agent_id == null ? "global" : "self"))
     : composeScope;
-  const showSaveBtn = !isEdit || saveState === "dirty" || saveState === "saving";
+
+  // Two-click delete confirm — first click arms the trash button (turns
+  // red, tooltip flips), second commits. Auto-disarms after 4s of no
+  // interaction, or on the next render where the user moved focus away.
+  // Keeps the affordance to a single inline button instead of opening a
+  // popover for a one-noun confirm.
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  useEffect(() => {
+    if (!deleteArmed) return;
+    const t = window.setTimeout(() => setDeleteArmed(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [deleteArmed]);
+  const handleDeleteClick = () => {
+    if (deleteArmed) handleDelete();
+    else setDeleteArmed(true);
+  };
+
+  const showCompose = !isEdit;
 
   return (
     <div className="asv-main ideas-canvas">
-      <header className="ideas-canvas-header">
-        <button
-          type="button"
-          className="ideas-canvas-back"
-          onClick={onBack}
-          title="Back to ideas"
-          aria-label="Back to ideas"
-        >
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M7.5 2.5 L3 6 L7.5 9.5" />
-          </svg>
-          back
-        </button>
-        <IdeasScopePopover
-          scope={headerScope}
-          locked={isEdit}
-          onChange={!isEdit ? setComposeScope : undefined}
-        />
-        <div className="ideas-canvas-header-spacer" aria-hidden />
-        <SaveIndicator state={saveState} />
-        {error && <span className="ideas-canvas-error">{error}</span>}
-        {showSaveBtn && (
-          <Button
-            variant="primary"
-            size="sm"
-            loading={saveState === "saving"}
-            onClick={isEdit ? flushSave : handleCreate}
-            title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
-          >
-            Save
-          </Button>
-        )}
-        {isEdit && (
+      <div className="ideas-list-head ideas-canvas-head">
+        <div className="ideas-toolbar ideas-canvas-toolbar">
           <button
             type="button"
-            className="ideas-canvas-header-new"
-            onClick={onNew}
-            title="New idea (N)"
+            className="ideas-toolbar-btn"
+            onClick={onBack}
+            title="Back to ideas"
+            aria-label="Back to ideas"
           >
             <svg
-              width="11"
-              height="11"
-              viewBox="0 0 12 12"
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.6"
+              strokeWidth="1.4"
               strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden
             >
-              <path d="M6 2.5v7M2.5 6h7" />
+              <path d="M8 3 L4.5 6.5 L8 10" />
             </svg>
-            new
           </button>
-        )}
-        {isEdit && (
-          <Menu
-            trigger={
-              <IconButton variant="ghost" size="sm" aria-label="More actions">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-                  <circle cx="3" cy="8" r="1.4" />
-                  <circle cx="8" cy="8" r="1.4" />
-                  <circle cx="13" cy="8" r="1.4" />
-                </svg>
-              </IconButton>
-            }
-            items={[
-              {
-                key: "delete",
-                label: "Delete idea",
-                destructive: true,
-                confirmLabel: "Confirm delete?",
-                onSelect: handleDelete,
-              },
-            ]}
-            placement="bottom-end"
+          {!showCompose && (
+            <button
+              type="button"
+              className="ideas-toolbar-btn"
+              onClick={onNew}
+              title="New idea (N)"
+              aria-label="New idea"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+            </button>
+          )}
+          <div className="ideas-toolbar-spacer" aria-hidden />
+          {error && <span className="ideas-canvas-error">{error}</span>}
+          <SaveIndicator state={saveState} />
+          <IdeasScopePopover
+            scope={headerScope}
+            locked={isEdit}
+            onChange={!isEdit ? setComposeScope : undefined}
           />
-        )}
-      </header>
-
-      <input
-        ref={titleRef}
-        className="ideas-canvas-title"
-        type="text"
-        placeholder={isEdit ? "Untitled" : "Name this idea…"}
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          markDirty();
-        }}
-      />
-
-      <TagsEditor
-        tags={inlineTags}
-        typed={typedTags}
-        suggestions={tagSuggestions}
-        onAdd={(t) => {
-          const next = [...typedTags, t];
-          setTypedTags(next);
-          markDirty();
-        }}
-        onRemove={(t) => {
-          // Only allow removing a typed tag; hashtag chips live in the body.
-          if (typedTags.includes(t)) {
-            const next = typedTags.filter((x) => x !== t);
+          {showCompose && (
+            <Button
+              variant="primary"
+              size="sm"
+              loading={saveState === "saving"}
+              onClick={handleCreate}
+              title="Save idea (⌘↵)"
+            >
+              Save
+            </Button>
+          )}
+          {isEdit && (
+            <button
+              type="button"
+              className={`ideas-toolbar-btn danger${deleteArmed ? " armed" : ""}`}
+              onClick={handleDeleteClick}
+              onBlur={() => setDeleteArmed(false)}
+              title={deleteArmed ? "Click again to confirm delete" : "Delete idea"}
+              aria-label={deleteArmed ? "Confirm delete" : "Delete idea"}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M3 3.5h7M5 3.5V2.5h3v1M3.8 3.5l.5 7h4.4l.5-7M5.3 5.5v3.5M7.7 5.5v3.5" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <TagsEditor
+          tags={inlineTags}
+          typed={typedTags}
+          suggestions={tagSuggestions}
+          onAdd={(t) => {
+            const next = [...typedTags, t];
             setTypedTags(next);
             markDirty();
-          }
-        }}
-      />
+          }}
+          onRemove={(t) => {
+            // Only allow removing a typed tag; hashtag chips live in the body.
+            if (typedTags.includes(t)) {
+              const next = typedTags.filter((x) => x !== t);
+              setTypedTags(next);
+              markDirty();
+            }
+          }}
+        />
+        {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
+      </div>
 
-      {/* Mentions / embeds / adjacent — surfaced inline next to tags so the
-          relational metadata sits in one band at the top of the canvas, not
-          buried after the body. The tags editor and the links panel share
-          the same chip language so the eye reads them as one row of
-          "what's around this idea". */}
-      {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
+      <div className="ideas-canvas-content">
+        <input
+          ref={titleRef}
+          className="ideas-canvas-title"
+          type="text"
+          placeholder={isEdit ? "Untitled" : "Name this idea…"}
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            markDirty();
+          }}
+        />
 
-      {showDecisionBtns && (
-        <div className="ideas-canvas-decision-bar">
-          <div className="ideas-canvas-decision-head">
-            <span className="ideas-canvas-decision-kind">Candidate skill</span>
-            <div className="ideas-canvas-decision-actions">
-              <Button
-                variant="primary"
-                size="sm"
-                loading={decisionState === "saving" && !showRejectPanel}
-                onClick={handlePromote}
-              >
-                Promote
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={decisionState === "saving"}
-                onClick={() => setShowRejectPanel((v) => !v)}
-                aria-expanded={showRejectPanel}
-              >
-                Reject
-              </Button>
-            </div>
-          </div>
-          {showRejectPanel && (
-            <div className="ideas-canvas-reject-panel">
-              <textarea
-                className="ideas-canvas-reject-textarea"
-                placeholder="Why reject? This gets appended to the idea body."
-                value={rejectRationale}
-                onChange={(e) => setRejectRationale(e.target.value)}
-                autoFocus
-              />
+        {showDecisionBtns && (
+          <div className="ideas-canvas-decision-bar">
+            <div className="ideas-canvas-decision-head">
+              <span className="ideas-canvas-decision-kind">Candidate skill</span>
               <div className="ideas-canvas-decision-actions">
                 <Button
-                  variant="danger"
+                  variant="primary"
                   size="sm"
-                  loading={decisionState === "saving"}
-                  disabled={!rejectRationale.trim()}
-                  onClick={handleReject}
+                  loading={decisionState === "saving" && !showRejectPanel}
+                  onClick={handlePromote}
                 >
-                  Confirm rejection
+                  Promote
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowRejectPanel(false)}>
-                  Cancel
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={decisionState === "saving"}
+                  onClick={() => setShowRejectPanel((v) => !v)}
+                  aria-expanded={showRejectPanel}
+                >
+                  Reject
                 </Button>
               </div>
             </div>
-          )}
-          {decisionError && <span className="ideas-canvas-error">{decisionError}</span>}
-        </div>
-      )}
+            {showRejectPanel && (
+              <div className="ideas-canvas-reject-panel">
+                <textarea
+                  className="ideas-canvas-reject-textarea"
+                  placeholder="Why reject? This gets appended to the idea body."
+                  value={rejectRationale}
+                  onChange={(e) => setRejectRationale(e.target.value)}
+                  autoFocus
+                />
+                <div className="ideas-canvas-decision-actions">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    loading={decisionState === "saving"}
+                    disabled={!rejectRationale.trim()}
+                    onClick={handleReject}
+                  >
+                    Confirm rejection
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowRejectPanel(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+            {decisionError && <span className="ideas-canvas-error">{decisionError}</span>}
+          </div>
+        )}
 
-      {bodyMode === "edit" || !isEdit ? (
-        <textarea
-          ref={bodyRef}
-          className="ideas-canvas-body"
-          placeholder={
-            isEdit
-              ? "Keep writing…"
-              : "Write the idea.\n\n#tag to tag · [[name]] to link · ![[name]] to embed"
-          }
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            markDirty();
-          }}
-          onKeyDown={(e) => {
-            // Esc: drop back to rendered view when there's nothing to lose.
-            // If the user has unsaved changes we stay in edit so they can
-            // see the Save button; a second Esc still escapes focus.
-            if (e.key === "Escape" && isEdit && !dirtyRef.current) {
-              e.preventDefault();
-              setBodyMode("view");
+        {bodyMode === "edit" || !isEdit ? (
+          <textarea
+            ref={bodyRef}
+            className="ideas-canvas-body"
+            placeholder={
+              isEdit
+                ? "Keep writing…"
+                : "Write the idea.\n\n#tag to tag · [[name]] to link · ![[name]] to embed"
             }
-          }}
-          onBlur={() => {
-            // Only drop back to rendered view when there are no unsaved
-            // changes — otherwise the user would lose their editing surface
-            // (and the Save button would have nothing to flush visually).
-            if (isEdit && !dirtyRef.current) setBodyMode("view");
-          }}
-        />
-      ) : (
-        <div
-          className="ideas-canvas-body ideas-canvas-body-rendered"
-          role="textbox"
-          tabIndex={0}
-          aria-label="Click to edit"
-          onClick={() => setBodyMode("edit")}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setBodyMode("edit");
-            }
-          }}
-        >
-          {content.trim() ? (
-            <RichMarkdown body={content} ideasByName={ideasByName} agentId={agentId} />
-          ) : (
-            <span className="ideas-canvas-body-empty">Click to write…</span>
-          )}
-          <span className="ideas-canvas-body-edit-hint" aria-hidden>
-            <kbd>E</kbd>
-            <span>edit</span>
-          </span>
-        </div>
-      )}
+            value={content}
+            onChange={(e) => {
+              setContent(e.target.value);
+              markDirty();
+            }}
+            onKeyDown={(e) => {
+              // Esc: drop back to rendered view when there's nothing to lose.
+              // If the user has unsaved changes we stay in edit so they can
+              // see the Save button; a second Esc still escapes focus.
+              if (e.key === "Escape" && isEdit && !dirtyRef.current) {
+                e.preventDefault();
+                setBodyMode("view");
+              }
+            }}
+            onBlur={() => {
+              // Only drop back to rendered view when there are no unsaved
+              // changes — otherwise the user would lose their editing surface
+              // (and the Save button would have nothing to flush visually).
+              if (isEdit && !dirtyRef.current) setBodyMode("view");
+            }}
+          />
+        ) : (
+          <div
+            className="ideas-canvas-body ideas-canvas-body-rendered"
+            role="textbox"
+            tabIndex={0}
+            aria-label="Click to edit"
+            onClick={() => setBodyMode("edit")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setBodyMode("edit");
+              }
+            }}
+          >
+            {content.trim() ? (
+              <RichMarkdown body={content} ideasByName={ideasByName} agentId={agentId} />
+            ) : (
+              <span className="ideas-canvas-body-empty">Click to write…</span>
+            )}
+            <span className="ideas-canvas-body-edit-hint" aria-hidden>
+              <kbd>E</kbd>
+              <span>edit</span>
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
