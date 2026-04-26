@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import BlueprintsPage from "@/pages/BlueprintsPage";
 import SpawnTemplateModal from "@/components/SpawnTemplateModal";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 
 describe("BlueprintsPage", () => {
   beforeEach(() => {
@@ -107,6 +108,41 @@ describe("BlueprintsPage", () => {
       await screen.findByRole("heading", { level: 2, name: "Solo Founder" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Company name")).toBeInTheDocument();
+  });
+
+  it("anonymous spawn click redirects to /signup with the blueprint slug as ?next=", async () => {
+    vi.spyOn(api, "getTemplates").mockResolvedValue({
+      ok: true,
+      templates: FALLBACK_TEMPLATES,
+    });
+    useAuthStore.setState({ token: null, authMode: "secret" });
+    const user = userEvent.setup();
+
+    let landed: string | null = null;
+    const Probe = () => {
+      const loc = useLocation();
+      landed = loc.pathname + loc.search;
+      return null;
+    };
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/blueprints?start=solo-founder"]}>
+          <Routes>
+            <Route path="/blueprints" element={<BlueprintsPage />} />
+            <Route path="/signup" element={<Probe />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    await screen.findByRole("heading", { level: 2, name: "Solo Founder" });
+    await user.click(screen.getByRole("button", { name: /sign up to start/i }));
+
+    await waitFor(() => {
+      expect(landed).not.toBeNull();
+    });
+    expect(landed).toBe("/signup?next=/blueprints?start=solo-founder");
   });
 });
 
