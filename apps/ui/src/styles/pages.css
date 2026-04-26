@@ -687,7 +687,9 @@
 }
 
 .account-page {
-  padding: var(--space-6);
+  /* Padding moved up to .page-rail-content so every rail-driven page
+     shares one gutter rule. The 520px cap stays — it's the settings-
+     specific narrow column for forms. */
   max-width: 520px;
 }
 
@@ -794,10 +796,16 @@
 .page-rail-content {
   flex: 1;
   min-width: 0;
-  /* Drop the .account-page max-width cap so the wider content area
-     can breathe. The rail handles navigation; no need to keep the
-     section content artificially narrow. */
+  /* Default page padding — every rail-driven surface (settings,
+     blueprints catalog, agent settings) gets the same horizontal
+     gutter and vertical breathing room. Surfaces that own a
+     full-bleed head band (blueprints detail) opt out via the
+     `--full` modifier and manage their own internal padding. */
+  padding: 24px 28px 56px;
   max-width: none;
+}
+.page-rail-content--full {
+  padding: 0;
 }
 
 .account-profile-header {
