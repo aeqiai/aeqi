@@ -6,6 +6,7 @@ import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
 import ConnectWalletButton from "@/components/ConnectWalletButton";
+import ContinueWithPasskeyButton from "@/components/ContinueWithPasskeyButton";
 import { Button, Input, Spinner } from "@/components/ui";
 
 const GoogleIcon = () => (
@@ -475,6 +476,7 @@ export default function LoginPage() {
                     </Button>
                   )}
                   <ConnectWalletButton onAuthenticated={() => navigate(redirectAfter())} />
+                  <ContinueWithPasskeyButton onAuthenticated={() => navigate(redirectAfter())} />
                 </div>
               </>
             )}

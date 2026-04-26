@@ -1,0 +1,73 @@
+import { useState } from "react";
+import { useAuthStore } from "@/store/auth";
+import { Button } from "@/components/ui";
+import { loginOrRegisterWithPasskey } from "@/lib/passkeyAuth";
+
+const PasskeyIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="9" cy="9" r="4" />
+    <path d="M9 13c-2.76 0-5 2.24-5 5v2h7" />
+    <path d="m15 13 6 6-1.5 1.5L18 19v3h-3v-3l-1.5 1.5L12 19l3-3v-3Z" />
+  </svg>
+);
+
+interface Props {
+  onAuthenticated?: () => void;
+}
+
+/**
+ * One-click "Continue with Passkey" — same shape as the OAuth and Wallet
+ * buttons. Click triggers the WebAuthn ceremony (Touch ID / Face ID /
+ * security key); on success the JWT goes through handleOAuthCallback so
+ * the rest of the app behaves identically to a Google / GitHub login.
+ */
+export default function ContinueWithPasskeyButton({ onAuthenticated }: Props) {
+  const handleOAuthCallback = useAuthStore((s) => s.handleOAuthCallback);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function go() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await loginOrRegisterWithPasskey();
+      if (!res.ok || !res.token) throw new Error("auth response missing token");
+      handleOAuthCallback(res.token);
+      onAuthenticated?.();
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      // User-dismissed prompts shouldn't show as errors.
+      if (name === "NotAllowedError" || name === "AbortError") {
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button variant="secondary" size="lg" fullWidth type="button" onClick={go} disabled={busy}>
+        <PasskeyIcon />
+        {busy ? "Verifying…" : "Continue with Passkey"}
+      </Button>
+      {error && (
+        <div className="auth-error" role="alert">
+          {error}
+        </div>
+      )}
+    </>
+  );
+}
