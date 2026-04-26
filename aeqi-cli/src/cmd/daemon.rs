@@ -111,10 +111,45 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                 .map(|c| c.name.clone())
                 .unwrap_or_default();
 
-            // Open AgentRegistry — required for daemon operation.
+            // Bootstrap the runtime wallet context (master KEK + agent_wallets
+            // table on aeqi.db). Every spawned agent gets an auto-provisioned
+            // custodial wallet via this provisioner.
+            let wallet_passphrase = std::env::var("WALLET_PASSPHRASE")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .or_else(|| config.web.auth_secret.clone())
+                .unwrap_or_else(|| "aeqi-runtime-dev".to_string());
+            let wallet_salt_seed = config
+                .web
+                .auth_secret
+                .clone()
+                .unwrap_or_else(|| "aeqi-runtime-default".to_string());
+            let wallet_provisioner =
+                match aeqi_orchestrator::wallet_ctx::WalletProvisioner::bootstrap(
+                    &config.data_dir(),
+                    &wallet_passphrase,
+                    &wallet_salt_seed,
+                ) {
+                    Ok(wp) => Some(Arc::new(wp)),
+                    Err(e) => {
+                        warn!(
+                            "failed to bootstrap wallet provisioner: {e}; agents will spawn without wallets"
+                        );
+                        None
+                    }
+                };
+
+            // Open AgentRegistry — required for daemon operation. Attach the
+            // wallet provisioner so spawn() auto-provisions per-agent wallets.
             let agent_reg: Arc<aeqi_orchestrator::agent_registry::AgentRegistry> =
                 match aeqi_orchestrator::agent_registry::AgentRegistry::open(&config.data_dir()) {
-                    Ok(ar) => Arc::new(ar),
+                    Ok(ar) => {
+                        let ar = match wallet_provisioner.clone() {
+                            Some(wp) => ar.with_wallets(wp),
+                            None => ar,
+                        };
+                        Arc::new(ar)
+                    }
                     Err(e) => {
                         anyhow::bail!("failed to open agent registry: {e}");
                     }

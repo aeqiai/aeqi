@@ -58,6 +58,7 @@ pub mod template;
 pub mod templates;
 pub mod tools;
 pub mod vfs;
+pub mod wallet_ctx;
 
 pub use activity::{Activity, ActivityStream};
 pub use activity_log::ActivityLog;

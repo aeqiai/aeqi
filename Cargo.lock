@@ -201,6 +201,7 @@ dependencies = [
  "aeqi-quests",
  "aeqi-test-support",
  "aeqi-tools",
+ "aeqi-wallets",
  "anyhow",
  "async-trait",
  "base64 0.22.1",

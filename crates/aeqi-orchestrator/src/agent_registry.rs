@@ -413,6 +413,10 @@ pub struct AgentRegistry {
     sessions_db: Arc<ConnectionPool>,
     /// Data directory containing the SQLite databases + the `files/` blob store.
     data_dir: std::path::PathBuf,
+    /// When set, every newly-spawned agent gets an auto-provisioned custodial
+    /// wallet. Tests / CLI tools that don't need wallets simply leave this
+    /// `None` and the spawn path skips provisioning.
+    wallets: Option<Arc<crate::wallet_ctx::WalletProvisioner>>,
 }
 
 impl AgentRegistry {
@@ -687,6 +691,7 @@ impl AgentRegistry {
             db: Arc::new(pool),
             sessions_db: Arc::new(sessions_pool),
             data_dir: data_dir.to_path_buf(),
+            wallets: None,
         })
     }
 
@@ -695,6 +700,15 @@ impl AgentRegistry {
     /// on first write.
     pub fn files_dir(&self) -> std::path::PathBuf {
         self.data_dir.join("files")
+    }
+
+    /// Attach a wallet provisioner so every newly-spawned agent gets an
+    /// auto-provisioned custodial wallet. Builder-style — meant to be chained
+    /// onto `AgentRegistry::open(...)`. When unset, spawn() skips wallet
+    /// provisioning (which keeps tests, CLI tools, and preset seeders quiet).
+    pub fn with_wallets(mut self, wallets: Arc<crate::wallet_ctx::WalletProvisioner>) -> Self {
+        self.wallets = Some(wallets);
+        self
     }
 
     // -----------------------------------------------------------------------
@@ -787,6 +801,35 @@ impl AgentRegistry {
                 error = %e,
                 "failed to install default scheduled events; agent still spawned"
             );
+        }
+
+        // Auto-provision a custodial wallet for this agent when wallets are
+        // attached. Idempotent (safe across restarts and re-spawns). Errors
+        // are logged but do NOT roll back the agent — wallet provisioning
+        // can be retried via Phase 5+ endpoints.
+        if let Some(ref wallets) = self.wallets {
+            match aeqi_wallets::ensure_agent_custodial_wallet(
+                &wallets.db,
+                wallets.kek.as_ref(),
+                &agent.id,
+            )
+            .await
+            {
+                Ok(Some(w)) => tracing::info!(
+                    agent_id = %agent.id,
+                    address = %w.address,
+                    "provisioned custodial wallet for new agent"
+                ),
+                Ok(None) => tracing::debug!(
+                    agent_id = %agent.id,
+                    "agent already has wallet (idempotent re-spawn)"
+                ),
+                Err(e) => tracing::error!(
+                    agent_id = %agent.id,
+                    error = %e,
+                    "agent wallet provisioning failed; agent spawned without wallet"
+                ),
+            }
         }
 
         Ok(agent)

@@ -30,6 +30,7 @@ aeqi-tools = { workspace = true }
 aeqi-mcp = { workspace = true }
 aeqi-graph = { workspace = true }
 aeqi-gates = { workspace = true }
+aeqi-wallets = { workspace = true }
 aeqi-pack-google-workspace = { workspace = true, optional = true }
 aeqi-pack-github = { workspace = true, optional = true }
 aeqi-pack-notion = { workspace = true, optional = true }

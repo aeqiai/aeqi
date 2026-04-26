@@ -123,6 +123,7 @@ aeqi-gates = { version = "0.13.0", path = "crates/aeqi-gates" }
 aeqi-web = { version = "0.13.0", path = "crates/aeqi-web" }
 aeqi-graph = { version = "0.13.0", path = "crates/aeqi-graph" }
 aeqi-hosting = { version = "0.13.0", path = "crates/aeqi-hosting" }
+aeqi-wallets = { version = "0.13.0", path = "crates/aeqi-wallets" }
 aeqi-mcp = { version = "0.13.0", path = "crates/aeqi-mcp" }
 aeqi-test-support = { version = "0.13.0", path = "crates/aeqi-test-support" }
 aeqi-pack-google-workspace = { version = "0.13.0", path = "crates/aeqi-pack-google-workspace" }
