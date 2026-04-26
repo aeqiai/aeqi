@@ -1,4 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forceCenter,
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  type Simulation,
+  type SimulationLinkDatum,
+  type SimulationNodeDatum,
+} from "d3-force";
 
 export interface GraphNode {
   id: string;
@@ -98,35 +108,96 @@ function nodeColor(pal: Palette, role: TagRole): string {
   }
 }
 
+function nodeRadius(n: GraphNode): number {
+  return 5 + n.hotness * 7;
+}
+
+// d3-force mutates node objects in place (.x, .y, .vx, .vy, .fx, .fy).
+type SimNode = GraphNode & SimulationNodeDatum;
+// After the first tick d3 replaces the string IDs on each link with the
+// resolved node references; we keep `relation` and `strength` for rendering.
+type SimLink = SimulationLinkDatum<SimNode> & { relation: string; strength: number };
+
 export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const simRef = useRef<GraphNode[]>([]);
-  const edgesRef = useRef<GraphEdge[]>(edges);
+  const simNodesRef = useRef<SimNode[]>([]);
+  const simLinksRef = useRef<SimLink[]>([]);
+  const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
   const animRef = useRef<number>(0);
   const dragRef = useRef<{
-    node: GraphNode;
+    node: SimNode;
     offsetX: number;
     offsetY: number;
     startX: number;
     startY: number;
     moved: boolean;
   } | null>(null);
-  const hoverRef = useRef<GraphNode | null>(null);
+  const hoverRef = useRef<SimNode | null>(null);
   const pendingDeselectRef = useRef(false);
   const paletteRef = useRef<Palette | null>(null);
+  const selectedIdRef = useRef<string | null>(selectedId ?? null);
   const [dimensions, setDimensions] = useState({ w: 800, h: 500 });
 
   useEffect(() => {
+    selectedIdRef.current = selectedId ?? null;
+  }, [selectedId]);
+
+  // Rebuild the d3-force simulation whenever the data or canvas size changes.
+  // d3-force does the heavy lifting — Barnes-Hut quadtree repulsion (no
+  // distance-cutoff bug), link distance, collision avoidance, centering.
+  // Proven layout that actually spreads instead of collapsing into a blob.
+  useEffect(() => {
     const cx = dimensions.w / 2;
     const cy = dimensions.h / 2;
-    simRef.current = nodes.map((n, i) => ({
-      ...n,
-      x: cx + (n.x ? (n.x % 600) - 300 : Math.cos(i * 2.4) * 150),
-      y: cy + (n.y ? (n.y % 400) - 200 : Math.sin(i * 2.4) * 150),
-      vx: 0,
-      vy: 0,
+
+    // Carry over positions for nodes that already exist so filter changes
+    // don't teleport everything back to the center and trigger a flash.
+    const prev = new Map(simNodesRef.current.map((n) => [n.id, n]));
+    const simNodes: SimNode[] = nodes.map((n) => {
+      const existing = prev.get(n.id);
+      return {
+        ...n,
+        x: existing?.x ?? cx + (Math.random() - 0.5) * 80,
+        y: existing?.y ?? cy + (Math.random() - 0.5) * 80,
+        vx: existing?.vx ?? 0,
+        vy: existing?.vy ?? 0,
+      };
+    });
+    const simLinks: SimLink[] = edges.map((e) => ({
+      source: e.source,
+      target: e.target,
+      relation: e.relation,
+      strength: e.strength,
     }));
-    edgesRef.current = edges;
+
+    simNodesRef.current = simNodes;
+    simLinksRef.current = simLinks;
+
+    simRef.current?.stop();
+    simRef.current = forceSimulation<SimNode, SimLink>(simNodes)
+      .force(
+        "link",
+        forceLink<SimNode, SimLink>(simLinks)
+          .id((n) => n.id)
+          .distance((l) => 60 + 60 / Math.max(0.2, l.strength))
+          .strength((l) => Math.min(1, 0.3 + l.strength * 0.5)),
+      )
+      // Negative charge = repulsion. distanceMax caps the force radius so
+      // huge graphs stay performant without losing useful long-range spread.
+      .force("charge", forceManyBody<SimNode>().strength(-260).distanceMax(520))
+      .force("center", forceCenter(cx, cy).strength(0.05))
+      .force(
+        "collide",
+        forceCollide<SimNode>()
+          .radius((n) => nodeRadius(n) + 6)
+          .strength(0.8),
+      )
+      .alpha(1)
+      .alphaDecay(0.03);
+
+    return () => {
+      simRef.current?.stop();
+    };
   }, [nodes, edges, dimensions]);
 
   useEffect(() => {
@@ -162,70 +233,27 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     canvas.style.height = `${dimensions.h}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const nodeMap = new Map<string, GraphNode>();
-
-    function tick() {
-      const sim = simRef.current;
-      const edgs = edgesRef.current;
+    function draw() {
+      const sim = simNodesRef.current;
+      const edgs = simLinksRef.current;
       const pal = paletteRef.current ?? loadPalette();
-      if (sim.length === 0) return;
-
-      nodeMap.clear();
-      for (const n of sim) nodeMap.set(n.id, n);
-
-      const cx = dimensions.w / 2;
-      const cy = dimensions.h / 2;
-
-      for (const n of sim) {
-        n.vx += (cx - n.x) * 0.001;
-        n.vy += (cy - n.y) * 0.001;
-        for (const m of sim) {
-          if (n === m) continue;
-          const dx = n.x - m.x;
-          const dy = n.y - m.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          if (dist < 200) {
-            const force = 800 / (dist * dist);
-            n.vx += (dx / dist) * force;
-            n.vy += (dy / dist) * force;
-          }
-        }
-      }
-
-      for (const e of edgs) {
-        const s = nodeMap.get(e.source);
-        const t = nodeMap.get(e.target);
-        if (!s || !t) continue;
-        const dx = t.x - s.x;
-        const dy = t.y - s.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const ideal = 120;
-        const force = (dist - ideal) * 0.005 * e.strength;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        s.vx += fx;
-        s.vy += fy;
-        t.vx -= fx;
-        t.vy -= fy;
-      }
-
-      for (const n of sim) {
-        if (dragRef.current?.node === n) continue;
-        n.vx *= 0.85;
-        n.vy *= 0.85;
-        n.x += n.vx;
-        n.y += n.vy;
-        n.x = Math.max(30, Math.min(dimensions.w - 30, n.x));
-        n.y = Math.max(30, Math.min(dimensions.h - 30, n.y));
-      }
+      const sel = selectedIdRef.current;
 
       ctx!.clearRect(0, 0, dimensions.w, dimensions.h);
+      if (sim.length === 0) {
+        animRef.current = requestAnimationFrame(draw);
+        return;
+      }
 
       const selectedNeighbors = new Set<string>();
-      if (selectedId) {
+      if (sel) {
         for (const e of edgs) {
-          if (e.source === selectedId) selectedNeighbors.add(e.target);
-          if (e.target === selectedId) selectedNeighbors.add(e.source);
+          const sId =
+            typeof e.source === "object" ? (e.source as SimNode).id : (e.source as string);
+          const tId =
+            typeof e.target === "object" ? (e.target as SimNode).id : (e.target as string);
+          if (sId === sel) selectedNeighbors.add(tId);
+          if (tId === sel) selectedNeighbors.add(sId);
         }
       }
 
@@ -234,11 +262,10 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       ctx!.lineCap = "round";
       for (const pass of [0, 1] as const) {
         for (const e of edgs) {
-          const s = nodeMap.get(e.source);
-          const t = nodeMap.get(e.target);
-          if (!s || !t) continue;
-          const isConnected =
-            selectedId !== null && (e.source === selectedId || e.target === selectedId);
+          const s = typeof e.source === "object" ? (e.source as SimNode) : null;
+          const t = typeof e.target === "object" ? (e.target as SimNode) : null;
+          if (!s || !t || s.x == null || s.y == null || t.x == null || t.y == null) continue;
+          const isConnected = sel !== null && (s.id === sel || t.id === sel);
           if (pass === 0 && isConnected) continue;
           if (pass === 1 && !isConnected) continue;
 
@@ -253,7 +280,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
             ctx!.globalAlpha = 0.55 + e.strength * 0.35;
           } else {
             ctx!.strokeStyle = pal.ink;
-            ctx!.globalAlpha = selectedId ? 0.04 + e.strength * 0.03 : 0.1 + e.strength * 0.12;
+            ctx!.globalAlpha = sel ? 0.04 + e.strength * 0.03 : 0.1 + e.strength * 0.12;
           }
           ctx!.lineWidth = sty.weight;
           ctx!.stroke();
@@ -265,13 +292,14 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       // Cold-node opacity floor stays at 0.55 — 0.4 left stale memories
       // as near-invisible shadows.
       for (const n of sim) {
-        const isSelected = n.id === selectedId;
+        if (n.x == null || n.y == null) continue;
+        const isSelected = n.id === sel;
         const isNeighbor = selectedNeighbors.has(n.id);
         const isHovered = hoverRef.current === n;
-        const radius = 5 + n.hotness * 7 + (isSelected ? 3 : 0);
+        const radius = nodeRadius(n) + (isSelected ? 3 : 0);
         const role = roleFor(n);
         const fill = isSelected ? pal.accent : nodeColor(pal, role);
-        const isDim = selectedId !== null && !isSelected && !isNeighbor;
+        const isDim = sel !== null && !isSelected && !isNeighbor;
 
         if (isSelected) {
           ctx!.beginPath();
@@ -326,18 +354,19 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         }
       }
 
-      animRef.current = requestAnimationFrame(tick);
+      animRef.current = requestAnimationFrame(draw);
     }
 
-    animRef.current = requestAnimationFrame(tick);
+    animRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animRef.current);
-  }, [dimensions, selectedId]);
+  }, [dimensions]);
 
-  const hitTest = useCallback((x: number, y: number): GraphNode | null => {
-    const sim = simRef.current;
+  const hitTest = useCallback((x: number, y: number): SimNode | null => {
+    const sim = simNodesRef.current;
     for (let i = sim.length - 1; i >= 0; i--) {
       const n = sim[i];
-      const r = 6 + n.hotness * 8 + 4;
+      if (n.x == null || n.y == null) continue;
+      const r = nodeRadius(n) + 4;
       const dx = x - n.x;
       const dy = y - n.y;
       if (dx * dx + dy * dy < r * r) return n;
@@ -361,7 +390,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     (e: React.MouseEvent) => {
       const pos = getCanvasPos(e);
       const node = hitTest(pos.x, pos.y);
-      if (node) {
+      if (node && node.x != null && node.y != null) {
         dragRef.current = {
           node,
           offsetX: pos.x - node.x,
@@ -370,6 +399,8 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           startY: pos.y,
           moved: false,
         };
+        // Reheat so the rest of the graph reacts to the drag.
+        simRef.current?.alphaTarget(0.3).restart();
       } else {
         pendingDeselectRef.current = true;
       }
@@ -390,10 +421,10 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           if (canvas) canvas.style.cursor = "grabbing";
         }
         if (drag.moved) {
-          drag.node.x = pos.x - drag.offsetX;
-          drag.node.y = pos.y - drag.offsetY;
-          drag.node.vx = 0;
-          drag.node.vy = 0;
+          // d3-force respects fx/fy as fixed coordinates each tick — the
+          // canonical drag handle, much cleaner than zeroing velocities.
+          drag.node.fx = pos.x - drag.offsetX;
+          drag.node.fy = pos.y - drag.offsetY;
         }
       } else {
         const node = hitTest(pos.x, pos.y);
@@ -409,6 +440,12 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     const drag = dragRef.current;
     if (drag && !drag.moved) onSelect?.(drag.node);
     else if (!drag && pendingDeselectRef.current) onSelect?.(null);
+    if (drag) {
+      // Release the pin so the node settles back into the layout.
+      drag.node.fx = null;
+      drag.node.fy = null;
+      simRef.current?.alphaTarget(0);
+    }
     pendingDeselectRef.current = false;
     dragRef.current = null;
     const canvas = canvasRef.current;
