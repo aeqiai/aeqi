@@ -1,22 +1,42 @@
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { connectorsForWallets } from "@rainbow-me/rainbowkit";
+import {
+  metaMaskWallet,
+  rabbyWallet,
+  coinbaseWallet,
+  walletConnectWallet,
+  injectedWallet,
+} from "@rainbow-me/rainbowkit/wallets";
+import { createConfig, http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
-import { http } from "viem";
 
-// RainbowKit ships pre-built support for MetaMask, Rabby, Coinbase Wallet,
-// WalletConnect (which transitively gives you Phantom, Trust, Rainbow,
-// Argent, and any other mobile wallet), and the browser's native EIP-1193
-// wallets. Adding more is a one-line addition to the `wallets` array if
-// we want to pin a specific UX order.
+// Self-hosted-first wallet config.
 //
-// `projectId` is the WalletConnect project ID. We deliberately leave it as
-// a development placeholder — for production it should be set via
-// VITE_WALLETCONNECT_PROJECT_ID. WalletConnect still works without one for
-// most use cases, just emits a console warning.
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "aeqi-walletconnect-dev";
+// We deliberately do NOT depend on WalletConnect (Reown) by default. The
+// browser-extension wallets — MetaMask, Rabby, Coinbase Wallet, Brave, and
+// anything else injected via EIP-1193 — communicate with the page directly,
+// no external relay needed. That covers the majority of users with zero
+// third-party dependencies.
+//
+// To enable mobile-wallet support (Phantom, Rainbow, Trust, Argent, etc.,
+// connecting via QR / deeplink), the operator sets
+// `VITE_WALLETCONNECT_PROJECT_ID` to a free projectId from cloud.reown.com.
+// We add the WalletConnect connector only when that's set, so a fresh
+// `git clone && deploy.sh` self-host has no Reown / WalletConnect account
+// requirement and emits no relay warnings.
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 
-export const wagmiConfig = getDefaultConfig({
+const baseWallets = [metaMaskWallet, rabbyWallet, coinbaseWallet, injectedWallet];
+const wallets = projectId ? [...baseWallets, walletConnectWallet] : baseWallets;
+
+const connectors = connectorsForWallets([{ groupName: "Wallets", wallets }], {
   appName: "aeqi",
-  projectId,
+  // RainbowKit requires a string here. When WalletConnect isn't in the list
+  // it's never read; pass an empty string in that case.
+  projectId: projectId ?? "",
+});
+
+export const wagmiConfig = createConfig({
+  connectors,
   chains: [mainnet, sepolia],
   transports: {
     [mainnet.id]: http(),
