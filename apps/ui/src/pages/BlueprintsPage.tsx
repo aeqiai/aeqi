@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
 import { Popover, Spinner } from "@/components/ui";
+import PageRail from "@/components/PageRail";
 import { BlueprintCard } from "@/components/blueprints/BlueprintCard";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 
-type Kind = "all" | "companies" | "agents" | "events" | "quests" | "ideas";
+type Kind = "companies" | "agents" | "events" | "quests" | "ideas";
 type Sort = "default" | "alpha" | "richness";
 type View = "grid" | "list";
 
-const KIND_LABELS: Record<Kind, string> = {
-  all: "All",
-  companies: "Companies",
-  agents: "Agents",
-  events: "Events",
-  quests: "Quests",
-  ideas: "Ideas",
-};
-const KIND_ORDER: Kind[] = ["all", "companies", "agents", "events", "quests", "ideas"];
+const KIND_TABS: { id: Kind; label: string }[] = [
+  { id: "companies", label: "Companies" },
+  { id: "agents", label: "Agents" },
+  { id: "events", label: "Events" },
+  { id: "quests", label: "Quests" },
+  { id: "ideas", label: "Ideas" },
+];
+const KIND_IDS = KIND_TABS.map((t) => t.id);
 
 const SORT_LABELS: Record<Sort, string> = {
   default: "Default order",
@@ -33,25 +33,39 @@ const VIEW_LABELS: Record<View, string> = { grid: "Grid", list: "List" };
 const VIEW_ORDER: View[] = ["grid", "list"];
 
 /**
- * `/blueprints` — catalog. Mirrors the Ideas page toolbar pattern:
- * search field + filter / sort / view popovers across the top, no add
- * button. Cards navigate to `/blueprints/:slug` for the inspect view;
- * launch happens on `/start?blueprint=:slug`.
+ * `/blueprints` — catalog with a vertical PageRail (Companies / Agents /
+ * Events / Quests / Ideas) on the left. Companies is the canonical
+ * landing route at `/blueprints`; the other kinds live at
+ * `/blueprints/:kind` and render empty-state placeholders until v2.
+ *
+ * Mirrors the `/settings` shell pattern. Search + sort + view live in
+ * the per-kind toolbar; the kind itself is no longer a popover filter
+ * (the rail owns it).
  */
 export default function BlueprintsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const importIntoId = searchParams.get("import_into") || null;
   const isImportMode = !!importIntoId;
 
+  // Resolve the active kind from the URL path. /blueprints → companies
+  // (default); /blueprints/agents → agents, etc. Anything that doesn't
+  // match a known kind falls back to companies — this also covers the
+  // detail page (which uses a different route, but defensively).
+  const activeKind: Kind = useMemo(() => {
+    const segments = location.pathname.split("/").filter(Boolean);
+    const last = segments[segments.length - 1];
+    return KIND_IDS.includes(last as Kind) ? (last as Kind) : "companies";
+  }, [location.pathname]);
+
   const [templates, setTemplates] = useState<CompanyTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const query = searchParams.get("q") || "";
-  const kind: Kind = (searchParams.get("kind") as Kind) || "all";
   const sort: Sort = (searchParams.get("sort") as Sort) || "default";
   const view: View = (searchParams.get("view") as View) || "grid";
 
@@ -66,8 +80,8 @@ export default function BlueprintsPage() {
   );
 
   useEffect(() => {
-    document.title = "Blueprints · aeqi";
-  }, []);
+    document.title = `${KIND_TABS.find((t) => t.id === activeKind)?.label ?? "Blueprints"} · Blueprints · aeqi`;
+  }, [activeKind]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,9 +107,6 @@ export default function BlueprintsPage() {
     };
   }, []);
 
-  // v1 only ships company-shaped Blueprints. The other filter kinds
-  // (agents/events/quests/ideas) render an honest empty state until
-  // the corresponding template.kind partitions land.
   const matches = useCallback(
     (h: string | undefined | null) => {
       const q = query.trim().toLowerCase();
@@ -106,7 +117,7 @@ export default function BlueprintsPage() {
   );
 
   const filtered = useMemo(() => {
-    if (kind !== "all" && kind !== "companies") return [] as CompanyTemplate[];
+    if (activeKind !== "companies") return [] as CompanyTemplate[];
     const matched = templates.filter(
       (t) => matches(t.name) || matches(t.tagline) || matches(t.description),
     );
@@ -124,7 +135,7 @@ export default function BlueprintsPage() {
       return [...matched].sort((a, b) => score(b) - score(a));
     }
     return matched;
-  }, [templates, kind, matches, sort]);
+  }, [templates, activeKind, matches, sort]);
 
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
 
@@ -148,6 +159,7 @@ export default function BlueprintsPage() {
 
   return (
     <div className="bp-page">
+      <PageRail tabs={KIND_TABS} defaultTab="companies" title="Blueprints" basePath="/blueprints" />
       <main className="bp-content">
         {isImportMode && (
           <div className="bp-import-banner" role="status">
@@ -160,7 +172,7 @@ export default function BlueprintsPage() {
           </div>
         )}
 
-        <div className="ideas-toolbar">
+        <div className="ideas-toolbar bp-toolbar">
           <span className="ideas-list-search-field">
             <svg
               className="ideas-list-search-glyph"
@@ -180,8 +192,8 @@ export default function BlueprintsPage() {
               ref={searchRef}
               className="ideas-list-search"
               type="search"
-              placeholder="Search Blueprints"
-              aria-label="Search Blueprints"
+              placeholder={`Search ${activeKind === "companies" ? "Blueprints" : KIND_TABS.find((t) => t.id === activeKind)?.label}`}
+              aria-label={`Search ${activeKind === "companies" ? "Blueprints" : KIND_TABS.find((t) => t.id === activeKind)?.label}`}
               value={query}
               onChange={(e) => setSearchParam("q", e.target.value)}
               onKeyDown={(e) => {
@@ -218,15 +230,6 @@ export default function BlueprintsPage() {
           />
 
           <ToolbarPopover
-            label="Filter"
-            current={KIND_LABELS[kind]}
-            glyph={GLYPHS.filter}
-            options={KIND_ORDER.map((k) => ({ id: k, label: KIND_LABELS[k] }))}
-            value={kind}
-            onChange={(next) => setSearchParam("kind", next === "all" ? null : next)}
-          />
-
-          <ToolbarPopover
             label="View"
             current={VIEW_LABELS[view]}
             glyph={GLYPHS.view}
@@ -242,36 +245,34 @@ export default function BlueprintsPage() {
           </div>
         )}
 
-        {loading ? (
+        {loading && activeKind === "companies" ? (
           <div className="bp-status">
             <Spinner size="sm" /> Loading Blueprints…
           </div>
+        ) : activeKind !== "companies" ? (
+          <div className="bp-empty">
+            <p className="bp-empty-title">
+              Standalone {KIND_TABS.find((t) => t.id === activeKind)?.label} — coming soon.
+            </p>
+            <p className="bp-empty-sub">
+              v1 ships Companies — full org bundles with agents, ideas, events, and quests
+              pre-threaded. Standalone primitives land next.
+            </p>
+          </div>
         ) : filtered.length === 0 ? (
-          kind === "all" || kind === "companies" ? (
-            <div className="bp-empty">
-              <p className="bp-empty-title">No Blueprints match.</p>
-              <p className="bp-empty-sub">
-                Try a shorter search.{" "}
-                <button
-                  type="button"
-                  className="bp-empty-link"
-                  onClick={() => setSearchParam("q", "")}
-                >
-                  Show everything
-                </button>
-              </p>
-            </div>
-          ) : (
-            <div className="bp-empty">
-              <p className="bp-empty-title">
-                Standalone {KIND_LABELS[kind]} Blueprints — coming soon.
-              </p>
-              <p className="bp-empty-sub">
-                v1 ships Companies — full org bundles with agents, ideas, events, and quests
-                pre-threaded. Standalone primitives land next.
-              </p>
-            </div>
-          )
+          <div className="bp-empty">
+            <p className="bp-empty-title">No Blueprints match.</p>
+            <p className="bp-empty-sub">
+              Try a shorter search.{" "}
+              <button
+                type="button"
+                className="bp-empty-link"
+                onClick={() => setSearchParam("q", "")}
+              >
+                Show everything
+              </button>
+            </p>
+          </div>
         ) : view === "list" ? (
           <ul className="bp-list" role="list">
             {filtered.map((t) => (
@@ -373,11 +374,6 @@ const GLYPHS = {
   sort: (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
       <path d="M3 3.5h7M3 6.5h5M3 9.5h3" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  ),
-  filter: (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-      <path d="M2 3.5h9M3.5 6.5h6M5 9.5h3" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   ),
   view: (

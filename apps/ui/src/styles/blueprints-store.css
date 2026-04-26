@@ -1,20 +1,25 @@
-/* /blueprints — single-column catalog with the Ideas-style toolbar
-   pattern (search + sort + filter + view popovers across the top, no
-   add button). Cards navigate to /blueprints/:slug for inspect; launch
-   happens on /start?blueprint=:slug. */
+/* /blueprints — two-column shell mirroring /settings: vertical
+   PageRail on the left (Companies / Agents / Events / Quests / Ideas),
+   per-kind content on the right. Cards navigate to /blueprints/:slug
+   for inspect; launch happens on /start?blueprint=:slug. */
 
 .bp-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  min-height: 100%;
 }
 
-/* ── Toolbar shell ──────────────────────────────── */
+/* ── Per-kind content column ──────────────────────────────── */
 
 .bp-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
   gap: 18px;
   padding: 24px 28px 56px;
+  overflow-y: auto;
 }
 .bp-error {
   font-size: 12px;
@@ -201,53 +206,49 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Detail page (/blueprints/:slug) ─────────────── */
+/* ── Detail page (/blueprints/:slug) ───────────────
+ *
+ * Same shape language as the ideas canvas: slim head band on top
+ * (back-icon + title + primary CTA on the right), single-column
+ * left-aligned content below. No per-template accent colour, no
+ * centred grid, no sticky launch panel — the launch CTA lives in
+ * the head where every other primary action does. */
 
 .bp-detail-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 24px 32px 64px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
-.bp-detail-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  align-self: flex-start;
-  padding: 4px 10px 4px 6px;
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition:
-    color 0.12s,
-    background 0.12s;
+.bp-detail-head {
+  flex-shrink: 0;
 }
-.bp-detail-back:hover {
-  color: var(--text-primary);
-  background: var(--state-hover);
-}
-.bp-detail-back > span:first-child {
+.bp-detail-toolbar-title {
   font-family: var(--font-sans);
   font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 4px;
 }
-
-.bp-detail-page-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  grid-template-areas:
-    "head spawn"
-    "tree spawn"
-    "samples spawn";
-  gap: 28px 32px;
-  align-items: start;
+.bp-detail-launch-link {
+  text-decoration: none;
+}
+.bp-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px 28px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 880px;
 }
 .bp-detail-page-head {
-  grid-area: head;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -255,11 +256,11 @@
 .bp-detail-page-name {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 44px;
+  font-size: 32px;
   font-weight: 600;
-  letter-spacing: -0.018em;
+  letter-spacing: -0.014em;
+  line-height: 1.1;
   color: var(--text-primary);
-  line-height: 1.05;
 }
 .bp-detail-page-tagline {
   margin: 0;
@@ -268,36 +269,20 @@
   line-height: 1.5;
 }
 .bp-detail-page-desc {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   max-width: 60ch;
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
 }
-.bp-detail-page-tree {
-  grid-area: tree;
+.bp-detail-section {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.bp-detail-page-samples {
-  grid-area: samples;
-}
-.bp-detail-page-spawn {
-  grid-area: spawn;
-  position: sticky;
-  top: 32px;
-  display: flex;
-  flex-direction: column;
-  padding: 22px;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
 
 .bp-detail-missing {
-  padding: 40px 0;
-  text-align: center;
+  padding: 32px 0;
 }
 .bp-detail-missing-title {
   margin: 0 0 6px;
@@ -308,37 +293,6 @@
 .bp-detail-missing-sub {
   margin: 0;
   font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* ── Shared detail bits (used inside the detail page) ── */
-
-.bp-detail-root-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  padding: 4px 10px;
-  background: var(--bg-paper);
-  border: 1px solid var(--border-faint);
-  border-radius: 999px;
-  font-size: 11px;
-  width: fit-content;
-}
-.bp-detail-root-swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.bp-detail-root-name {
-  font-family: var(--font-sans);
-  color: var(--text-primary);
-  font-weight: 500;
-}
-.bp-detail-root-model {
-  font-family: var(--font-sans);
-  font-size: 10px;
   color: var(--text-muted);
 }
 

@@ -127,6 +127,32 @@ export default function App() {
             path="/blueprints"
             element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
           />
+          {/* Static kind sub-routes — render the same BlueprintsPage which
+              picks the active kind off the URL. Defined BEFORE the dynamic
+              :slug route so React Router's static-segment specificity
+              wins; a template with slug "agents" / "events" / "quests" /
+              "ideas" / "companies" would shadow these, so those slugs are
+              effectively reserved. */}
+          <Route
+            path="/blueprints/companies"
+            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
+          <Route
+            path="/blueprints/agents"
+            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
+          <Route
+            path="/blueprints/events"
+            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
+          <Route
+            path="/blueprints/quests"
+            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
+          <Route
+            path="/blueprints/ideas"
+            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
+          />
           <Route
             path="/blueprints/:slug"
             element={<PublicOrAppShell publicPage={<BlueprintDetailPage />} />}

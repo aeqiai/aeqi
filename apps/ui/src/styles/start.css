@@ -1,54 +1,89 @@
 /* /start — the launch surface.
-   A focused stack: hero → blueprint preview → plan picker.
-   The plan grid is the page's center of gravity; cards breathe and
-   read as siblings of the existing blueprint preview card. */
+   Two-step pacing: pick the blueprint (set), pick the plan. Each step
+   is a left-aligned numbered row with subtle context — no centred hero,
+   no big editorial headline. The plan cards differentiate via Button
+   variants (ghost / primary / secondary), not bespoke card colours, so
+   the choice reads as a real choice and not three uniform black bars. */
 
 .start-page {
   width: 100%;
   min-height: 100%;
-  padding: 48px 32px 64px;
+  padding: 40px 32px 64px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .start-shell {
   width: 100%;
-  max-width: 1080px;
+  max-width: 880px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 36px;
 }
 
-/* ── Header ─────────────────────────────────────── */
-
-.start-head {
+/* ── Numbered step ───────────────────────────────
+ * 1 ▸ Blueprint
+ * 2 ▸ Plan
+ *
+ * The number sits in a 28px circle on the left so the eye reads
+ * "step 1 / step 2" before the content. Same circle vocabulary as the
+ * canvas toolbar buttons — same fill/border tokens, same radius. */
+.start-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.start-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--input-bg, var(--bg-base));
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.start-step-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 640px;
+  gap: 12px;
+  min-width: 0;
 }
-.start-eyebrow {
+.start-step-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.start-step-label {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.start-headline {
+.start-step-title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 44px;
+  font-family: var(--font-sans);
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.018em;
-  line-height: 1.05;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
   color: var(--text-primary);
 }
-.start-lede {
+.start-step-sub {
   margin: 0;
-  max-width: 56ch;
-  font-size: 15px;
-  line-height: 1.55;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--text-secondary);
 }
 
@@ -92,81 +127,36 @@
   text-underline-offset: 3px;
 }
 
-/* ── Blueprint preview card ─────────────────────── */
+/* ── Blueprint preview (subtle, inline below the step) ── */
 
-.start-blueprint {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 24px;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-.start-blueprint-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-.start-blueprint-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.start-blueprint-eyebrow {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.start-blueprint-name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-  line-height: 1.1;
-}
-.start-blueprint-tagline {
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-secondary);
-}
 .start-switch-link {
-  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text-muted);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-hover);
   white-space: nowrap;
+  width: fit-content;
   transition:
     color 0.12s,
-    background 0.12s;
+    text-decoration-color 0.12s;
 }
 .start-switch-link:hover {
-  color: var(--text-primary);
-  background: var(--state-hover);
-}
-.start-switch-link > span:first-child {
-  font-family: var(--font-sans);
-  font-size: 13px;
+  color: var(--accent);
+  text-decoration-color: var(--accent-dim);
 }
 .start-blueprint-preview {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+  margin-top: 4px;
 }
 
 /* ── Trial-used banner ──────────────────────────── */
@@ -182,24 +172,7 @@
   color: var(--text-secondary);
 }
 
-/* ── Plans header (eyebrow + interval toggle) ──── */
-
-.start-plans-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.start-plans-eyebrow {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
+/* ── Interval toggle ──────────────────────────────── */
 
 .start-interval-toggle {
   display: inline-flex;

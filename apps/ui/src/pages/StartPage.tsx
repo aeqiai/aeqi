@@ -212,14 +212,29 @@ export default function StartPage() {
   return (
     <div className="start-page">
       <div className="start-shell">
-        <header className="start-head">
-          <p className="start-eyebrow">Launch a Company</p>
-          <h1 className="start-headline">Pick a plan. Launch it.</h1>
-          <p className="start-lede">
-            One Blueprint, one click. Your agents spawn pre-threaded with the ideas, events, and
-            quests that come with this Company.
-          </p>
-        </header>
+        {/* Step 1 — context. Subtle, left-aligned, name + tagline +
+            switch link. The blueprint is set; the user is here to pick
+            a plan. The big editorial "Launch a Company" headline retired. */}
+        <section className="start-step">
+          <div className="start-step-num" aria-hidden>
+            1
+          </div>
+          <div className="start-step-body">
+            <p className="start-step-label">Blueprint</p>
+            <h2 className="start-step-title">{template.name}</h2>
+            {template.tagline && <p className="start-step-sub">{template.tagline}</p>}
+            <Link
+              to={`/blueprints?from=start${slug ? `&current=${encodeURIComponent(slug)}` : ""}`}
+              className="start-switch-link"
+            >
+              Pick a different Blueprint →
+            </Link>
+            <div className="start-blueprint-preview">
+              <BlueprintTreePreview template={template} />
+              <BlueprintSeedCounts template={template} />
+            </div>
+          </div>
+        </section>
 
         {loadError && (
           <div className="start-error" role="alert">
@@ -227,77 +242,73 @@ export default function StartPage() {
           </div>
         )}
 
-        <section className="start-blueprint">
-          <div className="start-blueprint-head">
-            <div className="start-blueprint-meta">
-              <p className="start-blueprint-eyebrow">You'll launch</p>
-              <h2 className="start-blueprint-name">{template.name}</h2>
-              {template.tagline && <p className="start-blueprint-tagline">{template.tagline}</p>}
+        {/* Step 2 — plan. Each plan card carries a different CTA
+            treatment so the row reads as an actual choice, not three
+            equally-loud black buttons:
+              - Free  → ghost (low-commitment trial)
+              - Launch → primary (the recommended path; popular plan)
+              - Scale → outline (paid but secondary in visual weight)
+            Differentiation comes from the Button variant, not bespoke
+            colours. */}
+        <section className="start-step">
+          <div className="start-step-num" aria-hidden>
+            2
+          </div>
+          <div className="start-step-body">
+            <div className="start-step-head">
+              <div>
+                <p className="start-step-label">Plan</p>
+                <h2 className="start-step-title">Choose your plan</h2>
+              </div>
+              <IntervalToggle value={interval} onChange={setInterval} disabled={isBusy} />
             </div>
-            <Link
-              to={`/blueprints?from=start${slug ? `&current=${encodeURIComponent(slug)}` : ""}`}
-              className="start-switch-link"
-            >
-              <span aria-hidden="true">↺</span>
-              <span>Pick a different Blueprint</span>
-            </Link>
-          </div>
 
-          <div className="start-blueprint-preview">
-            <BlueprintTreePreview template={template} />
-            <BlueprintSeedCounts template={template} />
+            {showTrialBanner && (
+              <p className="start-trial-banner" role="status">
+                You've used your one Free Company. Pick a paid plan below — each Company runs on its
+                own subscription.
+              </p>
+            )}
+
+            {submitError && (
+              <div className="start-error" role="alert">
+                {submitError}
+              </div>
+            )}
+
+            <div className="start-plans" aria-label="Pricing plans">
+              <FreePlanCard
+                trialUsed={trialUsed}
+                isAuthed={isAuthed}
+                submitting={submitting === "free"}
+                disabled={isBusy && submitting !== "free"}
+                onLaunch={() => handleLaunch("free", interval)}
+              />
+
+              {PLANS.map((plan) => (
+                <PaidPlanCard
+                  key={plan.id}
+                  planId={plan.id}
+                  name={plan.name}
+                  desc={plan.desc}
+                  monthlyPrice={plan.price}
+                  annualPrice={plan.annualPrice}
+                  popular={plan.popular}
+                  features={plan.features}
+                  interval={interval}
+                  isAuthed={isAuthed}
+                  submitting={submitting === plan.id}
+                  disabled={isBusy && submitting !== plan.id}
+                  onLaunch={() => handleLaunch(plan.id, interval)}
+                />
+              ))}
+            </div>
+
+            <p className="start-plans-foot">
+              Each Company runs on its own subscription. Cancel any time from Settings → Billing.
+            </p>
           </div>
         </section>
-
-        {showTrialBanner && (
-          <p className="start-trial-banner" role="status">
-            You've used your one Free Company. Pick a paid plan below — each Company runs on its own
-            subscription.
-          </p>
-        )}
-
-        {submitError && (
-          <div className="start-error" role="alert">
-            {submitError}
-          </div>
-        )}
-
-        <div className="start-plans-head">
-          <p className="start-plans-eyebrow">Choose your plan</p>
-          <IntervalToggle value={interval} onChange={setInterval} disabled={isBusy} />
-        </div>
-
-        <section className="start-plans" aria-label="Pricing plans">
-          <FreePlanCard
-            trialUsed={trialUsed}
-            isAuthed={isAuthed}
-            submitting={submitting === "free"}
-            disabled={isBusy && submitting !== "free"}
-            onLaunch={() => handleLaunch("free", interval)}
-          />
-
-          {PLANS.map((plan) => (
-            <PaidPlanCard
-              key={plan.id}
-              planId={plan.id}
-              name={plan.name}
-              desc={plan.desc}
-              monthlyPrice={plan.price}
-              annualPrice={plan.annualPrice}
-              popular={plan.popular}
-              features={plan.features}
-              interval={interval}
-              isAuthed={isAuthed}
-              submitting={submitting === plan.id}
-              disabled={isBusy && submitting !== plan.id}
-              onLaunch={() => handleLaunch(plan.id, interval)}
-            />
-          ))}
-        </section>
-
-        <p className="start-plans-foot">
-          Each Company runs on its own subscription. Cancel any time from Settings → Billing.
-        </p>
       </div>
     </div>
   );
@@ -387,7 +398,7 @@ function FreePlanCard({
       <div className="start-plan-cta">
         <Button
           type="button"
-          variant="primary"
+          variant="ghost"
           size="lg"
           loading={submitting}
           disabled={disabled || locked || submitting}
@@ -485,7 +496,7 @@ function PaidPlanCard({
       <div className="start-plan-cta">
         <Button
           type="button"
-          variant="primary"
+          variant={popular ? "primary" : "secondary"}
           size="lg"
           loading={submitting}
           disabled={disabled || submitting}
