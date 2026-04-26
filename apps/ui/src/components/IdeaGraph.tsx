@@ -26,13 +26,8 @@ interface Props {
   selectedId?: string | null;
 }
 
-/**
- * Runtime palette — read once from CSS custom properties so the graph
- * follows the design system instead of carrying its own rainbow. A
- * neutral ink base with graphite accent mirrors the rest of the app;
- * differentiation between tag/relation kinds is carried by shape and
- * weight, not by raw hue.
- */
+// Read from CSS custom properties so the graph follows the design system.
+// Tag/relation differentiation is carried by shape + weight, not hue.
 interface Palette {
   ink: string;
   inkSoft: string;
@@ -61,12 +56,8 @@ function loadPalette(): Palette {
   };
 }
 
-/**
- * Semantic edge relations map to line style, not hue. Keeping everything
- * in the accent/ink family is what separates this from a generic graph —
- * relation kind is read from dash pattern + weight, which preserves the
- * app's single-accent discipline without losing information.
- */
+// Edge relations map to dash + weight, not hue, to preserve the
+// single-accent discipline of the design system.
 const RELATION_STYLE: Record<string, { dash: number[]; weight: number }> = {
   supports: { dash: [], weight: 1.25 },
   supersedes: { dash: [], weight: 1.6 },
@@ -84,12 +75,6 @@ function primaryTag(node: Pick<GraphNode, "tags">): string {
   return node.tags[0] || "untagged";
 }
 
-/**
- * Tag → visual role. Four buckets replace the previous seven-hue rainbow:
- * decisions/skills pick up the accent, evergreen/procedural ideas read as
- * dominant ink, facts/preferences as soft ink, and everything else falls
- * to dim. Differentiation survives; the palette stays disciplined.
- */
 type TagRole = "accent" | "ink" | "soft" | "dim";
 
 function roleFor(node: GraphNode): TagRole {
@@ -131,7 +116,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
   const paletteRef = useRef<Palette | null>(null);
   const [dimensions, setDimensions] = useState({ w: 800, h: 500 });
 
-  // Initialize simulation nodes with positions.
   useEffect(() => {
     const cx = dimensions.w / 2;
     const cy = dimensions.h / 2;
@@ -145,7 +129,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     edgesRef.current = edges;
   }, [nodes, edges, dimensions]);
 
-  // Resize observer.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -164,7 +147,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return () => ro.disconnect();
   }, []);
 
-  // Force simulation + render loop.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -194,13 +176,9 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       const cx = dimensions.w / 2;
       const cy = dimensions.h / 2;
 
-      // Forces.
       for (const n of sim) {
-        // Center gravity.
         n.vx += (cx - n.x) * 0.001;
         n.vy += (cy - n.y) * 0.001;
-
-        // Repulsion between all nodes.
         for (const m of sim) {
           if (n === m) continue;
           const dx = n.x - m.x;
@@ -214,7 +192,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         }
       }
 
-      // Spring forces for edges.
       for (const e of edgs) {
         const s = nodeMap.get(e.source);
         const t = nodeMap.get(e.target);
@@ -232,19 +209,16 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         t.vy -= fy;
       }
 
-      // Apply velocity with damping.
       for (const n of sim) {
         if (dragRef.current?.node === n) continue;
         n.vx *= 0.85;
         n.vy *= 0.85;
         n.x += n.vx;
         n.y += n.vy;
-        // Bounds.
         n.x = Math.max(30, Math.min(dimensions.w - 30, n.x));
         n.y = Math.max(30, Math.min(dimensions.h - 30, n.y));
       }
 
-      // Render.
       ctx!.clearRect(0, 0, dimensions.w, dimensions.h);
 
       const selectedNeighbors = new Set<string>();
@@ -255,9 +229,8 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         }
       }
 
-      // Draw edges — two passes so connected-to-selected render over the
-      // quiet background layer. Default edges stay in the neutral border
-      // token at low alpha; selection-connected edges pick up the accent.
+      // Two passes so connected-to-selected edges paint OVER the quiet
+      // background layer; otherwise selection neighbors get buried.
       ctx!.lineCap = "round";
       for (const pass of [0, 1] as const) {
         for (const e of edgs) {
@@ -289,11 +262,8 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
       }
       ctx!.setLineDash([]);
 
-      // Draw nodes. The radius carries hotness; stroke signals state.
-      // Cold nodes stay readable (min 0.55 opacity) — a 0.4 floor left
-      // stale memories as near-invisible shadows. Active selection gets
-      // a concentric halo in the paper color so the node "lifts" off the
-      // graph regardless of surrounding density.
+      // Cold-node opacity floor stays at 0.55 — 0.4 left stale memories
+      // as near-invisible shadows.
       for (const n of sim) {
         const isSelected = n.id === selectedId;
         const isNeighbor = selectedNeighbors.has(n.id);
@@ -303,8 +273,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         const fill = isSelected ? pal.accent : nodeColor(pal, role);
         const isDim = selectedId !== null && !isSelected && !isNeighbor;
 
-        // Concentric halo ring for selected — a wider translucent accent
-        // disc anchors the eye without needing a second DOM overlay.
         if (isSelected) {
           ctx!.beginPath();
           ctx!.arc(n.x, n.y, radius + 8, 0, Math.PI * 2);
@@ -314,8 +282,8 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           ctx!.globalAlpha = 1;
         }
 
-        // Node disc — always drawn on top of a paper pad so overlapping
-        // nodes never silhouette-merge into one blob.
+        // Paper pad behind the disc so overlapping nodes don't
+        // silhouette-merge into one blob.
         ctx!.beginPath();
         ctx!.arc(n.x, n.y, radius + 1.5, 0, Math.PI * 2);
         ctx!.fillStyle = pal.paper;
@@ -330,17 +298,11 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
         ctx!.fill();
         ctx!.globalAlpha = 1;
 
-        // Stroke outline — a 1px hairline keeps small cold nodes crisp
-        // against paper. Selected/hovered nodes get a slightly heavier
-        // accent ring.
         ctx!.lineWidth = isSelected || isHovered ? 1.5 : 0.75;
         ctx!.strokeStyle = isSelected ? pal.accent : isHovered ? pal.accentSoft : pal.border;
         ctx!.stroke();
 
-        // Label — hidden by default to let the graph breathe; shown on
-        // selection / hover / when the idea is hot, or in sparse graphs
-        // where there's room. Labels use the design-system text tokens,
-        // not the old raw-black rgba literal.
+        // Hidden by default; shown for selection/hover/neighbor/hot/sparse.
         const shouldLabel =
           isSelected || isHovered || isNeighbor || n.hotness > 0.6 || sim.length < 24;
         if (shouldLabel) {
@@ -349,8 +311,7 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
           ctx!.globalAlpha = isSelected ? 1 : isDim ? 0.5 : 0.8;
           ctx!.textAlign = "center";
           ctx!.textBaseline = "top";
-          // Paper halo behind the label so text never collides with an
-          // edge line running underneath it.
+          // Paper rect behind the label so it doesn't collide with edge lines.
           const label = n.name.length > 42 ? n.name.slice(0, 40) + "…" : n.name;
           const m = ctx!.measureText(label);
           const lx = n.x - m.width / 2 - 3;
@@ -372,7 +333,6 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return () => cancelAnimationFrame(animRef.current);
   }, [dimensions, selectedId]);
 
-  // Hit test helper.
   const hitTest = useCallback((x: number, y: number): GraphNode | null => {
     const sim = simRef.current;
     for (let i = sim.length - 1; i >= 0; i--) {
@@ -392,11 +352,9 @@ export default function IdeaGraph({ nodes, edges, onSelect, selectedId }: Props)
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
-  // Distinguish click-to-open from drag-to-rearrange. A bare mousedown on
-  // a node used to fire onSelect immediately, which navigated away before
-  // any drag motion could start — the graph was un-draggable. Now the
-  // click intent is resolved on mouseup only if the pointer stayed within
-  // a small threshold; anything further becomes a drag and suppresses nav.
+  // Distinguishes click-to-open from drag-to-rearrange — without it, a
+  // bare mousedown fires onSelect and navigates before any drag motion
+  // can start, making the graph un-draggable.
   const CLICK_THRESHOLD_PX = 4;
 
   const handleMouseDown = useCallback(
