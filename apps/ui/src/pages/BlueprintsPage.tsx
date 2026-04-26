@@ -4,16 +4,21 @@ import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
-import { Button, Input, Spinner } from "@/components/ui";
+import { Input, Spinner } from "@/components/ui";
 import PageRail from "@/components/PageRail";
 import { BlueprintCard } from "@/components/blueprints/BlueprintCard";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 
 const FILTERS = [
-  { id: "all", label: "All" },
   { id: "companies", label: "Companies" },
+  { id: "agents", label: "Agents" },
+  { id: "events", label: "Events" },
+  { id: "quests", label: "Quests" },
+  { id: "ideas", label: "Ideas" },
 ];
+
+type FilterId = (typeof FILTERS)[number]["id"];
 
 /**
  * `/blueprints` — catalog. Two columns: filter rail on the left, search +
@@ -37,7 +42,10 @@ export default function BlueprintsPage() {
   const [query, setQuery] = useState("");
 
   const filterParam = searchParams.get("tab");
-  const filter = filterParam === "companies" ? "companies" : "all";
+  const filter: FilterId =
+    filterParam && FILTERS.some((f) => f.id === filterParam)
+      ? (filterParam as FilterId)
+      : "companies";
 
   useEffect(() => {
     document.title = "Blueprints · aeqi";
@@ -76,12 +84,12 @@ export default function BlueprintsPage() {
     [query],
   );
 
-  // A v1 catalog only ships company-shaped blueprints, so the
-  // "companies" filter shows the same set as "all". Once non-company
-  // blueprints land (solo agents, channel adapters), this partitions
-  // by template.kind.
+  // v1 only ships company-shaped blueprints. The other filter tabs
+  // (agents/events/quests/ideas) are present so the affordance is
+  // discoverable, but they intentionally render an empty grid until
+  // the corresponding template.kind partitions land.
   const visible = useMemo(() => {
-    if (filter !== "all" && filter !== "companies") return [];
+    if (filter !== "companies") return [];
     return templates.filter((t) => matches(t.name) || matches(t.tagline) || matches(t.description));
   }, [templates, filter, matches]);
 
@@ -97,17 +105,7 @@ export default function BlueprintsPage() {
 
   return (
     <div className="bp-page">
-      <PageRail
-        tabs={FILTERS}
-        defaultTab="all"
-        title="Blueprints"
-        footer={
-          <Button type="button" variant="ghost" size="sm" fullWidth onClick={handleCustom}>
-            <span aria-hidden="true">+</span>
-            <span>Custom Agent</span>
-          </Button>
-        }
-      />
+      <PageRail tabs={FILTERS} defaultTab="companies" title="Blueprints" />
 
       <main className="bp-content">
         {isImportMode && (
@@ -170,17 +168,29 @@ export default function BlueprintsPage() {
               <BlueprintCard key={t.slug} template={t} index={i} />
             ))}
 
-            {visible.length === 0 && (
-              <div className="bp-empty">
-                <p className="bp-empty-title">No Blueprints match.</p>
-                <p className="bp-empty-sub">
-                  Try a shorter search.{" "}
-                  <button type="button" className="bp-empty-link" onClick={() => setQuery("")}>
-                    Show everything
-                  </button>
-                </p>
-              </div>
-            )}
+            {visible.length === 0 &&
+              (filter === "companies" ? (
+                <div className="bp-empty">
+                  <p className="bp-empty-title">No Blueprints match.</p>
+                  <p className="bp-empty-sub">
+                    Try a shorter search.{" "}
+                    <button type="button" className="bp-empty-link" onClick={() => setQuery("")}>
+                      Show everything
+                    </button>
+                  </p>
+                </div>
+              ) : (
+                <div className="bp-empty">
+                  <p className="bp-empty-title">
+                    Standalone {FILTERS.find((f) => f.id === filter)?.label} Blueprints — coming
+                    soon.
+                  </p>
+                  <p className="bp-empty-sub">
+                    v1 ships Companies — full org bundles with agents, ideas, events, and quests
+                    pre-threaded. Standalone primitives land next.
+                  </p>
+                </div>
+              ))}
           </div>
         )}
       </main>
