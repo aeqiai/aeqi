@@ -22,6 +22,11 @@ export interface ShellSurface {
   isUserSession: boolean;
   /** Session id from /sessions/:sessionId (user-scope inbox view). */
   userSessionId: string | null;
+  /** Blueprint slug from /blueprints/:slug — null on the catalog list itself.
+   *  AppLayout uses this to dispatch the detail page vs the catalog so
+   *  authed users don't get stuck on the catalog when deep-linking a
+   *  specific blueprint. */
+  blueprintSlug: string | null;
 }
 
 export function useShellSurface(
@@ -40,6 +45,8 @@ export function useShellSurface(
       path.startsWith("/settings/") ||
       tab === "profile";
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
+    const blueprintMatch = path.match(/^\/blueprints\/([^/]+)\/?$/);
+    const blueprintSlug = blueprintMatch ? decodeURIComponent(blueprintMatch[1]) : null;
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
     const isStart = path === "/start";
     const isDrive = tab === "drive";
@@ -55,6 +62,7 @@ export function useShellSurface(
       isStart,
       isUserSession,
       userSessionId,
+      blueprintSlug,
     };
   }, [path, agentId, tab]);
 }

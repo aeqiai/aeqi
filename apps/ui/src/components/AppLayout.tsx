@@ -22,6 +22,7 @@ const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
+const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
@@ -155,6 +156,7 @@ export default function AppLayout() {
     isStart,
     isUserSession,
     userSessionId,
+    blueprintSlug,
   } = surface;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
@@ -179,7 +181,7 @@ export default function AppLayout() {
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
-    if (isBlueprints) return <BlueprintsPage />;
+    if (isBlueprints) return blueprintSlug ? <BlueprintDetailPage /> : <BlueprintsPage />;
     if (isEconomy) return <EconomyPage />;
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
