@@ -3700,12 +3700,18 @@
   white-space: nowrap;
   padding: 0 4px;
 }
-/* Universal icon-button — circle hover, no rounded squares. Linear's
-   register: transparent at rest so the row reads as the search field
-   with a few icons beside it; on hover a subtle circular tint says
-   "you can click this." Same language used everywhere icon actions
-   live: list toolbar (sort/filter/view/new), canvas header
-   (back/new/delete), graph toolbar. One shape vocabulary, no exceptions. */
+/* Canonical icon-button shell for the ideas surface.
+ *
+ * Matches the search-input language (--input-bg + --input-border) at
+ * rest so the toolbar reads as a single set of related controls — the
+ * search field and the ring of circles beside it wear the same fill and
+ * hairline. Hover lifts to --bg-row + a darker border; open/active
+ * states pick up the accent. 30px circle, aligned to the search field's
+ * baseline.
+ *
+ * REUSE: this is the canonical "icon button matching input field" for
+ * the ideas surface. Other surfaces should copy this pattern verbatim
+ * until it lives as a `<ToolbarIconButton>` in the design system. */
 .ideas-toolbar-btn {
   position: relative;
   display: inline-flex;
@@ -3715,15 +3721,16 @@
   height: 30px;
   padding: 0;
   color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
+  background: var(--input-bg, var(--bg-base));
+  border: 1px solid var(--input-border, var(--border));
   border-radius: 999px;
   cursor: pointer;
   flex-shrink: 0;
   transition:
     color 0.12s ease,
     background 0.12s ease,
-    border-color 0.12s ease;
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .ideas-toolbar-btn svg {
   opacity: 0.85;
@@ -3731,17 +3738,31 @@
 }
 .ideas-toolbar-btn:hover {
   color: var(--text-primary);
-  background: var(--state-hover);
+  background: var(--bg-row);
+  border-color: var(--input-border-focus, var(--border-hover));
 }
 .ideas-toolbar-btn:hover svg {
   opacity: 1;
 }
 .ideas-toolbar-btn.open {
   color: var(--accent);
-  background: var(--state-selected);
+  background: var(--bg-row);
+  border-color: var(--accent-dim);
 }
 .ideas-toolbar-btn.active {
   color: var(--accent);
+  border-color: var(--accent-dim);
+}
+/* Primary variant — used for Save in compose mode. Filled-accent disc so
+   the create action stays visually obvious without a label. */
+.ideas-toolbar-btn.primary {
+  color: var(--btn-primary-text, #fff);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ideas-toolbar-btn.primary:hover {
+  background: var(--btn-primary-bg-hover, #000);
+  border-color: var(--btn-primary-bg-hover, #000);
 }
 .ideas-toolbar-btn.disabled,
 .ideas-toolbar-btn:disabled {
@@ -3750,20 +3771,21 @@
 }
 .ideas-toolbar-btn:focus-visible {
   outline: none;
-  background: var(--state-hover);
-  box-shadow: 0 0 0 2px var(--accent-dim);
+  box-shadow: var(--input-ring-focus, var(--ring-muted));
 }
-/* Danger variant for the delete trash. Hover blooms a soft destructive
-   circle; the armed state (after first click) commits the destructive
+/* Danger variant — delete (×). Hover lifts to a soft destructive tint;
+   the armed state (after first click) commits the full destructive
    palette and pulses subtly so the second click feels deliberate. */
 .ideas-toolbar-btn.danger:hover {
   color: var(--destructive);
-  background: color-mix(in oklch, var(--destructive) 10%, transparent);
+  background: color-mix(in oklch, var(--destructive) 8%, var(--bg-row));
+  border-color: color-mix(in oklch, var(--destructive) 35%, var(--input-border));
 }
 .ideas-toolbar-btn.danger.armed,
 .ideas-toolbar-btn.danger.armed:hover {
   color: var(--btn-primary-text, #fff);
   background: var(--destructive);
+  border-color: var(--destructive);
   animation: ideas-btn-pulse 1s ease-in-out infinite;
 }
 @keyframes ideas-btn-pulse {
@@ -3908,34 +3930,16 @@
 .ideas-scope-btn .scope-dot {
   margin-right: 1px;
 }
-/* Wider popover for scope — needs room for the dot + label + hint. */
+/* Scope popover — same shell + width as the filter popover so opening
+   either feels uniform. Two-column rows (mark + label), no per-row
+   hint, no footer note. The locked variant in edit mode dims the
+   non-active rows but keeps the popover open so the user can read the
+   scope at a glance. */
 .ideas-scope-popover {
-  width: 280px;
+  width: 200px;
 }
 .ideas-scope-popover .ideas-filter-row {
-  grid-template-columns: 18px 1fr auto;
-}
-.ideas-scope-popover-note {
-  margin: 4px 8px 4px;
-  padding-top: 6px;
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  color: var(--text-muted);
-  line-height: 1.4;
-  border-top: 1px dashed var(--border-faint);
-}
-/* Inline hint shown after the label on each scope row — explains the
-   scope's reach in one line so the popover teaches as it picks. */
-.ideas-filter-row-hint {
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  color: var(--text-muted);
-  letter-spacing: 0;
-  text-align: right;
-  white-space: nowrap;
-}
-.ideas-filter-row.active .ideas-filter-row-hint {
-  color: var(--text-secondary);
+  grid-template-columns: 16px 1fr;
 }
 /* Sort segmented control — sits flush right of the search input so the
    head stays single-row and the two filter axes (text / shelf-order)
@@ -5126,7 +5130,7 @@
 .ideas-canvas-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .ideas-toolbar-spacer {
   flex: 1;
@@ -5608,60 +5612,6 @@
 .ideas-canvas-reject-textarea:focus {
   border-color: var(--input-border-focus);
   box-shadow: var(--input-ring-focus);
-}
-
-/* Save indicator — tiny dot + quiet label. Fades opacity while saving;
-   holds on success for a moment then self-clears via the component state. */
-.ideas-canvas-save-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  font-size: 11px;
-  font-family: var(--font-sans);
-  color: var(--text-muted);
-  transition: opacity 0.25s;
-  min-height: 16px;
-}
-.ideas-canvas-save-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--text-muted);
-  transition:
-    background 0.25s,
-    transform 0.25s;
-}
-.ideas-canvas-save-indicator.state-dirty {
-  color: var(--text-primary);
-}
-.ideas-canvas-save-indicator.state-dirty .ideas-canvas-save-dot {
-  background: var(--accent);
-}
-.ideas-canvas-save-indicator.state-saving .ideas-canvas-save-dot {
-  background: var(--text-primary);
-  animation: ideas-save-fade 900ms ease-in-out infinite;
-}
-.ideas-canvas-save-indicator.state-saved {
-  color: var(--success);
-}
-.ideas-canvas-save-indicator.state-saved .ideas-canvas-save-dot {
-  background: var(--success);
-}
-.ideas-canvas-save-indicator.state-error {
-  color: var(--destructive);
-}
-.ideas-canvas-save-indicator.state-error .ideas-canvas-save-dot {
-  background: var(--destructive);
-}
-@keyframes ideas-save-fade {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
 }
 
 /* Inline chip-row tag editor ------------------------------------- */

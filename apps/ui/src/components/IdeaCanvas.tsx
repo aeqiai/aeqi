@@ -6,6 +6,7 @@ import type { Idea, ScopeValue } from "@/lib/types";
 import { Button } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
+import RefsRow, { type RefRecord } from "./RefsRow";
 import TagsEditor from "./TagsEditor";
 import IdeasScopePopover from "./ideas/IdeasScopePopover";
 
@@ -81,6 +82,11 @@ export default function IdeaCanvas({
   const [content, setContent] = useState(idea?.content ?? "");
   const [typedTags, setTypedTags] = useState<string[]>(idea?.tags ?? []);
   const [composeScope, setComposeScope] = useState<ScopeValue>("self");
+  // Pending references for compose mode — the idea doesn't exist yet so
+  // we collect picker selections locally and replay them as
+  // `addIdeaEdge` calls after the idea persists. Compose-mode refs are
+  // always treated as `adjacent` (the explicit-link relation).
+  const [pendingRefs, setPendingRefs] = useState<RefRecord[]>([]);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
   // Candidate-skill decision state.
@@ -125,6 +131,7 @@ export default function IdeaCanvas({
     setRejectRationale("");
     setBodyMode(idea?.id ? "view" : "edit");
     setComposeScope("self");
+    setPendingRefs([]);
     dirtyRef.current = false;
   }, [idea?.id, idea?.name, idea?.content, idea?.tags]);
 
@@ -233,13 +240,23 @@ export default function IdeaCanvas({
         agent_id: agentId,
       };
       addIdea(agentId, created);
+      // Replay the locally-collected references against the freshly-
+      // persisted idea. We fire and-forget — if any individual edge
+      // fails the user still has the idea, and they can re-add the ref
+      // from edit mode. Keeping the navigate non-blocking on this loop
+      // means the canvas swap to edit mode still feels instant.
+      if (pendingRefs.length > 0) {
+        void Promise.all(
+          pendingRefs.map((r) => api.addIdeaEdge(res.id, r.target_id, "adjacent").catch(() => {})),
+        );
+      }
       setSaveState("saved");
       goAgent(agentId, "ideas", res.id, { replace: true });
     } catch (e) {
       setSaveState("error");
       setError(e instanceof Error ? e.message : "Save failed");
     }
-  }, [isEdit, agentId, addIdea, goAgent, composeScope]);
+  }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs]);
 
   // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
   // `e` (bare) — from view mode, enter edit (Linear-style doc shortcut). Ignored
@@ -392,23 +409,34 @@ export default function IdeaCanvas({
             </button>
           )}
           <div className="ideas-toolbar-spacer" aria-hidden />
-          {error && <span className="ideas-canvas-error">{error}</span>}
-          <SaveIndicator state={saveState} />
           <IdeasScopePopover
             scope={headerScope}
             locked={isEdit}
             onChange={!isEdit ? setComposeScope : undefined}
           />
-          {showCompose && (
-            <Button
-              variant="primary"
-              size="sm"
-              loading={saveState === "saving"}
-              onClick={handleCreate}
-              title="Save idea (⌘↵)"
+          {(showCompose || saveState === "dirty" || saveState === "saving") && (
+            <button
+              type="button"
+              className="ideas-toolbar-btn primary"
+              onClick={isEdit ? flushSave : handleCreate}
+              disabled={saveState === "saving"}
+              title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
+              aria-label={isEdit ? "Save" : "Save idea"}
             >
-              Save
-            </Button>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+              </svg>
+            </button>
           )}
           {isEdit && (
             <button
@@ -425,16 +453,16 @@ export default function IdeaCanvas({
                 viewBox="0 0 13 13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.4"
+                strokeWidth="1.6"
                 strokeLinecap="round"
-                strokeLinejoin="round"
                 aria-hidden
               >
-                <path d="M3 3.5h7M5 3.5V2.5h3v1M3.8 3.5l.5 7h4.4l.5-7M5.3 5.5v3.5M7.7 5.5v3.5" />
+                <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
               </svg>
             </button>
           )}
         </div>
+        {error && <div className="ideas-canvas-error">{error}</div>}
         <TagsEditor
           tags={inlineTags}
           typed={typedTags}
@@ -453,7 +481,24 @@ export default function IdeaCanvas({
             }
           }}
         />
-        {isEdit && idea && <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />}
+        {isEdit && idea ? (
+          <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
+        ) : (
+          <RefsRow
+            candidates={ideas ?? []}
+            refs={pendingRefs}
+            onAdd={(target) =>
+              setPendingRefs((prev) =>
+                prev.some((r) => r.target_id === target.id)
+                  ? prev
+                  : [...prev, { target_id: target.id, name: target.name, relation: "adjacent" }],
+              )
+            }
+            onRemove={({ target_id }) =>
+              setPendingRefs((prev) => prev.filter((r) => r.target_id !== target_id))
+            }
+          />
+        )}
       </div>
 
       <div className="ideas-canvas-content">
@@ -579,25 +624,5 @@ export default function IdeaCanvas({
         )}
       </div>
     </div>
-  );
-}
-
-function SaveIndicator({ state }: { state: SaveState }) {
-  const label =
-    state === "dirty"
-      ? "Edited — unsaved"
-      : state === "saving"
-        ? "Saving…"
-        : state === "saved"
-          ? "Saved"
-          : state === "error"
-            ? "Save failed"
-            : "";
-  if (!label) return <span className="ideas-canvas-save-indicator" aria-hidden />;
-  return (
-    <span className={`ideas-canvas-save-indicator state-${state}`}>
-      <span className="ideas-canvas-save-dot" aria-hidden />
-      {label}
-    </span>
   );
 }

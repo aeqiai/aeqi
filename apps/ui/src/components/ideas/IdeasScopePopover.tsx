@@ -3,18 +3,12 @@ import { Popover } from "../ui/Popover";
 import type { ScopeValue } from "@/lib/types";
 import { IDEA_SCOPE_VALUES } from "./types";
 
-const SCOPE_HINT: Record<ScopeValue, string> = {
-  self: "this agent only",
-  siblings: "agents that share a parent",
-  children: "agents nested under this one",
-  branch: "this agent and everything below",
-  global: "every agent in every company",
-};
-
 export interface IdeasScopePopoverProps {
   scope: ScopeValue;
-  /** Set when the idea is fixed (already created). Trigger still opens but
-   *  rows render as read-only and a footnote explains why. */
+  /** Set when the idea is fixed (already created). Trigger still opens
+   *  but rows render as read-only. The scope is set at creation and
+   *  can't be migrated server-side today; the popover is informational
+   *  in this mode. */
   locked?: boolean;
   onChange?: (next: ScopeValue) => void;
 }
@@ -30,7 +24,7 @@ export default function IdeasScopePopover({
     <Popover
       open={open}
       onOpenChange={setOpen}
-      placement="bottom-start"
+      placement="bottom-end"
       trigger={
         <button
           type="button"
@@ -38,7 +32,7 @@ export default function IdeasScopePopover({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          title={locked ? "Scope is set at creation and can't be changed" : `Scope: ${scope}`}
+          title={locked ? "Scope (set at creation)" : `Scope: ${scope}`}
         >
           <span className={`scope-dot scope-dot--${scope}`} aria-hidden />
           <span className="ideas-scope-btn-label">{scope}</span>
@@ -84,16 +78,10 @@ export default function IdeasScopePopover({
                   <span className={`scope-dot scope-dot--${s}`} />
                 </span>
                 <span className="ideas-filter-row-label">{s}</span>
-                <span className="ideas-filter-row-hint">{SCOPE_HINT[s]}</span>
               </button>
             );
           })}
         </div>
-        {locked && (
-          <p className="ideas-scope-popover-note">
-            Scope is set when the idea is first written and is locked after that.
-          </p>
-        )}
       </div>
     </Popover>
   );
