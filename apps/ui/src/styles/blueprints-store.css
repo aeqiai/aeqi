@@ -122,7 +122,10 @@
 
 .bp-empty {
   grid-column: 1 / -1;
-  padding: 40px 0;
+  padding: 32px 0;
+}
+.bp-grid + .bp-empty,
+.bp-grid > .bp-empty {
   text-align: center;
 }
 .bp-empty-title {
@@ -145,6 +148,70 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+.bp-empty-query {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 2px;
+}
+
+/* ── Seed list (inside a blueprint) ───────────── */
+
+.bp-seed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.bp-seed-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.bp-seed-row:last-child {
+  border-bottom: 0;
+}
+.bp-seed-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.bp-seed-row-name {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+.bp-seed-row-pattern {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.bp-seed-row-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+.bp-seed-row-sub {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 70ch;
 }
 
 /* ── List view (alternative to grid) ───────────── */

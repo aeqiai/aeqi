@@ -17,6 +17,7 @@ const renderApp = (entry = "/blueprints") =>
         <Routes>
           <Route path="/blueprints" element={<BlueprintsPage />} />
           <Route path="/blueprints/:slug" element={<BlueprintDetailPage />} />
+          <Route path="/blueprints/:slug/:section" element={<BlueprintDetailPage />} />
         </Routes>
       </MemoryRouter>
     </StrictMode>,
@@ -94,18 +95,29 @@ describe("BlueprintDetailPage", () => {
     cleanup();
   });
 
-  it("renders sample event patterns + idea titles + quest subjects", async () => {
+  it("renders the section rail; seeds appear on each per-kind sub-route", async () => {
     vi.spyOn(api, "getTemplate").mockResolvedValue({ ok: true, template: SOLO });
 
-    renderApp("/blueprints/solo-founder");
-
+    // Overview lands by default — shows the title + the section rail.
+    const overview = renderApp("/blueprints/solo-founder");
     await screen.findByRole("heading", { level: 1, name: "Solo Founder" });
+    expect(screen.getByRole("tab", { name: /overview/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /agents/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /events/i })).toBeInTheDocument();
+    overview.unmount();
 
-    expect(screen.getByText("Events that fire")).toBeInTheDocument();
-    expect(screen.getByText("Ideas seeded")).toBeInTheDocument();
-    expect(screen.getByText("Quests waiting")).toBeInTheDocument();
-    expect(screen.getByText("session:start")).toBeInTheDocument();
-    expect(screen.getByText("how-to-create-a-quest")).toBeInTheDocument();
+    // Events sub-route renders the event patterns from the seeds.
+    const eventsRender = renderApp("/blueprints/solo-founder/events");
+    await waitFor(() => {
+      expect(screen.getByText("session:start")).toBeInTheDocument();
+    });
+    eventsRender.unmount();
+
+    // Ideas sub-route renders the seeded idea titles.
+    renderApp("/blueprints/solo-founder/ideas");
+    await waitFor(() => {
+      expect(screen.getByText("how-to-create-a-quest")).toBeInTheDocument();
+    });
   });
 
   it("falls back to bundled fixtures when the detail API errors", async () => {

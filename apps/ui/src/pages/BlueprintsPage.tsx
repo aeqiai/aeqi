@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
@@ -252,11 +252,15 @@ export default function BlueprintsPage() {
         ) : activeKind !== "companies" ? (
           <div className="bp-empty">
             <p className="bp-empty-title">
-              Standalone {KIND_TABS.find((t) => t.id === activeKind)?.label} — coming soon.
+              No standalone {KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} yet.
             </p>
             <p className="bp-empty-sub">
               v1 ships Companies — full org bundles with agents, ideas, events, and quests
-              pre-threaded. Standalone primitives land next.
+              pre-threaded. Open one from the{" "}
+              <Link to="/blueprints/companies" className="bp-empty-link">
+                Companies
+              </Link>{" "}
+              list to see its primitives.
             </p>
           </div>
         ) : filtered.length === 0 ? (

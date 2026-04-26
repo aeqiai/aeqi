@@ -157,6 +157,12 @@ export default function App() {
             path="/blueprints/:slug"
             element={<PublicOrAppShell publicPage={<BlueprintDetailPage />} />}
           />
+          {/* Inside-a-blueprint section sub-routes — same detail page,
+              the section param drives the right pane content. */}
+          <Route
+            path="/blueprints/:slug/:section"
+            element={<PublicOrAppShell publicPage={<BlueprintDetailPage />} />}
+          />
           <Route path="/economy" element={<PublicOrAppShell publicPage={<EconomyPage />} />} />
           {/* Legacy public-surface aliases — kept here so unauthed
               visitors don't bounce through the protected shell. */}
