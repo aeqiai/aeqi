@@ -4,23 +4,11 @@ import BlockAvatar from "@/components/BlockAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 
-// BrandMark / Wordmark are no longer rendered by the authed
-// LeftSidebar — the profile row replaces them in the top-left slot
-// (and in collapsed state). Both components stay alive in the
-// codebase via the auth pages (login, signup, verify, reset) and
-// will be wired into the future non-authed shell variant; no need
-// to import them here until that variant exists.
-
 interface LeftSidebarProps {
   agentId: string | null;
   path: string;
 }
 
-/*
- * SVG props for the user-zone glyphs (Inbox, Blueprints, Economy)
- * and chrome icons (collapse, search). Primitive nav rows have no
- * icon — they render the full word in the brand typeface.
- */
 const iconProps = {
   viewBox: "0 0 16 16",
   fill: "none",
@@ -37,9 +25,6 @@ const InboxIcon = () => (
   </svg>
 );
 
-/* Blueprints: three stacked sheets, slightly offset. Reads as
- * "a stack of plans" — the catalog metaphor — without leaning on the
- * grid-paper cliché the rail used previously. */
 const BlueprintsIcon = () => (
   <svg {...iconProps}>
     <path d="M5 2.5h7v7" />
@@ -48,10 +33,6 @@ const BlueprintsIcon = () => (
   </svg>
 );
 
-/* Economy: a pie-chart slice (circle outline + filled 90° wedge).
- * Reads as ownership share / cap-table allocation — directly matches
- * what the page contains (wallets, cap tables, ownership graph) rather
- * than leaning on a culturally-loaded currency mark. */
 const EconomyIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="8" r="5.5" />
@@ -59,8 +40,6 @@ const EconomyIcon = () => (
   </svg>
 );
 
-/* Agents: a person silhouette — head circle + shoulders arc. The
- * autonomous-entity primitive made literal at rail size. */
 const AgentsIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="5.5" r="2.5" />
@@ -68,16 +47,12 @@ const AgentsIcon = () => (
   </svg>
 );
 
-/* Events: a lightning bolt. Triggers fire; signals arrive. The
- * pattern-matched runtime moment in glyph form. */
 const EventsIcon = () => (
   <svg {...iconProps}>
     <path d="M9 2 4 9h4l-1 5 5-7H8z" />
   </svg>
 );
 
-/* Quests: a flag on a pole. Goals in flight, not completion-shaped
- * (which would be a checkmark and read as 'done'). */
 const QuestsIcon = () => (
   <svg {...iconProps}>
     <path d="M4 2v12" />
@@ -85,9 +60,6 @@ const QuestsIcon = () => (
   </svg>
 );
 
-/* Ideas: a lightbulb — the obvious-and-readable choice. The cliché
- * earns its place because instant recognition matters more than
- * cleverness on a 16px rail glyph. */
 const IdeasIcon = () => (
   <svg {...iconProps}>
     <path d="M5 7a3 3 0 0 1 6 0c0 1.5-1 2.5-1 3.5h-4c0-1-1-2-1-3.5z" />
@@ -95,11 +67,6 @@ const IdeasIcon = () => (
   </svg>
 );
 
-/* Settings: three horizontal sliders with knobs at different
- * positions. Reads as "tune / adjust / preferences" without leaning
- * on the gear cliché — and a gear inside an account-settings context
- * always misreads as "more options" or "config" (mechanical, generic)
- * rather than "your settings" (personal). */
 const SettingsIcon = () => (
   <svg {...iconProps}>
     <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
@@ -109,9 +76,6 @@ const SettingsIcon = () => (
   </svg>
 );
 
-/* Sign out: a door + arrow stepping out. The "leaving the building"
- * metaphor reads cleanly at 14px without rivaling the more important
- * primitive glyphs above. */
 const SignOutIcon = () => (
   <svg {...iconProps}>
     <path d="M9 3H3v10h6" />
@@ -126,14 +90,6 @@ const PRIMITIVES: { id: string; label: string; icon: React.ReactNode; title: str
   { id: "ideas", label: "Ideas", icon: <IdeasIcon />, title: "Ideas · G then I" },
 ];
 
-/**
- * Application left rail: brand, agent tree, current-agent surface nav, profile.
- *
- * One surface for every navigation decision. The tree picks WHO (which agent);
- * the surface nav below picks WHAT about them (home, sessions, primitives,
- * configure). No top-bar tabs, no gear drawer — everything the user might
- * want is visible and scannable in a single column.
- */
 export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -146,39 +102,20 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  // Chrome-level affordances that used to live in the content topbar.
-  // Dispatched as window events because AppLayout owns the actual
-  // overlay state — same channel the content topbar was using.
+  // AppLayout owns the overlay state — bridge via window events.
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
   const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
 
-  // Profile row: name on top, email below in a muted secondary line.
-  // Fall back to email-local / "Local" / "You" when we don't have enough
-  // to show two lines — in those cases the row renders single-line so
-  // the same content doesn't stack on top of itself.
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   const userEmail = user?.name && user?.email ? user.email : null;
-  // Primitive nav is scoped to the selected agent. On `/` and `/profile`
-  // no agent is picked yet, so the four primitives have nowhere to point.
-  // Rather than render them as inert ghosts, we swap the whole block for
-  // a single Launch-agent CTA that occupies the same vertical footprint —
-  // the rail's silhouette stays identical across scopes (no twitch when
-  // a root is picked) and the empty space turns into the page's primary
-  // call to action instead of dead pixels.
+  // Swap the four primitives for a Launch CTA at user scope so the rail's
+  // silhouette stays identical across scopes (no layout twitch when a root
+  // is picked).
   const userScope = !agentId;
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
-  // Profile row = "you" as a scope, always pointing at the user root.
-  // Clicking it lands on `/` (your home); the gear in the topbar takes
-  // you to /settings. Active for both — you're "in yourself" either
-  // way, exactly the way an agent row stays active across its subtree.
   const profileHref = "/";
   const profileActive = path === "/" || path === "/settings" || path === "/profile";
-  // Inbox = scope-aware home. In agent scope it points to the agent's
-  // own home (/:agentId); at the user root it points to `/`. The brand
-  // and the footer profile both already route to `/`, so Inbox doesn't
-  // need to duplicate that — it stays within the current scope so the
-  // user can return to their agent's inbox with one click.
   const inboxHref = base || "/";
   const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
 
@@ -368,10 +305,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <span className="sidebar-nav-label">Inbox</span>
           </a>
           {(() => {
-            // Scope-aware Settings: in agent scope it navigates to the
-            // agent's own settings; at user root it navigates to the
-            // user's account settings. Same row, two destinations,
-            // exactly like Inbox above.
             const settingsHref = base ? `${base}/settings` : "/settings";
             const settingsActive = base
               ? path === `${base}/settings` || path.startsWith(`${base}/settings/`)
@@ -422,11 +355,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         )}
       </div>
 
-      {/* Profile lives in the header (top-left, replacing the brand
-          glyph); help button moved to Search's right edge. Sign-out
-          sits at the very bottom in a danger variant — destructive
-          action, last in the rail, lowest visual priority but always
-          findable. */}
       {!sidebarCollapsed && (
         <div
           className="sidebar-resizer"
@@ -435,10 +363,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           aria-label="Resize sidebar"
           onMouseDown={(e) => {
             e.preventDefault();
-            // Persistent feedback during drag — body cursor stays
-            // col-resize even when the mouse leaves the resizer hit
-            // area, and text selection is suppressed so dragging
-            // doesn't accidentally select content.
+            // Body-level cursor + select suppression so the drag survives
+            // the cursor leaving the 6px resizer hit-band.
             document.body.style.cursor = "col-resize";
             document.body.style.userSelect = "none";
 
