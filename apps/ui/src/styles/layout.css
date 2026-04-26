@@ -7,8 +7,6 @@
   height: 100vh;
   overflow: hidden;
   background: var(--color-card);
-  max-width: 1440px;
-  margin: 0 auto;
 }
 
 /* ── Rate-limit strip ─────────────────────────────────────
@@ -1174,13 +1172,13 @@
      tint, not as white slabs. The content-card paints its own
      background on top; only the empty insets show this color. */
   background: var(--bg-sidebar);
-  /* Symmetric 18px insets on top and bottom — card floats with
-     matching breathing room on both vertical edges. ShellFooter was
-     removed from the layout (the legal strip kept fighting its own
-     centering); the bottom inset is now just the mirrored gap, no
-     contents. */
+  /* Symmetric 18px insets on top, bottom, and right — card floats with
+     matching breathing room on three edges. The left edge stays flush
+     against the sidebar so the tinted frame reads as continuous with
+     the rail. */
   padding-top: var(--shell-footer-h);
   padding-bottom: var(--shell-footer-h);
+  padding-right: var(--shell-footer-h);
 }
 
 /* Content card — the tinted frame holding the paper sheet. Sidebar
