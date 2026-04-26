@@ -10,6 +10,234 @@
   gap: 4px;
 }
 
+/* ── Root picker (workspace-switcher pattern)
+   The picker IS the active root row — the tree below renders only that
+   root's descendants, so the root never appears twice. Sticky to the
+   top of the scrolling .tree so deep subtrees don't lose the scope
+   anchor when scrolled. */
+
+.pickerSlot {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* Match the sidebar's shell tint so the sticky region doesn't read as
+     a card overlay when subtree rows scroll behind it. */
+  background: var(--bg-sidebar);
+  /* Hairline divider only when the list below has scrolled past — the
+     box-shadow is cheaper than a 1px border that would jump on first
+     paint. Kept always-on for now; promote to scroll-aware if it reads
+     too architectural in practice. */
+  box-shadow: 0 1px 0 var(--border-faint);
+  margin: 0 0 4px;
+  padding-bottom: 4px;
+}
+
+.pickerRow {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: var(--sidebar-row-h);
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.pickerMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  /* Title-ink + semibold so the picker reads as the scope header it is —
+     not just another nav row. The visual hierarchy puts it one level
+     above the body-ink agent rows beneath. */
+  color: var(--color-text-title);
+  font-weight: 600;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.pickerMain:hover {
+  background: var(--state-hover);
+}
+.pickerMain:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+
+.pickerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  padding-left: 8px;
+}
+
+.pickerSwitcherBtn {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  align-self: center;
+  margin: 0 4px 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.pickerSwitcherBtn:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.pickerSwitcherBtn:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
+}
+
+.pickerChevronSpacer {
+  /* Reserve the chevron column even when there's only one root, so the
+     picker geometry doesn't twitch when a second root is created. */
+  width: 22px;
+  height: 22px;
+  margin: 0 4px 0 4px;
+  flex-shrink: 0;
+}
+
+/* ── Popover panel — listbox of root agents + create CTA */
+.pickerMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.pickerMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.pickerMenuItem:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.pickerMenuItem:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+.pickerMenuItemActive {
+  color: var(--color-text-title);
+  font-weight: 600;
+  background: var(--state-selected);
+}
+
+.pickerMenuAvatar {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pickerMenuLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickerMenuCheck {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.pickerMenuSep {
+  height: 1px;
+  background: var(--border-faint);
+  margin: 4px 0;
+}
+
+.pickerMenuCreate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.pickerMenuCreate:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.pickerMenuCreate:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+
+.pickerMenuPlus {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.pickerMenuCreate:hover .pickerMenuPlus {
+  color: var(--color-accent);
+}
+
 .list {
   display: flex;
   flex-direction: column;

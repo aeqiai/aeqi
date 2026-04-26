@@ -4,6 +4,7 @@ import { useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import BlockAvatar from "./BlockAvatar";
+import { Popover } from "./ui/Popover";
 import type { Agent, AgentRef } from "@/lib/types";
 import styles from "./Sidebar.module.css";
 
@@ -254,111 +255,161 @@ function AgentNodeView({
 }
 
 /**
- * Root-row: one row per root agent. Roots sit flush-left with no rail.
- * The active root (URL) auto-expands; clicking the chevron on any root
- * overrides that default so inactive roots can also be peeked.
+ * RootPicker — replaces the old flat-roots-list pattern. Shows the current
+ * scope root as a single sticky header at the top of the tree, with a
+ * chevron-down on the right (only when there's more than one root) that
+ * opens a popover to switch scope. Beneath the picker, only this root's
+ * descendants render — the root itself is the picker, so we don't render
+ * it twice in the tree.
+ *
+ * UX precedent: Linear / Notion / GitHub workspace switcher.
  */
-function RootRow({
-  agent,
-  isActive,
-  selectedId,
-  allAgents,
-  expanded,
-  onSelectAgent,
-  onToggle,
-}: {
-  agent: Agent;
-  isActive: boolean;
-  selectedId: string | null;
-  allAgents: Agent[];
-  expanded: Record<string, boolean>;
-  onSelectAgent: (agent: AgentRef) => void;
-  onToggle: (id: string, nextExpanded: boolean, e: React.MouseEvent) => void;
-}) {
-  const label = agent.name;
-  const isSelectedRow = selectedId === agent.id;
-  const subtree = useMemo(() => buildSubtree(allAgents, agent.id), [allAgents, agent.id]);
-  const descendantCount = subtree ? countDescendants(subtree) : 0;
-  const hasChildren = descendantCount > 0;
-  const isExpanded = expanded[agent.id] ?? isActive;
-  const showChildren = hasChildren && isExpanded;
+function RootSwitcherDownChevron() {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 4.5l3 3 3-3" />
+    </svg>
+  );
+}
 
-  const select = () =>
-    onSelectAgent({
-      id: agent.id,
-      name: agent.name,
-      model: agent.model,
+function RootPicker({
+  activeRoot,
+  allRoots,
+  onSelectRoot,
+  onCreateRoot,
+}: {
+  activeRoot: Agent;
+  allRoots: Agent[];
+  onSelectRoot: (agent: Agent) => void;
+  onCreateRoot: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasMany = allRoots.length > 1;
+
+  // Active root sits at the top (highlighted with a check), the rest follow
+  // alphabetically. Recency-aware ordering would be nicer once the UI store
+  // tracks recent roots — for now alphabetical is predictable.
+  const orderedRoots = useMemo(() => {
+    return [...allRoots].sort((a, b) => {
+      if (a.id === activeRoot.id) return -1;
+      if (b.id === activeRoot.id) return 1;
+      return a.name.localeCompare(b.name);
     });
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      select();
-      return;
-    }
-    if (hasChildren && e.key === "ArrowRight" && !isExpanded) {
-      e.preventDefault();
-      onToggle(agent.id, true, e as unknown as React.MouseEvent);
-    }
-    if (hasChildren && e.key === "ArrowLeft" && isExpanded) {
-      e.preventDefault();
-      onToggle(agent.id, false, e as unknown as React.MouseEvent);
-    }
-  };
+  }, [allRoots, activeRoot.id]);
+
+  const switcherTrigger = (
+    <button
+      type="button"
+      className={styles.pickerSwitcherBtn}
+      aria-label="Switch root agent"
+      title="Switch root agent"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <RootSwitcherDownChevron />
+    </button>
+  );
+
+  const popoverPanel = (
+    <div className={styles.pickerMenu} role="listbox" aria-label="Root agents">
+      {orderedRoots.map((r) => {
+        const isCurrent = r.id === activeRoot.id;
+        return (
+          <button
+            key={r.id}
+            type="button"
+            role="option"
+            aria-selected={isCurrent}
+            className={`${styles.pickerMenuItem} ${isCurrent ? styles.pickerMenuItemActive : ""}`}
+            onClick={() => {
+              onSelectRoot(r);
+              setOpen(false);
+            }}
+          >
+            <span className={styles.pickerMenuAvatar}>
+              <BlockAvatar name={r.name} size={16} />
+            </span>
+            <span className={styles.pickerMenuLabel}>{r.name}</span>
+            {isCurrent && (
+              <span className={styles.pickerMenuCheck} aria-hidden="true">
+                <svg viewBox="0 0 12 12" width="10" height="10" fill="none">
+                  <path
+                    d="M2.5 6.5l2.5 2.5 4.5-5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            )}
+          </button>
+        );
+      })}
+      <div className={styles.pickerMenuSep} role="separator" />
+      <button
+        type="button"
+        className={styles.pickerMenuCreate}
+        onClick={() => {
+          setOpen(false);
+          onCreateRoot();
+        }}
+      >
+        <span className={styles.pickerMenuPlus} aria-hidden="true">
+          +
+        </span>
+        <span>New root agent</span>
+      </button>
+    </div>
+  );
 
   return (
-    <div className={styles.node}>
-      <div
-        className={isSelectedRow ? styles.rowActive : styles.row}
-        role="treeitem"
-        tabIndex={0}
-        aria-selected={isSelectedRow}
-        aria-expanded={hasChildren ? isExpanded : undefined}
-        onClick={select}
-        onKeyDown={onKeyDown}
+    <div className={styles.pickerRow}>
+      <button
+        type="button"
+        className={styles.pickerMain}
+        onClick={() => onSelectRoot(activeRoot)}
+        title={`Open ${activeRoot.name}`}
       >
         <span className={styles.iconSlot}>
-          <BlockAvatar name={label} size={16} />
+          <BlockAvatar name={activeRoot.name} size={16} />
         </span>
-        <span className={styles.rowLabel}>{label}</span>
-        {hasChildren && !isExpanded && <span className={styles.count}>{descendantCount}</span>}
-        {hasChildren ? (
-          <button
-            type="button"
-            className={styles.collapseBtn}
-            onClick={(e) => onToggle(agent.id, !isExpanded, e)}
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-            aria-expanded={isExpanded}
-            title={isExpanded ? "Collapse" : "Expand"}
-          >
-            <Chevron expanded={isExpanded} />
-          </button>
-        ) : (
-          <span className={styles.collapseSpacer} aria-hidden="true" />
-        )}
-      </div>
-      {showChildren &&
-        subtree &&
-        subtree.children.map((child, i) => (
-          <AgentNodeView
-            key={child.id}
-            node={child}
-            ancestors={[]}
-            isLast={i === subtree.children.length - 1}
-            selectedId={selectedId}
-            expanded={expanded}
-            onSelectAgent={onSelectAgent}
-            onToggle={onToggle}
-          />
-        ))}
+        <span className={styles.pickerLabel}>{activeRoot.name}</span>
+      </button>
+      {hasMany ? (
+        <Popover
+          open={open}
+          onOpenChange={setOpen}
+          placement="bottom-end"
+          trigger={switcherTrigger}
+        >
+          {popoverPanel}
+        </Popover>
+      ) : (
+        // Reserve the chevron slot when there's only one root so the picker
+        // geometry matches the multi-root case (avoids a layout twitch when
+        // a second root is created).
+        <span className={styles.pickerChevronSpacer} aria-hidden="true" />
+      )}
     </div>
   );
 }
 
 /**
- * Agent tree: one flat list of every root agent, with the URL's active
- * root expanded to show its subtree. Creating a root company is an
- * exclusively home-page action (/) — this rail is pure navigation.
- * Sub-agents are created from within an agent's Agents tab.
+ * Agent tree: a single "scope picker" header for the active root, with that
+ * root's descendants below. The other roots live behind the switcher chevron
+ * on the picker — see RootPicker. Creating a root agent is the +New CTA in
+ * the popover (or the home-page Launch CTA); sub-agents are created from
+ * within an agent's Agents tab.
  */
 export default function AgentTree() {
   const navigate = useNavigate();
@@ -370,10 +421,10 @@ export default function AgentTree() {
   const { agentId } = useParams<{ agentId?: string }>();
   const selectedId = agentId || null;
 
-  // Context-less routes (/, /profile, /drive) still expand the last-visited
-  // root so the tree reads identically everywhere. When there's no last root,
-  // the first root auto-expands — collapsed guessing games are worse than a
-  // consistent default.
+  // Context-less routes (/, /profile, /drive) still pin the last-visited
+  // root so the tree reads identically everywhere. When there's no last
+  // root, the first root takes the slot — collapsed guessing games are
+  // worse than a consistent default.
   const activeRootId = useMemo(() => {
     if (agentId) return findRootId(allAgents, agentId);
     if (activeRoot && allAgents.some((a) => a.id === activeRoot)) return activeRoot;
@@ -381,6 +432,14 @@ export default function AgentTree() {
   }, [agentId, activeRoot, allAgents]);
 
   const roots = useMemo(() => allAgents.filter((a) => !a.parent_id), [allAgents]);
+  const activeRootAgent = useMemo(
+    () => roots.find((r) => r.id === activeRootId) ?? null,
+    [roots, activeRootId],
+  );
+  const activeSubtree = useMemo(
+    () => (activeRootAgent ? buildSubtree(allAgents, activeRootAgent.id) : null),
+    [allAgents, activeRootAgent],
+  );
 
   const toggleNode = (id: string, next: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -392,22 +451,42 @@ export default function AgentTree() {
     navigate(`/${encodeURIComponent(agent.id)}`);
   };
 
+  if (roots.length === 0) {
+    return (
+      <nav className={styles.tree}>
+        <div className={styles.empty}>No agents</div>
+      </nav>
+    );
+  }
+
   return (
     <nav className={styles.tree}>
-      <div className={styles.list} role="tree" aria-label="Agent tree">
-        {roots.length === 0 && <div className={styles.empty}>No agents</div>}
-        {roots.map((r) => (
-          <RootRow
-            key={r.id}
-            agent={r}
-            isActive={r.id === activeRootId}
-            selectedId={selectedId}
-            allAgents={allAgents}
-            expanded={expanded}
-            onSelectAgent={handleSelectAgent}
-            onToggle={toggleNode}
+      {activeRootAgent && (
+        <div className={styles.pickerSlot}>
+          <RootPicker
+            activeRoot={activeRootAgent}
+            allRoots={roots}
+            onSelectRoot={(a) =>
+              handleSelectAgent({ id: a.id, name: a.name, model: a.model ?? undefined })
+            }
+            onCreateRoot={() => navigate("/new")}
           />
-        ))}
+        </div>
+      )}
+      <div className={styles.list} role="tree" aria-label="Agent tree">
+        {activeSubtree &&
+          activeSubtree.children.map((child, i) => (
+            <AgentNodeView
+              key={child.id}
+              node={child}
+              ancestors={[]}
+              isLast={i === activeSubtree.children.length - 1}
+              selectedId={selectedId}
+              expanded={expanded}
+              onSelectAgent={handleSelectAgent}
+              onToggle={toggleNode}
+            />
+          ))}
       </div>
     </nav>
   );
