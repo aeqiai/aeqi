@@ -112,19 +112,34 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_agent_directors_user_active
             ON agent_directors(user_id) WHERE revoked_at IS NULL;
+
+        -- Agent wallets. Every agent (company / sub-agent / AI worker) gets
+        -- exactly one wallet at creation time, parallel to user_wallets but
+        -- without the multi-wallet / primary-swap concerns. Custody, signing,
+        -- and recovery are otherwise identical.
+        CREATE TABLE IF NOT EXISTS agent_wallets (
+            id                            TEXT PRIMARY KEY,
+            agent_id                      TEXT NOT NULL UNIQUE,
+            address                       TEXT NOT NULL UNIQUE,
+            pubkey                        BLOB NOT NULL,
+            custody_state                 TEXT NOT NULL CHECK (custody_state IN ('custodial','co_custody','self_custody')),
+            provisioned_by                TEXT NOT NULL CHECK (provisioned_by IN ('runtime','user')),
+            server_share_ciphertext       BLOB,
+            server_share_kek_ciphertext   BLOB,
+            kek_version                   INTEGER,
+            client_share_commitment       BLOB,
+            recovery_seed_revealed_at     TEXT,
+            added_at                      TEXT NOT NULL,
+            CHECK (
+                (custody_state = 'self_custody'  AND server_share_ciphertext IS NULL)
+                OR (custody_state IN ('custodial','co_custody') AND server_share_ciphertext IS NOT NULL)
+            )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_wallets_address
+            ON agent_wallets(address);
         "#,
     )?;
-
-    // Additive columns on agents (runtime DB only). Wrapped in best-effort
-    // because the `agents` table only exists in aeqi.db; the platform DB
-    // doesn't have it. ALTER will error harmlessly on platform; we ignore.
-    let _ = conn.execute_batch(
-        r#"
-        ALTER TABLE agents ADD COLUMN wallet_address TEXT;
-        ALTER TABLE agents ADD COLUMN custody_state TEXT;
-        ALTER TABLE agents ADD COLUMN custody_authority TEXT;
-        "#,
-    );
 
     Ok(())
 }

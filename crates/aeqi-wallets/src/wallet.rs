@@ -28,7 +28,8 @@ use crate::{
     keypair::KeypairError,
     recovery::{EntropySeed, RecoveryError},
     store::{
-        WalletStore,
+        AgentWalletStore, StoredAgentWallet, WalletStore,
+        agent_repo::InsertAgentWallet,
         repo::{InsertWallet, StoreError, StoredWallet},
     },
     types::{Address, CustodyState, EcdsaSignature, ProvisionedBy, Pubkey, WalletId},
@@ -198,6 +199,125 @@ pub async fn reveal_recovery_seed<K: MasterKekProvider + ?Sized>(
     })
 }
 
+// ── agent wallet API ──────────────────────────────────────────────────────
+
+#[derive(Debug)]
+pub struct ProvisionAgentRequest {
+    pub agent_id: String,
+    pub provisioned_by: ProvisionedBy,
+}
+
+/// Generate a fresh custodial wallet for an agent. Mirrors `provision_custodial`
+/// but inserts into `agent_wallets` (1:1 with `agent_id`). Returns the BIP-39
+/// mnemonic ONCE — the caller should reveal it to the directing user(s) of the
+/// agent so they can recover externally if needed.
+pub async fn provision_custodial_for_agent<K: MasterKekProvider + ?Sized>(
+    db: &SharedDb,
+    master_kek: &K,
+    req: ProvisionAgentRequest,
+) -> Result<ProvisionedWallet, WalletError> {
+    let entropy = EntropySeed::generate();
+    let mnemonic = entropy.to_mnemonic()?.to_string();
+    let mut secret = entropy.derive_private_key();
+    let keypair = Keypair::from_secret_bytes(&secret)?;
+    let address = keypair.address;
+    let pubkey = keypair.pubkey.clone();
+
+    let mut per_wallet_kek = [0u8; 32];
+    rand::rng().fill_bytes(&mut per_wallet_kek);
+    let server_share_ciphertext = aead_encrypt(&per_wallet_kek, entropy.expose())?;
+    let server_share_kek_ciphertext = master_kek.wrap(&per_wallet_kek).await?;
+
+    secret.zeroize();
+    per_wallet_kek.zeroize();
+
+    let wallet_id = WalletId::new();
+    let insert = InsertAgentWallet {
+        id: wallet_id.clone(),
+        agent_id: req.agent_id,
+        address,
+        pubkey: pubkey.0.clone(),
+        custody_state: CustodyState::Custodial,
+        provisioned_by: req.provisioned_by,
+        server_share_ciphertext: Some(server_share_ciphertext),
+        server_share_kek_ciphertext: Some(server_share_kek_ciphertext),
+        kek_version: Some(master_kek.version()),
+    };
+    let db = db.clone();
+    tokio::task::spawn_blocking(move || -> Result<(), WalletError> {
+        let conn = db.blocking_lock();
+        AgentWalletStore::insert(&conn, &insert)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| WalletError::Join(e.to_string()))??;
+
+    Ok(ProvisionedWallet {
+        id: wallet_id,
+        address,
+        pubkey,
+        mnemonic_revealed_once: mnemonic,
+    })
+}
+
+/// Sign a 32-byte digest with an agent's custodial wallet.
+pub async fn sign_agent_custodial<K: MasterKekProvider + ?Sized>(
+    db: &SharedDb,
+    master_kek: &K,
+    agent_id: &str,
+    digest: &[u8; 32],
+) -> Result<EcdsaSignature, WalletError> {
+    let stored = load_agent_wallet(db, agent_id).await?;
+    if stored.custody_state != CustodyState::Custodial {
+        return Err(WalletError::NotCustodialSignable(
+            stored.custody_state.as_str(),
+        ));
+    }
+    let entropy = decrypt_entropy_blob(
+        master_kek,
+        stored.server_share_ciphertext.as_ref(),
+        stored.server_share_kek_ciphertext.as_ref(),
+    )
+    .await?;
+    let mut secret = EntropySeed::from_bytes(*entropy).derive_private_key();
+    let keypair = Keypair::from_secret_bytes(&secret)?;
+    let signature = keypair.sign_prehash(digest)?;
+    secret.zeroize();
+    Ok(signature)
+}
+
+/// Re-derive the BIP-39 mnemonic for an agent's wallet. Stamps
+/// `recovery_seed_revealed_at`.
+pub async fn reveal_agent_recovery_seed<K: MasterKekProvider + ?Sized>(
+    db: &SharedDb,
+    master_kek: &K,
+    agent_id: &str,
+) -> Result<RevealedRecovery, WalletError> {
+    let stored = load_agent_wallet(db, agent_id).await?;
+    let entropy = decrypt_entropy_blob(
+        master_kek,
+        stored.server_share_ciphertext.as_ref(),
+        stored.server_share_kek_ciphertext.as_ref(),
+    )
+    .await?;
+    let mnemonic = EntropySeed::from_bytes(*entropy).to_mnemonic()?.to_string();
+
+    let db = db.clone();
+    let agent_id_for_block = agent_id.to_string();
+    tokio::task::spawn_blocking(move || -> Result<(), WalletError> {
+        let conn = db.blocking_lock();
+        AgentWalletStore::mark_recovery_revealed(&conn, &agent_id_for_block)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| WalletError::Join(e.to_string()))??;
+
+    Ok(RevealedRecovery {
+        mnemonic,
+        address: stored.address,
+    })
+}
+
 // ── internal helpers ──────────────────────────────────────────────────────
 
 async fn load_stored(db: &SharedDb, wallet_id: &WalletId) -> Result<StoredWallet, WalletError> {
@@ -212,18 +332,40 @@ async fn load_stored(db: &SharedDb, wallet_id: &WalletId) -> Result<StoredWallet
     .map_err(|e| WalletError::Join(e.to_string()))?
 }
 
+async fn load_agent_wallet(
+    db: &SharedDb,
+    agent_id: &str,
+) -> Result<StoredAgentWallet, WalletError> {
+    let db = db.clone();
+    let agent_id = agent_id.to_string();
+    tokio::task::spawn_blocking(move || -> Result<StoredAgentWallet, WalletError> {
+        let conn = db.blocking_lock();
+        AgentWalletStore::get_by_agent(&conn, &agent_id)?
+            .ok_or_else(|| WalletError::Store(StoreError::NotFound(agent_id.clone())))
+    })
+    .await
+    .map_err(|e| WalletError::Join(e.to_string()))?
+}
+
 async fn decrypt_entropy<K: MasterKekProvider + ?Sized>(
     master_kek: &K,
     stored: &StoredWallet,
 ) -> Result<Zeroizing<[u8; 16]>, WalletError> {
-    let server_share_ct = stored
-        .server_share_ciphertext
-        .as_ref()
-        .ok_or(WalletError::NoServerShare)?;
-    let kek_ct = stored
-        .server_share_kek_ciphertext
-        .as_ref()
-        .ok_or(WalletError::NoServerShare)?;
+    decrypt_entropy_blob(
+        master_kek,
+        stored.server_share_ciphertext.as_ref(),
+        stored.server_share_kek_ciphertext.as_ref(),
+    )
+    .await
+}
+
+async fn decrypt_entropy_blob<K: MasterKekProvider + ?Sized>(
+    master_kek: &K,
+    server_share_ct: Option<&Vec<u8>>,
+    kek_ct: Option<&Vec<u8>>,
+) -> Result<Zeroizing<[u8; 16]>, WalletError> {
+    let server_share_ct = server_share_ct.ok_or(WalletError::NoServerShare)?;
+    let kek_ct = kek_ct.ok_or(WalletError::NoServerShare)?;
 
     let per_wallet_kek = master_kek.unwrap(kek_ct).await?;
     let mut entropy_bytes = aead_decrypt(per_wallet_kek.as_ref(), server_share_ct)?;
@@ -375,6 +517,71 @@ mod tests {
         let secret = entropy.derive_private_key();
         let kp = crate::Keypair::from_secret_bytes(&secret).unwrap();
         assert_eq!(kp.address, provisioned.address);
+    }
+
+    #[tokio::test]
+    async fn provision_agent_then_sign_then_reveal() {
+        use k256::ecdsa::{Signature as KSig, VerifyingKey, signature::hazmat::PrehashVerifier};
+
+        let db = fresh_db();
+        let kek = fresh_kek();
+
+        let provisioned = provision_custodial_for_agent(
+            &db,
+            &kek,
+            ProvisionAgentRequest {
+                agent_id: "agent-co-1".into(),
+                provisioned_by: ProvisionedBy::Runtime,
+            },
+        )
+        .await
+        .unwrap();
+
+        // Sign with the agent's wallet.
+        let digest = Keccak256::digest(b"company action").into();
+        let sig = sign_agent_custodial(&db, &kek, "agent-co-1", &digest)
+            .await
+            .unwrap();
+
+        let mut r_s = [0u8; 64];
+        r_s[..32].copy_from_slice(&sig.r);
+        r_s[32..].copy_from_slice(&sig.s);
+        let k_sig = KSig::from_slice(&r_s).unwrap();
+        let vk = VerifyingKey::from_sec1_bytes(&provisioned.pubkey.0).unwrap();
+        vk.verify_prehash(&digest, &k_sig).unwrap();
+
+        // Reveal returns the same mnemonic shown at provision.
+        let revealed = reveal_agent_recovery_seed(&db, &kek, "agent-co-1")
+            .await
+            .unwrap();
+        assert_eq!(revealed.mnemonic, provisioned.mnemonic_revealed_once);
+        assert_eq!(revealed.address, provisioned.address);
+    }
+
+    #[tokio::test]
+    async fn agent_can_have_only_one_wallet() {
+        let db = fresh_db();
+        let kek = fresh_kek();
+        provision_custodial_for_agent(
+            &db,
+            &kek,
+            ProvisionAgentRequest {
+                agent_id: "agent-x".into(),
+                provisioned_by: ProvisionedBy::Runtime,
+            },
+        )
+        .await
+        .unwrap();
+        let r = provision_custodial_for_agent(
+            &db,
+            &kek,
+            ProvisionAgentRequest {
+                agent_id: "agent-x".into(),
+                provisioned_by: ProvisionedBy::Runtime,
+            },
+        )
+        .await;
+        assert!(r.is_err(), "second wallet for same agent must fail");
     }
 
     #[tokio::test]
