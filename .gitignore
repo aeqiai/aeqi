@@ -43,3 +43,26 @@ tmp/
 NIGHT_SHIFT_BRIEF.md
 aeqi_architecture_idea.md
 scripts/tg-nightshift.sh
+
+# Internal coordination artifacts — never commit
+notes/
+LUCAS_DREAM.md
+OVERNIGHT_*.md
+OVERNIGHT-*.md
+AGENTS.md
+QUALITY_GATES.md
+CODEX_HANDOFF.md
+PLAN.md
+PROMPT.md
+TODO.md
+VISION.md
+security_tests.rs
+
+# Operator-local config (use `config/aeqi.example.toml` as template)
+config/aeqi.toml
+config/platform.toml
+config/ports.toml
+
+# Personal deploy scripts
+scripts/deploy.sh
+scripts/check-recall.sh.real
