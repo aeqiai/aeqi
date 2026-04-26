@@ -310,10 +310,17 @@ function RootPicker({
   const switcherTrigger = (
     <button
       type="button"
-      className={styles.pickerSwitcherBtn}
+      className={`${styles.pickerSwitcherBtn} ${open ? styles.pickerSwitcherBtnOpen : ""}`}
       aria-label="Switch root agent"
       title="Switch root agent"
-      onClick={(e) => e.stopPropagation()}
+      aria-expanded={open}
+      // Popover's auto-toggle only fires in uncontrolled mode; in controlled
+      // mode (which we need so item-select can close the menu) the trigger
+      // has no implicit handler. Wire the toggle here explicitly.
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen(!open);
+      }}
     >
       <RootSwitcherDownChevron />
     </button>
@@ -461,8 +468,8 @@ export default function AgentTree() {
 
   return (
     <nav className={styles.tree}>
-      {activeRootAgent && (
-        <div className={styles.pickerSlot}>
+      <div className={styles.list} role="tree" aria-label="Agent tree">
+        {activeRootAgent && (
           <RootPicker
             activeRoot={activeRootAgent}
             allRoots={roots}
@@ -471,9 +478,7 @@ export default function AgentTree() {
             }
             onCreateRoot={() => navigate("/new")}
           />
-        </div>
-      )}
-      <div className={styles.list} role="tree" aria-label="Agent tree">
+        )}
         {activeSubtree &&
           activeSubtree.children.map((child, i) => (
             <AgentNodeView

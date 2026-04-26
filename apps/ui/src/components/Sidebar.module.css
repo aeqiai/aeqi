@@ -12,25 +12,11 @@
 
 /* ── Root picker (workspace-switcher pattern)
    The picker IS the active root row — the tree below renders only that
-   root's descendants, so the root never appears twice. Sticky to the
-   top of the scrolling .tree so deep subtrees don't lose the scope
-   anchor when scrolled. */
-
-.pickerSlot {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  /* Match the sidebar's shell tint so the sticky region doesn't read as
-     a card overlay when subtree rows scroll behind it. */
-  background: var(--bg-sidebar);
-  /* Hairline divider only when the list below has scrolled past — the
-     box-shadow is cheaper than a 1px border that would jump on first
-     paint. Kept always-on for now; promote to scroll-aware if it reads
-     too architectural in practice. */
-  box-shadow: 0 1px 0 var(--border-faint);
-  margin: 0 0 4px;
-  padding-bottom: 4px;
-}
+   root's descendants, so the root never appears twice. Visually the row
+   is indistinguishable from a regular tree row — no sticky chrome, no
+   divider, no extra background. The only difference is a rounded
+   switcher button at the right edge that opens the root selector
+   popover (same idiom as the `?` button next to Search). */
 
 .pickerRow {
   position: relative;
@@ -56,9 +42,6 @@
   text-align: left;
   font-family: inherit;
   font-size: var(--font-size-xs);
-  /* Title-ink + semibold so the picker reads as the scope header it is —
-     not just another nav row. The visual hierarchy puts it one level
-     above the body-ink agent rows beneath. */
   color: var(--color-text-title);
   font-weight: 600;
   transition:
@@ -83,40 +66,49 @@
   padding-left: 8px;
 }
 
+/* Standalone rounded switcher button — same idiom as .sidebar-help-btn
+   ("?" next to Search): 24×24 circle, transparent border, comes alive
+   on hover. Visually detached from the row so it reads as its own
+   affordance. */
 .pickerSwitcherBtn {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   align-self: center;
-  margin: 0 4px 0 4px;
+  margin: 0 4px 0 2px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   background: transparent;
-  border: 0;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: 50%;
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    background 0.1s ease,
-    color 0.1s ease;
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
 }
-.pickerSwitcherBtn:hover {
-  background: var(--state-hover);
-  color: var(--color-text-title);
-}
+.pickerSwitcherBtn:hover,
 .pickerSwitcherBtn:focus-visible {
-  outline: 1px solid var(--border-hover);
-  outline-offset: 1px;
+  color: var(--color-text-title);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
+}
+.pickerSwitcherBtnOpen {
+  color: var(--color-text-title);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
 }
 
 .pickerChevronSpacer {
-  /* Reserve the chevron column even when there's only one root, so the
-     picker geometry doesn't twitch when a second root is created. */
-  width: 22px;
-  height: 22px;
-  margin: 0 4px 0 4px;
+  /* Reserve the switcher column even when there's only one root, so
+     geometry doesn't twitch when a second root is created. */
+  width: 24px;
+  height: 24px;
+  margin: 0 4px 0 2px;
   flex-shrink: 0;
 }
 
