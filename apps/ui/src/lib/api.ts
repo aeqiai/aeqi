@@ -120,7 +120,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  // Auth
   getAuthMode: () =>
     request<{
       app_mode?: AppMode;
@@ -261,13 +260,10 @@ export const api = {
       body: JSON.stringify({ token, password }),
     }),
 
-  // Dashboard
   getDashboard: () => request<Record<string, unknown>>("/dashboard"),
 
-  // Status
   getStatus: () => request<Record<string, unknown>>("/status"),
 
-  // Activity events
   getActivityEvents: (params?: { cursor?: number }) => {
     const query = new URLSearchParams();
     if (params?.cursor != null) query.set("cursor", String(params.cursor));
@@ -275,7 +271,6 @@ export const api = {
     return request<Record<string, unknown>>(`/activity/events${qs ? `?${qs}` : ""}`);
   },
 
-  // Roots (root agents)
   getRoots: () => request<Record<string, unknown>>("/roots"),
   createRoot: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/roots", { method: "POST", body: JSON.stringify(data) }),
@@ -288,7 +283,6 @@ export const api = {
       }),
     }),
 
-  // Quests
   getQuests: (params?: { status?: string; root?: string }) => {
     const query = new URLSearchParams();
     if (params?.status) query.set("status", params.status);
@@ -297,11 +291,9 @@ export const api = {
     return request<Record<string, unknown>>(`/quests${qs ? `?${qs}` : ""}`);
   },
 
-  // Agents
   getAgents: (params?: { root?: boolean }) =>
     request<Record<string, unknown>>(params?.root ? "/agents?root=true" : "/agents"),
 
-  // Activity stream (daemon events)
   getActivityStream: (params?: { last?: number; root?: string }) => {
     const query = new URLSearchParams();
     if (params?.last) query.set("last", String(params.last));
@@ -310,7 +302,6 @@ export const api = {
     return request<Record<string, unknown>>(`/activity${qs ? `?${qs}` : ""}`);
   },
 
-  // Expertise
   getExpertise: (domain?: string) => {
     const query = new URLSearchParams();
     if (domain) query.set("domain", domain);
@@ -318,10 +309,8 @@ export const api = {
     return request<Record<string, unknown>>(`/expertise${qs ? `?${qs}` : ""}`);
   },
 
-  // Cost
   getCost: () => request<Record<string, unknown>>("/cost"),
 
-  // Ideas
   getIdeas: (params?: { root?: string; query?: string; limit?: number; agent_id?: string }) => {
     const q = new URLSearchParams();
     if (params?.root) q.set("root", params.root);
@@ -332,7 +321,6 @@ export const api = {
     return request<Record<string, unknown>>(`/ideas${qs ? `?${qs}` : ""}`);
   },
 
-  // Skills (ideas tagged with "skill")
   getSkills: () => request<Record<string, unknown>>("/ideas/search?tags=skill"),
 
   // Agent Channels — typed connector config, first-class rows in the
@@ -401,7 +389,6 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // Idea graph & profile
   getIdeaGraph: (params?: { agent_id?: string; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.agent_id) q.set("agent_id", params.agent_id);
@@ -451,7 +438,6 @@ export const api = {
       body: JSON.stringify(relation ? { target_id: targetId, relation } : { target_id: targetId }),
     }),
 
-  // Agent Identity
   getAgentIdentity: (name: string) => request<Record<string, unknown>>(`/agents/${name}/identity`),
   saveAgentFile: (name: string, filename: string, content: string) =>
     request<{ ok: boolean }>(`/agents/${name}/files`, {
@@ -459,13 +445,10 @@ export const api = {
       body: JSON.stringify({ filename, content }),
     }),
 
-  // Rate Limit
   getRateLimit: () => request<Record<string, unknown>>("/rate-limit"),
 
-  // Health
   getHealth: () => request<{ ok: boolean }>("/health"),
 
-  // Write: Create Quest
   createQuest: (data: {
     project: string;
     subject: string;
@@ -497,7 +480,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Write: Update Quest (description, status, priority, labels, agent_id)
   updateQuest: (
     id: string,
     data: {
@@ -513,24 +495,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Write: Close Quest
   closeQuest: (id: string, data?: { reason?: string; root?: string }) =>
     request<{ ok: boolean }>(`/quests/${id}/close`, {
       method: "POST",
       body: JSON.stringify(data ? { reason: data.reason, root: data.root } : {}),
     }),
 
-  // Read: Quest preflight — assemble the system prompt without creating anything
+  // Assembles the system prompt without creating the quest — used by the
+  // composer to preview what the agent will see before commit.
   questPreflight: (data: { agent_id: string; description: string; task_idea_ids?: string[] }) =>
     request<{ ok: boolean; system: string; tools: { allow: string[]; deny: string[] } }>(
       "/quests/preflight",
       { method: "POST", body: JSON.stringify(data) },
     ),
 
-  // Single quest
   getQuest: (id: string) => request<{ ok: boolean; quest: Quest }>(`/quests/${id}`),
 
-  // Sessions
   getSessions: (agentId?: string) => {
     const q = new URLSearchParams();
     if (agentId) q.set("agent_id", agentId);
@@ -567,7 +547,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Spawn Agent
   spawnAgent: (data: {
     name: string;
     template?: string;
@@ -603,7 +582,6 @@ export const api = {
       body: JSON.stringify({ message_id: messageId }),
     }),
 
-  // Agent model
   setAgentModel: (agentId: string, model: string) =>
     request<{ ok: boolean }>(`/agents/${agentId}/model`, {
       method: "PUT",
@@ -644,7 +622,6 @@ export const api = {
       },
     ),
 
-  // Ideas by IDs
   getIdeasByIds: (ids: string[]) =>
     request<{
       ok: boolean;
@@ -658,7 +635,6 @@ export const api = {
       }>;
     }>("/ideas/by-ids", { method: "POST", body: JSON.stringify({ ids }) }),
 
-  // Agent events
   getAgentEvents: (agentId: string) =>
     request<Record<string, unknown>>(`/events?agent_id=${encodeURIComponent(agentId)}`),
   getEvent: (id: string) => request<{ ok: boolean; event: AgentEvent }>(`/events/${id}`),
@@ -691,7 +667,6 @@ export const api = {
       body: JSON.stringify({ ...agentRef, pattern, ...extra }),
     }),
 
-  // Event invocation trace
   listInvocations: (sessionId: string, limit = 50) =>
     request<{
       ok: boolean;
@@ -707,21 +682,17 @@ export const api = {
       body: JSON.stringify({ invocation_id: invocationId }),
     }),
 
-  // Session children (spawned work)
   getSessionChildren: (sessionId: string) =>
     request<Record<string, unknown>>(`/sessions/${sessionId}/children`),
 
-  // Session messages
   getSessionMessages: (sessionId: string, limit = 50) =>
     request<Record<string, unknown>>(`/sessions/${sessionId}/messages?limit=${limit}`),
 
-  // Account API key (ak_)
   generateApiKey: () =>
     request<{ ok: boolean; id: string; api_key: string; rotated: boolean }>("/account/api-key", {
       method: "POST",
     }),
 
-  // Secret Keys (sk_)
   getKeys: () =>
     request<{
       ok: boolean;
@@ -792,7 +763,6 @@ export const api = {
       method: "DELETE",
     }),
 
-  // Director inbox — sessions awaiting a human reply.
   getInbox: () => request<{ ok: boolean; items: InboxItem[] }>("/inbox"),
 
   answerInbox: (sessionId: string, answer: string) =>
