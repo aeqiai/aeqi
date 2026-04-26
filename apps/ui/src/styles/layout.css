@@ -3533,61 +3533,8 @@
   flex-shrink: 0;
 }
 
-/* Segmented view toggle — a restrained control that lives inside the
-   primitive-head, right-aligned with the `+ new` CTA. Shared across
-   every primitive (ideas: list/graph; events: list/canvas/trace; etc).
-   Active tab picks up the accent so switching views feels like
-   switching *lenses on the same primitive*, not leaving the page. */
-.primitive-view-toggle {
-  display: inline-flex;
-  align-items: stretch;
-  gap: 0;
-  padding: 2px;
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.primitive-view-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--radius-sm) - 2px);
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
-}
-.primitive-view-toggle-btn svg {
-  opacity: 0.55;
-  transition: opacity 0.12s ease;
-}
-.primitive-view-toggle-btn:hover {
-  color: var(--text-primary);
-}
-.primitive-view-toggle-btn:hover svg {
-  opacity: 0.85;
-}
-.primitive-view-toggle-btn.active {
-  color: var(--accent);
-  background: var(--color-card);
-  box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.02),
-    0 0 0 1px var(--accent-dim);
-}
-.primitive-view-toggle-btn.active svg {
-  opacity: 1;
-}
-
-/* Primitive-head right cluster — view toggle + `+ new idea`. Sits in
-   the 52px head band so switching views never moves the eye. */
+/* Primitive-head right cluster — `+ new` and counterparts. Sits in the
+   52px head band so switching surfaces never moves the eye. */
 .primitive-head-actions {
   display: inline-flex;
   align-items: center;
@@ -4415,66 +4362,6 @@
 }
 .ideas-list-search:focus ~ .ideas-list-search-kbd {
   opacity: 0;
-}
-/* Scope tabs — sit next to the Exo 2 heading in the primitive-head.
-   Small sans micro-caps (10.5px, +0.07em tracking) keeps them quiet so
-   they read as secondary to the page title while still being the first
-   filter the user meets. Active state: text darkens + tabular count
-   brightens; an accent underline anchors the current scope. Shared
-   across every primitive (ideas, events, quests, …). */
-.primitive-scope-tabs {
-  display: flex;
-  gap: 14px;
-  align-items: baseline;
-  padding-left: 18px;
-  margin-left: 2px;
-  border-left: 1px solid var(--border-faint);
-}
-.primitive-scope-tab {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  padding: 2px 0;
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
-}
-.primitive-scope-tab:hover {
-  color: var(--text-primary);
-}
-.primitive-scope-tab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent);
-}
-/* Zero-count scopes stay clickable (so "nothing here" is a valid view)
-   but read as passive — 60% opacity dims both label + count without
-   reshuffling any other tab's weight. */
-.primitive-scope-tab.empty {
-  opacity: 0.5;
-}
-.primitive-scope-tab.empty:hover {
-  opacity: 0.85;
-}
-.primitive-scope-tab-count {
-  font-family: var(--font-sans);
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  opacity: 0.55;
-  font-variant-numeric: tabular-nums;
-}
-.primitive-scope-tab.active .primitive-scope-tab-count {
-  opacity: 0.8;
 }
 .ideas-list-tags {
   display: flex;

@@ -2083,6 +2083,47 @@ impl SessionStore {
         Ok(rows)
     }
 
+    /// List recent invocations for one event, identified by name+pattern.
+    /// Returns newest-first across all sessions. Used by the per-event fires
+    /// panel — the same event may have fired in many sessions, so we widen
+    /// the filter from session_id to (event_name, pattern).
+    pub async fn list_invocations_for_event(
+        &self,
+        event_name: &str,
+        pattern: &str,
+        limit: usize,
+    ) -> Result<Vec<EventInvocationRow>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, session_id, pattern, event_name, caller_kind, \
+                    started_at, finished_at, status, error, tool_calls_json, \
+                    outcome_score, outcome_details \
+             FROM event_invocations \
+             WHERE event_name = ?1 AND pattern = ?2 \
+             ORDER BY started_at DESC, id DESC \
+             LIMIT ?3",
+        )?;
+        let rows = stmt
+            .query_map(params![event_name, pattern, limit as i64], |row| {
+                Ok(EventInvocationRow {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    pattern: row.get(2)?,
+                    event_name: row.get(3)?,
+                    caller_kind: row.get(4)?,
+                    started_at: row.get(5)?,
+                    finished_at: row.get(6)?,
+                    status: row.get(7)?,
+                    error: row.get(8)?,
+                    tool_calls_json: row.get(9)?,
+                    outcome_score: row.get(10)?,
+                    outcome_details: row.get(11)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
     /// Fetch a single invocation and all its steps.
     pub async fn get_invocation_detail(
         &self,

@@ -1,43 +1,27 @@
 import { useMemo } from "react";
 import type { AgentEvent, ToolCall } from "@/lib/types";
+import {
+  type LifecycleGroup,
+  LIFECYCLE_HINT,
+  LIFECYCLE_LABEL,
+  LIFECYCLE_ORDER,
+  eventLifecycle,
+} from "./events/lifecycle";
 
 /**
- * EventsOverview — the empty-state canvas showing every event for an
- * agent as a row in a workflow atlas, grouped by pattern transport
- * (session, telegram, webhook, loop, …). Each row is a compact
- * trigger→tools sparkline; clicking opens that event's full canvas.
+ * EventsOverview — the no-selection canvas. Every event is a row showing
+ * the trigger→tools sparkline; rows are grouped by lifecycle bucket so
+ * users see the three mental models the runtime supports:
  *
- * This is the "map of what happens when X fires" read — the closest
- * thing to an n8n canvas when no single event is selected.
+ *   runtime · the agent's own loop hooks
+ *   webhooks · incoming http (incl. channel integrations)
+ *   routines · scheduled / cron
  */
 
 interface EventsOverviewProps {
   events: AgentEvent[];
   onSelect: (id: string) => void;
   onNew: () => void;
-}
-
-type TransportTone = "session" | "telegram" | "webhook" | "loop" | "context" | "other";
-
-const TONE_ORDER: TransportTone[] = ["session", "context", "loop", "webhook", "telegram", "other"];
-
-const TONE_LABEL: Record<TransportTone, string> = {
-  session: "session · lifecycle",
-  context: "context · budget",
-  loop: "loop · guardrail",
-  webhook: "webhook · external http",
-  telegram: "telegram · chat",
-  other: "custom",
-};
-
-function patternTransport(pattern: string): TransportTone {
-  const prefix = pattern.split(":")[0]?.toLowerCase() ?? "";
-  if (prefix === "session") return "session";
-  if (prefix === "telegram") return "telegram";
-  if (prefix === "webhook" || prefix === "http") return "webhook";
-  if (prefix === "loop") return "loop";
-  if (prefix === "context") return "context";
-  return "other";
 }
 
 function toolScope(tc: ToolCall): string {
@@ -48,16 +32,16 @@ function toolScope(tc: ToolCall): string {
 
 export default function EventsOverview({ events, onSelect, onNew }: EventsOverviewProps) {
   const grouped = useMemo(() => {
-    const map = new Map<TransportTone, AgentEvent[]>();
+    const map = new Map<LifecycleGroup, AgentEvent[]>();
     for (const ev of events) {
-      const tone = patternTransport(ev.pattern);
-      const list = map.get(tone) ?? [];
+      const g = eventLifecycle(ev);
+      const list = map.get(g) ?? [];
       list.push(ev);
-      map.set(tone, list);
+      map.set(g, list);
     }
-    return TONE_ORDER.flatMap((tone) => {
-      const list = map.get(tone);
-      return list ? [{ tone, events: list }] : [];
+    return LIFECYCLE_ORDER.flatMap((g) => {
+      const list = map.get(g);
+      return list ? [{ group: g, events: list }] : [];
     });
   }, [events]);
 
@@ -67,9 +51,9 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
         <div className="events-overview-empty-eyebrow">events</div>
         <div className="events-overview-empty-title">No pipelines yet</div>
         <p className="events-overview-empty-body">
-          Events are the when-and-then. A pattern fires — a session start, a telegram message, a
-          webhook hit — and the event runs an ordered chain of tool calls. Think n8n, scoped to this
-          agent.
+          Events are when-and-then. A pattern fires — a session starts, a webhook lands, a cron
+          ticks — and the event runs an ordered chain of tool calls. This is where you replace
+          n8n-style automation, scoped to this agent.
         </p>
         <button type="button" className="events-overview-empty-cta" onClick={onNew}>
           New event
@@ -80,17 +64,18 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
 
   return (
     <div className="events-overview">
-      {grouped.map(({ tone, events: list }) => (
-        <section key={tone} className="events-overview-group">
+      {grouped.map(({ group, events: list }) => (
+        <section key={group} className="events-overview-group">
           <header className="events-overview-group-head">
-            <span className={`events-overview-group-dot events-overview-tone-${tone}`} />
-            <span className="events-overview-group-label">{TONE_LABEL[tone]}</span>
+            <span className={`events-overview-group-dot events-overview-tone-${group}`} />
+            <span className="events-overview-group-label">{LIFECYCLE_LABEL[group]}</span>
+            <span className="events-overview-group-hint">{LIFECYCLE_HINT[group]}</span>
             <span className="events-overview-group-rule" />
             <span className="events-overview-group-count">{list.length}</span>
           </header>
           <ul className="events-overview-list" role="list">
             {list.map((ev) => (
-              <OverviewRow key={ev.id} event={ev} tone={tone} onSelect={onSelect} />
+              <OverviewRow key={ev.id} event={ev} group={group} onSelect={onSelect} />
             ))}
           </ul>
         </section>
@@ -101,15 +86,14 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
 
 function OverviewRow({
   event,
-  tone,
+  group,
   onSelect,
 }: {
   event: AgentEvent;
-  tone: TransportTone;
+  group: LifecycleGroup;
   onSelect: (id: string) => void;
 }) {
   const tools = event.tool_calls ?? [];
-  const hasContext = event.idea_ids.length > 0 || !!event.query_template;
   const isGlobal = event.agent_id == null;
 
   return (
@@ -121,7 +105,7 @@ function OverviewRow({
         aria-label={`Open ${event.name}`}
       >
         <div className="events-overview-row-head">
-          <span className={`events-overview-row-pin events-overview-tone-${tone}`} aria-hidden />
+          <span className={`events-overview-row-pin events-overview-tone-${group}`} aria-hidden />
           <span className="events-overview-row-name">{event.name}</span>
           {isGlobal && <span className="events-overview-row-badge">global</span>}
           <span className="events-overview-row-pattern">{event.pattern}</span>
@@ -131,19 +115,9 @@ function OverviewRow({
           </span>
         </div>
         <div className="events-overview-row-flow">
-          <span className={`events-overview-chip is-trigger events-overview-tone-${tone}`}>
+          <span className={`events-overview-chip is-trigger events-overview-tone-${group}`}>
             trigger
           </span>
-          {hasContext && (
-            <>
-              <ConnectorTiny />
-              <span className="events-overview-chip is-context">
-                {event.idea_ids.length > 0
-                  ? `${event.idea_ids.length} idea${event.idea_ids.length === 1 ? "" : "s"}`
-                  : "query"}
-              </span>
-            </>
-          )}
           {tools.length === 0 ? (
             <>
               <ConnectorTiny />

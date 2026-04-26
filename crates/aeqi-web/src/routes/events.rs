@@ -91,10 +91,14 @@ async fn trigger_event(
 #[derive(Deserialize, Default)]
 struct TraceQuery {
     session_id: Option<String>,
+    event_name: Option<String>,
+    pattern: Option<String>,
     limit: Option<u64>,
 }
 
-/// GET /events/trace?session_id=...&limit=... → list invocations for a session.
+/// GET /events/trace
+///   ?session_id=…             → invocations for one session
+///   ?event_name=…&pattern=…   → invocations for one event across sessions
 async fn list_trace(
     State(state): State<AppState>,
     scope: Scope,
@@ -103,6 +107,12 @@ async fn list_trace(
     let mut params = serde_json::json!({});
     if let Some(session_id) = &q.session_id {
         params["session_id"] = serde_json::json!(session_id);
+    }
+    if let Some(event_name) = &q.event_name {
+        params["event_name"] = serde_json::json!(event_name);
+    }
+    if let Some(pattern) = &q.pattern {
+        params["pattern"] = serde_json::json!(pattern);
     }
     if let Some(limit) = q.limit {
         params["limit"] = serde_json::json!(limit);

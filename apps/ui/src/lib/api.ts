@@ -713,6 +713,14 @@ export const api = {
       ok: boolean;
       invocations: EventInvocationRow[];
     }>(`/events/trace?session_id=${encodeURIComponent(sessionId)}&limit=${limit}`),
+  listInvocationsForEvent: (eventName: string, pattern: string, limit = 50) =>
+    request<{
+      ok: boolean;
+      invocations: EventInvocationRow[];
+    }>(
+      `/events/trace?event_name=${encodeURIComponent(eventName)}` +
+        `&pattern=${encodeURIComponent(pattern)}&limit=${limit}`,
+    ),
   getInvocationDetail: (invocationId: number) =>
     request<{
       ok: boolean;

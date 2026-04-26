@@ -539,9 +539,10 @@ pub async fn handle_trace_events(
         return serde_json::json!({"ok": false, "error": "session store not available"});
     };
 
-    // Distinguish the two query shapes:
-    //   { invocation_id: int }  → detail view
-    //   { session_id: str, limit?: int } → list view
+    // Distinguish the three query shapes:
+    //   { invocation_id: int }                    → detail view
+    //   { event_name, pattern, limit? }           → per-event list view
+    //   { session_id: str, limit?: int }          → per-session list view
     if let Some(inv_id) = request.get("invocation_id").and_then(|v| v.as_i64()) {
         match store.get_invocation_detail(inv_id).await {
             Ok((inv, steps)) => serde_json::json!({
@@ -551,13 +552,28 @@ pub async fn handle_trace_events(
             }),
             Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
         }
+    } else if let (Some(event_name), Some(pattern)) = (
+        super::request_field(request, "event_name"),
+        super::request_field(request, "pattern"),
+    ) {
+        let limit = request.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+        match store
+            .list_invocations_for_event(event_name, pattern, limit)
+            .await
+        {
+            Ok(rows) => serde_json::json!({
+                "ok": true,
+                "invocations": rows.iter().map(invocation_to_json).collect::<Vec<_>>(),
+            }),
+            Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+        }
     } else {
         let session_id = match super::request_field(request, "session_id") {
             Some(s) => s,
             None => {
                 return serde_json::json!({
                     "ok": false,
-                    "error": "session_id or invocation_id is required"
+                    "error": "session_id, event_name+pattern, or invocation_id is required"
                 });
             }
         };
