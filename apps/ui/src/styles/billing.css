@@ -309,6 +309,17 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+.billing-footer-secondary {
+  border-top: 0;
+  padding-top: 0;
+}
+.billing-headline-suffix {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
 
 .billing-link {
   display: inline;
