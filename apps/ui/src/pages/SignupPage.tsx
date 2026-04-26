@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
+import ConnectWalletButton from "@/components/ConnectWalletButton";
 import { Button, Input, Spinner } from "@/components/ui";
 
 const GoogleIcon = () => (
@@ -340,6 +341,11 @@ export default function SignupPage() {
                     <GithubIcon /> Continue with GitHub
                   </Button>
                 )}
+                <ConnectWalletButton
+                  onAuthenticated={() =>
+                    navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
+                  }
+                />
               </div>
             </>
           )}
