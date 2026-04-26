@@ -83,6 +83,13 @@ const SignOutIcon = () => (
   </svg>
 );
 
+const DocsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M3.5 2.5h7l2 2v9h-9z" />
+    <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" />
+  </svg>
+);
+
 const PRIMITIVES: { id: string; label: string; icon: React.ReactNode; title: string }[] = [
   { id: "agents", label: "Agents", icon: <AgentsIcon />, title: "Agents · G then A" },
   { id: "events", label: "Events", icon: <EventsIcon />, title: "Events · G then E" },
@@ -336,23 +343,49 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <AgentTree />
         </div>
 
-        {authMode !== "none" && (
-          <div className="sidebar-bottom">
-            <button
-              type="button"
-              className="sidebar-nav-item sidebar-nav-item--danger"
-              onClick={() => {
-                logout();
-                navigate("/login");
-              }}
-              title="Sign out of your account"
-              aria-label="Sign out"
+        <div className="sidebar-bottom">
+          {/* Documentation takes the prominent slot; sign-out becomes a
+              small icon-only button on the right (same idiom as Search +
+              `?`). When unauthenticated we drop sign-out entirely and the
+              docs row spans the full width. */}
+          {authMode !== "none" ? (
+            <div className="sidebar-row-pair">
+              <a
+                className="sidebar-nav-item"
+                href="https://aeqi.ai/docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open documentation in a new tab"
+              >
+                <DocsIcon />
+                <span className="sidebar-nav-label">Documentation</span>
+              </a>
+              <button
+                type="button"
+                className="sidebar-signout-btn"
+                onClick={() => {
+                  logout();
+                  navigate("/login");
+                }}
+                title="Sign out of your account"
+                aria-label="Sign out"
+              >
+                <SignOutIcon />
+              </button>
+            </div>
+          ) : (
+            <a
+              className="sidebar-nav-item"
+              href="https://aeqi.ai/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open documentation in a new tab"
             >
-              <SignOutIcon />
-              <span className="sidebar-nav-label">Sign out</span>
-            </button>
-          </div>
-        )}
+              <DocsIcon />
+              <span className="sidebar-nav-label">Documentation</span>
+            </a>
+          )}
+        </div>
       </div>
 
       {!sidebarCollapsed && (

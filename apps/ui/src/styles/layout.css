@@ -814,6 +814,41 @@
 .sidebar-nav-item--danger:focus-visible > svg {
   color: var(--color-error, #c83838);
 }
+
+/* Icon-only sign-out button — sits in a row-pair next to the
+   Documentation link in the footer. Same 24×24 round geometry as
+   .sidebar-help-btn so the footer reads with the same rhythm as the
+   Search + ? row at the top, only with destructive hover so the
+   irreversible action signals on contact. */
+.sidebar-signout-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sidebar-signout-btn > svg {
+  width: 14px;
+  height: 14px;
+}
+.sidebar-signout-btn:hover,
+.sidebar-signout-btn:focus-visible {
+  color: var(--color-error, #c83838);
+  border-color: var(--color-error, #c83838);
+  background: var(--state-hover);
+  outline: none;
+}
 .sidebar-surface-nav .sidebar-section-label {
   padding: 8px 8px 4px;
   font-size: var(--font-size-micro);
