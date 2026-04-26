@@ -249,10 +249,61 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+  opacity: 0;
+  animation: bp-card-in 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition:
     border-color 0.15s,
     transform 0.15s,
     background 0.15s;
+}
+@keyframes bp-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.bp-card:nth-child(1) {
+  animation-delay: 0ms;
+}
+.bp-card:nth-child(2) {
+  animation-delay: 40ms;
+}
+.bp-card:nth-child(3) {
+  animation-delay: 80ms;
+}
+.bp-card:nth-child(4) {
+  animation-delay: 120ms;
+}
+.bp-card:nth-child(5) {
+  animation-delay: 160ms;
+}
+.bp-card:nth-child(6) {
+  animation-delay: 200ms;
+}
+.bp-card:nth-child(7) {
+  animation-delay: 240ms;
+}
+.bp-card:nth-child(8) {
+  animation-delay: 280ms;
+}
+.bp-card:nth-child(9) {
+  animation-delay: 320ms;
+}
+.bp-card:nth-child(10) {
+  animation-delay: 360ms;
+}
+.bp-card:nth-child(n + 11) {
+  animation-delay: 400ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bp-card {
+    opacity: 1;
+    animation: none;
+  }
 }
 .bp-card:hover {
   border-color: var(--text-primary);
