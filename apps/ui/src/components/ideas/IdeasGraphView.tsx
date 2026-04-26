@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { Button, EmptyState, Spinner } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
-import { IdeasPrimitiveHead } from "./IdeasPrimitiveHead";
 import IdeasFilterPopover from "./IdeasFilterPopover";
+import IdeasSortPopover from "./IdeasSortPopover";
+import IdeasViewPopover from "./IdeasViewPopover";
 import { type FilterState } from "./types";
 import type { IdeasFilter } from "./types";
 
@@ -39,6 +40,7 @@ export default function IdeasGraphView({
     filter.tag !== null ||
     filter.search.trim() !== "" ||
     filter.needsReview;
+  const searchActive = filter.search.trim() !== "";
   const nodeCount = filteredGraph.nodes.length;
   const edgeCount = filteredGraph.edges.length;
   const countLabel = graphLoading
@@ -60,19 +62,73 @@ export default function IdeasGraphView({
 
   return (
     <div className="ideas-graph">
-      <IdeasPrimitiveHead
-        countLabel={countLabel}
-        view={view}
-        onViewChange={onViewChange}
-        onNew={onNew}
-      />
-      <div className="ideas-graph-toolbar">
-        <IdeasFilterPopover
-          filter={filter}
-          scopeCounts={scopeCounts}
-          needsReviewCount={needsReviewCount}
-          onChange={onFilterChange}
-        />
+      <div className="ideas-list-head">
+        <div className="ideas-toolbar">
+          <span className="ideas-list-search-field">
+            <svg
+              className="ideas-list-search-glyph"
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <circle cx="5.2" cy="5.2" r="3.2" />
+              <path d="M7.6 7.6 L10 10" />
+            </svg>
+            <input
+              className="ideas-list-search"
+              type="text"
+              placeholder="Search ideas"
+              value={filter.search}
+              onChange={(e) => onFilterChange({ search: e.target.value })}
+            />
+            {filter.search && (
+              <button
+                type="button"
+                className="ideas-list-search-clear"
+                onClick={() => onFilterChange({ search: "" })}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </span>
+          <span className="ideas-toolbar-meta" title={`${nodeCount} nodes · ${edgeCount} links`}>
+            {countLabel}
+          </span>
+          <span className="ideas-toolbar-divider" aria-hidden />
+          <IdeasSortPopover
+            sort={filter.sort}
+            disabled={searchActive}
+            onChange={(next) => onFilterChange({ sort: next })}
+          />
+          <IdeasFilterPopover
+            filter={filter}
+            scopeCounts={scopeCounts}
+            needsReviewCount={needsReviewCount}
+            onChange={onFilterChange}
+          />
+          <IdeasViewPopover view={view} onChange={onViewChange} />
+          <button type="button" className="ideas-toolbar-new" onClick={onNew} title="New idea (N)">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+            new idea
+          </button>
+        </div>
       </div>
       <div className="ideas-graph-canvas">
         {graphLoading ? (

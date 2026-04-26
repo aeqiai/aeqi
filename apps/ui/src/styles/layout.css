@@ -3672,6 +3672,185 @@
   align-items: center;
   gap: 8px;
 }
+
+/* ------------------------------------------------------------------
+   Unified toolbar — search lead + sort/filter/view icon trio +
+   labeled new-idea CTA. Replaces the old primitive-head + search-row
+   stack so the surface opens with the user's actual job (search) and
+   the affordances around it sit at icon density. Linear/Things-style.
+   ------------------------------------------------------------------ */
+.ideas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ideas-toolbar > .ideas-list-search-field {
+  flex: 1;
+  min-width: 0;
+}
+/* Thin vertical hairline between the search field and the icon trio.
+   Stops the row from reading as a single uniform strip — the eye
+   parses it as "input · controls" instead of "five buttons". */
+.ideas-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+}
+/* Quiet meta label sometimes used inside the toolbar (graph view's
+   nodes/edges count). Mono, tabular-nums, lives between the search
+   field and the divider so the user can read it without reaching for
+   a sidebar label. */
+.ideas-toolbar-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+/* Square icon-button shell for sort / filter / view triggers.
+   Single visual language for all three so the user reads them as a
+   set. 30px square keeps them aligned to the search input's effective
+   height. Active and open states share the same accent treatment so
+   the trio communicates state through one signal vocabulary. */
+.ideas-toolbar-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.ideas-toolbar-btn svg {
+  opacity: 0.78;
+  transition: opacity 0.12s ease;
+}
+.ideas-toolbar-btn:hover {
+  color: var(--text-primary);
+  background: var(--state-hover);
+}
+.ideas-toolbar-btn:hover svg {
+  opacity: 1;
+}
+.ideas-toolbar-btn.open {
+  color: var(--accent);
+  background: var(--bg-base);
+  border-color: var(--border);
+}
+.ideas-toolbar-btn.active {
+  color: var(--accent);
+}
+.ideas-toolbar-btn.disabled,
+.ideas-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ideas-toolbar-btn:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
+}
+/* Tiny accent dot in the upper-right of the filter button — signals
+   that filters are active without a number badge. The trio reads
+   like a control panel, the dot is the only state lamp. */
+.ideas-toolbar-btn-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--color-card);
+}
+/* Labeled "new idea" CTA — sits at the end of the toolbar. Uses the
+   secondary outlined treatment (not primary fill) because the search
+   input + filter trio already carry visual weight; an accent-fill
+   button would overpower the row. The label stays for discoverability:
+   the user shouldn't need a tooltip to find "create". */
+.ideas-toolbar-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px 0 9px;
+  margin-left: 2px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.ideas-toolbar-new svg {
+  opacity: 0.7;
+  transition: opacity 0.12s ease;
+}
+.ideas-toolbar-new:hover {
+  color: var(--accent);
+  border-color: var(--border-hover);
+  background: var(--bg-row);
+}
+.ideas-toolbar-new:hover svg {
+  opacity: 1;
+}
+.ideas-toolbar-new:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: 1px;
+}
+
+/* Tighter popovers for sort + view (narrower than the filter popover
+   because they only host 2-3 short rows). Same shape language though,
+   so opening any of the trio feels consistent. */
+.ideas-sort-popover,
+.ideas-view-popover {
+  width: 180px;
+}
+/* Keyboard-shortcut hint inside the view popover — mirrors the global
+   style used in the empty hero (kbd inside .ideas-list-empty-kbd) but
+   tighter for popover density. */
+.ideas-filter-row-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.ideas-filter-row.active .ideas-filter-row-kbd {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
 /* Sort segmented control — sits flush right of the search input so the
    head stays single-row and the two filter axes (text / shelf-order)
    read as a coherent toolbar. Linear/Notion-style: small mono-ish text,

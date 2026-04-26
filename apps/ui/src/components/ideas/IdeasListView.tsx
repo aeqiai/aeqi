@@ -2,17 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNav } from "@/hooks/useNav";
 import { Button } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { IdeasPrimitiveHead } from "./IdeasPrimitiveHead";
 import IdeasFilterPopover from "./IdeasFilterPopover";
+import IdeasSortPopover from "./IdeasSortPopover";
+import IdeasViewPopover from "./IdeasViewPopover";
 import {
   type FilterState,
   type IdeasFilter,
-  type SortMode,
   type Epoch,
   EPOCH_LABELS,
   EPOCH_ORDER,
-  SORT_MODES,
-  SORT_LABELS,
   matchRank,
   snippetFor,
   highlightMatches,
@@ -35,41 +33,6 @@ const SCOPE_LABELS: Record<IdeasFilter, string> = {
 function ScopeChip({ scope }: { scope: ScopeValue }) {
   if (scope === "self") return null;
   return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
-}
-
-// Linear-style sort segmented control. Inline with the search field so the
-// head stays single-row. Disabled under an active search because relevance
-// trumps shelf order — the visual dim signals "not in play right now".
-function SortToggle({
-  sort,
-  disabled,
-  onChange,
-}: {
-  sort: SortMode;
-  disabled: boolean;
-  onChange: (next: SortMode) => void;
-}) {
-  return (
-    <div
-      className={`ideas-list-sort${disabled ? " disabled" : ""}`}
-      role="tablist"
-      aria-label="Sort"
-    >
-      {SORT_MODES.map((m) => (
-        <button
-          key={m}
-          type="button"
-          role="tab"
-          aria-selected={sort === m}
-          disabled={disabled}
-          className={`ideas-list-sort-btn${sort === m ? " active" : ""}`}
-          onClick={() => onChange(m)}
-        >
-          {SORT_LABELS[m]}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export interface IdeasListViewProps {
@@ -174,8 +137,6 @@ export default function IdeasListView({
     : Math.min(TAG_CHIP_LIMIT, tagCounts.length);
   const hiddenTagCount = Math.max(0, tagCounts.length - visibleTagCount);
 
-  const isFiltered =
-    searchActive || filter.scope !== "all" || filter.tag !== null || filter.needsReview;
   const fireNew = (name?: string) =>
     window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
   const clearAll = () => onFilter({ search: "", scope: "all", tag: null, needsReview: false });
@@ -261,14 +222,8 @@ export default function IdeasListView({
 
   return (
     <div className="ideas-list">
-      <IdeasPrimitiveHead
-        countLabel={isFiltered ? `${filtered.length} / ${ideas.length}` : `${ideas.length}`}
-        view={view}
-        onViewChange={onViewChange}
-        onNew={() => fireNew()}
-      />
       <div className="ideas-list-head">
-        <div className="ideas-list-search-row">
+        <div className="ideas-toolbar">
           <span className="ideas-list-search-field">
             <svg
               className="ideas-list-search-glyph"
@@ -329,7 +284,8 @@ export default function IdeasListView({
               </button>
             )}
           </span>
-          <SortToggle
+          <span className="ideas-toolbar-divider" aria-hidden />
+          <IdeasSortPopover
             sort={filter.sort}
             disabled={searchActive}
             onChange={(next) => onFilter({ sort: next })}
@@ -340,6 +296,27 @@ export default function IdeasListView({
             needsReviewCount={needsReviewCount}
             onChange={onFilter}
           />
+          <IdeasViewPopover view={view} onChange={onViewChange} />
+          <button
+            type="button"
+            className="ideas-toolbar-new"
+            onClick={() => fireNew()}
+            title="New idea (N)"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6 2.5v7M2.5 6h7" />
+            </svg>
+            new idea
+          </button>
         </div>
         {activeChips.length > 0 && (
           <div className="ideas-list-chips" role="list" aria-label="Active filters">

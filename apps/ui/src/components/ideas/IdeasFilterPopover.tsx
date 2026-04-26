@@ -39,11 +39,11 @@ export default function IdeasFilterPopover({
       trigger={
         <button
           type="button"
-          className={`ideas-filter-btn${active > 0 ? " active" : ""}${open ? " open" : ""}`}
+          className={`ideas-toolbar-btn${active > 0 ? " active" : ""}${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          title={active > 0 ? `${active} filter${active === 1 ? "" : "s"}` : "Filter"}
+          title={active > 0 ? `Filter — ${active} active` : "Filter"}
         >
           <svg
             width="13"
@@ -57,8 +57,7 @@ export default function IdeasFilterPopover({
           >
             <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" />
           </svg>
-          <span className="ideas-filter-btn-label">filter</span>
-          {active > 0 && <span className="ideas-filter-btn-count">{active}</span>}
+          {active > 0 && <span className="ideas-toolbar-btn-dot" aria-hidden />}
         </button>
       }
     >
