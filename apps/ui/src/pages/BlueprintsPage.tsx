@@ -522,7 +522,8 @@ function BlueprintDetail({
 function BlueprintSeedSamples({ template }: { template: CompanyTemplate }) {
   const events = (template.seed_events ?? []).slice(0, 3);
   const ideas = (template.seed_ideas ?? []).slice(0, 3);
-  if (events.length === 0 && ideas.length === 0) return null;
+  const quests = (template.seed_quests ?? []).slice(0, 2);
+  if (events.length === 0 && ideas.length === 0 && quests.length === 0) return null;
   return (
     <div className="bp-detail-samples">
       {events.length > 0 && (
@@ -545,6 +546,18 @@ function BlueprintSeedSamples({ template }: { template: CompanyTemplate }) {
             {ideas.map((idea, i) => (
               <li key={i}>
                 <span className="bp-detail-sample-name">{idea.name}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {quests.length > 0 && (
+        <section className="bp-detail-sample-block">
+          <h3 className="bp-detail-sample-title">Quests waiting</h3>
+          <ul className="bp-detail-sample-list">
+            {quests.map((q, i) => (
+              <li key={i}>
+                <span className="bp-detail-sample-name">{q.subject}</span>
               </li>
             ))}
           </ul>
