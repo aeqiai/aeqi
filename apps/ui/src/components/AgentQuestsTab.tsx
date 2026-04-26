@@ -1,11 +1,43 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, Input, Modal, Popover, Select, Spinner } from "./ui";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
+import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
+import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/QuestsSortPopover";
+
+const PRIORITY_RANK: Record<QuestPriority, number> = {
+  critical: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
+
+const byUpdatedDesc = (a: Quest, b: Quest) =>
+  (b.updated_at || "").localeCompare(a.updated_at || "");
+
+function sortQuests(arr: Quest[], mode: QuestSort): Quest[] {
+  const sorted = [...arr];
+  switch (mode) {
+    case "updated":
+      return sorted.sort(byUpdatedDesc);
+    case "created":
+      return sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    case "priority":
+      return sorted.sort(
+        (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || byUpdatedDesc(a, b),
+      );
+    case "subject":
+      return sorted.sort((a, b) => a.subject.localeCompare(b.subject) || byUpdatedDesc(a, b));
+  }
+}
+
+function parseQuestSort(raw: string | null): QuestSort {
+  return QUEST_SORT_MODES.includes(raw as QuestSort) ? (raw as QuestSort) : "updated";
+}
 
 const QUEST_SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
 type QuestFilter = "all" | ScopeValue | "inherited";
@@ -194,6 +226,43 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
   const [newOpen, setNewOpen] = useState(false);
 
+  // View + sort persist in URL (mirrors AgentIdeasTab idiom). Defaults
+  // are board view + recent (updated_at desc) sort, written to the URL
+  // only when non-default so clean links stay clean.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view: QuestsView = searchParams.get("view") === "list" ? "list" : "board";
+  const sort: QuestSort = parseQuestSort(searchParams.get("sort"));
+
+  const setView = useCallback(
+    (next: QuestsView) => {
+      setSearchParams(
+        (p) => {
+          const np = new URLSearchParams(p);
+          if (next === "list") np.set("view", "list");
+          else np.delete("view");
+          return np;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setSort = useCallback(
+    (next: QuestSort) => {
+      setSearchParams(
+        (p) => {
+          const np = new URLSearchParams(p);
+          if (next !== "updated") np.set("sort", next);
+          else np.delete("sort");
+          return np;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
@@ -296,6 +365,10 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         onPick={(id) => goAgent(agentId, "quests", id)}
         newOpen={newOpen}
         onNewOpenChange={setNewOpen}
+        view={view}
+        onViewChange={setView}
+        sort={sort}
+        onSortChange={setSort}
       />
     );
   }
@@ -465,6 +538,10 @@ function QuestBoard({
   onPick,
   newOpen,
   onNewOpenChange,
+  view,
+  onViewChange,
+  sort,
+  onSortChange,
 }: {
   agentId: string;
   resolvedAgentId: string;
@@ -476,6 +553,10 @@ function QuestBoard({
   onPick: (id: string) => void;
   newOpen: boolean;
   onNewOpenChange: (next: boolean) => void;
+  view: QuestsView;
+  onViewChange: (next: QuestsView) => void;
+  sort: QuestSort;
+  onSortChange: (next: QuestSort) => void;
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -496,6 +577,11 @@ function QuestBoard({
         x.id.toLowerCase().includes(q),
     );
   }, [quests, search]);
+
+  // Single sorted source feeding both Board grouping and List rendering.
+  // Stable sort means within-bucket order in Board reflects the chosen
+  // mode without a secondary sort pass.
+  const sortedVisibleQuests = useMemo(() => sortQuests(visibleQuests, sort), [visibleQuests, sort]);
 
   // Drag-and-drop state. `dragging` is the quest id being dragged so cards can
   // dim themselves; `dropTarget` is the column that'll receive the drop so its
@@ -540,32 +626,12 @@ function QuestBoard({
     { status: "done", label: "Done" },
   ];
 
-  const grouped: Record<QuestStatus, Quest[]> = {
-    pending: [],
-    in_progress: [],
-    blocked: [],
-    done: [],
-    cancelled: [],
-  };
-  for (const q of visibleQuests) {
-    const status = optimistic[q.id] ?? q.status;
-    grouped[status]?.push(q);
-  }
-  // Sort each column: most recent updated_at first.
-  for (const k of Object.keys(grouped) as QuestStatus[]) {
-    grouped[k].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
-  }
-  // Cap Done at 10 to keep visual weight balanced.
-  grouped.done = grouped.done.slice(0, 10);
-
-  // Flat traversal order used by j/k — column-major, top-to-bottom within a
-  // column, left-to-right across columns. Matches the visual reading order so
-  // j always moves "down then right" and k always moves "up then left".
-  // Memoized on the raw inputs (not on `grouped`, which is a fresh reference
-  // every render) so the effect below only re-runs when membership actually
-  // changes.
-  const flatOrderKey = useMemo(() => {
-    const order: QuestStatus[] = ["pending", "in_progress", "blocked", "done"];
+  // Bucket the already-sorted source by displayed status. Stable sort
+  // means within-column order honors the active sort mode without a
+  // secondary pass. Done is capped at the 10 MOST-RECENT regardless of
+  // sort mode (Done is a recency archive, not a leaderboard); the chosen
+  // sort then orders that 10 for display.
+  const grouped: Record<QuestStatus, Quest[]> = useMemo(() => {
     const buckets: Record<QuestStatus, Quest[]> = {
       pending: [],
       in_progress: [],
@@ -573,18 +639,29 @@ function QuestBoard({
       done: [],
       cancelled: [],
     };
-    for (const q of visibleQuests) {
+    for (const q of sortedVisibleQuests) {
       const s = optimistic[q.id] ?? q.status;
       buckets[s]?.push(q);
     }
-    for (const s of order) {
-      buckets[s].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    if (buckets.done.length > 10) {
+      const recent = [...buckets.done].sort(byUpdatedDesc).slice(0, 10);
+      buckets.done = sortQuests(recent, sort);
     }
-    buckets.done = buckets.done.slice(0, 10);
+    return buckets;
+  }, [sortedVisibleQuests, optimistic, sort]);
+
+  // Flat traversal order used by j/k. In Board view: column-major over
+  // pending → in_progress → blocked → done (matches reading order).
+  // In List view: the flat-sorted order.
+  const flatOrderKey = useMemo(() => {
+    if (view === "list") {
+      return sortedVisibleQuests.map((q) => q.id).join("|");
+    }
+    const order: QuestStatus[] = ["pending", "in_progress", "blocked", "done"];
     const ids: string[] = [];
-    for (const s of order) for (const q of buckets[s]) ids.push(q.id);
+    for (const s of order) for (const q of grouped[s] ?? []) ids.push(q.id);
     return ids.join("|");
-  }, [visibleQuests, optimistic]);
+  }, [view, sortedVisibleQuests, grouped]);
   const flatOrderRef = useRef<string[]>([]);
   flatOrderRef.current = flatOrderKey ? flatOrderKey.split("|") : [];
 
@@ -614,6 +691,18 @@ function QuestBoard({
         return;
       }
 
+      // b / l toggle Board / List view (mirrors Ideas g/l idiom).
+      if (e.key === "b" && view !== "board") {
+        e.preventDefault();
+        onViewChange("board");
+        return;
+      }
+      if (e.key === "l" && view !== "list") {
+        e.preventDefault();
+        onViewChange("list");
+        return;
+      }
+
       const order = flatOrderRef.current;
       if (order.length === 0) return;
 
@@ -640,11 +729,11 @@ function QuestBoard({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [focusId, onPick]);
+  }, [focusId, onPick, view, onViewChange]);
 
   return (
     <div className="quest-board">
-      <div className="quest-board-head">
+      <div className="ideas-list-head">
         <div className="ideas-toolbar">
           <span className="ideas-list-search-field">
             <svg
@@ -694,12 +783,14 @@ function QuestBoard({
               </button>
             )}
           </span>
+          <QuestsSortPopover sort={sort} onChange={onSortChange} />
           <QuestsFilterPopover
             agentId={resolvedAgentId}
             quests={allQuests}
             filter={scopeFilter}
             onChange={onScopeChange}
           />
+          <QuestsViewPopover view={view} onChange={onViewChange} />
           <button
             type="button"
             className="ideas-toolbar-btn"
@@ -724,93 +815,190 @@ function QuestBoard({
       </div>
       {err && <div className="quest-board-error">{err}</div>}
 
-      <div className="quest-board-columns">
-        {columns.map((col) => {
-          const list = grouped[col.status] || [];
-          const isTarget = dropTarget === col.status;
-          return (
-            <section
-              key={col.status}
-              className="quest-col"
-              data-status={col.status}
-              data-drop-target={isTarget || undefined}
-              onDragOver={(e) => {
-                if (!dragging) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                if (dropTarget !== col.status) setDropTarget(col.status);
-              }}
-              onDragLeave={(e) => {
-                // Only clear the highlight when the pointer actually leaves
-                // the column's own rectangle — not when it crosses onto a
-                // child card (relatedTarget would still be inside us).
-                const related = e.relatedTarget as Node | null;
-                if (related && e.currentTarget.contains(related)) return;
-                if (dropTarget === col.status) setDropTarget(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const id = e.dataTransfer.getData("text/plain") || dragging;
-                if (id) void handleDrop(id, col.status);
-                setDragging(null);
-                setDropTarget(null);
-              }}
-            >
-              <header className="quest-col-header">
-                <span className="quest-col-label">{col.label}</span>
-                <span className="quest-col-count">{list.length}</span>
-              </header>
-              <div className="quest-col-body">
-                {list.length === 0 ? (
-                  <div className="quest-col-empty">{isTarget ? "Drop here" : "Nothing here"}</div>
-                ) : (
-                  list.map((q) => (
-                    <article
-                      key={q.id}
-                      className="quest-card"
-                      data-priority={q.priority}
-                      data-dragging={dragging === q.id || undefined}
-                      data-focused={focusId === q.id || undefined}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", q.id);
-                        setDragging(q.id);
-                      }}
-                      onDragEnd={() => {
-                        setDragging(null);
-                        setDropTarget(null);
-                      }}
-                      onClick={() => onPick(q.id)}
-                    >
-                      <div className="quest-card-subject">{q.subject}</div>
-                      <div className="quest-card-meta">
-                        {q.priority !== "normal" && (
-                          <span
-                            className={`quest-card-priority quest-card-priority--${q.priority}`}
-                          >
-                            {PRIORITY_LABELS[q.priority]}
-                          </span>
-                        )}
-                        {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-                        {q.updated_at && (
-                          <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
-                        )}
-                      </div>
-                    </article>
-                  ))
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      {view === "list" ? (
+        <QuestList
+          quests={sortedVisibleQuests}
+          optimistic={optimistic}
+          focusId={focusId}
+          onPick={onPick}
+          onNew={() => onNewOpenChange(true)}
+          search={search}
+        />
+      ) : (
+        <div className="quest-board-columns">
+          {columns.map((col) => {
+            const list = grouped[col.status] || [];
+            const isTarget = dropTarget === col.status;
+            return (
+              <section
+                key={col.status}
+                className="quest-col"
+                data-status={col.status}
+                data-drop-target={isTarget || undefined}
+                onDragOver={(e) => {
+                  if (!dragging) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dropTarget !== col.status) setDropTarget(col.status);
+                }}
+                onDragLeave={(e) => {
+                  // Only clear the highlight when the pointer actually leaves
+                  // the column's own rectangle — not when it crosses onto a
+                  // child card (relatedTarget would still be inside us).
+                  const related = e.relatedTarget as Node | null;
+                  if (related && e.currentTarget.contains(related)) return;
+                  if (dropTarget === col.status) setDropTarget(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const id = e.dataTransfer.getData("text/plain") || dragging;
+                  if (id) void handleDrop(id, col.status);
+                  setDragging(null);
+                  setDropTarget(null);
+                }}
+              >
+                <header className="quest-col-header">
+                  <span className="quest-col-label">{col.label}</span>
+                  <span className="quest-col-count">{list.length}</span>
+                </header>
+                <div className="quest-col-body">
+                  {list.length === 0 ? (
+                    <div className="quest-col-empty">{isTarget ? "Drop here" : "Nothing here"}</div>
+                  ) : (
+                    list.map((q) => (
+                      <article
+                        key={q.id}
+                        className="quest-card"
+                        data-priority={q.priority}
+                        data-dragging={dragging === q.id || undefined}
+                        data-focused={focusId === q.id || undefined}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", q.id);
+                          setDragging(q.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragging(null);
+                          setDropTarget(null);
+                        }}
+                        onClick={() => onPick(q.id)}
+                      >
+                        <div className="quest-card-subject">{q.subject}</div>
+                        <div className="quest-card-meta">
+                          {q.priority !== "normal" && (
+                            <span
+                              className={`quest-card-priority quest-card-priority--${q.priority}`}
+                            >
+                              {PRIORITY_LABELS[q.priority]}
+                            </span>
+                          )}
+                          {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+                          {q.updated_at && (
+                            <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
+                          )}
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
       <NewQuestModal
         open={newOpen}
         resolvedAgentId={resolvedAgentId}
         onClose={() => onNewOpenChange(false)}
         onCreated={onCreated}
       />
+    </div>
+  );
+}
+
+/**
+ * List view — flat sortable rows. Reuses Ideas list-row chrome
+ * (`.ideas-list-row`, `.ideas-list-row-head`, `.ideas-list-row-name`,
+ * `.ideas-list-row-time`) so a future generalization of those classes
+ * lifts both surfaces at once. Status dot is inline left of the name;
+ * priority renders as a quiet text label (critical pops via the
+ * `--critical` modifier). Empty + no-match states use the canonical
+ * `.ideas-list-empty-hero` markup that IdeasListView uses.
+ */
+function QuestList({
+  quests,
+  optimistic,
+  focusId,
+  onPick,
+  onNew,
+  search,
+}: {
+  quests: Quest[];
+  optimistic: Record<string, QuestStatus>;
+  focusId: string | null;
+  onPick: (id: string) => void;
+  onNew: () => void;
+  search: string;
+}) {
+  if (quests.length === 0) {
+    const hasSearch = search.trim().length > 0;
+    return (
+      <div className="ideas-list-body">
+        <div className="ideas-list-empty-hero">
+          <h3 className="ideas-list-empty-title">
+            {hasSearch ? "No quests match." : "No quests yet."}
+          </h3>
+          <p className="ideas-list-empty-body">
+            {hasSearch
+              ? "Try a different search, or start a new quest."
+              : "Create the first quest to populate this board."}
+          </p>
+          <button type="button" className="ideas-toolbar-btn primary" onClick={onNew}>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6.5 2.5v8M2.5 6.5h8" />
+            </svg>
+            <span>New quest</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="ideas-list-body">
+      {quests.map((q) => {
+        const status = optimistic[q.id] ?? q.status;
+        const isFocused = focusId === q.id;
+        return (
+          <button
+            key={q.id}
+            type="button"
+            className={`ideas-list-row${isFocused ? " focus" : ""}`}
+            onClick={() => onPick(q.id)}
+          >
+            <div className="ideas-list-row-head">
+              <StatusDot status={status} />
+              <span className="ideas-list-row-name">{q.subject}</span>
+              {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+              {q.priority !== "normal" && (
+                <span className={`quest-list-row-prio quest-list-row-prio--${q.priority}`}>
+                  {PRIORITY_LABELS[q.priority]}
+                </span>
+              )}
+              {q.updated_at && <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -2962,15 +2962,35 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 20px 28px 28px;
-  gap: 18px;
   overflow: hidden;
+  /* No outer padding/gap — .ideas-list-head owns its own padding +
+     border-bottom, and .quest-board-columns / .ideas-list-body each
+     own their own scroll padding. Lets the divider line under the
+     toolbar extend full-width like Ideas. */
 }
 
-.quest-board-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+/* List-view priority pill — quiet text label, scoped to list rows.
+   Critical pops via accent foreground; high pops via primary text;
+   low fades to muted. Pills are pre-rendered only when priority is
+   not "normal" so the row stays clean. Token-based, no hex. */
+.quest-list-row-prio {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.quest-list-row-prio--critical {
+  color: var(--accent);
+}
+.quest-list-row-prio--high {
+  color: var(--text-primary);
+}
+.quest-list-row-prio--low {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 /* New-quest modal — body layout. Modal primitive owns the chrome
@@ -2997,6 +3017,7 @@
   font-family: var(--font-sans);
   font-size: 11px;
   color: var(--error);
+  margin: 12px 28px 0;
   padding: 6px 10px;
   background: rgba(239, 68, 68, 0.08);
   border-radius: var(--radius-sm);
@@ -3009,6 +3030,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  padding: 18px 28px 28px;
 }
 
 .quest-col {
