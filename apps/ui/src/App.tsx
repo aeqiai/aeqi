@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Spinner } from "@/components/ui";
@@ -38,6 +38,7 @@ const LoadingSpinner = () => (
 );
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
   const authMode = useAuthStore((s) => s.authMode);
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
@@ -58,7 +59,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!authMode) return <LoadingSpinner />;
   if (authMode === "none") return <>{children}</>;
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) {
+    const here = location.pathname + location.search;
+    const dest = here === "/" ? "/login" : `/login?next=${encodeURIComponent(here)}`;
+    return <Navigate to={dest} replace />;
+  }
   return <>{children}</>;
 }
 
