@@ -1,5 +1,3 @@
-// ── Types ──
-
 export interface ToolEvent {
   type: "start" | "complete" | "step" | "status";
   name: string;
@@ -97,8 +95,6 @@ export interface SessionInfo {
   first_message?: string;
 }
 
-// ── Helpers ──
-
 export function formatMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
@@ -118,24 +114,18 @@ export function formatTime(ts: number): string {
   });
 }
 
-// ── Tool display helpers ──
-
 export const TOOL_LABELS: Record<string, string> = {
-  // Four primitives
   agents: "Agents",
   quests: "Quests",
   events: "Events",
   ideas: "Ideas",
-  // Code intelligence
   code: "Code",
-  // Files
   read_file: "Read file",
   write_file: "Write file",
   edit_file: "Edit file",
   list_dir: "List directory",
   glob: "Find files",
   grep: "Search code",
-  // System
   shell: "Run command",
   web_search: "Web search",
   web_fetch: "Fetch URL",
@@ -264,9 +254,8 @@ export function currentRunningToolName(segments: MessageSegment[]): string | und
   return undefined;
 }
 
-// Generic/placeholder session names that should fall through to the
-// first-message derivation. "Permanent Session" is the runtime default;
-// "Fork" is set when we fork from a message.
+// Names that are session-default rather than session-meaningful — fall
+// through to first_message instead of treating these as titles.
 const GENERIC_SESSION_NAMES = /^(permanent session|session|new session|fork)(\s*\(.*\))?$/i;
 
 /** Derive a short display label for a session */

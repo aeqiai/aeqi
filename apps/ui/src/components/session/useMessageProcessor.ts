@@ -9,11 +9,6 @@ import {
   applyAssistantMeta,
 } from "./types";
 
-/**
- * Hook that returns a stable `processRawMessages` callback.
- * Converts raw API message records into the structured `Message[]` format
- * used by the chat UI.
- */
 export function useMessageProcessor() {
   return useCallback((rawMessages: Array<Record<string, unknown>>): Message[] => {
     const processed: Message[] = [];
