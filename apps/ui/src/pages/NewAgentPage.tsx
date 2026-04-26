@@ -10,23 +10,12 @@ import "@/styles/welcome.css";
 import "@/styles/templates.css";
 import "@/styles/modals.css";
 
-interface IdentityOption {
-  slug: string;
-  name: string;
-  description?: string;
-}
-
 /**
  * /new — agent creation page (root or sub-agent).
  *
  * Query params:
  *   - ?parent=<agentId>  → sub-agent mode: spawn under an existing agent
- *                         using the identity-template picker.
- *   - (no params)        → root mode: either jump to the company template
- *                         store or create an empty root agent inline.
- *
- * This is a full page, not a modal. Creation of agents is a first-class
- * act in AEQI — a modal would undersell it.
+ *   - (no params)        → root mode: jump to /blueprints or create empty
  */
 export default function NewAgentPage() {
   const navigate = useNavigate();
@@ -271,40 +260,13 @@ function SubAgentForm({
   parentLabel: string;
   onSpawned: (newAgentId: string) => Promise<void>;
 }) {
-  const [templates, setTemplates] = useState<IdentityOption[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [template, setTemplate] = useState("");
   const [name, setName] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    api
-      .getIdentityTemplates()
-      .then((data) => {
-        setTemplates(
-          (data.identities || []).map((t) => ({
-            slug: t.slug,
-            name: t.name || t.slug,
-            description: t.description,
-          })),
-        );
-      })
-      .catch(() => {
-        setTemplates([]);
-      })
-      .finally(() => setLoadingTemplates(false));
-  }, []);
+  const canSubmit = name.trim().length > 0 && !submitting;
 
-  const canSubmit = template.trim().length > 0 && !submitting;
-  const selectedTemplate = templates.find((t) => t.slug === template) || null;
-  const resolvedName = name.trim() || selectedTemplate?.name || template.trim();
-
-  // Keyboard shortcuts: ⌘/Ctrl-Enter submits from anywhere on the page
-  // (including the textarea), Escape cancels back to the parent's Agents
-  // tab. Plain Enter in single-line inputs also submits for symmetry
-  // with the root-form flow.
   const handleCancel = () => navigate(`/${encodeURIComponent(parentId)}/agents`);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -328,9 +290,8 @@ function SubAgentForm({
     setError("");
     try {
       const resp = await api.spawnAgent({
-        template: template.trim(),
+        name: name.trim(),
         parent_id: parentId,
-        ...(resolvedName ? { name: resolvedName } : {}),
         ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
       });
       const newId = resp.agent?.id;
@@ -359,49 +320,13 @@ function SubAgentForm({
             New agent under <span className="new-sub-parent">{parentLabel}</span>
           </h1>
           <p className="new-sub-desc">
-            Pick an identity, give it a name, and it joins the tree as a direct child.
+            Give it a name and an identity. It joins the tree as a direct child.
           </p>
         </header>
 
         <section className="new-sub-section">
-          <div className="new-sub-section-head">
-            <span className="new-sub-label">Identity</span>
-            {loadingTemplates && (
-              <span className="new-sub-loading">
-                <Spinner size="sm" />
-                loading…
-              </span>
-            )}
-          </div>
-          <div className="cam-template-grid" role="radiogroup" aria-label="Identity template">
-            {templates.map((t) => {
-              const active = template === t.slug;
-              return (
-                <button
-                  key={t.slug}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={`cam-template-card${active ? " is-active" : ""}`}
-                  onClick={() => setTemplate(t.slug)}
-                  title={t.description || t.name}
-                >
-                  <span className="cam-template-card-name">{t.name}</span>
-                </button>
-              );
-            })}
-            {!loadingTemplates && templates.length === 0 && (
-              <p className="new-sub-empty">
-                No identity templates available — runtime catalog is empty.
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section className="new-sub-section">
           <label className="new-sub-label" htmlFor="new-sub-name">
             Name
-            <span className="new-sub-optional"> · defaults to the identity title</span>
           </label>
           <input
             id="new-sub-name"
@@ -415,7 +340,7 @@ function SubAgentForm({
                 void handleSubmit();
               }
             }}
-            placeholder={selectedTemplate?.name || (template ? `e.g. ${template}` : "Agent name")}
+            placeholder="Agent name"
             autoFocus
           />
         </section>
@@ -423,14 +348,14 @@ function SubAgentForm({
         <section className="new-sub-section">
           <label className="new-sub-label" htmlFor="new-sub-prompt">
             Identity
-            <span className="new-sub-optional"> · override</span>
+            <span className="new-sub-optional"> · optional</span>
           </label>
           <textarea
             id="new-sub-prompt"
             className="new-sub-textarea"
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="Leave blank to inherit from the identity template."
+            placeholder="Describe what this agent does. Leave blank to inherit from the parent."
             rows={4}
           />
         </section>

@@ -335,20 +335,6 @@ export const api = {
   // Skills (ideas tagged with "skill")
   getSkills: () => request<Record<string, unknown>>("/ideas/search?tags=skill"),
 
-  // Identity templates — canonical personas shipped with the runtime
-  // (leader / researcher / reviewer today), served from the Rust template
-  // module. Powers the sub-agent picker on `/new?parent=…`.
-  getIdentityTemplates: () =>
-    request<{
-      ok: boolean;
-      identities: Array<{
-        slug: string;
-        name: string;
-        display_name?: string | null;
-        description?: string;
-      }>;
-    }>("/templates/identities"),
-
   // Agent Channels — typed connector config, first-class rows in the
   // `channels` table. `config` is a tagged enum validated server-side.
   getAgentChannels: (agentId: string) =>
@@ -583,8 +569,8 @@ export const api = {
 
   // Spawn Agent
   spawnAgent: (data: {
-    template: string;
-    name?: string;
+    name: string;
+    template?: string;
     project?: string;
     parent_id?: string;
     system_prompt?: string;
