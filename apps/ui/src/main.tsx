@@ -1,7 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { WagmiProvider } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import App from "./App";
+import { wagmiConfig } from "./lib/wagmiConfig";
+import "@rainbow-me/rainbowkit/styles.css";
 import "./styles/index.css";
 
 // After a deploy, the browser may still be holding an old index.html whose
@@ -25,10 +30,18 @@ if (typeof window !== "undefined") {
   });
 }
 
+const queryClient = new QueryClient();
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider theme={darkTheme()} modalSize="compact">
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   </StrictMode>,
 );
