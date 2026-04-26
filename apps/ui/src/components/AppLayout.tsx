@@ -97,6 +97,7 @@ export default function AppLayout() {
       settings: "Settings",
       tools: "Tools",
       profile: "Profile",
+      billing: "Billing",
       agents: "agents",
       events: "events",
       quests: "quests",

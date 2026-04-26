@@ -1,6 +1,8 @@
-import { useActiveTab } from "@/components/PageTabs";
+import { useEffect } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageRail from "@/components/PageRail";
 import ProfilePanel from "@/pages/Settings/ProfilePanel";
+import BillingPanel from "@/pages/Settings/BillingPanel";
 import SecurityPanel from "@/pages/Settings/SecurityPanel";
 import DevicesPanel from "@/pages/Settings/DevicesPanel";
 import SettingsIntegrationsPage from "@/pages/Settings/Integrations";
@@ -10,6 +12,7 @@ import PreferencesPanel from "@/pages/Settings/PreferencesPanel";
 
 const TABS = [
   { id: "profile", label: "Profile" },
+  { id: "billing", label: "Billing" },
   { id: "security", label: "Security" },
   { id: "devices", label: "Devices" },
   { id: "integrations", label: "Integrations" },
@@ -26,15 +29,34 @@ const TABS = [
  * with six tabs' worth of state interleaved in a single component;
  * the ApiKey + Integrations tabs were already external, the rest
  * followed.
+ *
+ * Tabs are path-based (`/settings/:tab`) to match the rest of the app;
+ * legacy `?tab=` URLs redirect to the path form on mount.
  */
 export default function ProfilePage() {
-  const activeTab = useActiveTab(TABS, "profile");
+  const { tab } = useParams<{ tab?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Backwards-compat: old bookmarks of `/settings?tab=security` get
+  // bounced to `/settings/security` once on mount, then the param is
+  // dropped from the address bar.
+  useEffect(() => {
+    const legacy = searchParams.get("tab");
+    if (!legacy) return;
+    const known = TABS.some((t) => t.id === legacy);
+    const target = known && legacy !== "profile" ? `/settings/${legacy}` : "/settings";
+    navigate(target, { replace: true });
+  }, [searchParams, navigate]);
+
+  const activeTab = tab && TABS.some((t) => t.id === tab) ? tab : "profile";
 
   return (
     <div className="settings-layout">
-      <PageRail tabs={TABS} defaultTab="profile" title="Settings" />
+      <PageRail tabs={TABS} defaultTab="profile" title="Settings" basePath="/settings" />
       <div className="account-page settings-content">
         {activeTab === "profile" && <ProfilePanel />}
+        {activeTab === "billing" && <BillingPanel />}
         {activeTab === "security" && <SecurityPanel />}
         {activeTab === "devices" && <DevicesPanel />}
         {activeTab === "integrations" && <SettingsIntegrationsPage />}

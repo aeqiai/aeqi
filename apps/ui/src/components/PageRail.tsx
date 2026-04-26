@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 
 interface RailItem {
@@ -25,6 +25,14 @@ interface PageRailProps {
    */
   mode?: "query" | "path";
   /**
+   * When set, tabs navigate to `${basePath}/${tabId}` directly. The
+   * default tab drops the suffix so the canonical home is `${basePath}`
+   * (e.g. `/settings` rather than `/settings/profile`). Takes precedence
+   * over `mode` — used by user-scope shells like `/settings` that don't
+   * fit the agent-scoped `/:agentId/:tab` shape.
+   */
+  basePath?: string;
+  /**
    * Optional content rendered at the bottom of the rail, separated by a
    * faint divider. Use for affordances that aren't tabs (e.g. a "+ New"
    * action that lives next to the navigation but isn't part of it).
@@ -49,22 +57,32 @@ export default function PageRail({
   defaultTab,
   title,
   mode = "query",
+  basePath,
   footer,
 }: PageRailProps) {
   const { go } = useNav();
+  const navigate = useNavigate();
   const { agentId, tab: currentTab } = useParams<{ agentId?: string; tab?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const fallback = defaultTab || tabs[0]?.id || "";
   const queryTab = searchParams.get("tab");
   const usePath = mode === "path" && !!agentId;
+  const useBasePath = !!basePath;
   const pathTab = currentTab && tabs.some((t) => t.id === currentTab) ? currentTab : null;
-  const active = usePath
+  const active = useBasePath
     ? pathTab || fallback
-    : queryTab && tabs.some((t) => t.id === queryTab)
-      ? queryTab
-      : fallback;
+    : usePath
+      ? pathTab || fallback
+      : queryTab && tabs.some((t) => t.id === queryTab)
+        ? queryTab
+        : fallback;
 
   const setTab = (id: string) => {
+    if (useBasePath && basePath) {
+      const target = id === fallback ? basePath : `${basePath}/${id}`;
+      navigate(target);
+      return;
+    }
     if (usePath) {
       go(`/${id}`);
       return;

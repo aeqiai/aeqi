@@ -1,6 +1,7 @@
 /* /start — the launch surface.
-   A single centered column, generous breathing room, no chrome
-   competing with the act of naming + launching a Company. */
+   A focused stack: hero → blueprint preview → plan picker.
+   The plan grid is the page's center of gravity; cards breathe and
+   read as siblings of the existing blueprint preview card. */
 
 .start-page {
   width: 100%;
@@ -11,7 +12,7 @@
 }
 .start-shell {
   width: 100%;
-  max-width: 640px;
+  max-width: 1080px;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -23,6 +24,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-width: 640px;
 }
 .start-eyebrow {
   margin: 0;
@@ -167,61 +169,272 @@
   gap: 14px;
 }
 
-/* ── Launch form ────────────────────────────────── */
+/* ── Trial-used banner ──────────────────────────── */
 
-.start-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.start-trial-banner {
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--bg-paper);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
-.start-form-actions {
+
+/* ── Plans header (eyebrow + interval toggle) ──── */
+
+.start-plans-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
 }
-.start-trial-locked {
+.start-plans-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.start-interval-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: var(--bg-paper);
+  border: 1px solid var(--border-faint);
+  border-radius: 999px;
+}
+.start-interval-toggle-pill {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.start-interval-toggle-pill:hover:not(.is-active):not(:disabled) {
+  color: var(--text-primary);
+}
+.start-interval-toggle-pill.is-active {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.start-interval-toggle-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.start-interval-save {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--success);
+  margin-left: 4px;
+}
+
+/* ── Plan cards grid ────────────────────────────── */
+
+.start-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.start-plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 24px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.start-plan-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+}
+
+.start-plan-popular {
+  border-color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+.start-plan-popular:hover {
+  border-color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.start-plan-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  background: var(--text-primary);
+  color: var(--btn-primary-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.start-plan-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.start-plan-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.start-plan-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.start-plan-price {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.start-plan-price-amount {
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.start-plan-price-unit {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.start-plan-price-strike {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  margin-left: 4px;
+}
+.start-plan-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.start-plan-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.start-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.start-plan-features li.is-highlight {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.start-plan-features li.is-soon {
+  color: var(--text-muted);
+}
+.start-plan-feature-dot {
+  flex-shrink: 0;
+  width: 14px;
+  display: inline-flex;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.start-plan-features li.is-highlight .start-plan-feature-dot {
+  color: var(--text-primary);
+}
+.start-plan-soon {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.start-plan-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+.start-plan-cta > button {
+  width: 100%;
+  justify-content: center;
+}
+.start-plan-cta-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.start-plans-foot {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-muted);
-}
-
-/* Trial-state badge — small, calm, never shouts. */
-.start-trial-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  border: 1px solid var(--border-faint);
-  background: var(--bg-paper);
-  color: var(--text-secondary);
-}
-.start-trial-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: currentColor;
-}
-.start-trial-free {
-  color: var(--color-success, #3fae8c);
-  border-color: color-mix(in oklab, var(--color-success, #3fae8c) 35%, transparent);
-}
-.start-trial-paid {
-  color: var(--text-primary);
-  border-color: var(--text-primary);
-}
-.start-trial-locked-badge {
-  color: var(--text-muted);
-  border-style: dashed;
+  text-align: center;
 }
 
 /* ── Responsive ─────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .start-plans {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .start-plan-popular {
+    transform: none;
+  }
+}
 
 @media (max-width: 720px) {
   .start-page {
@@ -234,8 +447,20 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  .start-form-actions {
-    flex-direction: column-reverse;
+  .start-plans-head {
+    flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .start-interval-toggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .start-interval-toggle-pill {
+    flex: 1;
+    text-align: center;
   }
 }

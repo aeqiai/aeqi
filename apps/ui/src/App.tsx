@@ -164,6 +164,7 @@ export default function App() {
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="settings" element={null} />
+                    <Route path="settings/:tab" element={null} />
                     {/* /start renders inside the shell — Company
                         creation is part of the app, not a separate
                         wizard. AppLayout dispatches StartPage when

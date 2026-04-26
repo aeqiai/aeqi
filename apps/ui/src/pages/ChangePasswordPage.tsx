@@ -20,7 +20,7 @@ export default function ChangePasswordPage() {
 
   useEffect(() => {
     if (!success) return;
-    const timer = setTimeout(() => navigate("/profile?tab=security", { replace: true }), 2000);
+    const timer = setTimeout(() => navigate("/settings/security", { replace: true }), 2000);
     return () => clearTimeout(timer);
   }, [success, navigate]);
 
@@ -117,7 +117,7 @@ export default function ChangePasswordPage() {
         )}
 
         <p className="auth-switch">
-          <Link to="/profile?tab=security">Back to security settings</Link>
+          <Link to="/settings/security">Back to security settings</Link>
         </p>
       </div>
       <div className="auth-footer">

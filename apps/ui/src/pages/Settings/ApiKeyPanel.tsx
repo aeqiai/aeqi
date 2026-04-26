@@ -131,7 +131,7 @@ export default function ApiKeyPanel() {
       <div style={{ marginTop: "var(--space-6)" }}>
         <p className="account-field-desc">
           To create secret keys for a specific agent, go to{" "}
-          <Link to={href("/settings?tab=api-keys")} className="key-link">
+          <Link to={href("/settings/api")} className="key-link">
             Settings &rarr; API Keys
           </Link>
           .

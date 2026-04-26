@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { DEFAULT_TEMPLATE_SLUG, FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
@@ -6,26 +6,29 @@ import type { CompanyTemplate, User } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
-import { Button, Input, Spinner } from "@/components/ui";
+import { Button, Spinner } from "@/components/ui";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
+import { PLANS, type BillingInterval, type Feature, type PlanId } from "@/lib/pricing";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 import "@/styles/start.css";
 
 /**
- * `/start` — the single place a company is created.
+ * `/start` — the single place a Company is created.
  *
- * Loads the chosen Blueprint (`?blueprint=:slug`) or the
- * operator-configured default and renders a focused launch surface:
- * compact preview header, name input, trial-slot indicator, single
- * primary CTA. Lives inside AppLayout so the LeftSidebar stays
- * available for users with existing companies; users with none get a
- * naturally focused view because the sidebar has nothing to show.
+ * Loads the chosen Blueprint (`?blueprint=:slug`) or the operator-configured
+ * default and renders a focused launch surface: blueprint preview header,
+ * monthly/annual interval toggle, and a three-card plan picker (Free /
+ * Launch / Scale). The Company name is auto-derived from the Blueprint
+ * (server slugifies); the user renames in Settings later.
  *
- * Design intent: zero scroll on first paint at 1280×800, every
- * affordance one click away, no chrome competing with the act of
- * launching.
+ * Flow:
+ * - Free → POST /api/start/launch and navigate into the new sandbox.
+ * - Paid → POST /api/billing/checkout for a Stripe Checkout session and
+ *   redirect to the returned URL. On success Stripe sends the user back
+ *   to /settings/billing?spawn=:slug&plan=:id where the billing track
+ *   completes the spawn.
  */
 export default function StartPage() {
   const navigate = useNavigate();
@@ -40,11 +43,11 @@ export default function StartPage() {
   const [template, setTemplate] = useState<CompanyTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<PlanId | "free" | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [trialUsed, setTrialUsed] = useState(false);
   const [hasPaidPlan, setHasPaidPlan] = useState(false);
+  const [interval, setInterval] = useState<BillingInterval>("monthly");
 
   const isAuthed = authMode === "none" || !!token;
 
@@ -91,8 +94,8 @@ export default function StartPage() {
     };
   }, [slug]);
 
-  // Resolve the user's trial-slot status. Only fires when there's a
-  // real account; auth mode "none" treats every spawn as free.
+  // Resolve the user's trial-slot status. Only fires when there's a real
+  // account; auth mode "none" treats every spawn as free.
   useEffect(() => {
     if (!token || authMode === "none") {
       setTrialUsed(false);
@@ -109,63 +112,75 @@ export default function StartPage() {
         setHasPaidPlan(!!u.subscription_status && u.subscription_status !== "none");
       })
       .catch(() => {
-        // Non-fatal — fall through assuming the slot is free; the
-        // server enforces the cap on POST regardless.
+        // Non-fatal — fall through assuming the slot is free; the server
+        // enforces the cap on POST regardless.
       });
     return () => {
       cancelled = true;
     };
   }, [token, authMode]);
 
-  // Pre-fill the company name with the Blueprint's name. The user can
-  // override; the placeholder still shows the suggestion when blank.
+  // Reset error when blueprint changes.
   useEffect(() => {
-    setCompanyName(template?.name || "");
     setSubmitError(null);
-  }, [template?.slug, template?.name]);
+  }, [template?.slug]);
 
-  const trialState = useMemo<TrialState>(() => {
-    if (hasPaidPlan) return "paid";
-    if (trialUsed) return "trial-used";
-    return "trial-available";
-  }, [hasPaidPlan, trialUsed]);
+  const handleLaunch = useCallback(
+    async (planId: PlanId | "free", chosenInterval: BillingInterval) => {
+      if (!template) return;
+      if (!isAuthed) {
+        const next = `/start${slug ? `?blueprint=${encodeURIComponent(slug)}` : ""}`;
+        navigate(`/signup?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      setSubmitError(null);
 
-  const handleLaunch = useCallback(async () => {
-    if (!template) return;
-    if (!isAuthed) {
-      const next = `/start${slug ? `?blueprint=${encodeURIComponent(slug)}` : ""}`;
-      navigate(`/signup?next=${encodeURIComponent(next)}`);
-      return;
-    }
-    if (trialState === "trial-used") {
-      setSubmitError("Your free trial company has launched. Subscribe to a plan to spawn another.");
-      return;
-    }
-    const trimmed = companyName.trim();
-    if (!trimmed) {
-      setSubmitError("Pick a name for your Company.");
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      // Platform-side launch — provisions a personal sandbox seeded
-      // with this Blueprint and links the placement to the user. The
-      // returned `root` is the placement slug; the agent UUID is
-      // assigned by the sandbox runtime once it boots and surfaces
-      // via /api/auth/me.
-      const resp = await api.launchStart({ template: template.slug, name: trimmed });
-      const rootSlug = (resp as { root?: string })?.root;
-      if (!rootSlug) throw new Error("Launch returned no root slug.");
-      setActiveRoot(rootSlug);
-      await fetchAgents();
-      navigate(`/${encodeURIComponent(rootSlug)}/sessions`);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Could not launch the Company.";
-      setSubmitError(msg);
-      setSubmitting(false);
-    }
-  }, [template, isAuthed, slug, navigate, trialState, companyName, setActiveRoot, fetchAgents]);
+      if (planId === "free") {
+        if (trialUsed) {
+          setSubmitError("Free Company already used. Pick Launch or Scale to spawn another.");
+          return;
+        }
+        setSubmitting("free");
+        try {
+          // Server slugifies template.name into the new sandbox's root slug.
+          const resp = await api.launchStart({
+            template: template.slug,
+            name: template.name,
+          });
+          const rootSlug = (resp as { root?: string })?.root;
+          if (!rootSlug) throw new Error("Launch returned no root slug.");
+          setActiveRoot(rootSlug);
+          await fetchAgents();
+          navigate(`/${encodeURIComponent(rootSlug)}/sessions`);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : "Could not launch the Company.";
+          setSubmitError(msg);
+          setSubmitting(null);
+        }
+        return;
+      }
+
+      // Paid: hand off to Stripe Checkout. On success Stripe redirects to
+      // /settings/billing?spawn=:slug&plan=:id where the billing route
+      // completes the spawn against the now-paid subscription.
+      setSubmitting(planId);
+      try {
+        const { url } = await api.createCheckoutSession({
+          plan: planId,
+          interval: chosenInterval,
+          blueprint: template.slug,
+          root_slug: template.slug,
+        });
+        if (!url) throw new Error("Checkout session returned no URL.");
+        window.location.href = url;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Could not start checkout.";
+        setSubmitError(msg);
+        setSubmitting(null);
+      }
+    },
+    [template, isAuthed, slug, navigate, trialUsed, setActiveRoot, fetchAgents],
+  );
 
   if (loading && !template) {
     return (
@@ -191,12 +206,15 @@ export default function StartPage() {
     );
   }
 
+  const showTrialBanner = isAuthed && trialUsed && !hasPaidPlan;
+  const isBusy = submitting !== null;
+
   return (
     <div className="start-page">
       <div className="start-shell">
         <header className="start-head">
           <p className="start-eyebrow">Launch a Company</p>
-          <h1 className="start-headline">Name it. Launch it.</h1>
+          <h1 className="start-headline">Pick a plan. Launch it.</h1>
           <p className="start-lede">
             One Blueprint, one click. Your agents spawn pre-threaded with the ideas, events, and
             quests that come with this Company.
@@ -231,84 +249,258 @@ export default function StartPage() {
           </div>
         </section>
 
-        <form
-          className="start-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleLaunch();
-          }}
-        >
-          <Input
-            id="start-company-name"
-            label="Name your Company"
-            type="text"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder={template.name}
-            maxLength={48}
-            disabled={submitting}
-            autoComplete="off"
-            error={submitError ?? undefined}
-            hint="You can rename it later. This is what your agents and channels will refer to it as."
+        {showTrialBanner && (
+          <p className="start-trial-banner" role="status">
+            You've used your one Free Company. Pick a paid plan below — each Company runs on its own
+            subscription.
+          </p>
+        )}
+
+        {submitError && (
+          <div className="start-error" role="alert">
+            {submitError}
+          </div>
+        )}
+
+        <div className="start-plans-head">
+          <p className="start-plans-eyebrow">Choose your plan</p>
+          <IntervalToggle value={interval} onChange={setInterval} disabled={isBusy} />
+        </div>
+
+        <section className="start-plans" aria-label="Pricing plans">
+          <FreePlanCard
+            trialUsed={trialUsed}
+            isAuthed={isAuthed}
+            submitting={submitting === "free"}
+            disabled={isBusy && submitting !== "free"}
+            onLaunch={() => handleLaunch("free", interval)}
           />
 
-          <div className="start-form-actions">
-            <TrialBadge state={trialState} />
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={submitting}
-              disabled={submitting || trialState === "trial-used"}
-            >
-              {submitting ? (
-                <>
-                  <Spinner size="sm" />
-                  Launching…
-                </>
-              ) : isAuthed ? (
-                <>Launch Company</>
-              ) : (
-                <>Sign Up to Launch</>
-              )}
-            </Button>
-          </div>
+          {PLANS.map((plan) => (
+            <PaidPlanCard
+              key={plan.id}
+              planId={plan.id}
+              name={plan.name}
+              desc={plan.desc}
+              monthlyPrice={plan.price}
+              annualPrice={plan.annualPrice}
+              popular={plan.popular}
+              features={plan.features}
+              interval={interval}
+              isAuthed={isAuthed}
+              submitting={submitting === plan.id}
+              disabled={isBusy && submitting !== plan.id}
+              onLaunch={() => handleLaunch(plan.id, interval)}
+            />
+          ))}
+        </section>
 
-          {trialState === "trial-used" && (
-            <p className="start-trial-locked">
-              You've already used your one free Company. Plans for additional Companies are coming
-              soon — we'll email you the moment they ship.
-            </p>
-          )}
-        </form>
+        <p className="start-plans-foot">
+          Each Company runs on its own subscription. Cancel any time from Settings → Billing.
+        </p>
       </div>
     </div>
   );
 }
 
-type TrialState = "trial-available" | "trial-used" | "paid";
+/* ── Interval toggle ───────────────────────────────────────────── */
 
-function TrialBadge({ state }: { state: TrialState }) {
-  if (state === "paid") {
-    return (
-      <div className="start-trial-badge start-trial-paid">
-        <span className="start-trial-dot" aria-hidden="true" />
-        <span>On your plan</span>
-      </div>
-    );
-  }
-  if (state === "trial-used") {
-    return (
-      <div className="start-trial-badge start-trial-locked-badge">
-        <span className="start-trial-dot" aria-hidden="true" />
-        <span>Trial used</span>
-      </div>
-    );
-  }
+function IntervalToggle({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: BillingInterval;
+  onChange: (next: BillingInterval) => void;
+  disabled?: boolean;
+}) {
   return (
-    <div className="start-trial-badge start-trial-free">
-      <span className="start-trial-dot" aria-hidden="true" />
-      <span>Free trial — your one and only on us</span>
+    <div className="start-interval-toggle" role="radiogroup" aria-label="Billing interval">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "monthly"}
+        className={`start-interval-toggle-pill${value === "monthly" ? " is-active" : ""}`}
+        onClick={() => onChange("monthly")}
+        disabled={disabled}
+      >
+        Monthly
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "annual"}
+        className={`start-interval-toggle-pill${value === "annual" ? " is-active" : ""}`}
+        onClick={() => onChange("annual")}
+        disabled={disabled}
+      >
+        Annual <span className="start-interval-save">· save ~15%</span>
+      </button>
     </div>
+  );
+}
+
+/* ── Free plan card ────────────────────────────────────────────── */
+
+function FreePlanCard({
+  trialUsed,
+  isAuthed,
+  submitting,
+  disabled,
+  onLaunch,
+}: {
+  trialUsed: boolean;
+  isAuthed: boolean;
+  submitting: boolean;
+  disabled: boolean;
+  onLaunch: () => void;
+}) {
+  const locked = isAuthed && trialUsed;
+  const cta = locked
+    ? "Free trial used"
+    : submitting
+      ? "Launching…"
+      : isAuthed
+        ? "Launch Free →"
+        : "Sign up to launch →";
+
+  return (
+    <article className="start-plan-card start-plan-free">
+      <header className="start-plan-head">
+        <p className="start-plan-eyebrow">Free trial · once per account</p>
+        <h3 className="start-plan-name">Free</h3>
+        <p className="start-plan-price">
+          <span className="start-plan-price-amount">$0</span>
+        </p>
+        <p className="start-plan-desc">
+          Your first Company on us. 500k tokens, full features, no credit card.
+        </p>
+      </header>
+
+      <ul className="start-plan-features">
+        <li>1 Company</li>
+        <li>500k tokens</li>
+        <li>All Blueprints</li>
+        <li>Full feature access</li>
+      </ul>
+
+      <div className="start-plan-cta">
+        <Button
+          type="button"
+          variant="primary"
+          size="lg"
+          loading={submitting}
+          disabled={disabled || locked || submitting}
+          onClick={onLaunch}
+        >
+          {submitting ? (
+            <>
+              <Spinner size="sm" />
+              {cta}
+            </>
+          ) : (
+            cta
+          )}
+        </Button>
+        {locked && (
+          <p className="start-plan-cta-note">Pick a paid plan to launch another Company.</p>
+        )}
+      </div>
+    </article>
+  );
+}
+
+/* ── Paid plan card ────────────────────────────────────────────── */
+
+function PaidPlanCard({
+  planId,
+  name,
+  desc,
+  monthlyPrice,
+  annualPrice,
+  popular,
+  features,
+  interval,
+  isAuthed,
+  submitting,
+  disabled,
+  onLaunch,
+}: {
+  planId: PlanId;
+  name: string;
+  desc: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  popular: boolean;
+  features: readonly Feature[];
+  interval: BillingInterval;
+  isAuthed: boolean;
+  submitting: boolean;
+  disabled: boolean;
+  onLaunch: () => void;
+}) {
+  const price = interval === "annual" ? annualPrice : monthlyPrice;
+  const eyebrow =
+    planId === "launch" ? "Per Company · most popular" : "Per Company · for serious operators";
+  const cta = submitting
+    ? "Redirecting…"
+    : isAuthed
+      ? "Subscribe & Launch →"
+      : "Sign up to subscribe →";
+
+  return (
+    <article className={`start-plan-card start-plan-paid${popular ? " start-plan-popular" : ""}`}>
+      {popular && <span className="start-plan-badge">Most popular</span>}
+
+      <header className="start-plan-head">
+        <p className="start-plan-eyebrow">{eyebrow}</p>
+        <h3 className="start-plan-name">{name}</h3>
+        <p className="start-plan-price">
+          <span className="start-plan-price-amount">${price}</span>
+          <span className="start-plan-price-unit">/mo</span>
+          {interval === "annual" && (
+            <span className="start-plan-price-strike">${monthlyPrice}</span>
+          )}
+        </p>
+        <p className="start-plan-desc">{desc}</p>
+      </header>
+
+      <ul className="start-plan-features">
+        {features.map((f, i) => (
+          <li
+            key={i}
+            className={`${f.highlight ? "is-highlight" : ""}${f.soon ? " is-soon" : ""}`.trim()}
+          >
+            <span className="start-plan-feature-dot" aria-hidden="true">
+              {f.highlight ? "★" : "•"}
+            </span>
+            <span>
+              {f.text}
+              {f.soon && <span className="start-plan-soon"> · soon</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="start-plan-cta">
+        <Button
+          type="button"
+          variant="primary"
+          size="lg"
+          loading={submitting}
+          disabled={disabled || submitting}
+          onClick={onLaunch}
+        >
+          {submitting ? (
+            <>
+              <Spinner size="sm" />
+              {cta}
+            </>
+          ) : (
+            cta
+          )}
+        </Button>
+      </div>
+    </article>
   );
 }

@@ -34,7 +34,11 @@ export function useShellSurface(
     const userSessionId = userSessionMatch ? decodeURIComponent(userSessionMatch[1]) : null;
     const isUserSession = !!userSessionId;
 
-    const isSettings = path === "/settings" || path === "/profile" || tab === "profile";
+    const isSettings =
+      path === "/settings" ||
+      path === "/profile" ||
+      path.startsWith("/settings/") ||
+      tab === "profile";
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
     const isStart = path === "/start";

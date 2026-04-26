@@ -804,6 +804,54 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Stripe billing — per-Company subscriptions. Plans use public IDs
+  // (launch / scale / free) which map to backend IDs (starter / growth / free)
+  // via lib/pricing.ts BACKEND_PLAN_ID. Frontend always speaks public IDs;
+  // the helper does the mapping.
+  createCheckoutSession: (data: {
+    plan: "launch" | "scale";
+    interval: "monthly" | "annual";
+    blueprint?: string;
+    root_slug?: string;
+  }) =>
+    request<{ url: string }>("/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        plan: data.plan === "launch" ? "starter" : "growth",
+        interval: data.interval,
+        blueprint: data.blueprint,
+        root_slug: data.root_slug,
+      }),
+    }),
+
+  openBillingPortal: () => request<{ url: string }>("/billing/portal", { method: "POST" }),
+
+  getBillingOverview: () =>
+    request<{
+      ok: boolean;
+      total_monthly_cents: number;
+      total_annual_cents: number;
+      currency: string;
+      payment_method_last4: string | null;
+      companies: Array<{
+        name: string;
+        agent_id: string | null;
+        plan: "launch" | "scale" | "free";
+        stripe_subscription_id: string | null;
+        status: "active" | "trialing" | "past_due" | "canceled" | "free";
+        next_charge_at: string | null;
+      }>;
+    }>("/billing/overview"),
+
+  // TODO: backend endpoint pending — used by /settings/billing per-Company actions.
+  getCompanySubscription: (rootName: string) =>
+    request<{
+      name: string;
+      plan: "launch" | "scale" | "free";
+      status: string;
+      stripe_subscription_id: string | null;
+    }>(`/billing/companies/${encodeURIComponent(rootName)}`),
+
   getInbox: () => request<{ ok: boolean; items: InboxItem[] }>("/inbox"),
 
   answerInbox: (sessionId: string, answer: string) =>

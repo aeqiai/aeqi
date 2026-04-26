@@ -1,0 +1,352 @@
+/* /settings/billing — user-level rollup + per-Company management.
+   Layout-only styles; visual primitives (Card, Button, Badge) come
+   from @/components/ui. Keep this file lean — anything reusable
+   should graduate to primitives.css or a shared component. */
+
+.billing-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Loading / spawn / error ───────────────────── */
+
+.billing-loading,
+.billing-spawn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-10) 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.billing-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-canvas);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.billing-error p {
+  margin: 0;
+}
+
+/* ── Summary card ──────────────────────────────── */
+
+.billing-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+.billing-summary-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.billing-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.billing-total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.billing-total-amount {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.billing-total-suffix {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.billing-summary-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.billing-summary-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.billing-pm-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.billing-pm-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.billing-pm-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Empty state ───────────────────────────────── */
+
+.billing-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-canvas);
+}
+.billing-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.billing-empty-sub {
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.billing-empty-cta {
+  text-decoration: none;
+}
+
+/* ── Companies list ────────────────────────────── */
+
+.billing-companies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.billing-company {
+  transition: border-color 0.12s;
+}
+.billing-company-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+.billing-company-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.billing-company-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  line-height: 1.2;
+  word-break: break-word;
+}
+.billing-company-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.billing-company-charge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+.billing-company-charge-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.billing-company-charge-value {
+  color: var(--text-secondary);
+}
+.billing-company-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+.billing-company-open {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+.billing-company-open:hover {
+  color: var(--text-primary);
+}
+
+/* ── Inline upgrade selector ───────────────────── */
+
+.billing-upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+.billing-upgrade-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.billing-upgrade-plan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-paper);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+.billing-upgrade-plan:hover {
+  border-color: var(--border-hover);
+}
+.billing-upgrade-plan.is-active {
+  border-color: var(--text-primary);
+  background: var(--bg-canvas);
+}
+.billing-upgrade-plan-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.billing-upgrade-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--text-primary);
+}
+.billing-upgrade-plan-suffix {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.billing-upgrade-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.billing-upgrade-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.billing-upgrade-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.billing-upgrade-hint code {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+/* ── Footer / portal link ──────────────────────── */
+
+.billing-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-faint);
+}
+.billing-footer-line {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.billing-footer-fineprint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.billing-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.billing-link:hover:not(:disabled) {
+  color: var(--text-secondary);
+}
+.billing-link:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .billing-summary {
+    flex-direction: column;
+  }
+  .billing-summary-aside {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .billing-company-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  .billing-company-actions {
+    justify-content: flex-start;
+  }
+  .billing-upgrade-plans {
+    grid-template-columns: 1fr;
+  }
+}
