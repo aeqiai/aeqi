@@ -123,7 +123,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
 
   if (loading) {
     return (
-      <div className="billing-panel">
+      <div className="billing-panel billing-panel-padded">
         <div className="billing-loading">
           <Spinner size="sm" /> Loading plan…
         </div>
@@ -133,7 +133,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
 
   if (error && !overview) {
     return (
-      <div className="billing-panel">
+      <div className="billing-panel billing-panel-padded">
         <div className="account-feedback account-feedback-error" role="alert">
           {error}
         </div>
@@ -143,7 +143,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
 
   if (!root) {
     return (
-      <div className="billing-panel">
+      <div className="billing-panel billing-panel-padded">
         <p className="billing-empty-sub">Couldn't resolve this Company's root agent.</p>
       </div>
     );
@@ -151,7 +151,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
 
   if (!company) {
     return (
-      <div className="billing-panel">
+      <div className="billing-panel billing-panel-padded">
         <header className="billing-header">
           <p className="billing-eyebrow">Plan</p>
           <h2 className="billing-headline">{root.name}</h2>
