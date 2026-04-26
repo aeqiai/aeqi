@@ -41,6 +41,11 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
+  // Anonymous visitors clicking Sign up / Log in should land back on the
+  // page they came from after auth — share-link survival.
+  const here = location.pathname + location.search;
+  const next = here === "/" ? "" : `?next=${encodeURIComponent(here)}`;
+
   return (
     <div className="shell">
       <aside className="left-sidebar public-sidebar">
@@ -75,14 +80,14 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           <button
             type="button"
             className="sidebar-public-cta-btn primary"
-            onClick={() => navigate("/signup")}
+            onClick={() => navigate(`/signup${next}`)}
           >
             Sign up
           </button>
           <button
             type="button"
             className="sidebar-public-cta-btn ghost"
-            onClick={() => navigate("/login")}
+            onClick={() => navigate(`/login${next}`)}
           >
             Log in
           </button>

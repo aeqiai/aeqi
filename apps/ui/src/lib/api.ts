@@ -97,7 +97,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     if (authMode !== "none" && !path.startsWith("/auth/")) {
       clearSessionData();
       localStorage.removeItem("aeqi_auth_mode");
-      window.location.href = "/login";
+      // Preserve the user's current location as ?next= so post-auth
+      // they return to the page that 401'd, not to /.
+      const here = window.location.pathname + window.location.search;
+      const skipNext = here === "/" || here.startsWith("/login") || here.startsWith("/signup");
+      window.location.href = skipNext ? "/login" : `/login?next=${encodeURIComponent(here)}`;
     }
     throw new ApiError(401, "Unauthorized");
   }
