@@ -144,13 +144,13 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         {/* Big launch CTA — same component the authed user-scope view
             uses for "launch agent". Routes to /signup for unauthed
             visitors so the one prominent action is always present. */}
-        <nav className="sidebar-surface-nav is-userscope" aria-label="Launch a company">
+        <nav className="sidebar-surface-nav is-userscope" aria-label="Start a company">
           <button
             type="button"
             className="sidebar-launch-cta"
             onClick={() => navigate(`/signup${next}`)}
-            title="Launch your first autonomous company"
-            aria-label="Launch a company"
+            title="Start your first autonomous company"
+            aria-label="Start a company"
           >
             <span className="sidebar-launch-cta-plus" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -162,7 +162,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                 />
               </svg>
             </span>
-            <span className="sidebar-launch-cta-label">Launch a company</span>
+            <span className="sidebar-launch-cta-label">Start a company</span>
           </button>
         </nav>
 

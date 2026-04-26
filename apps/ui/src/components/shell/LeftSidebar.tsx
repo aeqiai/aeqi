@@ -158,8 +158,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       type="button"
       className="sidebar-launch-cta"
       onClick={() => navigate("/new")}
-      title="Launch a new autonomous agent"
-      aria-label="Launch agent"
+      title="Start a new autonomous company"
+      aria-label="Start a company"
     >
       <span className="sidebar-launch-cta-plus" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
@@ -171,7 +171,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           />
         </svg>
       </span>
-      <span className="sidebar-launch-cta-label">Launch agent</span>
+      <span className="sidebar-launch-cta-label">Start a company</span>
     </button>
   );
 
@@ -334,7 +334,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         </div>
         <nav
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
-          aria-label={userScope ? "Launch agent" : "Agent surfaces"}
+          aria-label={userScope ? "Start a company" : "Agent surfaces"}
         >
           {userScope ? renderLaunchCTA() : PRIMITIVES.map(renderPrimitive)}
         </nav>
