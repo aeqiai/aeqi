@@ -31,6 +31,30 @@ impl Address {
     pub fn as_hex(&self) -> String {
         format!("0x{}", hex::encode(self.0))
     }
+
+    /// EIP-55 mixed-case checksum address. Required by SIWE messages and most
+    /// wallet UIs.
+    pub fn as_eip55(&self) -> String {
+        use sha3::{Digest, Keccak256};
+        let lower = hex::encode(self.0);
+        let hash = Keccak256::digest(lower.as_bytes());
+        let mut out = String::with_capacity(42);
+        out.push_str("0x");
+        for (i, ch) in lower.chars().enumerate() {
+            if ch.is_ascii_digit() {
+                out.push(ch);
+            } else {
+                let byte = hash[i / 2];
+                let nibble = if i % 2 == 0 { byte >> 4 } else { byte & 0x0f };
+                if nibble >= 8 {
+                    out.push(ch.to_ascii_uppercase());
+                } else {
+                    out.push(ch);
+                }
+            }
+        }
+        out
+    }
 }
 
 impl std::fmt::Display for Address {

@@ -18,6 +18,7 @@ pub mod wallet;
 
 pub use kek::{KekError, MasterKekProvider};
 pub use keypair::Keypair;
+pub use siwe::{SiweError, canonical_message, verify as verify_siwe};
 pub use types::{Address, EcdsaSignature, Pubkey, WalletId};
 pub use wallet::{
     ProvisionAgentRequest, ProvisionRequest, ProvisionedWallet, RevealedRecovery, SharedDb,

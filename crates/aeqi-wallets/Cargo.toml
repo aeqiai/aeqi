@@ -40,6 +40,11 @@ bip39 = { version = "2", features = ["rand"] }
 # Keccak256 for EVM address derivation
 sha3 = "0.10"
 
+# Sign-In With Ethereum (EIP-4361) — Spruce's reference implementation
+siwe = "0.6"
+# `time` is the timestamp type the siwe crate uses in VerificationOpts
+time = "0.3"
+
 [dev-dependencies]
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
