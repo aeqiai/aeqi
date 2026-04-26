@@ -11,6 +11,7 @@ import type {
 } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, Spinner } from "@/components/ui";
+import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
@@ -108,9 +109,9 @@ export default function BlueprintDetailPage() {
 
   if (loading && !template) {
     return (
-      <div className="bp-page">
+      <div className="page-rail-shell">
         <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
-        <main className="bp-content">
+        <main className="page-rail-content">
           <div className="bp-status">
             <Spinner size="sm" /> Loading Blueprint…
           </div>
@@ -121,16 +122,14 @@ export default function BlueprintDetailPage() {
 
   if (!template) {
     return (
-      <div className="bp-page">
+      <div className="page-rail-shell">
         <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
-        <main className="bp-content">
-          <div className="bp-detail-missing">
-            <p className="bp-detail-missing-title">Blueprint not found.</p>
-            <p className="bp-detail-missing-sub">
-              {error || "We couldn't find a blueprint with that slug."}{" "}
-              <Link to="/blueprints">Back to the catalog →</Link>
-            </p>
-          </div>
+        <main className="page-rail-content">
+          <EmptyState
+            title="Blueprint not found."
+            description={error || "We couldn't find a blueprint with that slug."}
+            action={<Link to="/blueprints">Back to the catalog →</Link>}
+          />
         </main>
       </div>
     );
@@ -141,14 +140,15 @@ export default function BlueprintDetailPage() {
     : `/start?blueprint=${encodeURIComponent(template.slug)}`;
 
   return (
-    <div className="bp-page">
+    <div className="page-rail-shell">
       <PageRail
         tabs={SECTION_TABS}
         defaultTab="overview"
-        title={template.name}
+        title="Blueprint"
         basePath={`/blueprints/${encodeURIComponent(template.slug)}`}
+        currentValue={activeSection}
       />
-      <main className="bp-content">
+      <main className="page-rail-content">
         <div className="ideas-list-head bp-detail-head">
           <div className="ideas-toolbar bp-detail-toolbar">
             <button
@@ -172,6 +172,7 @@ export default function BlueprintDetailPage() {
                 <path d="M8 3 L4.5 6.5 L8 10" />
               </svg>
             </button>
+            <h1 className="bp-detail-toolbar-title">{template.name}</h1>
             <div className="ideas-toolbar-spacer" aria-hidden />
             <Link to={launchHref} className="bp-detail-launch-link" aria-disabled={isImportMode}>
               <Button
@@ -223,11 +224,12 @@ export default function BlueprintDetailPage() {
 function OverviewSection({ template }: { template: CompanyTemplate }) {
   return (
     <>
-      <header className="bp-detail-page-head">
-        <h1 className="bp-detail-page-name">{template.name}</h1>
-        {template.tagline && <p className="bp-detail-page-tagline">{template.tagline}</p>}
-        {template.description && <p className="bp-detail-page-desc">{template.description}</p>}
-      </header>
+      {(template.tagline || template.description) && (
+        <header className="bp-detail-page-head">
+          {template.tagline && <p className="bp-detail-page-tagline">{template.tagline}</p>}
+          {template.description && <p className="bp-detail-page-desc">{template.description}</p>}
+        </header>
+      )}
 
       <section className="bp-detail-section">
         <BlueprintTreePreview template={template} />
@@ -290,23 +292,15 @@ function SeedSearch({
 
 function EmptyKind({ label }: { label: string }) {
   return (
-    <div className="bp-empty">
-      <p className="bp-empty-title">No {label} in this Blueprint.</p>
-      <p className="bp-empty-sub">
-        v1 templates ship sparse — not every Blueprint seeds every primitive.
-      </p>
-    </div>
+    <EmptyState
+      title={`No ${label} in this Blueprint.`}
+      description="v1 templates ship sparse — not every Blueprint seeds every primitive."
+    />
   );
 }
 
 function NoMatch({ query }: { query: string }) {
-  return (
-    <div className="bp-empty">
-      <p className="bp-empty-title">
-        No match for <span className="bp-empty-query">{query}</span>.
-      </p>
-    </div>
-  );
+  return <EmptyState title={`No match for "${query}".`} />;
 }
 
 function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {

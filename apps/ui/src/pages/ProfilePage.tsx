@@ -52,9 +52,9 @@ export default function ProfilePage() {
   const activeTab = tab && TABS.some((t) => t.id === tab) ? tab : "profile";
 
   return (
-    <div className="settings-layout">
+    <div className="page-rail-shell">
       <PageRail tabs={TABS} defaultTab="profile" title="Settings" basePath="/settings" />
-      <div className="account-page settings-content">
+      <div className="account-page page-rail-content">
         {activeTab === "profile" && <ProfilePanel />}
         {activeTab === "billing" && <BillingPanel />}
         {activeTab === "security" && <SecurityPanel />}

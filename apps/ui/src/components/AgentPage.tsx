@@ -255,9 +255,9 @@ function AgentsTab({
  */
 function SettingsShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="settings-layout">
+    <div className="page-rail-shell">
       <PageRail tabs={SETTINGS_SUB_TABS} mode="path" title="Settings" />
-      <div className="settings-content settings-shell-body">{children}</div>
+      <div className="page-rail-content settings-shell-body">{children}</div>
     </div>
   );
 }

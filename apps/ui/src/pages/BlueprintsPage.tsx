@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
 import { Popover, Spinner } from "@/components/ui";
+import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { BlueprintCard } from "@/components/blueprints/BlueprintCard";
 import "@/styles/templates.css";
@@ -158,9 +159,9 @@ export default function BlueprintsPage() {
   }, []);
 
   return (
-    <div className="bp-page">
+    <div className="page-rail-shell">
       <PageRail tabs={KIND_TABS} defaultTab="companies" title="Blueprints" basePath="/blueprints" />
-      <main className="bp-content">
+      <main className="page-rail-content">
         {isImportMode && (
           <div className="bp-import-banner" role="status">
             <span className="bp-import-banner-eyebrow">Import mode</span>
@@ -250,33 +251,21 @@ export default function BlueprintsPage() {
             <Spinner size="sm" /> Loading Blueprints…
           </div>
         ) : activeKind !== "companies" ? (
-          <div className="bp-empty">
-            <p className="bp-empty-title">
-              No standalone {KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} yet.
-            </p>
-            <p className="bp-empty-sub">
-              v1 ships Companies — full org bundles with agents, ideas, events, and quests
-              pre-threaded. Open one from the{" "}
-              <Link to="/blueprints/companies" className="bp-empty-link">
-                Companies
-              </Link>{" "}
-              list to see its primitives.
-            </p>
-          </div>
+          <EmptyState
+            title={`No standalone ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} yet.`}
+            description="v1 ships Companies — full org bundles with agents, ideas, events, and quests pre-threaded. Standalone primitive bundles land next."
+            action={<Link to="/blueprints/companies">Open Companies →</Link>}
+          />
         ) : filtered.length === 0 ? (
-          <div className="bp-empty">
-            <p className="bp-empty-title">No Blueprints match.</p>
-            <p className="bp-empty-sub">
-              Try a shorter search.{" "}
-              <button
-                type="button"
-                className="bp-empty-link"
-                onClick={() => setSearchParam("q", "")}
-              >
+          <EmptyState
+            title="No Blueprints match."
+            description="Try a shorter search."
+            action={
+              <button type="button" onClick={() => setSearchParam("q", "")}>
                 Show everything
               </button>
-            </p>
-          </div>
+            }
+          />
         ) : view === "list" ? (
           <ul className="bp-list" role="list">
             {filtered.map((t) => (

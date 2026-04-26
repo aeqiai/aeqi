@@ -38,6 +38,13 @@ interface PageRailProps {
    * action that lives next to the navigation but isn't part of it).
    */
   footer?: React.ReactNode;
+  /**
+   * Override the active tab detection. PageRail's default lookup reads
+   * `:tab` from useParams, which only works for routes named `:tab`.
+   * Pages whose section param is named differently (e.g. `:section`) can
+   * pass the resolved value here so the active state stays in sync.
+   */
+  currentValue?: string;
 }
 
 /**
@@ -59,6 +66,7 @@ export default function PageRail({
   mode = "query",
   basePath,
   footer,
+  currentValue,
 }: PageRailProps) {
   const { go } = useNav();
   const navigate = useNavigate();
@@ -68,7 +76,9 @@ export default function PageRail({
   const queryTab = searchParams.get("tab");
   const usePath = mode === "path" && !!agentId;
   const useBasePath = !!basePath;
-  const pathTab = currentTab && tabs.some((t) => t.id === currentTab) ? currentTab : null;
+  const resolvedCurrent = currentValue ?? currentTab;
+  const pathTab =
+    resolvedCurrent && tabs.some((t) => t.id === resolvedCurrent) ? resolvedCurrent : null;
   const active = useBasePath
     ? pathTab || fallback
     : usePath
