@@ -1,20 +1,75 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNav } from "@/hooks/useNav";
 import { Button } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { IdeasPrimitiveHead, IdeasScopeTabs } from "./IdeasPrimitiveHead";
+import { IdeasPrimitiveHead } from "./IdeasPrimitiveHead";
+import IdeasFilterPopover from "./IdeasFilterPopover";
 import {
   type FilterState,
   type IdeasFilter,
-  IDEA_FILTER_VALUES,
+  type SortMode,
+  type Epoch,
+  EPOCH_LABELS,
+  EPOCH_ORDER,
+  SORT_MODES,
+  SORT_LABELS,
   matchRank,
   snippetFor,
   highlightMatches,
+  relativeTime,
+  epochOf,
 } from "./types";
+
+const TAG_CHIP_LIMIT = 8;
+
+const SCOPE_LABELS: Record<IdeasFilter, string> = {
+  all: "all",
+  self: "self",
+  siblings: "siblings",
+  children: "children",
+  branch: "branch",
+  global: "global",
+  inherited: "inherited",
+};
 
 function ScopeChip({ scope }: { scope: ScopeValue }) {
   if (scope === "self") return null;
   return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+}
+
+// Linear-style sort segmented control. Inline with the search field so the
+// head stays single-row. Disabled under an active search because relevance
+// trumps shelf order — the visual dim signals "not in play right now".
+function SortToggle({
+  sort,
+  disabled,
+  onChange,
+}: {
+  sort: SortMode;
+  disabled: boolean;
+  onChange: (next: SortMode) => void;
+}) {
+  return (
+    <div
+      className={`ideas-list-sort${disabled ? " disabled" : ""}`}
+      role="tablist"
+      aria-label="Sort"
+    >
+      {SORT_MODES.map((m) => (
+        <button
+          key={m}
+          type="button"
+          role="tab"
+          aria-selected={sort === m}
+          disabled={disabled}
+          className={`ideas-list-sort-btn${sort === m ? " active" : ""}`}
+          onClick={() => onChange(m)}
+        >
+          {SORT_LABELS[m]}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export interface IdeasListViewProps {
@@ -47,24 +102,57 @@ export default function IdeasListView({
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const searchActive = filter.search.trim() !== "";
 
-  // Ranked order. Without a query this is a stable pass-through (every
-  // row scores 3 and preserves input order). With a query, rows land in
-  // rank buckets 0..4 — exact name first, then name-prefix, then name-
-  // contains, then content-only — so ↓-then-Enter always lands on the
-  // most obvious hit.
+  // Ranked / sorted order. With a query, rows land in rank buckets 0..4
+  // (exact name → prefix → contains → content) so ↓-then-Enter always
+  // hits the most obvious target — sort mode is suppressed under search
+  // because relevance trumps shelf order. Without a query, sort mode
+  // controls the input order: `tag` keeps insertion order (groups handle
+  // it later), `recent` walks created_at desc, `alpha` walks name asc.
   const ranked = useMemo(() => {
-    if (!searchActive) return filtered;
-    return filtered
-      .map((idea, i) => ({ idea, i, rank: matchRank(idea, filter.search) }))
-      .sort((a, b) => a.rank - b.rank || a.i - b.i)
-      .map((r) => r.idea);
-  }, [filtered, filter.search, searchActive]);
+    if (searchActive) {
+      return filtered
+        .map((idea, i) => ({ idea, i, rank: matchRank(idea, filter.search) }))
+        .sort((a, b) => a.rank - b.rank || a.i - b.i)
+        .map((r) => r.idea);
+    }
+    if (filter.sort === "recent") {
+      return [...filtered].sort((a, b) => {
+        const ta = a.created_at ? Date.parse(a.created_at) : 0;
+        const tb = b.created_at ? Date.parse(b.created_at) : 0;
+        return tb - ta;
+      });
+    }
+    if (filter.sort === "alpha") {
+      return [...filtered].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
+    }
+    return filtered;
+  }, [filtered, filter.search, filter.sort, searchActive]);
 
-  // Group ideas by primary tag for Notion-style section headings when
-  // the user is browsing. Flatten to a single ranked list under search
-  // so relevance isn't hidden behind category dividers.
-  const grouped = useMemo(() => {
-    if (searchActive) return [["results", ranked] as [string, Idea[]]];
+  // Sectioning. `tag` groups by primary tag for Notion-style headings;
+  // `recent` groups by recency epoch (today / this-week / this-month /
+  // this-year / older) so the index reads like a journal; `alpha` is a
+  // flat run. Search collapses to a single "results" section regardless
+  // of sort because relevance trumps shelf order.
+  const grouped = useMemo<[string, Idea[]][]>(() => {
+    if (searchActive) return [["results", ranked]];
+    if (filter.sort === "alpha") return [["", ranked]];
+    if (filter.sort === "recent") {
+      const now = Date.now();
+      const byEpoch: Record<Epoch, Idea[]> = {
+        today: [],
+        "this-week": [],
+        "this-month": [],
+        "this-year": [],
+        older: [],
+      };
+      for (const idea of ranked) byEpoch[epochOf(idea.created_at, now)].push(idea);
+      return EPOCH_ORDER.filter((e) => byEpoch[e].length > 0).map((e) => [
+        EPOCH_LABELS[e],
+        byEpoch[e],
+      ]);
+    }
     const byTag = new Map<string, Idea[]>();
     for (const idea of ranked) {
       const primary = idea.tags?.[0] ?? "untagged";
@@ -72,18 +160,66 @@ export default function IdeasListView({
       list.push(idea);
       byTag.set(primary, list);
     }
-    const entries = Array.from(byTag.entries()).sort((a, b) => {
+    return Array.from(byTag.entries()).sort((a, b) => {
       if (a[0] === "untagged") return 1;
       if (b[0] === "untagged") return -1;
       return b[1].length - a[1].length;
     });
-    return entries;
-  }, [ranked, searchActive]);
+  }, [ranked, searchActive, filter.sort]);
 
-  const isFiltered = searchActive || filter.scope !== "all" || filter.tag !== null;
+  const showGroupHeadings = !searchActive && filter.sort !== "alpha";
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const visibleTagCount = tagsExpanded
+    ? tagCounts.length
+    : Math.min(TAG_CHIP_LIMIT, tagCounts.length);
+  const hiddenTagCount = Math.max(0, tagCounts.length - visibleTagCount);
+
+  const isFiltered =
+    searchActive || filter.scope !== "all" || filter.tag !== null || filter.needsReview;
   const fireNew = (name?: string) =>
     window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
-  const clearAll = () => onFilter({ search: "", scope: "all", tag: null });
+  const clearAll = () => onFilter({ search: "", scope: "all", tag: null, needsReview: false });
+
+  // Pre-compute "needs review" count for the popover badge, scoped to the
+  // agent's full idea set so the toggle communicates real volume even when
+  // the user has already narrowed via tag or scope.
+  const needsReviewCount = useMemo(
+    () =>
+      ideas.filter((i) => {
+        const t = i.tags ?? [];
+        return (
+          t.includes("skill") &&
+          t.includes("candidate") &&
+          !t.includes("promoted") &&
+          !t.includes("rejected")
+        );
+      }).length,
+    [ideas],
+  );
+
+  // Active-filter chips strip — surfaces every non-resting filter as a
+  // dismissable token under the search field. The popover sets these; the
+  // chip strip is the only place the user sees what's *actually* in play
+  // without re-opening the popover.
+  const activeChips: { key: string; label: string; onRemove: () => void }[] = [];
+  if (filter.scope !== "all")
+    activeChips.push({
+      key: "scope",
+      label: SCOPE_LABELS[filter.scope] ?? filter.scope,
+      onRemove: () => onFilter({ scope: "all" }),
+    });
+  if (filter.tag)
+    activeChips.push({
+      key: "tag",
+      label: `#${filter.tag}`,
+      onRemove: () => onFilter({ tag: null }),
+    });
+  if (filter.needsReview)
+    activeChips.push({
+      key: "review",
+      label: "needs review",
+      onRemove: () => onFilter({ needsReview: false }),
+    });
 
   // Shortcuts: "/" focuses search, Esc clears it when focused, "n" creates
   // a new idea, "l" / "g" flip between list and graph views — all gated so
@@ -126,17 +262,10 @@ export default function IdeasListView({
   return (
     <div className="ideas-list">
       <IdeasPrimitiveHead
+        countLabel={isFiltered ? `${filtered.length} / ${ideas.length}` : `${ideas.length}`}
         view={view}
         onViewChange={onViewChange}
         onNew={() => fireNew()}
-        scopeControl={
-          <IdeasScopeTabs
-            scope={filter.scope}
-            scopes={IDEA_FILTER_VALUES}
-            counts={scopeCounts}
-            onChange={(next) => onFilter({ scope: next })}
-          />
-        }
       />
       <div className="ideas-list-head">
         <div className="ideas-list-search-row">
@@ -200,10 +329,43 @@ export default function IdeasListView({
               </button>
             )}
           </span>
+          <SortToggle
+            sort={filter.sort}
+            disabled={searchActive}
+            onChange={(next) => onFilter({ sort: next })}
+          />
+          <IdeasFilterPopover
+            filter={filter}
+            scopeCounts={scopeCounts}
+            needsReviewCount={needsReviewCount}
+            onChange={onFilter}
+          />
         </div>
+        {activeChips.length > 0 && (
+          <div className="ideas-list-chips" role="list" aria-label="Active filters">
+            {activeChips.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                role="listitem"
+                className="ideas-list-chip"
+                onClick={c.onRemove}
+                title={`Remove ${c.label}`}
+              >
+                <span className="ideas-list-chip-label">{c.label}</span>
+                <span className="ideas-list-chip-x" aria-hidden>
+                  ×
+                </span>
+              </button>
+            ))}
+            <button type="button" className="ideas-list-chip-clear" onClick={clearAll}>
+              clear all
+            </button>
+          </div>
+        )}
         {tagCounts.length > 0 && (
           <div className="ideas-list-tags">
-            {tagCounts.slice(0, 24).map(([t, n]) => (
+            {tagCounts.slice(0, visibleTagCount).map(([t, n]) => (
               <button
                 key={t}
                 type="button"
@@ -213,19 +375,25 @@ export default function IdeasListView({
                 {t} <span className="ideas-list-tag-count">{n}</span>
               </button>
             ))}
-          </div>
-        )}
-        {isFiltered && (
-          <div className="ideas-list-filter-indicator" aria-live="polite">
-            <span>
-              <strong>{filtered.length}</strong>
-              {" of "}
-              <strong>{ideas.length}</strong>
-              {filtered.length === 1 ? " idea" : " ideas"}
-            </span>
-            <button type="button" className="ideas-list-filter-reset" onClick={clearAll}>
-              reset
-            </button>
+            {hiddenTagCount > 0 && (
+              <button
+                type="button"
+                className="ideas-list-tag-more"
+                onClick={() => setTagsExpanded(true)}
+                aria-label={`Show ${hiddenTagCount} more tags`}
+              >
+                +{hiddenTagCount} more
+              </button>
+            )}
+            {tagsExpanded && tagCounts.length > TAG_CHIP_LIMIT && (
+              <button
+                type="button"
+                className="ideas-list-tag-more"
+                onClick={() => setTagsExpanded(false)}
+              >
+                show less
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -234,14 +402,15 @@ export default function IdeasListView({
         {filtered.length === 0 ? (
           ideas.length === 0 ? (
             <div className="ideas-list-empty-hero">
-              <div className="ideas-list-empty-title">Nothing thought yet.</div>
-              <div className="ideas-list-empty-body">
-                Ideas are the agent&rsquo;s memory — instructions, decisions, reference. Write one
-                to start.
-              </div>
+              <span className="ideas-list-empty-eyebrow">a blank notebook</span>
+              <h3 className="ideas-list-empty-title">nothing thought yet.</h3>
+              <p className="ideas-list-empty-body">
+                Ideas are how this agent remembers — instructions, decisions, references. The first
+                idea seeds the next thousand.
+              </p>
               <div className="ideas-list-empty-actions">
                 <Button variant="primary" size="sm" onClick={() => fireNew()}>
-                  New idea
+                  Write the first idea
                 </Button>
                 <span className="ideas-list-empty-kbd" aria-hidden>
                   or press <kbd>N</kbd>
@@ -270,20 +439,27 @@ export default function IdeasListView({
             </div>
           ) : (
             <div className="ideas-list-empty-hero muted">
-              <div className="ideas-list-empty-title">
+              <span className="ideas-list-empty-eyebrow">
+                {noMatchTrimmed ? "no match" : "no rows"}
+                <span className="ideas-list-empty-eyebrow-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="ideas-list-empty-eyebrow-count">{totalInScope} in scope</span>
+              </span>
+              <h3 className="ideas-list-empty-title">
                 {noMatchTrimmed ? (
                   <>
-                    No match for <span className="ideas-list-empty-query">{noMatchTrimmed}</span>.
+                    nothing for <span className="ideas-list-empty-query">{noMatchTrimmed}</span>
                   </>
                 ) : (
-                  <>No matches.</>
+                  <>no ideas match these filters.</>
                 )}
-              </div>
-              <div className="ideas-list-empty-body">
+              </h3>
+              <p className="ideas-list-empty-body">
                 {noMatchTrimmed
-                  ? `Capture it as a new idea, or widen the filter — ${totalInScope} in scope.`
-                  : "Nothing found for the current filters."}
-              </div>
+                  ? "Capture it as a new idea, or widen the filter."
+                  : "Drop a chip, widen the scope, or clear all filters to bring rows back."}
+              </p>
               <div className="ideas-list-empty-actions">
                 {noMatchTrimmed && (
                   <Button variant="primary" size="sm" onClick={() => fireNew(noMatchTrimmed)}>
@@ -309,8 +485,8 @@ export default function IdeasListView({
             rowRefs.current = [];
             let flatIndex = -1;
             return grouped.map(([groupTag, items]) => (
-              <section key={groupTag} className="ideas-list-group">
-                {!searchActive && (
+              <section key={groupTag || "all"} className="ideas-list-group">
+                {showGroupHeadings && (
                   <div className="inline-picker-group">
                     <span className="inline-picker-group-label">{groupTag}</span>
                     <span className="inline-picker-group-rule" />
@@ -320,6 +496,7 @@ export default function IdeasListView({
                 {items.map((idea) => {
                   const snippet = snippetFor(idea.content, filter.search);
                   const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
+                  const ago = relativeTime(idea.created_at);
                   const tags = idea.tags ?? [];
                   const isCandidate =
                     tags.includes("skill") &&
@@ -385,11 +562,22 @@ export default function IdeasListView({
                         )}
                         {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
                         {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
-                        {wordCount > 0 && (
+                        {ago ? (
+                          <span
+                            className="ideas-list-row-time"
+                            title={
+                              idea.created_at
+                                ? new Date(idea.created_at).toLocaleString()
+                                : undefined
+                            }
+                          >
+                            {ago}
+                          </span>
+                        ) : wordCount > 0 ? (
                           <span className="ideas-list-row-words" aria-hidden>
                             {wordCount}w
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       {snippet && (
                         <div className="ideas-list-row-snippet">

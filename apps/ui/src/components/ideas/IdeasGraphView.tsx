@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { Button, EmptyState, Spinner } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
-import { IdeasPrimitiveHead, IdeasScopeTabs } from "./IdeasPrimitiveHead";
-import { type FilterState, IDEA_FILTER_VALUES } from "./types";
+import { IdeasPrimitiveHead } from "./IdeasPrimitiveHead";
+import IdeasFilterPopover from "./IdeasFilterPopover";
+import { type FilterState } from "./types";
 import type { IdeasFilter } from "./types";
 
 export interface IdeasGraphViewProps {
@@ -32,12 +34,29 @@ export default function IdeasGraphView({
   onSelect,
   onFilterChange,
 }: IdeasGraphViewProps) {
-  const hasFilter = filter.scope !== "all" || filter.tag !== null || filter.search.trim() !== "";
+  const hasFilter =
+    filter.scope !== "all" ||
+    filter.tag !== null ||
+    filter.search.trim() !== "" ||
+    filter.needsReview;
   const nodeCount = filteredGraph.nodes.length;
   const edgeCount = filteredGraph.edges.length;
   const countLabel = graphLoading
     ? "…"
     : `${nodeCount}${hasFilter && nodeCount !== graphData.nodes.length ? `/${graphData.nodes.length}` : ""} · ${edgeCount} links`;
+  const needsReviewCount = useMemo(
+    () =>
+      graphData.nodes.filter((n) => {
+        const t = n.tags ?? [];
+        return (
+          t.includes("skill") &&
+          t.includes("candidate") &&
+          !t.includes("promoted") &&
+          !t.includes("rejected")
+        );
+      }).length,
+    [graphData.nodes],
+  );
 
   return (
     <div className="ideas-graph">
@@ -46,15 +65,15 @@ export default function IdeasGraphView({
         view={view}
         onViewChange={onViewChange}
         onNew={onNew}
-        scopeControl={
-          <IdeasScopeTabs
-            scope={filter.scope}
-            scopes={IDEA_FILTER_VALUES}
-            counts={scopeCounts}
-            onChange={(next) => onFilterChange({ scope: next })}
-          />
-        }
       />
+      <div className="ideas-graph-toolbar">
+        <IdeasFilterPopover
+          filter={filter}
+          scopeCounts={scopeCounts}
+          needsReviewCount={needsReviewCount}
+          onChange={onFilterChange}
+        />
+      </div>
       <div className="ideas-graph-canvas">
         {graphLoading ? (
           <div className="ideas-graph-loading">

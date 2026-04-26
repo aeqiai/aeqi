@@ -1352,6 +1352,32 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* Sister to .primitive-head-meta but anchored in the *lead* (left side)
+   next to the heading. The count is part of the title's identity ("Ideas
+   · 304") not a right-side stat. JetBrains Mono with tabular numerals
+   keeps it precision-instrument-shaped, the slash-separator works as a
+   thin divider when the surface is filtered ("12 / 304"). */
+.primitive-head-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  position: relative;
+  padding-left: 14px;
+}
+.primitive-head-count::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 12px;
+  background: var(--border);
+  transform: translateY(-50%);
+}
 .primitive-head-new {
   display: inline-flex;
   align-items: center;
@@ -3503,8 +3529,8 @@
 .ideas-list-head {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 28px 12px;
+  gap: 12px;
+  padding: 14px 28px 14px;
   border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
 }
@@ -3643,8 +3669,396 @@
 }
 .ideas-list-search-row {
   display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Sort segmented control — sits flush right of the search input so the
+   head stays single-row and the two filter axes (text / shelf-order)
+   read as a coherent toolbar. Linear/Notion-style: small mono-ish text,
+   subtle pill background, active state borrows the same accent-bg
+   token as the view-toggle so the surface speaks one design language. */
+.ideas-list-sort {
+  display: inline-flex;
   align-items: stretch;
-  gap: 12px;
+  gap: 0;
+  height: 30px;
+  padding: 3px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.ideas-list-sort.disabled {
+  opacity: 0.5;
+}
+.ideas-list-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.ideas-list-sort-btn:hover:not(:disabled):not(.active) {
+  color: var(--text-primary);
+}
+.ideas-list-sort-btn.active {
+  color: var(--accent);
+  background: var(--color-card);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.02),
+    0 0 0 1px var(--accent-dim);
+}
+.ideas-list-sort-btn:disabled {
+  cursor: default;
+}
+/* "+ N more" / "show less" affordance for the tag chip row — same shape
+   family as a ghost chip but signalled as an affordance via dashed
+   border and accent color on hover. Keeps the tag row capped at a
+   readable line without amputating the long tail. */
+.ideas-list-tag-more {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed var(--border-hover);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.ideas-list-tag-more:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  border-style: solid;
+}
+
+/* ------------------------------------------------------------------
+   Filter button + popover — Linear-style. The button sits flush with
+   the search field and the sort toggle in the head's filter row; the
+   popover opens beneath it as a self-contained dialog with scope
+   (radio list, all 7 values with counts) and a "needs review" toggle.
+   Replaces the seven-tab scope rail that used to live in the
+   primitive-head — same affordance set, much quieter chrome.
+   ------------------------------------------------------------------ */
+.ideas-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-secondary);
+  background: var(--input-bg, var(--bg-base));
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.ideas-filter-btn svg {
+  opacity: 0.75;
+  transition: opacity 0.12s ease;
+}
+.ideas-filter-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+.ideas-filter-btn:hover svg {
+  opacity: 1;
+}
+.ideas-filter-btn.open,
+.ideas-filter-btn.active {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: var(--bg-base);
+}
+.ideas-filter-btn-label {
+  font-variant-numeric: tabular-nums;
+}
+.ideas-filter-btn-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-right: -3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--btn-primary-text);
+  background: var(--accent);
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Popover panel — paper surface, hairline border, popover shadow.
+   Two sections (scope + special) with a hairline rule between. The
+   panel width is fixed at 240px so labels never reflow when the
+   active filter changes. */
+.ideas-filter-popover {
+  width: 240px;
+  padding: 6px;
+  background: var(--color-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  font-family: var(--font-sans);
+}
+.ideas-filter-popover-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ideas-filter-popover-rule {
+  margin: 6px -6px;
+  border: 0;
+  border-top: 1px solid var(--border-faint);
+}
+.ideas-filter-popover-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 4px;
+}
+.ideas-filter-popover-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ideas-filter-popover-reset {
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.ideas-filter-popover-reset:hover {
+  color: var(--accent);
+}
+.ideas-filter-popover-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Filter row — used both for scope radios and the special toggle.
+   Three columns (mark · label · count) lined up via grid so labels
+   and counts align across the entire popover. The mark column holds
+   either a checkmark or a switch knob, depending on row variant. */
+.ideas-filter-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.ideas-filter-row:hover {
+  background: var(--state-hover);
+}
+.ideas-filter-row:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+.ideas-filter-row.empty {
+  color: var(--text-muted);
+  cursor: default;
+}
+.ideas-filter-row.empty:hover {
+  background: transparent;
+}
+.ideas-filter-row.empty .ideas-filter-row-count {
+  opacity: 0.5;
+}
+.ideas-filter-row.active {
+  color: var(--accent);
+  font-weight: 500;
+}
+.ideas-filter-row-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+.ideas-filter-row-label {
+  letter-spacing: 0.005em;
+}
+.ideas-filter-row-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ideas-filter-row.active .ideas-filter-row-count {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+/* Toggle switch — used for the "needs review" special filter. Off
+   state is a flat outline; on state lifts the knob to the right and
+   fills the track with the accent. Tiny (24×12) so the popover stays
+   visually quiet. */
+.ideas-filter-row-switch {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 12px;
+  background: var(--bg-row);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.ideas-filter-row-switch.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ideas-filter-row-switch-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-card);
+  border-radius: 50%;
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ideas-filter-row-switch.on .ideas-filter-row-switch-knob {
+  transform: translateX(10px);
+}
+
+/* Active-filter chip strip — surfaces every non-resting filter as a
+   dismissable token under the search field. The strip only renders
+   when at least one filter is on, so the head doesn't reserve
+   vertical space for chrome that's almost always empty. Each chip
+   acts as its own remove button (whole-chip click = remove); the
+   trailing × is decorative reinforcement, not a separate target. */
+.ideas-list-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ideas-list-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--text-primary);
+  background: var(--bg-row);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.ideas-list-chip:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.ideas-list-chip-label {
+  white-space: nowrap;
+}
+.ideas-list-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.ideas-list-chip:hover .ideas-list-chip-x {
+  color: var(--accent);
+  background: var(--bg-base);
+}
+.ideas-list-chip-clear {
+  padding: 2px 0;
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed var(--border-hover);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.ideas-list-chip-clear:hover {
+  color: var(--accent);
+}
+
+/* Slim toolbar above the graph canvas — holds the filter button when
+   the user is in graph mode (the search row pattern doesn't apply
+   inside a force-directed canvas, so the filter affordance gets its
+   own thin band). Hairline-bottom keeps it visually attached to the
+   primitive-head above. */
+.ideas-graph-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
 }
 .ideas-list-search-field {
   position: relative;
@@ -3958,6 +4372,27 @@
   opacity: 0.7;
   flex-shrink: 0;
 }
+/* Linear-style relative timestamp on the right of each row. Mono +
+   tabular numerals keeps the column visually aligned across rows; the
+   row hover lifts it to the secondary text colour so it earns its
+   place when the row is engaged but stays quiet on rest. */
+.ideas-list-row-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  opacity: 0.72;
+  flex-shrink: 0;
+  transition:
+    color 0.12s ease,
+    opacity 0.12s ease;
+}
+.ideas-list-row:hover .ideas-list-row-time,
+.ideas-list-row:focus-visible .ideas-list-row-time {
+  color: var(--text-secondary);
+  opacity: 1;
+}
 .ideas-list-row-snippet {
   font-family: var(--font-sans);
   font-size: 12px;
@@ -3997,25 +4432,53 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
-  padding: 56px 32px 40px;
-  max-width: 480px;
+  gap: 14px;
+  padding: 64px 36px 44px;
+  max-width: 520px;
+  margin: 0;
 }
 .ideas-list-empty-hero.muted .ideas-list-empty-title {
   color: var(--text-secondary);
 }
+/* Mono micro-eyebrow above the title. Positioned just above so the
+   title still feels like the page's main editorial gesture, but the
+   eyebrow gives the empty state a quiet "datasheet" framing — like
+   the small printed labels in a museum exhibit. */
+.ideas-list-empty-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: -4px;
+}
+.ideas-list-empty-eyebrow-sep {
+  color: var(--border);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.ideas-list-empty-eyebrow-count {
+  font-variant-numeric: tabular-nums;
+}
 .ideas-list-empty-title {
+  margin: 0;
   font-family: var(--font-display, inherit);
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: 30px;
   font-weight: 500;
-  letter-spacing: 0.005em;
-  line-height: 1.18;
+  letter-spacing: -0.005em;
+  line-height: 1.16;
   color: var(--text-primary);
 }
 .ideas-list-empty-body {
-  font-size: 13px;
-  line-height: 1.55;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
   color: var(--text-secondary);
+  max-width: 44ch;
 }
 .ideas-list-empty-actions {
   display: inline-flex;

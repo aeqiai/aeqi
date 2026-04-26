@@ -14,6 +14,7 @@ import {
   IDEA_FILTER_VALUES,
   IDEA_SCOPE_VALUES,
   parseScope,
+  parseSort,
 } from "./ideas/types";
 
 const NO_IDEAS: Idea[] = [];
@@ -41,6 +42,8 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     scope: parseScope(searchParams.get("scope")),
     search: searchParams.get("q") ?? "",
     tag: searchParams.get("tag"),
+    sort: parseSort(searchParams.get("sort")),
+    needsReview: searchParams.get("review") === "1",
   };
 
   const patchParams = useCallback(
@@ -76,6 +79,14 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
         if ("tag" in patch) {
           if (patch.tag) p.set("tag", patch.tag);
           else p.delete("tag");
+        }
+        if ("sort" in patch) {
+          if (patch.sort && patch.sort !== "tag") p.set("sort", patch.sort);
+          else p.delete("sort");
+        }
+        if ("needsReview" in patch) {
+          if (patch.needsReview) p.set("review", "1");
+          else p.delete("review");
         }
       });
     },
@@ -115,6 +126,15 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
           }
         }
       }
+      if (filter.needsReview) {
+        const t = idea.tags ?? [];
+        const isCandidate =
+          t.includes("skill") &&
+          t.includes("candidate") &&
+          !t.includes("promoted") &&
+          !t.includes("rejected");
+        if (!isCandidate) return false;
+      }
       if (q) {
         const inName = idea.name.toLowerCase().includes(q);
         const inContent = idea.content.toLowerCase().includes(q);
@@ -122,7 +142,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       }
       return true;
     });
-  }, [ideas, filter.search, filter.scope, agentId]);
+  }, [ideas, filter.search, filter.scope, filter.needsReview, agentId]);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};

@@ -1,6 +1,3 @@
-import { type ReactNode } from "react";
-import type { IdeasFilter } from "./types";
-
 export function ViewToggle({
   view,
   onChange,
@@ -57,25 +54,23 @@ export function ViewToggle({
 }
 
 /**
- * Shared primitive-head for the Ideas surface. Exo 2 "Ideas" title
- * (becomes a back-link to the list when an item is open) + scope
- * tabs on the left; count + view toggle + `+ new idea` on the right.
- * Lives above both list and graph views so switching between them
- * doesn't feel like leaving the primitive.
+ * Primitive-head for the Ideas surface. Restrained Exo 2 wordmark + a
+ * mono count in the lead; view toggle + `+ new idea` on the right.
+ * Scope filtering lives in the search row's filter popover, NOT here —
+ * stripping the row of tabs lets the head read like Linear/Things'
+ * "issues" header rather than a busy filter rail.
  */
 export function IdeasPrimitiveHead({
   countLabel,
   view,
   onViewChange,
   onNew,
-  scopeControl,
   onBack,
 }: {
   countLabel?: string;
   view: "list" | "graph";
   onViewChange: (next: "list" | "graph") => void;
   onNew: () => void;
-  scopeControl?: ReactNode;
   onBack?: () => void;
 }) {
   return (
@@ -99,10 +94,9 @@ export function IdeasPrimitiveHead({
         ) : (
           <h2 className="primitive-head-heading">Ideas</h2>
         )}
-        {scopeControl}
+        {countLabel && <span className="primitive-head-count">{countLabel}</span>}
       </div>
       <div className="primitive-head-actions">
-        {countLabel && <span className="primitive-head-meta">{countLabel}</span>}
         <ViewToggle view={view} onChange={onViewChange} />
         <button type="button" className="primitive-head-new" onClick={onNew} title="New idea (N)">
           <svg
@@ -177,40 +171,6 @@ export function IdeasDetailBackBar({
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-export function IdeasScopeTabs({
-  scope,
-  scopes,
-  counts,
-  onChange,
-}: {
-  scope: IdeasFilter;
-  scopes: IdeasFilter[];
-  counts: Record<IdeasFilter, number>;
-  onChange: (next: IdeasFilter) => void;
-}) {
-  return (
-    <div className="primitive-scope-tabs" role="tablist" aria-label="Scope">
-      {scopes.map((s) => {
-        const isActive = scope === s;
-        const isEmpty = counts[s] === 0;
-        return (
-          <button
-            key={s}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            className={`primitive-scope-tab${isActive ? " active" : ""}${isEmpty && !isActive ? " empty" : ""}`}
-            onClick={() => onChange(s)}
-          >
-            {s}
-            <span className="primitive-scope-tab-count">{counts[s]}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }

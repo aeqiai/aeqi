@@ -13,14 +13,72 @@ export const IDEA_FILTER_VALUES: IdeasFilter[] = [
   "inherited",
 ];
 
+export type SortMode = "tag" | "recent" | "alpha";
+export const SORT_MODES: SortMode[] = ["tag", "recent", "alpha"];
+export const SORT_LABELS: Record<SortMode, string> = {
+  tag: "by tag",
+  recent: "recent",
+  alpha: "A → Z",
+};
+
 export type FilterState = {
   scope: IdeasFilter;
   search: string;
   tag: string | null;
+  sort: SortMode;
+  needsReview: boolean;
 };
+
+// Bucketed recency epochs — Linear/Things/Notion all chunk lists this way
+// because relative time alone ("3w") doesn't read as a *journal*. The last
+// bucket ("older") catches anything beyond the year so the index stays
+// finite. Exported so both the grouping and the section labels share the
+// same source of truth.
+export type Epoch = "today" | "this-week" | "this-month" | "this-year" | "older";
+export const EPOCH_LABELS: Record<Epoch, string> = {
+  today: "today",
+  "this-week": "this week",
+  "this-month": "this month",
+  "this-year": "this year",
+  older: "older",
+};
+export const EPOCH_ORDER: Epoch[] = ["today", "this-week", "this-month", "this-year", "older"];
+
+export function epochOf(iso: string | undefined, now = Date.now()): Epoch {
+  if (!iso) return "older";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "older";
+  const sec = Math.max(0, Math.floor((now - t) / 1000));
+  if (sec < 60 * 60 * 24) return "today";
+  if (sec < 60 * 60 * 24 * 7) return "this-week";
+  if (sec < 60 * 60 * 24 * 30) return "this-month";
+  if (sec < 60 * 60 * 24 * 365) return "this-year";
+  return "older";
+}
 
 export function parseScope(raw: string | null): IdeasFilter {
   return IDEA_FILTER_VALUES.includes(raw as IdeasFilter) ? (raw as IdeasFilter) : "all";
+}
+
+export function parseSort(raw: string | null): SortMode {
+  return SORT_MODES.includes(raw as SortMode) ? (raw as SortMode) : "tag";
+}
+
+// Linear/Notion-style compact relative time: "now", "3m", "2h", "5d", "3w",
+// "6mo", "2y". Falls back to empty string for missing or unparseable input
+// so the row never shows a literal "Invalid date".
+export function relativeTime(iso?: string): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (sec < 45) return "now";
+  if (sec < 60 * 60) return `${Math.max(1, Math.floor(sec / 60))}m`;
+  if (sec < 60 * 60 * 24) return `${Math.floor(sec / 3600)}h`;
+  if (sec < 60 * 60 * 24 * 7) return `${Math.floor(sec / 86400)}d`;
+  if (sec < 60 * 60 * 24 * 30) return `${Math.floor(sec / (86400 * 7))}w`;
+  if (sec < 60 * 60 * 24 * 365) return `${Math.floor(sec / (86400 * 30))}mo`;
+  return `${Math.floor(sec / (86400 * 365))}y`;
 }
 
 export function queryTerms(query: string): string[] {
