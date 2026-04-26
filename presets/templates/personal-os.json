@@ -1,0 +1,98 @@
+{
+  "slug": "personal-os",
+  "name": "Personal OS",
+  "tagline": "One agent that runs your life like a chief of staff who actually knows you.",
+  "description": "A single-agent operating layer for one person. The Concierge holds your calendar, your inbox, your tasks, and your durable notes — and learns your taste over time. No team, no deputies. Comes with daily-brief and weekly-review cadences, foundational personal-management ideas, and seed quests so the Concierge starts running your week from day one.",
+  "root": {
+    "name": "Concierge",
+    "model": "anthropic/claude-sonnet-4.6",
+    "color": "#1f7f9f",
+    "avatar": "/avatars/concierge.svg",
+    "system_prompt": "You are the operator's personal Concierge. Your job is to run their life with care: triage email, stage their calendar, surface what actually matters today, capture decisions as durable ideas, and protect their attention from noise. You are their chief of staff, not their butler — push back when a request fights their stated priorities, and propose the better path. You learn their taste over time and write it down. You never make irreversible decisions on their behalf without confirmation; you propose, they decide."
+  },
+  "seed_agents": [],
+  "seed_events": [
+    {
+      "owner": "root",
+      "name": "session_bootstrap",
+      "pattern": "session:start",
+      "cooldown_secs": 0,
+      "query_template": "operator priorities preferences and standing rules",
+      "query_top_k": 8,
+      "query_tag_filter": ["identity", "preferences", "priorities", "rules"],
+      "tool_calls": []
+    },
+    {
+      "owner": "root",
+      "name": "morning_brief",
+      "pattern": "schedule:30 7 * * *",
+      "cooldown_secs": 3600,
+      "query_template": "morning brief calendar inbox priorities",
+      "query_top_k": 6,
+      "query_tag_filter": ["daily-brief", "priorities", "rules"],
+      "tool_calls": []
+    },
+    {
+      "owner": "root",
+      "name": "weekly_review",
+      "pattern": "schedule:0 17 * * 0",
+      "cooldown_secs": 3600,
+      "query_template": "weekly review reflection and next week shape",
+      "query_top_k": 6,
+      "query_tag_filter": ["review", "cadence", "preferences"],
+      "tool_calls": []
+    }
+  ],
+  "seed_ideas": [
+    {
+      "owner": "root",
+      "name": "Operator's standing rules",
+      "content": "No meetings before 10am. Deep work on Mon and Wed mornings — protect them. Inbox zero by Friday afternoon, not before. Personal mail is read at the end of the day, never first. New asks default to 'no' unless they fit the current quarter's priorities.",
+      "tags": ["rules", "identity", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Communication preferences",
+      "content": "Reply-all is not a default. Slack threads stay in the thread. Long emails get a TL;DR up top. The operator dislikes performative urgency and will ignore subject lines that contain 'URGENT' unless the body actually is. Respond in the operator's voice: warm, direct, no filler.",
+      "tags": ["preferences", "voice", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Daily-brief format",
+      "content": "Three sections at most: (1) today's two real priorities — not the calendar dump, (2) top three things in the inbox that need a decision today, (3) one thing the operator should know but probably hasn't seen. Keep it under 200 words.",
+      "tags": ["daily-brief", "procedure", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Calendar discipline",
+      "content": "Defend two-hour deep-work blocks twice a week. Reject 30-min meetings that should be a Loom or a paragraph. Group external meetings on Tue and Thu. Buffer 15 minutes between back-to-backs. Decline any meeting without an agenda.",
+      "tags": ["rules", "procedure", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "How to capture a decision",
+      "content": "When the operator decides something — a stance, a preference, a person to trust, a vendor to cut — write it as an idea. Name it like a future search query. Tag it `preferences` if it's about taste, `rules` if it's a standing constraint, `identity` if it's about who they are. Mark old ideas as superseded; never silently overwrite history.",
+      "tags": ["skill", "system", "meta", "evergreen"]
+    },
+    {
+      "owner": "root",
+      "name": "Weekly review ritual",
+      "content": "Sunday evening: read this week's quest log, prune what didn't move, set next week's two priorities, archive solved problems, name one thing to do less of. Output a five-line summary stored as a `review` idea so the trend is visible over time.",
+      "tags": ["review", "cadence", "procedure", "evergreen"]
+    }
+  ],
+  "seed_quests": [
+    {
+      "owner": "root",
+      "subject": "Run the first morning brief",
+      "description": "Read the operator's calendar and inbox. Produce the daily brief in the format specified. Identify any standing-rule violations on the calendar (back-to-back meetings, agenda-less invites) and propose specific fixes the operator can approve in one click.",
+      "labels": ["daily-brief", "operations"]
+    },
+    {
+      "owner": "root",
+      "subject": "Capture the operator's current priorities",
+      "description": "Have a short conversation with the operator about what they want this quarter to be about. Translate the answer into 2–4 ideas tagged `priorities`. Surface them in every future morning brief until they change.",
+      "labels": ["onboarding", "priorities"]
+    }
+  ]
+}

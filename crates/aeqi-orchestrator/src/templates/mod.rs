@@ -14,12 +14,22 @@ const STUDIO_JSON: &str = include_str!("../../../../presets/templates/studio.jso
 const SMALL_BUSINESS_JSON: &str = include_str!("../../../../presets/templates/small-business.json");
 const INDIE_CONSULTANCY_JSON: &str =
     include_str!("../../../../presets/templates/indie-consultancy.json");
+const TECH_STUDIO_JSON: &str = include_str!("../../../../presets/templates/tech-studio.json");
+const SOLO_CREATOR_JSON: &str = include_str!("../../../../presets/templates/solo-creator.json");
+const AGENCY_JSON: &str = include_str!("../../../../presets/templates/agency.json");
+const PERSONAL_OS_JSON: &str = include_str!("../../../../presets/templates/personal-os.json");
+const COMMUNITY_JSON: &str = include_str!("../../../../presets/templates/community.json");
 
 const COMPANY_TEMPLATE_JSON: &[&str] = &[
     SOLO_FOUNDER_JSON,
     STUDIO_JSON,
     SMALL_BUSINESS_JSON,
     INDIE_CONSULTANCY_JSON,
+    TECH_STUDIO_JSON,
+    SOLO_CREATOR_JSON,
+    AGENCY_JSON,
+    PERSONAL_OS_JSON,
+    COMMUNITY_JSON,
 ];
 
 /// All shipped company templates, sorted by slug so the catalog is stable.

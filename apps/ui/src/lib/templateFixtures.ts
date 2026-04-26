@@ -149,6 +149,136 @@ export const FALLBACK_TEMPLATES: CompanyTemplate[] = [
       },
     ],
   },
+  {
+    slug: "tech-studio",
+    name: "Tech Studio",
+    tagline: "A small engineering team that ships software, not slides.",
+    description:
+      "A software studio with a Tech Lead (root), two senior engineers, a designer-engineer, and an operator who keeps environments and releases steady.",
+    tags: ["software", "engineering", "studio"],
+    seed_agents: [
+      { name: "Tech Lead", role: "Sets technical direction." },
+      { name: "Senior Engineer (Backend)", role: "Backend implementation." },
+      { name: "Senior Engineer (Frontend)", role: "Frontend implementation." },
+      { name: "Designer-Engineer", role: "Design system + components." },
+      { name: "Operator", role: "CI, deploys, infra health." },
+    ],
+    seed_events: [
+      { pattern: "session:start", name: "Sprint bootstrap" },
+      { pattern: "schedule:0 9 * * 1", name: "Weekly release cadence" },
+    ],
+    seed_ideas: [
+      { name: "Engineering principles", tags: ["identity", "evergreen"] },
+      { name: "Release cadence", tags: ["cadence"] },
+      { name: "Architecture defaults", tags: ["architecture"] },
+    ],
+    seed_quests: [
+      { subject: "Pick the next product to spin up", priority: "high" },
+      { subject: "Stand up the studio's release pipeline", priority: "high" },
+    ],
+  },
+  {
+    slug: "solo-creator",
+    name: "Solo Creator",
+    tagline: "One creator. One voice. A producer and a community lead doing the heavy lifting.",
+    description:
+      "A creator-led company built for a single talent: video, audio, writing, or all three.",
+    tags: ["creator", "content", "media"],
+    seed_agents: [
+      { name: "Creator", role: "Voice and direction." },
+      { name: "Producer", role: "Turns ideas into shipped pieces." },
+      { name: "Community Lead", role: "Audience care + signal triage." },
+    ],
+    seed_events: [
+      { pattern: "session:start", name: "Pipeline check-in" },
+      { pattern: "schedule:0 16 * * 5", name: "Weekly audience digest" },
+    ],
+    seed_ideas: [
+      { name: "Creator voice", tags: ["voice", "identity"] },
+      { name: "Pipeline rhythm", tags: ["cadence"] },
+      { name: "Reply policy", tags: ["voice"] },
+    ],
+    seed_quests: [
+      { subject: "Pick this week's piece", priority: "high" },
+      { subject: "Run the first audience-signal digest", priority: "normal" },
+    ],
+  },
+  {
+    slug: "agency",
+    name: "Services Agency",
+    tagline: "An expert services firm that ships engagements, not slide decks.",
+    description:
+      "A services agency built for paid client engagements: a Managing Partner (root), two senior consultants, and a Producer who runs delivery.",
+    tags: ["services", "agency", "consulting"],
+    seed_agents: [
+      { name: "Managing Partner", role: "Wins work, owns positioning." },
+      { name: "Senior Consultant (Strategy)", role: "Reframes problems, produces memos." },
+      { name: "Senior Consultant (Delivery)", role: "Implements with the client." },
+      { name: "Producer", role: "Engagement calendar + status notes." },
+    ],
+    seed_events: [
+      { pattern: "session:start", name: "Engagement bootstrap" },
+      { pattern: "schedule:0 16 * * 5", name: "Friday status" },
+    ],
+    seed_ideas: [
+      { name: "Agency positioning", tags: ["identity", "stance"] },
+      { name: "Engagement structure", tags: ["playbook"] },
+      { name: "Pricing rules", tags: ["stance"] },
+    ],
+    seed_quests: [
+      { subject: "Draft the first proposal", priority: "high" },
+      { subject: "Stand up the engagement calendar", priority: "normal" },
+    ],
+  },
+  {
+    slug: "personal-os",
+    name: "Personal OS",
+    tagline: "One agent that runs your life like a chief of staff who actually knows you.",
+    description:
+      "A single-agent operating layer for one person. Holds your calendar, inbox, tasks, and durable notes.",
+    tags: ["personal", "assistant", "daily"],
+    seed_agents: [{ name: "Concierge", role: "Your chief of staff." }],
+    seed_events: [
+      { pattern: "session:start", name: "Standing rules bootstrap" },
+      { pattern: "schedule:30 7 * * *", name: "Morning brief" },
+      { pattern: "schedule:0 17 * * 0", name: "Weekly review" },
+    ],
+    seed_ideas: [
+      { name: "Operator's standing rules", tags: ["rules", "identity"] },
+      { name: "Communication preferences", tags: ["preferences"] },
+      { name: "Daily-brief format", tags: ["daily-brief"] },
+    ],
+    seed_quests: [
+      { subject: "Run the first morning brief", priority: "high" },
+      { subject: "Capture the operator's current priorities", priority: "high" },
+    ],
+  },
+  {
+    slug: "community",
+    name: "Community Platform",
+    tagline: "An always-on operations team for a Discord, Slack, or Telegram community.",
+    description:
+      "A community-operations company built around a Lead (root), a Moderator who keeps tone and norms intact, and a Curator who lifts the best signal up where members can find it.",
+    tags: ["community", "operations"],
+    seed_agents: [
+      { name: "Community Lead", role: "Sets and protects the culture." },
+      { name: "Moderator", role: "Enforces norms, acts on violations." },
+      { name: "Curator", role: "Surfaces the best signal daily." },
+    ],
+    seed_events: [
+      { pattern: "session:start", name: "Norms refresh" },
+      { pattern: "schedule:0 19 * * *", name: "Daily curation" },
+    ],
+    seed_ideas: [
+      { name: "Community norms", tags: ["norm", "identity"] },
+      { name: "Moderation philosophy", tags: ["norm"] },
+      { name: "Daily curation rules", tags: ["procedure"] },
+    ],
+    seed_quests: [
+      { subject: "Welcome the last 14 days of new members", priority: "high" },
+      { subject: "Run the first daily curation", priority: "normal" },
+    ],
+  },
 ];
 
 /** Look up a template in the fallback catalog by slug. */
