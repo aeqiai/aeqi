@@ -1,21 +1,9 @@
 import { create } from "zustand";
 import { api, type InboxItem } from "@/lib/api";
 
-/**
- * Director-inbox store. Independent slice (not folded into useDaemonStore)
- * because the inbox has its own lifecycle:
- *   - User-scoped, never per-agent.
- *   - Hydrated lazily on `Inbox.tsx` mount, not at app startup.
- *   - Mutated optimistically: `dismissOptimistically` hides a row before
- *     the server confirms (collapse animation runs while the POST flies).
- *   - Reconciled by the WS poller's `inbox_update` event, which is the
- *     authoritative source post-mount.
- *
- * Optimistic dismissal stores the session_id in `pendingDismissal` rather
- * than removing the item from `items` immediately. That way an error path
- * can `restoreItem` without re-fetching, and a duplicate WS event for an
- * already-dismissed item is a no-op.
- */
+// Optimistic dismissal hides via pendingDismissal instead of mutating
+// `items` so an error path can `restoreItem` without re-fetching, and a
+// duplicate WS clear for an already-dismissed item is a no-op.
 export interface InboxState {
   items: InboxItem[];
   loading: boolean;
@@ -32,14 +20,8 @@ export interface InboxState {
   clearInbox: () => void;
 }
 
-/**
- * Shape of the WebSocket `inbox_update` event payload. The MVP server
- * emits a full snapshot ({count, items}) on signature change rather than
- * fine-grained add/clear deltas. We treat the snapshot as authoritative —
- * replace `items` wholesale, drop any pendingDismissal entries that the
- * server has reconciled. Future v2 push can layer fine-grained
- * `{kind: "added" | "cleared"}` deltas on top without breaking this.
- */
+// MVP server emits a full snapshot on signature change; v2 may layer
+// fine-grained add/clear deltas on top without breaking the snapshot path.
 export type InboxUpdatePayload =
   | { count: number; items: InboxItem[] }
   | { kind: "added"; item: InboxItem }
@@ -58,10 +40,8 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     try {
       const resp = await api.getInbox();
       const items = Array.isArray(resp?.items) ? resp.items : [];
-      // Reconcile pendingDismissal with server truth: any session_id no
-      // longer present in items is genuinely cleared, drop the pending
-      // entry. session_ids still present remain hidden until the WS
-      // poller picks up the cleared signature.
+      // Drop pendingDismissal entries the server has already cleared;
+      // ones still present stay hidden until the WS clears them.
       set((s) => {
         const next = new Set(s.pendingDismissal);
         const present = new Set(items.map((i) => i.session_id));
@@ -84,10 +64,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   },
 
   answerItem: async (sessionId, answer) => {
-    // Optimistic: hide the row immediately so the user sees the collapse
-    // animation while the POST flies. On success, the WS poller will
-    // emit the cleared signature and `pushInboxUpdate` removes the item
-    // from `items` — at which point pendingDismissal is reconciled.
+    // Optimistic dismiss so the row collapses while the POST flies.
     get().dismissOptimistically(sessionId);
     try {
       const resp = await api.answerInbox(sessionId, answer);
@@ -107,7 +84,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
 
   pushInboxUpdate: (payload) => {
     if ("kind" in payload) {
-      // Fine-grained delta path — kept for forward-compat with v2 push.
+      // Forward-compat with v2 fine-grained deltas.
       if (payload.kind === "added") {
         set((s) => {
           if (s.items.some((i) => i.session_id === payload.item.session_id)) {
@@ -127,8 +104,6 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       }
       return;
     }
-    // Snapshot path (MVP poller). Replace items wholesale and reconcile
-    // pendingDismissal against the new server truth.
     set((s) => {
       const present = new Set(payload.items.map((i) => i.session_id));
       const next = new Set(s.pendingDismissal);
@@ -166,11 +141,8 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   },
 }));
 
-// ── Selectors ─────────────────────────────────────────────────────────────
-// Co-located with the store so consumers don't have to derive the same
-// "visible items" filter inline (which would create new identities every
-// render and re-trigger React renders unnecessarily).
-
+// Selectors co-located so consumers share one stable reference and don't
+// allocate a fresh filter result every render (would re-trigger React).
 export const selectVisibleItems = (s: InboxState): InboxItem[] =>
   s.items.filter((i) => !s.pendingDismissal.has(i.session_id));
 
