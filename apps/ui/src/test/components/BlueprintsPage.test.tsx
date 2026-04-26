@@ -88,6 +88,33 @@ describe("BlueprintsPage", () => {
     expect(screen.getByLabelText("Company name")).toBeInTheDocument();
   });
 
+  it("renders sample event patterns + idea titles + quest subjects in the detail pane", async () => {
+    vi.spyOn(api, "getTemplates").mockResolvedValue({
+      ok: true,
+      templates: FALLBACK_TEMPLATES,
+    });
+    const user = userEvent.setup();
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/blueprints"]}>
+          <Routes>
+            <Route path="/blueprints" element={<BlueprintsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    await user.click(await screen.findByText("Solo Founder"));
+    await screen.findByRole("heading", { level: 2, name: "Solo Founder" });
+
+    expect(screen.getByText("Events that fire")).toBeInTheDocument();
+    expect(screen.getByText("Ideas seeded")).toBeInTheDocument();
+    expect(screen.getByText("Quests waiting")).toBeInTheDocument();
+    expect(screen.getByText("session:start")).toBeInTheDocument();
+    expect(screen.getByText("how-to-create-a-quest")).toBeInTheDocument();
+  });
+
   it("auto-selects the blueprint when ?start= matches a slug", async () => {
     vi.spyOn(api, "getTemplates").mockResolvedValue({
       ok: true,
