@@ -401,6 +401,24 @@ function QuestBoard({
   const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Search narrows what's displayed in the columns. Scope filtering
+  // happens upstream (parent AgentQuestsTab) and feeds us `quests`; we
+  // narrow further by subject / description / id substring match.
+  // `allQuests` (unfiltered) stays the source for the scope-tab counts
+  // so the counts don't flicker as the user types.
+  const visibleQuests = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return quests;
+    return quests.filter(
+      (x) =>
+        x.subject.toLowerCase().includes(q) ||
+        (x.description ?? "").toLowerCase().includes(q) ||
+        x.id.toLowerCase().includes(q),
+    );
+  }, [quests, search]);
 
   // Drag-and-drop state. `dragging` is the quest id being dragged so cards can
   // dim themselves; `dropTarget` is the column that'll receive the drop so its
@@ -476,7 +494,7 @@ function QuestBoard({
     done: [],
     cancelled: [],
   };
-  for (const q of quests) {
+  for (const q of visibleQuests) {
     const status = optimistic[q.id] ?? q.status;
     grouped[status]?.push(q);
   }
@@ -502,7 +520,7 @@ function QuestBoard({
       done: [],
       cancelled: [],
     };
-    for (const q of quests) {
+    for (const q of visibleQuests) {
       const s = optimistic[q.id] ?? q.status;
       buckets[s]?.push(q);
     }
@@ -513,7 +531,7 @@ function QuestBoard({
     const ids: string[] = [];
     for (const s of order) for (const q of buckets[s]) ids.push(q.id);
     return ids.join("|");
-  }, [quests, optimistic]);
+  }, [visibleQuests, optimistic]);
   const flatOrderRef = useRef<string[]>([]);
   flatOrderRef.current = flatOrderKey ? flatOrderKey.split("|") : [];
 
@@ -532,6 +550,17 @@ function QuestBoard({
       const tag = target?.tagName;
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable;
       if (isEditable) return;
+
+      // "/" focuses the search input (Ideas-page idiom). Stop propagation
+      // so AppLayout's global "/" (palette) handler doesn't also fire.
+      if (e.key === "/") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+
       const order = flatOrderRef.current;
       if (order.length === 0) return;
 
@@ -563,6 +592,78 @@ function QuestBoard({
   return (
     <div className="quest-board">
       <div className="quest-board-head">
+        <div className="ideas-toolbar">
+          <span className="ideas-list-search-field">
+            <svg
+              className="ideas-list-search-glyph"
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <circle cx="5.2" cy="5.2" r="3.2" />
+              <path d="M7.6 7.6 L10 10" />
+            </svg>
+            <input
+              ref={searchRef}
+              className="ideas-list-search"
+              type="text"
+              placeholder="Search quests"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  if (search) {
+                    setSearch("");
+                  } else {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }
+              }}
+            />
+            {!search && (
+              <kbd className="ideas-list-search-kbd" aria-hidden>
+                /
+              </kbd>
+            )}
+            {search && (
+              <button
+                type="button"
+                className="ideas-list-search-clear"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </span>
+          <button
+            type="button"
+            className="ideas-toolbar-btn"
+            onClick={() => {
+              document.querySelector<HTMLInputElement>("[data-quest-compose-subject]")?.focus();
+            }}
+            title="New quest (N)"
+            aria-label="New quest"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6.5 2.5v8M2.5 6.5h8" />
+            </svg>
+          </button>
+        </div>
         <QuestScopeFilterBar
           agentId={resolvedAgentId}
           quests={allQuests}

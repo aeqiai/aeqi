@@ -2948,7 +2948,7 @@
 
 .quest-board-head {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-3);
 }
 
