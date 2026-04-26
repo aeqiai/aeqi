@@ -619,16 +619,30 @@ function BlueprintTreePreview({ template }: { template: CompanyTemplate }) {
             })}
           </svg>
           <ul className="bp-tree-children">
-            {seeds.map((seed, i) => (
-              <li
-                key={`${seed.name}-${i}`}
-                className="bp-tree-node bp-tree-node-child"
-                style={{ animationDelay: `${100 + i * 80}ms` }}
-              >
-                <span className="bp-tree-node-name">{seed.name}</span>
-                {seed.role && <span className="bp-tree-node-tag">{seed.role}</span>}
-              </li>
-            ))}
+            {seeds.map((seed, i) => {
+              const tip = seed.system_prompt || seed.tagline || seed.role || seed.name;
+              return (
+                <li
+                  key={`${seed.name}-${i}`}
+                  className="bp-tree-node bp-tree-node-child"
+                  style={{
+                    animationDelay: `${100 + i * 80}ms`,
+                    ...(seed.color ? { borderColor: seed.color } : {}),
+                  }}
+                  title={tip}
+                >
+                  {seed.color && (
+                    <span
+                      className="bp-tree-node-swatch"
+                      style={{ background: seed.color }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="bp-tree-node-name">{seed.name}</span>
+                  {seed.role && <span className="bp-tree-node-tag">{seed.role}</span>}
+                </li>
+              );
+            })}
           </ul>
         </>
       )}

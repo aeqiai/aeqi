@@ -238,6 +238,9 @@ export interface TemplateSeedAgent {
   tagline?: string;
   role?: string;
   identity?: string;
+  system_prompt?: string;
+  model?: string;
+  color?: string;
 }
 
 export interface TemplateSeedEvent {
