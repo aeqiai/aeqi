@@ -164,7 +164,7 @@
   cursor: not-allowed;
 }
 .new-co-kbd {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   padding: 1px 5px;
   border-radius: var(--radius-xs);
@@ -264,7 +264,7 @@
 .new-sub-textarea {
   width: 100%;
   padding: 10px 12px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   line-height: 1.5;
   color: var(--color-text-primary);

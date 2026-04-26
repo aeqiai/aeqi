@@ -60,7 +60,7 @@ export const SizeScale: Story = {
           <Icon icon={Plus} size={size} />
           <span
             style={{
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               fontSize: "var(--font-size-2xs)",
               color: "var(--color-text-muted)",
             }}
@@ -82,7 +82,7 @@ export const WithLabel: Story = {
       <Icon icon={X} size="md" decorative={false} label="Close dialog" />
       <span
         style={{
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
           fontSize: "var(--font-size-xs)",
           color: "var(--color-text-secondary)",
         }}
@@ -175,7 +175,7 @@ export const CommonIcons: Story = {
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               margin: "0 0 12px",
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
             }}
           >
             {group.label}
@@ -203,7 +203,7 @@ export const CommonIcons: Story = {
                 <Icon icon={icon as Parameters<typeof Icon>[0]["icon"]} size="md" />
                 <span
                   style={{
-                    fontFamily: "var(--font-mono)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: "var(--font-size-2xs)",
                     color: "var(--color-text-muted)",
                     textAlign: "center",

@@ -31,7 +31,7 @@
   border-radius: 999px;
   background: var(--bg-canvas);
   border: 1px solid var(--border-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -245,7 +245,7 @@
   margin: 0;
 }
 .economy-foot code {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 1px 6px;
   background: var(--bg-canvas);

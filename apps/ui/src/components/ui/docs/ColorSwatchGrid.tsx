@@ -73,7 +73,7 @@ function SwatchCard({ swatch, variant }: { swatch: Swatch; variant: "chroma" | "
       <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <span
           style={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: "var(--font-sans)",
             fontSize: 11,
             color: "rgba(0,0,0,0.85)",
             wordBreak: "break-all",
@@ -83,7 +83,7 @@ function SwatchCard({ swatch, variant }: { swatch: Swatch; variant: "chroma" | "
         </span>
         <span
           style={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: "var(--font-sans)",
             fontSize: 10.5,
             color: "rgba(0,0,0,0.45)",
             wordBreak: "break-all",

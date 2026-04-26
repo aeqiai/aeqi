@@ -103,7 +103,7 @@ export const SearchInput: Story = {
             transform: "translateY(-50%)",
             fontSize: 11,
             color: "rgba(0,0,0,0.3)",
-            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            fontFamily: "var(--font-sans)",
             padding: "2px 6px",
             border: "1px solid rgba(0,0,0,0.1)",
             borderRadius: 4,

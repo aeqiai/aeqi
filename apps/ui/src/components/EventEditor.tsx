@@ -254,7 +254,7 @@ export default function EventEditor({
                       textAlign: "left",
                       padding: "6px 10px",
                       fontSize: 12,
-                      fontFamily: "var(--font-mono)",
+                      fontFamily: "var(--font-sans)",
                       background: "none",
                       border: "none",
                       cursor: "pointer",

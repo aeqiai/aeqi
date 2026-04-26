@@ -131,7 +131,7 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
         {" · "}
         <code
           style={{
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--font-sans)",
             fontSize: "var(--font-size-2xs)",
             background: "var(--color-bg-base)",
             padding: "1px 4px",
@@ -246,7 +246,7 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
                   <span
                     key={i}
                     style={{
-                      fontFamily: "var(--font-mono)",
+                      fontFamily: "var(--font-sans)",
                       fontSize: "var(--font-size-2xs)",
                       background: "var(--color-accent-subtle)",
                       color: "var(--color-accent)",
@@ -297,7 +297,7 @@ export default function TestTriggerPanel({ event, agentId, onClose }: Props) {
               background: "var(--color-bg-base)",
               border: "1px solid var(--color-border)",
               borderRadius: "var(--radius-md)",
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               fontSize: "var(--font-size-2xs)",
               lineHeight: 1.6,
               maxHeight: 320,

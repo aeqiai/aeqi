@@ -113,7 +113,7 @@ export const WithItemList: Story = {
                 <StatusBadge status={q.status} size="sm" />
                 <code
                   style={{
-                    fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: 11,
                     color: "rgba(0,0,0,0.35)",
                     minWidth: 100,

@@ -83,7 +83,7 @@ export default function ToolCallRow({
                 value={tc.tool}
                 readOnly={readOnly}
                 disabled={readOnly}
-                style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
+                style={{ width: "100%", fontFamily: "var(--font-sans)", fontSize: 12 }}
                 onChange={(e) => handleToolChange(e.target.value)}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
@@ -100,7 +100,7 @@ export default function ToolCallRow({
                   textAlign: "left",
                   padding: "6px 10px",
                   fontSize: 12,
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-sans)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
@@ -182,7 +182,7 @@ export default function ToolCallRow({
         rows={3}
         style={{
           width: "100%",
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
           fontSize: 11,
           resize: "vertical",
           minHeight: 56,

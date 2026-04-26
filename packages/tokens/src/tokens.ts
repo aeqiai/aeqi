@@ -129,8 +129,6 @@ export const color = {
 export const font = {
   family: {
     sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    // Mono purged — alias of sans. Existing JS readers fall back to Inter.
-    mono: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     display:
       '"Exo 2", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     brand: '"Zen Dots", system-ui, sans-serif',

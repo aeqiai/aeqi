@@ -130,7 +130,7 @@
 }
 
 .asv-empty-eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -159,7 +159,7 @@
   align-items: baseline;
   gap: 6px;
   margin-top: 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
@@ -337,7 +337,7 @@
   margin-bottom: 8px;
 }
 .asv-msg-ask-eyebrow {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -362,7 +362,7 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .asv-msg-error .asv-msg-content {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--error);
 }
@@ -377,7 +377,7 @@
 
 .session-msg-duration,
 .asv-msg-duration {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
 }
@@ -486,7 +486,7 @@
    weight; 12px felt pinched. Radius is sm (not xs) so the pill
    doesn't look like a dental filling next to flowing prose. */
 .asv-msg-assistant .asv-msg-content code {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   background: var(--color-accent-bg);
   padding: 1px 6px;
@@ -511,14 +511,14 @@
   border-bottom: 1px solid var(--color-accent-bg);
 }
 .asv-codeblock-lang {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-micro);
   color: var(--text-secondary);
   text-transform: lowercase;
   letter-spacing: 0.02em;
 }
 .asv-codeblock-copy {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-micro);
   color: var(--text-secondary);
   background: none;
@@ -646,7 +646,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -677,7 +677,7 @@
   align-items: center;
   gap: 6px;
   width: 100%;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-micro);
   color: var(--text-muted);
   background: none;
@@ -723,7 +723,7 @@
   gap: var(--space-2);
   padding: 3px 0;
   font-size: var(--font-size-micro);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 .asv-tool-dot {
   width: 4px;
@@ -755,14 +755,14 @@
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   padding: 2px 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   opacity: 0.5;
 }
 .asv-status-line {
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   padding: 4px 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   opacity: 0.6;
 }
 
@@ -771,7 +771,7 @@
   align-items: center;
   gap: var(--space-2);
   margin: 12px 0 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--section-label-size, 0.6875rem);
   color: var(--section-label-color);
   line-height: 1;
@@ -871,7 +871,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-micro);
   color: var(--text-muted);
   text-align: left;
@@ -931,7 +931,7 @@
   padding: 6px 0;
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 .asv-quest-event-icon {
@@ -961,7 +961,7 @@
   padding: 6px 0;
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 .asv-event-fire-name {
   background: none;
@@ -1017,7 +1017,7 @@
   gap: 5px;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   margin: 2px 0;
   border: 1px solid transparent;
@@ -1070,7 +1070,7 @@
   flex-direction: column;
   gap: var(--space-1);
   margin: 2px 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
 }
 .asv-tool-summarized-header {
@@ -1142,7 +1142,7 @@
   animation: asv-enter 0.2s ease-out forwards;
 }
 .asv-thinking-text {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-micro);
   color: var(--text-muted);
   letter-spacing: 0.01em;
@@ -1296,7 +1296,7 @@
   align-items: center;
   gap: var(--space-1);
   font-size: var(--font-size-micro);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--text-secondary);
   background: var(--bg-surface);
   padding: 2px 8px;
@@ -1375,7 +1375,7 @@
   align-items: baseline;
   gap: 6px;
   padding: 6px 12px 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-3xs);
   color: var(--text-muted);
   letter-spacing: 0.02em;
@@ -1415,7 +1415,7 @@
   color: var(--text-primary);
 }
 .asv-slash-slug {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--text-muted);
   letter-spacing: -0.01em;
@@ -1429,7 +1429,7 @@
   letter-spacing: -0.005em;
 }
 .asv-slash-kbd {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-3xs);
   color: var(--text-muted);
   letter-spacing: 0.04em;
@@ -1446,7 +1446,7 @@
   gap: 0 16px;
   width: 100%;
   padding: 8px 14px 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-3xs);
   color: var(--text-muted);
   letter-spacing: 0.04em;
@@ -1468,7 +1468,7 @@
   gap: 5px;
 }
 .asv-composer-ribbon kbd {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-3xs);
   padding: 1px 5px;
   border: none;
@@ -1630,7 +1630,7 @@
 }
 
 .dash-stat-value {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
@@ -1798,7 +1798,7 @@
 }
 
 .dash-agent-model {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   display: block;
@@ -1806,7 +1806,7 @@
 }
 
 .dash-agent-status {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
 }
@@ -1865,7 +1865,7 @@
 }
 
 .dash-quest-agent {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
@@ -1889,7 +1889,7 @@
 }
 
 .dash-quest-phase {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
@@ -1900,7 +1900,7 @@
 }
 
 .dash-quest-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -1973,7 +1973,7 @@
 }
 
 .dash-activity-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--text-muted);
   flex-shrink: 0;
   min-width: 36px;
@@ -1981,7 +1981,7 @@
 }
 
 .dash-activity-agent {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
@@ -2021,7 +2021,7 @@
   background: var(--color-ink-card, #0a0a0b);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: rgba(255, 255, 255, 0.82);
   cursor: pointer;

@@ -130,7 +130,7 @@ export const DetailHeader: Story = {
         justifyContent: "space-between",
       }}
     >
-      <code style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600 }}>
+      <code style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600 }}>
         onboarding-skill
       </code>
       <IconButton aria-label="Close detail">
@@ -189,7 +189,7 @@ export const CopyField: Story = {
       <code
         style={{
           flex: 1,
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--font-sans)",
           fontSize: 12,
           padding: "0 8px",
           color: "rgba(0,0,0,0.7)",

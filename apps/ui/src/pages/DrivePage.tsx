@@ -227,7 +227,7 @@ export default function DrivePage() {
               <span
                 style={{
                   color: "var(--text-muted)",
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: 11,
                   fontVariantNumeric: "tabular-nums",
                   flexShrink: 0,

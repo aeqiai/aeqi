@@ -41,7 +41,7 @@ function Chip({ label }: { label: string }) {
         borderRadius: "var(--radius-sm)",
         fontSize: "var(--font-size-sm)",
         color: "var(--color-text-secondary)",
-        fontFamily: "var(--font-mono)",
+        fontFamily: "var(--font-sans)",
         whiteSpace: "nowrap",
       }}
     >
@@ -93,7 +93,7 @@ export const GapScale: Story = {
               style={{
                 fontSize: "var(--font-size-xs)",
                 color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 marginBottom: 8,
               }}
             >
@@ -123,7 +123,7 @@ export const Alignment: Story = {
               style={{
                 fontSize: "var(--font-size-xs)",
                 color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 marginBottom: 8,
               }}
             >
@@ -162,7 +162,7 @@ export const Justification: Story = {
               style={{
                 fontSize: "var(--font-size-xs)",
                 color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 marginBottom: 8,
               }}
             >

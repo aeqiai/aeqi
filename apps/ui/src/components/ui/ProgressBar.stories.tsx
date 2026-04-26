@@ -61,7 +61,7 @@ export const AgentWorkload: Story = {
           >
             <code
               style={{
-                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
                 color: "rgba(0,0,0,0.7)",
               }}

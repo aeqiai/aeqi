@@ -472,7 +472,7 @@
   border-left: 1px solid var(--border);
 }
 .sidebar-search-kbd kbd {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.02em;
   color: var(--text-muted);
@@ -657,7 +657,7 @@
   border-radius: 3px;
   background: var(--bg-canvas);
   border: 1px solid var(--border-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
@@ -1061,7 +1061,7 @@
   border: 1px solid transparent;
   border-radius: 50%;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
@@ -1342,7 +1342,7 @@
   transform: translateX(0);
 }
 .primitive-head-meta {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -1352,11 +1352,11 @@
 }
 /* Sister to .primitive-head-meta but anchored in the *lead* (left side)
    next to the heading. The count is part of the title's identity ("Ideas
-   · 304") not a right-side stat. JetBrains Mono with tabular numerals
+   · 304") not a right-side stat. Inter with tabular numerals
    keeps it precision-instrument-shaped, the slash-separator works as a
    thin divider when the surface is filtered ("12 / 304"). */
 .primitive-head-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -1568,7 +1568,7 @@
   font-weight: 500;
 }
 .sessions-rail-row-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -1903,7 +1903,7 @@
   line-height: 1.2;
 }
 .drawer-header-model {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   line-height: 1.2;
@@ -2014,7 +2014,7 @@
 .drawer-action-btn {
   flex: 1;
   height: 32px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-secondary);
   background: var(--bg-elevated);
@@ -2083,7 +2083,7 @@
   border-color: var(--success);
 }
 .aq-cost {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   margin-bottom: 8px;
@@ -2096,7 +2096,7 @@
   margin-bottom: 4px;
 }
 .aq-status-badge {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
   background: var(--bg-elevated);
@@ -2191,7 +2191,7 @@
 }
 
 .ctx-section-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   font-weight: 500;
   text-transform: uppercase;
@@ -2216,7 +2216,7 @@
 
 /* Prompt chain */
 .ctx-pre {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-secondary);
   background: var(--bg-row);
@@ -2252,7 +2252,7 @@
   margin-bottom: 4px;
 }
 .ctx-prompt-badge {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   padding: 1px 5px;
   border-radius: var(--radius-sm);
@@ -2295,7 +2295,7 @@
 }
 
 .ctx-quest-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -2316,7 +2316,7 @@
 }
 
 .ctx-idea-key {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--accent);
   font-weight: 500;
@@ -2344,14 +2344,14 @@
 }
 
 .ctx-event-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--text-muted);
   flex-shrink: 0;
   min-width: 28px;
 }
 
 .ctx-event-type {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--accent-dim);
   flex-shrink: 0;
   min-width: 60px;
@@ -2563,7 +2563,7 @@
   align-items: flex-end;
   gap: 3px;
   min-width: 92px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs, 11px);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
@@ -2662,7 +2662,7 @@
   color: var(--text-primary);
 }
 .agent-settings-mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
 }
 .agent-tools-grid {
@@ -2680,11 +2680,11 @@
   padding: 4px 0;
 }
 .agent-tool-name {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
 }
 .agent-settings-input {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   height: var(--input-h);
   padding: 0 var(--input-px);
@@ -2762,7 +2762,7 @@
   border-top-color: var(--text-muted);
 }
 .agent-stat-card-value {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
@@ -2784,7 +2784,7 @@
   margin-top: 4px;
 }
 .agent-idea-pill {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
@@ -2795,7 +2795,7 @@
 
 /* Agent ID pill — key-pill treatment for IDs in the settings panel */
 .agent-id-pill {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   color: var(--text-muted);
   background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
@@ -2875,7 +2875,7 @@
   margin: 0 0 2px;
 }
 .events-detail-pattern {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -2905,7 +2905,7 @@
   gap: 6px;
 }
 .events-detail-stats {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-muted);
   margin-bottom: 16px;
@@ -2987,7 +2987,7 @@
   background: var(--bg-surface);
 }
 .events-link-result-key {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -3031,7 +3031,7 @@
   margin-bottom: 4px;
 }
 .event-idea-key {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -3067,7 +3067,7 @@
   margin-top: 6px;
 }
 .event-idea-tag {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   color: var(--text-muted);
   background: var(--bg-base);
@@ -3160,7 +3160,7 @@
 }
 
 .baileys-pairing-me {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-muted);
 }
@@ -3352,7 +3352,7 @@
   padding-top: 16px;
 }
 .inline-picker-group-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -3367,7 +3367,7 @@
   opacity: 0.5;
 }
 .inline-picker-group-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
@@ -3412,7 +3412,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3420,7 +3420,7 @@
 }
 .inline-picker-empty-cta-hint::before {
   content: "+";
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1;
   color: inherit;
@@ -3474,7 +3474,7 @@
   opacity: 0.55;
 }
 .events-list-row-badge {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
@@ -3497,7 +3497,7 @@
   min-width: 0;
 }
 .events-list-row-pattern {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -3506,7 +3506,7 @@
   min-width: 0;
 }
 .events-list-row-meta {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -3606,7 +3606,7 @@
   flex-shrink: 0;
 }
 .events-trace-aside-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -3617,7 +3617,7 @@
   flex: 1;
   max-width: 380px;
   padding: 5px 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-primary);
   background: var(--bg-surface);
@@ -3641,7 +3641,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -3691,7 +3691,7 @@
    field and the divider so the user can read it without reaching for
    a sidebar label. */
 .ideas-toolbar-meta {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -3829,7 +3829,7 @@
   height: 16px;
   padding: 0 4px;
   margin-left: 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -4018,7 +4018,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   background: transparent;
@@ -4092,7 +4092,7 @@
   height: 16px;
   padding: 0 4px;
   margin-right: -3px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0;
@@ -4133,7 +4133,7 @@
   padding: 6px 8px 4px;
 }
 .ideas-filter-popover-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -4142,7 +4142,7 @@
 }
 .ideas-filter-popover-reset {
   padding: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9.5px;
   letter-spacing: 0.06em;
   color: var(--text-muted);
@@ -4215,7 +4215,7 @@
   letter-spacing: 0.005em;
 }
 .ideas-filter-row-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.02em;
   color: var(--text-muted);
@@ -4320,7 +4320,7 @@
 .ideas-list-chip-clear {
   padding: 2px 0;
   margin-left: 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.05em;
   color: var(--text-muted);
@@ -4423,7 +4423,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   background: var(--bg-base);
@@ -4485,7 +4485,7 @@
   opacity: 0.85;
 }
 .primitive-scope-tab-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0;
@@ -4586,7 +4586,7 @@
   min-width: 0;
 }
 .ideas-list-row-scope {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -4599,7 +4599,7 @@
    rest and lifting slightly on hover, so it reads as metadata, not a
    primary affordance. */
 .ideas-list-row-candidate {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -4618,13 +4618,13 @@
   opacity: 1;
 }
 .ideas-list-row-more {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
 .ideas-list-row-words {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -4636,7 +4636,7 @@
    row hover lifts it to the secondary text colour so it earns its
    place when the row is engaged but stays quiet on rest. */
 .ideas-list-row-time {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -4668,14 +4668,14 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 28px 20px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .ideas-list-clear-all {
   padding: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--text-secondary);
@@ -4707,7 +4707,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -4750,7 +4750,7 @@
    create-from-query path is obvious at a glance. Mono keeps it aligned
    with the rest of the primitive's quiet metadata voice. */
 .ideas-list-empty-query {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.72em;
   font-weight: 500;
   letter-spacing: 0;
@@ -4767,7 +4767,7 @@
   display: inline-block;
 }
 .ideas-list-empty-kbd {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4783,7 +4783,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0;
   color: var(--text-secondary);
@@ -4821,7 +4821,7 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
   color: var(--text-secondary);
   background: var(--key-pill-bg);
@@ -4931,7 +4931,7 @@
   background: var(--state-hover);
 }
 .channels-list-row-kind {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -4943,7 +4943,7 @@
   text-align: center;
 }
 .channels-list-row-name {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text-primary);
   white-space: nowrap;
@@ -4963,7 +4963,7 @@
   opacity: 0.9;
 }
 .channels-list-row-meta {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -4992,7 +4992,7 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5046,7 +5046,7 @@
   font-variant-numeric: tabular-nums;
 }
 .tools-list-summary-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -5084,7 +5084,7 @@
   opacity: 0.55;
 }
 .tools-list-row-cat {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -5098,7 +5098,7 @@
   color: var(--text-primary);
 }
 .tools-list-row-state {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5351,7 +5351,7 @@
   gap: 6px;
   padding: 3px 6px 3px 4px;
   margin: -2px 0 0 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5514,7 +5514,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -5576,7 +5576,7 @@
   gap: 6px;
   flex-shrink: 0;
   font-size: 11px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--text-muted);
   transition: opacity 0.25s;
   min-height: 16px;
@@ -5636,7 +5636,7 @@
   align-items: center;
   gap: 5px;
   padding: 1px 8px 1px 7px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   letter-spacing: 0.01em;
   color: var(--text-secondary);
@@ -5694,7 +5694,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .ideas-tag-add {
   padding: 1px 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   letter-spacing: 0.02em;
   color: var(--text-muted);
@@ -5719,7 +5719,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   min-width: 60px;
   max-width: 140px;
   padding: 2px 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-primary);
   background: var(--bg-base);
@@ -5745,7 +5745,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   display: block;
   width: 100%;
   padding: 3px 8px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   text-align: left;
   color: var(--text-secondary);
@@ -5799,7 +5799,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   margin: 0.2em 0;
 }
 .ideas-markdown code {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.9em;
   padding: 1px 5px;
   background: var(--bg-base);
@@ -5974,7 +5974,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   flex-shrink: 0;
 }
 .entity-tier {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.1em;

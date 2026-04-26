@@ -33,7 +33,7 @@ function DeleteConfirmationDemo() {
           Are you sure you want to delete{" "}
           <code
             style={{
-              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              fontFamily: "var(--font-sans)",
               fontSize: 12,
               padding: "2px 5px",
               background: "rgba(0,0,0,0.04)",
@@ -127,7 +127,7 @@ function AgentDetailsDemo() {
           <DetailField label="Name">
             <code
               style={{
-                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 13,
               }}
             >
@@ -142,7 +142,7 @@ function AgentDetailsDemo() {
           <DetailField label="Model">
             <code
               style={{
-                fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+                fontFamily: "var(--font-sans)",
                 fontSize: 12,
               }}
             >

@@ -39,7 +39,7 @@ export const WithMonoText: Story = {
     children: (
       <code
         style={{
-          fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+          fontFamily: "var(--font-sans)",
           fontSize: "var(--font-size-sm, 13px)",
         }}
       >
@@ -73,22 +73,16 @@ export const AgentDetailCard: Story = {
         Agent Details
       </h3>
       <DetailField label="Name">
-        <code style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: 13 }}>
-          code-reviewer
-        </code>
+        <code style={{ fontFamily: "var(--font-sans)", fontSize: 13 }}>code-reviewer</code>
       </DetailField>
       <DetailField label="Status">
         <StatusBadge status="working" size="sm" />
       </DetailField>
       <DetailField label="Model">
-        <code style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: 12 }}>
-          claude-3-opus
-        </code>
+        <code style={{ fontFamily: "var(--font-sans)", fontSize: 12 }}>claude-3-opus</code>
       </DetailField>
       <DetailField label="Parent">
-        <code style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: 12 }}>
-          orchestrator
-        </code>
+        <code style={{ fontFamily: "var(--font-sans)", fontSize: 12 }}>orchestrator</code>
       </DetailField>
       <DetailField label="Active Quests">3</DetailField>
       <DetailField label="Total Events">142</DetailField>
@@ -128,16 +122,14 @@ export const QuestDetailCard: Story = {
         <StatusBadge status="in_progress" size="sm" />
       </DetailField>
       <DetailField label="Assigned Agent">
-        <code style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: 12 }}>
-          code-reviewer
-        </code>
+        <code style={{ fontFamily: "var(--font-sans)", fontSize: 12 }}>code-reviewer</code>
       </DetailField>
       <DetailField label="Description">
         Extract JWT validation into a shared middleware. Update all route handlers to use the new
         pattern.
       </DetailField>
       <DetailField label="Worktree">
-        <code style={{ fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)", fontSize: 12 }}>
+        <code style={{ fontFamily: "var(--font-sans)", fontSize: 12 }}>
           /tmp/aeqi/worktrees/quest-8f3a
         </code>
       </DetailField>

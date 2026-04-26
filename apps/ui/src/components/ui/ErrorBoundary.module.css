@@ -12,7 +12,7 @@
 
 .message {
   font-size: var(--font-size-sm);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   color: var(--color-error);
   margin-top: var(--space-4);
 }

@@ -41,7 +41,7 @@ function Chip({ token, usage }: { token: string; usage: string }) {
         <code style={{ fontSize: 12, color: "rgba(0,0,0,0.85)" }}>{token}</code>
         <span
           style={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: "var(--font-sans)",
             fontSize: 11,
             color: "rgba(0,0,0,0.45)",
           }}

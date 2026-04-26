@@ -228,9 +228,8 @@ body {
 }
 
 code,
-pre,
-.font-mono {
-  font-family: var(--font-mono);
+pre {
+  font-family: var(--font-sans);
 }
 
 a {

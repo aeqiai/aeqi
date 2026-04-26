@@ -159,7 +159,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                       background: "var(--bg-elevated)",
                       border: "1px solid var(--border)",
                       borderRadius: "var(--radius-md)",
-                      fontFamily: "var(--font-mono)",
+                      fontFamily: "var(--font-sans)",
                       fontSize: "var(--font-size-xs)",
                       color: "var(--text-secondary)",
                       lineHeight: 1.5,
@@ -234,7 +234,7 @@ function ChipRow({ label, chips, color }: { label: string; chips: string[]; colo
           key={c}
           style={{
             fontSize: "var(--font-size-xs)",
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--font-sans)",
             padding: "1px 6px",
             borderRadius: "var(--key-pill-radius)",
             background: "var(--key-pill-bg)",

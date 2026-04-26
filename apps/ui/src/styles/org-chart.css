@@ -184,7 +184,7 @@
 .org-card-sub {
   font-size: 10px;
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

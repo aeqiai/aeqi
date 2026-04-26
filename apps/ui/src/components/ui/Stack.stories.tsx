@@ -36,7 +36,7 @@ function Box({ label, wide }: { label?: string; wide?: boolean }) {
         borderRadius: "var(--radius-sm)",
         fontSize: "var(--font-size-sm)",
         color: "var(--color-text-secondary)",
-        fontFamily: "var(--font-mono)",
+        fontFamily: "var(--font-sans)",
         width: wide ? "100%" : undefined,
       }}
     >
@@ -69,7 +69,7 @@ export const GapScale: Story = {
               style={{
                 fontSize: "var(--font-size-xs)",
                 color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 marginBottom: 8,
               }}
             >
@@ -99,7 +99,7 @@ export const AlignmentVariants: Story = {
               style={{
                 fontSize: "var(--font-size-xs)",
                 color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
+                fontFamily: "var(--font-sans)",
                 marginBottom: 8,
               }}
             >

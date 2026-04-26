@@ -28,7 +28,7 @@
 }
 .start-eyebrow {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -117,7 +117,7 @@
 }
 .start-blueprint-eyebrow {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -160,7 +160,7 @@
   background: var(--state-hover);
 }
 .start-switch-link > span:first-child {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 13px;
 }
 .start-blueprint-preview {
@@ -193,7 +193,7 @@
 }
 .start-plans-eyebrow {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -237,7 +237,7 @@
   cursor: not-allowed;
 }
 .start-interval-save {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--success);
@@ -288,7 +288,7 @@
   padding: 3px 10px;
   background: var(--text-primary);
   color: var(--btn-primary-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -304,7 +304,7 @@
 }
 .start-plan-eyebrow {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -336,12 +336,12 @@
   line-height: 1;
 }
 .start-plan-price-unit {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text-muted);
 }
 .start-plan-price-strike {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 12px;
   color: var(--text-muted);
   text-decoration: line-through;
@@ -383,7 +383,7 @@
   width: 14px;
   display: inline-flex;
   justify-content: center;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.5;
@@ -392,7 +392,7 @@
   color: var(--text-primary);
 }
 .start-plan-soon {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10px;
   color: var(--text-muted);
   letter-spacing: 0.04em;

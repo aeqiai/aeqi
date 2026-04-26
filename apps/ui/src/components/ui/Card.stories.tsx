@@ -122,7 +122,7 @@ export const QuestCard: Story = {
       <Card padding="none" interactive>
         <CardHeader
           title={
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 12 }}>
               QST-042 · Migrate payments SDK
             </span>
           }

@@ -92,7 +92,7 @@ function StepDetail({ invocationId, onClose }: StepDetailProps) {
           ← back
         </button>
         {inv && (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-xs)" }}>
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: "var(--font-size-xs)" }}>
             {inv.pattern}
             {inv.event_name ? ` · ${inv.event_name}` : ""}
           </span>
@@ -158,7 +158,7 @@ function StepDetail({ invocationId, onClose }: StepDetailProps) {
               {statusDot(step.status)}
               <code
                 style={{
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-sans)",
                   color: "var(--text-primary)",
                 }}
               >
@@ -176,7 +176,7 @@ function StepDetail({ invocationId, onClose }: StepDetailProps) {
                   background: "var(--bg-base)",
                   border: "1px solid var(--border-faint)",
                   borderRadius: 4,
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: "var(--font-size-2xs)",
                   color: "var(--text-secondary)",
                   overflowX: "auto",
@@ -194,7 +194,7 @@ function StepDetail({ invocationId, onClose }: StepDetailProps) {
                   background: "var(--bg-base)",
                   border: "1px solid var(--border-faint)",
                   borderRadius: 4,
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-sans)",
                   fontSize: "var(--font-size-2xs)",
                   color: "var(--text-secondary)",
                   whiteSpace: "pre-wrap",
@@ -353,7 +353,7 @@ export default function EventTraceTab({ sessionId }: Props) {
                 <td
                   style={{
                     padding: "5px 8px 5px 0",
-                    fontFamily: "var(--font-mono)",
+                    fontFamily: "var(--font-sans)",
                     fontSize: "var(--font-size-2xs)",
                     color: "var(--text-muted)",
                     whiteSpace: "nowrap",
@@ -364,7 +364,7 @@ export default function EventTraceTab({ sessionId }: Props) {
                 <td
                   style={{
                     padding: "5px 8px 5px 0",
-                    fontFamily: "var(--font-mono)",
+                    fontFamily: "var(--font-sans)",
                     color: "var(--text-primary)",
                     maxWidth: 180,
                     overflow: "hidden",
@@ -395,7 +395,7 @@ export default function EventTraceTab({ sessionId }: Props) {
                 <td
                   style={{
                     padding: "5px 0",
-                    fontFamily: "var(--font-mono)",
+                    fontFamily: "var(--font-sans)",
                     color: "var(--text-muted)",
                     whiteSpace: "nowrap",
                   }}

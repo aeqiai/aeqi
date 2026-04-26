@@ -43,7 +43,7 @@ function Bar({ token, usage }: { token: string; usage: string }) {
         />
         <span
           style={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: "var(--font-sans)",
             fontSize: 11,
             color: "rgba(0,0,0,0.45)",
           }}

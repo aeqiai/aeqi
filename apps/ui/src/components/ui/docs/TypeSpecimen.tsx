@@ -13,7 +13,7 @@ function useTokenValue(name: string | undefined): string {
 type Role = {
   label: string;
   sample: string;
-  fontVar: "--font-sans" | "--font-mono" | "--font-display" | "--font-brand";
+  fontVar: "--font-sans" | "--font-display" | "--font-brand";
   sizeVar?: string;
   weight?: number;
   note?: string;
@@ -48,7 +48,7 @@ function Row({ role }: { role: Role }) {
         </span>
         <span
           style={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: "var(--font-sans)",
             fontSize: 10.5,
             color: "rgba(0,0,0,0.55)",
           }}

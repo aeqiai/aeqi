@@ -137,7 +137,7 @@ export const DashboardStatusRow: Story = {
         >
           <code
             style={{
-              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              fontFamily: "var(--font-sans)",
               fontSize: 13,
               color: "rgba(0,0,0,0.85)",
               minWidth: 120,
