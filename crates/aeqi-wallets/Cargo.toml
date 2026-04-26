@@ -37,6 +37,9 @@ k256 = { version = "0.13", features = ["ecdsa", "schnorr", "arithmetic"] }
 # BIP-39 mnemonic (recovery seeds)
 bip39 = { version = "2", features = ["rand"] }
 
+# Keccak256 for EVM address derivation
+sha3 = "0.10"
+
 [dev-dependencies]
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

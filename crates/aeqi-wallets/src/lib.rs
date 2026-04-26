@@ -7,12 +7,19 @@
 
 pub mod delegation;
 pub mod kek;
+pub mod keypair;
 pub mod mpc;
 pub mod passkey;
 pub mod recovery;
 pub mod siwe;
 pub mod store;
 pub mod types;
+pub mod wallet;
 
 pub use kek::{KekError, MasterKekProvider};
-pub use types::{Address, Pubkey};
+pub use keypair::Keypair;
+pub use types::{Address, EcdsaSignature, Pubkey, WalletId};
+pub use wallet::{
+    ProvisionRequest, ProvisionedWallet, RevealedRecovery, WalletError, provision_custodial,
+    reveal_recovery_seed, sign_custodial,
+};
