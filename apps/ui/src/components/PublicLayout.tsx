@@ -74,10 +74,10 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
 
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
-  const isLogin = path === "/login";
-  const isSignup = path === "/signup";
+  const isSignIn = path === "/login";
+  const isLaunch = path === "/signup";
 
-  // Anonymous visitors clicking Log in / Sign up should land back on the
+  // Anonymous visitors clicking Sign in / Launch should land back on the
   // page they came from after auth — share-link survival.
   const here = location.pathname + location.search;
   const next = here === "/" ? "" : `?next=${encodeURIComponent(here)}`;
@@ -90,14 +90,23 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       >
         <div className="sidebar-header">
           {sidebarCollapsed ? (
+            // Collapsed: brandmark on rest, panel-glyph on hover. Single
+            // button, no layout shift — the two glyphs swap visibility so
+            // the cursor lands on the same target whether it sees the
+            // brand or the expand icon.
             <button
               type="button"
-              className="sidebar-collapse-btn"
+              className="sidebar-public-brand-toggle"
               onClick={toggleSidebar}
               aria-label="Expand sidebar"
               title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
             >
-              <PanelGlyph />
+              <span className="sidebar-public-brand-toggle-rest" aria-hidden="true">
+                <Wordmark size={20} />
+              </span>
+              <span className="sidebar-public-brand-toggle-hover" aria-hidden="true">
+                <PanelGlyph />
+              </span>
             </button>
           ) : (
             <>
@@ -136,27 +145,28 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        {/* Auth zone — Log in / Sign up live here as normal nav rows so
-            the rail reads in one rhythm instead of breaking into a CTA
-            cluster at the bottom. Sits just below Blueprints/Economy. */}
+        {/* Auth zone — Sign in is a normal ghost row so the rail rhythm
+            stays calm; Launch is the primary CTA and wears the same
+            filled-graphite treatment as the landing-page hero CTA so it
+            reads as the call to action across both surfaces. */}
         <div className="sidebar-user-zone">
           <button
             type="button"
-            className={`sidebar-nav-item ${isLogin ? "active" : ""}`}
+            className={`sidebar-nav-item ${isSignIn ? "active" : ""}`}
             onClick={() => navigate(`/login${next}`)}
-            title="Log into your account"
+            title="Sign into your account"
           >
             <SignInIcon />
-            <span className="sidebar-nav-label">Log in</span>
+            <span className="sidebar-nav-label">Sign in</span>
           </button>
           <button
             type="button"
-            className={`sidebar-nav-item ${isSignup ? "active" : ""}`}
+            className={`sidebar-launch-btn ${isLaunch ? "is-active" : ""}`}
             onClick={() => navigate(`/signup${next}`)}
-            title="Create an account"
+            title="Launch your first autonomous company"
           >
             <SignUpIcon />
-            <span className="sidebar-nav-label">Sign up</span>
+            <span className="sidebar-launch-btn-label">Launch</span>
           </button>
         </div>
 
