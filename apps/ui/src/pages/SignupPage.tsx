@@ -346,16 +346,18 @@ export default function SignupPage() {
                     )}
                   </div>
                 )}
-                <ConnectWalletButton
-                  onAuthenticated={() =>
-                    navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
-                  }
-                />
-                <ContinueWithPasskeyButton
-                  onAuthenticated={() =>
-                    navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
-                  }
-                />
+                <div className="auth-oauth-row">
+                  <ConnectWalletButton
+                    onAuthenticated={() =>
+                      navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
+                    }
+                  />
+                  <ContinueWithPasskeyButton
+                    onAuthenticated={() =>
+                      navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
+                    }
+                  />
+                </div>
               </div>
             </>
           )}

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
-import AuthIconSlot from "@/components/AuthIconSlot";
 import { loginOrRegisterWithPasskey } from "@/lib/passkeyAuth";
 
 interface Props {
@@ -44,8 +43,7 @@ export default function ContinueWithPasskeyButton({ onAuthenticated }: Props) {
   return (
     <>
       <Button variant="secondary" size="lg" fullWidth type="button" onClick={go} disabled={busy}>
-        <AuthIconSlot />
-        {busy ? "Verifying…" : "Continue with Passkey"}
+        {busy ? "Verifying…" : "Passkey"}
       </Button>
       {error && (
         <div className="auth-error" role="alert">

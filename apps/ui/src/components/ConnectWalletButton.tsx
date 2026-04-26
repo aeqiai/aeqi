@@ -3,7 +3,6 @@ import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui";
-import AuthIconSlot from "@/components/AuthIconSlot";
 import { buildSiweMessage, fetchNonce, loginOrSignupWithWallet } from "@/lib/walletAuth";
 
 interface Props {
@@ -90,8 +89,7 @@ export default function ConnectWalletButton({ onAuthenticated }: Props) {
         onClick={handleClick}
         disabled={signing}
       >
-        <AuthIconSlot />
-        {signing ? "Signing in…" : "Continue with Wallet"}
+        {signing ? "Signing in…" : "Wallet"}
       </Button>
       {error && (
         <div className="auth-error" role="alert">

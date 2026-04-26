@@ -479,8 +479,10 @@ export default function LoginPage() {
                       )}
                     </div>
                   )}
-                  <ConnectWalletButton onAuthenticated={() => navigate(redirectAfter())} />
-                  <ContinueWithPasskeyButton onAuthenticated={() => navigate(redirectAfter())} />
+                  <div className="auth-oauth-row">
+                    <ConnectWalletButton onAuthenticated={() => navigate(redirectAfter())} />
+                    <ContinueWithPasskeyButton onAuthenticated={() => navigate(redirectAfter())} />
+                  </div>
                 </div>
               </>
             )}
