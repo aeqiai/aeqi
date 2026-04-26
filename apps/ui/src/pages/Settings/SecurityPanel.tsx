@@ -264,7 +264,7 @@ export default function SecurityPanel() {
           Email security phrase
         </label>
         <p className="account-field-desc">
-          A personal phrase included in every email from AEQI. If the phrase is missing, the email
+          A personal phrase included in every email from aeqi. If the phrase is missing, the email
           isn't from us.
         </p>
         <div className="account-field-row">

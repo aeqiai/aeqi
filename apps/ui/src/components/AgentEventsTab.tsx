@@ -27,7 +27,7 @@ import type { AgentEvent, ScopeValue } from "@/lib/types";
  *                                plus the EventEditor form beneath
  *   trace   — per-session fire inspector with a session-id aside row
  *
- * Events are AEQI's WHEN primitive — a pattern + an ordered tool chain.
+ * Events are aeqi's WHEN primitive — a pattern + an ordered tool chain.
  * The canvas is what makes that readable.
  */
 
@@ -80,7 +80,7 @@ type SubTab = "list" | "canvas" | "trace";
 
 /**
  * Transport presets power the guided new-event flow. The old free-text
- * pattern input demanded users already know AEQI's event vocabulary;
+ * pattern input demanded users already know aeqi's event vocabulary;
  * picking a transport first and a lifecycle moment second collapses that.
  */
 interface TransportPreset {

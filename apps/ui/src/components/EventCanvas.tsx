@@ -3,7 +3,7 @@ import type { AgentEvent, ToolCall } from "@/lib/types";
 /**
  * EventCanvas — visual workflow for a single event.
  *
- * Every AEQI event is a small pipeline:
+ * Every aeqi event is a small pipeline:
  *   trigger → (context) → tool calls → fire record
  *
  * The form editor is accurate but dense; the canvas gives users the
