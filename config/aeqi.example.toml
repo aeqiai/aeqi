@@ -114,3 +114,8 @@ worker_timeout_secs = 1800
 # username = "noreply@aeqi.ai"
 # password = "${SMTP_PASSWORD}"
 # from = "noreply@aeqi.ai"
+
+# Blueprint catalog config — surfaced on /start when the user lands
+# without an explicit ?blueprint= query.
+# [blueprints]
+# default = "aeqi"  # bundled minimal-default Blueprint shipped with the runtime

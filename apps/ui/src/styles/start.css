@@ -1,0 +1,241 @@
+/* /start — the launch surface.
+   A single centered column, generous breathing room, no chrome
+   competing with the act of naming + launching a Company. */
+
+.start-page {
+  width: 100%;
+  min-height: 100%;
+  padding: 48px 32px 64px;
+  display: flex;
+  justify-content: center;
+}
+.start-shell {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ── Header ─────────────────────────────────────── */
+
+.start-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.start-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.start-headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.05;
+  color: var(--text-primary);
+}
+.start-lede {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.start-error {
+  font-size: 12px;
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+}
+
+.start-loading,
+.start-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 80px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.start-missing {
+  flex-direction: column;
+  text-align: center;
+}
+.start-missing-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.start-missing-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.start-missing-sub a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Blueprint preview card ─────────────────────── */
+
+.start-blueprint {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.start-blueprint-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.start-blueprint-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.start-blueprint-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.start-blueprint-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.start-blueprint-tagline {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.start-switch-link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.start-switch-link:hover {
+  color: var(--text-primary);
+  background: var(--state-hover);
+}
+.start-switch-link > span:first-child {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.start-blueprint-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Launch form ────────────────────────────────── */
+
+.start-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.start-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.start-trial-locked {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Trial-state badge — small, calm, never shouts. */
+.start-trial-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  border: 1px solid var(--border-faint);
+  background: var(--bg-paper);
+  color: var(--text-secondary);
+}
+.start-trial-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+.start-trial-free {
+  color: var(--color-success, #3fae8c);
+  border-color: color-mix(in oklab, var(--color-success, #3fae8c) 35%, transparent);
+}
+.start-trial-paid {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+.start-trial-locked-badge {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+/* ── Responsive ─────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .start-page {
+    padding: 24px 18px 48px;
+  }
+  .start-headline {
+    font-size: 32px;
+  }
+  .start-blueprint-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .start-form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

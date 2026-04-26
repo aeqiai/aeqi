@@ -157,9 +157,9 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     <button
       type="button"
       className="sidebar-launch-cta"
-      onClick={() => navigate("/new")}
-      title="Start a new autonomous company"
-      aria-label="Start a company"
+      onClick={() => navigate("/start")}
+      title="Launch a new Company"
+      aria-label="Start a Company"
     >
       <span className="sidebar-launch-cta-plus" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">

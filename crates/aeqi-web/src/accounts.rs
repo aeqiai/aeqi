@@ -24,6 +24,12 @@ pub struct User {
     pub subscription_plan: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trial_ends_at: Option<String>,
+    /// Timestamp the user spent their lifetime free-trial company slot.
+    /// `None` means the slot is unused; once flipped to a UTC ISO-8601
+    /// string it stays set forever — deleting the company does not
+    /// reclaim it (otherwise delete-and-recreate dodges billing).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub free_company_used_at: Option<String>,
     pub created_at: String,
 }
 
@@ -54,6 +60,7 @@ impl AccountStore {
                 subscription_status TEXT NOT NULL DEFAULT 'none',
                 subscription_plan   TEXT,
                 trial_ends_at       TEXT,
+                free_company_used_at TEXT,
                 created_at      TEXT NOT NULL DEFAULT (datetime('now')),
                 last_login      TEXT
             );
@@ -79,6 +86,21 @@ impl AccountStore {
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
             );",
         )?;
+        // Migration: backfill free_company_used_at on existing user
+        // tables (the column landed after the table did). SQLite's
+        // ADD COLUMN is idempotent-safe via the schema lookup below.
+        let has_free_company_col: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('users') WHERE name = 'free_company_used_at'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if !has_free_company_col {
+            conn.execute_batch("ALTER TABLE users ADD COLUMN free_company_used_at TEXT;")?;
+        }
+
         // Migration: user_roots -> user_access.
         let has_user_roots: bool = conn
             .query_row(
@@ -350,7 +372,7 @@ impl AccountStore {
         // Cache miss — query the database.
         let conn = self.conn.lock().unwrap();
         let user = conn.query_row(
-            "SELECT id, email, name, avatar_url, google_id, email_verified, subscription_status, subscription_plan, trial_ends_at, created_at FROM users WHERE id = ?1",
+            "SELECT id, email, name, avatar_url, google_id, email_verified, subscription_status, subscription_plan, trial_ends_at, free_company_used_at, created_at FROM users WHERE id = ?1",
             params![id],
             |row| {
                 Ok(User {
@@ -364,7 +386,8 @@ impl AccountStore {
                     subscription_status: row.get(6)?,
                     subscription_plan: row.get(7)?,
                     trial_ends_at: row.get(8)?,
-                    created_at: row.get(9)?,
+                    free_company_used_at: row.get(9)?,
+                    created_at: row.get(10)?,
                 })
             },
         ).ok();
@@ -441,6 +464,33 @@ impl AccountStore {
             .filter_map(|r| r.ok())
             .collect();
         Ok(agents)
+    }
+
+    /// Mark the user's lifetime free-trial company slot as consumed. No-op
+    /// if already set — the timestamp records the *first* trial spawn and
+    /// is not refreshed by subsequent calls. Idempotent at the SQL layer
+    /// via `WHERE free_company_used_at IS NULL`.
+    pub fn mark_free_company_used(&self, user_id: &str) -> anyhow::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE users SET free_company_used_at = datetime('now')
+             WHERE id = ?1 AND free_company_used_at IS NULL",
+            params![user_id],
+        )?;
+        drop(conn);
+        self.user_cache.invalidate(&user_id.to_owned());
+        Ok(())
+    }
+
+    /// Whether the user has a paid subscription that bypasses the free-
+    /// trial cap. Centralized here so the spawn-gating policy lives in
+    /// one place; today the rule is simply "any non-`none` status counts
+    /// as paid" — refine to plan-tier checks once Start-up/Scale-up land.
+    pub fn user_has_paid_plan(&self, user_id: &str) -> anyhow::Result<bool> {
+        let Some(user) = self.get_user_by_id(user_id)? else {
+            return Ok(false);
+        };
+        Ok(user.subscription_status != "none")
     }
 
     /// Return all user IDs who direct the given agent.

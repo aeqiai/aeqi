@@ -44,6 +44,10 @@ pub struct AppState {
     /// (`integrations` routes) directly without going through the daemon
     /// IPC. Mirrors the path the daemon uses (`config.data_dir()`).
     pub data_dir: PathBuf,
+    /// Slug of the Blueprint surfaced on `/start` when the user hasn't
+    /// chosen one explicitly. Sourced from `[blueprints] default` in
+    /// `aeqi.toml`; defaults to the runtime's bundled fallback.
+    pub default_blueprint_slug: String,
     /// In-process registry of bootstrap handles keyed by uuid. Each entry
     /// tracks one in-flight OAuth2 loopback callback handshake. Pruned
     /// when polled past completion or when handles age out.
@@ -119,6 +123,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         hosting,
         twilio_auth_token: web.twilio_auth_token.clone(),
         data_dir: data_dir.clone(),
+        default_blueprint_slug: config.blueprints.default.clone(),
         bootstrap_registry: Arc::new(crate::routes::integrations::BootstrapRegistry::new()),
     };
 

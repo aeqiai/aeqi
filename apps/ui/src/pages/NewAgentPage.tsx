@@ -1,27 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { wireIdentityForNewAgent } from "@/components/IdentitySetup";
-import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
-import BlockAvatar from "@/components/BlockAvatar";
-import { Spinner } from "@/components/ui";
 import "@/styles/welcome.css";
 import "@/styles/templates.css";
 import "@/styles/modals.css";
 
 /**
- * /new — agent creation page (root or sub-agent).
+ * /new — sub-agent creation wizard.
  *
- * Query params:
- *   - ?parent=<agentId>  → sub-agent mode: spawn under an existing agent
- *   - (no params)        → root mode: jump to /blueprints or create empty
+ * Always reached as `/new?parent=<agentId>`. Without `?parent=` we
+ * redirect to `/start` — root creation lives there now (with Blueprint
+ * pre-selection + trial-slot gating). This file is the surviving slice
+ * of the legacy "agent creation" page.
  */
 export default function NewAgentPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const allAgents = useDaemonStore((s) => s.agents);
 
@@ -33,7 +29,7 @@ export default function NewAgentPage() {
   );
 
   useEffect(() => {
-    document.title = subAgentMode ? "new sub-agent · æqi" : "new agent · æqi";
+    if (subAgentMode) document.title = "new sub-agent · æqi";
   }, [subAgentMode]);
 
   // Daemon store may be cold on direct URL load (/new lives outside
@@ -47,7 +43,11 @@ export default function NewAgentPage() {
     }
   }, [subAgentMode, allAgents.length, fetchAgents]);
 
-  return subAgentMode ? (
+  if (!subAgentMode) {
+    return <Navigate to="/start" replace />;
+  }
+
+  return (
     <SubAgentForm
       navigate={navigate}
       parentId={parentId}
@@ -57,197 +57,8 @@ export default function NewAgentPage() {
         navigate(`/${encodeURIComponent(newId)}`);
       }}
     />
-  ) : (
-    <RootForm
-      navigate={navigate}
-      onCreated={async (rootId) => {
-        setActiveRoot(rootId);
-        await fetchAgents();
-        navigate(`/${encodeURIComponent(rootId)}`);
-      }}
-    />
   );
 }
-
-/* ── Root mode: either go to /templates or create an empty root ──────── */
-
-function RootForm({
-  navigate,
-  onCreated,
-}: {
-  navigate: (to: string) => void;
-  onCreated: (rootId: string) => Promise<void>;
-}) {
-  const [name, setName] = useState("");
-  const [tagline, setTagline] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [identityText, setIdentityText] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [identityStatus, setIdentityStatus] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleCreate = async () => {
-    if (!name.trim() || creating) return;
-    setCreating(true);
-    setError("");
-    setIdentityStatus(null);
-    try {
-      const resp = await api.createRoot({
-        name: name.trim(),
-        tagline: tagline.trim() || undefined,
-      });
-      const rootId =
-        (resp as Record<string, unknown>).id ||
-        (resp as Record<string, unknown>).root ||
-        name.trim();
-      if (imageUrl) localStorage.setItem("aeqi_root_avatar", imageUrl);
-      if (tagline.trim()) localStorage.setItem("aeqi_root_tagline", tagline.trim());
-
-      // Wire identity if provided — best-effort, failures are surfaced as a
-      // gentle note but do not block navigation to the new agent page.
-      if (identityText.trim()) {
-        try {
-          await wireIdentityForNewAgent(rootId as string, name.trim(), identityText.trim());
-          setIdentityStatus("Identity wired — session:start will inject this.");
-        } catch {
-          setIdentityStatus(
-            "Agent created, but identity wiring failed — configure it from the agent page.",
-          );
-        }
-      }
-
-      await onCreated(rootId as string);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create agent");
-      setCreating(false);
-    }
-  };
-
-  return (
-    <div className="new-co-page">
-      <div className="new-co-container new-co-animate">
-        <BackLink onClick={() => navigate("/")} label="Back" />
-
-        <button type="button" className="tpl-promo-card" onClick={() => navigate("/blueprints")}>
-          <span className="tpl-promo-icon" aria-hidden="true">
-            <TemplateGridIcon />
-          </span>
-          <span className="tpl-promo-body">
-            <span className="tpl-promo-title">Start from a template</span>
-            <span className="tpl-promo-sub">
-              Pre-threaded companies — agents, events, ideas, and quests already alive.
-            </span>
-          </span>
-          <ArrowRight className="tpl-promo-arrow" />
-        </button>
-
-        <div className="tpl-divider">
-          <span className="tpl-divider-label">Or start empty</span>
-        </div>
-
-        <div className="new-co-hero">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = () => setImageUrl(reader.result as string);
-              reader.readAsDataURL(file);
-              e.target.value = "";
-            }}
-          />
-          <div className="new-co-identity">
-            <button
-              type="button"
-              className="new-co-avatar"
-              onClick={() => fileRef.current?.click()}
-              aria-label="Upload avatar"
-              title="Upload avatar"
-            >
-              {imageUrl ? (
-                <img src={imageUrl} alt="" className="new-co-avatar-img" />
-              ) : (
-                <BlockAvatar name={name || "W"} size={56} />
-              )}
-              <span className="new-co-avatar-overlay">
-                <UploadIcon />
-              </span>
-            </button>
-            <div className="new-co-identity-fields">
-              <input
-                className="new-co-name-input"
-                placeholder="Agent name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && name.trim()) handleCreate();
-                }}
-                autoFocus
-              />
-              <input
-                className="new-co-tagline-input"
-                placeholder="Add a tagline..."
-                value={tagline}
-                onChange={(e) => setTagline(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && name.trim()) handleCreate();
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="new-co-identity-section">
-          <label className="new-sub-label" htmlFor="new-co-identity">
-            Identity (optional)
-          </label>
-          <textarea
-            id="new-co-identity"
-            className="new-sub-textarea"
-            value={identityText}
-            onChange={(e) => setIdentityText(e.target.value)}
-            placeholder="Give this agent an identity — we'll inject it on every session:start."
-            rows={3}
-          />
-        </div>
-
-        {identityStatus && !error && <div className="new-co-identity-status">{identityStatus}</div>}
-
-        {error && <div className="new-co-error">{error}</div>}
-
-        <button
-          type="button"
-          className="new-co-submit"
-          onClick={handleCreate}
-          disabled={!name.trim() || creating}
-          aria-busy={creating}
-        >
-          {creating ? (
-            <>
-              <Spinner size="sm" />
-              Creating…
-            </>
-          ) : (
-            <>
-              Create empty agent <kbd className="new-co-kbd">↵</kbd>
-            </>
-          )}
-        </button>
-
-        <p className="new-co-hint">
-          An empty agent starts with no sessions. You can rename or re-skin it anytime.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ── Sub-agent mode: identity-template picker + optional overrides ───── */
 
 function SubAgentForm({
   navigate,
@@ -268,22 +79,6 @@ function SubAgentForm({
   const canSubmit = name.trim().length > 0 && !submitting;
 
   const handleCancel = () => navigate(`/${encodeURIComponent(parentId)}/agents`);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !submitting) {
-        handleCancel();
-        return;
-      }
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) {
-        e.preventDefault();
-        void handleSubmit();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSubmit, submitting]);
-
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -305,6 +100,22 @@ function SubAgentForm({
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        handleCancel();
+        return;
+      }
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) {
+        e.preventDefault();
+        void handleSubmit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSubmit, submitting]);
 
   return (
     <div className="new-co-page">
@@ -330,37 +141,37 @@ function SubAgentForm({
           </label>
           <input
             id="new-sub-name"
-            className="new-co-name-input"
             type="text"
+            className="new-sub-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && canSubmit) {
-                e.preventDefault();
-                void handleSubmit();
-              }
-            }}
-            placeholder="Agent name"
+            placeholder="e.g. Researcher"
             autoFocus
+            maxLength={64}
+            disabled={submitting}
           />
         </section>
 
         <section className="new-sub-section">
-          <label className="new-sub-label" htmlFor="new-sub-prompt">
-            Identity
-            <span className="new-sub-optional"> · optional</span>
+          <label className="new-sub-label" htmlFor="new-sub-system">
+            Identity (optional)
           </label>
           <textarea
-            id="new-sub-prompt"
+            id="new-sub-system"
             className="new-sub-textarea"
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="Describe what this agent does. Leave blank to inherit from the parent."
-            rows={4}
+            placeholder="What does this agent do? Voice, scope, hard constraints…"
+            rows={5}
+            disabled={submitting}
           />
         </section>
 
-        {error && <div className="new-co-error">{error}</div>}
+        {error && (
+          <p className="new-sub-error" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="new-sub-actions">
           <button
@@ -368,35 +179,22 @@ function SubAgentForm({
             className="new-sub-cancel"
             onClick={handleCancel}
             disabled={submitting}
-            title="Esc"
           >
             Cancel
           </button>
           <button
             type="button"
-            className="new-co-submit"
-            onClick={handleSubmit}
+            className="new-sub-submit"
+            onClick={() => void handleSubmit()}
             disabled={!canSubmit}
-            aria-busy={submitting}
           >
-            {submitting ? (
-              <>
-                <Spinner size="sm" />
-                Spawning…
-              </>
-            ) : (
-              <>
-                Spawn agent <kbd className="new-co-kbd">↵</kbd>
-              </>
-            )}
+            {submitting ? "Spawning…" : "Spawn agent"}
           </button>
         </div>
       </div>
     </div>
   );
 }
-
-/* ── Small shared bits ───────────────────────────────────────────────── */
 
 function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
   return (
@@ -414,58 +212,5 @@ function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
       </svg>
       {label}
     </button>
-  );
-}
-
-function TemplateGridIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="2" y="2" width="5" height="5" rx="1" />
-      <rect x="9" y="2" width="5" height="5" rx="1" />
-      <rect x="2" y="9" width="5" height="5" rx="1" />
-      <rect x="9" y="9" width="5" height="5" rx="1" />
-    </svg>
-  );
-}
-
-function ArrowRight({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-    >
-      <path d="M5 3l4 4-4 4" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    >
-      <path d="M2 11l3.5-3.5L8 10l3-4 3 3M2 14h12" />
-    </svg>
   );
 }

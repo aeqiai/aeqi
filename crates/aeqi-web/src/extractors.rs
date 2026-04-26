@@ -84,6 +84,7 @@ mod tests {
             hosting: test_hosting(),
             twilio_auth_token: None,
             data_dir: std::path::PathBuf::from("/tmp/aeqi-test"),
+            default_blueprint_slug: "aeqi".to_string(),
             bootstrap_registry: std::sync::Arc::new(
                 crate::routes::integrations::BootstrapRegistry::new(),
             ),

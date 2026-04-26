@@ -554,24 +554,24 @@
   color: var(--text-secondary);
 }
 
-.bp-detail-spawn {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.bp-detail-spawn-label {
+.bp-detail-cta-eyebrow {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
-.bp-detail-spawn-hint {
-  margin: 0;
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.45;
+.bp-detail-cta-line {
+  margin: 4px 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.bp-detail-cta-link {
+  display: block;
+  text-decoration: none;
 }
 
 /* ── Responsive ──────────────────────────────────── */

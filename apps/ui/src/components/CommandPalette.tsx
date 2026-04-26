@@ -106,11 +106,11 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           ]
         : [
             {
-              id: "nav-new",
-              label: "New agent",
-              hint: "Create",
+              id: "nav-start",
+              label: "Start a Company",
+              hint: "Launch",
               section: "Navigate",
-              action: () => go("/new"),
+              action: () => go("/start"),
             },
           ];
 

@@ -125,7 +125,7 @@ export function useGlobalShortcuts({
       }
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/new");
+        navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/start");
         return;
       }
       if (e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {

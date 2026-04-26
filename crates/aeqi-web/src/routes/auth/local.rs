@@ -165,54 +165,10 @@ async fn signup_handler(
     }
     let _ = accounts.generate_invite_codes(&user.id, state.auth_config.invite_codes_per_user);
 
-    // Auto-create a root agent for the user.
-    // Use first name + short user ID suffix to avoid collisions ("Alice-a3f1").
-    let first_name = name.split_whitespace().next().unwrap_or(name);
-    let suffix = &user.id[..std::cmp::min(4, user.id.len())];
-    let root_name = format!("{first_name}-{suffix}");
-    // Await root agent creation so the user_access link exists before the first API call.
-    // This ensures allowed_roots is populated when the auth middleware resolves scope.
-    let mut root_id: Option<String> = None;
-    match state
-        .ipc
-        .cmd_with("create_root", serde_json::json!({ "name": root_name }))
-        .await
-    {
-        Ok(resp) => {
-            if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
-                // Store UUID in user_access for scoping; fall back to name.
-                let agent_id = resp
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or(&root_name);
-                root_id = Some(agent_id.to_string());
-                if let Err(e) = accounts.add_director(&user.id, agent_id) {
-                    tracing::warn!(
-                        "signup: failed to link root agent '{}' (id={}) to user {}: {e}",
-                        root_name,
-                        agent_id,
-                        user.id
-                    );
-                }
-            } else {
-                let err = resp
-                    .get("error")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                tracing::warn!(
-                    "signup: create root agent '{}' for user {} failed: {err}",
-                    root_name,
-                    user.id
-                );
-            }
-        }
-        Err(e) => {
-            tracing::warn!(
-                "signup: create root agent IPC failed for user {}: {e}",
-                user.id
-            );
-        }
-    }
+    // No auto-creation of a root agent here. New users land on `/start`
+    // and explicitly pick a Blueprint to spawn their first company —
+    // that act consumes their free trial slot. Auto-seeding hid the
+    // trial decision and littered accounts with hollow agents.
 
     // Generate verification code and send email.
     let code = accounts.set_verify_code(&user.id).unwrap_or_default();
@@ -245,8 +201,6 @@ async fn signup_handler(
             "token": token,
             "pending_verification": true,
             "user": user,
-            "root": &root_name,
-            "root_id": root_id,
         }))
         .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),

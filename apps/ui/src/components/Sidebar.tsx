@@ -518,7 +518,7 @@ export default function AgentTree() {
             onSelectRoot={(a) =>
               handleSelectAgent({ id: a.id, name: a.name, model: a.model ?? undefined })
             }
-            onCreateRoot={() => navigate("/new")}
+            onCreateRoot={() => navigate("/start")}
           />
         )}
         {/* Tree hides while the picker takes over the rail space — keeps the

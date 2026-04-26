@@ -10,7 +10,30 @@ import type { CompanyTemplate } from "@/lib/types";
  * light here (name + short description); the backend is the source of truth
  * for the actual agents/events/ideas/quests that get spawned.
  */
+/** Slug of the canonical default Blueprint. Mirrors the runtime's
+ *  `templates::DEFAULT_BLUEPRINT_SLUG` and the `[blueprints] default`
+ *  config — sourced here so unauthed/offline visitors of `/start` see
+ *  the same default the server would resolve. */
+export const DEFAULT_TEMPLATE_SLUG = "aeqi";
+
 export const FALLBACK_TEMPLATES: CompanyTemplate[] = [
+  {
+    slug: "aeqi",
+    name: "aeqi",
+    tagline: "A single agent. Yours. Start anywhere.",
+    description:
+      "The minimal company — one root agent, no scaffolding, no opinions. Pick this if you want to shape your company by hand: name it, talk to it, add agents/ideas/events/quests as you go.",
+    tags: ["minimal", "default"],
+    seed_agents: [],
+    seed_events: [{ pattern: "session:start", name: "Session bootstrap" }],
+    seed_ideas: [{ name: "Operating principles", tags: ["identity", "priorities"] }],
+    seed_quests: [],
+    root: {
+      name: "aeqi",
+      model: "anthropic/claude-sonnet-4.6",
+      color: "#0a0a0b",
+    },
+  },
   {
     slug: "solo-founder",
     name: "Solo Founder",

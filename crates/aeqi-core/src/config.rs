@@ -46,6 +46,36 @@ pub struct AEQIConfig {
     /// Hosting provider settings (local, managed, or none).
     #[serde(default)]
     pub hosting: HostingProviderConfig,
+    /// Blueprint catalog settings — currently just the default Blueprint
+    /// slug surfaced on `/start` when the user hasn't explicitly chosen one.
+    #[serde(default)]
+    pub blueprints: BlueprintsConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlueprintsConfig {
+    /// Slug of the Blueprint surfaced on `/start` when no `?blueprint=`
+    /// query param is set. The runtime ships with a fallback constant
+    /// (`templates::DEFAULT_BLUEPRINT_SLUG`) — operators override here
+    /// to point new users at a different starter Blueprint.
+    #[serde(default = "default_blueprint_slug")]
+    pub default: String,
+}
+
+impl Default for BlueprintsConfig {
+    fn default() -> Self {
+        Self {
+            default: default_blueprint_slug(),
+        }
+    }
+}
+
+fn default_blueprint_slug() -> String {
+    // Mirrors `aeqi_orchestrator::templates::DEFAULT_BLUEPRINT_SLUG`.
+    // Duplicated here so `aeqi-core` doesn't depend on the orchestrator
+    // crate; the orchestrator test suite verifies the slug exists in
+    // the shipped catalog.
+    "aeqi".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

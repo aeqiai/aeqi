@@ -18,6 +18,7 @@ export interface ShellSurface {
   isBlueprints: boolean;
   isEconomy: boolean;
   isDrive: boolean;
+  isStart: boolean;
   isUserSession: boolean;
   /** Session id from /sessions/:sessionId (user-scope inbox view). */
   userSessionId: string | null;
@@ -36,8 +37,10 @@ export function useShellSurface(
     const isSettings = path === "/settings" || path === "/profile" || tab === "profile";
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
+    const isStart = path === "/start";
     const isDrive = tab === "drive";
-    const isHome = !agentId && !isSettings && !isBlueprints && !isEconomy && !isUserSession;
+    const isHome =
+      !agentId && !isSettings && !isBlueprints && !isEconomy && !isStart && !isUserSession;
 
     return {
       isHome,
@@ -45,6 +48,7 @@ export function useShellSurface(
       isBlueprints,
       isEconomy,
       isDrive,
+      isStart,
       isUserSession,
       userSessionId,
     };

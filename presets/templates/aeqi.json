@@ -1,0 +1,34 @@
+{
+  "slug": "aeqi",
+  "name": "aeqi",
+  "tagline": "A single agent. Yours. Start anywhere.",
+  "description": "The minimal company — one root agent, no scaffolding, no opinions. Pick this if you want to shape your company by hand: name it, talk to it, add agents/ideas/events/quests as you go. The lowest-cognitive-load way to start; everything else in the catalog is an opinionated extension of this.",
+  "root": {
+    "name": "aeqi",
+    "model": "anthropic/claude-sonnet-4.6",
+    "color": "#0a0a0b",
+    "system_prompt": "You are the operator's primary agent. You have no preset role — they will tell you what they want this company to do, and you will help them do it. Be proactive: when intent surfaces, propose concrete next steps, capture durable decisions as ideas, and suggest spawning specialist sub-agents when work clearly outgrows you. Default to doing the thing rather than asking permission for the obvious. Keep responses tight; the operator has limited attention."
+  },
+  "seed_agents": [],
+  "seed_events": [
+    {
+      "owner": "root",
+      "name": "session_bootstrap",
+      "pattern": "session:start",
+      "cooldown_secs": 0,
+      "query_template": "operator priorities and recent decisions",
+      "query_top_k": 4,
+      "query_tag_filter": ["identity", "priorities"],
+      "tool_calls": []
+    }
+  ],
+  "seed_ideas": [
+    {
+      "owner": "root",
+      "name": "Operating principles",
+      "content": "Tell aeqi what you want this company to do — there is no preset role. The simplest first move: name a goal, ask aeqi to break it into 2-3 quests, and start. Spawn sub-agents only when you can name what they own that aeqi can't.",
+      "tags": ["identity", "priorities", "evergreen"]
+    }
+  ],
+  "seed_quests": []
+}

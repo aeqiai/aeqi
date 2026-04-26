@@ -5,14 +5,11 @@ import { userEvent } from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import BlueprintsPage from "@/pages/BlueprintsPage";
 import BlueprintDetailPage from "@/pages/BlueprintDetailPage";
-import SpawnTemplateModal from "@/components/SpawnTemplateModal";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import { api } from "@/lib/api";
-import { useAuthStore } from "@/store/auth";
 
 const SOLO = FALLBACK_TEMPLATES.find((t) => t.slug === "solo-founder")!;
 
-// Both routes are wired so card-click navigation can be exercised end-to-end.
 const renderApp = (entry = "/blueprints") =>
   render(
     <StrictMode>
@@ -74,13 +71,14 @@ describe("BlueprintsPage (catalog)", () => {
 
     await user.click(await screen.findByText("Solo Founder"));
 
-    // The detail page renders the blueprint name as an h1, the seed
-    // counts list, and the spawn form's Company name input.
+    // Detail page renders the blueprint name as h1, the seed counts list,
+    // and the "Use this Blueprint" CTA — but no spawn form (that lives
+    // exclusively on /start now).
     expect(
       await screen.findByRole("heading", { level: 1, name: "Solo Founder" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("What this blueprint seeds")).toBeInTheDocument();
-    expect(screen.getByLabelText("Company name")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /use this blueprint/i })).toBeInTheDocument();
   });
 });
 
@@ -117,9 +115,8 @@ describe("BlueprintDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("anonymous spawn click redirects to /signup with the slug as ?next=", async () => {
+  it("'Use this Blueprint' CTA navigates to /start with the slug pre-loaded", async () => {
     vi.spyOn(api, "getTemplate").mockResolvedValue({ ok: true, template: SOLO });
-    useAuthStore.setState({ token: null, authMode: "secret" });
     const user = userEvent.setup();
 
     let landed: string | null = null;
@@ -134,84 +131,18 @@ describe("BlueprintDetailPage", () => {
         <MemoryRouter initialEntries={["/blueprints/solo-founder"]}>
           <Routes>
             <Route path="/blueprints/:slug" element={<BlueprintDetailPage />} />
-            <Route path="/signup" element={<Probe />} />
+            <Route path="/start" element={<Probe />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
     );
 
     await screen.findByRole("heading", { level: 1, name: "Solo Founder" });
-    await user.click(screen.getByRole("button", { name: /sign up to start/i }));
+    await user.click(screen.getByRole("button", { name: /use this blueprint/i }));
 
     await waitFor(() => {
       expect(landed).not.toBeNull();
     });
-    expect(landed).toBe("/signup?next=/blueprints/solo-founder");
-  });
-});
-
-describe("SpawnTemplateModal", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("calls api.spawnTemplate and invokes onSpawned with the new root id", async () => {
-    const spawn = vi.spyOn(api, "spawnTemplate").mockResolvedValue({
-      ok: true,
-      root_agent_id: "agent-42",
-    });
-    const onSpawned = vi.fn();
-    const user = userEvent.setup();
-
-    render(
-      <StrictMode>
-        <MemoryRouter>
-          <SpawnTemplateModal
-            open
-            template={FALLBACK_TEMPLATES[0]}
-            onClose={() => {}}
-            onSpawned={onSpawned}
-          />
-        </MemoryRouter>
-      </StrictMode>,
-    );
-
-    await user.click(screen.getByRole("button", { name: /start company/i }));
-
-    await waitFor(() => {
-      expect(spawn).toHaveBeenCalledWith({
-        template: "solo-founder",
-        name: "Solo Founder",
-      });
-      expect(onSpawned).toHaveBeenCalledWith("agent-42");
-    });
-  });
-
-  it("surfaces the error message when spawn fails", async () => {
-    vi.spyOn(api, "spawnTemplate").mockRejectedValue(new Error("template not found"));
-    const user = userEvent.setup();
-
-    render(
-      <StrictMode>
-        <MemoryRouter>
-          <SpawnTemplateModal
-            open
-            template={FALLBACK_TEMPLATES[0]}
-            onClose={() => {}}
-            onSpawned={() => {}}
-          />
-        </MemoryRouter>
-      </StrictMode>,
-    );
-
-    await user.click(screen.getByRole("button", { name: /start company/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/template not found/i)).toBeInTheDocument();
-    });
+    expect(landed).toBe("/start?blueprint=solo-founder");
   });
 });

@@ -253,12 +253,13 @@ describe("NewAgentPage smoke", () => {
     });
   });
 
-  it("renders root mode (no parent query) without loop errors", () => {
+  it("redirects to /start when accessed without ?parent (root mode is gone)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
         <MemoryRouter initialEntries={["/new"]}>
           <Routes>
             <Route path="/new" element={<NewAgentPage />} />
+            <Route path="/start" element={<div>start surface</div>} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,

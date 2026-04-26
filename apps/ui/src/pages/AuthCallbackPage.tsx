@@ -19,13 +19,15 @@ export default function AuthCallbackPage() {
 
     if (token) {
       handleOAuthCallback(token);
-      // Check if user needs onboarding
+      // Check if user needs onboarding — no companies → /start (the
+      // single launch surface) so they spend their trial slot
+      // intentionally. With companies → home.
       api
         .getMe()
         .then((me) => {
           const roots = (me.roots || me.companies) as unknown[] | undefined;
           if (!roots || roots.length === 0) {
-            navigate("/new", { replace: true });
+            navigate("/start", { replace: true });
           } else {
             navigate("/", { replace: true });
           }

@@ -564,6 +564,12 @@ export const api = {
   getTemplate: (slug: string) =>
     request<{ ok: boolean; template: CompanyTemplate }>(`/templates/${encodeURIComponent(slug)}`),
 
+  // Resolves the operator-configured default Blueprint
+  // (`[blueprints] default` in aeqi.toml). Used by `/start` when the
+  // user lands there without a `?blueprint=:slug` query param.
+  getDefaultTemplate: () =>
+    request<{ ok: boolean; template: CompanyTemplate }>("/templates/default"),
+
   spawnTemplate: (data: { template: string; name?: string }) =>
     request<{ ok: boolean; root_agent_id: string }>("/templates/spawn", {
       method: "POST",

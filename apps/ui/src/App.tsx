@@ -146,9 +146,13 @@ export default function App() {
                 <Routes>
                   {/* Standalone full-page routes — wizard-style surfaces
                       that intentionally do NOT inherit the shell. */}
-                  <Route path="new" element={<NewAgentPage />} />
                   <Route path="agents" element={<AgentsPage />} />
                   <Route path="change-password" element={<ChangePasswordPage />} />
+
+                  {/* /new is now sub-agent-only (`/new?parent=:id`). The
+                      no-parent variant (root creation) self-redirects
+                      to /start from inside NewAgentPage. */}
+                  <Route path="new" element={<NewAgentPage />} />
 
                   {/* Home dashboard + profile + every agent at
                       /:agentId/... share the same shell — AppLayout
@@ -160,6 +164,11 @@ export default function App() {
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="settings" element={null} />
+                    {/* /start renders inside the shell — Company
+                        creation is part of the app, not a separate
+                        wizard. AppLayout dispatches StartPage when
+                        path === "/start". */}
+                    <Route path="start" element={null} />
                     {/* User-scope inbox session viewer: opens a single
                         awaiting session inline at user scope, with the
                         sessions rail showing all pending items across

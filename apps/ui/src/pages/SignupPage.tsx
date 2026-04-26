@@ -128,7 +128,8 @@ export default function SignupPage() {
       template || undefined,
     );
     if (result === "pending") setStep("verify");
-    else if (result === "verified") navigate(getRedirectAfterAuth(params), { replace: true });
+    else if (result === "verified")
+      navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
   };
 
   const handleCodeChange = (index: number, value: string) => {
@@ -145,7 +146,7 @@ export default function SignupPage() {
         setVerifyLoading(false);
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate(getRedirectAfterAuth(params), { replace: true });
+          navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
         } else setVerifyError("Invalid or expired code");
       });
     }
@@ -167,7 +168,7 @@ export default function SignupPage() {
         setVerifyLoading(false);
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          navigate(getRedirectAfterAuth(params), { replace: true });
+          navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
         } else setVerifyError("Invalid or expired code");
       });
     }

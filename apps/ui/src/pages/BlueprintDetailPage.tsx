@@ -1,37 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
-import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import { useUIStore } from "@/store/ui";
-import { Spinner } from "@/components/ui";
+import { Button, Spinner } from "@/components/ui";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { BlueprintRootChip } from "@/components/blueprints/BlueprintRootChip";
 import { BlueprintSeedSamples } from "@/components/blueprints/BlueprintSeedSamples";
 import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
-import { BlueprintSpawnForm } from "@/components/blueprints/BlueprintSpawnForm";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 
 /**
- * `/blueprints/:slug` — dedicated, full-width detail surface for one blueprint.
- *
- * Replaces the previous right-side preview pane. The catalog page now
- * navigates here on card click; closing returns to `/blueprints`. The
- * URL is the source of truth for which blueprint is being viewed —
- * deep links and back/forward both work.
+ * `/blueprints/:slug` — pure inspect surface. Read what a Blueprint is,
+ * see the tree, scan the seed events/ideas/quests. The actual launch
+ * happens at `/start?blueprint=:slug` — separating inspect from launch
+ * keeps the launch ceremony deliberate (named, payment-aware, single
+ * primary CTA) and the inspect page free of form chrome.
  */
 export default function BlueprintDetailPage() {
   const { slug = "" } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const token = useAuthStore((s) => s.token);
-  const authMode = useAuthStore((s) => s.authMode);
-  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
-  const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const allAgents = useDaemonStore((s) => s.agents);
 
   const importIntoId = searchParams.get("import_into") || null;
@@ -40,14 +31,10 @@ export default function BlueprintDetailPage() {
     [allAgents, importIntoId],
   );
   const isImportMode = !!importIntoId;
-  const isAuthed = authMode === "none" || !!token;
 
   const [template, setTemplate] = useState<CompanyTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = template?.name ? `${template.name} · Blueprints · aeqi` : "Blueprint · aeqi";
@@ -91,38 +78,6 @@ export default function BlueprintDetailPage() {
     };
   }, [slug]);
 
-  useEffect(() => {
-    setCompanyName(template?.name || "");
-    setSubmitError(null);
-  }, [template?.slug, template?.name]);
-
-  const handleSpawn = useCallback(async () => {
-    if (!template) return;
-    if (!isAuthed) {
-      navigate(`/signup?next=/blueprints/${encodeURIComponent(template.slug)}`);
-      return;
-    }
-    const trimmed = companyName.trim();
-    if (!trimmed) {
-      setSubmitError("Pick a name for your company.");
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const resp = await api.spawnTemplate({ template: template.slug, name: trimmed });
-      const rootId = (resp as { root_agent_id?: string })?.root_agent_id;
-      if (!rootId) throw new Error("Spawn returned no root agent id.");
-      setActiveRoot(rootId);
-      await fetchAgents();
-      navigate(`/${encodeURIComponent(rootId)}/sessions`);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Could not spawn the blueprint.";
-      setSubmitError(msg);
-      setSubmitting(false);
-    }
-  }, [template, isAuthed, companyName, setActiveRoot, fetchAgents, navigate]);
-
   if (loading && !template) {
     return (
       <div className="bp-detail-page">
@@ -147,6 +102,10 @@ export default function BlueprintDetailPage() {
     );
   }
 
+  const launchHref = isImportMode
+    ? `/blueprints/${encodeURIComponent(template.slug)}?import_into=${encodeURIComponent(importIntoId ?? "")}`
+    : `/start?blueprint=${encodeURIComponent(template.slug)}`;
+
   return (
     <div className="bp-detail-page">
       <BlueprintDetailBackLink />
@@ -155,7 +114,7 @@ export default function BlueprintDetailPage() {
         <div className="bp-import-banner" role="status">
           <span className="bp-import-banner-eyebrow">Import mode</span>
           <p className="bp-import-banner-line">
-            Picking this blueprint will merge its seed agents, ideas, events, and quests into{" "}
+            Picking this Blueprint will merge its seed agents, ideas, events, and quests into{" "}
             <strong>{importTarget?.name || "the selected agent"}</strong>&rsquo;s tree once the
             server merge endpoint lands.
           </p>
@@ -186,17 +145,26 @@ export default function BlueprintDetailPage() {
         </section>
 
         <aside className="bp-detail-page-spawn">
-          <BlueprintSpawnForm
-            template={template}
-            companyName={companyName}
-            onCompanyNameChange={setCompanyName}
-            onSpawn={handleSpawn}
-            submitting={submitting}
-            submitError={submitError}
-            isAuthed={isAuthed}
-            importMode={isImportMode}
-            importTargetName={importTarget?.name || null}
-          />
+          <p className="bp-detail-cta-eyebrow">Use this Blueprint</p>
+          <p className="bp-detail-cta-line">
+            {isImportMode
+              ? "Importing into an existing agent — merge endpoint coming soon."
+              : "Take it to /start, name your Company, and launch."}
+          </p>
+          <Link to={launchHref} className="bp-detail-cta-link" aria-disabled={isImportMode}>
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={isImportMode}
+              onClick={(e) => {
+                if (isImportMode) e.preventDefault();
+              }}
+            >
+              {isImportMode ? "Coming soon" : "Use this Blueprint →"}
+            </Button>
+          </Link>
         </aside>
       </div>
     </div>

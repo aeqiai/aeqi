@@ -20,6 +20,7 @@ import type { Agent } from "@/lib/types";
 
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
@@ -144,8 +145,16 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
-  const { isHome, isSettings, isBlueprints, isEconomy, isDrive, isUserSession, userSessionId } =
-    surface;
+  const {
+    isHome,
+    isSettings,
+    isBlueprints,
+    isEconomy,
+    isDrive,
+    isStart,
+    isUserSession,
+    userSessionId,
+  } = surface;
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
   // No-tab URLs collapse to tab="sessions" so /:agentId renders the Inbox
@@ -164,6 +173,7 @@ export default function AppLayout() {
   }
 
   const mainContent = (() => {
+    if (isStart) return <StartPage />;
     if (isUserSession && userSessionId) return <UserInboxSessionView sessionId={userSessionId} />;
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
@@ -178,14 +188,17 @@ export default function AppLayout() {
     (!isDrive &&
       !isSettings &&
       !isHome &&
+      !isStart &&
       !isBlueprints &&
       !isEconomy &&
       effectiveTab === "sessions");
   const showComposer = sessionsMounted;
   // inbox-mode: at / and /sessions/:id (user scope) — items across all agents.
   // agent-mode: at /:agentId/sessions[/...] — that agent's sessions only.
-  const inboxRail = (isHome || isUserSession) && !isSettings && !isBlueprints && !isEconomy;
-  const agentRail = effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome;
+  const inboxRail =
+    (isHome || isUserSession) && !isSettings && !isBlueprints && !isEconomy && !isStart;
+  const agentRail =
+    effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome && !isStart;
   const showSessionsRail = inboxRail || agentRail;
   const railMode: "inbox" | "agent" = inboxRail ? "inbox" : "agent";
 
