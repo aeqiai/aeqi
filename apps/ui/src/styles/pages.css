@@ -1829,14 +1829,6 @@
   text-align: right;
 }
 
-.account-device-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-2);
-}
-
 .account-device-list {
   display: flex;
   flex-direction: column;
@@ -1847,21 +1839,41 @@
 .account-device-item {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  transition: border-color 0.15s ease;
+}
+
+.account-device-item:hover {
+  border-color: var(--border-strong, var(--border));
 }
 
 .account-device-current {
   border-color: var(--accent);
+  background: var(--accent-soft, var(--surface));
+}
+
+.account-device-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.account-device-current .account-device-icon {
+  color: var(--accent);
 }
 
 .account-device-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -1870,8 +1882,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text);
+  font-size: var(--font-size-sm);
 }
 
 .account-device-badge {
@@ -1889,7 +1902,26 @@
 
 .account-device-meta {
   font-size: var(--font-size-xs);
+  color: var(--text);
+}
+
+.account-device-meta--dim {
   color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.account-device-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.account-device-actions-hint {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
 }
 
 .account-invites-desc {

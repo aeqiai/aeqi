@@ -48,15 +48,33 @@ function formatAgo(iso: string): string {
   }
 }
 
-function describeUserAgent(ua?: string): string {
-  if (!ua) return "Unknown device";
+type DeviceKind = "macbook" | "windows" | "linux" | "iphone" | "ipad" | "android" | "unknown";
+
+function classifyDevice(ua?: string): { kind: DeviceKind; os: string; browser: string } {
+  if (!ua) return { kind: "unknown", os: "Unknown OS", browser: "Browser" };
   const lower = ua.toLowerCase();
+
+  let kind: DeviceKind = "unknown";
   let os = "Unknown OS";
-  if (lower.includes("mac os") || lower.includes("macintosh")) os = "macOS";
-  else if (lower.includes("windows")) os = "Windows";
-  else if (lower.includes("android")) os = "Android";
-  else if (lower.includes("iphone") || lower.includes("ios")) os = "iOS";
-  else if (lower.includes("linux")) os = "Linux";
+  if (lower.includes("iphone")) {
+    kind = "iphone";
+    os = "iOS";
+  } else if (lower.includes("ipad")) {
+    kind = "ipad";
+    os = "iPadOS";
+  } else if (lower.includes("android")) {
+    kind = "android";
+    os = "Android";
+  } else if (lower.includes("mac os") || lower.includes("macintosh")) {
+    kind = "macbook";
+    os = "macOS";
+  } else if (lower.includes("windows")) {
+    kind = "windows";
+    os = "Windows";
+  } else if (lower.includes("linux")) {
+    kind = "linux";
+    os = "Linux";
+  }
 
   let browser = "Browser";
   if (lower.includes("edg/")) browser = "Edge";
@@ -64,7 +82,128 @@ function describeUserAgent(ua?: string): string {
   else if (lower.includes("firefox/")) browser = "Firefox";
   else if (lower.includes("safari/") && !lower.includes("chrome/")) browser = "Safari";
 
+  return { kind, os, browser };
+}
+
+function describeUserAgent(ua?: string): string {
+  const { browser, os } = classifyDevice(ua);
   return `${browser} on ${os}`;
+}
+
+function DeviceIcon({ kind }: { kind: DeviceKind }) {
+  switch (kind) {
+    case "macbook":
+      return (
+        <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+          <rect
+            x="6"
+            y="10"
+            width="36"
+            height="22"
+            rx="2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <rect x="9" y="13" width="30" height="16" rx="0.6" fill="currentColor" opacity="0.06" />
+          <path
+            d="M3 34 H45 L43 38 H5 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <line
+            x1="20"
+            y1="36"
+            x2="28"
+            y2="36"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "windows":
+    case "linux":
+      return (
+        <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+          <rect
+            x="5"
+            y="9"
+            width="38"
+            height="24"
+            rx="2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <rect x="8" y="12" width="32" height="18" rx="0.6" fill="currentColor" opacity="0.06" />
+          <path d="M18 39 L30 39" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M24 33 L24 39" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
+      );
+    case "iphone":
+    case "android":
+      return (
+        <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+          <rect
+            x="15"
+            y="6"
+            width="18"
+            height="36"
+            rx="3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <rect x="17" y="10" width="14" height="26" rx="0.6" fill="currentColor" opacity="0.06" />
+          <circle cx="24" cy="39" r="1.2" fill="currentColor" />
+          <line
+            x1="22"
+            y1="8"
+            x2="26"
+            y2="8"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "ipad":
+      return (
+        <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+          <rect
+            x="9"
+            y="6"
+            width="30"
+            height="36"
+            rx="3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <rect x="11" y="10" width="26" height="26" rx="0.6" fill="currentColor" opacity="0.06" />
+          <circle cx="24" cy="39" r="1.2" fill="currentColor" />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+          <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          <text
+            x="24"
+            y="29"
+            textAnchor="middle"
+            fontSize="14"
+            fontWeight="500"
+            fill="currentColor"
+          >
+            ?
+          </text>
+        </svg>
+      );
+  }
 }
 
 /**
@@ -147,59 +286,68 @@ export default function DevicesPanel() {
   return (
     <>
       <div className="account-field-lg">
-        <div className="account-device-header">
-          <div>
-            <label className="account-field-label">Active sessions</label>
-            <p className="account-field-desc">
-              Devices currently signed into your account. Revoking a session forces that device to
-              sign in again.
-            </p>
-          </div>
-          {otherSessionCount > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={revokeOthers}
-              loading={revokingOthers}
-              disabled={revokingOthers}
-            >
-              Sign out other sessions
-            </Button>
-          )}
-        </div>
+        <label className="account-field-label">Active sessions</label>
+        <p className="account-field-desc">
+          Devices currently signed into your account. Revoking a session forces that device to sign
+          in again.
+        </p>
 
         {!loaded ? null : sessions.length === 0 ? (
           <div className="account-activity-empty">No active sessions.</div>
         ) : (
           <div className="account-device-list">
-            {sessions.map((s) => (
-              <div
-                key={s.jti}
-                className={`account-device-item ${s.current ? "account-device-current" : ""}`}
-              >
-                <div className="account-device-body">
-                  <div className="account-device-title">
-                    <span>{describeUserAgent(s.user_agent)}</span>
-                    {s.current && <span className="account-device-badge">This device</span>}
-                  </div>
-                  <div className="account-device-meta">
-                    {s.ip ? `${s.ip} · ` : ""}
-                    Last active {formatAgo(s.last_seen_at)} · Signed in {formatAgo(s.created_at)}
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => revoke(s.jti, !!s.current)}
-                  loading={busyJti === s.jti}
-                  disabled={busyJti !== null}
+            {sessions.map((s) => {
+              const { kind, os, browser } = classifyDevice(s.user_agent);
+              return (
+                <div
+                  key={s.jti}
+                  className={`account-device-item ${s.current ? "account-device-current" : ""}`}
                 >
-                  {s.current ? "Sign out" : "Revoke"}
-                </Button>
-              </div>
-            ))}
+                  <div className="account-device-icon" aria-hidden="true">
+                    <DeviceIcon kind={kind} />
+                  </div>
+                  <div className="account-device-body">
+                    <div className="account-device-title">
+                      <span>{os}</span>
+                      {s.current && <span className="account-device-badge">This device</span>}
+                    </div>
+                    <div className="account-device-meta">{browser}</div>
+                    <div className="account-device-meta account-device-meta--dim">
+                      {s.ip ? `${s.ip} · ` : ""}
+                      Last active {formatAgo(s.last_seen_at)} · Signed in {formatAgo(s.created_at)}
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => revoke(s.jti, !!s.current)}
+                    loading={busyJti === s.jti}
+                    disabled={busyJti !== null}
+                  >
+                    {s.current ? "Sign out" : "Revoke"}
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
+
+        <div className="account-device-actions">
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={revokeOthers}
+            loading={revokingOthers}
+            disabled={revokingOthers || otherSessionCount === 0}
+          >
+            Sign out all other devices
+          </Button>
+          <span className="account-device-actions-hint">
+            {otherSessionCount === 0
+              ? "Only this device is signed in."
+              : `${otherSessionCount} other ${otherSessionCount === 1 ? "device is" : "devices are"} signed in.`}
+          </span>
+        </div>
       </div>
 
       <div className="account-field-lg">
