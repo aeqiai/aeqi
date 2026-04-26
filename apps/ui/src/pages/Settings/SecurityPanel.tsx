@@ -356,7 +356,7 @@ export default function SecurityPanel() {
         <p className="account-field-desc">
           Permanently delete your account and all associated data. This cannot be undone.
         </p>
-        <Button variant="danger" className="account-danger-btn" onClick={handleDeleteAccount}>
+        <Button variant="secondary" className="account-danger-btn" onClick={handleDeleteAccount}>
           Delete account
         </Button>
       </div>

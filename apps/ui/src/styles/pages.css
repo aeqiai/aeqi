@@ -693,6 +693,14 @@
   max-width: 520px;
 }
 
+/* Cap the settings form column even when it sits inside .page-rail-content
+   (which clears the max-width). Forms with a 2-col name grid + lg inputs
+   read fine up to ~640px; past that the inputs sprawl across the screen
+   on wide monitors and the section stack feels disconnected. */
+.account-page.page-rail-content {
+  max-width: 640px;
+}
+
 /* ── Settings — vertical secondary rail layout ──────
  *
  * Two-column layout: secondary nav rail on the left, active section
@@ -998,9 +1006,14 @@
 
 .account-danger-btn {
   color: var(--color-error);
-  border-color: rgba(184, 92, 92, 0.3);
+  border-color: rgba(184, 92, 92, 0.35);
   margin-top: var(--space-2);
   font-size: var(--font-size-sm);
+}
+
+.account-danger-btn:not(:disabled):hover {
+  background: rgba(184, 92, 92, 0.08);
+  border-color: var(--color-error);
 }
 
 /* =========================================================================
