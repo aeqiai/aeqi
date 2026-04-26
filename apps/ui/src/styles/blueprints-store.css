@@ -1,7 +1,16 @@
 /* /blueprints — uses the shared `.page-rail-shell` two-column layout
    (defined in pages.css; same shell as /settings + agent settings).
-   Surface-specific bits below: catalog grid, list-view rows, detail
-   head band, seed list. */
+   Catalog page mirrors the ideas surface: `.ideas-list-head` band on
+   top with the toolbar inside, hairline-bottom; the actual content
+   (cards / list / empty state) lives below in `.bp-catalog-body` with
+   its own padding. Surface-specific bits below. */
+
+.bp-catalog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px 28px 56px;
+}
 
 .bp-error {
   font-size: 12px;
