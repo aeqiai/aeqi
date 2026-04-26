@@ -151,7 +151,7 @@ export function useSessionManager({
         .then((d: Record<string, unknown>) => {
           const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
           if (loaded.length > 0) {
-            setMessages((prev) => (loaded.length !== prev.length ? loaded : prev));
+            setMessages((prev) => (loaded.length > prev.length ? loaded : prev));
           }
         })
         .catch(() => {});

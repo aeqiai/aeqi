@@ -62,6 +62,8 @@ export function useWebSocketChat({
     setThinkingStart(null);
     setLiveStepOffset(0);
     if (wsSessionRef.current) setSessionStreaming(wsSessionRef.current, false);
+    wsRef.current = null;
+    wsSessionRef.current = null;
   }, [setSessionStreaming]);
 
   const commitMessage = useCallback(
@@ -125,10 +127,12 @@ export function useWebSocketChat({
         }
         if (state.status.kind === "complete") {
           commitMessage(state, false);
-          ws.close();
+          clearLiveState();
+          closeSilently(ws);
         } else if (state.status.kind === "error") {
           commitMessage(state, true);
-          ws.close();
+          clearLiveState();
+          closeSilently(ws);
         }
       };
 
