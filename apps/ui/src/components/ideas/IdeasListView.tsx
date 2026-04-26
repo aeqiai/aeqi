@@ -139,7 +139,13 @@ export default function IdeasListView({
 
   const fireNew = (name?: string) =>
     window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
-  const clearAll = () => onFilter({ search: "", scope: "all", tag: null, needsReview: false });
+  const clearAll = () => onFilter({ search: "", scope: "all", tags: [], needsReview: false });
+  const toggleTag = (tag: string) => {
+    const next = filter.tags.includes(tag)
+      ? filter.tags.filter((t) => t !== tag)
+      : [...filter.tags, tag];
+    onFilter({ tags: next });
+  };
 
   // Pre-compute "needs review" count for the popover badge, scoped to the
   // agent's full idea set so the toggle communicates real volume even when
@@ -169,12 +175,13 @@ export default function IdeasListView({
       label: SCOPE_LABELS[filter.scope] ?? filter.scope,
       onRemove: () => onFilter({ scope: "all" }),
     });
-  if (filter.tag)
+  for (const t of filter.tags) {
     activeChips.push({
-      key: "tag",
-      label: `#${filter.tag}`,
-      onRemove: () => onFilter({ tag: null }),
+      key: `tag:${t}`,
+      label: `#${t}`,
+      onRemove: () => onFilter({ tags: filter.tags.filter((x) => x !== t) }),
     });
+  }
   if (filter.needsReview)
     activeChips.push({
       key: "review",
@@ -284,7 +291,6 @@ export default function IdeasListView({
               </button>
             )}
           </span>
-          <span className="ideas-toolbar-divider" aria-hidden />
           <IdeasSortPopover
             sort={filter.sort}
             disabled={searchActive}
@@ -342,16 +348,20 @@ export default function IdeasListView({
         )}
         {tagCounts.length > 0 && (
           <div className="ideas-list-tags">
-            {tagCounts.slice(0, visibleTagCount).map(([t, n]) => (
-              <button
-                key={t}
-                type="button"
-                className={`ideas-list-tag${filter.tag === t ? " active" : ""}`}
-                onClick={() => onFilter({ tag: filter.tag === t ? null : t })}
-              >
-                {t} <span className="ideas-list-tag-count">{n}</span>
-              </button>
-            ))}
+            {tagCounts.slice(0, visibleTagCount).map(([t, n]) => {
+              const isActive = filter.tags.includes(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={isActive}
+                  className={`ideas-list-tag${isActive ? " active" : ""}`}
+                  onClick={() => toggleTag(t)}
+                >
+                  {t} <span className="ideas-list-tag-count">{n}</span>
+                </button>
+              );
+            })}
             {hiddenTagCount > 0 && (
               <button
                 type="button"

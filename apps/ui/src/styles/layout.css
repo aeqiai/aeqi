@@ -3688,15 +3688,6 @@
   flex: 1;
   min-width: 0;
 }
-/* Thin vertical hairline between the search field and the icon trio.
-   Stops the row from reading as a single uniform strip — the eye
-   parses it as "input · controls" instead of "five buttons". */
-.ideas-toolbar-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
-  margin: 0 2px;
-}
 /* Quiet meta label sometimes used inside the toolbar (graph view's
    nodes/edges count). Mono, tabular-nums, lives between the search
    field and the divider so the user can read it without reaching for
@@ -3711,11 +3702,11 @@
   white-space: nowrap;
   padding: 0 4px;
 }
-/* Square icon-button shell for sort / filter / view triggers.
-   Single visual language for all three so the user reads them as a
-   set. 30px square keeps them aligned to the search input's effective
-   height. Active and open states share the same accent treatment so
-   the trio communicates state through one signal vocabulary. */
+/* Square icon-button shell for sort / filter / view triggers. Sits
+   in the same outlined-button language as `.ideas-toolbar-new` so the
+   row reads as a control panel of four buttons + a search input —
+   each affordance pre-announced as clickable at rest, no hover
+   required. 30px keeps them aligned to the search input height. */
 .ideas-toolbar-btn {
   position: relative;
   display: inline-flex;
@@ -3725,8 +3716,8 @@
   height: 30px;
   padding: 0;
   color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
@@ -3741,7 +3732,8 @@
 }
 .ideas-toolbar-btn:hover {
   color: var(--text-primary);
-  background: var(--state-hover);
+  background: var(--bg-row);
+  border-color: var(--border-hover);
 }
 .ideas-toolbar-btn:hover svg {
   opacity: 1;
@@ -3749,10 +3741,11 @@
 .ideas-toolbar-btn.open {
   color: var(--accent);
   background: var(--bg-base);
-  border-color: var(--border);
+  border-color: var(--accent-dim);
 }
 .ideas-toolbar-btn.active {
   color: var(--accent);
+  border-color: var(--accent-dim);
 }
 .ideas-toolbar-btn.disabled,
 .ideas-toolbar-btn:disabled {

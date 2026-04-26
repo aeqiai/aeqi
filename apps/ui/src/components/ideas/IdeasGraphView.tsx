@@ -37,7 +37,7 @@ export default function IdeasGraphView({
 }: IdeasGraphViewProps) {
   const hasFilter =
     filter.scope !== "all" ||
-    filter.tag !== null ||
+    filter.tags.length > 0 ||
     filter.search.trim() !== "" ||
     filter.needsReview;
   const searchActive = filter.search.trim() !== "";
@@ -100,7 +100,6 @@ export default function IdeasGraphView({
           <span className="ideas-toolbar-meta" title={`${nodeCount} nodes · ${edgeCount} links`}>
             {countLabel}
           </span>
-          <span className="ideas-toolbar-divider" aria-hidden />
           <IdeasSortPopover
             sort={filter.sort}
             disabled={searchActive}
@@ -148,7 +147,7 @@ export default function IdeasGraphView({
               hasFilter ? (
                 <Button
                   variant="ghost"
-                  onClick={() => onFilterChange({ scope: "all", tag: null, search: "" })}
+                  onClick={() => onFilterChange({ scope: "all", tags: [], search: "" })}
                 >
                   Reset filters
                 </Button>

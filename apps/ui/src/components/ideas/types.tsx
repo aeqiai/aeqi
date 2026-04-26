@@ -24,10 +24,31 @@ export const SORT_LABELS: Record<SortMode, string> = {
 export type FilterState = {
   scope: IdeasFilter;
   search: string;
-  tag: string | null;
+  tags: string[];
   sort: SortMode;
   needsReview: boolean;
 };
+
+// Tags are stored in the URL as a single comma-separated `?tags=a,b,c`
+// param, parsed back into a deduped array. Empty / missing → empty array
+// (nothing filtered). Whitespace-only entries are dropped so a stray
+// comma doesn't produce a phantom tag chip.
+export function parseTags(raw: string | null): string[] {
+  if (!raw) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of raw.split(",")) {
+    const trimmed = t.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+export function serializeTags(tags: string[]): string {
+  return tags.join(",");
+}
 
 // Bucketed recency epochs — Linear/Things/Notion all chunk lists this way
 // because relative time alone ("3w") doesn't read as a *journal*. The last
