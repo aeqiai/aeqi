@@ -176,11 +176,12 @@ impl ClaudeCodeExecutor {
 }
 
 fn find_claude_binary() -> Result<PathBuf> {
-    let candidates = [
-        PathBuf::from("/home/claudedev/.local/bin/claude"),
-        PathBuf::from("/usr/local/bin/claude"),
-        PathBuf::from("/usr/bin/claude"),
-    ];
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        candidates.push(home.join(".local/bin/claude"));
+    }
+    candidates.push(PathBuf::from("/usr/local/bin/claude"));
+    candidates.push(PathBuf::from("/usr/bin/claude"));
 
     for path in &candidates {
         if path.exists() {

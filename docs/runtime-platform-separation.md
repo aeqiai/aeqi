@@ -80,13 +80,13 @@ The first separation cut is in place.
 
 Shipped:
 
-- backend bootstrap explicitly reports `app_mode: runtime` from the open-source runtime [auth.rs](/home/claudedev/aeqi/crates/aeqi-web/src/routes/auth.rs:128)
-- backend bootstrap explicitly reports `app_mode: platform` from the hosted control plane [server.rs](/home/claudedev/aeqi-platform/src/server.rs:408)
-- the shared UI now renders a mode-aware route tree so platform-only pages stay out of the runtime shell [App.tsx](/home/claudedev/aeqi/apps/ui/src/App.tsx:62)
-- company routes now stay available in both runtime and platform mode, and legacy `/workspace` redirects to `/company` [App.tsx](/home/claudedev/aeqi/apps/ui/src/App.tsx:72)
-- the left navigation now treats company selection/settings as runtime-native instead of replacing them with `Workspace` terminology [AppLayout.tsx](/home/claudedev/aeqi/apps/ui/src/components/AppLayout.tsx:71)
-- generic API requests, websocket connections, and chat streaming now carry the selected company in both modes [api.ts](/home/claudedev/aeqi/apps/ui/src/lib/api.ts:46) [useDaemonSocket.ts](/home/claudedev/aeqi/apps/ui/src/hooks/useDaemonSocket.ts:26) [useWebSocket.ts](/home/claudedev/aeqi/apps/ui/src/hooks/useWebSocket.ts:84) [AgentSessionView.tsx](/home/claudedev/aeqi/apps/ui/src/components/AgentSessionView.tsx:1003)
-- the shared company page now drops hosted account API key assumptions when running in self-hosted/runtime mode [CompanyPage.tsx](/home/claudedev/aeqi/apps/ui/src/pages/CompanyPage.tsx:69)
+- backend bootstrap explicitly reports `app_mode: runtime` from the open-source runtime [auth.rs](crates/aeqi-web/src/routes/auth.rs:128)
+- backend bootstrap explicitly reports `app_mode: platform` from the hosted control plane [server.rs](aeqi-platform/src/server.rs:408)
+- the shared UI now renders a mode-aware route tree so platform-only pages stay out of the runtime shell [App.tsx](apps/ui/src/App.tsx:62)
+- company routes now stay available in both runtime and platform mode, and legacy `/workspace` redirects to `/company` [App.tsx](apps/ui/src/App.tsx:72)
+- the left navigation now treats company selection/settings as runtime-native instead of replacing them with `Workspace` terminology [AppLayout.tsx](apps/ui/src/components/AppLayout.tsx:71)
+- generic API requests, websocket connections, and chat streaming now carry the selected company in both modes [api.ts](apps/ui/src/lib/api.ts:46) [useDaemonSocket.ts](apps/ui/src/hooks/useDaemonSocket.ts:26) [useWebSocket.ts](apps/ui/src/hooks/useWebSocket.ts:84) [AgentSessionView.tsx](apps/ui/src/components/AgentSessionView.tsx:1003)
+- the shared company page now drops hosted account API key assumptions when running in self-hosted/runtime mode [CompanyPage.tsx](apps/ui/src/pages/CompanyPage.tsx:69)
 
 Still deferred:
 
@@ -213,7 +213,7 @@ Target state:
 
 ### 3. Placement and Direct Runtime DB Mutation
 
-The host runtime manager currently edits runtime SQLite state directly [host.rs](/home/claudedev/aeqi-platform/src/host.rs:304).
+The host runtime manager currently edits runtime SQLite state directly [host.rs](aeqi-platform/src/host.rs:304).
 
 That weakens the substrate.
 

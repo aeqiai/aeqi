@@ -43,8 +43,16 @@ struct HookDef {
     command: String,
 }
 
+/// Locate the `scripts/` directory relative to the user-or-repo root.
+/// Honors `AEQI_SCRIPTS_DIR` first; falls back to `$CWD/scripts` so that
+/// running from a clone "just works."
 fn scripts_dir() -> PathBuf {
-    PathBuf::from("/home/claudedev/aeqi/scripts")
+    if let Ok(custom) = std::env::var("AEQI_SCRIPTS_DIR") {
+        return PathBuf::from(custom);
+    }
+    std::env::current_dir()
+        .map(|cwd| cwd.join("scripts"))
+        .unwrap_or_else(|_| PathBuf::from("scripts"))
 }
 
 fn find_settings() -> Result<PathBuf> {
@@ -117,8 +125,7 @@ pub(crate) async fn cmd_hooks_test(script: &str, input: Option<&str>, tool: &str
         }
     }
 
-    let default_input =
-        r#"{"file_path":"/home/claudedev/aeqi/crates/aeqi-core/src/lib.rs"}"#.to_string();
+    let default_input = r#"{"file_path":"crates/aeqi-core/src/lib.rs"}"#.to_string();
     let tool_input = input.unwrap_or(&default_input);
 
     println!("Script:  {}", script_path.display());
@@ -130,7 +137,6 @@ pub(crate) async fn cmd_hooks_test(script: &str, input: Option<&str>, tool: &str
     let output = Command::new(&script_path)
         .env("CLAUDE_TOOL_INPUT", tool_input)
         .env("CLAUDE_TOOL", tool)
-        .env("AEQI_CONFIG", "/home/claudedev/aeqi/config/aeqi.toml")
         .output()
         .with_context(|| format!("Failed to execute {}", script_path.display()))?;
     let elapsed = start.elapsed();
@@ -286,7 +292,6 @@ pub(crate) async fn cmd_hooks_validate() -> Result<()> {
                     let test = Command::new(&path)
                         .env("CLAUDE_TOOL_INPUT", "{}")
                         .env("CLAUDE_TOOL", "Edit")
-                        .env("AEQI_CONFIG", "/home/claudedev/aeqi/config/aeqi.toml")
                         .output();
 
                     match test {
@@ -408,7 +413,7 @@ pub(crate) async fn cmd_hooks_bench(script: Option<&str>, iterations: u32) -> Re
         paths
     };
 
-    let default_input = r#"{"file_path":"/home/claudedev/aeqi/crates/aeqi-core/src/lib.rs"}"#;
+    let default_input = r#"{"file_path":"crates/aeqi-core/src/lib.rs"}"#;
 
     // Ensure recall gate is set for benchmarking
     let home = std::env::var("HOME").context("HOME not set")?;
@@ -445,7 +450,6 @@ pub(crate) async fn cmd_hooks_bench(script: Option<&str>, iterations: u32) -> Re
             let _ = Command::new(script_path)
                 .env("CLAUDE_TOOL_INPUT", default_input)
                 .env("CLAUDE_TOOL", "Edit")
-                .env("AEQI_CONFIG", "/home/claudedev/aeqi/config/aeqi.toml")
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
                 .status();
