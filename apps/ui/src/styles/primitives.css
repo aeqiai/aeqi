@@ -132,7 +132,7 @@
      room. Compact (~18px) so the legal text fits on one line without
      wasting vertical space. The sidebar's bottom padding mirrors it
      too (so the profile row's bottom edge aligns with the card's). */
-  --shell-footer-h: 18px;
+  --shell-footer-h: 9px;
 
   /* ── Input field language ──
      One set of tokens drives every text input, textarea, and composer
