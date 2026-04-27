@@ -474,6 +474,14 @@ export default function IdeasListView({
             return grouped.map(([groupTag, items]) => {
               const groupKey = groupTag || "all";
               const isCollapsed = !!collapsedGroups[groupKey];
+              // When grouping by tag (the default `sort=tag` flow), the
+              // group label IS a tag — render it as the canonical pill
+              // chip so the heading reads visually parallel to the tag
+              // chips on idea rows. Epoch labels (today / this-week)
+              // and the "results" heading stay as plain text since
+              // they're not tags.
+              const isTagGroup =
+                !searchActive && filter.sort !== "alpha" && filter.sort !== "recent";
               return (
                 <section key={groupKey} className="ideas-list-group">
                   {showGroupHeadings && (
@@ -498,7 +506,11 @@ export default function IdeasListView({
                         >
                           <path d="M4.5 3 L7.5 6 L4.5 9" />
                         </svg>
-                        <span className="ideas-list-group-label">{groupTag}</span>
+                        {isTagGroup ? (
+                          <span className="ideas-tag-chip ideas-list-group-tag">{groupTag}</span>
+                        ) : (
+                          <span className="ideas-list-group-label">{groupTag}</span>
+                        )}
                         <span className="ideas-list-group-count">{items.length}</span>
                       </button>
                     </div>

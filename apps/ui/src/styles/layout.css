@@ -4651,6 +4651,14 @@
   flex: 1;
   min-width: 0;
 }
+/* Tag-grouped heading: the label IS a tag, so render the chip pill
+   inline. Inherits cursor from the parent toggle button (which is
+   the actual click target — the chip is purely visual). */
+.ideas-list-group-tag {
+  flex: 0 0 auto;
+  margin-right: auto;
+  cursor: inherit;
+}
 .ideas-list-group-count {
   flex-shrink: 0;
   font-family: var(--font-mono);
