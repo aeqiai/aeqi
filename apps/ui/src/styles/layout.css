@@ -5054,24 +5054,19 @@
   flex: 1 1 auto;
   min-height: 280px;
 }
-/* Canvas head band — uses the same .ideas-list-head shell as the index
-   page so when the user clicks an idea, only the contents shift; the
-   band height, hairline border, and horizontal padding are continuous.
-   Inter-row gap is tightened (6px) so tags + refs read as one strip
-   under the toolbar instead of three loosely-spaced bands. */
-.ideas-canvas-head {
-  gap: 6px;
-}
-.ideas-canvas-head .ideas-tags-editor,
-.ideas-canvas-head .ideas-refs {
+/* Canvas detail header reuses the canonical `.ideas-list-head` shell —
+   single row, fixed height. Tags + refs that used to live inside the
+   head moved into `.ideas-canvas-strip` (which extends the shared
+   `.ideas-tags-strip`) so the band height stays uniform across index
+   and detail. */
+.ideas-canvas-strip .ideas-tags-editor,
+.ideas-canvas-strip .ideas-refs {
   min-height: 20px;
   gap: 5px;
 }
-.ideas-canvas-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+/* Flex spacer between the left nav cluster (back, +new, scope) and the
+   right action cluster (Delete / Cancel / Save). Stays a generic
+   utility — anywhere a left/right flex split is needed. */
 .ideas-toolbar-spacer {
   flex: 1;
   min-width: 0;
@@ -5474,6 +5469,9 @@
 .ideas-canvas-error {
   font-size: 11px;
   color: var(--destructive);
+  padding: 6px 28px;
+  background: color-mix(in srgb, var(--destructive) 6%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--destructive) 14%, transparent);
 }
 
 /* Candidate-skill decision — a marginalia strip. Left accent rule

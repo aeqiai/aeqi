@@ -361,6 +361,24 @@ export default function IdeaCanvas({
 
   const showCompose = !isEdit;
 
+  const dirty = saveState === "dirty" || saveState === "saving";
+
+  // Cancel = revert. In compose mode it bails back to the index;
+  // in edit mode it restores name/content/tags/refs to the
+  // committed idea snapshot and clears dirty so the save row hides.
+  const handleCancel = () => {
+    if (!isEdit) {
+      onBack();
+      return;
+    }
+    setName(idea?.name ?? "");
+    setContent(idea?.content ?? "");
+    setTypedTags(idea?.tags ?? []);
+    setError(null);
+    setSaveState("idle");
+    dirtyRef.current = false;
+  };
+
   return (
     <div className="asv-main ideas-canvas">
       <div className="ideas-list-head ideas-canvas-head">
@@ -408,61 +426,69 @@ export default function IdeaCanvas({
               </svg>
             </button>
           )}
-          <div className="ideas-toolbar-spacer" aria-hidden />
           <IdeasScopePopover
             scope={headerScope}
             locked={isEdit}
             onChange={!isEdit ? setComposeScope : undefined}
           />
-          {(showCompose || saveState === "dirty" || saveState === "saving") && (
-            <button
-              type="button"
-              className="ideas-toolbar-btn primary"
-              onClick={isEdit ? flushSave : handleCreate}
-              disabled={saveState === "saving"}
-              title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
-              aria-label={isEdit ? "Save" : "Save idea"}
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-              </svg>
-            </button>
-          )}
+          <div className="ideas-toolbar-spacer" aria-hidden />
           {isEdit && (
-            <button
-              type="button"
-              className={`ideas-toolbar-btn danger${deleteArmed ? " armed" : ""}`}
+            <Button
+              variant="danger"
+              size="sm"
               onClick={handleDeleteClick}
               onBlur={() => setDeleteArmed(false)}
               title={deleteArmed ? "Click again to confirm delete" : "Delete idea"}
-              aria-label={deleteArmed ? "Confirm delete" : "Delete idea"}
             >
               <svg
-                width="13"
-                height="13"
+                width="11"
+                height="11"
                 viewBox="0 0 13 13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.6"
+                strokeWidth="1.7"
                 strokeLinecap="round"
                 aria-hidden
               >
                 <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
               </svg>
-            </button>
+              {deleteArmed ? "Confirm" : "Delete"}
+            </Button>
+          )}
+          {(showCompose || dirty) && (
+            <>
+              <Button variant="secondary" size="sm" onClick={handleCancel} title="Cancel">
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={isEdit ? flushSave : handleCreate}
+                disabled={saveState === "saving"}
+                loading={saveState === "saving"}
+                title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                </svg>
+                Save
+              </Button>
+            </>
           )}
         </div>
-        {error && <div className="ideas-canvas-error">{error}</div>}
+      </div>
+      {error && <div className="ideas-canvas-error">{error}</div>}
+      <div className="ideas-tags-strip ideas-canvas-strip">
         <TagsEditor
           tags={inlineTags}
           typed={typedTags}
@@ -473,7 +499,6 @@ export default function IdeaCanvas({
             markDirty();
           }}
           onRemove={(t) => {
-            // Only allow removing a typed tag; hashtag chips live in the body.
             if (typedTags.includes(t)) {
               const next = typedTags.filter((x) => x !== t);
               setTypedTags(next);
