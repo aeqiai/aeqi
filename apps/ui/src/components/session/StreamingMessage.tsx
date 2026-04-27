@@ -9,8 +9,6 @@ import {
   formatContinuingFromStep,
   countStepSegments,
   currentRunningToolName,
-  splitTrailAndFinal,
-  trailHasMeaningfulContent,
 } from "./types";
 
 export function ThinkingStatus({ toolName }: { toolName?: string }) {
@@ -20,15 +18,6 @@ export function ThinkingStatus({ toolName }: { toolName?: string }) {
       <span className="asv-thinking-text">{toolName ? `${toolName}...` : "thinking..."}</span>
     </div>
   );
-}
-
-export function ThinkingTimer({ start }: { start: number }) {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => setElapsed(Date.now() - start), 100);
-    return () => clearInterval(interval);
-  }, [start]);
-  return <span className="session-msg-duration">{formatDuration(start, start + elapsed)}</span>;
 }
 
 function ElapsedText({ start }: { start: number }) {
@@ -121,36 +110,30 @@ export default function StreamingMessage({
 
   const runningToolName = currentRunningToolName(liveSegments);
   const liveStepCount = countStepSegments(liveSegments);
-  const liveLastSegment = liveSegments[liveSegments.length - 1];
-  const showLiveThinking =
-    runningToolName != null ||
-    liveSegments.length === 0 ||
-    liveLastSegment?.kind === "tool" ||
-    liveLastSegment?.kind === "step" ||
-    liveLastSegment?.kind === "event_fire";
+  // Always show the "thinking" pulse during the live phase. Whether the
+  // model is currently writing text, running a tool, or between steps,
+  // the turn isn't done until Complete arrives — so the pulse stays.
+  const showLiveThinking = true;
 
-  const { trail, final } = splitTrailAndFinal(liveSegments);
-  const hasTrail = trailHasMeaningfulContent(trail);
-  const showTrailBox = hasTrail || showLiveThinking;
-
+  // Live phase: every segment lives INSIDE the trail. Text the model
+  // emits during a step is part of the traceable thinking; we don't yet
+  // know if any of it is "the final answer" until the turn closes
+  // (`finish_reason: stop` with no further tool calls). Promotion to a
+  // visible response happens on commit, in MessageItem.
   return (
     <div className="asv-msg asv-msg-assistant asv-msg-streaming">
       <div className="asv-msg-body">
-        {showTrailBox ? (
-          <LiveTrail
-            trail={trail}
-            thinkingStart={thinkingStart}
-            runningToolName={runningToolName}
-            showThinking={showLiveThinking}
-            stepOffset={stepOffset}
-          />
-        ) : null}
-        {final.length > 0 && <SegmentRenderer segments={final} live />}
+        <LiveTrail
+          trail={liveSegments}
+          thinkingStart={thinkingStart}
+          runningToolName={runningToolName}
+          showThinking={showLiveThinking}
+          stepOffset={stepOffset}
+        />
         {thinkingStart && (
           <div className="asv-msg-chrome">
             <div className="asv-msg-chrome-meta">
               <span>{formatTime(thinkingStart)}</span>
-              {!showTrailBox && <ThinkingTimer start={thinkingStart} />}
               {liveStepCount > 0 && <span>{formatStepCount(liveStepCount)}</span>}
             </div>
           </div>
