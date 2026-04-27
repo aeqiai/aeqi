@@ -901,9 +901,15 @@ impl AgentRegistry {
              );
              CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
              CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);
-             CREATE INDEX IF NOT EXISTS idx_quests_idea ON quests(idea_id);",
+             CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);",
         )?;
+        // The `idx_quests_idea` index lives in `ensure_quest_idea_id_column`
+        // because legacy DBs reach this point with the table already in
+        // place but the `idea_id` column not yet added — a CREATE INDEX
+        // referencing a missing column would crash before the column-add
+        // migration runs three lines down. Fresh DBs land here with
+        // `idea_id NOT NULL` already, and the column-add helper short-
+        // circuits but still creates the index.
 
         // ── Scope-model migration (idempotent) ──────────────────────────────
         // ADD COLUMN is guarded by PRAGMA table_info; UPDATE is guarded by
