@@ -221,6 +221,9 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const selectedId = itemId || null;
   const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
   const [newOpen, setNewOpen] = useState(false);
+  // When set, the new-quest modal opens pre-bound to this idea (Flow B —
+  // see WS-6 "Track as quest" entry from idea detail).
+  const [newFromIdeaId, setNewFromIdeaId] = useState<string | null>(null);
 
   // View + sort persist in URL (mirrors AgentIdeasTab idiom). Defaults
   // are board view + recent (updated_at desc) sort, written to the URL
@@ -370,6 +373,24 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:create", handler);
   }, [agentId, goAgent]);
 
+  // Idea-detail "+ Track as quest" navigates here with `?newFromIdea=…`.
+  // Pop the modal pre-bound to the idea, then strip the param so refreshes
+  // don't reopen it.
+  useEffect(() => {
+    const fromIdea = searchParams.get("newFromIdea");
+    if (!fromIdea) return;
+    setNewFromIdeaId(fromIdea);
+    setNewOpen(true);
+    setSearchParams(
+      (p) => {
+        const np = new URLSearchParams(p);
+        np.delete("newFromIdea");
+        return np;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
   if (!quest) {
     // agent.id match + cross-agent quests surfaced by the API.
     const visibleQuests = quests.filter((q) => q.agent_id === agent?.id || q.agent_id == null);
@@ -388,7 +409,11 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         onCreated={fetchQuests}
         onPick={(id) => goAgent(agentId, "quests", id)}
         newOpen={newOpen}
-        onNewOpenChange={setNewOpen}
+        onNewOpenChange={(next) => {
+          setNewOpen(next);
+          if (!next) setNewFromIdeaId(null);
+        }}
+        newFromIdeaId={newFromIdeaId}
         view={view}
         onViewChange={setView}
         sort={sort}
@@ -604,6 +629,7 @@ function QuestBoard({
   onPick,
   newOpen,
   onNewOpenChange,
+  newFromIdeaId,
   view,
   onViewChange,
   sort,
@@ -619,6 +645,8 @@ function QuestBoard({
   onPick: (id: string) => void;
   newOpen: boolean;
   onNewOpenChange: (next: boolean) => void;
+  /** When set, the modal opens pre-bound to an existing idea (Flow B). */
+  newFromIdeaId?: string | null;
   view: QuestsView;
   onViewChange: (next: QuestsView) => void;
   sort: QuestSort;
@@ -978,6 +1006,7 @@ function QuestBoard({
         resolvedAgentId={resolvedAgentId}
         onClose={() => onNewOpenChange(false)}
         onCreated={onCreated}
+        initialIdeaId={newFromIdeaId ?? undefined}
       />
     </div>
   );

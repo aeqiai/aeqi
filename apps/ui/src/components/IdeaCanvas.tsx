@@ -430,6 +430,34 @@ export default function IdeaCanvas({
               onChange={!isEdit ? setComposeScope : undefined}
             />
             <div className="ideas-toolbar-spacer" aria-hidden />
+            {isEdit && idea && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  goAgent(agentId, "quests", undefined, {
+                    replace: false,
+                    search: { newFromIdea: idea.id },
+                  })
+                }
+                title="Track this idea as a quest"
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2.5 6.5h8M6.5 2.5v8" />
+                </svg>
+                Track as quest
+              </Button>
+            )}
             {isEdit && (
               <Button
                 variant="danger"

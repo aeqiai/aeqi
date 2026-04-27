@@ -40,8 +40,22 @@ export function useNav() {
   }, []);
 
   const goAgent = useCallback(
-    (id: string, tab?: string, itemId?: string, options?: { replace?: boolean }) => {
-      navigate(agentPath(id, tab, itemId), options);
+    (
+      id: string,
+      tab?: string,
+      itemId?: string,
+      options?: { replace?: boolean; search?: Record<string, string> },
+    ) => {
+      let path = agentPath(id, tab, itemId);
+      if (options?.search) {
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(options.search)) {
+          if (v !== undefined && v !== "") params.set(k, v);
+        }
+        const qs = params.toString();
+        if (qs) path += `?${qs}`;
+      }
+      navigate(path, { replace: options?.replace });
     },
     [navigate, agentPath],
   );
