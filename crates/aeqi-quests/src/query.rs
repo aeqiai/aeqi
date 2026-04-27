@@ -81,7 +81,7 @@ impl<'a> QuestQuery<'a> {
                     return false;
                 }
                 if let Some(ref label) = self.label
-                    && !b.labels.contains(label)
+                    && !b.idea_tags().iter().any(|t| t == label)
                 {
                     return false;
                 }
@@ -125,7 +125,7 @@ mod tests {
 
         let results = QuestQuery::new(&store).execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "Quest B");
+        assert_eq!(results[0].id.0, "tq-002");
     }
 
     #[test]
@@ -147,7 +147,7 @@ mod tests {
 
         let results = QuestQuery::new(&store).prefix("aa").execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "Alpha quest");
+        assert_eq!(results[0].id.0, "aa-001");
     }
 
     #[test]
@@ -161,7 +161,7 @@ mod tests {
             .status(QuestStatus::InProgress)
             .execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "Quest A");
+        assert_eq!(results[0].id.0, "tq-001");
     }
 
     #[test]
@@ -179,7 +179,7 @@ mod tests {
 
         let results = QuestQuery::new(&store).agent_id("agent-a").execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "Agent A quest");
+        assert_eq!(results[0].agent_id.as_deref(), Some("agent-a"));
     }
 
     #[test]
@@ -187,15 +187,29 @@ mod tests {
         let (mut store, _dir) = setup();
         store.create_with_agent("tq", "Labeled", None).unwrap();
         store.create_with_agent("tq", "Unlabeled", None).unwrap();
+        // Stub the in-memory linked idea so the query can match the tag.
         store
             .update("tq-001", |q| {
-                q.labels = vec!["infra".to_string()];
+                q.idea = Some(aeqi_core::traits::Idea {
+                    id: "idea-001".to_string(),
+                    name: "Labeled".to_string(),
+                    content: String::new(),
+                    tags: vec!["infra".to_string()],
+                    agent_id: None,
+                    session_id: None,
+                    score: 0.0,
+                    scope: aeqi_core::Scope::SelfScope,
+                    inheritance: "self".to_string(),
+                    tool_allow: vec![],
+                    tool_deny: vec![],
+                    created_at: chrono::Utc::now(),
+                });
             })
             .unwrap();
 
         let results = QuestQuery::new(&store).label("infra").execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "Labeled");
+        assert_eq!(results[0].id.0, "tq-001");
     }
 
     #[test]
@@ -218,7 +232,7 @@ mod tests {
             .min_priority(Priority::High)
             .execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "High pri");
+        assert_eq!(results[0].id.0, "tq-002");
     }
 
     #[test]
@@ -239,7 +253,7 @@ mod tests {
             .agent_id("agent-x")
             .execute();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "Match");
+        assert_eq!(results[0].id.0, "tq-001");
     }
 
     #[test]
@@ -255,10 +269,10 @@ mod tests {
             .unwrap();
 
         let results = QuestQuery::new(&store).execute();
-        assert_eq!(results[0].name, "Critical");
+        assert_eq!(results[0].id.0, "tq-003");
         // The two Normal-priority quests follow in creation order.
-        assert_eq!(results[1].name, "Normal 1");
-        assert_eq!(results[2].name, "Normal 2");
+        assert_eq!(results[1].id.0, "tq-001");
+        assert_eq!(results[2].id.0, "tq-002");
     }
 
     #[test]

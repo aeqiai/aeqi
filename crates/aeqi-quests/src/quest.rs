@@ -157,12 +157,28 @@ impl QuestOutcomeRecord {
 }
 
 /// A single quest in the DAG.
+///
+/// Phase 3 of the quest ↔ idea unification: editorial fields (name,
+/// description, acceptance criteria, labels, cross-idea references) live
+/// on the linked idea (`idea_id` FK). The `idea` field is the in-memory
+/// snapshot — populated by the read path (`row_to_task` + idea
+/// hydration) so consumers can read `quest.title()` without a follow-up
+/// fetch. Writes flow through the idea API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Quest {
     pub id: QuestId,
-    pub name: String,
+    /// FK to the idea that owns this quest's editorial body. Always set
+    /// post-phase 3 — the SQL column is `NOT NULL`. The Option lives on
+    /// for in-memory construction patterns (test stubs build quests
+    /// before linking) but every persisted row carries a real idea id.
     #[serde(default)]
-    pub description: String,
+    pub idea_id: Option<String>,
+    /// In-memory snapshot of the linked idea, attached at read time so
+    /// the worker / API / log lines can render the title without a
+    /// follow-up store fetch. Not serialised on the wire — the API
+    /// surfaces an `idea` sibling field on the response envelope.
+    #[serde(skip)]
+    pub idea: Option<aeqi_core::traits::Idea>,
     pub status: QuestStatus,
     #[serde(default)]
     pub priority: Priority,
@@ -175,19 +191,6 @@ pub struct Quest {
     /// Quest IDs that must be completed before this one can start.
     #[serde(default)]
     pub depends_on: Vec<QuestId>,
-    /// FK to the idea that owns this quest's editorial body (subject + content).
-    /// Nullable during the additive migration phase; flips to NOT NULL in
-    /// phase 3 (see docs/quest-idea-unification.md).
-    #[serde(default)]
-    pub idea_id: Option<String>,
-    /// Legacy: idea IDs this quest references. Deprecated in favor of the
-    /// single `idea_id` FK + wiki-links inside the idea body. Retained
-    /// for phase-2 read-back compat; dropped in phase 3.
-    #[serde(default)]
-    pub idea_ids: Vec<String>,
-    /// Labels for categorization.
-    #[serde(default)]
-    pub labels: Vec<String>,
     /// Number of times this quest has been retried after failure/handoff.
     #[serde(default)]
     pub retry_count: u32,
@@ -205,9 +208,6 @@ pub struct Quest {
     /// Structured outcome record — replaces closed_reason and metadata.aeqi.task_outcome.
     #[serde(default)]
     pub outcome: Option<QuestOutcomeRecord>,
-    /// What "done" looks like — worker validates output against this.
-    #[serde(default)]
-    pub acceptance_criteria: Option<String>,
     /// Git worktree branch for isolated execution.
     #[serde(default)]
     pub worktree_branch: Option<String>,
@@ -220,13 +220,16 @@ pub struct Quest {
 }
 
 impl Quest {
-    /// Create a new quest with minimal fields.
-    pub fn new(id: QuestId, name: impl Into<String>) -> Self {
-        Self::with_agent(id, name, None)
+    /// Create a new quest with minimal fields. The `_subject` argument is a
+    /// historical alias that callers still pass; it's accepted but ignored,
+    /// since editorial content lives on the linked idea now.
+    pub fn new(id: QuestId, _subject: impl Into<String>) -> Self {
+        Self::with_agent(id, _subject, None)
     }
 
     /// Create a new quest bound to a specific agent.
-    pub fn with_agent(id: QuestId, name: impl Into<String>, agent_id: Option<&str>) -> Self {
+    pub fn with_agent(id: QuestId, _subject: impl Into<String>, agent_id: Option<&str>) -> Self {
+        let _ = _subject.into();
         let scope = if agent_id.is_none() {
             Scope::Global
         } else {
@@ -234,16 +237,13 @@ impl Quest {
         };
         Self {
             id,
-            name: name.into(),
-            description: String::new(),
+            idea_id: None,
+            idea: None,
             status: QuestStatus::Pending,
             priority: Priority::Normal,
             agent_id: agent_id.map(|s| s.to_string()),
             scope,
             depends_on: Vec::new(),
-            idea_id: None,
-            idea_ids: Vec::new(),
-            labels: Vec::new(),
             retry_count: 0,
             checkpoints: Vec::new(),
             metadata: serde_json::Value::Null,
@@ -251,11 +251,28 @@ impl Quest {
             updated_at: None,
             closed_at: None,
             outcome: None,
-            acceptance_criteria: None,
             worktree_branch: None,
             worktree_path: None,
             creator_session_id: None,
         }
+    }
+
+    /// Display title — pulls from the linked idea, falling back to the
+    /// quest id when the idea hasn't been hydrated yet (typical only in
+    /// log lines emitted before the read path attached it).
+    pub fn title(&self) -> &str {
+        self.idea.as_ref().map(|i| i.name.as_str()).unwrap_or("")
+    }
+
+    /// Editorial body — pulls from the linked idea, empty string when
+    /// the idea isn't hydrated.
+    pub fn body(&self) -> &str {
+        self.idea.as_ref().map(|i| i.content.as_str()).unwrap_or("")
+    }
+
+    /// Tags from the linked idea — replaces the legacy `labels` field.
+    pub fn idea_tags(&self) -> &[String] {
+        self.idea.as_ref().map(|i| i.tags.as_slice()).unwrap_or(&[])
     }
 
     /// Whether this quest is bound to a persistent agent.
@@ -444,12 +461,13 @@ mod tests {
     #[test]
     fn quest_new_defaults() {
         let quest = Quest::new(QuestId::from("t-001"), "Test quest");
-        assert_eq!(quest.name, "Test quest");
+        assert_eq!(quest.title(), "");
+        assert_eq!(quest.body(), "");
+        assert!(quest.idea_id.is_none());
         assert_eq!(quest.status, QuestStatus::Pending);
         assert_eq!(quest.priority, Priority::Normal);
         assert!(quest.agent_id.is_none());
         assert!(quest.depends_on.is_empty());
-        assert!(quest.description.is_empty());
     }
 
     #[test]

@@ -71,10 +71,17 @@ impl Pipeline {
             let subject = self.interpolate(&step.title, vars);
             let child = store.create_child(&parent.id, &subject)?;
 
-            // Set description with interpolated instructions.
+            // Step instructions ride on the quest metadata for the JSONL
+            // store path (no idea linkage at this layer); the SQL-backed
+            // path is the canonical creator and lands instructions on the
+            // linked idea body. This branch only fires for legacy pipeline
+            // pour flows that haven't been migrated to the idea API.
             let description = self.interpolate(&step.instructions, vars);
             store.update(&child.id.0, |b| {
-                b.description = description;
+                b.set_aeqi_metadata(
+                    "pipeline_instructions",
+                    serde_json::Value::String(description),
+                );
             })?;
 
             step_quest_ids.insert(step.id.clone(), child.id.clone());

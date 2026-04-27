@@ -21,10 +21,10 @@ pub struct InferredDependency {
 pub fn infer_dependencies(quests: &[&Quest], threshold: f64) -> Vec<InferredDependency> {
     let mut deps = Vec::new();
 
-    // Extract entities for each quest.
+    // Extract entities from each quest's linked idea (title + body).
     let entities: Vec<Vec<String>> = quests
         .iter()
-        .map(|t| extract_entities(&t.name, &t.description))
+        .map(|t| extract_entities(t.title(), t.body()))
         .collect();
 
     // Compare all pairs.
@@ -140,8 +140,8 @@ fn determine_direction(a: &Quest, b: &Quest) -> (QuestId, QuestId) {
         "test", "verify", "validate", "check", "deploy", "review", "document",
     ];
 
-    let a_name = a.name.to_lowercase();
-    let b_name = b.name.to_lowercase();
+    let a_name = a.title().to_lowercase();
+    let b_name = b.title().to_lowercase();
 
     let a_is_create = create_words.iter().any(|w| a_name.contains(w));
     let b_is_test = test_words.iter().any(|w| b_name.contains(w));
@@ -170,18 +170,29 @@ mod tests {
     use crate::quest::{Priority, Quest, QuestId, QuestStatus};
 
     fn make_quest(id: &str, name: &str, description: &str) -> Quest {
+        let idea = aeqi_core::traits::Idea {
+            id: format!("idea-{id}"),
+            name: name.to_string(),
+            content: description.to_string(),
+            tags: vec![],
+            agent_id: None,
+            session_id: None,
+            score: 0.0,
+            scope: aeqi_core::Scope::Global,
+            inheritance: "self".to_string(),
+            tool_allow: vec![],
+            tool_deny: vec![],
+            created_at: chrono::Utc::now(),
+        };
         Quest {
             id: QuestId(id.to_string()),
-            name: name.to_string(),
-            description: description.to_string(),
+            idea_id: Some(idea.id.clone()),
+            idea: Some(idea),
             status: QuestStatus::Pending,
             priority: Priority::Normal,
             agent_id: None,
             scope: aeqi_core::Scope::Global,
             depends_on: vec![],
-            idea_id: None,
-            idea_ids: vec![],
-            labels: vec![],
             retry_count: 0,
             checkpoints: vec![],
             metadata: serde_json::Value::Null,
@@ -189,7 +200,6 @@ mod tests {
             updated_at: None,
             closed_at: None,
             outcome: None,
-            acceptance_criteria: None,
             worktree_branch: None,
             worktree_path: None,
             creator_session_id: None,

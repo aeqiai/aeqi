@@ -382,7 +382,7 @@ impl MessageRouter {
                     None,
                     Some(&task.id.0),
                     &serde_json::json!({
-                        "subject": task.name,
+                        "subject": task.title(),
                         "project": project_name,
                     }),
                 )
@@ -697,6 +697,7 @@ impl MessageRouter {
             let project_hint = msg.project_hint.clone();
             let chat_id = msg.chat_id;
             let activity_log = self.activity_log.clone();
+            let idea_store = self.idea_store.clone();
 
             tokio::spawn(async move {
                 MessageRouter::finish_council_enrichment(
@@ -713,6 +714,7 @@ impl MessageRouter {
                     source_tag_for_spawn,
                     project_hint,
                     activity_log,
+                    idea_store,
                 )
                 .await;
             });
@@ -1123,7 +1125,7 @@ impl MessageRouter {
                 action: Some("quest_created".to_string()),
                 task: Some(serde_json::json!({
                     "id": task.id.0,
-                    "subject": task.name,
+                    "subject": task.title(),
                     "project": project,
                 })),
                 projects: None,
@@ -1403,6 +1405,7 @@ impl MessageRouter {
         source_tag: String,
         project_hint: Option<String>,
         activity_log: Arc<crate::activity_log::ActivityLog>,
+        idea_store: Option<Arc<dyn IdeaStore>>,
     ) {
         let advisors_to_invoke = Self::classify_advisors_with(
             &agent_registry,
@@ -1443,10 +1446,26 @@ impl MessageRouter {
             .await
         };
 
-        // Update task with council input.
+        // Council input rides on the linked idea's body (the editorial
+        // surface that survives across phase 3) — fetch + append + write
+        // back through the idea store. Quest update only flips the
+        // scheduler hold off so the worker can pick it up.
+        let council_idea_id = agent_registry
+            .get_task(&quest_id)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|q| q.idea_id);
+        if let (Some(idea_id), Some(store)) = (council_idea_id, idea_store.as_ref())
+            && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(&idea_id)).await
+            && let Some(existing) = ideas.pop()
+        {
+            let mut content = existing.content.clone();
+            Self::append_council_input(&mut content, &council_input);
+            let _ = store.update(&idea_id, None, Some(&content), None).await;
+        }
         let update_result: Result<()> = agent_registry
             .update_task(&quest_id, |task| {
-                Self::append_council_input(&mut task.description, &council_input);
                 Self::set_scheduler_hold(task, false, None);
             })
             .await

@@ -247,7 +247,7 @@ impl AgentsTool {
                 .map(|q| {
                     serde_json::json!({
                         "id": q.id.0,
-                        "name": q.name,
+                        "name": q.title(),
                         "status": format!("{:?}", q.status),
                         "priority": format!("{}", q.priority),
                     })

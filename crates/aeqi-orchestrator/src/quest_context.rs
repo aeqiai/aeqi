@@ -84,8 +84,13 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
     let mut out = String::from("\n## Quest Tree\n\n");
 
     if let Some(ref p) = parent {
-        let desc = truncate_str(&p.description, 200);
-        out.push_str(&format!("Parent: {} [{}] — {}\n", p.id, p.status, p.name));
+        let desc = truncate_str(p.body(), 200);
+        out.push_str(&format!(
+            "Parent: {} [{}] — {}\n",
+            p.id,
+            p.status,
+            p.title()
+        ));
         if !desc.is_empty() {
             out.push_str(&format!("  Description: {}\n", desc));
         }
@@ -99,7 +104,12 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
                 .outcome_summary()
                 .map(|s| format!(" → \"{}\"", truncate_str(&s, 100)))
                 .unwrap_or_default();
-            out.push_str(&format!("  {} [done] — {}{}\n", sib.id, sib.name, summary));
+            out.push_str(&format!(
+                "  {} [done] — {}{}\n",
+                sib.id,
+                sib.title(),
+                summary
+            ));
         }
         if done_overflow > 0 {
             out.push_str(&format!(
@@ -113,7 +123,12 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
     if !active_siblings.is_empty() {
         out.push_str("Siblings (active):\n");
         for sib in &active_siblings {
-            out.push_str(&format!("  {} [{}] — {}\n", sib.id, sib.status, sib.name));
+            out.push_str(&format!(
+                "  {} [{}] — {}\n",
+                sib.id,
+                sib.status,
+                sib.title()
+            ));
         }
         if active_overflow > 0 {
             out.push_str(&format!(
@@ -126,7 +141,9 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
 
     out.push_str(&format!(
         "You: {} [{}] — {}\n\n",
-        quest.id, quest.status, quest.name
+        quest.id,
+        quest.status,
+        quest.title()
     ));
 
     if !children.is_empty() {
@@ -142,7 +159,10 @@ pub async fn build_quest_tree_context(quest: &Quest, registry: &AgentRegistry) -
             };
             out.push_str(&format!(
                 "  {} [{}] — {}{}\n",
-                child.id, child.status, child.name, summary
+                child.id,
+                child.status,
+                child.title(),
+                summary
             ));
         }
         out.push('\n');

@@ -344,7 +344,12 @@ impl QuestBoard {
                 .filter_map(|cid| {
                     self.quests.get(cid).map(|b| {
                         let summary = b.outcome_summary().unwrap_or_else(|| verb.to_string());
-                        format!("  {} — {}", b.name, summary)
+                        let title = if b.title().is_empty() {
+                            b.id.0.as_str()
+                        } else {
+                            b.title()
+                        };
+                        format!("  {title} — {summary}")
                     })
                 })
                 .collect();
@@ -573,7 +578,6 @@ mod tests {
             .create_with_agent("as", "Fix login bug", None)
             .unwrap();
         assert_eq!(quest.id.0, "as-001");
-        assert_eq!(quest.name, "Fix login bug");
 
         let quest2 = store
             .create_with_agent("as", "Add logout button", None)
@@ -706,11 +710,12 @@ mod tests {
 
         let mut store = QuestBoard::open(dir.path()).unwrap();
         store.create_with_agent("as", "Quest 1", None).unwrap();
-        // Multiple updates = multiple append lines.
-        for i in 0..5 {
+        // Multiple updates = multiple append lines. Bump retry_count instead
+        // of an editorial field — the canonical model has no quest.name.
+        for _ in 0..5 {
             store
                 .update("as-001", |b| {
-                    b.name = format!("Quest 1 v{}", i + 1);
+                    b.retry_count += 1;
                 })
                 .unwrap();
         }
@@ -726,7 +731,7 @@ mod tests {
         assert_eq!(lines_after, 1);
 
         let quest = store.get("as-001").unwrap();
-        assert_eq!(quest.name, "Quest 1 v5");
+        assert_eq!(quest.retry_count, 5);
     }
 
     #[test]

@@ -23,23 +23,22 @@ pub(crate) async fn cmd_assign(
     let mut store = open_quests_for_project(project_name)?;
     let mut quest = store.create_with_agent(&prefix, subject, None)?;
 
-    if !description.is_empty() || priority.is_some() {
+    // Editorial body (`description`) lives on the linked idea now; the
+    // JSONL store doesn't carry one, so the CLI just stamps priority.
+    let _ = description;
+
+    if let Some(p) = priority {
         quest = store.update(&quest.id.0, |b| {
-            if !description.is_empty() {
-                b.description = description.to_string();
-            }
-            if let Some(p) = priority {
-                b.priority = match p {
-                    "low" => aeqi_quests::Priority::Low,
-                    "high" => aeqi_quests::Priority::High,
-                    "critical" => aeqi_quests::Priority::Critical,
-                    _ => aeqi_quests::Priority::Normal,
-                };
-            }
+            b.priority = match p {
+                "low" => aeqi_quests::Priority::Low,
+                "high" => aeqi_quests::Priority::High,
+                "critical" => aeqi_quests::Priority::Critical,
+                _ => aeqi_quests::Priority::Normal,
+            };
         })?;
     }
 
-    println!("Created {} [{}] {}", quest.id, quest.priority, quest.name);
+    println!("Created {} [{}] {}", quest.id, quest.priority, subject);
     Ok(())
 }
 
@@ -65,17 +64,17 @@ pub(crate) async fn cmd_ready(
             let ready = store.ready();
             for quest in ready {
                 found = true;
-                println!(
-                    "{} [{}] {} — {}",
-                    quest.id,
-                    quest.priority,
-                    quest.name,
-                    if quest.description.is_empty() {
-                        "(no description)"
-                    } else {
-                        &quest.description
-                    }
-                );
+                let title = if quest.title().is_empty() {
+                    quest.id.0.as_str()
+                } else {
+                    quest.title()
+                };
+                let body = if quest.body().is_empty() {
+                    "(no description)"
+                } else {
+                    quest.body()
+                };
+                println!("{} [{}] {} — {}", quest.id, quest.priority, title, body);
             }
         }
     }
@@ -139,7 +138,13 @@ pub(crate) async fn cmd_quests(
                 };
                 println!(
                     "  {} [{}] {} — {} agent={}{}{}",
-                    quest.id, quest.status, quest.priority, quest.name, agent, deps, checkpoints
+                    quest.id,
+                    quest.status,
+                    quest.priority,
+                    quest.title(),
+                    agent,
+                    deps,
+                    checkpoints
                 );
             }
         }
@@ -156,7 +161,7 @@ pub(crate) async fn cmd_close(config_path: &Option<PathBuf>, id: &str, reason: &
 
     let mut store = open_quests_for_project(&project_name)?;
     let quest = store.close(id, reason)?;
-    println!("Closed {} — {}", quest.id, quest.name);
+    println!("Closed {} — {}", quest.id, quest.title());
     Ok(())
 }
 
@@ -176,7 +181,7 @@ pub(crate) async fn cmd_hook(
         b.status = aeqi_quests::QuestStatus::InProgress;
     })?;
 
-    println!("Hooked {} to {} — {}", worker, quest.id, quest.name);
+    println!("Hooked {} to {} — {}", worker, quest.id, quest.title());
     Ok(())
 }
 
@@ -193,7 +198,7 @@ pub(crate) async fn cmd_done(
 
     let mut store = open_quests_for_project(&project_name)?;
     let quest = store.close(quest_id, reason)?;
-    println!("Done {} — {}", quest.id, quest.name);
+    println!("Done {} — {}", quest.id, quest.title());
 
     // Also update any operations tracking this quest.
     let ops_path = config.data_dir().join("operations.json");

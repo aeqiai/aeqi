@@ -267,6 +267,106 @@ fn ensure_quest_idea_id_column(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Phase 3 cleanup (WS-8a): drop the legacy editorial columns and flip
+/// `idea_id` to NOT NULL. SQLite's pre-3.35 `ALTER TABLE` lacks
+/// `DROP COLUMN`, so we do the canonical rebuild dance — create the new
+/// shape, copy preserved columns over, drop the legacy table, rename.
+///
+/// Idempotent. The function inspects `PRAGMA table_info(quests)`; if any
+/// of the legacy columns are still present, the rebuild runs. Otherwise
+/// it returns immediately. A pre-flight verifies every row has a non-null
+/// `idea_id` (the WS-1c backfill should have ensured this) — if any
+/// straggler exists, the cleanup aborts with an error rather than losing
+/// the row's editorial body to the column drop.
+fn cleanup_legacy_quest_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(quests)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+
+    let legacy_cols = [
+        "subject",
+        "description",
+        "acceptance_criteria",
+        "labels",
+        "idea_ids",
+    ];
+    let has_legacy = legacy_cols
+        .iter()
+        .any(|name| cols.iter().any(|c| c == name));
+    if !has_legacy {
+        return Ok(());
+    }
+
+    // Pre-flight: every row must already carry a non-null `idea_id`.
+    // The WS-1c backfill that ran moments ago should have made this so;
+    // bailing here is the loudest failure mode if anything regressed.
+    let nulls: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM quests WHERE idea_id IS NULL",
+        [],
+        |row| row.get(0),
+    )?;
+    if nulls > 0 {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+
+    info!("rebuilding quests table to drop legacy editorial columns (WS-8a)");
+
+    // SQLite advice for table rebuilds: use `legacy_alter_table=ON` to skip
+    // the foreign-key-action rename rewrite, then run the rebuild inside
+    // an explicit transaction so a crash mid-flight rolls back to the
+    // legacy shape.
+    conn.execute_batch(
+        "PRAGMA legacy_alter_table=ON;
+         BEGIN IMMEDIATE;
+         CREATE TABLE quests_new (
+             id TEXT PRIMARY KEY,
+             idea_id TEXT NOT NULL,
+             status TEXT NOT NULL DEFAULT 'pending',
+             priority TEXT NOT NULL DEFAULT 'normal',
+             agent_id TEXT,
+             scope TEXT NOT NULL DEFAULT 'self',
+             retry_count INTEGER NOT NULL DEFAULT 0,
+             checkpoints TEXT NOT NULL DEFAULT '[]',
+             metadata TEXT NOT NULL DEFAULT '{}',
+             depends_on TEXT NOT NULL DEFAULT '[]',
+             outcome TEXT,
+             worktree_branch TEXT,
+             worktree_path TEXT,
+             created_at TEXT NOT NULL,
+             updated_at TEXT,
+             closed_at TEXT,
+             closed_reason TEXT,
+             creator_session_id TEXT
+         );
+         INSERT INTO quests_new (
+             id, idea_id, status, priority, agent_id, scope, retry_count,
+             checkpoints, metadata, depends_on, outcome, worktree_branch,
+             worktree_path, created_at, updated_at, closed_at, closed_reason,
+             creator_session_id
+         )
+         SELECT
+             id, idea_id, status, priority, agent_id, scope, retry_count,
+             checkpoints, metadata, depends_on, outcome, worktree_branch,
+             worktree_path, created_at, updated_at, closed_at, closed_reason,
+             creator_session_id
+         FROM quests;
+         DROP TABLE quests;
+         ALTER TABLE quests_new RENAME TO quests;
+         CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
+         CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
+         CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);
+         CREATE INDEX IF NOT EXISTS idx_quests_idea ON quests(idea_id);
+         COMMIT;
+         PRAGMA legacy_alter_table=OFF;",
+    )?;
+
+    info!("legacy quest columns dropped — schema is on the canonical shape");
+    Ok(())
+}
+
 /// Phase 1 backfill (WS-1c): for every quest with `idea_id IS NULL`, mint or
 /// reuse an idea row in `aeqi.db` and link the quest to it.
 ///
@@ -292,6 +392,20 @@ fn backfill_quest_idea_ids(
         labels_json: String,
         agent_id: Option<String>,
         scope: String,
+    }
+
+    // The legacy columns get rebuilt out by `cleanup_legacy_quest_columns`;
+    // on the post-cleanup shape there's nothing to backfill, so a quick
+    // PRAGMA check skips the SELECT and lets the function be a no-op on
+    // fresh DBs and post-phase-3 DBs alike.
+    let cols: Vec<String> = {
+        let mut stmt = quests_db.prepare("PRAGMA table_info(quests)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "subject") {
+        return Ok(0);
     }
 
     let mut stmt = quests_db.prepare(
@@ -757,30 +871,25 @@ impl AgentRegistry {
              PRAGMA foreign_keys = ON;",
         )?;
 
-        // Quests table (live work state — lives in sessions.db).
+        // Quests table — phase-3 canonical shape. Editorial fields live on
+        // the linked idea (FK `idea_id`); the row carries lifecycle only.
         //
-        // `idea_id` is the quest ↔ idea unification FK — points at the idea
-        // that owns the quest's editorial body (subject + content). Nullable
-        // during the additive-migration phase; becomes NOT NULL once the
-        // backfill has populated every existing row (see
-        // `docs/quest-idea-unification.md`, phase 1 → phase 3).
+        // Fresh DBs land here directly. Legacy DBs (with `subject` /
+        // `description` / `acceptance_criteria` / `labels` / `idea_ids`)
+        // are rebuilt to this shape by `cleanup_legacy_quest_columns`
+        // below, after the backfill has populated `idea_id` on every row.
         sconn.execute_batch(
             "CREATE TABLE IF NOT EXISTS quests (
                  id TEXT PRIMARY KEY,
-                 subject TEXT NOT NULL,
-                 description TEXT NOT NULL DEFAULT '',
+                 idea_id TEXT NOT NULL,
                  status TEXT NOT NULL DEFAULT 'pending',
                  priority TEXT NOT NULL DEFAULT 'normal',
                  agent_id TEXT,
                  scope TEXT NOT NULL DEFAULT 'self',
-                 idea_ids TEXT NOT NULL DEFAULT '[]',
-                 idea_id TEXT,
-                 labels TEXT NOT NULL DEFAULT '[]',
                  retry_count INTEGER NOT NULL DEFAULT 0,
                  checkpoints TEXT NOT NULL DEFAULT '[]',
                  metadata TEXT NOT NULL DEFAULT '{}',
                  depends_on TEXT NOT NULL DEFAULT '[]',
-                 acceptance_criteria TEXT,
                  outcome TEXT,
                  worktree_branch TEXT,
                  worktree_path TEXT,
@@ -803,8 +912,8 @@ impl AgentRegistry {
         ensure_scope_columns(&sconn)?;
 
         // ── Quest ↔ Idea FK column (idempotent) ─────────────────────────────
-        // Phase 1 of the quest-idea unification: introduce the FK column on
-        // legacy DBs without touching existing rows.
+        // Phase 1 leftover: legacy DBs land here with the column missing.
+        // Fresh DBs already have it from the CREATE TABLE above.
         ensure_quest_idea_id_column(&sconn)?;
 
         // ── Quest ↔ Idea backfill (WS-1c, idempotent) ──────────────────────
@@ -821,6 +930,14 @@ impl AgentRegistry {
                 .execute_batch("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;")?;
             backfill_quest_idea_ids(&backfill_idea_conn, &sconn)?;
         }
+
+        // ── Phase-3 cleanup (WS-8a, idempotent, irreversible per-row) ──────
+        // Drops the legacy editorial columns and flips `idea_id` to NOT NULL.
+        // No-op on fresh DBs; one-shot on legacy DBs once the backfill above
+        // confirms every row has a non-null `idea_id`. SQLite < 3.35 lacks
+        // ALTER TABLE DROP COLUMN, so the rebuild is the safe lowest-common-
+        // denominator path.
+        cleanup_legacy_quest_columns(&sconn)?;
 
         // Activity table (audit log, cost tracking — in sessions.db).
         crate::activity_log::ActivityLog::create_tables(&sconn)?;
@@ -1883,6 +2000,76 @@ impl AgentRegistry {
         Ok(Vec::new())
     }
 
+    /// Mint (or reuse) an idea row for a quest's editorial body. Returns the
+    /// idea id. Reuse semantics match the WS-1c backfill: when the same
+    /// `(agent_id, name)` already has a row in `ideas`, we link to it
+    /// instead of duplicating. `_idea_ids` is kept in the signature
+    /// because it used to thread cross-references onto the quest;
+    /// post-phase-3 the canonical place for those is `[[wiki-links]]`
+    /// inside the idea body, so the parameter is intentionally ignored.
+    async fn mint_or_reuse_quest_idea(
+        &self,
+        name: &str,
+        content: &str,
+        tags: &[String],
+        agent_id: Option<&str>,
+        scope: Scope,
+    ) -> Result<String> {
+        let name_for_lookup = if name.trim().is_empty() {
+            "(untitled)".to_string()
+        } else {
+            name.to_string()
+        };
+        let content_for_insert = if content.is_empty() {
+            String::new()
+        } else {
+            content.to_string()
+        };
+        let agent_owned = agent_id.map(|s| s.to_string());
+        let scope_owned = scope.as_str().to_string();
+        let tags_owned: Vec<String> = tags.iter().map(|t| t.trim().to_lowercase()).collect();
+
+        let db = self.db.lock().await;
+        let existing: Option<String> = db
+            .query_row(
+                "SELECT id FROM ideas
+                 WHERE COALESCE(agent_id, '') = COALESCE(?1, '') AND name = ?2
+                 LIMIT 1",
+                params![agent_owned, name_for_lookup],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(id) = existing {
+            return Ok(id);
+        }
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+        db.execute(
+            "INSERT INTO ideas (id, name, content, scope, agent_id, created_at,
+                                status, embedding_pending)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'active', 1)",
+            params![
+                id,
+                name_for_lookup,
+                content_for_insert,
+                scope_owned,
+                agent_owned,
+                now
+            ],
+        )?;
+        for tag in &tags_owned {
+            if tag.is_empty() {
+                continue;
+            }
+            db.execute(
+                "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                params![id, tag],
+            )?;
+        }
+        Ok(id)
+    }
+
     /// Create a task assigned to an agent.
     pub async fn create_task(
         &self,
@@ -1908,7 +2095,7 @@ impl AgentRegistry {
         agent_id: &str,
         subject: &str,
         description: &str,
-        idea_ids: &[String],
+        _idea_ids: &[String],
         labels: &[String],
         scope: Scope,
     ) -> Result<aeqi_quests::Quest> {
@@ -1926,81 +2113,153 @@ impl AgentRegistry {
             }
         });
 
-        let sdb = self.sessions_db.lock().await;
-
         // Rate limit: reject if agent has exceeded daily quest creation limit.
-        let max_daily_tasks: u32 = 50;
-        let today_count: u32 = sdb.query_row(
-            "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
-            params![agent_id],
-            |row| row.get(0),
-        )?;
-        if today_count >= max_daily_tasks {
-            anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
+        {
+            let sdb = self.sessions_db.lock().await;
+            let max_daily_tasks: u32 = 50;
+            let today_count: u32 = sdb.query_row(
+                "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
+                params![agent_id],
+                |row| row.get(0),
+            )?;
+            if today_count >= max_daily_tasks {
+                anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
+            }
         }
-        drop(sdb);
+
+        // Mint (or reuse) the linked idea before allocating the quest id —
+        // a failure here aborts cleanly without leaving a half-created row.
+        let idea_id = self
+            .mint_or_reuse_quest_idea(subject, description, labels, Some(agent_id), scope)
+            .await?;
 
         // Get and increment sequence for this prefix (quest_sequences lives in aeqi.db).
-        let db = self.db.lock().await;
-        db.execute(
-            "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
-            params![prefix],
-        )?;
-        let seq: u32 = db.query_row(
-            "UPDATE quest_sequences SET next_seq = next_seq + 1 WHERE prefix = ?1 RETURNING next_seq - 1",
-            params![prefix],
-            |row| row.get(0),
-        )?;
-        drop(db);
+        let seq: u32 = {
+            let db = self.db.lock().await;
+            db.execute(
+                "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
+                params![prefix],
+            )?;
+            db.query_row(
+                "UPDATE quest_sequences SET next_seq = next_seq + 1 WHERE prefix = ?1 RETURNING next_seq - 1",
+                params![prefix],
+                |row| row.get(0),
+            )?
+        };
 
         let quest_id = format!("{prefix}-{seq:03}");
         let now = chrono::Utc::now();
-        let labels_json = serde_json::to_string(labels)?;
 
-        let idea_ids_json = serde_json::to_string(idea_ids)?;
-
-        let quest = aeqi_quests::Quest {
-            id: aeqi_quests::QuestId(quest_id.clone()),
-            name: subject.to_string(),
-            description: description.to_string(),
-            status: aeqi_quests::QuestStatus::Pending,
-            priority: aeqi_quests::quest::Priority::Normal,
-            agent_id: Some(agent_id.to_string()),
-            scope,
-            depends_on: Vec::new(),
-            idea_id: None,
-            idea_ids: idea_ids.to_vec(),
-            labels: labels.to_vec(),
-            retry_count: 0,
-            checkpoints: Vec::new(),
-            metadata: serde_json::Value::Null,
-            created_at: now,
-            updated_at: None,
-            closed_at: None,
-            outcome: None,
-            acceptance_criteria: None,
-            worktree_branch: None,
-            worktree_path: None,
-            creator_session_id: None,
-        };
+        let mut quest = aeqi_quests::Quest::with_agent(
+            aeqi_quests::QuestId(quest_id.clone()),
+            subject,
+            Some(agent_id),
+        );
+        quest.idea_id = Some(idea_id.clone());
+        quest.scope = scope;
+        quest.created_at = now;
 
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, created_at, idea_id)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8, NULL)",
+            "INSERT INTO quests (id, idea_id, status, priority, agent_id, scope, created_at)
+             VALUES (?1, ?2, 'pending', 'normal', ?3, ?4, ?5)",
             params![
                 quest_id,
-                subject,
-                description,
+                idea_id,
                 agent_id,
                 scope.as_str(),
-                idea_ids_json,
-                labels_json,
-                now.to_rfc3339(),
+                now.to_rfc3339()
             ],
         )?;
 
         info!(quest = %quest_id, agent = %agent.name, subject = %subject, "quest created");
+        Ok(quest)
+    }
+
+    /// Create a task linked to a pre-existing idea. The Flow A / Flow B
+    /// IPC path resolves the idea (mint or validate) up-front, so we
+    /// skip the second mint that `create_task_v2_scoped` would do —
+    /// going through this helper means the caller has already taken
+    /// responsibility for the linked idea.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_task_with_idea_id(
+        &self,
+        agent_id: &str,
+        idea_id: &str,
+        depends_on: &[aeqi_quests::QuestId],
+        parent_id: Option<&str>,
+        scope: Scope,
+    ) -> Result<aeqi_quests::Quest> {
+        let agent = self
+            .get(agent_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("agent not found: {agent_id}"))?;
+        let prefix = agent.quest_prefix.unwrap_or_else(|| {
+            let name = &agent.name;
+            if name.len() >= 2 {
+                name[..2].to_lowercase()
+            } else {
+                "t".to_string()
+            }
+        });
+
+        {
+            let sdb = self.sessions_db.lock().await;
+            let max_daily_tasks: u32 = 50;
+            let today_count: u32 = sdb.query_row(
+                "SELECT COUNT(*) FROM quests WHERE agent_id = ?1 AND created_at > date('now')",
+                params![agent_id],
+                |row| row.get(0),
+            )?;
+            if today_count >= max_daily_tasks {
+                anyhow::bail!("Agent has reached daily quest creation limit ({max_daily_tasks})");
+            }
+        }
+
+        let quest_id = if let Some(pid) = parent_id {
+            let sdb = self.sessions_db.lock().await;
+            let child_count: u32 = sdb.query_row(
+                "SELECT COUNT(*) FROM quests WHERE id LIKE ?1",
+                params![format!("{pid}.%")],
+                |row| row.get(0),
+            )?;
+            let parent_quest_id = aeqi_quests::QuestId(pid.to_string());
+            parent_quest_id.child(child_count + 1).0
+        } else {
+            let db = self.db.lock().await;
+            db.execute(
+                "INSERT OR IGNORE INTO quest_sequences (prefix, next_seq) VALUES (?1, 1)",
+                params![prefix],
+            )?;
+            db.query_row(
+                "UPDATE quest_sequences SET next_seq = next_seq + 1 WHERE prefix = ?1 RETURNING next_seq - 1",
+                params![prefix],
+                |row| row.get::<_, u32>(0),
+            )
+            .map(|seq| format!("{prefix}-{seq:03}"))?
+        };
+
+        let now = chrono::Utc::now();
+        let deps_json = serde_json::to_string(depends_on)?;
+
+        let mut quest = aeqi_quests::Quest::with_agent(
+            aeqi_quests::QuestId(quest_id.clone()),
+            "",
+            Some(agent_id),
+        );
+        quest.idea_id = Some(idea_id.to_string());
+        quest.depends_on = depends_on.to_vec();
+        quest.scope = scope;
+        quest.created_at = now;
+
+        let sdb = self.sessions_db.lock().await;
+        sdb.execute(
+            "INSERT INTO quests (id, idea_id, status, priority, agent_id, scope, depends_on, created_at)
+             VALUES (?1, ?2, 'pending', 'normal', ?3, ?4, ?5, ?6)",
+            params![quest_id, idea_id, agent_id, scope.as_str(), deps_json, now.to_rfc3339()],
+        )?;
+
+        info!(quest = %quest_id, agent = %agent.name, idea_id, parent = ?parent_id, "quest created (idea-linked)");
         Ok(quest)
     }
 
@@ -2033,7 +2292,7 @@ impl AgentRegistry {
         agent_id: &str,
         subject: &str,
         description: &str,
-        idea_ids: &[String],
+        _idea_ids: &[String],
         labels: &[String],
         depends_on: &[aeqi_quests::QuestId],
         parent_id: Option<&str>,
@@ -2067,6 +2326,12 @@ impl AgentRegistry {
             }
         }
 
+        // Mint the linked idea before quest-id allocation so a failure there
+        // aborts cleanly without consuming a sequence number.
+        let idea_id = self
+            .mint_or_reuse_quest_idea(subject, description, labels, Some(agent_id), scope)
+            .await?;
+
         // If parent is specified, create a child ID; otherwise create a root ID.
         let quest_id = if let Some(pid) = parent_id {
             // Find next child sequence for this parent (quests in sessions.db).
@@ -2094,54 +2359,57 @@ impl AgentRegistry {
         };
 
         let now = chrono::Utc::now();
-        let labels_json = serde_json::to_string(labels)?;
         let deps_json = serde_json::to_string(depends_on)?;
-        let idea_ids_json = serde_json::to_string(idea_ids)?;
 
         let mut quest = aeqi_quests::Quest::with_agent(
             aeqi_quests::QuestId(quest_id.clone()),
             subject,
             Some(agent_id),
         );
-        quest.description = description.to_string();
+        quest.idea_id = Some(idea_id.clone());
         quest.depends_on = depends_on.to_vec();
-        quest.idea_ids = idea_ids.to_vec();
-        quest.labels = labels.to_vec();
         quest.scope = scope;
         quest.created_at = now;
 
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, depends_on, created_at, idea_id)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8, ?9, NULL)",
-            params![
-                quest_id,
-                subject,
-                description,
-                agent_id,
-                scope.as_str(),
-                idea_ids_json,
-                labels_json,
-                deps_json,
-                now.to_rfc3339(),
-            ],
+            "INSERT INTO quests (id, idea_id, status, priority, agent_id, scope, depends_on, created_at)
+             VALUES (?1, ?2, 'pending', 'normal', ?3, ?4, ?5, ?6)",
+            params![quest_id, idea_id, agent_id, scope.as_str(), deps_json, now.to_rfc3339()],
         )?;
 
         info!(quest = %quest_id, agent = %agent.name, subject = %subject, parent = ?parent_id, "quest created (v2)");
         Ok(quest)
     }
 
-    /// Find an open (Pending or InProgress) quest by exact subject match.
-    /// Used for atomic claim checking.
+    /// Find an open (Pending or InProgress) quest whose linked idea has the
+    /// given name. Used for atomic claim checking — `claim:` prefixed
+    /// idea names map a single open quest to a unique resource.
     pub async fn find_open_task_by_subject(
         &self,
         subject: &str,
     ) -> Result<Option<aeqi_quests::Quest>> {
+        // Two-step lookup across the cross-DB FK boundary.
+        let idea_id: Option<String> = {
+            let db = self.db.lock().await;
+            db.query_row(
+                "SELECT id FROM ideas WHERE name = ?1 LIMIT 1",
+                params![subject],
+                |row| row.get(0),
+            )
+            .optional()?
+        };
+        let Some(idea_id) = idea_id else {
+            return Ok(None);
+        };
+
         let db = self.sessions_db.lock().await;
         let task = db
             .query_row(
-                "SELECT * FROM quests WHERE subject = ?1 AND status IN ('pending', 'in_progress') LIMIT 1",
-                params![subject],
+                "SELECT * FROM quests
+                 WHERE idea_id = ?1 AND status IN ('pending', 'in_progress')
+                 LIMIT 1",
+                params![idea_id],
                 |row| Ok(row_to_task(row)),
             )
             .optional()?;
@@ -2226,6 +2494,59 @@ impl AgentRegistry {
             )
             .optional()?;
         Ok(quest)
+    }
+
+    /// Hydrate a quest's linked idea snapshot from `aeqi.db`. Tests + the
+    /// API layer use this to read `quest.title()` / `quest.body()` /
+    /// `quest.idea_tags()` after a fetch without standing up the full
+    /// `IdeaStore` plumbing.
+    pub async fn hydrate_quest_idea(&self, quest: &mut aeqi_quests::Quest) -> Result<()> {
+        let Some(ref idea_id) = quest.idea_id.clone() else {
+            return Ok(());
+        };
+        let db = self.db.lock().await;
+        let idea = db
+            .query_row(
+                "SELECT id, name, content, scope, agent_id, session_id, created_at
+                 FROM ideas WHERE id = ?1",
+                params![idea_id],
+                |row| {
+                    let scope_str: String = row.get(3)?;
+                    let scope: Scope = scope_str.parse().unwrap_or(Scope::SelfScope);
+                    let created: String = row.get(6)?;
+                    let created_at = chrono::DateTime::parse_from_rfc3339(&created)
+                        .map(|d| d.with_timezone(&chrono::Utc))
+                        .unwrap_or_else(|_| chrono::Utc::now());
+                    Ok(aeqi_core::traits::Idea {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        content: row.get(2)?,
+                        tags: vec![],
+                        agent_id: row.get(4)?,
+                        session_id: row.get(5)?,
+                        score: 0.0,
+                        scope,
+                        inheritance: "self".to_string(),
+                        tool_allow: vec![],
+                        tool_deny: vec![],
+                        created_at,
+                    })
+                },
+            )
+            .optional()?;
+        if let Some(mut idea) = idea {
+            // Pull the tag rows in a follow-up query so the snapshot
+            // mirrors what `IdeaStore::get_by_ids` would return.
+            let mut stmt =
+                db.prepare("SELECT tag FROM idea_tags WHERE idea_id = ?1 ORDER BY tag")?;
+            let tags: Vec<String> = stmt
+                .query_map(params![idea_id], |row| row.get::<_, String>(0))?
+                .filter_map(|r| r.ok())
+                .collect();
+            idea.tags = tags;
+            quest.idea = Some(idea);
+        }
+        Ok(())
     }
 
     /// IDs of every quest currently linked to a given idea. Used by the
@@ -2355,10 +2676,8 @@ impl AgentRegistry {
         f(&mut quest);
 
         let now = chrono::Utc::now().to_rfc3339();
-        let labels_json = serde_json::to_string(&quest.labels).unwrap_or_default();
         let checkpoints_json = serde_json::to_string(&quest.checkpoints).unwrap_or_default();
         let deps_json = serde_json::to_string(&quest.depends_on).unwrap_or_default();
-        let idea_ids_json = serde_json::to_string(&quest.idea_ids).unwrap_or_default();
         let metadata_json = serde_json::to_string(&quest.metadata).unwrap_or_default();
         let outcome_json = quest
             .outcome
@@ -2367,31 +2686,25 @@ impl AgentRegistry {
 
         db.execute(
             "UPDATE quests SET
-                subject = ?1, description = ?2, status = ?3, priority = ?4,
-                agent_id = ?5, scope = ?6, idea_ids = ?7, labels = ?8,
-                retry_count = ?9, checkpoints = ?10, metadata = ?11,
-                depends_on = ?12, acceptance_criteria = ?13,
-                updated_at = ?14, closed_at = ?15, outcome = ?16,
-                idea_id = ?17
-             WHERE id = ?18",
+                idea_id = ?1, status = ?2, priority = ?3,
+                agent_id = ?4, scope = ?5,
+                retry_count = ?6, checkpoints = ?7, metadata = ?8,
+                depends_on = ?9,
+                updated_at = ?10, closed_at = ?11, outcome = ?12
+             WHERE id = ?13",
             params![
-                quest.name,
-                quest.description,
+                quest.idea_id,
                 quest.status.to_string(),
                 quest.priority.to_string(),
                 quest.agent_id,
                 quest.scope.as_str(),
-                idea_ids_json,
-                labels_json,
                 quest.retry_count,
                 checkpoints_json,
                 metadata_json,
                 deps_json,
-                quest.acceptance_criteria,
                 now,
                 quest.closed_at.map(|d| d.to_rfc3339()),
                 outcome_json,
-                quest.idea_id,
                 quest.id.0,
             ],
         )?;
@@ -2903,10 +3216,8 @@ impl AgentRegistry {
 
 /// Convert a SQLite row to a Task.
 fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
-    let labels_str: String = row.get("labels").unwrap_or_else(|_| "[]".to_string());
     let checkpoints_str: String = row.get("checkpoints").unwrap_or_else(|_| "[]".to_string());
     let deps_str: String = row.get("depends_on").unwrap_or_else(|_| "[]".to_string());
-    let idea_ids_str: String = row.get("idea_ids").unwrap_or_else(|_| "[]".to_string());
     let metadata_str: String = row.get("metadata").unwrap_or_else(|_| "{}".to_string());
     let outcome_str: String = row.get("outcome").unwrap_or_else(|_| String::new());
 
@@ -2953,16 +3264,13 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
 
     aeqi_quests::Quest {
         id: aeqi_quests::QuestId(row.get("id").unwrap_or_default()),
-        name: row.get("subject").unwrap_or_default(),
-        description: row.get("description").unwrap_or_default(),
+        idea_id: row.get::<_, Option<String>>("idea_id").unwrap_or(None),
+        idea: None,
         status,
         priority,
         agent_id: row.get("agent_id").ok(),
         scope: quest_scope,
         depends_on: serde_json::from_str(&deps_str).unwrap_or_default(),
-        idea_id: row.get::<_, Option<String>>("idea_id").unwrap_or(None),
-        idea_ids: serde_json::from_str(&idea_ids_str).unwrap_or_default(),
-        labels: serde_json::from_str(&labels_str).unwrap_or_default(),
         retry_count: row.get::<_, u32>("retry_count").unwrap_or(0),
         checkpoints: serde_json::from_str(&checkpoints_str).unwrap_or_default(),
         metadata: serde_json::from_str(&metadata_str).unwrap_or(serde_json::Value::Null),
@@ -2983,7 +3291,6 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
             .map(|d| d.with_timezone(&chrono::Utc)),
         outcome,
-        acceptance_criteria: row.get("acceptance_criteria").ok(),
         worktree_branch: row.get("worktree_branch").ok(),
         worktree_path: row.get("worktree_path").ok(),
         creator_session_id: row.get("creator_session_id").ok(),
@@ -3076,6 +3383,10 @@ mod tests {
             .unwrap();
 
         let quest_conn = Connection::open(&quest_path).unwrap();
+        // Mirrors the legacy on-disk schema so the rebuild path can SELECT
+        // every preserved lifecycle column. Columns the cleanup drops
+        // (subject / description / acceptance_criteria / labels / idea_ids)
+        // sit alongside the canonical ones the rebuild keeps.
         quest_conn
             .execute_batch(
                 "CREATE TABLE quests (
@@ -3089,8 +3400,19 @@ mod tests {
                      idea_ids TEXT NOT NULL DEFAULT '[]',
                      idea_id TEXT,
                      labels TEXT NOT NULL DEFAULT '[]',
+                     retry_count INTEGER NOT NULL DEFAULT 0,
+                     checkpoints TEXT NOT NULL DEFAULT '[]',
+                     metadata TEXT NOT NULL DEFAULT '{}',
+                     depends_on TEXT NOT NULL DEFAULT '[]',
                      acceptance_criteria TEXT,
-                     created_at TEXT NOT NULL
+                     outcome TEXT,
+                     worktree_branch TEXT,
+                     worktree_path TEXT,
+                     created_at TEXT NOT NULL,
+                     updated_at TEXT,
+                     closed_at TEXT,
+                     closed_reason TEXT,
+                     creator_session_id TEXT
                  );",
             )
             .unwrap();
@@ -3237,6 +3559,146 @@ mod tests {
             .unwrap();
         assert_eq!(name, "(quest as-001)");
         assert!(content.contains("backfilled from legacy quest"));
+    }
+
+    #[test]
+    fn cleanup_legacy_quest_columns_rebuilds_to_canonical_shape() {
+        let (_dir, _idea_conn, quest_conn) = backfill_fixture();
+
+        // Seed two rows with the legacy editorial columns populated and
+        // both pointing at minted ideas — `cleanup_legacy_quest_columns`
+        // requires every quest already carries a non-null `idea_id`.
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, description, agent_id, idea_id, created_at)
+                 VALUES (?1, 'Subj A', 'Body A', 'agent-1', 'idea-a', ?2)",
+                rusqlite::params!["as-001", Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, description, agent_id, idea_id, created_at)
+                 VALUES (?1, 'Subj B', 'Body B', 'agent-2', 'idea-b', ?2)",
+                rusqlite::params!["as-002", Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        cleanup_legacy_quest_columns(&quest_conn).unwrap();
+
+        // Legacy columns gone; canonical shape lives.
+        let cols: Vec<String> = {
+            let mut stmt = quest_conn.prepare("PRAGMA table_info(quests)").unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        for legacy in [
+            "subject",
+            "description",
+            "acceptance_criteria",
+            "labels",
+            "idea_ids",
+        ] {
+            assert!(
+                !cols.iter().any(|c| c == legacy),
+                "legacy column `{legacy}` still present"
+            );
+        }
+        assert!(cols.iter().any(|c| c == "idea_id"));
+
+        // Both rows survived with their FK + lifecycle metadata intact.
+        let mut stmt = quest_conn
+            .prepare("SELECT id, idea_id, agent_id FROM quests ORDER BY id ASC")
+            .unwrap();
+        let rows: Vec<(String, String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "as-001".to_string(),
+                    "idea-a".to_string(),
+                    "agent-1".to_string()
+                ),
+                (
+                    "as-002".to_string(),
+                    "idea-b".to_string(),
+                    "agent-2".to_string()
+                ),
+            ]
+        );
+
+        // `idea_id` is now NOT NULL — inserting a row without one fails.
+        let err = quest_conn.execute(
+            "INSERT INTO quests (id, status, priority, scope, created_at)
+             VALUES ('as-003', 'pending', 'normal', 'self', ?1)",
+            rusqlite::params![Utc::now().to_rfc3339()],
+        );
+        assert!(err.is_err(), "NOT NULL constraint should reject the insert");
+
+        // Indexes recreated.
+        let idx_count: i64 = quest_conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE type='index' AND tbl_name='quests' AND name LIKE 'idx_quests_%'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(idx_count, 4);
+    }
+
+    #[test]
+    fn cleanup_legacy_quest_columns_is_idempotent() {
+        let (_dir, _idea_conn, quest_conn) = backfill_fixture();
+
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, agent_id, idea_id, created_at)
+                 VALUES ('as-001', 'Subj', 'agent-1', 'idea-a', ?1)",
+                rusqlite::params![Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        cleanup_legacy_quest_columns(&quest_conn).unwrap();
+        // Second run is a pure no-op — no schema churn, no row loss.
+        cleanup_legacy_quest_columns(&quest_conn).unwrap();
+
+        let count: i64 = quest_conn
+            .query_row("SELECT COUNT(*) FROM quests", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn cleanup_legacy_quest_columns_aborts_on_null_idea_id() {
+        let (_dir, _idea_conn, quest_conn) = backfill_fixture();
+
+        // Row deliberately left with `idea_id IS NULL` — the cleanup must
+        // refuse to drop the legacy columns and lose its editorial body.
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, agent_id, created_at)
+                 VALUES ('as-001', 'Pre-backfill', 'agent-1', ?1)",
+                rusqlite::params![Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        assert!(cleanup_legacy_quest_columns(&quest_conn).is_err());
+
+        // Schema untouched — legacy columns still there.
+        let cols: Vec<String> = {
+            let mut stmt = quest_conn.prepare("PRAGMA table_info(quests)").unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        assert!(cols.iter().any(|c| c == "subject"));
     }
 
     #[tokio::test]
@@ -3576,13 +4038,14 @@ mod tests {
             .await
             .unwrap();
 
-        let fetched = reg.get_task(&t1.id.0).await.unwrap().unwrap();
-        assert_eq!(fetched.name, "Build API");
-        assert_eq!(fetched.description, "Build the REST API");
+        let mut fetched = reg.get_task(&t1.id.0).await.unwrap().unwrap();
+        reg.hydrate_quest_idea(&mut fetched).await.unwrap();
+        assert_eq!(fetched.title(), "Build API");
+        assert_eq!(fetched.body(), "Build the REST API");
 
-        let fetched2 = reg.get_task(&t2.id.0).await.unwrap().unwrap();
-        assert_eq!(fetched2.idea_ids, vec!["idea-abc".to_string()]);
-        assert_eq!(fetched2.labels, vec!["testing".to_string()]);
+        let mut fetched2 = reg.get_task(&t2.id.0).await.unwrap().unwrap();
+        reg.hydrate_quest_idea(&mut fetched2).await.unwrap();
+        assert_eq!(fetched2.idea_tags(), &["testing".to_string()]);
 
         let missing = reg.get_task("no-such-task").await.unwrap();
         assert!(missing.is_none());
@@ -3593,13 +4056,19 @@ mod tests {
         reg.update_task_status(&t1.id.0, aeqi_quests::QuestStatus::Done)
             .await
             .unwrap();
-        let pending = reg.list_tasks(Some("pending"), None).await.unwrap();
+        let mut pending = reg.list_tasks(Some("pending"), None).await.unwrap();
+        for q in pending.iter_mut() {
+            reg.hydrate_quest_idea(q).await.unwrap();
+        }
         assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].name, "Write tests");
+        assert_eq!(pending[0].title(), "Write tests");
 
-        let done = reg.list_tasks(Some("done"), None).await.unwrap();
+        let mut done = reg.list_tasks(Some("done"), None).await.unwrap();
+        for q in done.iter_mut() {
+            reg.hydrate_quest_idea(q).await.unwrap();
+        }
         assert_eq!(done.len(), 1);
-        assert_eq!(done[0].name, "Build API");
+        assert_eq!(done[0].title(), "Build API");
 
         let by_agent = reg.list_tasks(None, Some(&agent.id)).await.unwrap();
         assert_eq!(by_agent.len(), 2);

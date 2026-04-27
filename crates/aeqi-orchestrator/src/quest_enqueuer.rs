@@ -251,7 +251,7 @@ impl QuestEnqueuer {
             let session_id = uuid::Uuid::new_v4().to_string();
             let payload = QueuedMessage::quest(
                 agent_id.clone(),
-                task.description.clone(),
+                task.body().to_string(),
                 task.id.0.clone(),
                 creator_session_id,
                 Some(budget),

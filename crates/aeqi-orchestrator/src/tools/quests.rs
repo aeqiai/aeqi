@@ -11,10 +11,13 @@ use crate::agent_registry::AgentRegistry;
 pub(crate) fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
     let mut out = format!(
         "Quest: {} \nStatus: {:?}\nPriority: {}\nSubject: {}\n",
-        quest.id, quest.status, quest.priority, quest.name,
+        quest.id,
+        quest.status,
+        quest.priority,
+        quest.title(),
     );
-    if !quest.description.is_empty() {
-        out.push_str(&format!("Description: {}\n", quest.description));
+    if !quest.body().is_empty() {
+        out.push_str(&format!("Description: {}\n", quest.body()));
     }
     if let Some(ref agent_id) = quest.agent_id {
         out.push_str(&format!("Agent: {}\n", agent_id));
@@ -315,7 +318,10 @@ impl QuestsTool {
         for q in &quests {
             out.push_str(&format!(
                 "- {} [{}] (priority: {}) — {}\n",
-                q.id, q.status, q.priority, q.name
+                q.id,
+                q.status,
+                q.priority,
+                q.title()
             ));
         }
         Ok(ToolResult::success(out))
@@ -640,7 +646,7 @@ async fn dispatch_quest_end_for_llm_close(
         "outcome": quest.quest_outcome(),
         "transcript_preview": format!(
             "Quest {quest_id} ({subject}) closed by agent: {result}",
-            subject = quest.name,
+            subject = quest.title(),
         ),
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
@@ -702,16 +708,13 @@ mod tests {
     fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
         aeqi_quests::Quest {
             id: aeqi_quests::QuestId(id.to_string()),
-            name: "Quests-tool unit test".to_string(),
-            description: String::new(),
+            idea_id: Some(format!("idea-{id}")),
+            idea: None,
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),
             agent_id: agent_id.map(str::to_string),
             scope: aeqi_core::Scope::SelfScope,
             depends_on: Vec::new(),
-            idea_id: None,
-            idea_ids: Vec::new(),
-            labels: Vec::new(),
             retry_count: 0,
             checkpoints: Vec::new(),
             metadata: serde_json::Value::Null,
@@ -722,7 +725,6 @@ mod tests {
             worktree_branch: None,
             worktree_path: None,
             creator_session_id: None,
-            acceptance_criteria: None,
         }
     }
 

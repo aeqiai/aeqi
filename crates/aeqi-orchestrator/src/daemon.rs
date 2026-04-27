@@ -156,7 +156,7 @@ pub fn resolve_web_chat_id(
 pub fn quest_snapshot(quest: &aeqi_quests::Quest) -> serde_json::Value {
     serde_json::json!({
         "id": quest.id.0,
-        "subject": quest.name,
+        "subject": quest.title(),
         "status": quest.status.to_string(),
         "runtime": quest.runtime(),
         "outcome": quest.quest_outcome(),

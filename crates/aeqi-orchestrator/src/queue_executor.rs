@@ -410,14 +410,20 @@ impl SessionExecutor for QueueExecutor {
                 && outcome_status != "done"
                 && let Some(ref al) = self.activity_log
             {
-                let subject = self
-                    .agent_registry
-                    .get_task(quest_id)
-                    .await
-                    .ok()
-                    .flatten()
-                    .map(|q| q.name)
-                    .unwrap_or_default();
+                let quest_for_subject = self.agent_registry.get_task(quest_id).await.ok().flatten();
+                let subject = match (&quest_for_subject, self.idea_store.as_ref()) {
+                    (Some(q), Some(store)) if q.idea_id.is_some() => {
+                        let id = q.idea_id.as_ref().unwrap();
+                        store
+                            .get_by_ids(std::slice::from_ref(id))
+                            .await
+                            .ok()
+                            .and_then(|mut v| v.pop())
+                            .map(|i| i.name)
+                            .unwrap_or_default()
+                    }
+                    _ => String::new(),
+                };
                 let classification = classify_failure(
                     &self.provider,
                     &self.failure_analysis_model,
@@ -439,14 +445,24 @@ impl SessionExecutor for QueueExecutor {
                     ) {
                         terminal_status = aeqi_quests::QuestStatus::Blocked;
                     }
-                    if let Err(e) = self
+                    // Append enrichment to the linked idea body so the
+                    // editorial surface reflects the failure context (the
+                    // canonical place post-WS-8).
+                    let enrich_target = self
                         .agent_registry
-                        .update_task(quest_id, |q| {
-                            q.description.push_str(&enrichment);
-                        })
+                        .get_task(quest_id)
                         .await
+                        .ok()
+                        .flatten()
+                        .and_then(|q| q.idea_id);
+                    if let (Some(id), Some(store)) = (enrich_target, self.idea_store.as_ref())
+                        && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(&id)).await
+                        && let Some(existing) = ideas.pop()
                     {
-                        warn!(task = %quest_id, error = %e, "failed to enrich quest description");
+                        let new_content = format!("{}{}", existing.content, enrichment);
+                        if let Err(e) = store.update(&id, None, Some(&new_content), None).await {
+                            warn!(task = %quest_id, error = %e, "failed to enrich quest idea body");
+                        }
                     }
                 }
             }
@@ -610,7 +626,7 @@ async fn dispatch_quest_end_for_queue_finalize(
         return;
     };
 
-    let subject = quest.map(|q| q.name.clone()).unwrap_or_default();
+    let subject = quest.map(|q| q.title().to_string()).unwrap_or_default();
     let outcome = quest.and_then(|q| q.quest_outcome());
 
     let trigger_args = serde_json::json!({
@@ -682,16 +698,13 @@ mod tests {
     fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
         aeqi_quests::Quest {
             id: aeqi_quests::QuestId(id.to_string()),
-            name: "Queue-finalize test quest".to_string(),
-            description: String::new(),
+            idea_id: Some(format!("idea-{id}")),
+            idea: None,
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),
             agent_id: agent_id.map(str::to_string),
             scope: aeqi_core::Scope::SelfScope,
             depends_on: Vec::new(),
-            idea_id: None,
-            idea_ids: Vec::new(),
-            labels: Vec::new(),
             retry_count: 0,
             checkpoints: Vec::new(),
             metadata: serde_json::Value::Null,
@@ -702,7 +715,6 @@ mod tests {
             worktree_branch: None,
             worktree_path: None,
             creator_session_id: None,
-            acceptance_criteria: None,
         }
     }
 

@@ -237,7 +237,7 @@ fn build_project_monitor(
         .iter()
         .filter(|q| {
             q.status == QuestStatus::Blocked
-                && q.labels
+                && q.idea_tags()
                     .iter()
                     .any(|label| label.eq_ignore_ascii_case("budget-blocked"))
         })
@@ -281,7 +281,7 @@ fn sort_quests(mut quests: Vec<&Quest>) -> Vec<&Quest> {
 }
 
 fn quest_brief(quest: &Quest) -> String {
-    format!("{} [{}] {}", quest.id, quest.priority, quest.name)
+    format!("{} [{}] {}", quest.id, quest.priority, quest.title())
 }
 
 fn build_interventions(daemon: &DaemonMonitor, projects: &[ProjectMonitor]) -> Vec<String> {

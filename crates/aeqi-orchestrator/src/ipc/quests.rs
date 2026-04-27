@@ -61,7 +61,9 @@ pub async fn handle_quests(
                 None
             };
 
-            let all_quests: Vec<serde_json::Value> = quests
+            // Bulk-hydrate the linked ideas so each quest in the list can
+            // surface its title/body/tags without an N+1 fetch from the UI.
+            let visible: Vec<&aeqi_quests::Quest> = quests
                 .iter()
                 .filter(|quest| match &allowed_agent_ids {
                     None => true,
@@ -71,17 +73,37 @@ pub async fn handle_quests(
                         .map(|a| ids.contains(a))
                         .unwrap_or(false),
                 })
+                .collect();
+            let idea_ids: Vec<String> = visible.iter().filter_map(|q| q.idea_id.clone()).collect();
+            let ideas: std::collections::HashMap<String, aeqi_core::traits::Idea> =
+                if idea_ids.is_empty() {
+                    Default::default()
+                } else if let Some(ref store) = ctx.idea_store {
+                    store
+                        .get_by_ids(&idea_ids)
+                        .await
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|i| (i.id.clone(), i))
+                        .collect()
+                } else {
+                    Default::default()
+                };
+
+            let all_quests: Vec<serde_json::Value> = visible
+                .iter()
                 .map(|quest| {
+                    let idea = quest.idea_id.as_deref().and_then(|id| ideas.get(id));
                     serde_json::json!({
                         "id": quest.id.0,
-                        "subject": quest.name,
-                        "description": quest.description,
+                        "idea_id": quest.idea_id,
+                        "subject": idea.map(|i| i.name.as_str()).unwrap_or(""),
+                        "description": idea.map(|i| i.content.as_str()).unwrap_or(""),
                         "status": quest.status.to_string(),
                         "priority": quest.priority.to_string(),
                         "agent_id": quest.agent_id,
                         "scope": quest.scope.as_str(),
-                        "idea_ids": quest.idea_ids,
-                        "labels": quest.labels,
+                        "labels": idea.map(|i| i.tags.clone()).unwrap_or_default(),
                         "retry_count": quest.retry_count,
                         "project": quest.agent_id.as_deref().unwrap_or(""),
                         "created_at": quest.created_at.to_rfc3339(),
@@ -157,8 +179,18 @@ pub async fn handle_create_quest(
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<Scope>().ok());
 
-    if project.is_empty() || subject.is_empty() {
-        return serde_json::json!({"ok": false, "error": "project and subject are required"});
+    // `subject` may be absent on Flow B (pure `idea_id` reference) — the
+    // resolved idea's name covers the validation downstream. Only require
+    // it on Flow A / Flow C.
+    if project.is_empty() {
+        return serde_json::json!({"ok": false, "error": "project is required"});
+    }
+    let has_idea_ref = idea_obj.is_some() || provided_idea_id.is_some();
+    if !has_idea_ref && subject.is_empty() {
+        return serde_json::json!({
+            "ok": false,
+            "error": "subject is required (or supply idea / idea_id)",
+        });
     }
 
     // Atomic claim check.
@@ -311,46 +343,56 @@ pub async fn handle_create_quest(
         (None, None) => None, // Legacy path — backfill mints later.
     };
 
-    match ctx
-        .agent_registry
-        .create_task_v2_scoped(
-            &agent.id,
-            subject,
-            description,
-            &idea_ids,
-            &labels,
-            &depends_on,
-            parent_id,
-            scope_for_quest,
-        )
-        .await
-    {
-        Ok(mut quest) => {
-            // Persist acceptance_criteria if supplied (e.g. from a preset).
-            if let Some(ref ac) = acceptance_criteria {
-                let quest_id = quest.id.0.clone();
-                let ac_clone = ac.clone();
-                if let Ok(updated) = ctx
-                    .agent_registry
-                    .update_task(&quest_id, |q| {
-                        q.acceptance_criteria = Some(ac_clone);
-                    })
-                    .await
-                {
-                    quest = updated;
-                }
-            }
+    // Pick the create path. With `linked_idea_id` resolved (Flow A/B) we
+    // skip the in-method mint that `create_task_v2_scoped` would otherwise
+    // do, keeping the quest pointed at the exact idea row the IPC layer
+    // resolved. Flow C (legacy) still hits the older path so the in-method
+    // mint covers callers that haven't been migrated yet.
+    let create_result = if let Some(ref iid) = linked_idea_id {
+        ctx.agent_registry
+            .create_task_with_idea_id(&agent.id, iid, &depends_on, parent_id, scope_for_quest)
+            .await
+    } else {
+        ctx.agent_registry
+            .create_task_v2_scoped(
+                &agent.id,
+                subject,
+                description,
+                &idea_ids,
+                &labels,
+                &depends_on,
+                parent_id,
+                scope_for_quest,
+            )
+            .await
+    };
 
-            // Link the quest to the resolved idea (Flow A or B).
-            if let Some(ref id) = linked_idea_id
-                && let Ok(updated) = ctx.agent_registry.set_quest_idea_id(&quest.id.0, id).await
+    match create_result {
+        Ok(quest) => {
+            // Acceptance criteria has folded into the linked idea body in
+            // phase 3 — append it as a `## Acceptance` section if the
+            // request supplied one separately. Idea reference updates flow
+            // through the idea API, not the quest, so this is the same
+            // path the legacy preset-with-acceptance flow takes today.
+            if let (Some(ac), Some(id), Some(store)) = (
+                acceptance_criteria.as_ref(),
+                quest.idea_id.as_ref(),
+                ctx.idea_store.as_ref(),
+            ) && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(id)).await
+                && let Some(existing) = ideas.pop()
             {
-                quest = updated;
+                let mut content = existing.content.trim_end().to_string();
+                if !content.is_empty() {
+                    content.push_str("\n\n");
+                }
+                content.push_str("## Acceptance\n");
+                content.push_str(ac);
+                let _ = store.update(id, None, Some(&content), None).await;
             }
 
-            // Optional: fetch the linked idea body so the response can carry
-            // it inline (UI routes to the new quest without a follow-up GET).
-            let inline_idea = match (&linked_idea_id, ctx.idea_store.as_ref()) {
+            // Fetch the linked idea body so the response can carry it
+            // inline (UI routes to the new quest without a follow-up GET).
+            let inline_idea = match (&quest.idea_id, ctx.idea_store.as_ref()) {
                 (Some(id), Some(store)) => store
                     .get_by_ids(std::slice::from_ref(id))
                     .await
@@ -359,6 +401,10 @@ pub async fn handle_create_quest(
                 _ => None,
             };
 
+            let subject_for_log = inline_idea
+                .as_ref()
+                .map(|i| i.name.as_str())
+                .unwrap_or(subject);
             let _ = ctx
                 .activity_log
                 .emit(
@@ -367,12 +413,12 @@ pub async fn handle_create_quest(
                     agent.session_id.as_deref(),
                     Some(&quest.id.0),
                     &serde_json::json!({
-                        "subject": quest.name,
+                        "subject": subject_for_log,
                         "project": project,
                         "creator_session_id": agent.session_id,
                         "parent": parent_id,
                         "depends_on": depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
-                        "idea_id": linked_idea_id,
+                        "idea_id": quest.idea_id,
                     }),
                 )
                 .await;
@@ -381,13 +427,12 @@ pub async fn handle_create_quest(
                 "quest": {
                     "id": quest.id.0,
                     "idea_id": quest.idea_id,
-                    "subject": quest.name,
-                    "description": quest.description,
+                    "subject": inline_idea.as_ref().map(|i| i.name.as_str()).unwrap_or(""),
+                    "description": inline_idea.as_ref().map(|i| i.content.as_str()).unwrap_or(""),
                     "status": quest.status.to_string(),
                     "agent_id": quest.agent_id,
                     "scope": quest.scope.as_str(),
                     "project": project,
-                    "acceptance_criteria": quest.acceptance_criteria,
                 },
                 "idea": inline_idea.as_ref().map(idea_to_json),
             })
@@ -472,14 +517,13 @@ pub async fn handle_get_quest(
                 "quest": {
                     "id": quest.id.0,
                     "idea_id": quest.idea_id,
-                    "subject": quest.name,
-                    "description": quest.description,
+                    "subject": inline_idea.as_ref().map(|i| i.name.as_str()).unwrap_or(""),
+                    "description": inline_idea.as_ref().map(|i| i.content.as_str()).unwrap_or(""),
                     "status": quest.status.to_string(),
                     "priority": quest.priority.to_string(),
                     "agent_id": quest.agent_id,
                     "scope": quest.scope.as_str(),
-                    "idea_ids": quest.idea_ids,
-                    "labels": quest.labels,
+                    "labels": inline_idea.as_ref().map(|i| i.tags.clone()).unwrap_or_default(),
                     "retry_count": quest.retry_count,
                     "project": quest.agent_id.as_deref().unwrap_or(""),
                     "created_at": quest.created_at.to_rfc3339(),
@@ -488,7 +532,6 @@ pub async fn handle_get_quest(
                     "outcome": quest.quest_outcome(),
                     "runtime": quest.runtime(),
                     "depends_on": quest.depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
-                    "acceptance_criteria": quest.acceptance_criteria,
                     "sibling_quest_ids": sibling_quests,
                 },
                 "idea": inline_idea.as_ref().map(idea_to_json),
@@ -597,17 +640,28 @@ pub async fn handle_update_quest(
         .await
     {
         Ok(quest) => {
+            // Editorial fields live on the linked idea — fetch it lazily
+            // for the response so the UI can refresh without a 2nd RPC.
+            let idea = match (&quest.idea_id, ctx.idea_store.as_ref()) {
+                (Some(id), Some(store)) => store
+                    .get_by_ids(std::slice::from_ref(id))
+                    .await
+                    .ok()
+                    .and_then(|mut v| v.pop()),
+                _ => None,
+            };
             serde_json::json!({
                 "ok": true,
                 "quest": {
                     "id": quest.id.0,
-                    "subject": quest.name,
-                    "description": quest.description,
+                    "idea_id": quest.idea_id,
+                    "subject": idea.as_ref().map(|i| i.name.as_str()).unwrap_or(""),
+                    "description": idea.as_ref().map(|i| i.content.as_str()).unwrap_or(""),
                     "status": quest.status.to_string(),
                     "priority": quest.priority.to_string(),
                     "agent_id": quest.agent_id,
                     "scope": quest.scope.as_str(),
-                    "labels": quest.labels,
+                    "labels": idea.as_ref().map(|i| i.tags.clone()).unwrap_or_default(),
                 }
             })
         }
@@ -936,7 +990,7 @@ async fn dispatch_quest_end_for_ipc_close(
         "outcome": quest.quest_outcome(),
         "transcript_preview": format!(
             "Quest {quest_id} ({subject}) closed via IPC: {reason}",
-            subject = quest.name,
+            subject = quest.title(),
         ),
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
@@ -998,16 +1052,13 @@ mod tests {
     fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
         aeqi_quests::Quest {
             id: aeqi_quests::QuestId(id.to_string()),
-            name: "Unit test quest".to_string(),
-            description: String::new(),
+            idea_id: Some(format!("idea-{id}")),
+            idea: None,
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),
             agent_id: agent_id.map(str::to_string),
             scope: aeqi_core::Scope::SelfScope,
             depends_on: Vec::new(),
-            idea_id: None,
-            idea_ids: Vec::new(),
-            labels: Vec::new(),
             retry_count: 0,
             checkpoints: Vec::new(),
             metadata: serde_json::Value::Null,
@@ -1018,7 +1069,6 @@ mod tests {
             worktree_branch: None,
             worktree_path: None,
             creator_session_id: None,
-            acceptance_criteria: None,
         }
     }
 

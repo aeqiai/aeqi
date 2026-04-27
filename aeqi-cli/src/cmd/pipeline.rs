@@ -103,7 +103,10 @@ pub(crate) async fn cmd_pipeline(
                 };
                 println!(
                     "  {} [{}] {} ({})",
-                    child.id, child.status, child.name, deps
+                    child.id,
+                    child.status,
+                    child.title(),
+                    deps
                 );
             }
         }
@@ -146,7 +149,7 @@ pub(crate) async fn cmd_pipeline(
             let parent_id = aeqi_quests::QuestId::from(id.as_str());
 
             if let Some(parent) = store.get(&id) {
-                println!("{} [{}] {}", parent.id, parent.status, parent.name);
+                println!("{} [{}] {}", parent.id, parent.status, parent.title());
                 let children = store.children(&parent_id);
                 let done = children.iter().filter(|c| c.is_closed()).count();
                 println!("Progress: {}/{}\n", done, children.len());
@@ -157,7 +160,7 @@ pub(crate) async fn cmd_pipeline(
                         aeqi_quests::QuestStatus::Cancelled => "[-]",
                         _ => "[ ]",
                     };
-                    println!("  {} {} {}", status_icon, child.id, child.name);
+                    println!("  {} {} {}", status_icon, child.id, child.title());
                 }
             } else {
                 println!("Quest not found: {id}");
