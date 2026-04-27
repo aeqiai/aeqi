@@ -20,13 +20,15 @@
 //! ```
 
 use aeqi_core::traits::{
-    ChatRequest, ChatResponse, Provider, StopReason, ToolCall, ToolSpec, Usage,
+    ChatRequest, ChatResponse, Provider, StopReason, StreamEvent, ToolCall, ToolSpec, Usage,
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use base64::Engine as _;
+use futures::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 use tracing::debug;
 
 const DEFAULT_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -89,6 +91,8 @@ impl OpenRouterProvider {
                 ignore: None,
             }),
             modalities: Some(vec!["image".to_string(), "text".to_string()]),
+            stream: None,
+            stream_options: None,
         };
 
         debug!(
@@ -179,6 +183,75 @@ struct ApiRequest {
     /// Output modalities (e.g. `["image"]` for image generation).
     #[serde(skip_serializing_if = "Option::is_none")]
     modalities: Option<Vec<String>>,
+    /// SSE streaming. Defaults off; the streaming entrypoint sets this true.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stream: Option<bool>,
+    /// `stream_options.include_usage` — OpenAI-compat way to ask for a final
+    /// `usage` chunk on streaming responses. Without this we get token
+    /// counts only via the non-streaming path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stream_options: Option<StreamOptions>,
+}
+
+#[derive(Debug, Serialize)]
+struct StreamOptions {
+    include_usage: bool,
+}
+
+// --- Streaming wire types (OpenAI-compat SSE chunks) ---
+
+#[derive(Debug, Deserialize)]
+struct SseChunk {
+    #[serde(default)]
+    choices: Vec<SseChoice>,
+    #[serde(default)]
+    usage: Option<ApiUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SseChoice {
+    #[serde(default)]
+    delta: Option<SseDelta>,
+    #[serde(default)]
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SseDelta {
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<SseToolCallDelta>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SseToolCallDelta {
+    /// Position of this tool call in the assistant message — required so
+    /// successive deltas for the same call land in the same accumulator.
+    index: usize,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    function: Option<SseToolCallFunctionDelta>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SseToolCallFunctionDelta {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    arguments: Option<String>,
+}
+
+/// Per-tool-call accumulator, indexed by the SSE delta `index` field. Tool
+/// call arguments arrive as JSON fragments across many deltas — we stitch
+/// them together here and emit `ToolUseComplete` once the stream finishes.
+#[derive(Default)]
+struct ToolCallAccum {
+    id: String,
+    name: String,
+    arguments_json: String,
+    start_emitted: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -490,6 +563,8 @@ impl Provider for OpenRouterProvider {
                 ignore: Some(vec!["SiliconFlow".to_string()]),
             }),
             modalities: None,
+            stream: None,
+            stream_options: None,
         };
 
         debug!(
@@ -599,6 +674,213 @@ impl Provider for OpenRouterProvider {
             usage,
             stop_reason,
         })
+    }
+
+    /// Real OpenAI-compatible SSE streaming. The default trait impl just
+    /// blocks on `chat()` and emits one giant TextDelta at the end — for
+    /// 25-second responses that means the user stares at "Thinking…" the
+    /// whole time and then the wall lands. Here we read the SSE byte
+    /// stream and forward each delta as it lands.
+    async fn chat_stream(
+        &self,
+        request: &ChatRequest,
+        tx: mpsc::Sender<StreamEvent>,
+    ) -> Result<()> {
+        let model = if request.model.is_empty() {
+            self.default_model.clone()
+        } else {
+            request.model.clone()
+        };
+
+        let api_request = ApiRequest {
+            model,
+            messages: convert_messages(&request.messages),
+            tools: convert_tools(&request.tools),
+            max_tokens: request.max_tokens,
+            temperature: request.temperature,
+            provider: Some(ProviderRouting {
+                allow_fallbacks: Some(true),
+                ignore: Some(vec!["SiliconFlow".to_string()]),
+            }),
+            modalities: None,
+            stream: Some(true),
+            stream_options: Some(StreamOptions {
+                include_usage: true,
+            }),
+        };
+
+        debug!(
+            provider = "openrouter",
+            model = %api_request.model,
+            messages = api_request.messages.len(),
+            tools = api_request.tools.len(),
+            "sending streaming request"
+        );
+
+        let response = self
+            .client
+            .post(self.api_url())
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("HTTP-Referer", "https://aeqi.dev")
+            .header("X-Title", "System Agent")
+            .json(&api_request)
+            .send()
+            .await
+            .context("failed to send streaming request to OpenRouter")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await?;
+            if let Ok(err) = serde_json::from_str::<ApiError>(&body) {
+                anyhow::bail!(
+                    "OpenRouter API error ({}): {}",
+                    err.error.code.unwrap_or_default(),
+                    err.error.message
+                );
+            }
+            anyhow::bail!("OpenRouter API error ({}): {}", status, body);
+        }
+
+        // State accumulators for assembling the final ChatResponse on done.
+        let mut accum_text = String::new();
+        let mut tool_accums: Vec<ToolCallAccum> = Vec::new();
+        let mut usage = Usage::default();
+        let mut stop_reason = StopReason::EndTurn;
+
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.context("error reading streaming response chunk")?;
+            buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+            while let Some(newline_pos) = buffer.find('\n') {
+                let line = buffer[..newline_pos].trim_end_matches('\r').to_string();
+                buffer.drain(..=newline_pos);
+
+                if line.is_empty() {
+                    continue;
+                }
+                let data = match line.strip_prefix("data: ") {
+                    Some(d) => d,
+                    None => continue,
+                };
+                if data == "[DONE]" {
+                    break;
+                }
+
+                let parsed: SseChunk = match serde_json::from_str(data) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        debug!("failed to parse SSE chunk: {e}, data: {data}");
+                        continue;
+                    }
+                };
+
+                if let Some(u) = parsed.usage {
+                    usage.prompt_tokens = u.prompt_tokens;
+                    usage.completion_tokens = u.completion_tokens;
+                    let _ = tx.send(StreamEvent::Usage(usage.clone())).await;
+                }
+
+                for choice in parsed.choices {
+                    if let Some(delta) = choice.delta {
+                        if let Some(text) = delta.content
+                            && !text.is_empty()
+                        {
+                            let _ = tx.send(StreamEvent::TextDelta(text.clone())).await;
+                            accum_text.push_str(&text);
+                        }
+                        if let Some(tc_deltas) = delta.tool_calls {
+                            for tcd in tc_deltas {
+                                while tool_accums.len() <= tcd.index {
+                                    tool_accums.push(ToolCallAccum::default());
+                                }
+                                let slot = &mut tool_accums[tcd.index];
+                                if let Some(id) = tcd.id
+                                    && slot.id.is_empty()
+                                {
+                                    slot.id = id;
+                                }
+                                if let Some(f) = tcd.function {
+                                    if let Some(name) = f.name
+                                        && slot.name.is_empty()
+                                    {
+                                        slot.name = name.clone();
+                                        if !slot.start_emitted && !slot.id.is_empty() {
+                                            let _ = tx
+                                                .send(StreamEvent::ToolUseStart {
+                                                    id: slot.id.clone(),
+                                                    name,
+                                                })
+                                                .await;
+                                            slot.start_emitted = true;
+                                        }
+                                    }
+                                    if let Some(args) = f.arguments
+                                        && !args.is_empty()
+                                    {
+                                        let _ =
+                                            tx.send(StreamEvent::ToolUseInput(args.clone())).await;
+                                        slot.arguments_json.push_str(&args);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(reason) = choice.finish_reason {
+                        stop_reason = match reason.as_str() {
+                            "stop" => StopReason::EndTurn,
+                            "tool_calls" => StopReason::ToolUse,
+                            "length" => StopReason::MaxTokens,
+                            other => StopReason::Unknown(other.to_string()),
+                        };
+                    }
+                }
+            }
+        }
+
+        let mut tool_calls = Vec::new();
+        for accum in tool_accums {
+            if accum.id.is_empty() && accum.name.is_empty() {
+                continue;
+            }
+            let arguments: serde_json::Value = serde_json::from_str(&accum.arguments_json)
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+            let _ = tx
+                .send(StreamEvent::ToolUseComplete {
+                    id: accum.id.clone(),
+                    name: accum.name.clone(),
+                    arguments: arguments.clone(),
+                })
+                .await;
+            tool_calls.push(ToolCall {
+                id: accum.id,
+                name: accum.name,
+                arguments,
+            });
+        }
+
+        // Surface silent-empty responses (the SiliconFlow / 0-token case).
+        // The non-streaming path warns on this; mirror it here so the
+        // failure mode stays visible regardless of stream toggle.
+        if accum_text.is_empty() && tool_calls.is_empty() {
+            tracing::warn!("openrouter stream returned no content and no tool calls");
+        }
+
+        let response = ChatResponse {
+            content: if accum_text.is_empty() {
+                None
+            } else {
+                Some(accum_text)
+            },
+            tool_calls,
+            usage,
+            stop_reason,
+        };
+
+        let _ = tx.send(StreamEvent::MessageComplete(response)).await;
+        Ok(())
     }
 
     fn name(&self) -> &str {
