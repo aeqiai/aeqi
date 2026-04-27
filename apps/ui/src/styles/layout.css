@@ -3633,18 +3633,12 @@
   align-items: center;
   gap: 6px;
 }
-/* Search anchors the toolbar at a standard width — preferred 420px,
-   shrinks below on narrow viewports, never grows wider so the search
-   stays a search field, not a "search pad" filling the whole row. */
+/* Search flexes to fill the row — the modifier cluster (sort /
+   filter / view) and the labeled `+ New <primitive>` pill sit
+   together on the right edge, pushed there by the search's grow. */
 .ideas-toolbar > .ideas-list-search-field {
-  flex: 0 1 420px;
+  flex: 1;
   min-width: 0;
-}
-/* The labeled primary `+ New <primitive>` action pins to the right
-   edge of the toolbar — visible gap separates it from the quiet
-   modifier cluster (sort / filter / view) on the search's right. */
-.primitive-toolbar-new {
-  margin-left: auto;
 }
 /* Quiet meta label sometimes used inside the toolbar (graph view's
    nodes/edges count). Mono, tabular-nums, lives between the search

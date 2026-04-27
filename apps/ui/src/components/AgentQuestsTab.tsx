@@ -794,7 +794,6 @@ function QuestBoard({
           <Button
             variant="primary"
             size="sm"
-            className="primitive-toolbar-new"
             onClick={() => onNewOpenChange(true)}
             title="New quest (N)"
           >
@@ -810,7 +809,7 @@ function QuestBoard({
             >
               <path d="M6.5 2.5v8M2.5 6.5h8" />
             </svg>
-            New quest
+            New
           </Button>
         </div>
       </div>

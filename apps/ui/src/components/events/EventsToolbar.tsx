@@ -106,13 +106,7 @@ export default function EventsToolbar({
           onChange={onFilter}
         />
         {rightExtra}
-        <Button
-          variant="primary"
-          size="sm"
-          className="primitive-toolbar-new"
-          onClick={onNew}
-          title="New event (N)"
-        >
+        <Button variant="primary" size="sm" onClick={onNew} title="New event (N)">
           <svg
             width="11"
             height="11"
@@ -125,7 +119,7 @@ export default function EventsToolbar({
           >
             <path d="M6.5 2.5v8M2.5 6.5h8" />
           </svg>
-          New event
+          New
         </Button>
       </div>
     </div>

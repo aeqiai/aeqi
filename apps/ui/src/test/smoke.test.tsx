@@ -95,11 +95,10 @@ describe("AgentQuestsTab smoke", () => {
       </StrictMode>,
     );
     // The always-on compose strip is gone; creation now lives behind
-    // the labeled primary toolbar button which opens NewQuestModal.
-    const trigger = Array.from(container.querySelectorAll("button")).find((b) =>
-      /new quest/i.test(b.textContent || ""),
-    );
-    expect(trigger).toBeTruthy();
+    // the labeled primary toolbar button (title attribute identifies
+    // it; visible label is just "New") which opens NewQuestModal.
+    const trigger = container.querySelector('button[title^="New quest"]');
+    expect(trigger).not.toBeNull();
   });
 
   it("does not log a React error during render", () => {
