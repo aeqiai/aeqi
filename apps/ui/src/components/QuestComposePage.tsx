@@ -10,14 +10,6 @@ import IdeaCanvas from "./IdeaCanvas";
 import QuestPriorityPopover from "./quests/QuestPriorityPopover";
 import IdeasScopePopover from "./ideas/IdeasScopePopover";
 
-const PRIORITY_LABELS: Record<QuestPriority, string> = {
-  critical: "Critical",
-  high: "High",
-  normal: "Normal",
-  low: "Low",
-};
-void PRIORITY_LABELS;
-
 /**
  * Dedicated quest-compose surface. Replaces the modal — quest creation
  * is now an editor-shaped flow (idea + lifecycle), so it earns the same
@@ -40,7 +32,8 @@ export default function QuestComposePage({
   const fromIdeaId = searchParams.get("fromIdea") ?? null;
   const presetName = searchParams.get("name") ?? "";
 
-  const ideas = useAgentDataStore((s) => s.ideasByAgent[resolvedAgentId]) ?? [];
+  const ideasRaw = useAgentDataStore((s) => s.ideasByAgent[resolvedAgentId]);
+  const ideas = useMemo(() => ideasRaw ?? [], [ideasRaw]);
   const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
