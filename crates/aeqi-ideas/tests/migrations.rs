@@ -48,6 +48,7 @@ const REQUIRED_IDEAS_COLUMNS: &[&str] = &[
     "valid_until",
     "time_context",
     "wrong_feedback_count",
+    "assignee",
 ];
 
 /// Columns that were dropped by v3 — must NOT appear in the final shape.
@@ -226,7 +227,7 @@ fn test_fresh_db_has_final_shape() {
 
     let conn = Connection::open(&db_path).expect("inspect db");
 
-    // 1. schema_version is stamped at 13 — the baseline marker (T1.13).
+    // 1. schema_version is stamped at 14 — the baseline marker (T1.14).
     let max_version: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -235,8 +236,8 @@ fn test_fresh_db_has_final_shape() {
         )
         .expect("read schema_version");
     assert_eq!(
-        max_version, 13,
-        "fresh DB should be stamped at baseline version 13, got {max_version}"
+        max_version, 14,
+        "fresh DB should be stamped at baseline version 14, got {max_version}"
     );
 
     // 2. ideas has every required column.
@@ -362,12 +363,13 @@ fn test_legacy_db_with_schema_version_9_runs_v11() {
         .expect("query")
         .filter_map(Result::ok)
         .collect();
-    // T1.8 appended v11; T1.9 appends v12; T1.13 appends v13. Legacy DBs
-    // catching up land all three rows.
+    // T1.8 appended v11; T1.9 appends v12; T1.13 appends v13;
+    // T1.14 appends v14 (polymorphic assignee). Legacy DBs catching up
+    // land all four rows.
     assert_eq!(
         versions,
-        (1..=9).chain([11, 12, 13]).collect::<Vec<_>>(),
-        "legacy 1..9 rows must be preserved; v11 + v12 + v13 must be stamped"
+        (1..=9).chain([11, 12, 13, 14]).collect::<Vec<_>>(),
+        "legacy 1..9 rows must be preserved; v11 + v12 + v13 + v14 must be stamped"
     );
 
     let idea_count: i64 = conn

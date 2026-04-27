@@ -191,6 +191,7 @@ mod tests {
             status: QuestStatus::Todo,
             priority: Priority::Normal,
             agent_id: None,
+            assignee: None,
             scope: aeqi_core::Scope::Global,
             depends_on: vec![],
             retry_count: 0,

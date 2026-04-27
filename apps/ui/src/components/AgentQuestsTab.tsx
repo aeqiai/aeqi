@@ -3,15 +3,19 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { useAuthStore } from "@/store/auth";
 import { Button, Popover, Spinner } from "./ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestComposePage from "./QuestComposePage";
-import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
+import type { Quest, QuestStatus, QuestPriority, ScopeValue, User } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
 import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/QuestsSortPopover";
 import QuestStatusPopover from "./quests/QuestStatusPopover";
 import QuestPriorityPopover from "./quests/QuestPriorityPopover";
+import PriorityIcon from "./quests/PriorityIcon";
+import AssigneeAvatar from "./quests/AssigneeAvatar";
+import AssigneePicker from "./quests/AssigneePicker";
 
 const PRIORITY_RANK: Record<QuestPriority, number> = {
   critical: 0,
@@ -208,46 +212,6 @@ function StatusDot({ status }: { status: QuestStatus }) {
   return <span className={`quest-status-dot quest-status-dot--${status}`} />;
 }
 
-/**
- * Priority indicator — three ascending bars (Linear / Notion idiom).
- * Fill count maps to the priority level: low=1 / normal=2 / high=3 /
- * critical=3 with a destructive accent so it pops past the rest.
- * Empty bars stroke at the muted ink tone so the unfilled state still
- * registers as "this is a priority indicator", not absent UI.
- */
-function PriorityIcon({ priority }: { priority: QuestPriority }) {
-  const filled = priority === "critical" || priority === "high" ? 3 : priority === "normal" ? 2 : 1;
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      className={`quest-prio-icon quest-prio-icon--${priority}`}
-      aria-hidden
-    >
-      {[0, 1, 2].map((i) => {
-        const h = 3 + i * 2; // 3, 5, 7
-        const y = 10 - h;
-        const isFilled = i < filled;
-        return (
-          <rect
-            key={i}
-            x={1 + i * 4}
-            y={y}
-            width={2}
-            height={h}
-            rx={0.5}
-            fill={isFilled ? "currentColor" : "transparent"}
-            stroke="currentColor"
-            strokeWidth={1}
-            opacity={isFilled ? 1 : 0.35}
-          />
-        );
-      })}
-    </svg>
-  );
-}
-
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
@@ -266,10 +230,13 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const sort: QuestSort = parseQuestSort(searchParams.get("sort"));
 
   const openCompose = useCallback(
-    (fromIdeaId?: string) => {
+    (opts?: { fromIdea?: string; status?: QuestStatus }) => {
+      const search: Record<string, string> = {};
+      if (opts?.fromIdea) search.fromIdea = opts.fromIdea;
+      if (opts?.status) search.status = opts.status;
       goAgent(agentId, "quests", "new", {
         replace: false,
-        search: fromIdeaId ? { fromIdea: fromIdeaId } : undefined,
+        search: Object.keys(search).length > 0 ? search : undefined,
       });
     },
     [agentId, goAgent],
@@ -308,6 +275,22 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
+  const currentUser = useAuthStore((s) => s.user);
+  // Candidate humans for the assignee picker. Today this is just the
+  // authenticated user — every quest is reassignable to "me." A future
+  // ship adds collaborators via a `GET /agents/:id/users` endpoint
+  // backed by the platform's `user_access` junction.
+  const assigneeUsers = useMemo<Pick<User, "id" | "name" | "email" | "avatar_url">[]>(() => {
+    if (!currentUser) return [];
+    return [
+      {
+        id: currentUser.id,
+        name: currentUser.name,
+        email: currentUser.email,
+        avatar_url: currentUser.avatar_url,
+      },
+    ];
+  }, [currentUser]);
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
   const listQuest = selectedId ? quests.find((q) => q.id === selectedId) : undefined;
@@ -348,27 +331,29 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   // can show only when there's something to save / revert.
   const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "todo");
   const [priority, setPriority] = useState<QuestPriority>(quest?.priority ?? "normal");
+  const [assignee, setAssignee] = useState<string | null>(quest?.assignee ?? null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [bodyDirty, setBodyDirty] = useState(false);
 
   const debounceRef = useRef<number | null>(null);
   const canvasRef = useRef<IdeaCanvasHandle | null>(null);
-  const lifecycleRef = useRef({ status, priority });
-  lifecycleRef.current = { status, priority };
+  const lifecycleRef = useRef({ status, priority, assignee });
+  lifecycleRef.current = { status, priority, assignee };
 
   useEffect(() => {
     setStatus(quest?.status ?? "todo");
     setPriority(quest?.priority ?? "normal");
+    setAssignee(quest?.assignee ?? null);
     setSaveState("idle");
-  }, [quest?.id, quest?.status, quest?.priority]);
+  }, [quest?.id, quest?.status, quest?.priority, quest?.assignee]);
 
   const persistLifecycle = useCallback(async () => {
     if (!selectedId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSaveState("saving");
     try {
-      const { status: s, priority: p } = lifecycleRef.current;
-      await api.updateQuest(selectedId, { status: s, priority: p });
+      const { status: s, priority: p, assignee: a } = lifecycleRef.current;
+      await api.updateQuest(selectedId, { status: s, priority: p, assignee: a });
       await fetchQuests();
       setSaveState("idle");
     } catch {
@@ -390,6 +375,15 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
       setPriority(next);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = window.setTimeout(persistLifecycle, 200);
+    },
+    [persistLifecycle],
+  );
+
+  const handleAssigneeChange = useCallback(
+    (next: string | null) => {
+      setAssignee(next);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = window.setTimeout(persistLifecycle, 100);
     },
     [persistLifecycle],
   );
@@ -444,11 +438,13 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         onScopeChange={setQuestFilter}
         onCreated={fetchQuests}
         onPick={(id) => goAgent(agentId, "quests", id)}
-        onCompose={() => openCompose()}
+        onCompose={(status) => openCompose(status ? { status } : undefined)}
         view={view}
         onViewChange={setView}
         sort={sort}
         onSortChange={setSort}
+        agents={agents}
+        users={assigneeUsers}
       />
     );
   }
@@ -511,6 +507,44 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
           </Button>
           <QuestStatusPopover status={status} onChange={handleStatusChange} />
           <QuestPriorityPopover priority={priority} onChange={handlePriorityChange} />
+          <AssigneePicker
+            assignee={assignee}
+            agents={agents.map((a) => ({ id: a.id, name: a.name }))}
+            users={assigneeUsers}
+            onChange={handleAssigneeChange}
+            renderTrigger={({ open, display }) => (
+              <Button
+                variant="secondary"
+                size="sm"
+                className={`ideas-scope-btn quest-assignee-btn${open ? " open" : ""}`}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                title={display ? `Assigned to ${display.name}` : "Unassigned"}
+              >
+                <AssigneeAvatar
+                  assignee={assignee}
+                  agents={agents}
+                  users={assigneeUsers}
+                  size={16}
+                />
+                <span className="quest-assignee-btn-name">{display?.name ?? "Unassigned"}</span>
+                <svg
+                  className="ideas-scope-btn-chevron"
+                  width="9"
+                  height="9"
+                  viewBox="0 0 9 9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2 3.5 L4.5 6 L7 3.5" />
+                </svg>
+              </Button>
+            )}
+          />
           {quest.scope && <QuestScopeChip scope={quest.scope} />}
           {quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 && (
             <span
@@ -594,6 +628,8 @@ function QuestBoard({
   onViewChange,
   sort,
   onSortChange,
+  agents,
+  users,
 }: {
   agentId: string;
   resolvedAgentId: string;
@@ -603,12 +639,15 @@ function QuestBoard({
   onScopeChange: (next: QuestFilter) => void;
   onCreated: () => void;
   onPick: (id: string) => void;
-  /** Navigates to the dedicated quest-compose page. */
-  onCompose: () => void;
+  /** Navigates to the dedicated quest-compose page. Optional `status`
+   *  pre-selects the column the new quest lands in. */
+  onCompose: (status?: QuestStatus) => void;
   view: QuestsView;
   onViewChange: (next: QuestsView) => void;
   sort: QuestSort;
   onSortChange: (next: QuestSort) => void;
+  agents: { id: string; name: string }[];
+  users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -849,7 +888,7 @@ function QuestBoard({
             onChange={onScopeChange}
           />
           <QuestsViewPopover view={view} onChange={onViewChange} />
-          <Button variant="primary" size="sm" onClick={onCompose} title="New quest (N)">
+          <Button variant="primary" size="sm" onClick={() => onCompose()} title="New quest (N)">
             <svg
               width="11"
               height="11"
@@ -879,8 +918,19 @@ function QuestBoard({
           focusId={focusId}
           totalCount={sortedVisibleQuests.length}
           onPick={onPick}
-          onNew={onCompose}
+          onNew={() => onCompose()}
+          onCompose={onCompose}
+          onAssigneeChange={async (id, next) => {
+            try {
+              await api.updateQuest(id, { assignee: next });
+              onCreated();
+            } catch (e) {
+              setErr(e instanceof Error ? e.message : "Failed to reassign");
+            }
+          }}
           search={search}
+          agents={agents}
+          users={users}
         />
       ) : (
         <div className="quest-board-columns">
@@ -916,8 +966,29 @@ function QuestBoard({
                 }}
               >
                 <header className="quest-col-header">
+                  <StatusDot status={col.status} />
                   <span className="quest-col-label">{col.label}</span>
                   <span className="quest-col-count">{list.length}</span>
+                  <button
+                    type="button"
+                    className="quest-col-add"
+                    onClick={() => onCompose(col.status)}
+                    aria-label={`New ${col.label.toLowerCase()} quest`}
+                    title={`New quest in ${col.label}`}
+                  >
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      aria-hidden
+                    >
+                      <path d="M6.5 2.5v8M2.5 6.5h8" />
+                    </svg>
+                  </button>
                 </header>
                 <div className="quest-col-body">
                   {list.length === 0 ? (
@@ -942,10 +1013,52 @@ function QuestBoard({
                         }}
                         onClick={() => onPick(q.id)}
                       >
-                        <div className="quest-card-subject">{q.idea?.name ?? q.id}</div>
+                        <div className="quest-card-head">
+                          <StatusDot status={optimistic[q.id] ?? q.status} />
+                          <span className="quest-card-subject">{q.idea?.name ?? q.id}</span>
+                        </div>
                         <div className="quest-card-meta">
                           <PriorityIcon priority={q.priority} />
                           {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+                          <span
+                            className="quest-card-assignee"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <AssigneePicker
+                              assignee={q.assignee}
+                              agents={agents}
+                              users={users}
+                              onChange={async (next) => {
+                                try {
+                                  await api.updateQuest(q.id, { assignee: next });
+                                  onCreated();
+                                } catch (e) {
+                                  setErr(e instanceof Error ? e.message : "Failed to reassign");
+                                }
+                              }}
+                              renderTrigger={({ open }) => (
+                                <button
+                                  type="button"
+                                  className={`quest-row-assignee${open ? " open" : ""}`}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={open}
+                                  aria-label={
+                                    q.assignee
+                                      ? `Assigned: ${q.assignee}. Click to reassign.`
+                                      : "Unassigned. Click to assign."
+                                  }
+                                >
+                                  <AssigneeAvatar
+                                    assignee={q.assignee}
+                                    agents={agents}
+                                    users={users}
+                                    size={18}
+                                  />
+                                </button>
+                              )}
+                            />
+                          </span>
                           {q.updated_at && (
                             <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
                           )}
@@ -979,7 +1092,11 @@ function QuestList({
   totalCount,
   onPick,
   onNew,
+  onCompose,
+  onAssigneeChange,
   search,
+  agents,
+  users,
 }: {
   groups: Array<{ status: QuestStatus; label: string; quests: Quest[] }>;
   optimistic: Record<string, QuestStatus>;
@@ -987,7 +1104,11 @@ function QuestList({
   totalCount: number;
   onPick: (id: string) => void;
   onNew: () => void;
+  onCompose: (status?: QuestStatus) => void;
+  onAssigneeChange: (questId: string, next: string | null) => void;
   search: string;
+  agents: { id: string; name: string }[];
+  users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
 }) {
   // Per-group collapsed state. Empty groups stay hidden entirely; the
   // four canonical statuses (todo / in progress / blocked / done) all
@@ -1038,52 +1159,113 @@ function QuestList({
         const isCollapsed = !!collapsed[group.status];
         return (
           <section key={group.status} className="ideas-list-group">
-            <button
-              type="button"
-              className="ideas-list-group-head"
-              aria-expanded={!isCollapsed}
-              onClick={() => toggle(group.status)}
-            >
-              <svg
-                className={`ideas-list-group-chevron${isCollapsed ? "" : " is-open"}`}
-                width="10"
-                height="10"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
+            <div className="ideas-list-group-head">
+              <button
+                type="button"
+                className="ideas-list-group-toggle"
+                aria-expanded={!isCollapsed}
+                onClick={() => toggle(group.status)}
               >
-                <path d="M4.5 3 L7.5 6 L4.5 9" />
-              </svg>
-              <StatusDot status={group.status} />
-              <span className="ideas-list-group-label">{group.label}</span>
-              <span className="ideas-list-group-count">{group.quests.length}</span>
-            </button>
+                <svg
+                  className={`ideas-list-group-chevron${isCollapsed ? "" : " is-open"}`}
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M4.5 3 L7.5 6 L4.5 9" />
+                </svg>
+                <StatusDot status={group.status} />
+                <span className="ideas-list-group-label">{group.label}</span>
+                <span className="ideas-list-group-count">{group.quests.length}</span>
+              </button>
+              <button
+                type="button"
+                className="ideas-list-group-add"
+                onClick={() => onCompose(group.status)}
+                aria-label={`New ${group.label.toLowerCase()} quest`}
+                title={`New quest in ${group.label}`}
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M6.5 2.5v8M2.5 6.5h8" />
+                </svg>
+              </button>
+            </div>
             {!isCollapsed && (
               <div className="ideas-list-group-body">
                 {group.quests.map((q) => {
                   const status = optimistic[q.id] ?? q.status;
                   const isFocused = focusId === q.id;
                   return (
-                    <button
+                    <div
                       key={q.id}
-                      type="button"
                       className={`ideas-list-row${isFocused ? " focus" : ""}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onPick(q.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onPick(q.id);
+                        }
+                      }}
                     >
                       <div className="ideas-list-row-head">
                         <StatusDot status={status} />
                         <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
                         {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
                         <PriorityIcon priority={q.priority} />
+                        <span
+                          className="ideas-list-row-assignee"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <AssigneePicker
+                            assignee={q.assignee}
+                            agents={agents}
+                            users={users}
+                            onChange={(next) => onAssigneeChange(q.id, next)}
+                            renderTrigger={({ open }) => (
+                              <button
+                                type="button"
+                                className={`quest-row-assignee${open ? " open" : ""}`}
+                                aria-haspopup="dialog"
+                                aria-expanded={open}
+                                aria-label={
+                                  q.assignee
+                                    ? `Assigned: ${q.assignee}. Click to reassign.`
+                                    : "Unassigned. Click to assign."
+                                }
+                              >
+                                <AssigneeAvatar
+                                  assignee={q.assignee}
+                                  agents={agents}
+                                  users={users}
+                                  size={18}
+                                />
+                              </button>
+                            )}
+                          />
+                        </span>
                         {q.updated_at && (
                           <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
                         )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

@@ -528,6 +528,8 @@ export const api = {
       priority?: string;
       labels?: string[];
       agent_id?: string;
+      /** Polymorphic. `agent:<id>` / `user:<id>` / `null` (unassign). */
+      assignee?: string | null;
     },
   ) =>
     request<{ ok: boolean }>(`/quests/${encodeURIComponent(id)}`, {

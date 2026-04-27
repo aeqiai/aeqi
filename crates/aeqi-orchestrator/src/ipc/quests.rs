@@ -101,6 +101,7 @@ pub async fn handle_quests(
                         "status": quest.status.to_string(),
                         "priority": quest.priority.to_string(),
                         "agent_id": quest.agent_id,
+                        "assignee": quest.assignee,
                         "scope": quest.scope.as_str(),
                         "retry_count": quest.retry_count,
                         "project": quest.agent_id.as_deref().unwrap_or(""),
@@ -427,6 +428,7 @@ pub async fn handle_create_quest(
                     "idea_id": quest.idea_id,
                     "status": quest.status.to_string(),
                     "agent_id": quest.agent_id,
+                    "assignee": quest.assignee,
                     "scope": quest.scope.as_str(),
                     "project": project,
                 },
@@ -516,6 +518,7 @@ pub async fn handle_get_quest(
                     "status": quest.status.to_string(),
                     "priority": quest.priority.to_string(),
                     "agent_id": quest.agent_id,
+                    "assignee": quest.assignee,
                     "scope": quest.scope.as_str(),
                     "retry_count": quest.retry_count,
                     "project": quest.agent_id.as_deref().unwrap_or(""),
@@ -571,6 +574,19 @@ pub async fn handle_update_quest(
         .get("scope")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<Scope>().ok());
+
+    // `assignee` is polymorphic: `agent:<id>` | `user:<id>` | null.
+    // The request can pass an explicit JSON `null` to unassign, or omit
+    // the key entirely to leave the field untouched. We model both with
+    // `Option<Option<String>>` — outer Some means "field present in
+    // payload", inner None means "explicit null = unassign".
+    let assignee_update: Option<Option<String>> = match request.get("assignee") {
+        None => None,
+        Some(serde_json::Value::Null) => Some(None),
+        Some(serde_json::Value::String(s)) if s.is_empty() => Some(None),
+        Some(serde_json::Value::String(s)) => Some(Some(s.clone())),
+        _ => None,
+    };
 
     // Phase-2 allowlist: editorial fields (subject / description / labels /
     // acceptance_criteria) belong to the linked idea now. Old clients still
@@ -633,6 +649,9 @@ pub async fn handle_update_quest(
             if let Some(scope) = scope {
                 quest.scope = scope;
             }
+            if let Some(next) = assignee_update {
+                quest.assignee = next;
+            }
         })
         .await
     {
@@ -655,6 +674,7 @@ pub async fn handle_update_quest(
                     "status": quest.status.to_string(),
                     "priority": quest.priority.to_string(),
                     "agent_id": quest.agent_id,
+                    "assignee": quest.assignee,
                     "scope": quest.scope.as_str(),
                 },
                 "idea": idea.as_ref().map(idea_to_json),
@@ -1052,6 +1072,7 @@ mod tests {
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),
             agent_id: agent_id.map(str::to_string),
+            assignee: None,
             scope: aeqi_core::Scope::SelfScope,
             depends_on: Vec::new(),
             retry_count: 0,

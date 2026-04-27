@@ -716,6 +716,7 @@ mod tests {
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),
             agent_id: agent_id.map(str::to_string),
+            assignee: None,
             scope: aeqi_core::Scope::SelfScope,
             depends_on: Vec::new(),
             retry_count: 0,

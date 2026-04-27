@@ -190,6 +190,15 @@ pub struct Quest {
     /// Anchor agent for visibility. `None` only valid when `scope = Global`.
     #[serde(default)]
     pub agent_id: Option<String>,
+    /// Polymorphic responsibility pointer. Either an agent (`agent:<id>`)
+    /// or a human user (`user:<id>`). `None` means unassigned. Distinct
+    /// from `agent_id`: that field is the visibility/scope anchor (which
+    /// agent's tree the quest lives in); `assignee` is the social
+    /// "who's doing this" pointer. Linear / GitHub / k8s prefix-typed-id
+    /// idiom — one column, one index, type-tagged so we never confuse a
+    /// user id with an agent id at the data layer.
+    #[serde(default)]
+    pub assignee: Option<String>,
     /// Visibility scope for this quest.
     #[serde(default)]
     pub scope: Scope,
@@ -247,6 +256,7 @@ impl Quest {
             status: QuestStatus::Todo,
             priority: Priority::Normal,
             agent_id: agent_id.map(|s| s.to_string()),
+            assignee: None,
             scope,
             depends_on: Vec::new(),
             retry_count: 0,

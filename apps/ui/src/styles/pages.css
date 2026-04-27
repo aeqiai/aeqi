@@ -3347,11 +3347,12 @@
 .quest-col-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
 }
 .quest-col-label {
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -3365,6 +3366,34 @@
   letter-spacing: 0.04em;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+/* Per-column `+` — same ghost icon-button language as the list group's
+   add button. Sits flush right of the count so the column header reads
+   as: dot · label · count · add. */
+.quest-col-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.quest-col-add:hover {
+  background: var(--color-card-elevated);
+  color: var(--text-primary);
+}
+.quest-col-add:focus-visible {
+  outline: none;
+  background: var(--color-card-elevated);
+  box-shadow: var(--input-ring-focus, var(--ring-muted));
 }
 .quest-col-body {
   flex: 1;
@@ -3419,13 +3448,26 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
+/* Card head — status dot leads the subject line, mirroring the list
+   row idiom. Subject still clamps at two lines; the dot keeps a fixed
+   width so wrapping subjects don't push under it. */
+.quest-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.quest-card-head .quest-status-dot {
+  margin-top: 5px;
+}
 .quest-card-subject {
+  flex: 1;
+  min-width: 0;
   font-family: var(--font-sans);
   font-size: 12.5px;
   line-height: 1.35;
   color: var(--text-primary);
   font-weight: 450;
-  margin-bottom: 6px;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -3514,28 +3556,9 @@
    destructive red, high fills accent (graphite), normal/low taper
    into muted tones so the eye scans the priority ladder without a
    rainbow palette. */
-.quest-priority-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--text-muted);
-  flex-shrink: 0;
-}
-.quest-priority-dot--critical {
-  background: var(--destructive);
-}
-.quest-priority-dot--high {
-  background: var(--accent);
-}
-.quest-priority-dot--normal {
-  background: transparent;
-  border: 1.5px solid var(--text-muted);
-}
-.quest-priority-dot--low {
-  background: transparent;
-  border: 1.5px solid var(--border);
-}
+/* `.quest-priority-dot` retired in v5.2 — the canonical priority
+   affordance is `.quest-prio-icon` (three ascending bars, see
+   QuestsTab + PriorityIcon). */
 
 .quest-detail-scroll {
   flex: 1 1 auto;

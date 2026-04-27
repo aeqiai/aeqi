@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { Popover } from "../ui/Popover";
 import { Button } from "../ui";
 import type { QuestPriority } from "@/lib/types";
+import PriorityIcon from "./PriorityIcon";
 
 const PRIORITY_VALUES: QuestPriority[] = ["critical", "high", "normal", "low"];
 
@@ -18,10 +19,11 @@ export interface QuestPriorityPopoverProps {
 }
 
 /**
- * QuestPriorityPopover — header-tier priority picker, mirrors
- * IdeasScopePopover / QuestStatusPopover. Trigger: secondary pill
- * with the canonical `quest-priority-dot` glyph + label + chevron.
- * Popover rows reuse the shared `.ideas-filter-popover` shell.
+ * QuestPriorityPopover — header-tier priority picker. Trigger and
+ * popover rows both render the canonical three-bar `<PriorityIcon>`
+ * so the affordance reads identically here, in list rows, and in
+ * board cards. Shared `.ideas-filter-popover` shell with
+ * IdeasScopePopover + QuestStatusPopover.
  */
 export default function QuestPriorityPopover({ priority, onChange }: QuestPriorityPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -41,7 +43,7 @@ export default function QuestPriorityPopover({ priority, onChange }: QuestPriori
           aria-controls={popoverId}
           title={`Priority: ${PRIORITY_LABEL[priority]}`}
         >
-          <span className={`quest-priority-dot quest-priority-dot--${priority}`} aria-hidden />
+          <PriorityIcon priority={priority} />
           {PRIORITY_LABEL[priority]}
           <svg
             className="ideas-scope-btn-chevron"
@@ -80,7 +82,7 @@ export default function QuestPriorityPopover({ priority, onChange }: QuestPriori
                 }}
               >
                 <span className="ideas-filter-row-mark" aria-hidden>
-                  <span className={`quest-priority-dot quest-priority-dot--${p}`} />
+                  <PriorityIcon priority={p} />
                 </span>
                 <span className="ideas-filter-row-label">{PRIORITY_LABEL[p]}</span>
               </button>

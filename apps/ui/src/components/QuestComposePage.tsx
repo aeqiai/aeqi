@@ -4,11 +4,17 @@ import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import { useDaemonStore } from "@/store/daemon";
-import type { Idea, Quest, QuestPriority, ScopeValue } from "@/lib/types";
+import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue } from "@/lib/types";
 import { Button, Popover } from "./ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestPriorityPopover from "./quests/QuestPriorityPopover";
 import IdeasScopePopover from "./ideas/IdeasScopePopover";
+
+const QUEST_STATUS_VALUES: QuestStatus[] = ["backlog", "todo", "in_progress", "done", "cancelled"];
+
+function parseQuestStatus(raw: string | null): QuestStatus | null {
+  return raw && QUEST_STATUS_VALUES.includes(raw as QuestStatus) ? (raw as QuestStatus) : null;
+}
 
 /**
  * Dedicated quest-compose surface, mounted at `/:agentId/quests/new`.
@@ -34,6 +40,11 @@ export default function QuestComposePage({
   const [searchParams] = useSearchParams();
   const fromIdeaId = searchParams.get("fromIdea") ?? null;
   const presetName = searchParams.get("name") ?? "";
+  // `?status=backlog|todo|...` lands the new quest directly in that
+  // column. Pre-selected by clicking the per-column `+` button on the
+  // board / list view. Falls back to the server default (`todo`) when
+  // absent or unparseable.
+  const presetStatus = parseQuestStatus(searchParams.get("status"));
 
   const ideasRaw = useAgentDataStore((s) => s.ideasByAgent[resolvedAgentId]);
   const ideas = useMemo(() => ideasRaw ?? [], [ideasRaw]);
@@ -93,13 +104,25 @@ export default function QuestComposePage({
         idea_id: ideaId,
       });
       const newId = res?.quest?.id;
+      // The IPC create path mints quests at the server default (`todo`).
+      // When the compose page was opened from a per-column `+`, patch
+      // the freshly minted quest into the requested column before
+      // navigating, so the user lands on a quest that already lives
+      // where they pointed.
+      if (newId && presetStatus && presetStatus !== "todo") {
+        try {
+          await api.updateQuest(newId, { status: presetStatus });
+        } catch {
+          /* non-fatal — quest exists, just sits in todo */
+        }
+      }
       await fetchQuests();
       goAgent(agentId, "quests", newId ?? undefined, { replace: true });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to create quest");
       setBusy(false);
     }
-  }, [busy, priority, scope, resolvedAgentId, fetchQuests, goAgent, agentId]);
+  }, [busy, priority, scope, presetStatus, resolvedAgentId, fetchQuests, goAgent, agentId]);
 
   // ⌘↵ commits, Esc bails. We capture at the document level so the
   // parent's `submit` (which also wraps the quest) wins over the

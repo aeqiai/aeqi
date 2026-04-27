@@ -267,6 +267,25 @@ fn ensure_quest_idea_id_column(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Idempotent: add the `assignee` column on legacy DBs that pre-date
+/// the polymorphic-assignee feature. Stores prefix-typed identities
+/// (`agent:<id>` | `user:<id>`) — distinct from `agent_id`, which is
+/// the visibility-tree anchor. Fresh DBs already include the column
+/// from the CREATE TABLE; this is the catch-up for upgraded ones.
+fn ensure_quest_assignee_column(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(quests)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "assignee") {
+        conn.execute_batch("ALTER TABLE quests ADD COLUMN assignee TEXT")?;
+    }
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_quests_assignee ON quests(assignee)")?;
+    Ok(())
+}
+
 /// Phase 3 cleanup (WS-8a): drop the legacy editorial columns and flip
 /// `idea_id` to NOT NULL. SQLite's pre-3.35 `ALTER TABLE` lacks
 /// `DROP COLUMN`, so we do the canonical rebuild dance — create the new
@@ -897,7 +916,8 @@ impl AgentRegistry {
                  updated_at TEXT,
                  closed_at TEXT,
                  closed_reason TEXT,
-                 creator_session_id TEXT
+                 creator_session_id TEXT,
+                 assignee TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
              CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
@@ -944,6 +964,14 @@ impl AgentRegistry {
         // ALTER TABLE DROP COLUMN, so the rebuild is the safe lowest-common-
         // denominator path.
         cleanup_legacy_quest_columns(&sconn)?;
+
+        // ── Polymorphic assignee column (idempotent) ────────────────────────
+        // `agent:<id>` | `user:<id>` pointers; distinct from `agent_id`
+        // which anchors the visibility tree. Runs after the legacy
+        // cleanup rebuild so the column survives the table rebuild on
+        // upgrade-path DBs; fresh DBs already carry it from CREATE
+        // TABLE and this is a short-circuit no-op.
+        ensure_quest_assignee_column(&sconn)?;
 
         // ── v5.2 status rename (idempotent) ────────────────────────────────
         // Rewrites the two legacy status strings to the canonical 5-status
@@ -2708,16 +2736,17 @@ impl AgentRegistry {
         db.execute(
             "UPDATE quests SET
                 idea_id = ?1, status = ?2, priority = ?3,
-                agent_id = ?4, scope = ?5,
-                retry_count = ?6, checkpoints = ?7, metadata = ?8,
-                depends_on = ?9,
-                updated_at = ?10, closed_at = ?11, outcome = ?12
-             WHERE id = ?13",
+                agent_id = ?4, assignee = ?5, scope = ?6,
+                retry_count = ?7, checkpoints = ?8, metadata = ?9,
+                depends_on = ?10,
+                updated_at = ?11, closed_at = ?12, outcome = ?13
+             WHERE id = ?14",
             params![
                 quest.idea_id,
                 quest.status.to_string(),
                 quest.priority.to_string(),
                 quest.agent_id,
+                quest.assignee,
                 quest.scope.as_str(),
                 quest.retry_count,
                 checkpoints_json,
@@ -3299,6 +3328,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         status,
         priority,
         agent_id: row.get("agent_id").ok(),
+        assignee: row.get::<_, Option<String>>("assignee").unwrap_or(None),
         scope: quest_scope,
         depends_on: serde_json::from_str(&deps_str).unwrap_or_default(),
         retry_count: row.get::<_, u32>("retry_count").unwrap_or(0),

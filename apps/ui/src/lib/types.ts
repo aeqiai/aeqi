@@ -68,6 +68,13 @@ export interface Quest {
   priority: QuestPriority;
   scope?: ScopeValue;
   agent_id?: string;
+  /**
+   * Polymorphic responsibility pointer. `agent:<id>` | `user:<id>` |
+   * `null` (unassigned). Distinct from `agent_id`, which anchors the
+   * visibility tree — `assignee` is the social "who's doing this"
+   * pointer and is the only field the assignee picker writes.
+   */
+  assignee?: string | null;
   cost_usd: number;
   created_at: string;
   updated_at?: string;
