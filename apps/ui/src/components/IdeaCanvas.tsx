@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ReactNode } from "react";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
@@ -9,6 +18,18 @@ import IdeaLinksPanel from "./IdeaLinksPanel";
 import RefsRow, { type RefRecord } from "./RefsRow";
 import TagsEditor from "./TagsEditor";
 import IdeasScopePopover from "./ideas/IdeasScopePopover";
+
+/**
+ * Imperative handle for callers that supply their own toolbar (the
+ * quest-compose page, today). `commit()` flushes the in-flight edit
+ * snapshot to the idea store and resolves with the persisted idea id;
+ * `dirty()` reports whether there are unsaved local edits so a parent
+ * Save button can mirror IdeaCanvas's own dirty signal.
+ */
+export interface IdeaCanvasHandle {
+  commit: () => Promise<string>;
+  dirty: () => boolean;
+}
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 type DecisionState = "idle" | "saving" | "done";
@@ -46,14 +67,7 @@ function mergeTags(body: string, typed: string[]): string[] {
  *   Cmd+Enter persists. Navigating away with unsaved changes flushes to
  *   avoid silent data loss.
  */
-export default function IdeaCanvas({
-  agentId,
-  idea,
-  initialName,
-  onBack,
-  onNew,
-  embedded = false,
-}: {
+export interface IdeaCanvasProps {
   agentId: string;
   idea?: Idea;
   initialName?: string;
@@ -65,7 +79,25 @@ export default function IdeaCanvas({
    * its own. Tags strip + body editor + refs row stay visible.
    */
   embedded?: boolean;
-}) {
+  /**
+   * Replace the canvas's default toolbar with caller-supplied chrome. The
+   * tags strip / body / refs / links surface stays. Mutually exclusive
+   * with `embedded` (which suppresses the toolbar entirely).
+   */
+  headerSlot?: ReactNode;
+  /**
+   * When set, the canvas's internal create/save flow calls this instead
+   * of navigating to the persisted idea's detail page. The parent owns
+   * the post-persist navigation — useful when the idea is part of a
+   * larger flow (e.g. wrapping it in a quest).
+   */
+  onPersisted?: (ideaId: string) => void;
+}
+
+const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCanvas(
+  { agentId, idea, initialName, onBack, onNew, embedded = false, headerSlot, onPersisted },
+  ref,
+) {
   const { goAgent } = useNav();
   const patchIdea = useAgentDataStore((s) => s.patchIdea);
   const removeIdea = useAgentDataStore((s) => s.removeIdea);
@@ -161,8 +193,9 @@ export default function IdeaCanvas({
     }
   }, [isEdit, initialName]);
 
-  const flushSave = useCallback(async () => {
-    if (!idea || inflightRef.current) return;
+  const flushSave = useCallback(async (): Promise<string> => {
+    if (!idea) throw new Error("flushSave called without an idea");
+    if (inflightRef.current) return idea.id;
     const snapshot = latestRef.current;
     const tags = mergeTags(snapshot.content, snapshot.typedTags);
     const trimmedName = snapshot.name.trim();
@@ -177,7 +210,7 @@ export default function IdeaCanvas({
     ) {
       setSaveState("idle");
       dirtyRef.current = false;
-      return;
+      return idea.id;
     }
 
     inflightRef.current = true;
@@ -198,9 +231,11 @@ export default function IdeaCanvas({
       setSaveState("saved");
       if (flashRef.current) window.clearTimeout(flashRef.current);
       flashRef.current = window.setTimeout(() => setSaveState("idle"), SAVED_FLASH_MS);
+      return idea.id;
     } catch (e) {
       setSaveState("error");
       setError(e instanceof Error ? e.message : "Save failed");
+      throw e;
     } finally {
       inflightRef.current = false;
     }
@@ -212,18 +247,21 @@ export default function IdeaCanvas({
   useEffect(() => {
     return () => {
       if (flashRef.current) window.clearTimeout(flashRef.current);
-      if (dirtyRef.current) flushSave();
+      if (dirtyRef.current)
+        flushSave().catch(() => {
+          /* unmount path — best-effort flush */
+        });
     };
   }, [flushSave]);
 
   // Create flow — only runs in compose mode.
-  const handleCreate = useCallback(async () => {
-    if (isEdit) return;
+  const handleCreate = useCallback(async (): Promise<string> => {
+    if (isEdit) throw new Error("handleCreate called in edit mode");
     const snapshot = latestRef.current;
     const trimmedContent = snapshot.content.trim();
     if (!trimmedContent && !snapshot.name.trim()) {
       setError("Write something first");
-      return;
+      throw new Error("empty");
     }
     const effectiveName =
       snapshot.name.trim() || trimmedContent.split("\n")[0].slice(0, 60).trim() || "Untitled";
@@ -258,12 +296,35 @@ export default function IdeaCanvas({
         );
       }
       setSaveState("saved");
-      goAgent(agentId, "ideas", res.id, { replace: true });
+      // When the parent owns post-persist navigation (quest-compose
+      // wraps the idea in a quest), defer to it. Otherwise jump to the
+      // idea detail like the standalone canvas always has.
+      if (onPersisted) {
+        onPersisted(res.id);
+      } else {
+        goAgent(agentId, "ideas", res.id, { replace: true });
+      }
+      return res.id;
     } catch (e) {
       setSaveState("error");
       setError(e instanceof Error ? e.message : "Save failed");
+      throw e;
     }
-  }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs]);
+  }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs, onPersisted]);
+
+  // Imperative handle: the quest-compose page (and any future caller
+  // that drives its own toolbar) needs to fire the canvas's persist
+  // path from outside. `commit()` resolves with the persisted idea id
+  // for both compose and edit flows, so the parent can chain follow-up
+  // work (wrapping the idea in a quest) on the same Save click.
+  useImperativeHandle(
+    ref,
+    () => ({
+      commit: () => (isEdit ? flushSave() : handleCreate()),
+      dirty: () => dirtyRef.current,
+    }),
+    [isEdit, flushSave, handleCreate],
+  );
 
   // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
   // `e` (bare) — from view mode, enter edit (Linear-style doc shortcut). Ignored
@@ -405,7 +466,10 @@ export default function IdeaCanvas({
 
   return (
     <div className={embedded ? "ideas-canvas ideas-canvas--embedded" : "asv-main ideas-canvas"}>
-      {!embedded && (
+      {headerSlot && !embedded && (
+        <div className="ideas-list-head ideas-canvas-head">{headerSlot}</div>
+      )}
+      {!embedded && !headerSlot && (
         <div className="ideas-list-head ideas-canvas-head">
           <div className="ideas-toolbar ideas-canvas-toolbar">
             <Button variant="secondary" size="sm" onClick={onBack} title="Back to ideas">
@@ -694,4 +758,6 @@ export default function IdeaCanvas({
       </div>
     </div>
   );
-}
+});
+
+export default IdeaCanvas;
