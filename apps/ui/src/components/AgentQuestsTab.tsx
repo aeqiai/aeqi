@@ -310,10 +310,13 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   // Lifecycle state (status / priority) lives on the quest itself —
   // edit popovers fire `api.updateQuest` directly. The body / title /
   // tags / refs all live on `quest.idea` and are saved through the
-  // embedded `<IdeaCanvas>`'s own save path.
+  // embedded `<IdeaCanvas>`'s own save path. `bodyDirty` mirrors the
+  // canvas's internal dirty signal so Cancel + Save in the toolbar
+  // can show only when there's something to save / revert.
   const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "pending");
   const [priority, setPriority] = useState<QuestPriority>(quest?.priority ?? "normal");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [bodyDirty, setBodyDirty] = useState(false);
 
   const debounceRef = useRef<number | null>(null);
   const canvasRef = useRef<IdeaCanvasHandle | null>(null);
@@ -369,6 +372,13 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     } catch {
       /* canvas surfaces its own error inline */
     }
+  }, []);
+
+  // Cancel-revert: drop in-progress body edits back to the persisted
+  // idea snapshot. Mirrors idea-detail's Cancel: stays on the page,
+  // doesn't navigate away.
+  const handleRevertBody = useCallback(() => {
+    canvasRef.current?.revert();
   }, []);
 
   // Rail's create button → navigate to the dedicated compose page.
@@ -427,6 +437,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
       idea={quest.idea}
       onBack={() => goAgent(agentId, "quests", undefined, { replace: true })}
       onNew={() => openCompose()}
+      onDirtyChange={setBodyDirty}
       headerSlot={
         <div className="ideas-toolbar ideas-canvas-toolbar">
           <Button
@@ -482,22 +493,46 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
               <Spinner size="sm" /> Saving
             </span>
           ) : null}
-          <Button variant="primary" size="sm" onClick={handleSaveBody} title="Save (⌘↵)">
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-            </svg>
-            Save
-          </Button>
+          {bodyDirty && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleRevertBody}
+                title="Revert unsaved changes"
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                </svg>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleSaveBody} title="Save (⌘↵)">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                </svg>
+                Save
+              </Button>
+            </>
+          )}
         </div>
       }
     />

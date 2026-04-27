@@ -23,11 +23,14 @@ import IdeasScopePopover from "./ideas/IdeasScopePopover";
  * Imperative handle for callers that supply their own toolbar (the
  * quest-compose page, today). `commit()` flushes the in-flight edit
  * snapshot to the idea store and resolves with the persisted idea id;
- * `dirty()` reports whether there are unsaved local edits so a parent
- * Save button can mirror IdeaCanvas's own dirty signal.
+ * `revert()` drops in-progress edits back to the persisted snapshot
+ * (idea-detail's "Cancel" semantics); `dirty()` reports whether there
+ * are unsaved local edits so a parent toolbar can mirror IdeaCanvas's
+ * own dirty signal.
  */
 export interface IdeaCanvasHandle {
   commit: () => Promise<string>;
+  revert: () => void;
   dirty: () => boolean;
 }
 
@@ -99,6 +102,13 @@ export interface IdeaCanvasProps {
    * — never inviting the "Write something first" failure.
    */
   onCanCommitChange?: (canCommit: boolean) => void;
+  /**
+   * Reports the canvas's internal dirty state — fires `true` on the
+   * first edit since the last persist, `false` after a successful
+   * save / revert / idea switch. Lets a caller-supplied toolbar mirror
+   * idea-detail's "Cancel + Save only when dirty" UX.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCanvas(
@@ -112,6 +122,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     headerSlot,
     onPersisted,
     onCanCommitChange,
+    onDirtyChange,
   },
   ref,
 ) {
@@ -329,6 +340,19 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     }
   }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs, onPersisted]);
 
+  // Edit-mode revert: drop the in-memory snapshot back to the
+  // persisted idea. Used by both the canvas's own Cancel button
+  // and by the imperative handle so a caller-supplied toolbar can
+  // wire its own Cancel through the same code path.
+  const revert = useCallback(() => {
+    setName(idea?.name ?? "");
+    setContent(idea?.content ?? "");
+    setTypedTags(idea?.tags ?? []);
+    setError(null);
+    setSaveState("idle");
+    dirtyRef.current = false;
+  }, [idea?.name, idea?.content, idea?.tags]);
+
   // Imperative handle: the quest-compose page (and any future caller
   // that drives its own toolbar) needs to fire the canvas's persist
   // path from outside. `commit()` resolves with the persisted idea id
@@ -338,10 +362,21 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     ref,
     () => ({
       commit: () => (isEdit ? flushSave() : handleCreate()),
+      revert,
       dirty: () => dirtyRef.current,
     }),
-    [isEdit, flushSave, handleCreate],
+    [isEdit, flushSave, handleCreate, revert],
   );
+
+  // Push the canvas's dirty signal to the embedding toolbar so its
+  // Cancel + Save buttons can mirror idea-detail's "show only when
+  // dirty" UX. `dirty` here is `true` while the user has unsaved
+  // edits (or a save is in flight); after a successful save it
+  // flicks through "saved" → "idle", both reported as not-dirty.
+  useEffect(() => {
+    if (!onDirtyChange) return;
+    onDirtyChange(saveState === "dirty" || saveState === "saving");
+  }, [saveState, onDirtyChange]);
 
   // Tell the embedding caller whether `commit()` would succeed right
   // now. Edit mode is always commit-ready (the quest wrapper can save
@@ -483,12 +518,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       onBack();
       return;
     }
-    setName(idea?.name ?? "");
-    setContent(idea?.content ?? "");
-    setTypedTags(idea?.tags ?? []);
-    setError(null);
-    setSaveState("idle");
-    dirtyRef.current = false;
+    revert();
   };
 
   return (
