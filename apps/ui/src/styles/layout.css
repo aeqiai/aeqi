@@ -3524,11 +3524,15 @@
   min-height: 0;
   overflow: hidden;
 }
+/* Canonical primitive header — single fixed-height row holding the
+   toolbar (search · sort · filter · view · +). Anything that varied
+   the head's height (tag pills, active-filter chips) moved out into
+   `.ideas-tags-strip` below so this band stays standardized across
+   Ideas / Quests / Events. */
 .ideas-list-head {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 28px 14px;
+  align-items: center;
+  padding: 14px 28px;
   border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
 }
@@ -4704,6 +4708,21 @@
   background: var(--key-pill-bg);
   border: 1px solid var(--key-pill-border);
   border-radius: var(--key-pill-radius);
+}
+
+/* Tags strip — sibling band below `.ideas-list-head` so the head stays a
+   single canonical-height row. Tag pills + active-filter chips live here
+   with their own hairline. Only renders when there's something to show
+   (caller-side conditional), so the header still butts straight onto the
+   body when the strip is absent. */
+.ideas-tags-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 28px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+  background: var(--color-card, transparent);
 }
 
 /* Ideas tag-group label — section-label treatment: small sans micro

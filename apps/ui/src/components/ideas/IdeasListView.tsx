@@ -303,88 +303,87 @@ export default function IdeasListView({
             onChange={onFilter}
           />
           <IdeasViewPopover view={view} onChange={onViewChange} />
-          <button
-            type="button"
-            className="ideas-toolbar-btn"
-            onClick={() => fireNew()}
-            title="New idea (N)"
-            aria-label="New idea"
-          >
+          <Button variant="primary" size="sm" onClick={() => fireNew()} title="New idea (N)">
             <svg
-              width="13"
-              height="13"
+              width="11"
+              height="11"
               viewBox="0 0 13 13"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="1.7"
               strokeLinecap="round"
               aria-hidden
             >
               <path d="M6.5 2.5v8M2.5 6.5h8" />
             </svg>
-          </button>
+            New idea
+          </Button>
         </div>
-        {activeChips.length > 0 && (
-          <div className="ideas-list-chips" role="list" aria-label="Active filters">
-            {activeChips.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                role="listitem"
-                className="ideas-list-chip"
-                onClick={c.onRemove}
-                title={`Remove ${c.label}`}
-              >
-                <span className="ideas-list-chip-label">{c.label}</span>
-                <span className="ideas-list-chip-x" aria-hidden>
-                  ×
-                </span>
-              </button>
-            ))}
-            <button type="button" className="ideas-list-chip-clear" onClick={clearAll}>
-              clear all
-            </button>
-          </div>
-        )}
-        {tagCounts.length > 0 && (
-          <div className="ideas-list-tags">
-            {tagCounts.slice(0, visibleTagCount).map(([t, n]) => {
-              const isActive = filter.tags.includes(t);
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  aria-pressed={isActive}
-                  className={`ideas-tag-chip${isActive ? " active" : ""}`}
-                  onClick={() => toggleTag(t)}
-                >
-                  #{t}
-                  <span className="ideas-tag-chip-count">{n}</span>
-                </button>
-              );
-            })}
-            {hiddenTagCount > 0 && (
-              <button
-                type="button"
-                className="ideas-list-tag-more"
-                onClick={() => setTagsExpanded(true)}
-                aria-label={`Show ${hiddenTagCount} more tags`}
-              >
-                +{hiddenTagCount} more
-              </button>
-            )}
-            {tagsExpanded && tagCounts.length > TAG_CHIP_LIMIT && (
-              <button
-                type="button"
-                className="ideas-list-tag-more"
-                onClick={() => setTagsExpanded(false)}
-              >
-                show less
-              </button>
-            )}
-          </div>
-        )}
       </div>
+      {(activeChips.length > 0 || tagCounts.length > 0) && (
+        <div className="ideas-tags-strip">
+          {activeChips.length > 0 && (
+            <div className="ideas-list-chips" role="list" aria-label="Active filters">
+              {activeChips.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  role="listitem"
+                  className="ideas-list-chip"
+                  onClick={c.onRemove}
+                  title={`Remove ${c.label}`}
+                >
+                  <span className="ideas-list-chip-label">{c.label}</span>
+                  <span className="ideas-list-chip-x" aria-hidden>
+                    ×
+                  </span>
+                </button>
+              ))}
+              <button type="button" className="ideas-list-chip-clear" onClick={clearAll}>
+                clear all
+              </button>
+            </div>
+          )}
+          {tagCounts.length > 0 && (
+            <div className="ideas-list-tags">
+              {tagCounts.slice(0, visibleTagCount).map(([t, n]) => {
+                const isActive = filter.tags.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={isActive}
+                    className={`ideas-tag-chip${isActive ? " active" : ""}`}
+                    onClick={() => toggleTag(t)}
+                  >
+                    #{t}
+                    <span className="ideas-tag-chip-count">{n}</span>
+                  </button>
+                );
+              })}
+              {hiddenTagCount > 0 && (
+                <button
+                  type="button"
+                  className="ideas-list-tag-more"
+                  onClick={() => setTagsExpanded(true)}
+                  aria-label={`Show ${hiddenTagCount} more tags`}
+                >
+                  +{hiddenTagCount} more
+                </button>
+              )}
+              {tagsExpanded && tagCounts.length > TAG_CHIP_LIMIT && (
+                <button
+                  type="button"
+                  className="ideas-list-tag-more"
+                  onClick={() => setTagsExpanded(false)}
+                >
+                  show less
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="ideas-list-body">
         {filtered.length === 0 ? (

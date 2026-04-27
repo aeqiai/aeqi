@@ -791,26 +791,26 @@ function QuestBoard({
             onChange={onScopeChange}
           />
           <QuestsViewPopover view={view} onChange={onViewChange} />
-          <button
-            type="button"
-            className="ideas-toolbar-btn"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => onNewOpenChange(true)}
             title="New quest (N)"
-            aria-label="New quest"
           >
             <svg
-              width="13"
-              height="13"
+              width="11"
+              height="11"
               viewBox="0 0 13 13"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="1.7"
               strokeLinecap="round"
               aria-hidden
             >
               <path d="M6.5 2.5v8M2.5 6.5h8" />
             </svg>
-          </button>
+            New quest
+          </Button>
         </div>
       </div>
       {err && <div className="quest-board-error">{err}</div>}

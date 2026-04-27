@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { Button } from "../ui";
 import EventsFilterPopover, {
   type EventsFilterPopoverProps,
   type EventsFilterState,
@@ -105,26 +106,21 @@ export default function EventsToolbar({
           onChange={onFilter}
         />
         {rightExtra}
-        <button
-          type="button"
-          className="ideas-toolbar-btn"
-          onClick={onNew}
-          title="New event (N)"
-          aria-label="New event"
-        >
+        <Button variant="primary" size="sm" onClick={onNew} title="New event (N)">
           <svg
-            width="13"
-            height="13"
+            width="11"
+            height="11"
             viewBox="0 0 13 13"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.5"
+            strokeWidth="1.7"
             strokeLinecap="round"
             aria-hidden
           >
             <path d="M6.5 2.5v8M2.5 6.5h8" />
           </svg>
-        </button>
+          New event
+        </Button>
       </div>
     </div>
   );
