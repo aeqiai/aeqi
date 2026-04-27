@@ -123,6 +123,15 @@ export default function IdeasListView({
 
   const showGroupHeadings = !searchActive && filter.sort !== "alpha";
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  /**
+   * Per-group collapsed state for the `.ideas-list-group-head` chrome
+   * (chevron + slab-tinted bar). Mirrors the quest-list group toggle
+   * idiom so tag/epoch groups can be folded out of the way without
+   * losing scroll position. Default-open: missing key = expanded.
+   */
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   const visibleTagCount = tagsExpanded
     ? tagCounts.length
     : Math.min(TAG_CHIP_LIMIT, tagCounts.length);
@@ -462,111 +471,142 @@ export default function IdeasListView({
             // group boundaries so keyboard traversal ignores grouping.
             rowRefs.current = [];
             let flatIndex = -1;
-            return grouped.map(([groupTag, items]) => (
-              <section key={groupTag || "all"} className="ideas-list-group">
-                {showGroupHeadings && (
-                  <div className="inline-picker-group">
-                    <span className="inline-picker-group-label">{groupTag}</span>
-                    <span className="inline-picker-group-rule" />
-                    <span className="inline-picker-group-count">{items.length}</span>
-                  </div>
-                )}
-                {items.map((idea) => {
-                  const snippet = snippetFor(idea.content, filter.search);
-                  const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
-                  const ago = relativeTime(idea.created_at);
-                  const tags = idea.tags ?? [];
-                  const isCandidate =
-                    tags.includes("skill") &&
-                    tags.includes("candidate") &&
-                    !tags.includes("promoted") &&
-                    !tags.includes("rejected");
-                  const extraTags = Math.max(0, tags.length - 1);
-                  // Show scope chip when the scope isn't the default "self".
-                  // Suppress the chip when the filter tab already communicates it.
-                  const resolvedScope: ScopeValue | null =
-                    idea.scope ??
-                    (idea.agent_id == null ? "global" : idea.agent_id === agentId ? "self" : null);
-                  const showScopeChip =
-                    resolvedScope != null &&
-                    resolvedScope !== "self" &&
-                    filter.scope !== resolvedScope;
-                  const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
-                  flatIndex += 1;
-                  const myIndex = flatIndex;
-                  return (
-                    <button
-                      key={idea.id}
-                      ref={(el) => {
-                        rowRefs.current[myIndex] = el;
-                      }}
-                      type="button"
-                      className="ideas-list-row"
-                      onClick={() => goAgent(agentId, "ideas", idea.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          const next = rowRefs.current[myIndex + 1];
-                          if (next) next.focus();
-                        } else if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          if (myIndex === 0) {
-                            searchRef.current?.focus();
-                          } else {
-                            rowRefs.current[myIndex - 1]?.focus();
-                          }
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          searchRef.current?.focus();
-                        }
-                      }}
-                    >
-                      <div className="ideas-list-row-head">
-                        <span className="ideas-list-row-name">
-                          {isInheritedRow && idea.agent_id && (
-                            <span className="scope-inherited-prefix">
-                              from @{idea.agent_id.slice(0, 8)}
-                            </span>
-                          )}
-                          {highlightMatches(idea.name, filter.search)}
-                        </span>
-                        {isCandidate && (
-                          <span
-                            className="ideas-list-row-candidate"
-                            title="Candidate skill — needs review"
-                          >
-                            needs review
-                          </span>
-                        )}
-                        {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
-                        {extraTags > 0 && <span className="ideas-list-row-more">+{extraTags}</span>}
-                        {ago ? (
-                          <span
-                            className="ideas-list-row-time"
-                            title={
-                              idea.created_at
-                                ? new Date(idea.created_at).toLocaleString()
-                                : undefined
+            return grouped.map(([groupTag, items]) => {
+              const groupKey = groupTag || "all";
+              const isCollapsed = !!collapsedGroups[groupKey];
+              return (
+                <section key={groupKey} className="ideas-list-group">
+                  {showGroupHeadings && (
+                    <div className="ideas-list-group-head">
+                      <button
+                        type="button"
+                        className="ideas-list-group-toggle"
+                        aria-expanded={!isCollapsed}
+                        onClick={() => toggleGroup(groupKey)}
+                      >
+                        <svg
+                          className={`ideas-list-group-chevron${isCollapsed ? "" : " is-open"}`}
+                          width="10"
+                          height="10"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M4.5 3 L7.5 6 L4.5 9" />
+                        </svg>
+                        <span className="ideas-list-group-label">{groupTag}</span>
+                        <span className="ideas-list-group-count">{items.length}</span>
+                      </button>
+                    </div>
+                  )}
+                  {!isCollapsed &&
+                    items.map((idea) => {
+                      const snippet = snippetFor(idea.content, filter.search);
+                      const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
+                      const ago = relativeTime(idea.created_at);
+                      const tags = idea.tags ?? [];
+                      const isCandidate =
+                        tags.includes("skill") &&
+                        tags.includes("candidate") &&
+                        !tags.includes("promoted") &&
+                        !tags.includes("rejected");
+                      const extraTags = Math.max(0, tags.length - 1);
+                      // Show scope chip when the scope isn't the default "self".
+                      // Suppress the chip when the filter tab already communicates it.
+                      const resolvedScope: ScopeValue | null =
+                        idea.scope ??
+                        (idea.agent_id == null
+                          ? "global"
+                          : idea.agent_id === agentId
+                            ? "self"
+                            : null);
+                      const showScopeChip =
+                        resolvedScope != null &&
+                        resolvedScope !== "self" &&
+                        filter.scope !== resolvedScope;
+                      const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
+                      flatIndex += 1;
+                      const myIndex = flatIndex;
+                      return (
+                        <button
+                          key={idea.id}
+                          ref={(el) => {
+                            rowRefs.current[myIndex] = el;
+                          }}
+                          type="button"
+                          className="ideas-list-row"
+                          onClick={() => goAgent(agentId, "ideas", idea.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              const next = rowRefs.current[myIndex + 1];
+                              if (next) next.focus();
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              if (myIndex === 0) {
+                                searchRef.current?.focus();
+                              } else {
+                                rowRefs.current[myIndex - 1]?.focus();
+                              }
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              searchRef.current?.focus();
                             }
-                          >
-                            {ago}
-                          </span>
-                        ) : wordCount > 0 ? (
-                          <span className="ideas-list-row-words" aria-hidden>
-                            {wordCount}w
-                          </span>
-                        ) : null}
-                      </div>
-                      {snippet && (
-                        <div className="ideas-list-row-snippet">
-                          {highlightMatches(snippet, filter.search)}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </section>
-            ));
+                          }}
+                        >
+                          <div className="ideas-list-row-head">
+                            <span className="ideas-list-row-name">
+                              {isInheritedRow && idea.agent_id && (
+                                <span className="scope-inherited-prefix">
+                                  from @{idea.agent_id.slice(0, 8)}
+                                </span>
+                              )}
+                              {highlightMatches(idea.name, filter.search)}
+                            </span>
+                            {isCandidate && (
+                              <span
+                                className="ideas-list-row-candidate"
+                                title="Candidate skill — needs review"
+                              >
+                                needs review
+                              </span>
+                            )}
+                            {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
+                            {extraTags > 0 && (
+                              <span className="ideas-list-row-more">+{extraTags}</span>
+                            )}
+                            {ago ? (
+                              <span
+                                className="ideas-list-row-time"
+                                title={
+                                  idea.created_at
+                                    ? new Date(idea.created_at).toLocaleString()
+                                    : undefined
+                                }
+                              >
+                                {ago}
+                              </span>
+                            ) : wordCount > 0 ? (
+                              <span className="ideas-list-row-words" aria-hidden>
+                                {wordCount}w
+                              </span>
+                            ) : null}
+                          </div>
+                          {snippet && (
+                            <div className="ideas-list-row-snippet">
+                              {highlightMatches(snippet, filter.search)}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                </section>
+              );
+            });
           })()
         )}
       </div>
