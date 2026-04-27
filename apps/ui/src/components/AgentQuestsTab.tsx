@@ -4,7 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, Popover, Spinner } from "./ui";
-import IdeaCanvas from "./IdeaCanvas";
+import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestComposePage from "./QuestComposePage";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
@@ -204,8 +204,6 @@ function QuestsFilterPopover({
 
 type SaveState = "idle" | "saving" | "error";
 
-const SAVE_DEBOUNCE_MS = 700;
-
 const PRIORITY_LABELS: Record<QuestPriority, string> = {
   critical: "Critical",
   high: "High",
@@ -309,72 +307,69 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 
   const quest = questDetail ?? listQuest;
 
-  // Description state is purely a fallback for the rare unhydrated quest
-  // (legacy DB row that hasn't backfilled). The canonical body lives on
-  // `quest.idea.content` and is rendered by `<IdeaCanvas>`.
-  const [description, setDescription] = useState(quest?.idea?.content ?? "");
+  // Lifecycle state (status / priority) lives on the quest itself —
+  // edit popovers fire `api.updateQuest` directly. The body / title /
+  // tags / refs all live on `quest.idea` and are saved through the
+  // embedded `<IdeaCanvas>`'s own save path.
   const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "pending");
   const [priority, setPriority] = useState<QuestPriority>(quest?.priority ?? "normal");
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [error, setError] = useState<string | null>(null);
 
   const debounceRef = useRef<number | null>(null);
-  const dirtyRef = useRef(false);
-  const latestRef = useRef({ description, status, priority });
-  latestRef.current = { description, status, priority };
+  const canvasRef = useRef<IdeaCanvasHandle | null>(null);
+  const lifecycleRef = useRef({ status, priority });
+  lifecycleRef.current = { status, priority };
 
   useEffect(() => {
-    setDescription(quest?.idea?.content ?? "");
     setStatus(quest?.status ?? "pending");
     setPriority(quest?.priority ?? "normal");
     setSaveState("idle");
-    setError(null);
-    dirtyRef.current = false;
-  }, [quest?.id, quest?.idea?.content, quest?.status, quest?.priority]);
+  }, [quest?.id, quest?.status, quest?.priority]);
 
-  const save = useCallback(async () => {
+  const persistLifecycle = useCallback(async () => {
     if (!selectedId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSaveState("saving");
-    setError(null);
     try {
-      const { description: d, status: s, priority: p } = latestRef.current;
-      await api.updateQuest(selectedId, { description: d, status: s, priority: p });
+      const { status: s, priority: p } = lifecycleRef.current;
+      await api.updateQuest(selectedId, { status: s, priority: p });
       await fetchQuests();
       setSaveState("idle");
-      dirtyRef.current = false;
-    } catch (e) {
+    } catch {
       setSaveState("error");
-      setError(e instanceof Error ? e.message : "Failed to save");
     }
   }, [selectedId, fetchQuests]);
-
-  const scheduleSave = useCallback(() => {
-    dirtyRef.current = true;
-    setSaveState("idle");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(save, SAVE_DEBOUNCE_MS);
-  }, [save]);
 
   const handleStatusChange = useCallback(
     (next: QuestStatus) => {
       setStatus(next);
-      dirtyRef.current = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(save, 200);
+      debounceRef.current = window.setTimeout(persistLifecycle, 200);
     },
-    [save],
+    [persistLifecycle],
   );
 
   const handlePriorityChange = useCallback(
     (next: QuestPriority) => {
       setPriority(next);
-      dirtyRef.current = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(save, 200);
+      debounceRef.current = window.setTimeout(persistLifecycle, 200);
     },
-    [save],
+    [persistLifecycle],
   );
+
+  // Save body via the embedded canvas's commit handle. Returns the
+  // persisted idea id; the quest itself doesn't need re-fetching
+  // because the body lives on the linked idea.
+  const handleSaveBody = useCallback(async () => {
+    const handle = canvasRef.current;
+    if (!handle) return;
+    try {
+      await handle.commit();
+    } catch {
+      /* canvas surfaces its own error inline */
+    }
+  }, []);
 
   // Rail's create button → navigate to the dedicated compose page.
   useEffect(() => {
@@ -415,10 +410,25 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     );
   }
 
+  if (!quest.idea) {
+    return (
+      <div className="asv-main">
+        <div className="quest-detail-error">
+          Couldn't load this quest's linked idea. The quest itself is fine; refresh in a moment.
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="asv-main quest-detail">
-      <div className="ideas-list-head">
-        <div className="ideas-toolbar">
+    <IdeaCanvas
+      ref={canvasRef}
+      agentId={quest.agent_id ?? agent?.id ?? agentId}
+      idea={quest.idea}
+      onBack={() => goAgent(agentId, "quests", undefined, { replace: true })}
+      onNew={() => openCompose()}
+      headerSlot={
+        <div className="ideas-toolbar ideas-canvas-toolbar">
           <Button
             variant="secondary"
             size="sm"
@@ -471,122 +481,26 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             <span className="quest-detail-savestate">
               <Spinner size="sm" /> Saving
             </span>
-          ) : quest.updated_at ? (
-            <span className="quest-detail-savestate quest-detail-savestate--saved">
-              Saved · {timeAgo(quest.updated_at)}
-            </span>
           ) : null}
+          <Button variant="primary" size="sm" onClick={handleSaveBody} title="Save (⌘↵)">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+            </svg>
+            Save
+          </Button>
         </div>
-      </div>
-
-      <div className="quest-detail-scroll">
-        <div className="quest-detail-col">
-          {error && <div className="quest-detail-error">{error}</div>}
-
-          {quest.idea ? (
-            // Phase-3 unification: the body IS the idea detail surface.
-            // Same tags strip, same title input, same body editor, same
-            // refs row — the only quest-shaped chrome is the toolbar
-            // above, which carries the lifecycle controls and the
-            // shared-spec chip when the idea is tracked by other quests.
-            <IdeaCanvas
-              embedded
-              agentId={quest.agent_id ?? agent?.id ?? agentId}
-              idea={quest.idea}
-              onBack={() => goAgent(agentId, "quests", undefined, { replace: true })}
-              onNew={() => openCompose()}
-            />
-          ) : (
-            <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Description</div>
-              <textarea
-                className="quest-detail-textarea"
-                value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  scheduleSave();
-                }}
-                onBlur={() => {
-                  if (dirtyRef.current) save();
-                }}
-                placeholder="Add a description…"
-                rows={6}
-              />
-            </div>
-          )}
-
-          {/*
-            Acceptance criteria folded into `quest.idea.content` as a
-            `## Acceptance` section in phase 3 — the IdeaCanvas above
-            renders it inline.
-          */}
-
-          {quest.worktree_path && (
-            <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Worktree</div>
-              <div className="quest-detail-worktree">
-                <code className="quest-detail-code">{quest.worktree_path}</code>
-                {quest.worktree_branch && (
-                  <span className="quest-detail-branch">branch · {quest.worktree_branch}</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {quest.idea?.tags && quest.idea.tags.length > 0 && (
-            <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Tags</div>
-              <div className="quest-detail-labels">
-                {quest.idea.tags.map((l: string) => (
-                  <span key={l} className="quest-detail-label-chip">
-                    {l}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(quest.cost_usd > 0 || (quest.checkpoints && quest.checkpoints.length > 0)) && (
-            <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Execution</div>
-              {quest.cost_usd > 0 && (
-                <div className="quest-detail-cost">
-                  Cost · <span className="quest-detail-cost-n">${quest.cost_usd.toFixed(4)}</span>
-                </div>
-              )}
-              {quest.checkpoints && quest.checkpoints.length > 0 && (
-                <ol className="quest-detail-checkpoints">
-                  {quest.checkpoints.map((cp, i) => (
-                    <li key={i} className="quest-detail-checkpoint">
-                      <div className="quest-detail-checkpoint-progress">{cp.progress}</div>
-                      <div className="quest-detail-checkpoint-meta">
-                        {timeAgo(cp.timestamp)} · {cp.steps_used} steps · ${cp.cost_usd.toFixed(4)}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          )}
-
-          {quest.outcome && (
-            <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Outcome</div>
-              <div className="quest-detail-outcome">
-                <span className="quest-detail-outcome-kind">{quest.outcome.kind}</span>
-                <span className="quest-detail-outcome-summary">{quest.outcome.summary}</span>
-              </div>
-            </div>
-          )}
-
-          {quest.status !== "done" && quest.status !== "cancelled" && (
-            <div className="quest-detail-footer">
-              <CloseButton questId={quest.id} onDone={fetchQuests} />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -1059,25 +973,5 @@ function QuestList({
         );
       })}
     </div>
-  );
-}
-
-function CloseButton({ questId, onDone }: { questId: string; onDone: () => void }) {
-  const [closing, setClosing] = useState(false);
-
-  const handleClose = async () => {
-    setClosing(true);
-    try {
-      await api.closeQuest(questId);
-      onDone();
-    } finally {
-      setClosing(false);
-    }
-  };
-
-  return (
-    <Button variant="ghost" onClick={handleClose} loading={closing} type="button">
-      Mark done
-    </Button>
   );
 }
