@@ -454,7 +454,7 @@ export default function IdeaCanvas({
                 onClick={() =>
                   goAgent(agentId, "quests", undefined, {
                     replace: false,
-                    search: { newFromIdea: idea.id },
+                    search: { compose: "1", fromIdea: idea.id },
                   })
                 }
                 title="Track this idea as a quest"

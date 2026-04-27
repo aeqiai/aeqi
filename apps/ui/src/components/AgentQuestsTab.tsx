@@ -3,9 +3,9 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { useAgentDataStore } from "@/store/agentData";
-import { Button, Input, Modal, Popover, Select, Spinner } from "./ui";
+import { Button, Popover, Spinner } from "./ui";
 import IdeaCanvas from "./IdeaCanvas";
+import QuestComposePage from "./QuestComposePage";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
@@ -222,17 +222,24 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
-  const [newOpen, setNewOpen] = useState(false);
-  // When set, the new-quest modal opens pre-bound to this idea (Flow B —
-  // see WS-6 "Track as quest" entry from idea detail).
-  const [newFromIdeaId, setNewFromIdeaId] = useState<string | null>(null);
 
-  // View + sort persist in URL (mirrors AgentIdeasTab idiom). Defaults
-  // are board view + recent (updated_at desc) sort, written to the URL
-  // only when non-default so clean links stay clean.
+  // View + sort persist in URL (mirrors AgentIdeasTab idiom). `?compose=1`
+  // flips the surface to the dedicated quest-compose page (replaces the
+  // legacy modal); it can carry `?fromIdea=<id>` to pre-pin Flow B.
   const [searchParams, setSearchParams] = useSearchParams();
+  const composing = searchParams.get("compose") === "1";
   const view: QuestsView = searchParams.get("view") === "list" ? "list" : "board";
   const sort: QuestSort = parseQuestSort(searchParams.get("sort"));
+
+  const openCompose = useCallback(
+    (fromIdeaId?: string) => {
+      goAgent(agentId, "quests", undefined, {
+        replace: false,
+        search: { compose: "1", ...(fromIdeaId ? { fromIdea: fromIdeaId } : {}) },
+      });
+    },
+    [agentId, goAgent],
+  );
 
   const setView = useCallback(
     (next: QuestsView) => {
@@ -366,35 +373,19 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     [save],
   );
 
-  // Rail's create button — navigate to the board (where the modal lives)
-  // and open it. Modal is rendered inside QuestBoard but driven by state
-  // hoisted to this level so the open intent survives the navigation.
+  // Rail's create button → navigate to the dedicated compose page.
   useEffect(() => {
-    const handler = () => {
-      goAgent(agentId, "quests", undefined, { replace: true });
-      setNewOpen(true);
-    };
+    const handler = () => openCompose();
     window.addEventListener("aeqi:create", handler);
     return () => window.removeEventListener("aeqi:create", handler);
-  }, [agentId, goAgent]);
+  }, [openCompose]);
 
-  // Idea-detail "+ Track as quest" navigates here with `?newFromIdea=…`.
-  // Pop the modal pre-bound to the idea, then strip the param so refreshes
-  // don't reopen it.
-  useEffect(() => {
-    const fromIdea = searchParams.get("newFromIdea");
-    if (!fromIdea) return;
-    setNewFromIdeaId(fromIdea);
-    setNewOpen(true);
-    setSearchParams(
-      (p) => {
-        const np = new URLSearchParams(p);
-        np.delete("newFromIdea");
-        return np;
-      },
-      { replace: true },
-    );
-  }, [searchParams, setSearchParams]);
+  // Idea-detail "+ Track as quest" still ships people here, but now via
+  // `?compose=1&fromIdea=…` directly — the page handles it natively, no
+  // intermediate modal toggle needed.
+  if (composing) {
+    return <QuestComposePage agentId={agentId} resolvedAgentId={agent?.id || agentId} />;
+  }
 
   if (!quest) {
     // agent.id match + cross-agent quests surfaced by the API.
@@ -413,12 +404,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         onScopeChange={setQuestFilter}
         onCreated={fetchQuests}
         onPick={(id) => goAgent(agentId, "quests", id)}
-        newOpen={newOpen}
-        onNewOpenChange={(next) => {
-          setNewOpen(next);
-          if (!next) setNewFromIdeaId(null);
-        }}
-        newFromIdeaId={newFromIdeaId}
+        onCompose={() => openCompose()}
         view={view}
         onViewChange={setView}
         sort={sort}
@@ -452,15 +438,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             </svg>
             Quests
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              goAgent(agentId, "quests", undefined, { replace: true });
-              setNewOpen(true);
-            }}
-            title="New quest (N)"
-          >
+          <Button variant="primary" size="sm" onClick={() => openCompose()} title="New quest (N)">
             <svg
               width="11"
               height="11"
@@ -523,10 +501,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
               agentId={quest.agent_id ?? agent?.id ?? agentId}
               idea={quest.idea}
               onBack={() => goAgent(agentId, "quests", undefined, { replace: true })}
-              onNew={() => {
-                goAgent(agentId, "quests", undefined, { replace: true });
-                setNewOpen(true);
-              }}
+              onNew={() => openCompose()}
             />
           ) : (
             <div className="quest-detail-section">
@@ -625,10 +600,10 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 /**
  * Board view shown when no quest is selected.
  *
- * Toolbar — search + filter popover + plus button (opens NewQuestModal).
- * Below: four kanban columns (Todo / In Progress / Blocked / Done).
- * Done is capped to 10 most-recent to keep the column from blowing out
- * after months of work.
+ * Toolbar — search + filter popover + plus button (opens
+ * `QuestComposePage` via `?compose=1`). Below: four kanban columns
+ * (Todo / In Progress / Blocked / Done). Done is capped to 10
+ * most-recent to keep the column from blowing out after months of work.
  */
 function QuestBoard({
   agentId: _agentId,
@@ -639,9 +614,7 @@ function QuestBoard({
   onScopeChange,
   onCreated,
   onPick,
-  newOpen,
-  onNewOpenChange,
-  newFromIdeaId,
+  onCompose,
   view,
   onViewChange,
   sort,
@@ -655,10 +628,8 @@ function QuestBoard({
   onScopeChange: (next: QuestFilter) => void;
   onCreated: () => void;
   onPick: (id: string) => void;
-  newOpen: boolean;
-  onNewOpenChange: (next: boolean) => void;
-  /** When set, the modal opens pre-bound to an existing idea (Flow B). */
-  newFromIdeaId?: string | null;
+  /** Navigates to the dedicated quest-compose page. */
+  onCompose: () => void;
   view: QuestsView;
   onViewChange: (next: QuestsView) => void;
   sort: QuestSort;
@@ -897,12 +868,7 @@ function QuestBoard({
             onChange={onScopeChange}
           />
           <QuestsViewPopover view={view} onChange={onViewChange} />
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onNewOpenChange(true)}
-            title="New quest (N)"
-          >
+          <Button variant="primary" size="sm" onClick={onCompose} title="New quest (N)">
             <svg
               width="11"
               height="11"
@@ -927,7 +893,7 @@ function QuestBoard({
           optimistic={optimistic}
           focusId={focusId}
           onPick={onPick}
-          onNew={() => onNewOpenChange(true)}
+          onNew={onCompose}
           search={search}
         />
       ) : (
@@ -1013,13 +979,6 @@ function QuestBoard({
           })}
         </div>
       )}
-      <NewQuestModal
-        open={newOpen}
-        resolvedAgentId={resolvedAgentId}
-        onClose={() => onNewOpenChange(false)}
-        onCreated={onCreated}
-        initialIdeaId={newFromIdeaId ?? undefined}
-      />
     </div>
   );
 }
@@ -1107,197 +1066,6 @@ function QuestList({
         );
       })}
     </div>
-  );
-}
-
-function NewQuestModal({
-  open,
-  resolvedAgentId,
-  onClose,
-  onCreated,
-  initialIdeaId,
-}: {
-  open: boolean;
-  resolvedAgentId: string;
-  onClose: () => void;
-  onCreated: () => void;
-  /**
-   * When provided (e.g. from the idea-detail "+ Track as quest" button),
-   * the modal opens pre-bound to the existing idea — Flow B. The combobox
-   * is locked to the resolved idea name and the user can't type a new one.
-   */
-  initialIdeaId?: string;
-}) {
-  const [query, setQuery] = useState("");
-  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
-  const [priority, setPriority] = useState<QuestPriority>("normal");
-  const [scope, setScope] = useState<ScopeValue>("self");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const ideas = useAgentDataStore((s) => s.ideasByAgent[resolvedAgentId]) ?? [];
-  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
-  const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
-
-  // Idea suggestions filtered by the typed query, ranked by usage so the
-  // most-trafficked specs surface first. Each suggestion shows a "· N quests"
-  // annotation so the user can spot a busy shared spec at a glance.
-  const ideaSuggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const counts = new Map<string, number>();
-    for (const quest of allQuests) {
-      if (quest.idea_id) counts.set(quest.idea_id, (counts.get(quest.idea_id) ?? 0) + 1);
-    }
-    const matches = q ? ideas.filter((i) => i.name.toLowerCase().includes(q)) : ideas.slice(0, 8);
-    return matches.slice(0, 8).map((i) => ({ idea: i, questCount: counts.get(i.id) ?? 0 }));
-  }, [ideas, query, allQuests]);
-
-  // Reset the form every time the modal opens — so the second creation
-  // doesn't inherit the first's subject / priority / scope.
-  useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setSelectedIdeaId(initialIdeaId ?? null);
-    setPriority("normal");
-    setScope("self");
-    setBusy(false);
-    setErr(null);
-    // Pre-bound flow: surface the locked idea name in the input.
-    if (initialIdeaId) {
-      const pinned = ideas.find((i) => i.id === initialIdeaId);
-      if (pinned) setQuery(pinned.name);
-    }
-    // Make sure the combobox has data to work against.
-    void loadIdeas(resolvedAgentId);
-  }, [open, initialIdeaId, ideas, loadIdeas, resolvedAgentId]);
-
-  const trimmedQuery = query.trim();
-  const exactMatch = ideas.find((i) => i.name.toLowerCase() === trimmedQuery.toLowerCase());
-
-  const submit = useCallback(async () => {
-    if (busy) return;
-    const idea_id = selectedIdeaId ?? exactMatch?.id;
-    const name = trimmedQuery;
-    if (!idea_id && !name) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await api.createQuest({
-        project: resolvedAgentId,
-        agent_id: resolvedAgentId,
-        priority,
-        scope,
-        // Flow B (existing idea) wins when a row is selected; otherwise mint
-        // a fresh idea with the typed name (Flow A). 24h-dedup at the
-        // backend reuses an existing row by name, so typing a duplicate
-        // name doesn't create a redundant idea.
-        ...(idea_id ? { idea_id } : { idea: { name }, subject: name }),
-      });
-      onCreated();
-      onClose();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Failed to create quest");
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    selectedIdeaId,
-    exactMatch?.id,
-    trimmedQuery,
-    busy,
-    priority,
-    scope,
-    resolvedAgentId,
-    onCreated,
-    onClose,
-  ]);
-
-  const canSubmit = !!(selectedIdeaId || exactMatch || trimmedQuery);
-
-  return (
-    <Modal open={open} onClose={onClose} title="New quest">
-      <div className="quest-new-form">
-        <div className="quest-new-combobox">
-          <Input
-            label="Idea"
-            placeholder="Pick an idea or type a new name…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSelectedIdeaId(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void submit();
-              }
-            }}
-            disabled={busy || !!initialIdeaId}
-            autoFocus
-            error={err ?? undefined}
-          />
-          {!initialIdeaId && ideaSuggestions.length > 0 && (
-            <div className="quest-new-suggestions" role="listbox">
-              {ideaSuggestions.map(({ idea, questCount }) => {
-                const active = selectedIdeaId === idea.id;
-                return (
-                  <button
-                    key={idea.id}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    className={`quest-new-suggestion${active ? " is-active" : ""}`}
-                    onClick={() => {
-                      setSelectedIdeaId(idea.id);
-                      setQuery(idea.name);
-                    }}
-                  >
-                    <span className="quest-new-suggestion-name">{idea.name}</span>
-                    {questCount > 0 && (
-                      <span className="quest-new-suggestion-meta">
-                        · {questCount} quest{questCount === 1 ? "" : "s"}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              {!exactMatch && trimmedQuery && (
-                <div className="quest-new-suggestion-hint">
-                  ↵ to create new idea “{trimmedQuery}”
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="quest-new-fields">
-          <Select
-            value={priority}
-            onChange={(v) => setPriority(v as QuestPriority)}
-            options={(["critical", "high", "normal", "low"] as QuestPriority[]).map((p) => ({
-              value: p,
-              label: PRIORITY_LABELS[p],
-            }))}
-            disabled={busy}
-            aria-label="Priority"
-          />
-          <Select
-            value={scope}
-            onChange={(v) => setScope(v as ScopeValue)}
-            options={QUEST_SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
-            disabled={busy}
-            aria-label="Scope"
-          />
-        </div>
-        <div className="quest-new-actions">
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={submit} disabled={!canSubmit} loading={busy}>
-            Create
-          </Button>
-        </div>
-      </div>
-    </Modal>
   );
 }
 

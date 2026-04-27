@@ -3129,37 +3129,17 @@
   opacity: 0.7;
 }
 
-/* New-quest modal — body layout. Modal primitive owns the chrome
-   (surface, padding, header); these classes only stack the form. */
-.quest-new-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.quest-new-fields {
-  display: flex;
-  gap: var(--space-3);
-}
-.quest-new-fields > * {
-  flex: 1;
-}
-.quest-new-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-/* Idea combobox under the modal's input. Suggestions list is a flat
-   button stack — clicking pins the idea (Flow B); ↵ on a typed name with
-   no exact match creates a fresh idea (Flow A). The "↵ to create new"
-   hint is the affordance for the latter, surfaced inline rather than as
-   a separate button so the user's typing flow stays uninterrupted. */
-.quest-new-combobox {
+/* Quest-compose page — full-page surface that replaces the modal.
+   Reuses `.asv-main` + `.quest-detail-*` chrome wherever possible; the
+   classes below only cover the bits the canvas page adds (idea
+   combobox + suggestions + first-time hint). */
+.quest-compose-combobox {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
-.quest-new-suggestions {
+.quest-compose-suggestions {
   display: flex;
   flex-direction: column;
   background: var(--color-card);
@@ -3167,7 +3147,7 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
-.quest-new-suggestion {
+.quest-compose-suggestion {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -3181,24 +3161,40 @@
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.quest-new-suggestion:hover,
-.quest-new-suggestion.is-active {
+.quest-compose-suggestion:hover {
   background: var(--color-bg-base);
 }
-.quest-new-suggestion-name {
+.quest-compose-suggestion-name {
   font-weight: 500;
 }
-.quest-new-suggestion-meta {
+.quest-compose-suggestion-meta {
   font-size: 11px;
   color: var(--color-fg-muted);
 }
-.quest-new-suggestion-hint {
+.quest-compose-suggestion-hint {
   padding: 6px 10px;
   font-family: var(--font-sans);
   font-size: 11px;
   color: var(--color-fg-muted);
   border-top: 1px solid var(--border);
   background: var(--color-bg-base);
+}
+.quest-compose-unpin {
+  align-self: flex-start;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.quest-compose-hint {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-fg-muted);
 }
 
 .quest-board-error {
