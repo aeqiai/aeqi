@@ -3,6 +3,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import AvatarCropDialog from "./AvatarCropDialog";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
@@ -26,9 +27,11 @@ export default function AvatarUploader({
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const fetchMe = useAuthStore((s) => s.fetchMe);
 
-  const upload = async (file: File) => {
+  /** Pick an image: validate, read as data URL, then open the crop dialog. */
+  const pickFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       onFeedback({ type: "error", msg: "That's not an image." });
       return;
@@ -37,7 +40,6 @@ export default function AvatarUploader({
       onFeedback({ type: "error", msg: "Image must be under 2 MB." });
       return;
     }
-    setBusy(true);
     onFeedback(null);
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -46,11 +48,21 @@ export default function AvatarUploader({
         reader.onerror = () => reject(new Error("Couldn't read the image."));
         reader.readAsDataURL(file);
       });
-      // Optimistic preview before the round-trip lands.
-      onSrcChange(dataUrl);
-      await api.updateAvatar(dataUrl);
-      // Refresh the auth-store user so sidebar + top-bar pick the new image up.
+      setCropSrc(dataUrl);
+    } catch (err: unknown) {
+      onFeedback({ type: "error", msg: err instanceof Error ? err.message : "Upload failed." });
+    }
+  };
+
+  /** Confirm the crop: optimistic preview, server update, propagate. */
+  const uploadCropped = async (croppedDataUrl: string) => {
+    setBusy(true);
+    onFeedback(null);
+    try {
+      onSrcChange(croppedDataUrl);
+      await api.updateAvatar(croppedDataUrl);
       await fetchMe();
+      setCropSrc(null);
       onFeedback({ type: "success", msg: "Avatar updated." });
       setTimeout(() => onFeedback(null), 2500);
     } catch (err: unknown) {
@@ -92,7 +104,7 @@ export default function AvatarUploader({
     e.preventDefault();
     setDragOver(false);
     const f = e.dataTransfer?.files?.[0];
-    if (f) void upload(f);
+    if (f) void pickFile(f);
   };
 
   return (
@@ -130,7 +142,7 @@ export default function AvatarUploader({
           className="account-hidden-input"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void upload(f);
+            if (f) void pickFile(f);
             // Reset so picking the same file twice still fires onChange.
             e.target.value = "";
           }}
@@ -164,6 +176,12 @@ export default function AvatarUploader({
         </div>
         <div className="avatar-uploader-hint">Click or drop · max 2 MB · png, jpg, webp, gif</div>
       </div>
+      <AvatarCropDialog
+        open={cropSrc != null}
+        src={cropSrc ?? ""}
+        onCancel={() => setCropSrc(null)}
+        onConfirm={uploadCropped}
+      />
     </div>
   );
 }
