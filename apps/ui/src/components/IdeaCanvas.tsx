@@ -383,48 +383,38 @@ export default function IdeaCanvas({
     <div className="asv-main ideas-canvas">
       <div className="ideas-list-head ideas-canvas-head">
         <div className="ideas-toolbar ideas-canvas-toolbar">
-          <button
-            type="button"
-            className="ideas-toolbar-btn"
-            onClick={onBack}
-            title="Back to ideas"
-            aria-label="Back to ideas"
-          >
+          <Button variant="secondary" size="sm" onClick={onBack} title="Back to ideas">
             <svg
-              width="13"
-              height="13"
+              width="11"
+              height="11"
               viewBox="0 0 13 13"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.4"
+              strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden
             >
               <path d="M8 3 L4.5 6.5 L8 10" />
             </svg>
-          </button>
+            Back
+          </Button>
           {!showCompose && (
-            <button
-              type="button"
-              className="ideas-toolbar-btn"
-              onClick={onNew}
-              title="New idea (N)"
-              aria-label="New idea"
-            >
+            <Button variant="secondary" size="sm" onClick={onNew} title="New idea (N)">
               <svg
-                width="13"
-                height="13"
+                width="11"
+                height="11"
                 viewBox="0 0 13 13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.5"
+                strokeWidth="1.7"
                 strokeLinecap="round"
                 aria-hidden
               >
                 <path d="M6.5 2.5v8M2.5 6.5h8" />
               </svg>
-            </button>
+              New
+            </Button>
           )}
           <IdeasScopePopover
             scope={headerScope}
