@@ -79,7 +79,7 @@ bcrypt = "0.17"
 chrono = { version = "0.4", features = ["serde"] }
 
 # SQLite
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
 
 # Caching
 mini-moka = "0.10"
