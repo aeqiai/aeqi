@@ -46,6 +46,11 @@ export default function QuestComposePage({
   const [scope, setScope] = useState<ScopeValue>("self");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Mirrors the canvas's internal can-save signal: compose mode needs
+  // at least a name or body before Save is meaningful. Edit mode is
+  // always saveable (we can wrap the linked idea in a quest with no
+  // inline edits).
+  const [canSave, setCanSave] = useState(false);
 
   const canvasRef = useRef<IdeaCanvasHandle | null>(null);
 
@@ -96,12 +101,14 @@ export default function QuestComposePage({
     }
   }, [busy, priority, scope, resolvedAgentId, fetchQuests, goAgent, agentId]);
 
-  // ⌘↵ commits, Esc bails. The canvas already binds ⌘↵ to its
-  // internal commit; we capture at the document level here so the
-  // parent's `submit` (which also wraps the quest) wins.
+  // ⌘↵ commits, Esc bails. We capture at the document level so the
+  // parent's `submit` (which also wraps the quest) wins over the
+  // canvas's own ⌘↵. The capture is gated on `canSave` so an empty
+  // compose surface stays an inert no-op rather than an error flash.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (!canSave || busy) return;
         e.preventDefault();
         e.stopPropagation();
         void submit();
@@ -112,7 +119,7 @@ export default function QuestComposePage({
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [submit, cancel]);
+  }, [submit, cancel, canSave, busy]);
 
   // Keyed remount on idea-id change — `<IdeaCanvas>` keys its internal
   // state on `idea?.id` via useEffect, but a fresh ref makes the
@@ -133,6 +140,7 @@ export default function QuestComposePage({
       onPersisted={() => {
         /* parent submit() chains the quest-create itself */
       }}
+      onCanCommitChange={setCanSave}
       headerSlot={
         <div className="ideas-toolbar ideas-canvas-toolbar">
           <Button variant="secondary" size="sm" onClick={cancel} title="Back to quests">
@@ -170,7 +178,8 @@ export default function QuestComposePage({
             size="sm"
             onClick={submit}
             loading={busy}
-            title="Create quest (⌘↵)"
+            disabled={!canSave || busy}
+            title={canSave ? "Create quest (⌘↵)" : "Write something to save"}
           >
             <svg
               width="11"

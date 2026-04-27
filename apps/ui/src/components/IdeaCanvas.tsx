@@ -92,10 +92,27 @@ export interface IdeaCanvasProps {
    * larger flow (e.g. wrapping it in a quest).
    */
   onPersisted?: (ideaId: string) => void;
+  /**
+   * Reports whether `commit()` would succeed right now. Used by callers
+   * that drive their own Save button (the quest-compose page) so the
+   * button can be disabled when there's nothing to save in compose mode
+   * — never inviting the "Write something first" failure.
+   */
+  onCanCommitChange?: (canCommit: boolean) => void;
 }
 
 const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCanvas(
-  { agentId, idea, initialName, onBack, onNew, embedded = false, headerSlot, onPersisted },
+  {
+    agentId,
+    idea,
+    initialName,
+    onBack,
+    onNew,
+    embedded = false,
+    headerSlot,
+    onPersisted,
+    onCanCommitChange,
+  },
   ref,
 ) {
   const { goAgent } = useNav();
@@ -325,6 +342,16 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     }),
     [isEdit, flushSave, handleCreate],
   );
+
+  // Tell the embedding caller whether `commit()` would succeed right
+  // now. Edit mode is always commit-ready (the quest wrapper can save
+  // even with no inline edits); compose mode requires at least a name
+  // or some body content. Mirrors the guard inside `handleCreate`.
+  useEffect(() => {
+    if (!onCanCommitChange) return;
+    const canCommit = isEdit || name.trim().length > 0 || content.trim().length > 0;
+    onCanCommitChange(canCommit);
+  }, [isEdit, name, content, onCanCommitChange]);
 
   // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
   // `e` (bare) — from view mode, enter edit (Linear-style doc shortcut). Ignored
