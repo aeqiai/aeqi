@@ -685,17 +685,11 @@
   min-width: 0;
 }
 
-/* Compact discoverability row — the right-aligned strip with [?] +
- * search icon that lives below Inbox + Settings. Two ghost icon
- * buttons reuse `.sidebar-help-btn` chrome (24×24 round, transparent,
- * border-on-hover) so the rail has a single icon-button language. */
-.sidebar-icon-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  padding: 4px 8px 0;
-}
+/* Discoverability icons live on the Settings row's right edge via
+ * `.sidebar-row-pair` (the labeled nav-item flexes to fill, the icon
+ * buttons sit on the right) — same idiom the Documentation row uses
+ * to host sign-out at the bottom of the rail. Two ghost icon buttons
+ * reuse this class for the rail's single icon-button language. */
 .sidebar-icon-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -731,7 +725,7 @@
   width: 13px;
   height: 13px;
 }
-.left-sidebar.collapsed .sidebar-icon-row {
+.left-sidebar.collapsed .sidebar-icon-btn {
   display: none;
 }
 

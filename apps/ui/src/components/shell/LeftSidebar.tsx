@@ -292,43 +292,47 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
               ? path === `${base}/settings` || path.startsWith(`${base}/settings/`)
               : path === "/settings" || path === "/profile";
             return (
-              <a
-                className={`sidebar-nav-item ${settingsActive ? "active" : ""}`}
-                href={settingsHref}
-                title={agentId ? "Agent settings" : "Your account settings"}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(settingsHref);
-                }}
-              >
-                <SettingsIcon />
-                <span className="sidebar-nav-label">Settings</span>
-              </a>
+              // Settings row hosts the discoverability icons on its right
+              // edge — same idiom the Documentation row uses to host the
+              // sign-out button at the bottom of the rail. Two ghost
+              // icons, no separate row, single labeled rail per zone.
+              <div className="sidebar-row-pair">
+                <a
+                  className={`sidebar-nav-item ${settingsActive ? "active" : ""}`}
+                  href={settingsHref}
+                  title={agentId ? "Agent settings" : "Your account settings"}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(settingsHref);
+                  }}
+                >
+                  <SettingsIcon />
+                  <span className="sidebar-nav-label">Settings</span>
+                </a>
+                <button
+                  type="button"
+                  className="sidebar-icon-btn"
+                  onClick={openShortcuts}
+                  aria-label="Keyboard shortcuts"
+                  title="Keyboard shortcuts (?)"
+                >
+                  ?
+                </button>
+                <button
+                  type="button"
+                  className="sidebar-icon-btn"
+                  onClick={openPalette}
+                  aria-label="Open command palette"
+                  title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
+                >
+                  <svg {...iconProps}>
+                    <circle cx="7" cy="7" r="4.5" />
+                    <path d="M10 10l3.5 3.5" />
+                  </svg>
+                </button>
+              </div>
             );
           })()}
-          <div className="sidebar-icon-row" aria-label="Discoverability actions">
-            <button
-              type="button"
-              className="sidebar-icon-btn"
-              onClick={openShortcuts}
-              aria-label="Keyboard shortcuts"
-              title="Keyboard shortcuts (?)"
-            >
-              ?
-            </button>
-            <button
-              type="button"
-              className="sidebar-icon-btn"
-              onClick={openPalette}
-              aria-label="Open command palette"
-              title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
-            >
-              <svg {...iconProps}>
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10 10l3.5 3.5" />
-              </svg>
-            </button>
-          </div>
         </div>
         <nav
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
