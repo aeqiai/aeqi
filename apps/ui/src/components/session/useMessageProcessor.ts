@@ -229,13 +229,17 @@ export function useMessageProcessor() {
  * inter-turn injections into where they belong visually — after the user
  * input, inside the collapsible trail.
  *
- * Trailing fires (no following assistant — e.g. async events fired after
- * the last response) are coalesced into a single trail-only assistant
- * message so they render as their own collapsed grey row.
+ * Lifecycle events (`session:execution_start`, idea injections) are
+ * pre-persisted BEFORE the user-message row of the turn they belong to —
+ * so pending fires must carry across exactly one user message and attach
+ * to the next assistant. Only flush as orphan trail when a SECOND user
+ * message arrives without an assistant in between (abandoned turn) or at
+ * end of input (post-turn async fires).
  */
 function foldEventFiresIntoTrails(messages: Message[]): Message[] {
   const out: Message[] = [];
   let pending: { fire: EventFire; ts: number }[] = [];
+  let userSeenSincePending = false;
 
   const flushPendingAsTrail = () => {
     if (pending.length === 0) return;
@@ -247,6 +251,7 @@ function foldEventFiresIntoTrails(messages: Message[]): Message[] {
     };
     out.push(trailMsg);
     pending = [];
+    userSeenSincePending = false;
   };
 
   for (const m of messages) {
@@ -261,14 +266,19 @@ function foldEventFiresIntoTrails(messages: Message[]): Message[] {
       }));
       m.segments = [...fireSegs, ...(m.segments ?? [])];
       pending = [];
+      userSeenSincePending = false;
     } else if (m.role === "user" && pending.length > 0) {
-      // Abandoned fires from a previous failed turn — the agent never
-      // replied, then a new user message arrived. Without this flush
-      // they'd accumulate across every silent turn and dump onto the
-      // next successful assistant trail (renders as 5+ stacked
-      // execution_start pairs). Drop them in their own trail row so
-      // each turn's lifecycle stays scoped to that turn.
-      flushPendingAsTrail();
+      if (userSeenSincePending) {
+        // Abandoned fires: a previous user message saw these pending,
+        // no assistant ever followed, and now another user message
+        // arrives. Drop them as an orphan trail before the new turn.
+        flushPendingAsTrail();
+      } else {
+        // Normal flow: lifecycle events fire BEFORE the user message of
+        // their turn. Carry across this user — the next assistant will
+        // collect them.
+        userSeenSincePending = true;
+      }
     }
     out.push(m);
   }
