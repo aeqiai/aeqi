@@ -378,16 +378,63 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="asv-main quest-detail">
-      <div className="quest-detail-topbar">
-        <StatusDot status={quest.status} />
-        <span className="quest-detail-id">{quest.id}</span>
-        {saveState === "saving" ? (
-          <Spinner size="sm" className="quest-detail-trail" />
-        ) : (
-          quest.updated_at && (
-            <span className="quest-detail-updated">{timeAgo(quest.updated_at)}</span>
-          )
-        )}
+      <div className="ideas-list-head">
+        <div className="ideas-toolbar">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => goAgent(agentId, "quests", undefined, { replace: true })}
+            title="Back to quests"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M8 3 L4.5 6.5 L8 10" />
+            </svg>
+            Quests
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              goAgent(agentId, "quests", undefined, { replace: true });
+              setNewOpen(true);
+            }}
+            title="New quest (N)"
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6.5 2.5v8M2.5 6.5h8" />
+            </svg>
+            New
+          </Button>
+          <div className="ideas-toolbar-spacer" aria-hidden />
+          {saveState === "saving" ? (
+            <span className="quest-detail-savestate">
+              <Spinner size="sm" /> Saving
+            </span>
+          ) : quest.updated_at ? (
+            <span className="quest-detail-savestate quest-detail-savestate--saved">
+              Saved · {timeAgo(quest.updated_at)}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="quest-detail-scroll">
@@ -395,12 +442,17 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
           {error && <div className="quest-detail-error">{error}</div>}
 
           <div className="quest-detail-eyebrow">
+            <StatusDot status={quest.status} />
             <span className="quest-detail-eyebrow-kind">Quest</span>
             <span className="quest-detail-eyebrow-sep" aria-hidden>
               ·
             </span>
             <span className="quest-detail-eyebrow-status">{STATUS_LABELS[quest.status]}</span>
             {quest.scope && <QuestScopeChip scope={quest.scope} />}
+            <span className="quest-detail-eyebrow-sep" aria-hidden>
+              ·
+            </span>
+            <span className="quest-detail-eyebrow-id">{quest.id.slice(0, 8)}</span>
           </div>
 
           <h2 className="quest-detail-title">{quest.subject}</h2>

@@ -3336,34 +3336,21 @@
   min-height: 0;
   overflow: hidden;
 }
-.quest-detail-topbar {
-  display: flex;
+/* Quest detail save-state indicator — sits in the right of the canonical
+   toolbar. Subtle text + spinner (when saving), quiet "Saved · Xm ago"
+   timestamp at rest. Auto-save means there's no Save button; this is the
+   only signal the work persisted. */
+.quest-detail-savestate {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px clamp(16px, 4vw, 40px);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
-  flex: 0 0 auto;
-}
-.quest-detail-id {
+  gap: 6px;
   font-family: var(--font-sans);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 240px;
 }
-.quest-detail-updated {
-  margin-left: auto;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-.quest-detail-trail {
-  margin-left: auto;
+.quest-detail-savestate--saved {
+  letter-spacing: 0.005em;
 }
 
 /* Status mark — mirrors .scope-dot. Filled circle for terminal/active
@@ -3419,7 +3406,7 @@
 
 .quest-detail-eyebrow {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   margin-bottom: 6px;
   font-family: var(--font-sans);
@@ -3428,6 +3415,11 @@
   text-transform: uppercase;
   color: var(--text-muted);
   user-select: none;
+}
+.quest-detail-eyebrow-id {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
 .quest-detail-eyebrow-kind {
   color: var(--text-secondary);
