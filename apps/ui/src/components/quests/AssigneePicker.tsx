@@ -86,6 +86,7 @@ export default function AssigneePicker({
       open={open}
       onOpenChange={setOpen}
       placement={placement}
+      portal
       trigger={renderTrigger({ open, display })}
     >
       <div
