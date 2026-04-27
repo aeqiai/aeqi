@@ -667,11 +667,11 @@
  * darker than its siblings. font-family is the one thing the UA
  * stylesheet pins on <button>; pin it back to --font-sans explicitly
  * so it doesn't inherit a UA value that might not match. */
-/* Action row beneath Inbox — `+ New`, search, `?` help — three white
- * icon-circles in a single horizontal lane. Reuses the canonical
- * .ideas-toolbar-btn pattern (white surface, 30px circle, 1px input
- * border) per its own doc-comment, until <ToolbarIconButton> lives
- * in the design system. */
+/* Action row beneath the Company switcher — `+ New`, search, `?` help —
+ * three white icon-circles in a single horizontal lane. Reuses the
+ * canonical .ideas-toolbar-btn pattern (white surface, 30px circle,
+ * 1px input border) per its own doc-comment, until <ToolbarIconButton>
+ * lives in the design system. */
 .sidebar-icon-row {
   flex-shrink: 0;
   display: flex;
@@ -681,6 +681,82 @@
 }
 .left-sidebar.collapsed .sidebar-icon-row {
   display: none;
+}
+
+/* Brand wordmark in the sidebar header — Link wrapping <Wordmark>.
+ * Mirrors .sidebar-public-brand's shape so the authed and unauthed
+ * shells share the same brand rhythm. */
+.sidebar-brand {
+  display: inline-flex;
+  align-items: center;
+  height: var(--sidebar-row-h);
+  padding: 0 4px;
+  text-decoration: none;
+  color: var(--color-accent);
+  border-radius: var(--radius-md);
+  transition: opacity 0.12s ease;
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-brand:hover {
+  opacity: 0.85;
+}
+
+/* Sidebar group — collapsible nav cluster with a small label header
+ * (Operate / Build / Control / Network). Title is the toggle target;
+ * chevron rotates 180° when collapsed. Items live inside a child div
+ * so collapse hides them without disturbing surrounding spacing. */
+.sidebar-group {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-group-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 4px 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  text-align: left;
+  transition: color 0.12s ease;
+}
+.sidebar-group-title:hover {
+  color: var(--text-secondary);
+}
+.sidebar-group-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  transition: transform 0.15s ease;
+}
+.sidebar-group-chevron > svg {
+  display: block;
+}
+.sidebar-group.collapsed .sidebar-group-chevron {
+  transform: rotate(-90deg);
+}
+.sidebar-group-label {
+  line-height: 1;
+}
+.sidebar-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px;
+}
+.left-sidebar.collapsed .sidebar-group-title {
+  display: none;
+}
+.left-sidebar.collapsed .sidebar-group-items {
+  padding: 4px 6px;
 }
 
 .sidebar-nav-action {

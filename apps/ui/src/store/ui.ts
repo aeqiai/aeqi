@@ -16,18 +16,32 @@ function readStoredSidebarWidth(): number {
   return clampSidebarWidth(Number(raw));
 }
 
+function readStoredCollapsedGroups(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem("aeqi_sidebar_groups");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
 interface UIState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   activeEntity: string;
+  collapsedGroups: Record<string, boolean>;
   toggleSidebar: () => void;
   setSidebarWidth: (w: number) => void;
   setActiveEntity: (id: string) => void;
+  toggleGroup: (key: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: localStorage.getItem("aeqi_sidebar_collapsed") === "true",
   sidebarWidth: readStoredSidebarWidth(),
+  collapsedGroups: readStoredCollapsedGroups(),
   toggleSidebar: () =>
     set((state) => {
       const next = !state.sidebarCollapsed;
@@ -48,4 +62,10 @@ export const useUIStore = create<UIState>((set) => ({
     }
     set({ activeEntity: id });
   },
+  toggleGroup: (key) =>
+    set((state) => {
+      const next = { ...state.collapsedGroups, [key]: !state.collapsedGroups[key] };
+      localStorage.setItem("aeqi_sidebar_groups", JSON.stringify(next));
+      return { collapsedGroups: next };
+    }),
 }));

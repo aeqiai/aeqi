@@ -18,6 +18,11 @@ import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import ProjectsPage from "@/pages/ProjectsPage";
 import CompanyPage from "@/pages/CompanyPage";
+import CRMPage from "@/pages/CRMPage";
+import MetricsPage from "@/pages/MetricsPage";
+import OwnershipPage from "@/pages/OwnershipPage";
+import TreasuryPage from "@/pages/TreasuryPage";
+import GovernancePage from "@/pages/GovernancePage";
 import type { Agent } from "@/lib/types";
 
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
@@ -107,6 +112,11 @@ export default function AppLayout() {
       ideas: "Ideas",
       projects: "Projects",
       company: "Company",
+      crm: "CRM",
+      metrics: "Metrics",
+      ownership: "Ownership",
+      treasury: "Treasury",
+      governance: "Governance",
     };
     const section = tab || "sessions";
     const sectionTitle = titles[section] || section;
@@ -189,6 +199,11 @@ export default function AppLayout() {
     if (isEconomy) return <EconomyPage />;
     if (tab === "projects") return <ProjectsPage />;
     if (tab === "company") return <CompanyPage />;
+    if (tab === "crm") return <CRMPage />;
+    if (tab === "metrics") return <MetricsPage />;
+    if (tab === "ownership") return <OwnershipPage />;
+    if (tab === "treasury") return <TreasuryPage />;
+    if (tab === "governance") return <GovernancePage />;
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 

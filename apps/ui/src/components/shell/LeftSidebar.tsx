@@ -1,8 +1,10 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import CompanySwitcher from "@/components/shell/CompanySwitcher";
 import AccountDropdown from "@/components/shell/AccountDropdown";
 import NewMenu from "@/components/shell/NewMenu";
 import HelpMenu from "@/components/shell/HelpMenu";
+import SidebarGroup from "@/components/shell/SidebarGroup";
+import Wordmark from "@/components/Wordmark";
 import { useUIStore } from "@/store/ui";
 
 interface LeftSidebarProps {
@@ -70,6 +72,45 @@ const CompanyIcon = () => (
   </svg>
 );
 
+const CRMIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="6" cy="6" r="2" />
+    <circle cx="11.5" cy="7" r="1.5" />
+    <path d="M2 13c0-2.2 1.8-4 4-4s4 1.8 4 4" />
+    <path d="M9.5 13c0-1.4 1.3-2.5 2.5-2.5s2.5 1.1 2.5 2.5" />
+  </svg>
+);
+
+const MetricsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M2.5 14V9M6.5 14V4.5M10.5 14V11M14 14V7" />
+    <path d="M2 14h12" />
+  </svg>
+);
+
+const OwnershipIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="5" cy="8" r="2.5" />
+    <path d="M7.5 8h6M11 8v2.2M13.5 8v2.2" />
+  </svg>
+);
+
+const TreasuryIcon = () => (
+  <svg {...iconProps}>
+    <ellipse cx="8" cy="4" rx="5" ry="1.5" />
+    <path d="M3 4v8c0 0.83 2.24 1.5 5 1.5s5-0.67 5-1.5V4" />
+    <path d="M3 8c0 0.83 2.24 1.5 5 1.5s5-0.67 5-1.5" />
+  </svg>
+);
+
+const GovernanceIcon = () => (
+  <svg {...iconProps}>
+    <path d="M8 2.5v11M3.5 13.5h9" />
+    <path d="M8 4l-3.5 3.5M8 4l3.5 3.5" />
+    <path d="M2.5 7.5h4M9.5 7.5h4" />
+  </svg>
+);
+
 const EconomyIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="8" r="5.5" />
@@ -81,6 +122,13 @@ const SearchIcon = () => (
   <svg {...iconProps}>
     <circle cx="7" cy="7" r="4.5" />
     <path d="M10 10l3.5 3.5" />
+  </svg>
+);
+
+const PanelGlyph = () => (
+  <svg {...iconProps}>
+    <rect x="2" y="3" width="12" height="10" rx="1.5" />
+    <path d="M6.5 3v10" />
   </svg>
 );
 
@@ -105,18 +153,34 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
+  const navItem = (id: string, label: string, icon: React.ReactNode) => (
+    <a
+      key={id}
+      className={`sidebar-nav-item ${isActive(id) ? "active" : ""}`}
+      href={navHref(id)}
+      title={label}
+      onClick={(e) => {
+        e.preventDefault();
+        navigate(navHref(id));
+      }}
+    >
+      {icon}
+      <span className="sidebar-nav-label">{label}</span>
+    </a>
+  );
+
   return (
     <div
       className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}
       style={sidebarCollapsed ? undefined : { width: `${sidebarWidth}px` }}
     >
-      {/* ── Company switcher + collapse toggle ── */}
+      {/* ── Brand header ── */}
       <div className="sidebar-header">
         {!sidebarCollapsed ? (
           <>
-            <div className="company-switcher-slot">
-              <CompanySwitcher />
-            </div>
+            <Link to="/" className="sidebar-brand" aria-label="aeqi — home">
+              <Wordmark size={20} />
+            </Link>
             <button
               type="button"
               className="sidebar-collapse-btn"
@@ -124,10 +188,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
               aria-label="Collapse sidebar"
               title={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
             >
-              <svg {...iconProps}>
-                <rect x="2" y="3" width="12" height="10" rx="1.5" />
-                <path d="M6.5 3v10" />
-              </svg>
+              <PanelGlyph />
             </button>
           </>
         ) : (
@@ -138,35 +199,18 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             aria-label="Expand sidebar"
             title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
           >
-            <svg {...iconProps}>
-              <rect x="2" y="3" width="12" height="10" rx="1.5" />
-              <path d="M6.5 3v10" />
-            </svg>
+            <PanelGlyph />
           </button>
         )}
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Inbox ── */}
-        <nav className="sidebar-surface-nav" aria-label="Attention">
-          <a
-            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href={base || "/"}
-            title={agentId ? "Company inbox" : "Your inbox"}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(base || "/");
-            }}
-          >
-            <InboxIcon />
-            <span className="sidebar-nav-label">Inbox</span>
-          </a>
-        </nav>
+        {/* ── Company switcher ── */}
+        <div className="sidebar-user-zone">
+          <CompanySwitcher />
+        </div>
 
-        {/* ── Action row: + (new), search, ? help — white-icon circles,
-            reusing the canonical ideas-toolbar-btn pattern per its own
-            doc-comment until <ToolbarIconButton> lives in the design
-            system. Documentation lives inside the ? help menu. ── */}
+        {/* ── Action row: + (new), search, ? help — white-icon circles. ── */}
         <div className="sidebar-icon-row">
           <NewMenu />
           <button
@@ -181,101 +225,59 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <HelpMenu />
         </div>
 
-        {/* ── Workspace primitives ── */}
-        <nav className="sidebar-surface-nav" aria-label="Workspace">
+        {/* ── Operate ── */}
+        <SidebarGroup title="Operate" groupKey="operate">
           <a
-            className={`sidebar-nav-item ${isActive("company") ? "active" : ""}`}
-            href={navHref("company")}
-            title="Company"
+            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+            href={base || "/"}
+            title={agentId ? "Company inbox" : "Your inbox"}
             onClick={(e) => {
               e.preventDefault();
-              navigate(navHref("company"));
+              navigate(base || "/");
             }}
           >
-            <CompanyIcon />
-            <span className="sidebar-nav-label">Company</span>
+            <InboxIcon />
+            <span className="sidebar-nav-label">Inbox</span>
           </a>
-          <a
-            className={`sidebar-nav-item ${isActive("projects") ? "active" : ""}`}
-            href={navHref("projects")}
-            title="Projects"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(navHref("projects"));
-            }}
-          >
-            <ProjectsIcon />
-            <span className="sidebar-nav-label">Projects</span>
-          </a>
-          <a
-            className={`sidebar-nav-item ${isActive("agents") ? "active" : ""}`}
-            href={navHref("agents")}
-            title="Agents"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(navHref("agents"));
-            }}
-          >
-            <AgentsIcon />
-            <span className="sidebar-nav-label">Agents</span>
-          </a>
-          <a
-            className={`sidebar-nav-item ${isActive("events") ? "active" : ""}`}
-            href={navHref("events")}
-            title="Events"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(navHref("events"));
-            }}
-          >
-            <EventsIcon />
-            <span className="sidebar-nav-label">Events</span>
-          </a>
-          <a
-            className={`sidebar-nav-item ${isActive("quests") ? "active" : ""}`}
-            href={navHref("quests")}
-            title="Quests"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(navHref("quests"));
-            }}
-          >
-            <QuestsIcon />
-            <span className="sidebar-nav-label">Quests</span>
-          </a>
-          <a
-            className={`sidebar-nav-item ${isActive("ideas") ? "active" : ""}`}
-            href={navHref("ideas")}
-            title="Ideas"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(navHref("ideas"));
-            }}
-          >
-            <IdeasIcon />
-            <span className="sidebar-nav-label">Ideas</span>
-          </a>
-        </nav>
+          {navItem("projects", "Projects", <ProjectsIcon />)}
+          {navItem("company", "Company", <CompanyIcon />)}
+          {navItem("crm", "CRM", <CRMIcon />)}
+          {navItem("metrics", "Metrics", <MetricsIcon />)}
+        </SidebarGroup>
 
-        {/* ── Section break: whitespace + tint shift, no hairline ── */}
-        <div className="sidebar-section-break" role="separator" aria-hidden="true" />
+        {/* ── Build ── */}
+        <SidebarGroup title="Build" groupKey="build">
+          {navItem("agents", "Agents", <AgentsIcon />)}
+          {navItem("events", "Events", <EventsIcon />)}
+          {navItem("quests", "Quests", <QuestsIcon />)}
+          {navItem("ideas", "Ideas", <IdeasIcon />)}
+        </SidebarGroup>
 
-        {/* ── Bottom group: Economy then Account dropdown ── */}
+        {/* ── Control ── */}
+        <SidebarGroup title="Control" groupKey="control">
+          {navItem("ownership", "Ownership", <OwnershipIcon />)}
+          {navItem("treasury", "Treasury", <TreasuryIcon />)}
+          {navItem("governance", "Governance", <GovernanceIcon />)}
+        </SidebarGroup>
+
+        {/* ── Network ── */}
+        <SidebarGroup title="Network" groupKey="network">
+          <a
+            className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
+            href="/economy"
+            title="Economy"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/economy");
+            }}
+          >
+            <EconomyIcon />
+            <span className="sidebar-nav-label">Economy</span>
+          </a>
+        </SidebarGroup>
+
+        {/* ── Account dropdown — pinned to the rail's foot via mt:auto. ── */}
         <div className="sidebar-bottom-group">
-          <nav className="sidebar-surface-nav" aria-label="Platform">
-            <a
-              className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
-              href="/economy"
-              title="Economy"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/economy");
-              }}
-            >
-              <EconomyIcon />
-              <span className="sidebar-nav-label">Economy</span>
-            </a>
-          </nav>
           <div className="sidebar-user-zone">
             <AccountDropdown />
           </div>
