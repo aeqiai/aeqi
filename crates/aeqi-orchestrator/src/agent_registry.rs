@@ -248,6 +248,25 @@ fn ensure_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Phase 1 of the quest ↔ idea unification: add the `idea_id` FK column to
+/// legacy `quests` tables. Nullable until the backfill (WS-1b) has populated
+/// every row; phase 3 (WS-8) flips to NOT NULL after the legacy editorial
+/// columns are dropped. Idempotent — only ADDs the column if missing.
+fn ensure_quest_idea_id_column(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(quests)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "idea_id") {
+        conn.execute_batch("ALTER TABLE quests ADD COLUMN idea_id TEXT")?;
+    }
+    // Index added on legacy DBs so the FK lookup path exists immediately.
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_quests_idea ON quests(idea_id)")?;
+    Ok(())
+}
+
 /// Idempotent migration: adds the `can_self_delegate` column to the `agents`
 /// table (older on-disk DBs won't have it) and backfills transport-bound agents.
 ///
@@ -604,6 +623,12 @@ impl AgentRegistry {
         )?;
 
         // Quests table (live work state — lives in sessions.db).
+        //
+        // `idea_id` is the quest ↔ idea unification FK — points at the idea
+        // that owns the quest's editorial body (subject + content). Nullable
+        // during the additive-migration phase; becomes NOT NULL once the
+        // backfill has populated every existing row (see
+        // `docs/quest-idea-unification.md`, phase 1 → phase 3).
         sconn.execute_batch(
             "CREATE TABLE IF NOT EXISTS quests (
                  id TEXT PRIMARY KEY,
@@ -614,6 +639,7 @@ impl AgentRegistry {
                  agent_id TEXT,
                  scope TEXT NOT NULL DEFAULT 'self',
                  idea_ids TEXT NOT NULL DEFAULT '[]',
+                 idea_id TEXT,
                  labels TEXT NOT NULL DEFAULT '[]',
                  retry_count INTEGER NOT NULL DEFAULT 0,
                  checkpoints TEXT NOT NULL DEFAULT '[]',
@@ -631,7 +657,8 @@ impl AgentRegistry {
              );
              CREATE INDEX IF NOT EXISTS idx_quests_status ON quests(status);
              CREATE INDEX IF NOT EXISTS idx_quests_agent ON quests(agent_id);
-             CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);",
+             CREATE INDEX IF NOT EXISTS idx_quests_created ON quests(created_at);
+             CREATE INDEX IF NOT EXISTS idx_quests_idea ON quests(idea_id);",
         )?;
 
         // ── Scope-model migration (idempotent) ──────────────────────────────
@@ -639,6 +666,12 @@ impl AgentRegistry {
         // the sentinel "WHERE scope = 'self' AND agent_id IS NULL" so it only
         // touches rows that haven't been migrated yet.
         ensure_scope_columns(&sconn)?;
+
+        // ── Quest ↔ Idea FK column (idempotent) ─────────────────────────────
+        // Phase 1 of the quest-idea unification: introduce the FK column on
+        // legacy DBs without touching existing rows. Backfill runs in a
+        // separate one-shot step (WS-1b).
+        ensure_quest_idea_id_column(&sconn)?;
 
         // Activity table (audit log, cost tracking — in sessions.db).
         crate::activity_log::ActivityLog::create_tables(&sconn)?;
