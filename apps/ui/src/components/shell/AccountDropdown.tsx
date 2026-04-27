@@ -13,7 +13,7 @@ const iconProps = {
 } as const;
 
 const ChevronUpIcon = () => (
-  <svg {...iconProps} width={10} height={10}>
+  <svg {...iconProps} width={12} height={12}>
     <path d="M4 10l4-4 4 4" />
   </svg>
 );

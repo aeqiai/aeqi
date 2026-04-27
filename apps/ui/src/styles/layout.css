@@ -667,61 +667,19 @@
  * darker than its siblings. font-family is the one thing the UA
  * stylesheet pins on <button>; pin it back to --font-sans explicitly
  * so it doesn't inherit a UA value that might not match. */
-/* Paired row — main nav-item on the left + a small action button on
- * the right (e.g. Documentation + sign-out in the footer). The pair
- * shares one row's vertical footprint; the action button is sized to
- * match --sidebar-row-h so both children align. */
-.sidebar-row-pair {
+/* Action row beneath Inbox — `+ New`, search, `?` help — three white
+ * icon-circles in a single horizontal lane. Reuses the canonical
+ * .ideas-toolbar-btn pattern (white surface, 30px circle, 1px input
+ * border) per its own doc-comment, until <ToolbarIconButton> lives
+ * in the design system. */
+.sidebar-icon-row {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 4px 8px 8px;
 }
-.sidebar-row-pair > .sidebar-nav-item {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Discoverability icons live on the Settings row's right edge via
- * `.sidebar-row-pair` (the labeled nav-item flexes to fill, the icon
- * buttons sit on the right) — same idiom the Documentation row uses
- * to host sign-out at the bottom of the rail. Two ghost icon buttons
- * reuse this class for the rail's single icon-button language. */
-.sidebar-icon-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  /* Icon glyph reads at body-text strength so the affordance survives
-     against the new lighter shell. v5.1 bumped from --text-muted (48%)
-     to --text-secondary (65%); hover lifts to --text-primary. */
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-.sidebar-icon-btn:hover,
-.sidebar-icon-btn:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--border-hover);
-  background: var(--state-hover);
-  outline: none;
-}
-.sidebar-icon-btn > svg {
-  width: 13px;
-  height: 13px;
-}
-.left-sidebar.collapsed .sidebar-icon-btn {
+.left-sidebar.collapsed .sidebar-icon-row {
   display: none;
 }
 
@@ -6034,6 +5992,19 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   border-radius: var(--radius-sm);
 }
 
+/* ── Bottom group — Economy + Account dropdown, pinned below the
+   workspace nav. mt: auto pushes the group to the bottom of
+   .left-sidebar-body so the chevron-up trigger always sits at the
+   rail's foot regardless of how many workspace items are above. */
+.sidebar-bottom-group {
+  flex-shrink: 0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+}
+
 /* ── Company switcher ─────────────────────────────────────────────────
    Full-width trigger in the sidebar header. Shows the entity name,
    avatar, and a down-chevron. Row height matches --sidebar-row-h so
@@ -6245,9 +6216,15 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .account-dropdown-chevron {
   flex-shrink: 0;
+  align-self: center;
   color: var(--text-muted);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.account-dropdown-chevron > svg {
+  display: block;
 }
 .left-sidebar.collapsed .account-dropdown-identity,
 .left-sidebar.collapsed .account-dropdown-chevron {

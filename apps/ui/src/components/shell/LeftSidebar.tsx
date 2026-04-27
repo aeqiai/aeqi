@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import CompanySwitcher from "@/components/shell/CompanySwitcher";
 import AccountDropdown from "@/components/shell/AccountDropdown";
 import NewMenu from "@/components/shell/NewMenu";
+import HelpMenu from "@/components/shell/HelpMenu";
 import { useUIStore } from "@/store/ui";
 
 interface LeftSidebarProps {
@@ -55,6 +56,12 @@ const AgentsIcon = () => (
   </svg>
 );
 
+const EventsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M9 2 4 9h4l-1 5 5-7H8z" />
+  </svg>
+);
+
 const CompanyIcon = () => (
   <svg {...iconProps}>
     <rect x="3" y="7" width="10" height="7" rx="0.5" />
@@ -70,10 +77,10 @@ const EconomyIcon = () => (
   </svg>
 );
 
-const DocsIcon = () => (
+const SearchIcon = () => (
   <svg {...iconProps}>
-    <path d="M3.5 2.5h7l2 2v9h-9z" />
-    <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" />
+    <circle cx="7" cy="7" r="4.5" />
+    <path d="M10 10l3.5 3.5" />
   </svg>
 );
 
@@ -87,7 +94,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
-  const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
 
@@ -141,13 +147,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── New menu ── */}
-        <div className="sidebar-user-zone">
-          <NewMenu />
-        </div>
-
-        {/* ── Workspace primitives ── */}
-        <nav className="sidebar-surface-nav" aria-label="Workspace">
+        {/* ── Inbox ── */}
+        <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href={base || "/"}
@@ -160,17 +161,39 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
+        </nav>
+
+        {/* ── Action row: + (new), search, ? help — white-icon circles,
+            reusing the canonical ideas-toolbar-btn pattern per its own
+            doc-comment until <ToolbarIconButton> lives in the design
+            system. Documentation lives inside the ? help menu. ── */}
+        <div className="sidebar-icon-row">
+          <NewMenu />
+          <button
+            type="button"
+            className="ideas-toolbar-btn"
+            onClick={openPalette}
+            aria-label="Open command palette"
+            title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
+          >
+            <SearchIcon />
+          </button>
+          <HelpMenu />
+        </div>
+
+        {/* ── Workspace primitives ── */}
+        <nav className="sidebar-surface-nav" aria-label="Workspace">
           <a
-            className={`sidebar-nav-item ${isActive("quests") ? "active" : ""}`}
-            href={navHref("quests")}
-            title="Quests"
+            className={`sidebar-nav-item ${isActive("company") ? "active" : ""}`}
+            href={navHref("company")}
+            title="Company"
             onClick={(e) => {
               e.preventDefault();
-              navigate(navHref("quests"));
+              navigate(navHref("company"));
             }}
           >
-            <QuestsIcon />
-            <span className="sidebar-nav-label">Quests</span>
+            <CompanyIcon />
+            <span className="sidebar-nav-label">Company</span>
           </a>
           <a
             className={`sidebar-nav-item ${isActive("projects") ? "active" : ""}`}
@@ -185,18 +208,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <span className="sidebar-nav-label">Projects</span>
           </a>
           <a
-            className={`sidebar-nav-item ${isActive("ideas") ? "active" : ""}`}
-            href={navHref("ideas")}
-            title="Ideas"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(navHref("ideas"));
-            }}
-          >
-            <IdeasIcon />
-            <span className="sidebar-nav-label">Ideas</span>
-          </a>
-          <a
             className={`sidebar-nav-item ${isActive("agents") ? "active" : ""}`}
             href={navHref("agents")}
             title="Agents"
@@ -209,80 +220,62 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <span className="sidebar-nav-label">Agents</span>
           </a>
           <a
-            className={`sidebar-nav-item ${isActive("company") ? "active" : ""}`}
-            href={navHref("company")}
-            title="Company"
+            className={`sidebar-nav-item ${isActive("events") ? "active" : ""}`}
+            href={navHref("events")}
+            title="Events"
             onClick={(e) => {
               e.preventDefault();
-              navigate(navHref("company"));
+              navigate(navHref("events"));
             }}
           >
-            <CompanyIcon />
-            <span className="sidebar-nav-label">Company</span>
+            <EventsIcon />
+            <span className="sidebar-nav-label">Events</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${isActive("quests") ? "active" : ""}`}
+            href={navHref("quests")}
+            title="Quests"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("quests"));
+            }}
+          >
+            <QuestsIcon />
+            <span className="sidebar-nav-label">Quests</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${isActive("ideas") ? "active" : ""}`}
+            href={navHref("ideas")}
+            title="Ideas"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("ideas"));
+            }}
+          >
+            <IdeasIcon />
+            <span className="sidebar-nav-label">Ideas</span>
           </a>
         </nav>
 
         {/* ── Section break: whitespace + tint shift, no hairline ── */}
         <div className="sidebar-section-break" role="separator" aria-hidden="true" />
 
-        {/* ── Economy ── */}
-        <nav className="sidebar-surface-nav" aria-label="Platform">
-          <a
-            className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
-            href="/economy"
-            title="Economy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/economy");
-            }}
-          >
-            <EconomyIcon />
-            <span className="sidebar-nav-label">Economy</span>
-          </a>
-        </nav>
-
-        {/* ── Section break ── */}
-        <div className="sidebar-section-break" role="separator" aria-hidden="true" />
-
-        {/* ── Bottom utility row ── */}
-        <div className="sidebar-bottom">
-          <div className="sidebar-user-zone">
-            <div className="sidebar-row-pair">
-              <button
-                type="button"
-                className="sidebar-icon-btn"
-                onClick={openShortcuts}
-                aria-label="Keyboard shortcuts"
-                title="Keyboard shortcuts (?)"
-              >
-                ?
-              </button>
-              <button
-                type="button"
-                className="sidebar-icon-btn"
-                onClick={openPalette}
-                aria-label="Open command palette"
-                title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
-              >
-                <svg {...iconProps}>
-                  <circle cx="7" cy="7" r="4.5" />
-                  <path d="M10 10l3.5 3.5" />
-                </svg>
-              </button>
-              <a
-                className="sidebar-icon-btn"
-                href="https://aeqi.ai/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open documentation"
-                aria-label="Documentation"
-              >
-                <DocsIcon />
-              </a>
-            </div>
-          </div>
-
-          {/* ── Account dropdown ── */}
+        {/* ── Bottom group: Economy then Account dropdown ── */}
+        <div className="sidebar-bottom-group">
+          <nav className="sidebar-surface-nav" aria-label="Platform">
+            <a
+              className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
+              href="/economy"
+              title="Economy"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/economy");
+              }}
+            >
+              <EconomyIcon />
+              <span className="sidebar-nav-label">Economy</span>
+            </a>
+          </nav>
           <div className="sidebar-user-zone">
             <AccountDropdown />
           </div>

@@ -13,7 +13,7 @@ const iconProps = {
 } as const;
 
 const PlusIcon = () => (
-  <svg {...iconProps} width={14} height={14}>
+  <svg {...iconProps}>
     <path d="M8 3v10M3 8h10" />
   </svg>
 );
@@ -78,11 +78,8 @@ export default function NewMenu() {
   ];
 
   const trigger = (
-    <button type="button" className="sidebar-nav-item new-menu-trigger" aria-label="Create new">
-      <span className="new-menu-plus" aria-hidden="true">
-        <PlusIcon />
-      </span>
-      <span className="sidebar-nav-label">New</span>
+    <button type="button" className="ideas-toolbar-btn" aria-label="Create new" title="Create new">
+      <PlusIcon />
     </button>
   );
 
