@@ -3798,36 +3798,11 @@
   border-color: var(--accent-dim);
 }
 
-/* Scope pill — the only labeled control in the canvas toolbar that
-   isn't a primary action. Lives as a pill (no rounded squares) with a
-   colored scope-dot and the scope name. Hover lifts subtly; open state
-   borrows the accent-dim border the popover triggers share. */
-.ideas-scope-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 28px;
-  padding: 0 10px 0 9px;
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  font-weight: 500;
-  letter-spacing: 0.005em;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease,
-    border-color 0.12s ease;
-}
-.ideas-scope-btn:hover {
-  color: var(--text-primary);
-  background: var(--state-hover);
-  border-color: var(--border-hover);
-}
+/* Scope pill — uses `<Button variant="secondary" size="sm">` for
+   shell + height + padding + font, matching every other labeled
+   button in the toolbar. Only state-specific decoration lives here:
+   the open/locked tints, the chevron rotation, and the leading
+   scope-dot offset. */
 .ideas-scope-btn.open {
   color: var(--accent);
   background: var(--state-selected);
@@ -3835,9 +3810,6 @@
 }
 .ideas-scope-btn.locked {
   cursor: pointer;
-}
-.ideas-scope-btn-label {
-  letter-spacing: 0.005em;
 }
 .ideas-scope-btn-chevron {
   opacity: 0.55;

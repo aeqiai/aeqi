@@ -18,9 +18,9 @@ export type LifecycleGroup = "runtime" | "webhooks" | "routines";
 export const LIFECYCLE_ORDER: LifecycleGroup[] = ["runtime", "webhooks", "routines"];
 
 export const LIFECYCLE_LABEL: Record<LifecycleGroup, string> = {
-  runtime: "runtime",
-  webhooks: "webhooks",
-  routines: "routines",
+  runtime: "Runtime",
+  webhooks: "Webhooks",
+  routines: "Routines",
 };
 
 export const LIFECYCLE_HINT: Record<LifecycleGroup, string> = {

@@ -13,6 +13,20 @@ export const IDEA_FILTER_VALUES: IdeasFilter[] = [
   "inherited",
 ];
 
+/** Title-cased display labels for every scope/filter value. The
+ *  underlying string identifiers stay lowercase (URL params, JSON
+ *  keys); only human-facing labels Title Case per the lowercase-
+ *  scope rule (aeqi is the only lowercase brand mark). */
+export const SCOPE_LABEL: Record<IdeasFilter, string> = {
+  all: "All",
+  self: "Self",
+  siblings: "Siblings",
+  children: "Children",
+  branch: "Branch",
+  global: "Global",
+  inherited: "Inherited",
+};
+
 export type SortMode = "tag" | "recent" | "alpha";
 export const SORT_MODES: SortMode[] = ["tag", "recent", "alpha"];
 export const SORT_LABELS: Record<SortMode, string> = {

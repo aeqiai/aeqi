@@ -1,7 +1,8 @@
 import { useId, useState } from "react";
 import { Popover } from "../ui/Popover";
+import { Button } from "../ui";
 import type { ScopeValue } from "@/lib/types";
-import { IDEA_SCOPE_VALUES } from "./types";
+import { IDEA_SCOPE_VALUES, SCOPE_LABEL } from "./types";
 
 export interface IdeasScopePopoverProps {
   scope: ScopeValue;
@@ -26,16 +27,17 @@ export default function IdeasScopePopover({
       onOpenChange={setOpen}
       placement="bottom-end"
       trigger={
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           className={`ideas-scope-btn${open ? " open" : ""}${locked ? " locked" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          title={locked ? "Scope (set at creation)" : `Scope: ${scope}`}
+          title={locked ? "Scope (set at creation)" : `Scope: ${SCOPE_LABEL[scope]}`}
         >
           <span className={`scope-dot scope-dot--${scope}`} aria-hidden />
-          <span className="ideas-scope-btn-label">{scope}</span>
+          {SCOPE_LABEL[scope]}
           <svg
             className="ideas-scope-btn-chevron"
             width="9"
@@ -50,7 +52,7 @@ export default function IdeasScopePopover({
           >
             <path d="M2 3.5 L4.5 6 L7 3.5" />
           </svg>
-        </button>
+        </Button>
       }
     >
       <div id={popoverId} className="ideas-filter-popover ideas-scope-popover" role="dialog">
@@ -77,7 +79,7 @@ export default function IdeasScopePopover({
                 <span className="ideas-filter-row-mark" aria-hidden>
                   <span className={`scope-dot scope-dot--${s}`} />
                 </span>
-                <span className="ideas-filter-row-label">{s}</span>
+                <span className="ideas-filter-row-label">{SCOPE_LABEL[s]}</span>
               </button>
             );
           })}

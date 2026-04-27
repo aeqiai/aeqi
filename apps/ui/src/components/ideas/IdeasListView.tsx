@@ -11,6 +11,7 @@ import {
   type Epoch,
   EPOCH_LABELS,
   EPOCH_ORDER,
+  SCOPE_LABEL,
   matchRank,
   snippetFor,
   highlightMatches,
@@ -19,16 +20,6 @@ import {
 } from "./types";
 
 const TAG_CHIP_LIMIT = 8;
-
-const SCOPE_LABELS: Record<IdeasFilter, string> = {
-  all: "all",
-  self: "self",
-  siblings: "siblings",
-  children: "children",
-  branch: "branch",
-  global: "global",
-  inherited: "inherited",
-};
 
 function ScopeChip({ scope }: { scope: ScopeValue }) {
   if (scope === "self") return null;
@@ -172,7 +163,7 @@ export default function IdeasListView({
   if (filter.scope !== "all")
     activeChips.push({
       key: "scope",
-      label: SCOPE_LABELS[filter.scope] ?? filter.scope,
+      label: SCOPE_LABEL[filter.scope] ?? filter.scope,
       onRemove: () => onFilter({ scope: "all" }),
     });
   for (const t of filter.tags) {

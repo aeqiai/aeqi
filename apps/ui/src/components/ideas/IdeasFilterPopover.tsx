@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { Popover } from "../ui/Popover";
-import { type FilterState, type IdeasFilter, IDEA_FILTER_VALUES } from "./types";
+import { type FilterState, type IdeasFilter, IDEA_FILTER_VALUES, SCOPE_LABEL } from "./types";
 
 export interface IdeasFilterPopoverProps {
   filter: FilterState;
@@ -106,7 +106,7 @@ export default function IdeasFilterPopover({
                       </svg>
                     )}
                   </span>
-                  <span className="ideas-filter-row-label">{s}</span>
+                  <span className="ideas-filter-row-label">{SCOPE_LABEL[s]}</span>
                   <span className="ideas-filter-row-count">{count}</span>
                 </button>
               );
@@ -133,7 +133,7 @@ export default function IdeasFilterPopover({
                 <span className="ideas-filter-row-switch-knob" />
               </span>
             </span>
-            <span className="ideas-filter-row-label">needs review</span>
+            <span className="ideas-filter-row-label">Needs review</span>
             <span className="ideas-filter-row-count">{needsReviewCount}</span>
           </button>
         </section>

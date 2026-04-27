@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Popover } from "../ui/Popover";
+import { SCOPE_LABEL } from "../ideas/types";
 import { type LifecycleGroup, LIFECYCLE_HINT, LIFECYCLE_LABEL, LIFECYCLE_ORDER } from "./lifecycle";
 
 export type EventsScope = "all" | "self" | "inherited" | "global";
@@ -120,7 +121,7 @@ export default function EventsFilterPopover({
                       </svg>
                     )}
                   </span>
-                  <span className="ideas-filter-row-label">{s}</span>
+                  <span className="ideas-filter-row-label">{SCOPE_LABEL[s]}</span>
                   <span className="ideas-filter-row-count">{count}</span>
                 </button>
               );
@@ -146,7 +147,7 @@ export default function EventsFilterPopover({
               const count = groupCounts[g] ?? 0;
               const isActive = filter.group === g;
               const isEmpty = count === 0 && g !== "all";
-              const label = g === "all" ? "all" : LIFECYCLE_LABEL[g];
+              const label = g === "all" ? "All" : LIFECYCLE_LABEL[g];
               const hint =
                 g === "all" ? "every lifecycle group" : LIFECYCLE_HINT[g as LifecycleGroup];
               return (
