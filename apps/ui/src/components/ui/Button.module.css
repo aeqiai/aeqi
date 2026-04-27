@@ -28,14 +28,14 @@
 /* Variants */
 
 .secondary {
-  background: var(--color-bg-base);
+  background: var(--btn-secondary-bg, var(--color-card));
   border-color: var(--btn-secondary-border, var(--color-border));
   color: var(--btn-secondary-text, var(--color-text-primary));
 }
 
 .secondary:hover {
   border-color: var(--color-border-hover);
-  background: var(--color-hover);
+  background: var(--color-card);
 }
 
 .primary {

@@ -168,7 +168,10 @@
   --btn-primary-bg: var(--color-accent);
   --btn-primary-bg-hover: var(--color-accent-hover);
   --btn-primary-text: #ffffff;
-  --btn-secondary-bg: transparent;
+  /* Secondary buttons paint white (paper), not grey (chrome). They sit
+     visible-at-rest on any surface and read as content-level affordances
+     paired with primary fills. Transparency-at-rest belongs to ghost. */
+  --btn-secondary-bg: var(--color-card);
   --btn-secondary-text: var(--text-primary);
   --btn-secondary-border: var(--border);
 
