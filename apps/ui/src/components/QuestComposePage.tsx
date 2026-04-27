@@ -11,14 +11,16 @@ import QuestPriorityPopover from "./quests/QuestPriorityPopover";
 import IdeasScopePopover from "./ideas/IdeasScopePopover";
 
 /**
- * Dedicated quest-compose surface. Replaces the modal — quest creation
- * is now an editor-shaped flow (idea + lifecycle), so it earns the same
- * full-page treatment idea creation gets.
+ * Dedicated quest-compose surface, mounted at `/:agentId/quests/new`.
+ * Replaces the modal — quest creation is an editor-shaped flow (idea
+ * body + lifecycle picker), so it earns the same full-page treatment
+ * idea creation gets.
  *
- * Three entry shapes:
- *   - Fresh:     `/agentId/quests?compose=1`           Flow A or B by typing
- *   - From idea: `/agentId/quests?compose=1&fromIdea=` Flow B, idea pinned
- *   - From name: `/agentId/quests?compose=1&name=…`    Flow A, name pre-filled
+ * Three entry shapes (the `new` slug is reserved; quest ids carry a
+ * `prefix-NNN` shape so there's no collision):
+ *   - Fresh:     `/agentId/quests/new`                Flow A or B by typing
+ *   - From idea: `/agentId/quests/new?fromIdea=<id>`  Flow B, idea pinned
+ *   - From name: `/agentId/quests/new?name=<…>`       Flow A, name pre-filled
  */
 export default function QuestComposePage({
   agentId,

@@ -220,22 +220,25 @@ function StatusDot({ status }: { status: QuestStatus }) {
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const { goAgent } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
-  const selectedId = itemId || null;
+  // `/<agentId>/quests/new` is the dedicated compose surface; any other
+  // `:itemId` is a quest id to look up. The literal `"new"` slug is
+  // reserved — quest ids carry a numeric `prefix-NNN` shape so there's
+  // no collision risk.
+  const composing = itemId === "new";
+  const selectedId = !composing && itemId ? itemId : null;
   const [questFilter, setQuestFilter] = useState<QuestFilter>("all");
 
-  // View + sort persist in URL (mirrors AgentIdeasTab idiom). `?compose=1`
-  // flips the surface to the dedicated quest-compose page (replaces the
-  // legacy modal); it can carry `?fromIdea=<id>` to pre-pin Flow B.
+  // View + sort persist in URL (mirrors AgentIdeasTab idiom). The
+  // compose page also accepts `?fromIdea=<id>` to pre-pin Flow B.
   const [searchParams, setSearchParams] = useSearchParams();
-  const composing = searchParams.get("compose") === "1";
   const view: QuestsView = searchParams.get("view") === "list" ? "list" : "board";
   const sort: QuestSort = parseQuestSort(searchParams.get("sort"));
 
   const openCompose = useCallback(
     (fromIdeaId?: string) => {
-      goAgent(agentId, "quests", undefined, {
+      goAgent(agentId, "quests", "new", {
         replace: false,
-        search: { compose: "1", ...(fromIdeaId ? { fromIdea: fromIdeaId } : {}) },
+        search: fromIdeaId ? { fromIdea: fromIdeaId } : undefined,
       });
     },
     [agentId, goAgent],
@@ -380,9 +383,8 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:create", handler);
   }, [openCompose]);
 
-  // Idea-detail "+ Track as quest" still ships people here, but now via
-  // `?compose=1&fromIdea=…` directly — the page handles it natively, no
-  // intermediate modal toggle needed.
+  // `/<agentId>/quests/new` lands on the dedicated compose page.
+  // Idea-detail "+ Track as quest" pre-pins Flow B via `?fromIdea=<id>`.
   if (composing) {
     return <QuestComposePage agentId={agentId} resolvedAgentId={agent?.id || agentId} />;
   }
@@ -600,8 +602,8 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 /**
  * Board view shown when no quest is selected.
  *
- * Toolbar — search + filter popover + plus button (opens
- * `QuestComposePage` via `?compose=1`). Below: four kanban columns
+ * Toolbar — search + filter popover + plus button (navigates to the
+ * `QuestComposePage` at `/<agentId>/quests/new`). Below: four kanban columns
  * (Todo / In Progress / Blocked / Done). Done is capped to 10
  * most-recent to keep the column from blowing out after months of work.
  */
