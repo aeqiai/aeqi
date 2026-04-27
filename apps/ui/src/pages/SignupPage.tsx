@@ -280,7 +280,7 @@ export default function SignupPage() {
                 Launch a <strong>{templateLabel}</strong> powered by AI agents
               </>
             ) : (
-              "Start building your aeqi company"
+              "Start building your autonomous company"
             )}
           </p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
