@@ -6,13 +6,22 @@
    nodes are paper-white pills with a tinted top stripe and a mono body.
    ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── */
 
-/* ── Shared surface shell ──────────────────────────────────────────── */
+/* ── Shared surface shell ──────────────────────────────────────────────
+   Mirrors `.ideas-list` — bounded flex column, hides its own overflow.
+   The toolbar (`.ideas-list-head`) is flex-shrink:0 at the top; only
+   `.events-surface-body` scrolls. Detail/compose use the same shell
+   (no sticky head, body still owns the scroll) so behavior is uniform
+   across every branch of AgentEventsTab. */
 .events-surface {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
-.events-surface--scroll {
+.events-surface-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 

@@ -124,7 +124,7 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
           >
             {busy ? "Sending…" : "Send code"}
           </Button>
-          <Button variant="ghost" size="lg" type="button" onClick={() => setStep("display")}>
+          <Button variant="secondary" size="lg" type="button" onClick={() => setStep("display")}>
             Cancel
           </Button>
         </div>

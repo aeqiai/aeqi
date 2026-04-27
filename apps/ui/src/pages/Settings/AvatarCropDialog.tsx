@@ -74,7 +74,7 @@ export default function AvatarCropDialog({
         />
       </label>
       <div className="avatar-crop-actions">
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+        <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
         <Button

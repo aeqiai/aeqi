@@ -264,127 +264,129 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   if (composing) {
     const preset = TRANSPORT_PRESETS.find((t) => t.id === newTransport) ?? TRANSPORT_PRESETS[0];
     return (
-      <div className="asv-main events-surface events-surface--scroll">
-        <div className="events-addform">
-          <div className="events-addform-head">
-            <div>
-              <div className="events-addform-eyebrow">new event</div>
-              <div className="events-addform-title">Wire a new pipeline</div>
+      <div className="asv-main events-surface">
+        <div className="events-surface-body">
+          <div className="events-addform">
+            <div className="events-addform-head">
+              <div>
+                <div className="events-addform-eyebrow">new event</div>
+                <div className="events-addform-title">Wire a new pipeline</div>
+              </div>
+              <button
+                type="button"
+                className="events-addform-close"
+                onClick={closeCompose}
+                aria-label="Cancel"
+              >
+                ×
+              </button>
             </div>
-            <button
-              type="button"
-              className="events-addform-close"
-              onClick={closeCompose}
-              aria-label="Cancel"
-            >
-              ×
-            </button>
-          </div>
 
-          <div className="events-addform-section">
-            <div className="events-addform-label">Transport</div>
-            <div className="events-addform-transports">
-              {TRANSPORT_PRESETS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`events-addform-transport${newTransport === t.id ? " active" : ""}`}
-                  onClick={() => {
-                    setNewTransport(t.id);
-                    if (t.patterns.length > 0) setNewPattern(t.patterns[0].value);
-                  }}
-                >
-                  <div className="events-addform-transport-label">{t.label}</div>
-                  <div className="events-addform-transport-desc">{t.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {preset.patterns.length > 0 && (
             <div className="events-addform-section">
-              <div className="events-addform-label">Pattern</div>
-              <div className="events-addform-patterns">
-                {preset.patterns.map((p) => (
-                  <label
-                    key={p.value}
-                    className={`events-addform-pattern${newPattern === p.value ? " active" : ""}`}
+              <div className="events-addform-label">Transport</div>
+              <div className="events-addform-transports">
+                {TRANSPORT_PRESETS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`events-addform-transport${newTransport === t.id ? " active" : ""}`}
+                    onClick={() => {
+                      setNewTransport(t.id);
+                      if (t.patterns.length > 0) setNewPattern(t.patterns[0].value);
+                    }}
                   >
-                    <input
-                      type="radio"
-                      name="pattern"
-                      value={p.value}
-                      checked={newPattern === p.value}
-                      onChange={() => setNewPattern(p.value)}
-                    />
-                    <span className="events-addform-pattern-value">{p.value}</span>
-                    <span className="events-addform-pattern-label">{p.label}</span>
-                  </label>
+                    <div className="events-addform-transport-label">{t.label}</div>
+                    <div className="events-addform-transport-desc">{t.desc}</div>
+                  </button>
                 ))}
               </div>
             </div>
-          )}
 
-          {preset.id === "custom" && (
-            <div className="events-addform-section">
-              <div className="events-addform-label">Pattern</div>
-              <input
-                className="events-addform-input"
-                type="text"
-                placeholder="my_transport:my_event"
-                value={newPattern}
-                onChange={(e) => setNewPattern(e.target.value)}
-              />
-            </div>
-          )}
+            {preset.patterns.length > 0 && (
+              <div className="events-addform-section">
+                <div className="events-addform-label">Pattern</div>
+                <div className="events-addform-patterns">
+                  {preset.patterns.map((p) => (
+                    <label
+                      key={p.value}
+                      className={`events-addform-pattern${newPattern === p.value ? " active" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="pattern"
+                        value={p.value}
+                        checked={newPattern === p.value}
+                        onChange={() => setNewPattern(p.value)}
+                      />
+                      <span className="events-addform-pattern-value">{p.value}</span>
+                      <span className="events-addform-pattern-label">{p.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div className="events-addform-row">
-            <div className="events-addform-section events-addform-section--grow">
-              <div className="events-addform-label">Name</div>
-              <input
-                className="events-addform-input"
-                type="text"
-                placeholder="on_session_start"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-            </div>
-            <div className="events-addform-section">
-              <div className="events-addform-label">Scope</div>
-              <Select
-                size="sm"
-                value={newScope}
-                onChange={(v) => setNewScope(v as ScopeValue)}
-                options={SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
-              />
-            </div>
-            <div className="events-addform-section">
-              <div className="events-addform-label">Cooldown (s)</div>
-              <input
-                className="events-addform-input"
-                type="number"
-                min={0}
-                placeholder="0"
-                value={newCooldown}
-                onChange={(e) => setNewCooldown(e.target.value)}
-              />
-            </div>
-          </div>
+            {preset.id === "custom" && (
+              <div className="events-addform-section">
+                <div className="events-addform-label">Pattern</div>
+                <input
+                  className="events-addform-input"
+                  type="text"
+                  placeholder="my_transport:my_event"
+                  value={newPattern}
+                  onChange={(e) => setNewPattern(e.target.value)}
+                />
+              </div>
+            )}
 
-          {createError && <div className="events-addform-error">{createError}</div>}
+            <div className="events-addform-row">
+              <div className="events-addform-section events-addform-section--grow">
+                <div className="events-addform-label">Name</div>
+                <input
+                  className="events-addform-input"
+                  type="text"
+                  placeholder="on_session_start"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+              <div className="events-addform-section">
+                <div className="events-addform-label">Scope</div>
+                <Select
+                  size="sm"
+                  value={newScope}
+                  onChange={(v) => setNewScope(v as ScopeValue)}
+                  options={SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
+                />
+              </div>
+              <div className="events-addform-section">
+                <div className="events-addform-label">Cooldown (s)</div>
+                <input
+                  className="events-addform-input"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={newCooldown}
+                  onChange={(e) => setNewCooldown(e.target.value)}
+                />
+              </div>
+            </div>
 
-          <div className="events-addform-actions">
-            <Button
-              variant="primary"
-              onClick={handleCreateEvent}
-              loading={saving}
-              disabled={saving}
-            >
-              Create event
-            </Button>
-            <Button variant="ghost" onClick={closeCompose} disabled={saving}>
-              Cancel
-            </Button>
+            {createError && <div className="events-addform-error">{createError}</div>}
+
+            <div className="events-addform-actions">
+              <Button
+                variant="primary"
+                onClick={handleCreateEvent}
+                loading={saving}
+                disabled={saving}
+              >
+                Create event
+              </Button>
+              <Button variant="secondary" onClick={closeCompose} disabled={saving}>
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -393,27 +395,29 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   if (selected) {
     return (
-      <div className="asv-main events-surface events-surface--scroll">
-        <EventDetail
-          event={selected}
-          agentId={agentId}
-          onSave={async (fields) => {
-            await api.updateEvent(selected.id, fields as Record<string, unknown>);
-            patchEvent(agentId, selected.id, fields);
-          }}
-          onDelete={async () => {
-            await api.deleteEvent(selected.id);
-            removeEvent(agentId, selected.id);
-            goAgent(agentId, "events", undefined, { replace: true });
-          }}
-          onBack={() => goAgent(agentId, "events", undefined, { replace: true })}
-        />
+      <div className="asv-main events-surface">
+        <div className="events-surface-body">
+          <EventDetail
+            event={selected}
+            agentId={agentId}
+            onSave={async (fields) => {
+              await api.updateEvent(selected.id, fields as Record<string, unknown>);
+              patchEvent(agentId, selected.id, fields);
+            }}
+            onDelete={async () => {
+              await api.deleteEvent(selected.id);
+              removeEvent(agentId, selected.id);
+              goAgent(agentId, "events", undefined, { replace: true });
+            }}
+            onBack={() => goAgent(agentId, "events", undefined, { replace: true })}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="asv-main events-surface events-surface--scroll">
+    <div className="asv-main events-surface">
       <EventsToolbar
         filter={filter}
         onFilter={onFilter}
@@ -421,11 +425,13 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         groupCounts={groupCounts}
         onNew={openCompose}
       />
-      <EventsOverview
-        events={filteredEvents}
-        onSelect={(id) => goAgent(agentId, "events", id)}
-        onNew={openCompose}
-      />
+      <div className="events-surface-body">
+        <EventsOverview
+          events={filteredEvents}
+          onSelect={(id) => goAgent(agentId, "events", id)}
+          onNew={openCompose}
+        />
+      </div>
     </div>
   );
 }
