@@ -4,15 +4,12 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
-import { Button, Popover, Spinner } from "./ui";
-import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
-import QuestComposePage from "./QuestComposePage";
+import { Button, Popover } from "./ui";
+import QuestCanvas from "./QuestCanvas";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue, User } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
 import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/QuestsSortPopover";
-import QuestStatusPopover from "./quests/QuestStatusPopover";
-import QuestPriorityPopover from "./quests/QuestPriorityPopover";
 import PriorityIcon from "./quests/PriorityIcon";
 import AssigneeAvatar from "./quests/AssigneeAvatar";
 import AssigneePicker from "./quests/AssigneePicker";
@@ -206,8 +203,6 @@ function QuestsFilterPopover({
   );
 }
 
-type SaveState = "idle" | "saving" | "error";
-
 function StatusDot({ status }: { status: QuestStatus }) {
   return <span className={`quest-status-dot quest-status-dot--${status}`} />;
 }
@@ -323,91 +318,6 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 
   const quest = questDetail ?? listQuest;
 
-  // Lifecycle state (status / priority) lives on the quest itself —
-  // edit popovers fire `api.updateQuest` directly. The body / title /
-  // tags / refs all live on `quest.idea` and are saved through the
-  // embedded `<IdeaCanvas>`'s own save path. `bodyDirty` mirrors the
-  // canvas's internal dirty signal so Cancel + Save in the toolbar
-  // can show only when there's something to save / revert.
-  const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "todo");
-  const [priority, setPriority] = useState<QuestPriority>(quest?.priority ?? "normal");
-  const [assignee, setAssignee] = useState<string | null>(quest?.assignee ?? null);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [bodyDirty, setBodyDirty] = useState(false);
-
-  const debounceRef = useRef<number | null>(null);
-  const canvasRef = useRef<IdeaCanvasHandle | null>(null);
-  const lifecycleRef = useRef({ status, priority, assignee });
-  lifecycleRef.current = { status, priority, assignee };
-
-  useEffect(() => {
-    setStatus(quest?.status ?? "todo");
-    setPriority(quest?.priority ?? "normal");
-    setAssignee(quest?.assignee ?? null);
-    setSaveState("idle");
-  }, [quest?.id, quest?.status, quest?.priority, quest?.assignee]);
-
-  const persistLifecycle = useCallback(async () => {
-    if (!selectedId) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    setSaveState("saving");
-    try {
-      const { status: s, priority: p, assignee: a } = lifecycleRef.current;
-      await api.updateQuest(selectedId, { status: s, priority: p, assignee: a });
-      await fetchQuests();
-      setSaveState("idle");
-    } catch {
-      setSaveState("error");
-    }
-  }, [selectedId, fetchQuests]);
-
-  const handleStatusChange = useCallback(
-    (next: QuestStatus) => {
-      setStatus(next);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(persistLifecycle, 200);
-    },
-    [persistLifecycle],
-  );
-
-  const handlePriorityChange = useCallback(
-    (next: QuestPriority) => {
-      setPriority(next);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(persistLifecycle, 200);
-    },
-    [persistLifecycle],
-  );
-
-  const handleAssigneeChange = useCallback(
-    (next: string | null) => {
-      setAssignee(next);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(persistLifecycle, 100);
-    },
-    [persistLifecycle],
-  );
-
-  // Save body via the embedded canvas's commit handle. Returns the
-  // persisted idea id; the quest itself doesn't need re-fetching
-  // because the body lives on the linked idea.
-  const handleSaveBody = useCallback(async () => {
-    const handle = canvasRef.current;
-    if (!handle) return;
-    try {
-      await handle.commit();
-    } catch {
-      /* canvas surfaces its own error inline */
-    }
-  }, []);
-
-  // Cancel-revert: drop in-progress body edits back to the persisted
-  // idea snapshot. Mirrors idea-detail's Cancel: stays on the page,
-  // doesn't navigate away.
-  const handleRevertBody = useCallback(() => {
-    canvasRef.current?.revert();
-  }, []);
-
   // Rail's create button → navigate to the dedicated compose page.
   useEffect(() => {
     const handler = () => openCompose();
@@ -415,10 +325,12 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     return () => window.removeEventListener("aeqi:create", handler);
   }, [openCompose]);
 
-  // `/<agentId>/quests/new` lands on the dedicated compose page.
+  // Compose and view land on the same `<QuestCanvas>` — same toolbar,
+  // same affordances, the only difference is whether Save mints a new
+  // quest or persists changes to the linked idea / lifecycle fields.
   // Idea-detail "+ Track as quest" pre-pins Flow B via `?fromIdea=<id>`.
   if (composing) {
-    return <QuestComposePage agentId={agentId} resolvedAgentId={agent?.id || agentId} />;
+    return <QuestCanvas kind="compose" agentId={agentId} resolvedAgentId={agent?.id || agentId} />;
   }
 
   if (!quest) {
@@ -449,159 +361,12 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     );
   }
 
-  if (!quest.idea) {
-    return (
-      <div className="asv-main">
-        <div className="quest-detail-error">
-          Couldn't load this quest's linked idea. The quest itself is fine; refresh in a moment.
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <IdeaCanvas
-      ref={canvasRef}
-      agentId={quest.agent_id ?? agent?.id ?? agentId}
-      idea={quest.idea}
-      onBack={() => goAgent(agentId, "quests", undefined, { replace: true })}
-      onNew={() => openCompose()}
-      onDirtyChange={setBodyDirty}
-      headerSlot={
-        <div className="ideas-toolbar ideas-canvas-toolbar">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => goAgent(agentId, "quests", undefined, { replace: true })}
-            title="Back to quests"
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M8 3 L4.5 6.5 L8 10" />
-            </svg>
-            Quests
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => openCompose()} title="New quest (N)">
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M6.5 2.5v8M2.5 6.5h8" />
-            </svg>
-            New
-          </Button>
-          <QuestStatusPopover status={status} onChange={handleStatusChange} />
-          <QuestPriorityPopover priority={priority} onChange={handlePriorityChange} />
-          <AssigneePicker
-            assignee={assignee}
-            agents={agents.map((a) => ({ id: a.id, name: a.name }))}
-            users={assigneeUsers}
-            onChange={handleAssigneeChange}
-            renderTrigger={({ open, display }) => (
-              <Button
-                variant="secondary"
-                size="sm"
-                className={`ideas-scope-btn quest-assignee-btn${open ? " open" : ""}`}
-                aria-haspopup="dialog"
-                aria-expanded={open}
-                title={display ? `Assigned to ${display.name}` : "Unassigned"}
-              >
-                <AssigneeAvatar
-                  assignee={assignee}
-                  agents={agents}
-                  users={assigneeUsers}
-                  size={16}
-                />
-                <span className="quest-assignee-btn-name">{display?.name ?? "Unassigned"}</span>
-                <svg
-                  className="ideas-scope-btn-chevron"
-                  width="9"
-                  height="9"
-                  viewBox="0 0 9 9"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M2 3.5 L4.5 6 L7 3.5" />
-                </svg>
-              </Button>
-            )}
-          />
-          {quest.scope && <QuestScopeChip scope={quest.scope} />}
-          {quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 && (
-            <span
-              className="quest-detail-shared-badge"
-              title={`This idea is also tracked by ${quest.sibling_quest_ids.length} other quest${quest.sibling_quest_ids.length === 1 ? "" : "s"}`}
-            >
-              Shared spec · {quest.sibling_quest_ids.length + 1} quests
-            </span>
-          )}
-          <div className="ideas-toolbar-spacer" aria-hidden />
-          {saveState === "saving" ? (
-            <span className="quest-detail-savestate">
-              <Spinner size="sm" /> Saving
-            </span>
-          ) : null}
-          {bodyDirty && (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleRevertBody}
-                title="Revert unsaved changes"
-              >
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-                </svg>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" onClick={handleSaveBody} title="Save (⌘↵)">
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-                </svg>
-                Save
-              </Button>
-            </>
-          )}
-        </div>
-      }
+    <QuestCanvas
+      kind="view"
+      agentId={agentId}
+      resolvedAgentId={agent?.id || agentId}
+      quest={quest}
     />
   );
 }
@@ -610,7 +375,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
  * Board view shown when no quest is selected.
  *
  * Toolbar — search + filter popover + plus button (navigates to the
- * `QuestComposePage` at `/<agentId>/quests/new`). Below: four kanban columns
+ * `QuestCanvas` at `/<agentId>/quests/new`). Below: four kanban columns
  * (Todo / In Progress / Blocked / Done). Done is capped to 10
  * most-recent to keep the column from blowing out after months of work.
  */
