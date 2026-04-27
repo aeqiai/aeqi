@@ -52,12 +52,19 @@ export default function IdeaCanvas({
   initialName,
   onBack,
   onNew,
+  embedded = false,
 }: {
   agentId: string;
   idea?: Idea;
   initialName?: string;
   onBack: () => void;
   onNew: () => void;
+  /**
+   * Hide the canvas's own toolbar (Back / New / Scope / Delete / Save). The
+   * embedding surface (e.g. the quest detail header) is expected to provide
+   * its own. Tags strip + body editor + refs row stay visible.
+   */
+  embedded?: boolean;
 }) {
   const { goAgent } = useNav();
   const patchIdea = useAgentDataStore((s) => s.patchIdea);
@@ -380,83 +387,56 @@ export default function IdeaCanvas({
   };
 
   return (
-    <div className="asv-main ideas-canvas">
-      <div className="ideas-list-head ideas-canvas-head">
-        <div className="ideas-toolbar ideas-canvas-toolbar">
-          <Button variant="secondary" size="sm" onClick={onBack} title="Back to ideas">
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M8 3 L4.5 6.5 L8 10" />
-            </svg>
-            Ideas
-          </Button>
-          {!showCompose && (
-            <Button variant="primary" size="sm" onClick={onNew} title="New idea (N)">
+    <div className={embedded ? "ideas-canvas ideas-canvas--embedded" : "asv-main ideas-canvas"}>
+      {!embedded && (
+        <div className="ideas-list-head ideas-canvas-head">
+          <div className="ideas-toolbar ideas-canvas-toolbar">
+            <Button variant="secondary" size="sm" onClick={onBack} title="Back to ideas">
               <svg
                 width="11"
                 height="11"
                 viewBox="0 0 13 13"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.7"
+                strokeWidth="1.6"
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 aria-hidden
               >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
+                <path d="M8 3 L4.5 6.5 L8 10" />
               </svg>
-              New
+              Ideas
             </Button>
-          )}
-          <IdeasScopePopover
-            scope={headerScope}
-            locked={isEdit}
-            onChange={!isEdit ? setComposeScope : undefined}
-          />
-          <div className="ideas-toolbar-spacer" aria-hidden />
-          {isEdit && (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleDeleteClick}
-              onBlur={() => setDeleteArmed(false)}
-              title={deleteArmed ? "Click again to confirm delete" : "Delete idea"}
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-              </svg>
-              {deleteArmed ? "Confirm" : "Delete"}
-            </Button>
-          )}
-          {(showCompose || dirty) && (
-            <>
-              <Button variant="secondary" size="sm" onClick={handleCancel} title="Cancel">
-                Cancel
+            {!showCompose && (
+              <Button variant="primary" size="sm" onClick={onNew} title="New idea (N)">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M6.5 2.5v8M2.5 6.5h8" />
+                </svg>
+                New
               </Button>
+            )}
+            <IdeasScopePopover
+              scope={headerScope}
+              locked={isEdit}
+              onChange={!isEdit ? setComposeScope : undefined}
+            />
+            <div className="ideas-toolbar-spacer" aria-hidden />
+            {isEdit && (
               <Button
-                variant="primary"
+                variant="danger"
                 size="sm"
-                onClick={isEdit ? flushSave : handleCreate}
-                disabled={saveState === "saving"}
-                loading={saveState === "saving"}
-                title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
+                onClick={handleDeleteClick}
+                onBlur={() => setDeleteArmed(false)}
+                title={deleteArmed ? "Click again to confirm delete" : "Delete idea"}
               >
                 <svg
                   width="11"
@@ -464,19 +444,48 @@ export default function IdeaCanvas({
                   viewBox="0 0 13 13"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.8"
+                  strokeWidth="1.7"
                   strokeLinecap="round"
-                  strokeLinejoin="round"
                   aria-hidden
                 >
-                  <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
                 </svg>
-                Save
+                {deleteArmed ? "Confirm" : "Delete"}
               </Button>
-            </>
-          )}
+            )}
+            {(showCompose || dirty) && (
+              <>
+                <Button variant="secondary" size="sm" onClick={handleCancel} title="Cancel">
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={isEdit ? flushSave : handleCreate}
+                  disabled={saveState === "saving"}
+                  loading={saveState === "saving"}
+                  title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
+                >
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                  </svg>
+                  Save
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {error && <div className="ideas-canvas-error">{error}</div>}
       <div className="ideas-tags-strip ideas-canvas-strip">
         <TagsEditor

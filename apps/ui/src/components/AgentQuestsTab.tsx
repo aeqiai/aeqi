@@ -4,6 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, Input, Modal, Popover, Select, Spinner } from "./ui";
+import IdeaCanvas from "./IdeaCanvas";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
@@ -472,24 +473,40 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             <span className="quest-detail-eyebrow-id">{quest.id.slice(0, 8)}</span>
           </div>
 
-          <h2 className="quest-detail-title">{quest.subject}</h2>
+          <h2 className="quest-detail-title">{quest.idea?.name ?? quest.subject}</h2>
 
-          <div className="quest-detail-section">
-            <div className="quest-detail-section-label">Description</div>
-            <textarea
-              className="quest-detail-textarea"
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                scheduleSave();
+          {quest.idea ? (
+            // Phase-2 unification: editorial body lives on the linked idea.
+            // The same Apple-Notes editor renders inside the idea detail and
+            // here — edits propagate back through `api.updateIdea`.
+            <IdeaCanvas
+              embedded
+              agentId={quest.agent_id ?? agent?.id ?? agentId}
+              idea={quest.idea}
+              onBack={() => goAgent(agentId, "quests", undefined, { replace: true })}
+              onNew={() => {
+                goAgent(agentId, "quests", undefined, { replace: true });
+                setNewOpen(true);
               }}
-              onBlur={() => {
-                if (dirtyRef.current) save();
-              }}
-              placeholder="Add a description…"
-              rows={6}
             />
-          </div>
+          ) : (
+            <div className="quest-detail-section">
+              <div className="quest-detail-section-label">Description</div>
+              <textarea
+                className="quest-detail-textarea"
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  scheduleSave();
+                }}
+                onBlur={() => {
+                  if (dirtyRef.current) save();
+                }}
+                placeholder="Add a description…"
+                rows={6}
+              />
+            </div>
+          )}
 
           {quest.acceptance_criteria && (
             <div className="quest-detail-section">
