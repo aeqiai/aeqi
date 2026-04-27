@@ -592,6 +592,18 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             {(showCompose || dirty) && (
               <>
                 <Button variant="secondary" size="sm" onClick={handleCancel} title="Cancel">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    aria-hidden
+                  >
+                    <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                  </svg>
                   Cancel
                 </Button>
                 <Button

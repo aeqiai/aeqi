@@ -3140,6 +3140,15 @@
    instead of stretching the toolbar. */
 .quest-compose-link {
   max-width: 240px;
+  /* The Button primitive already provides flex + center alignment; this
+     `min-width: 0` lets the label child shrink below its intrinsic
+     content width so `text-overflow: ellipsis` can do its job without
+     the trigger eating the toolbar's spacer. */
+  min-width: 0;
+}
+.quest-compose-link > * {
+  display: inline-flex;
+  align-items: center;
 }
 .quest-compose-link.open {
   color: var(--accent);

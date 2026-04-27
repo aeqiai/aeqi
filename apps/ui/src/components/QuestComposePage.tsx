@@ -171,6 +171,18 @@ export default function QuestComposePage({
           <div className="ideas-toolbar-spacer" aria-hidden />
           {err && <span className="quest-compose-err">{err}</span>}
           <Button variant="secondary" size="sm" onClick={cancel} disabled={busy}>
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+            </svg>
             Cancel
           </Button>
           <Button
@@ -252,7 +264,7 @@ function LinkedIdeaPicker({
           aria-expanded={open}
           title={pinnedIdea ? `Linked idea: ${pinnedIdea.name}` : "Composing a new idea"}
         >
-          <span className="quest-compose-link-prefix">{pinnedIdea ? "Idea · " : ""}</span>
+          {pinnedIdea && <span className="quest-compose-link-prefix">Idea ·</span>}
           <span className="quest-compose-link-label">
             {pinnedIdea ? pinnedIdea.name : "New idea"}
           </span>
