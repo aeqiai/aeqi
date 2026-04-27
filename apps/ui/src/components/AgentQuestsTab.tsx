@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { useAgentDataStore } from "@/store/agentData";
 import { Button, Input, Modal, Popover, Select, Spinner } from "./ui";
 import IdeaCanvas from "./IdeaCanvas";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types";
@@ -1073,42 +1074,83 @@ function NewQuestModal({
   resolvedAgentId,
   onClose,
   onCreated,
+  initialIdeaId,
 }: {
   open: boolean;
   resolvedAgentId: string;
   onClose: () => void;
   onCreated: () => void;
+  /**
+   * When provided (e.g. from the idea-detail "+ Track as quest" button),
+   * the modal opens pre-bound to the existing idea — Flow B. The combobox
+   * is locked to the resolved idea name and the user can't type a new one.
+   */
+  initialIdeaId?: string;
 }) {
-  const [subject, setSubject] = useState("");
+  const [query, setQuery] = useState("");
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [priority, setPriority] = useState<QuestPriority>("normal");
   const [scope, setScope] = useState<ScopeValue>("self");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const ideas = useAgentDataStore((s) => s.ideasByAgent[resolvedAgentId]) ?? [];
+  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
+  const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
+
+  // Idea suggestions filtered by the typed query, ranked by usage so the
+  // most-trafficked specs surface first. Each suggestion shows a "· N quests"
+  // annotation so the user can spot a busy shared spec at a glance.
+  const ideaSuggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const counts = new Map<string, number>();
+    for (const quest of allQuests) {
+      if (quest.idea_id) counts.set(quest.idea_id, (counts.get(quest.idea_id) ?? 0) + 1);
+    }
+    const matches = q ? ideas.filter((i) => i.name.toLowerCase().includes(q)) : ideas.slice(0, 8);
+    return matches.slice(0, 8).map((i) => ({ idea: i, questCount: counts.get(i.id) ?? 0 }));
+  }, [ideas, query, allQuests]);
+
   // Reset the form every time the modal opens — so the second creation
   // doesn't inherit the first's subject / priority / scope.
   useEffect(() => {
-    if (open) {
-      setSubject("");
-      setPriority("normal");
-      setScope("self");
-      setBusy(false);
-      setErr(null);
+    if (!open) return;
+    setQuery("");
+    setSelectedIdeaId(initialIdeaId ?? null);
+    setPriority("normal");
+    setScope("self");
+    setBusy(false);
+    setErr(null);
+    // Pre-bound flow: surface the locked idea name in the input.
+    if (initialIdeaId) {
+      const pinned = ideas.find((i) => i.id === initialIdeaId);
+      if (pinned) setQuery(pinned.name);
     }
-  }, [open]);
+    // Make sure the combobox has data to work against.
+    void loadIdeas(resolvedAgentId);
+  }, [open, initialIdeaId, ideas, loadIdeas, resolvedAgentId]);
+
+  const trimmedQuery = query.trim();
+  const exactMatch = ideas.find((i) => i.name.toLowerCase() === trimmedQuery.toLowerCase());
 
   const submit = useCallback(async () => {
-    const s = subject.trim();
-    if (!s || busy) return;
+    if (busy) return;
+    const idea_id = selectedIdeaId ?? exactMatch?.id;
+    const name = trimmedQuery;
+    if (!idea_id && !name) return;
     setBusy(true);
     setErr(null);
     try {
       await api.createQuest({
         project: resolvedAgentId,
-        subject: s,
+        agent_id: resolvedAgentId,
         priority,
         scope,
-        agent_id: resolvedAgentId,
+        // Flow B (existing idea) wins when a row is selected; otherwise mint
+        // a fresh idea with the typed name (Flow A). 24h-dedup at the
+        // backend reuses an existing row by name, so typing a duplicate
+        // name doesn't create a redundant idea.
+        ...(idea_id ? { idea_id } : { idea: { name }, subject: name }),
       });
       onCreated();
       onClose();
@@ -1117,26 +1159,75 @@ function NewQuestModal({
     } finally {
       setBusy(false);
     }
-  }, [subject, priority, scope, busy, resolvedAgentId, onCreated, onClose]);
+  }, [
+    selectedIdeaId,
+    exactMatch?.id,
+    trimmedQuery,
+    busy,
+    priority,
+    scope,
+    resolvedAgentId,
+    onCreated,
+    onClose,
+  ]);
+
+  const canSubmit = !!(selectedIdeaId || exactMatch || trimmedQuery);
 
   return (
     <Modal open={open} onClose={onClose} title="New quest">
       <div className="quest-new-form">
-        <Input
-          label="Subject"
-          placeholder="What needs to happen?"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          disabled={busy}
-          autoFocus
-          error={err ?? undefined}
-        />
+        <div className="quest-new-combobox">
+          <Input
+            label="Idea"
+            placeholder="Pick an idea or type a new name…"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIdeaId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void submit();
+              }
+            }}
+            disabled={busy || !!initialIdeaId}
+            autoFocus
+            error={err ?? undefined}
+          />
+          {!initialIdeaId && ideaSuggestions.length > 0 && (
+            <div className="quest-new-suggestions" role="listbox">
+              {ideaSuggestions.map(({ idea, questCount }) => {
+                const active = selectedIdeaId === idea.id;
+                return (
+                  <button
+                    key={idea.id}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={`quest-new-suggestion${active ? " is-active" : ""}`}
+                    onClick={() => {
+                      setSelectedIdeaId(idea.id);
+                      setQuery(idea.name);
+                    }}
+                  >
+                    <span className="quest-new-suggestion-name">{idea.name}</span>
+                    {questCount > 0 && (
+                      <span className="quest-new-suggestion-meta">
+                        · {questCount} quest{questCount === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {!exactMatch && trimmedQuery && (
+                <div className="quest-new-suggestion-hint">
+                  ↵ to create new idea “{trimmedQuery}”
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="quest-new-fields">
           <Select
             value={priority}
@@ -1160,7 +1251,7 @@ function NewQuestModal({
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={submit} disabled={!subject.trim()} loading={busy}>
+          <Button variant="primary" onClick={submit} disabled={!canSubmit} loading={busy}>
             Create
           </Button>
         </div>

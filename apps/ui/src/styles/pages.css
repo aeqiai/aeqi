@@ -3149,6 +3149,58 @@
   gap: var(--space-2);
 }
 
+/* Idea combobox under the modal's input. Suggestions list is a flat
+   button stack — clicking pins the idea (Flow B); ↵ on a typed name with
+   no exact match creates a fresh idea (Flow A). The "↵ to create new"
+   hint is the affordance for the latter, surfaced inline rather than as
+   a separate button so the user's typing flow stays uninterrupted. */
+.quest-new-combobox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.quest-new-suggestions {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.quest-new-suggestion {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--color-fg);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.quest-new-suggestion:hover,
+.quest-new-suggestion.is-active {
+  background: var(--color-bg-base);
+}
+.quest-new-suggestion-name {
+  font-weight: 500;
+}
+.quest-new-suggestion-meta {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+}
+.quest-new-suggestion-hint {
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  border-top: 1px solid var(--border);
+  background: var(--color-bg-base);
+}
+
 .quest-board-error {
   font-family: var(--font-sans);
   font-size: 11px;
