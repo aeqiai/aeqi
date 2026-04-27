@@ -64,11 +64,13 @@ Every primitive carries `autodocs`, so each entry has a generated
 Composed recipes that show how primitives combine into dashboard UI.
 Use these as starting templates, not as fixed screenshots.
 
-| Pattern             | What it composes                              |
-| ------------------- | --------------------------------------------- |
-| **Agent Card**      | Card + Badge + DetailField + TagList + Button |
-| **Quest Row**       | Badge + IconButton (dense list rhythm)        |
-| **Empty Dashboard** | EmptyState + Button (first-run, zero-data)    |
+| Pattern             | What it composes                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Toolbar**         | Search + sort/filter/view + Button — the canonical primitive-page header, chrome/paper/ink tier rules, variant decision tree |
+| **Layout**          | Stack + Inline — the canonical replacements for ad-hoc flex                                                                  |
+| **Agent Card**      | Card + Badge + DetailField + TagList + Button                                                                                |
+| **Quest Row**       | Badge + IconButton (dense list rhythm)                                                                                       |
+| **Empty Dashboard** | EmptyState + Button (first-run, zero-data)                                                                                   |
 
 ## Useful keyboard shortcuts
 

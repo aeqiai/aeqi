@@ -1,0 +1,192 @@
+import { Meta } from "@storybook/blocks";
+import { Button } from "../Button";
+
+<Meta title="Patterns/Toolbar" />
+
+# Toolbar
+
+The canonical primitive-page header. Used on **Ideas**, **Quests**,
+**Events**, and any future primitive that needs a search + filter +
+create row at the top of its index. The detail-page header is the same
+pattern with the chrome zone replaced by a back/breadcrumb cluster.
+
+## The philosophy
+
+A toolbar is two zones:
+
+> **Chrome lenses · paper navigates · ink commits.**
+
+- **Chrome zone** (left + middle): controls _what you see_ — search,
+  sort, filter, view, scope-as-filter. They don't touch data.
+- **Action zone** (right): controls _what happens_ — create, commit,
+  destroy. They modify data.
+
+The two zones use different color tiers (see below). A flex spacer is
+not needed — the search field's `flex: 1` consumes the slack and pushes
+the action zone to the right edge.
+
+## Three color tiers
+
+| Tier       | Token                             | Lives in                     | Examples                                                                                                  |
+| ---------- | --------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Chrome** | `--input-bg` (subtle tinted grey) | Toolbar instrument panel     | `<input>`, `.ideas-toolbar-btn` (sort / filter / view), scope chip when used as a filter                  |
+| **Paper**  | `--color-card` (white)            | Action zone, visible-at-rest | `Cancel`, `Back`, `<Button variant="secondary">`                                                          |
+| **Ink**    | `--color-accent` (graphite)       | Action zone, primary actions | `+ New`, `Save`, `<Button variant="primary">`. Red ink (`--destructive`) for `<Button variant="danger">`. |
+
+Never mix tiers within a zone. If a button feels like it wants to live in
+the chrome zone but is actually destructive (e.g. "Clear all results"),
+keep it visually chrome — it's still display control, not a data
+mutation.
+
+## Button variant rules
+
+The variant carries the **affordance identity** of an action — the same
+job earns the same variant on every surface where it appears.
+
+| Variant     | Use when                                                            | Examples                                                                                                                            |
+| ----------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `primary`   | The action that creates / commits / progresses on this surface.     | `+ New idea` (everywhere), `Save`, `Send code`                                                                                      |
+| `secondary` | Visible-at-rest companion: Cancel beside Save, navigation, dismiss. | `Cancel`, `← Back`, `Set up later`, scope picker on a detail page                                                                   |
+| `ghost`     | Quiet inline action where hover/focus reveals it.                   | List-row `×`, transcript controls, toolbar overflow. **Never** the Cancel sibling beside a primary — pair with `secondary` instead. |
+| `danger`    | Destructive primary.                                                | `Delete idea`, `Sign out everywhere`                                                                                                |
+
+### Two ink buttons in one toolbar are fine
+
+When they target distinct outcomes — e.g. `+ New idea` (creates a
+different idea) and `Save` (commits this idea) on the idea detail
+header. The label disambiguates; the spacer between zones provides the
+visual rhythm. Don't downgrade `+ New` to `secondary` just because Save
+is also primary — affordance identity outranks one-primary-per-surface.
+
+### Navigation is always paper, never ink
+
+`Back`, breadcrumb links, parent-link chips. They don't commit, create,
+or destroy — they're orientation. Variant: `secondary` regardless of
+how prominent the surface needs them to be.
+
+### Lowercase is brand, not labels
+
+`aeqi` is the only string that stays lowercase in product copy. Every
+other surface noun — Self, Siblings, Global, Runtime, Webhooks,
+Routines — is **Title Case**. Lowercase scope chips read as CSS class
+names; Title Case reads as human nouns. Identifier strings (URL params,
+JSON keys) keep their lowercase form — only the display layer changes.
+
+## Anatomy
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  [🔍 search ▶▶▶▶▶ flex grows]  [sort] [filter] [view]  [+ New]            │
+│   ─────────────── chrome zone ─────────────────────     action zone       │
+└──────────────────────────────────────────────────────────────────────────┘
+   .ideas-list-head  >  .ideas-toolbar  >  .ideas-list-search-field +
+                                            .ideas-toolbar-btn (chrome) +
+                                            <Button variant="primary"> (ink)
+```
+
+On the detail header, the chrome zone is replaced by a left-cluster of
+navigation buttons and the action zone gains Cancel + Save + Delete:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  [← Back]  [+ New]  [scope ⌄]   · · ·   [× Delete] [Cancel] [✓ Save]      │
+│   ──── nav cluster (paper) ────         ─── action cluster (paper+ink) ─  │
+└──────────────────────────────────────────────────────────────────────────┘
+   .ideas-list-head  >  .ideas-toolbar  >  Back/New buttons +
+                                           IdeasScopePopover +
+                                           .ideas-toolbar-spacer +
+                                           Delete/Cancel/Save buttons
+```
+
+## Recipe
+
+```tsx
+<div className="ideas-list-head">
+  <div className="ideas-toolbar">
+    {/* chrome zone — display modifiers */}
+    <span className="ideas-list-search-field">
+      <input
+        className="ideas-list-search"
+        type="text"
+        placeholder="Search ideas"
+        value={filter.search}
+        onChange={(e) => onFilter({ search: e.target.value })}
+      />
+      {!filter.search ? (
+        <kbd className="ideas-list-search-kbd">/</kbd>
+      ) : (
+        <button className="ideas-list-search-clear" onClick={clearSearch}>×</button>
+      )}
+    </span>
+    <IdeasSortPopover ... />
+    <IdeasFilterPopover ... />
+    <IdeasViewPopover ... />
+
+    {/* action zone — labeled primary */}
+    <Button variant="primary" size="sm" onClick={onNew} title="New idea (N)">
+      <PlusIcon /> New
+    </Button>
+  </div>
+</div>
+```
+
+## Tags strip (sibling band)
+
+Anything that varied the toolbar's height — tag pills, active-filter
+chips — moves to a `.ideas-tags-strip` sibling band BELOW the toolbar
+with its own hairline. The toolbar height stays canonical.
+
+```tsx
+<div className="ideas-list-head">{/* toolbar */}</div>;
+{
+  (activeChips.length > 0 || tagCounts.length > 0) && (
+    <div className="ideas-tags-strip">{/* chips, tag pills */}</div>
+  );
+}
+<div className="ideas-list-body">{/* rows */}</div>;
+```
+
+## Anti-patterns to refuse
+
+- **Bespoke toolbar buttons.** If you're writing `width: Xpx; height: Ypx;
+border-radius: 999px` for a "button" inline, you're forking. Reach for
+  `<Button>` (labeled) or `.ideas-toolbar-btn` (icon-only) and add a
+  modifier class for state-specific decoration only.
+- **Grey resting `secondary` buttons.** `--btn-secondary-bg` is white
+  (`--color-card`). Never use `--color-bg-base` (chrome tint) as a button
+  background.
+- **Action and chrome swapped.** Search must not pop as ink; `+ New` must
+  not sit as chrome. The tier carries the user's expectation.
+- **Lowercase scope labels.** `self`, `global`, `runtime` — read as CSS,
+  not nouns. Title Case at the display layer.
+- **`ghost` next to a primary.** Cancel becomes invisible. Use
+  `secondary`.
+- **Toolbar variable height.** Tag pills / active chips / sub-rows go in
+  `.ideas-tags-strip` below.
+
+## Sample variants
+
+<div
+  style={{
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    padding: 16,
+    background: "var(--color-card)",
+    border: "1px solid var(--color-border)",
+    borderRadius: 8,
+  }}
+>
+  <Button variant="primary" size="sm">
+    + New
+  </Button>
+  <Button variant="secondary" size="sm">
+    Cancel
+  </Button>
+  <Button variant="danger" size="sm">
+    Delete
+  </Button>
+  <Button variant="ghost" size="sm">
+    More
+  </Button>
+</div>
