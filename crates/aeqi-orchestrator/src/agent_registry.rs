@@ -2228,6 +2228,34 @@ impl AgentRegistry {
         Ok(quest)
     }
 
+    /// IDs of every quest currently linked to a given idea. Used by the
+    /// `DELETE /ideas/:id` pre-flight (returning the list lets the UI
+    /// show a "delete those quests first" conflict modal) and by the
+    /// shared-spec badge in the quest detail view.
+    pub async fn find_quests_by_idea_id(&self, idea_id: &str) -> Result<Vec<String>> {
+        let db = self.sessions_db.lock().await;
+        let mut stmt = db.prepare("SELECT id FROM quests WHERE idea_id = ?1 ORDER BY id ASC")?;
+        let ids = stmt
+            .query_map(params![idea_id], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(ids)
+    }
+
+    /// Set the `idea_id` FK on a quest. Thin wrapper over `update_task` —
+    /// exposed so the create-quest path doesn't need to take a closure.
+    pub async fn set_quest_idea_id(
+        &self,
+        quest_id: &str,
+        idea_id: &str,
+    ) -> Result<aeqi_quests::Quest> {
+        let new_id = idea_id.to_string();
+        self.update_task(quest_id, |quest| {
+            quest.idea_id = Some(new_id);
+        })
+        .await
+    }
+
     /// Update a quest's status.
     pub async fn update_task_status(
         &self,
@@ -2343,8 +2371,9 @@ impl AgentRegistry {
                 agent_id = ?5, scope = ?6, idea_ids = ?7, labels = ?8,
                 retry_count = ?9, checkpoints = ?10, metadata = ?11,
                 depends_on = ?12, acceptance_criteria = ?13,
-                updated_at = ?14, closed_at = ?15, outcome = ?16
-             WHERE id = ?17",
+                updated_at = ?14, closed_at = ?15, outcome = ?16,
+                idea_id = ?17
+             WHERE id = ?18",
             params![
                 quest.name,
                 quest.description,
@@ -2362,6 +2391,7 @@ impl AgentRegistry {
                 now,
                 quest.closed_at.map(|d| d.to_rfc3339()),
                 outcome_json,
+                quest.idea_id,
                 quest.id.0,
             ],
         )?;
@@ -3593,6 +3623,72 @@ mod tests {
 
         let fetched = reg.get_task(&task.id.0).await.unwrap().unwrap();
         assert_eq!(fetched.scope, Scope::Branch);
+    }
+
+    #[tokio::test]
+    async fn update_task_persists_idea_id() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("tasker", None, None).await.unwrap();
+        let task = reg
+            .create_task(&agent.id, "Linked quest", "", &[], &[])
+            .await
+            .unwrap();
+
+        // Round-trips correctly via the closure form …
+        reg.update_task(&task.id.0, |quest| {
+            quest.idea_id = Some("idea-abc".to_string());
+        })
+        .await
+        .unwrap();
+        let after_update = reg.get_task(&task.id.0).await.unwrap().unwrap();
+        assert_eq!(after_update.idea_id.as_deref(), Some("idea-abc"));
+
+        // … and via the dedicated setter used by the create-quest IPC.
+        let after_set = reg.set_quest_idea_id(&task.id.0, "idea-xyz").await.unwrap();
+        assert_eq!(after_set.idea_id.as_deref(), Some("idea-xyz"));
+        let refetched = reg.get_task(&task.id.0).await.unwrap().unwrap();
+        assert_eq!(refetched.idea_id.as_deref(), Some("idea-xyz"));
+    }
+
+    #[tokio::test]
+    async fn find_quests_by_idea_id_returns_only_linked_quests() {
+        let reg = test_registry().await;
+        let agent = reg.spawn("tasker", None, None).await.unwrap();
+
+        let q1 = reg
+            .create_task(&agent.id, "linked one", "", &[], &[])
+            .await
+            .unwrap();
+        let q2 = reg
+            .create_task(&agent.id, "linked two", "", &[], &[])
+            .await
+            .unwrap();
+        let q3 = reg
+            .create_task(&agent.id, "unlinked", "", &[], &[])
+            .await
+            .unwrap();
+
+        reg.set_quest_idea_id(&q1.id.0, "shared-spec")
+            .await
+            .unwrap();
+        reg.set_quest_idea_id(&q2.id.0, "shared-spec")
+            .await
+            .unwrap();
+        reg.set_quest_idea_id(&q3.id.0, "lonely-spec")
+            .await
+            .unwrap();
+
+        let mut linked = reg.find_quests_by_idea_id("shared-spec").await.unwrap();
+        linked.sort();
+        let mut expected = vec![q1.id.0.clone(), q2.id.0.clone()];
+        expected.sort();
+        assert_eq!(linked, expected);
+
+        let solo = reg.find_quests_by_idea_id("lonely-spec").await.unwrap();
+        assert_eq!(solo, vec![q3.id.0]);
+
+        let none = reg.find_quests_by_idea_id("ghost").await.unwrap();
+        assert!(none.is_empty());
     }
 
     /// A freshly spawned agent gets the two default schedule events

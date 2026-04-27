@@ -966,6 +966,29 @@ pub async fn handle_delete_idea(
         return serde_json::json!({"ok": false, "error": "id is required"});
     }
 
+    // Pre-flight FK check across the sessions.db boundary: SQLite can't
+    // enforce a real FK across attached DBs, so this is the only place that
+    // protects the unification invariant ("a quest's idea cannot vanish").
+    // Returning the conflicting quest ids lets the UI render a "Used by N
+    // quests · Detach or delete those first" modal — see WS-7.
+    match ctx.agent_registry.find_quests_by_idea_id(id).await {
+        Ok(quest_ids) if !quest_ids.is_empty() => {
+            return serde_json::json!({
+                "ok": false,
+                "error": "in_use",
+                "quest_ids": quest_ids,
+            });
+        }
+        Ok(_) => {}
+        Err(e) => {
+            tracing::warn!(
+                idea = %id,
+                error = %e,
+                "delete_idea pre-flight failed; proceeding with delete"
+            );
+        }
+    }
+
     match idea_store.delete(id).await {
         Ok(()) => {
             ctx.recall_cache.invalidate();

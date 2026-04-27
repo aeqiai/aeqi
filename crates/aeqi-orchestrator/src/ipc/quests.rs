@@ -107,13 +107,34 @@ pub async fn handle_create_quest(
         .get("project")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let subject = request
-        .get("subject")
+
+    // Two-flow body shape per docs/quest-idea-unification.md:
+    //
+    //   Flow A — request carries `idea: { name, content, scope?, agent_id? }`:
+    //            mint the idea first, then wrap a quest around it.
+    //   Flow B — request carries `idea_id: "..."`: validate it exists, then
+    //            create a quest pointing at the existing idea.
+    //   Flow C — neither — legacy path, kept for back-compat. Subject /
+    //            description / labels arrive as scalars; the lazy backfill
+    //            (WS-1c) mints an idea on the next boot.
+    let idea_obj = request.get("idea").and_then(|v| v.as_object()).cloned();
+    let provided_idea_id = request
+        .get("idea_id")
         .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    // Flow A overrides subject/description from the embedded idea body so the
+    // quest subject mirrors `idea.name`. The legacy fields stay populated for
+    // phase-2 back-compat (UI still renders quest.subject from the row).
+    let subject = idea_obj
+        .as_ref()
+        .and_then(|m| m.get("name").and_then(|v| v.as_str()))
+        .or_else(|| request.get("subject").and_then(|v| v.as_str()))
         .unwrap_or("");
-    let description = request
-        .get("description")
-        .and_then(|v| v.as_str())
+    let description = idea_obj
+        .as_ref()
+        .and_then(|m| m.get("content").and_then(|v| v.as_str()))
+        .or_else(|| request.get("description").and_then(|v| v.as_str()))
         .unwrap_or("");
     let explicit_agent_id = request.get("agent_id").and_then(|v| v.as_str());
     let agent_name_hint = request.get("agent").and_then(|v| v.as_str());
@@ -175,90 +196,220 @@ pub async fn handle_create_quest(
             .flatten()
     };
 
-    match agent {
-        Some(agent) => {
-            let idea_ids: Vec<String> = request
-                .get("idea_ids")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect()
-                })
-                .unwrap_or_default();
-            let labels: Vec<String> = request
-                .get("labels")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect()
-                })
-                .unwrap_or_default();
-            match ctx
-                .agent_registry
-                .create_task_v2_scoped(
-                    &agent.id,
-                    subject,
-                    description,
-                    &idea_ids,
-                    &labels,
-                    &depends_on,
-                    parent_id,
-                    requested_scope.unwrap_or(aeqi_core::Scope::SelfScope),
-                )
-                .await
-            {
-                Ok(mut quest) => {
-                    // Persist acceptance_criteria if supplied (e.g. from a preset).
-                    if let Some(ref ac) = acceptance_criteria {
-                        let quest_id = quest.id.0.clone();
-                        let ac_clone = ac.clone();
-                        if let Ok(updated) = ctx
-                            .agent_registry
-                            .update_task(&quest_id, |q| {
-                                q.acceptance_criteria = Some(ac_clone);
-                            })
-                            .await
-                        {
-                            quest = updated;
-                        }
-                    }
-                    let _ = ctx
-                        .activity_log
-                        .emit(
-                            "quest_created",
-                            Some(&agent.id),
-                            agent.session_id.as_deref(),
-                            Some(&quest.id.0),
-                            &serde_json::json!({
-                                "subject": quest.name,
-                                "project": project,
-                                "creator_session_id": agent.session_id,
-                                "parent": parent_id,
-                                "depends_on": depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
-                            }),
-                        )
-                        .await;
-                    serde_json::json!({
-                        "ok": true,
-                        "quest": {
-                            "id": quest.id.0,
-                            "subject": quest.name,
-                            "description": quest.description,
-                            "status": quest.status.to_string(),
-                            "agent_id": quest.agent_id,
-                            "scope": quest.scope.as_str(),
-                            "project": project,
-                            "acceptance_criteria": quest.acceptance_criteria,
-                        }
-                    })
+    let agent = match agent {
+        Some(a) => a,
+        None => return serde_json::json!({"ok": false, "error": "no agent found for project"}),
+    };
+
+    let idea_ids: Vec<String> = request
+        .get("idea_ids")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let labels: Vec<String> = request
+        .get("labels")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let scope_for_quest = requested_scope.unwrap_or(aeqi_core::Scope::SelfScope);
+
+    // ── Resolve / mint the linked idea (Flow A vs B vs legacy) ─────────
+    let linked_idea_id: Option<String> = match (&provided_idea_id, &idea_obj) {
+        (Some(existing_id), _) => {
+            // Flow B — validate the idea exists.
+            let store = match ctx.idea_store.as_ref() {
+                Some(s) => s,
+                None => {
+                    return serde_json::json!({"ok": false, "error": "idea store not available"});
                 }
-                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+            };
+            match store.get_by_ids(std::slice::from_ref(existing_id)).await {
+                Ok(ideas) if !ideas.is_empty() => Some(existing_id.clone()),
+                Ok(_) => {
+                    return serde_json::json!({
+                        "ok": false,
+                        "error": format!("idea_id not found: {existing_id}"),
+                    });
+                }
+                Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
             }
         }
-        None => serde_json::json!({"ok": false, "error": "no agent found for project"}),
+        (None, Some(idea_map)) => {
+            // Flow A — mint a fresh idea from the embedded body.
+            let store = match ctx.idea_store.as_ref() {
+                Some(s) => s,
+                None => {
+                    return serde_json::json!({"ok": false, "error": "idea store not available"});
+                }
+            };
+            let name = idea_map.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let content = idea_map
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if name.trim().is_empty() {
+                return serde_json::json!({
+                    "ok": false,
+                    "error": "idea.name is required when minting a new idea",
+                });
+            }
+            let tags: Vec<String> = idea_map
+                .get("tags")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let idea_scope = idea_map
+                .get("scope")
+                .and_then(|v| v.as_str())
+                .and_then(|s| s.parse::<Scope>().ok())
+                .unwrap_or(scope_for_quest);
+            let owner = idea_map
+                .get("agent_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| agent.id.clone());
+            match store
+                .store_with_scope(name, content, &tags, Some(owner.as_str()), idea_scope)
+                .await
+            {
+                Ok(id) if !id.is_empty() => Some(id),
+                Ok(_) => {
+                    // Within-24h dedup short-circuit returned an empty id;
+                    // resolve the active row by (agent_id, name) to keep the
+                    // quest pointed at a real idea. Last resort: error.
+                    match store
+                        .get_active_id_by_name(name, Some(owner.as_str()))
+                        .await
+                    {
+                        Ok(Some(id)) => Some(id),
+                        Ok(None) => {
+                            return serde_json::json!({
+                                "ok": false,
+                                "error": "idea minting was deduped but no active row resolved",
+                            });
+                        }
+                        Err(e) => {
+                            return serde_json::json!({"ok": false, "error": e.to_string()});
+                        }
+                    }
+                }
+                Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+            }
+        }
+        (None, None) => None, // Legacy path — backfill mints later.
+    };
+
+    match ctx
+        .agent_registry
+        .create_task_v2_scoped(
+            &agent.id,
+            subject,
+            description,
+            &idea_ids,
+            &labels,
+            &depends_on,
+            parent_id,
+            scope_for_quest,
+        )
+        .await
+    {
+        Ok(mut quest) => {
+            // Persist acceptance_criteria if supplied (e.g. from a preset).
+            if let Some(ref ac) = acceptance_criteria {
+                let quest_id = quest.id.0.clone();
+                let ac_clone = ac.clone();
+                if let Ok(updated) = ctx
+                    .agent_registry
+                    .update_task(&quest_id, |q| {
+                        q.acceptance_criteria = Some(ac_clone);
+                    })
+                    .await
+                {
+                    quest = updated;
+                }
+            }
+
+            // Link the quest to the resolved idea (Flow A or B).
+            if let Some(ref id) = linked_idea_id
+                && let Ok(updated) = ctx.agent_registry.set_quest_idea_id(&quest.id.0, id).await
+            {
+                quest = updated;
+            }
+
+            // Optional: fetch the linked idea body so the response can carry
+            // it inline (UI routes to the new quest without a follow-up GET).
+            let inline_idea = match (&linked_idea_id, ctx.idea_store.as_ref()) {
+                (Some(id), Some(store)) => store
+                    .get_by_ids(std::slice::from_ref(id))
+                    .await
+                    .ok()
+                    .and_then(|mut v| v.pop()),
+                _ => None,
+            };
+
+            let _ = ctx
+                .activity_log
+                .emit(
+                    "quest_created",
+                    Some(&agent.id),
+                    agent.session_id.as_deref(),
+                    Some(&quest.id.0),
+                    &serde_json::json!({
+                        "subject": quest.name,
+                        "project": project,
+                        "creator_session_id": agent.session_id,
+                        "parent": parent_id,
+                        "depends_on": depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
+                        "idea_id": linked_idea_id,
+                    }),
+                )
+                .await;
+            serde_json::json!({
+                "ok": true,
+                "quest": {
+                    "id": quest.id.0,
+                    "idea_id": quest.idea_id,
+                    "subject": quest.name,
+                    "description": quest.description,
+                    "status": quest.status.to_string(),
+                    "agent_id": quest.agent_id,
+                    "scope": quest.scope.as_str(),
+                    "project": project,
+                    "acceptance_criteria": quest.acceptance_criteria,
+                },
+                "idea": inline_idea.as_ref().map(idea_to_json),
+            })
+        }
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
+}
+
+/// Compact JSON form of an `Idea` used in `GET /quests/:id` and
+/// `POST /quests` responses. Mirrors the ideas-list/detail payloads: the
+/// frontend can render the same `<IdeaCanvas>` from this shape.
+fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
+    serde_json::json!({
+        "id": idea.id,
+        "name": idea.name,
+        "content": idea.content,
+        "tags": idea.tags,
+        "agent_id": idea.agent_id,
+        "scope": idea.scope.as_str(),
+        "session_id": idea.session_id,
+        "created_at": idea.created_at.to_rfc3339(),
+    })
 }
 
 pub async fn handle_get_quest(
@@ -291,29 +442,58 @@ pub async fn handle_get_quest(
     }
 
     match ctx.agent_registry.get_task(quest_id).await {
-        Ok(Some(quest)) => serde_json::json!({
-            "ok": true,
-            "quest": {
-                "id": quest.id.0,
-                "subject": quest.name,
-                "description": quest.description,
-                "status": quest.status.to_string(),
-                "priority": quest.priority.to_string(),
-                "agent_id": quest.agent_id,
-                "scope": quest.scope.as_str(),
-                "idea_ids": quest.idea_ids,
-                "labels": quest.labels,
-                "retry_count": quest.retry_count,
-                "project": quest.agent_id.as_deref().unwrap_or(""),
-                "created_at": quest.created_at.to_rfc3339(),
-                "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
-                "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
-                "outcome": quest.quest_outcome(),
-                "runtime": quest.runtime(),
-                "depends_on": quest.depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
-                "acceptance_criteria": quest.acceptance_criteria,
-            }
-        }),
+        Ok(Some(quest)) => {
+            // Embed the linked idea so the UI can render `<IdeaCanvas>`
+            // without a follow-up fetch. Also surface a sibling-quest count
+            // so the front-end can show the "Shared spec · N quests" badge
+            // without needing its own RPC.
+            let (inline_idea, sibling_quests) = match (&quest.idea_id, ctx.idea_store.as_ref()) {
+                (Some(idea_id), Some(store)) => {
+                    let idea = store
+                        .get_by_ids(std::slice::from_ref(idea_id))
+                        .await
+                        .ok()
+                        .and_then(|mut v| v.pop());
+                    let siblings = ctx
+                        .agent_registry
+                        .find_quests_by_idea_id(idea_id)
+                        .await
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|qid| qid != &quest.id.0)
+                        .collect::<Vec<_>>();
+                    (idea, siblings)
+                }
+                _ => (None, Vec::new()),
+            };
+
+            serde_json::json!({
+                "ok": true,
+                "quest": {
+                    "id": quest.id.0,
+                    "idea_id": quest.idea_id,
+                    "subject": quest.name,
+                    "description": quest.description,
+                    "status": quest.status.to_string(),
+                    "priority": quest.priority.to_string(),
+                    "agent_id": quest.agent_id,
+                    "scope": quest.scope.as_str(),
+                    "idea_ids": quest.idea_ids,
+                    "labels": quest.labels,
+                    "retry_count": quest.retry_count,
+                    "project": quest.agent_id.as_deref().unwrap_or(""),
+                    "created_at": quest.created_at.to_rfc3339(),
+                    "updated_at": quest.updated_at.map(|t| t.to_rfc3339()),
+                    "closed_at": quest.closed_at.map(|t| t.to_rfc3339()),
+                    "outcome": quest.quest_outcome(),
+                    "runtime": quest.runtime(),
+                    "depends_on": quest.depends_on.iter().map(|d| &d.0).collect::<Vec<_>>(),
+                    "acceptance_criteria": quest.acceptance_criteria,
+                    "sibling_quest_ids": sibling_quests,
+                },
+                "idea": inline_idea.as_ref().map(idea_to_json),
+            })
+        }
         Ok(None) => serde_json::json!({"ok": false, "error": "quest not found"}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -350,17 +530,32 @@ pub async fn handle_update_quest(
 
     let status_str = request.get("status").and_then(|v| v.as_str());
     let priority_str = request.get("priority").and_then(|v| v.as_str());
-    let description = request.get("description").and_then(|v| v.as_str());
     let agent_id = request.get("agent_id").and_then(|v| v.as_str());
     let scope = request
         .get("scope")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<Scope>().ok());
-    let labels: Option<Vec<String>> = request.get("labels").and_then(|v| v.as_array()).map(|arr| {
-        arr.iter()
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-            .collect()
-    });
+
+    // Phase-2 allowlist: editorial fields (subject / description / labels /
+    // acceptance_criteria) belong to the linked idea now. Old clients still
+    // send them — warn-and-drop rather than reject so phase-2 rollouts don't
+    // break the legacy UI mid-deploy. The warn fires once per request so a
+    // misbehaving caller is loud in the log without spamming.
+    for legacy_field in [
+        "subject",
+        "description",
+        "labels",
+        "acceptance_criteria",
+        "idea_ids",
+    ] {
+        if request.get(legacy_field).is_some() {
+            tracing::warn!(
+                field = legacy_field,
+                quest = quest_id,
+                "PUT /quests dropped legacy editorial field — edit the linked idea instead"
+            );
+        }
+    }
 
     let status = status_str.map(|s| match s {
         "in_progress" => aeqi_quests::QuestStatus::InProgress,
@@ -392,14 +587,8 @@ pub async fn handle_update_quest(
             if let Some(priority) = priority {
                 quest.priority = priority;
             }
-            if let Some(description) = description {
-                quest.description = description.to_string();
-            }
             if let Some(agent_id) = agent_id {
                 quest.agent_id = Some(agent_id.to_string());
-            }
-            if let Some(ref labels) = labels {
-                quest.labels = labels.clone();
             }
             if let Some(scope) = scope {
                 quest.scope = scope;
