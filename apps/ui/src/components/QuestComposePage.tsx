@@ -238,36 +238,39 @@ function LinkedIdeaPicker({
     return list.slice(0, 12);
   }, [ideas, query]);
 
-  const triggerLabel = pinnedIdea ? pinnedIdea.name : "New idea";
-
   return (
     <Popover
       open={open}
       onOpenChange={setOpen}
       placement="bottom-start"
       trigger={
-        <button
-          type="button"
-          className={`ideas-toolbar-btn quest-compose-link${pinnedIdea ? " is-pinned" : ""}${open ? " open" : ""}`}
+        <Button
+          variant="secondary"
+          size="sm"
+          className={`quest-compose-link${pinnedIdea ? " is-pinned" : ""}${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           title={pinnedIdea ? `Linked idea: ${pinnedIdea.name}` : "Composing a new idea"}
         >
+          <span className="quest-compose-link-prefix">{pinnedIdea ? "Idea · " : ""}</span>
+          <span className="quest-compose-link-label">
+            {pinnedIdea ? pinnedIdea.name : "New idea"}
+          </span>
           <svg
-            width="11"
-            height="11"
-            viewBox="0 0 13 13"
+            className="quest-compose-link-chevron"
+            width="9"
+            height="9"
+            viewBox="0 0 9 9"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.5"
+            strokeWidth="1.4"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden
           >
-            <path d="M5.5 7.5 L7.5 5.5 M3.5 5.5 a2 2 0 0 1 2.83 0 L7.5 6.67 M9.5 7.5 a2 2 0 0 1-2.83 0 L5.5 6.33" />
+            <path d="M2 3.5 L4.5 6 L7 3.5" />
           </svg>
-          <span className="quest-compose-link-label">{triggerLabel}</span>
-        </button>
+        </Button>
       }
     >
       <div className="quest-compose-picker" role="dialog" aria-label="Pick a linked idea">

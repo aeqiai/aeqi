@@ -3131,25 +3131,52 @@
 
 /* Quest-compose page — the body is `<IdeaCanvas>` (full editor with
    tags, refs, body, links). The toolbar is the only quest-shaped bit:
-   linked-idea picker + Priority + Scope + Cancel + Save. */
+   linked-idea picker + Priority + Scope + Cancel + Save.
+
+   The link picker uses `<Button variant="secondary" size="sm">` for
+   shell + height + padding + font (mirroring `.ideas-scope-btn`).
+   Only state-specific decoration lives here: open/pinned tints, the
+   chevron rotation, and a max-width so long idea names truncate
+   instead of stretching the toolbar. */
 .quest-compose-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  height: 26px;
-  font-family: var(--font-sans);
-  font-size: 12px;
+  max-width: 240px;
+}
+.quest-compose-link.open {
+  color: var(--accent);
+  background: var(--state-selected);
+  border-color: var(--accent-dim);
+}
+.quest-compose-link.is-pinned:not(.open) {
+  color: var(--text-primary);
+}
+.quest-compose-link-prefix {
+  color: var(--text-muted);
   font-weight: 500;
+  flex-shrink: 0;
 }
 .quest-compose-link-label {
-  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
-.quest-compose-link.is-pinned {
-  color: var(--color-fg);
+.quest-compose-link:not(.is-pinned) .quest-compose-link-label {
+  color: var(--text-secondary);
+}
+.quest-compose-link-chevron {
+  margin-left: 2px;
+  opacity: 0.55;
+  transition:
+    opacity 0.12s ease,
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  flex-shrink: 0;
+}
+.quest-compose-link:hover .quest-compose-link-chevron {
+  opacity: 0.9;
+}
+.quest-compose-link.open .quest-compose-link-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
 }
 .quest-compose-err {
   font-family: var(--font-sans);
