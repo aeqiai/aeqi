@@ -7,12 +7,12 @@ import { clearSessionData } from "@/lib/session";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
 
-/** Set the active root agent from a server response into both localStorage and Zustand.
- * After login, the router reads from localStorage to redirect to /:root. */
+/** Set the active entity from a server response into both localStorage and Zustand.
+ * After login, the router reads from localStorage to redirect to /:entityId. */
 function applyRoot(roots?: string[], explicit?: string) {
   const name = explicit || (roots && roots.length > 0 ? roots[0] : null);
   if (name) {
-    useUIStore.getState().setActiveRoot(name);
+    useUIStore.getState().setActiveEntity(name);
   }
 }
 
@@ -324,7 +324,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     clearSessionData();
     localStorage.removeItem("aeqi_app_mode");
     localStorage.removeItem("aeqi_auth_mode");
-    useUIStore.getState().setActiveRoot("");
+    useUIStore.getState().setActiveEntity("");
     useInboxStore.getState().clearInbox();
     set({
       token: null,

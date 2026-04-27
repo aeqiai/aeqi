@@ -1,5 +1,20 @@
 import type { QuestRuntime } from "./runtime";
 
+export type EntityType = "company" | "human" | "agent" | "fund" | "dao" | "holding" | "protocol";
+
+export interface Entity {
+  id: string;
+  name: string;
+  type: EntityType;
+  root_agent_id: string;
+  status: "active" | "paused" | "archived";
+  avatar?: string;
+  color?: string;
+  budget_usd?: number;
+  created_at: string;
+  last_active?: string;
+}
+
 export interface Agent {
   id: string;
   name: string;

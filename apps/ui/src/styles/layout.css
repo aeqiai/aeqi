@@ -236,10 +236,6 @@
 .left-sidebar.collapsed .sidebar-nav-avatar {
   width: 16px;
 }
-.left-sidebar.collapsed .sidebar-tree-slot {
-  display: none;
-}
-
 /* ── Sidebar header ── */
 /* Brand left edge (16px) aligns with nav-item icon-slot left edge
    (nav padding 8px + item padding 8px), so wordmark sits directly
@@ -729,35 +725,6 @@
   display: none;
 }
 
-/* ── Footer profile identity — stacked name + email.
-   Squeezes two lines into the standardized --sidebar-row-h so the
-   profile row stays flush with every other nav item. 11px muted email
-   under the regular-weight name, tight line-height, ellipsized. */
-.sidebar-nav-identity {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  line-height: 1.15;
-}
-.sidebar-nav-identity-name {
-  color: var(--text-primary);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sidebar-nav-identity-email {
-  font-size: var(--font-size-micro);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.left-sidebar.collapsed .sidebar-nav-identity {
-  display: none;
-}
 .sidebar-nav-action {
   width: 20px;
   height: 20px;
@@ -794,24 +761,7 @@
   padding: 8px;
 }
 
-/* Agent tree takes the flexible bottom region — scrolls inside itself
-   if it overflows; the nav above stays fixed on screen. */
-.sidebar-tree-slot {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  /* Same 2px row-gap rule as .sidebar-user-zone — hover boxes need a
-     hair of breathing room or stacked rows merge into one block. */
-  gap: 2px;
-}
-
-/* Sidebar bottom — sticks below the tree's scroll viewport. Holds
-   destructive / least-frequent actions (sign out today; could carry
-   workspace switcher / help in the future). Mirrors .sidebar-user-
-   zone's horizontal padding so the sign-out row aligns visually with
-   the Inbox / Settings rows up top — same inset, same row geometry. */
+/* Sidebar bottom — sticks below the tree's scroll viewport. */
 .sidebar-bottom {
   flex-shrink: 0;
   display: flex;
@@ -845,40 +795,6 @@
   color: var(--color-error, #c83838);
 }
 
-/* Icon-only sign-out button — sits in a row-pair next to the
-   Documentation link in the footer. Same 24×24 round geometry as
-   .sidebar-help-btn so the footer reads with the same rhythm as the
-   Search + ? row at the top, only with destructive hover so the
-   irreversible action signals on contact. */
-.sidebar-signout-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-.sidebar-signout-btn > svg {
-  width: 14px;
-  height: 14px;
-}
-.sidebar-signout-btn:hover,
-.sidebar-signout-btn:focus-visible {
-  color: var(--color-error, #c83838);
-  border-color: var(--color-error, #c83838);
-  background: var(--state-hover);
-  outline: none;
-}
 .sidebar-surface-nav .sidebar-section-label {
   padding: 8px 8px 4px;
   font-size: var(--font-size-micro);
@@ -915,127 +831,7 @@
   align-items: center;
 }
 
-/* ── Launch-agent CTA ──
-   Surfaces only in user scope (`/`, `/settings`, `/profile`) — the four
-   primitive rows can't navigate anywhere without an agent picked, so the
-   block is repurposed into one big affordance. The CTA height matches
-   the four-row stack exactly so the rail's silhouette stays put when
-   the user clicks into a root and the primitives swap back in.
-
-   Geometry budget (expanded):
-     4 rows × 32px (--sidebar-row-h) + 3 × 4px (gap) = 140px content
-   The CTA is `flex:1` inside the same 8px-padded surface-nav wrapper,
-   inheriting that 140px height for free. Collapsed state shrinks to a
-   square plus button — same 36×36 footprint as a collapsed primitive. */
-.sidebar-surface-nav.is-userscope {
-  /* Single-child block — the gap between primitive rows no longer
-     applies. Stretch the lone CTA to the full inner height. */
-  gap: 0;
-}
-.sidebar-launch-cta {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  /* Floor height matches the 4-primitive stack so the surface-nav block
-     never collapses smaller than the agent-scope version of itself. */
-  min-height: 140px;
-  padding: 18px 14px;
-  /* The accent border lives on the parent .sidebar-surface-nav (one
-     border around the whole block — Launch CTA in user scope, the four
-     primitives in agent scope). The CTA itself wears no border. */
-  background: transparent;
-  color: var(--text-muted);
-  border: 0;
-  border-radius: var(--radius-md);
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  cursor: pointer;
-  text-align: center;
-  transition:
-    background var(--transition-normal),
-    color var(--transition-normal),
-    transform var(--transition-normal);
-}
-.sidebar-launch-cta:hover {
-  background: var(--state-hover);
-  color: var(--color-accent);
-}
-.sidebar-launch-cta:active {
-  transform: scale(0.985);
-}
-.sidebar-launch-cta:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--bg-sidebar),
-    0 0 0 4px var(--color-accent);
-}
-.sidebar-launch-cta:hover .sidebar-launch-cta-plus {
-  transform: rotate(90deg);
-  background: var(--bg-subtle);
-}
-.sidebar-launch-cta-plus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  color: currentColor;
-  transition:
-    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background var(--transition-normal);
-}
-.sidebar-launch-cta-plus svg {
-  width: 26px;
-  height: 26px;
-  display: block;
-}
-.sidebar-launch-cta-label {
-  font-size: var(--font-size-sm);
-  text-transform: lowercase;
-  line-height: 1;
-}
-
-/* Collapsed rail — single 36×36 plus tile, no label. Mirrors how the
-   four primitives collapse so the swap is visually quiet. */
-.left-sidebar.collapsed .sidebar-surface-nav.is-userscope {
-  padding: 8px;
-  align-items: center;
-}
-.left-sidebar.collapsed .sidebar-launch-cta {
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0;
-  border-radius: var(--radius-md);
-  gap: 0;
-}
-.left-sidebar.collapsed .sidebar-launch-cta-plus {
-  width: 24px;
-  height: 24px;
-  background: transparent;
-}
-.left-sidebar.collapsed .sidebar-launch-cta-plus svg {
-  width: 18px;
-  height: 18px;
-}
-.left-sidebar.collapsed .sidebar-launch-cta-label {
-  display: none;
-}
-
-/* ── Sidebar user zone — the Inbox row above the search bar.
-   Inbox is user-scoped (cross-agent), same scope as search below,
-   so the two user-scoped controls cluster at the top of the rail
-   before the agent-scoped surface nav starts. Bottom inset mirrors
-   .sidebar-search-row's own 8px bottom, so the gap above the search
-   pill matches the gap below it. */
+/* ── Sidebar user zone ── */
 .sidebar-user-zone {
   display: flex;
   flex-direction: column;
@@ -6221,4 +6017,359 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   color: var(--success);
   margin-bottom: 10px;
   line-height: 1.4;
+}
+
+/* ── Sidebar section break — whitespace + one-step background tint.
+   No border, no hairline — the tint shift alone carries the visual
+   separation. The break occupies a fixed height so the zone above
+   and below each breathe symmetrically. */
+.sidebar-section-break {
+  flex-shrink: 0;
+  height: 8px;
+  background: var(--bg-subtle);
+  margin: 4px 0;
+}
+.left-sidebar.collapsed .sidebar-section-break {
+  margin: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Company switcher ─────────────────────────────────────────────────
+   Full-width trigger in the sidebar header. Shows the entity name,
+   avatar, and a down-chevron. Row height matches --sidebar-row-h so
+   the slot reads as a first-class nav row, not a floating header. */
+.company-switcher-slot {
+  flex: 1;
+  min-width: 0;
+}
+.company-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-title);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.company-switcher-trigger:hover {
+  background: var(--state-hover);
+}
+.company-switcher-trigger:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+.company-switcher-avatar {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.company-switcher-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.company-switcher-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+.company-switcher-menu {
+  min-width: 200px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.company-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.company-switcher-item:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.company-switcher-item.active {
+  color: var(--color-text-title);
+  font-weight: 600;
+  background: var(--state-selected);
+}
+.company-switcher-item-avatar {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.company-switcher-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.company-switcher-item-check {
+  flex-shrink: 0;
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
+}
+.company-switcher-footer {
+  margin-top: 4px;
+  padding-top: 4px;
+  background: var(--bg-subtle);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.company-switcher-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.company-switcher-footer-btn:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.company-switcher-footer-btn:hover .company-switcher-footer-icon {
+  color: var(--color-accent);
+}
+.company-switcher-footer-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  transition: color 0.1s ease;
+}
+
+/* ── Account dropdown ─────────────────────────────────────────────────
+   Full-width trigger pinned at the bottom of the sidebar. Shows the
+   user avatar, name/email stack, and a chevron — same row height as
+   other nav items. */
+.account-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.account-dropdown-trigger:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.account-dropdown-trigger:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+.account-dropdown-avatar {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.account-dropdown-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+}
+.account-dropdown-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-dropdown-email {
+  font-size: var(--font-size-micro);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-dropdown-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+.left-sidebar.collapsed .account-dropdown-identity,
+.left-sidebar.collapsed .account-dropdown-chevron {
+  display: none;
+}
+.left-sidebar.collapsed .account-dropdown-trigger {
+  justify-content: center;
+  padding: 8px;
+}
+.account-dropdown-menu {
+  min-width: 200px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+.account-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.account-dropdown-item:hover:not(:disabled) {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.account-dropdown-item--disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.55;
+}
+.account-dropdown-item--destructive {
+  color: var(--color-error);
+}
+.account-dropdown-item--destructive:hover {
+  background: var(--state-hover);
+  color: var(--color-error);
+}
+.account-dropdown-item--label {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  cursor: default;
+}
+.account-dropdown-item-icon {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+.account-dropdown-item:hover:not(:disabled) .account-dropdown-item-icon {
+  color: var(--color-accent);
+}
+.account-dropdown-item--destructive .account-dropdown-item-icon,
+.account-dropdown-item--destructive:hover .account-dropdown-item-icon {
+  color: var(--color-error);
+}
+.account-dropdown-item-soon {
+  margin-left: auto;
+  font-size: var(--font-size-micro);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.account-dropdown-divider {
+  height: 1px;
+  background: var(--bg-subtle);
+  margin: 4px 0;
+}
+
+/* ── New menu trigger ─────────────────────────────────────────────────
+   "+ New" button styled as a sidebar-nav-item so it sits flush with
+   the workspace primitive rows. The plus icon occupies the 16px icon
+   slot; the label says "New" in the same weight/size as other items. */
+.new-menu-trigger {
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.new-menu-trigger:hover {
+  color: var(--color-text-title);
+  background: var(--state-hover);
+}
+.new-menu-plus {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+.new-menu-trigger:hover .new-menu-plus {
+  color: var(--color-accent);
+}
+
+/* ── Sidebar collapse expand button (collapsed state) ─────────────── */
+.sidebar-collapse-expand {
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  justify-content: center;
+  padding: 8px;
+}
+.sidebar-collapse-expand:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
 }

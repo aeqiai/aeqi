@@ -36,7 +36,7 @@ export default function StartPage() {
 
   const token = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
-  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
 
   const slug = searchParams.get("blueprint") || "";
@@ -149,7 +149,7 @@ export default function StartPage() {
           });
           const rootSlug = (resp as { root?: string })?.root;
           if (!rootSlug) throw new Error("Launch returned no root slug.");
-          setActiveRoot(rootSlug);
+          setActiveEntity(rootSlug);
           await fetchAgents();
           navigate(`/${encodeURIComponent(rootSlug)}/sessions`);
         } catch (e: unknown) {
@@ -179,7 +179,7 @@ export default function StartPage() {
         setSubmitting(null);
       }
     },
-    [template, isAuthed, slug, navigate, trialUsed, setActiveRoot, fetchAgents],
+    [template, isAuthed, slug, navigate, trialUsed, setActiveEntity, fetchAgents],
   );
 
   if (loading && !template) {

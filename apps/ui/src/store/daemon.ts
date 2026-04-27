@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
-import type { Agent, ActivityEntry } from "@/lib/types";
+import type { Agent, ActivityEntry, Entity } from "@/lib/types";
 
 interface WorkerEvent {
   id?: string | number;
@@ -13,6 +13,7 @@ interface DaemonState {
   status: Record<string, unknown> | null;
   dashboard: Record<string, unknown> | null;
   cost: Record<string, unknown> | null;
+  entities: Entity[];
   agents: Agent[];
   quests: Array<Record<string, unknown>>;
   events: ActivityEntry[];
@@ -24,6 +25,7 @@ interface DaemonState {
   fetchStatus: () => Promise<void>;
   fetchDashboard: () => Promise<void>;
   fetchCost: () => Promise<void>;
+  fetchEntities: () => Promise<void>;
   fetchAgents: () => Promise<void>;
   fetchQuests: () => Promise<void>;
   fetchEvents: () => Promise<void>;
@@ -36,6 +38,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   status: null,
   dashboard: null,
   cost: null,
+  entities: [],
   agents: [],
   quests: [],
   events: [],
@@ -71,19 +74,43 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     }
   },
 
-  fetchAgents: async () => {
-    // `/api/roots` is user-scoped (no X-Root required) and always lists
-    // every company the user owns. `/api/agents` is scoped to the active
-    // X-Root and returns the full subtree. We always fetch roots so the
-    // sidebar tree has something to render on `/` (where no X-Root is
-    // set). When a root is in scope, the subtree response is merged on
-    // top, keyed by id.
-    const rootsPromise = api.getRoots().catch(() => null);
-    const agentsPromise = api.getAgents().catch(() => null);
-    const [rootsData, agentsData] = await Promise.all([rootsPromise, agentsPromise]);
+  fetchEntities: async () => {
+    try {
+      const data = await api.getEntities();
+      const raw: Array<Record<string, unknown>> = Array.isArray(data?.roots)
+        ? (data.roots as Array<Record<string, unknown>>)
+        : [];
+      const nextEntities: Entity[] = raw.map((r) => ({
+        id: (r.id as string) ?? (r.name as string),
+        name: r.name as string,
+        type: "company" as const,
+        root_agent_id: (r.id as string) ?? (r.name as string),
+        status: (r.running as boolean) ? "active" : ("paused" as const),
+        avatar: r.avatar as string | undefined,
+        color: r.color as string | undefined,
+        budget_usd: r.budget_usd as number | undefined,
+        created_at: (r.created_at as string) ?? new Date(0).toISOString(),
+        last_active: r.last_active as string | undefined,
+      }));
+      if (nextEntities.length === 0 && raw.length === 0) return;
+      set({ entities: nextEntities });
+    } catch {
+      // Keep existing entities on transient failure.
+    }
+  },
 
-    const rootAgents: Agent[] = Array.isArray(rootsData?.roots)
-      ? (rootsData.roots as Array<Record<string, unknown>>).map((r) => ({
+  fetchAgents: async () => {
+    // `/api/entities` is user-scoped (no X-Entity required) and always
+    // lists every company the user owns. `/api/agents` is scoped to the
+    // active X-Entity and returns the full subtree. We fetch both so the
+    // sidebar has roots to show on `/` (where no X-Entity is set) and the
+    // agent subtree is available for per-company pages.
+    const entitiesPromise = api.getEntities().catch(() => null);
+    const agentsPromise = api.getAgents().catch(() => null);
+    const [entitiesData, agentsData] = await Promise.all([entitiesPromise, agentsPromise]);
+
+    const rootAgents: Agent[] = Array.isArray(entitiesData?.roots)
+      ? (entitiesData.roots as Array<Record<string, unknown>>).map((r) => ({
           id: (r.id as string) ?? (r.name as string),
           name: r.name as string,
           status: (r.running as boolean) ? "running" : "stopped",
@@ -126,6 +153,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     await Promise.all([
       s.fetchStatus(),
       s.fetchAgents(),
+      s.fetchEntities(),
       s.fetchQuests(),
       s.fetchEvents(),
       s.fetchCost(),
@@ -141,3 +169,13 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   setWsConnected: (connected: boolean) => set({ wsConnected: connected }),
 }));
+
+/** Selector: list of entities (companies) the user owns. */
+export function useEntities() {
+  return useDaemonStore((s) => s.entities);
+}
+
+/** Selector: the entity whose id matches activeEntity, or null. */
+export function useActiveEntity(activeEntityId: string) {
+  return useDaemonStore((s) => s.entities.find((e) => e.id === activeEntityId) ?? null);
+}

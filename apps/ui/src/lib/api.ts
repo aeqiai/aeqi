@@ -1,5 +1,5 @@
 import { clearSessionData } from "@/lib/session";
-import { getScopedRoot, type AppMode } from "@/lib/appMode";
+import { getScopedEntity, type AppMode } from "@/lib/appMode";
 import { setRateLimitedUntil } from "@/lib/rateLimit";
 import type {
   AgentEvent,
@@ -77,9 +77,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const root = getScopedRoot();
-  if (root && !path.startsWith("/auth/")) {
-    headers["X-Root"] = root;
+  const entity = getScopedEntity();
+  if (entity && !path.startsWith("/auth/")) {
+    headers["X-Entity"] = entity;
   }
 
   const res = await fetch(url, { ...options, headers });
@@ -108,9 +108,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (res.status === 403 && !path.startsWith("/auth/")) {
-    localStorage.removeItem("aeqi_root");
-    localStorage.removeItem("aeqi_root_tagline");
-    localStorage.removeItem("aeqi_root_avatar");
+    localStorage.removeItem("aeqi_entity");
   }
 
   if (!res.ok) {
@@ -289,11 +287,11 @@ export const api = {
     return request<Record<string, unknown>>(`/activity/events${qs ? `?${qs}` : ""}`);
   },
 
-  getRoots: () => request<Record<string, unknown>>("/roots"),
-  createRoot: (data: { name: string; tagline?: string; prefix?: string }) =>
-    request<Record<string, unknown>>("/roots", { method: "POST", body: JSON.stringify(data) }),
-  updateRoot: (name: string, data: { name?: string; tagline?: string; logo_url?: string }) =>
-    request<{ ok: boolean }>(`/roots/${encodeURIComponent(name)}`, {
+  getEntities: () => request<Record<string, unknown>>("/entities"),
+  createEntity: (data: { name: string; tagline?: string; prefix?: string }) =>
+    request<Record<string, unknown>>("/entities", { method: "POST", body: JSON.stringify(data) }),
+  updateEntity: (name: string, data: { name?: string; tagline?: string; logo_url?: string }) =>
+    request<{ ok: boolean }>(`/entities/${encodeURIComponent(name)}`, {
       method: "PUT",
       body: JSON.stringify({
         ...data,

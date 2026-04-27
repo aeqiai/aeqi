@@ -16,6 +16,8 @@ import { useShellSurface } from "@/hooks/useShellSurface";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
+import ProjectsPage from "@/pages/ProjectsPage";
+import CompanyPage from "@/pages/CompanyPage";
 import type { Agent } from "@/lib/types";
 
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
@@ -27,7 +29,7 @@ const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
-function findRoot(agents: Agent[], id: string): Agent | null {
+function findEntity(agents: Agent[], id: string): Agent | null {
   const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
   let current = byId.get(id);
   for (let i = 0; i < 20 && current; i++) {
@@ -54,8 +56,8 @@ export default function AppLayout() {
   const path = location.pathname;
 
   const agents = useDaemonStore((s) => s.agents);
-  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
-  const activeRoot = useUIStore((s) => s.activeRoot);
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
+  const activeEntity = useUIStore((s) => s.activeEntity);
 
   // Declared above any conditional return so the inbox-agent hook below
   // can read surface.userSessionId without violating React's rules-of-hooks.
@@ -68,7 +70,7 @@ export default function AppLayout() {
 
   const { currentAgent, rootAgent } = useMemo(() => {
     const current = agents.find((a) => a.id === agentId || a.name === agentId) || null;
-    const root = current ? findRoot(agents, current.id) : null;
+    const root = current ? findEntity(agents, current.id) : null;
     return {
       currentAgent: current,
       rootAgent: root,
@@ -76,19 +78,19 @@ export default function AppLayout() {
   }, [agents, agentId]);
 
   // We never fall back to the raw URL agentId here — a non-agent segment
-  // (e.g. "profile") would otherwise get cached as the active root.
+  // (e.g. "profile") would otherwise get cached as the active entity.
   const firstRoot = useMemo(() => agents.find((a) => !a.parent_id)?.id || null, [agents]);
-  const activeRootValid = useMemo(
-    () => (activeRoot && agents.some((a) => a.id === activeRoot) ? activeRoot : null),
-    [agents, activeRoot],
+  const activeEntityValid = useMemo(
+    () => (activeEntity && agents.some((a) => a.id === activeEntity) ? activeEntity : null),
+    [agents, activeEntity],
   );
-  const rootId = rootAgent?.id || activeRootValid || firstRoot || "";
+  const entityId = rootAgent?.id || activeEntityValid || firstRoot || "";
 
-  // Only commit a verified-real root — otherwise the pre-load render
+  // Only commit a verified-real entity — otherwise the pre-load render
   // can persist a bogus value into localStorage.
   useEffect(() => {
-    if (rootId && agents.some((a) => a.id === rootId)) setActiveRoot(rootId);
-  }, [rootId, agents, setActiveRoot]);
+    if (entityId && agents.some((a) => a.id === entityId)) setActiveEntity(entityId);
+  }, [entityId, agents, setActiveEntity]);
 
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -99,10 +101,12 @@ export default function AppLayout() {
       tools: "Tools",
       profile: "Profile",
       billing: "Billing",
-      agents: "agents",
-      events: "events",
-      quests: "quests",
-      ideas: "ideas",
+      agents: "Agents",
+      events: "Events",
+      quests: "Quests",
+      ideas: "Ideas",
+      projects: "Projects",
+      company: "Company",
     };
     const section = tab || "sessions";
     const sectionTitle = titles[section] || section;
@@ -120,7 +124,7 @@ export default function AppLayout() {
       fetchAll();
     }, 30000);
     return () => clearInterval(i);
-  }, [fetchAll, rootId]);
+  }, [fetchAll, entityId]);
   useDaemonSocket();
 
   const openSearch = useCallback(() => setSearching(true), []);
@@ -139,11 +143,11 @@ export default function AppLayout() {
 
   if (!initialLoaded) return <BootLoader />;
 
-  // Stale `aeqi_root` after a data reset would point at a non-existent
+  // Stale entity ref after a data reset would point at a non-existent
   // agent. Bounce home — NOT to /new directly, which can self-loop when
   // a placement exists without a matching runtime agent.
   if (agentId && !currentAgent) {
-    localStorage.removeItem("aeqi_root");
+    localStorage.removeItem("aeqi_entity");
     return <Navigate to="/" replace />;
   }
 
@@ -183,6 +187,8 @@ export default function AppLayout() {
     if (isSettings) return <ProfilePage />;
     if (isBlueprints) return blueprintSlug ? <BlueprintDetailPage /> : <BlueprintsPage />;
     if (isEconomy) return <EconomyPage />;
+    if (tab === "projects") return <ProjectsPage />;
+    if (tab === "company") return <CompanyPage />;
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 

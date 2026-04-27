@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import AgentTree from "@/components/Sidebar";
-import UserAvatar from "@/components/UserAvatar";
-import { useAuthStore } from "@/store/auth";
+import CompanySwitcher from "@/components/shell/CompanySwitcher";
+import AccountDropdown from "@/components/shell/AccountDropdown";
+import NewMenu from "@/components/shell/NewMenu";
 import { useUIStore } from "@/store/ui";
 
 interface LeftSidebarProps {
@@ -25,38 +25,19 @@ const InboxIcon = () => (
   </svg>
 );
 
-const BlueprintsIcon = () => (
-  <svg {...iconProps}>
-    <path d="M5 2.5h7v7" />
-    <path d="M3.5 4.5h7v7" />
-    <rect x="2" y="6.5" width="9" height="7" rx="0.5" />
-  </svg>
-);
-
-const EconomyIcon = () => (
-  <svg {...iconProps}>
-    <circle cx="8" cy="8" r="5.5" />
-    <path d="M8 8 L8 2.5 A5.5 5.5 0 0 1 13.5 8 Z" fill="currentColor" stroke="none" />
-  </svg>
-);
-
-const AgentsIcon = () => (
-  <svg {...iconProps}>
-    <circle cx="8" cy="5.5" r="2.5" />
-    <path d="M3 13.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5" />
-  </svg>
-);
-
-const EventsIcon = () => (
-  <svg {...iconProps}>
-    <path d="M9 2 4 9h4l-1 5 5-7H8z" />
-  </svg>
-);
-
 const QuestsIcon = () => (
   <svg {...iconProps}>
     <path d="M4 2v12" />
     <path d="M4 3h7l-2 2.5L11 8H4z" />
+  </svg>
+);
+
+const ProjectsIcon = () => (
+  <svg {...iconProps}>
+    <rect x="2" y="2" width="5.5" height="5.5" rx="0.5" />
+    <rect x="8.5" y="2" width="5.5" height="5.5" rx="0.5" />
+    <rect x="2" y="8.5" width="5.5" height="5.5" rx="0.5" />
+    <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="0.5" />
   </svg>
 );
 
@@ -67,19 +48,25 @@ const IdeasIcon = () => (
   </svg>
 );
 
-const SettingsIcon = () => (
+const AgentsIcon = () => (
   <svg {...iconProps}>
-    <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
-    <circle cx="6" cy="4" r="1.5" fill="currentColor" stroke="none" />
-    <circle cx="10" cy="8" r="1.5" fill="currentColor" stroke="none" />
-    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="5.5" r="2.5" />
+    <path d="M3 13.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5" />
   </svg>
 );
 
-const SignOutIcon = () => (
+const CompanyIcon = () => (
   <svg {...iconProps}>
-    <path d="M9 3H3v10h6" />
-    <path d="M7 8h7M11 5l3 3-3 3" />
+    <rect x="3" y="7" width="10" height="7" rx="0.5" />
+    <path d="M1 7h14" />
+    <path d="M6 7V4l2-2 2 2v3" />
+  </svg>
+);
+
+const EconomyIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="8" cy="8" r="5.5" />
+    <path d="M8 8 L8 2.5 A5.5 5.5 0 0 1 13.5 8 Z" fill="currentColor" stroke="none" />
   </svg>
 );
 
@@ -90,18 +77,8 @@ const DocsIcon = () => (
   </svg>
 );
 
-const PRIMITIVES: { id: string; label: string; icon: React.ReactNode; title: string }[] = [
-  { id: "agents", label: "Agents", icon: <AgentsIcon />, title: "Agents · G then A" },
-  { id: "events", label: "Events", icon: <EventsIcon />, title: "Events · G then E" },
-  { id: "quests", label: "Quests", icon: <QuestsIcon />, title: "Quests · G then Q" },
-  { id: "ideas", label: "Ideas", icon: <IdeasIcon />, title: "Ideas · G then I" },
-];
-
 export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const authMode = useAuthStore((s) => s.authMode);
-  const logout = useAuthStore((s) => s.logout);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
@@ -109,125 +86,51 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  // AppLayout owns the overlay state — bridge via window events.
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
   const openShortcuts = () => window.dispatchEvent(new CustomEvent("aeqi:open-shortcuts"));
 
-  const userName =
-    user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
-  const userEmail = user?.name && user?.email ? user.email : null;
-  // Swap the four primitives for a Launch CTA at user scope so the rail's
-  // silhouette stays identical across scopes (no layout twitch when a root
-  // is picked).
-  const userScope = !agentId;
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "";
-  const profileHref = "/";
-  const profileActive = path === "/" || path === "/settings" || path === "/profile";
-  const inboxHref = base || "/";
-  const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
 
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-
-  const renderPrimitive = (item: {
-    id: string;
-    label: string;
-    icon: React.ReactNode;
-    title: string;
-  }) => (
-    <a
-      key={item.id}
-      className={`sidebar-nav-item ${isActive(item.id) ? "active" : ""}`}
-      href={navHref(item.id)}
-      title={item.title}
-      onClick={(e) => {
-        e.preventDefault();
-        navigate(navHref(item.id));
-      }}
-    >
-      {item.icon}
-      <span className="sidebar-nav-label">{item.label}</span>
-    </a>
-  );
-
-  const renderLaunchCTA = () => (
-    <button
-      type="button"
-      className="sidebar-launch-cta"
-      onClick={() => navigate("/start")}
-      title="Launch a new Company"
-      aria-label="Start a Company"
-    >
-      <span className="sidebar-launch-cta-plus" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 4v16M4 12h16"
-            stroke="currentColor"
-            strokeWidth="2.25"
-            strokeLinecap="round"
-          />
-        </svg>
-      </span>
-      <span className="sidebar-launch-cta-label">Start a company</span>
-    </button>
-  );
+  const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
+  const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   return (
     <div
       className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}
       style={sidebarCollapsed ? undefined : { width: `${sidebarWidth}px` }}
     >
+      {/* ── Company switcher + collapse toggle ── */}
       <div className="sidebar-header">
-        <a
-          className={`sidebar-nav-item sidebar-header-profile ${profileActive ? "active" : ""}`}
-          href={profileHref}
-          onClick={(e) => {
-            e.preventDefault();
-            if (sidebarCollapsed) toggleSidebar();
-            else navigate(profileHref);
-          }}
-          title={sidebarCollapsed ? `Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)` : "Home"}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : `${userName} — home`}
-        >
-          <span className="sidebar-nav-avatar">
-            <span className="sidebar-nav-avatar-glyph" aria-hidden="true">
-              <UserAvatar
-                name={userName}
-                size={sidebarCollapsed ? 20 : 16}
-                src={user?.avatar_url}
-              />
-            </span>
-            {sidebarCollapsed && (
-              <span className="sidebar-nav-avatar-expand" aria-hidden="true">
-                <svg {...iconProps}>
-                  <rect x="2" y="3" width="12" height="10" rx="1.5" />
-                  <path d="M6.5 3v10" />
-                </svg>
-              </span>
-            )}
-          </span>
-          {!sidebarCollapsed &&
-            (userEmail ? (
-              <span className="sidebar-nav-identity">
-                <span className="sidebar-nav-identity-name">{userName}</span>
-                <span className="sidebar-nav-identity-email" title={userEmail}>
-                  {userEmail}
-                </span>
-              </span>
-            ) : (
-              <span className="sidebar-nav-label">{userName}</span>
-            ))}
-        </a>
-        {!sidebarCollapsed && (
+        {!sidebarCollapsed ? (
+          <>
+            <div className="company-switcher-slot">
+              <CompanySwitcher />
+            </div>
+            <button
+              type="button"
+              className="sidebar-collapse-btn"
+              onClick={toggleSidebar}
+              aria-label="Collapse sidebar"
+              title={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
+            >
+              <svg {...iconProps}>
+                <rect x="2" y="3" width="12" height="10" rx="1.5" />
+                <path d="M6.5 3v10" />
+              </svg>
+            </button>
+          </>
+        ) : (
           <button
             type="button"
-            className="sidebar-collapse-btn"
+            className="sidebar-nav-item sidebar-collapse-expand"
             onClick={toggleSidebar}
-            aria-label="Collapse sidebar"
-            title={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
+            aria-label="Expand sidebar"
+            title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
           >
             <svg {...iconProps}>
               <rect x="2" y="3" width="12" height="10" rx="1.5" />
@@ -237,156 +140,152 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         )}
       </div>
 
-      {/* Global rail items above search — always show the same content
-          regardless of which agent is in scope. Blueprints and Economy
-          are operator-level surfaces, not per-agent ones. */}
-      <div className="sidebar-user-zone">
-        <a
-          className={`sidebar-nav-item ${path === "/blueprints" || path.startsWith("/blueprints/") ? "active" : ""}`}
-          href="/blueprints"
-          title="Blueprints"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/blueprints");
-          }}
-        >
-          <BlueprintsIcon />
-          <span className="sidebar-nav-label">Blueprints</span>
-        </a>
-        <a
-          className={`sidebar-nav-item ${path === "/economy" || path.startsWith("/economy/") ? "active" : ""}`}
-          href="/economy"
-          title="Economy"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/economy");
-          }}
-        >
-          <EconomyIcon />
-          <span className="sidebar-nav-label">Economy</span>
-        </a>
-      </div>
-
       <div className="left-sidebar-body">
-        {/* Inbox + Settings are the two primary labeled rails. The
-            jump-anywhere search and the keyboard-shortcuts help live
-            in a compact icon-only row beneath them — right-aligned,
-            so the labeled rails dominate the zone and the
-            discoverability affordances tuck out of the eye's path. */}
+        {/* ── New menu ── */}
         <div className="sidebar-user-zone">
+          <NewMenu />
+        </div>
+
+        {/* ── Workspace primitives ── */}
+        <nav className="sidebar-surface-nav" aria-label="Workspace">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href={inboxHref}
-            title={agentId ? "Agent inbox" : "Your inbox"}
+            href={base || "/"}
+            title={agentId ? "Company inbox" : "Your inbox"}
             onClick={(e) => {
               e.preventDefault();
-              navigate(inboxHref);
+              navigate(base || "/");
             }}
           >
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
-          {(() => {
-            const settingsHref = base ? `${base}/settings` : "/settings";
-            const settingsActive = base
-              ? path === `${base}/settings` || path.startsWith(`${base}/settings/`)
-              : path === "/settings" || path === "/profile";
-            return (
-              // Settings row hosts the discoverability icons on its right
-              // edge — same idiom the Documentation row uses to host the
-              // sign-out button at the bottom of the rail. Two ghost
-              // icons, no separate row, single labeled rail per zone.
-              <div className="sidebar-row-pair">
-                <a
-                  className={`sidebar-nav-item ${settingsActive ? "active" : ""}`}
-                  href={settingsHref}
-                  title={agentId ? "Agent settings" : "Your account settings"}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(settingsHref);
-                  }}
-                >
-                  <SettingsIcon />
-                  <span className="sidebar-nav-label">Settings</span>
-                </a>
-                <button
-                  type="button"
-                  className="sidebar-icon-btn"
-                  onClick={openShortcuts}
-                  aria-label="Keyboard shortcuts"
-                  title="Keyboard shortcuts (?)"
-                >
-                  ?
-                </button>
-                <button
-                  type="button"
-                  className="sidebar-icon-btn"
-                  onClick={openPalette}
-                  aria-label="Open command palette"
-                  title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
-                >
-                  <svg {...iconProps}>
-                    <circle cx="7" cy="7" r="4.5" />
-                    <path d="M10 10l3.5 3.5" />
-                  </svg>
-                </button>
-              </div>
-            );
-          })()}
-        </div>
-        <nav
-          className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}
-          aria-label={userScope ? "Start a company" : "Agent surfaces"}
-        >
-          {userScope ? renderLaunchCTA() : PRIMITIVES.map(renderPrimitive)}
+          <a
+            className={`sidebar-nav-item ${isActive("quests") ? "active" : ""}`}
+            href={navHref("quests")}
+            title="Quests"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("quests"));
+            }}
+          >
+            <QuestsIcon />
+            <span className="sidebar-nav-label">Quests</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${isActive("projects") ? "active" : ""}`}
+            href={navHref("projects")}
+            title="Projects"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("projects"));
+            }}
+          >
+            <ProjectsIcon />
+            <span className="sidebar-nav-label">Projects</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${isActive("ideas") ? "active" : ""}`}
+            href={navHref("ideas")}
+            title="Ideas"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("ideas"));
+            }}
+          >
+            <IdeasIcon />
+            <span className="sidebar-nav-label">Ideas</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${isActive("agents") ? "active" : ""}`}
+            href={navHref("agents")}
+            title="Agents"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("agents"));
+            }}
+          >
+            <AgentsIcon />
+            <span className="sidebar-nav-label">Agents</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${isActive("company") ? "active" : ""}`}
+            href={navHref("company")}
+            title="Company"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(navHref("company"));
+            }}
+          >
+            <CompanyIcon />
+            <span className="sidebar-nav-label">Company</span>
+          </a>
         </nav>
 
-        <div className="sidebar-tree-slot">
-          <AgentTree />
-        </div>
+        {/* ── Section break: whitespace + tint shift, no hairline ── */}
+        <div className="sidebar-section-break" role="separator" aria-hidden="true" />
 
+        {/* ── Economy ── */}
+        <nav className="sidebar-surface-nav" aria-label="Platform">
+          <a
+            className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
+            href="/economy"
+            title="Economy"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/economy");
+            }}
+          >
+            <EconomyIcon />
+            <span className="sidebar-nav-label">Economy</span>
+          </a>
+        </nav>
+
+        {/* ── Section break ── */}
+        <div className="sidebar-section-break" role="separator" aria-hidden="true" />
+
+        {/* ── Bottom utility row ── */}
         <div className="sidebar-bottom">
-          {/* Documentation takes the prominent slot; sign-out becomes a
-              small icon-only button on the right (same idiom as Search +
-              `?`). When unauthenticated we drop sign-out entirely and the
-              docs row spans the full width. */}
-          {authMode !== "none" ? (
+          <div className="sidebar-user-zone">
             <div className="sidebar-row-pair">
+              <button
+                type="button"
+                className="sidebar-icon-btn"
+                onClick={openShortcuts}
+                aria-label="Keyboard shortcuts"
+                title="Keyboard shortcuts (?)"
+              >
+                ?
+              </button>
+              <button
+                type="button"
+                className="sidebar-icon-btn"
+                onClick={openPalette}
+                aria-label="Open command palette"
+                title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
+              >
+                <svg {...iconProps}>
+                  <circle cx="7" cy="7" r="4.5" />
+                  <path d="M10 10l3.5 3.5" />
+                </svg>
+              </button>
               <a
-                className="sidebar-nav-item"
+                className="sidebar-icon-btn"
                 href="https://aeqi.ai/docs"
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Open documentation in a new tab"
+                title="Open documentation"
+                aria-label="Documentation"
               >
                 <DocsIcon />
-                <span className="sidebar-nav-label">Documentation</span>
               </a>
-              <button
-                type="button"
-                className="sidebar-signout-btn"
-                onClick={() => {
-                  logout();
-                  navigate("/login");
-                }}
-                title="Sign out of your account"
-                aria-label="Sign out"
-              >
-                <SignOutIcon />
-              </button>
             </div>
-          ) : (
-            <a
-              className="sidebar-nav-item"
-              href="https://aeqi.ai/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open documentation in a new tab"
-            >
-              <DocsIcon />
-              <span className="sidebar-nav-label">Documentation</span>
-            </a>
-          )}
+          </div>
+
+          {/* ── Account dropdown ── */}
+          <div className="sidebar-user-zone">
+            <AccountDropdown />
+          </div>
         </div>
       </div>
 
@@ -398,16 +297,9 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           aria-label="Resize sidebar"
           onMouseDown={(e) => {
             e.preventDefault();
-            // Body-level cursor + select suppression so the drag survives
-            // the cursor leaving the 6px resizer hit-band.
             document.body.style.cursor = "col-resize";
             document.body.style.userSelect = "none";
 
-            // Delta-based drag: width changes by the cursor's *movement*
-            // since mousedown, not by the cursor's absolute position. This
-            // way the click point doesn't snap the width — it stays put
-            // until the user actually drags. Anchor on (startX, startWidth)
-            // captured here, then add (clientX − startX) on every move.
             const startX = e.clientX;
             const startWidth = sidebarWidth;
 

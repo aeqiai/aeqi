@@ -7,15 +7,22 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/roots", get(list_roots).post(create_root))
-        .route("/roots/{name}", axum::routing::put(update_root_handler))
+        .route("/entities", get(list_entities).post(create_entity))
+        .route(
+            "/entities/{name}",
+            axum::routing::put(update_entity_handler),
+        )
+        // Legacy alias — kept for one transition window so running clients
+        // that still send /roots don't 404. Forwards to the same IPC commands.
+        .route("/roots", get(list_entities).post(create_entity))
+        .route("/roots/{name}", axum::routing::put(update_entity_handler))
 }
 
-async fn list_roots(State(state): State<AppState>, scope: Scope) -> Response {
+async fn list_entities(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(state, scope.as_ref(), "roots", serde_json::Value::Null).await
 }
 
-async fn create_root(
+async fn create_entity(
     State(state): State<AppState>,
     scope: Scope,
     req: axum::extract::Request,
@@ -40,7 +47,7 @@ async fn create_root(
     resp
 }
 
-async fn update_root_handler(
+async fn update_entity_handler(
     State(state): State<AppState>,
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,

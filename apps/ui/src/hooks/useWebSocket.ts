@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { getScopedRoot } from "@/lib/appMode";
+import { getScopedEntity } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 
@@ -72,7 +72,7 @@ export function useWebSocket() {
   const [events, setEvents] = useState<WorkerEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const appMode = useAuthStore((s) => s.appMode);
-  const activeRoot = useUIStore((s) => s.activeRoot);
+  const activeEntity = useUIStore((s) => s.activeEntity);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,9 +81,9 @@ export function useWebSocket() {
     if (!token) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const root = getScopedRoot();
+    const entity = getScopedEntity();
     const ws = new WebSocket(
-      `${protocol}//${window.location.host}/api/ws?token=${token}&root=${encodeURIComponent(root)}`,
+      `${protocol}//${window.location.host}/api/ws?token=${token}&root=${encodeURIComponent(entity)}`,
     );
     wsRef.current = ws;
 
@@ -117,7 +117,7 @@ export function useWebSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [connect, appMode, activeRoot]);
+  }, [connect, appMode, activeEntity]);
 
   const clearEvents = useCallback(() => setEvents([]), []);
 

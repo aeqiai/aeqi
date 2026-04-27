@@ -12,14 +12,6 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const BlueprintsIcon = () => (
-  <svg {...iconProps}>
-    <path d="M5 2.5h7v7" />
-    <path d="M3.5 4.5h7v7" />
-    <rect x="2" y="6.5" width="9" height="7" rx="0.5" />
-  </svg>
-);
-
 const EconomyIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="8" r="5.5" />
@@ -28,8 +20,6 @@ const EconomyIcon = () => (
 );
 
 const PanelGlyph = () => (
-  // Same icon as the authed sidebar-collapse-btn: rectangle with a vertical
-  // line on the left, suggesting "panel here / side rail".
   <svg {...iconProps}>
     <rect x="2" y="3" width="12" height="10" rx="1.5" />
     <path d="M6.5 3v10" />
@@ -37,17 +27,10 @@ const PanelGlyph = () => (
 );
 
 /**
- * Public shell for unauthed visitors. Mirrors AppLayout's silhouette
- * (sidebar + content-card) but strips the rail down to: the wordmark,
- * the two surfaces an anonymous visitor can see (Blueprints, Economy),
- * and the big Launch CTA — same component the authed user-scope view
- * uses to launch a new company. Click routes to /signup. Sign-in is
- * available as a secondary link inside the signup page itself; the
- * rail stays focused on the one ignition action.
- *
- * Collapse toggle behaves the same as on the authed rail; collapsed
- * state shows the æ brandmark on rest and morphs to the panel-glyph
- * on hover.
+ * Public shell for unauthed visitors. Mirrors LeftSidebar's silhouette:
+ * wordmark in the company-switcher slot, Economy in the workspace nav,
+ * Log in / Sign up in the account slot. Same structure — no layout twitch
+ * on the auth boundary.
  */
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -59,11 +42,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
-  // Anonymous visitors clicking Launch should land back on the page
-  // they came from after auth — share-link survival.
   const here = location.pathname + location.search;
   const next = here === "/" ? "" : `?next=${encodeURIComponent(here)}`;
 
@@ -73,12 +53,9 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         className={`left-sidebar public-sidebar${sidebarCollapsed ? " collapsed" : ""}`}
         style={sidebarCollapsed ? undefined : { width: `${sidebarWidth}px` }}
       >
+        {/* ── Wordmark in company-switcher slot ── */}
         <div className="sidebar-header">
           {sidebarCollapsed ? (
-            // Collapsed: brandmark on rest (just "æ" — the brand glyph,
-            // not the full "æqi" wordmark; the narrow rail asks for the
-            // mark, not the spelling). Hover morphs to the panel-glyph
-            // so the cursor never has to chase a different target.
             <button
               type="button"
               className="sidebar-public-brand-toggle"
@@ -122,51 +99,61 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        <div className="sidebar-user-zone">
-          <Link
-            to="/blueprints"
-            className={`sidebar-nav-item ${isBlueprints ? "active" : ""}`}
-            title="Blueprints — explore the runtime catalog"
-          >
-            <BlueprintsIcon />
-            <span className="sidebar-nav-label">Blueprints</span>
-          </Link>
-          <Link
-            to="/economy"
-            className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
-            title="Economy — coming soon"
-          >
-            <EconomyIcon />
-            <span className="sidebar-nav-label">Economy</span>
-          </Link>
+        <div className="left-sidebar-body">
+          {/* ── Start a company CTA in new-menu slot ── */}
+          <div className="sidebar-user-zone">
+            <button
+              type="button"
+              className="sidebar-nav-item new-menu-trigger"
+              onClick={() => navigate(`/signup${next}`)}
+              title="Start your first autonomous company"
+              aria-label="Start a company"
+            >
+              <span className="new-menu-plus" aria-hidden="true">
+                <svg viewBox="0 0 16 16" fill="none" width={14} height={14}>
+                  <path
+                    d="M8 3v10M3 8h10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <span className="sidebar-nav-label">Start a company</span>
+            </button>
+          </div>
+
+          {/* ── Economy ── */}
+          <nav className="sidebar-surface-nav" aria-label="Platform">
+            <Link
+              to="/economy"
+              className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
+              title="Economy"
+            >
+              <EconomyIcon />
+              <span className="sidebar-nav-label">Economy</span>
+            </Link>
+          </nav>
+
+          {/* ── Section break ── */}
+          <div className="sidebar-section-break" role="separator" aria-hidden="true" />
+
+          {/* ── Log in / Sign up in account slot ── */}
+          <div className="sidebar-bottom">
+            <div className="sidebar-user-zone">
+              <Link
+                to={`/login${next}`}
+                className="sidebar-nav-item"
+                title="Log in to your account"
+              >
+                <span className="sidebar-nav-label">Log in</span>
+              </Link>
+              <Link to={`/signup${next}`} className="sidebar-nav-item" title="Create an account">
+                <span className="sidebar-nav-label">Sign up</span>
+              </Link>
+            </div>
+          </div>
         </div>
-
-        {/* Big launch CTA — same component the authed user-scope view
-            uses for "launch agent". Routes to /signup for unauthed
-            visitors so the one prominent action is always present. */}
-        <nav className="sidebar-surface-nav is-userscope" aria-label="Start a company">
-          <button
-            type="button"
-            className="sidebar-launch-cta"
-            onClick={() => navigate(`/signup${next}`)}
-            title="Start your first autonomous company"
-            aria-label="Start a company"
-          >
-            <span className="sidebar-launch-cta-plus" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 4v16M4 12h16"
-                  stroke="currentColor"
-                  strokeWidth="2.25"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-            <span className="sidebar-launch-cta-label">Start a company</span>
-          </button>
-        </nav>
-
-        <div className="left-sidebar-body" />
       </aside>
 
       <div className="content-column">

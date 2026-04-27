@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import { getScopedRoot } from "@/lib/appMode";
+import { getScopedEntity } from "@/lib/appMode";
 import { useChatStore } from "@/store/chat";
 import { type Message, type MessageSegment, type SessionInfo, formatDuration } from "./types";
 import {
@@ -343,9 +343,9 @@ function parseEvent(data: string): RawEvent | null {
 
 function openChatSocket(token: string): WebSocket {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const root = getScopedRoot();
+  const entity = getScopedEntity();
   return new WebSocket(
-    `${protocol}//${window.location.host}/api/chat/stream?token=${token}&root=${encodeURIComponent(root)}`,
+    `${protocol}//${window.location.host}/api/chat/stream?token=${token}&root=${encodeURIComponent(entity)}`,
   );
 }
 

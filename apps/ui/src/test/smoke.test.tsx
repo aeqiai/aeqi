@@ -52,6 +52,7 @@ describe("AgentQuestsTab smoke", () => {
       status: null,
       dashboard: null,
       cost: null,
+      entities: [],
       agents: [
         {
           id: "root-1",
@@ -190,6 +191,7 @@ describe("shell components smoke", () => {
 describe("AgentOrgChart smoke", () => {
   beforeEach(() => {
     useDaemonStore.setState({
+      entities: [],
       agents: [],
       quests: [],
       events: [],

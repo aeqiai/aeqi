@@ -29,7 +29,7 @@ export default function BillingPanel() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
-  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
 
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +72,7 @@ export default function BillingPanel() {
       .launchStart({ template: blueprint, name: slug })
       .then((resp) => {
         const root = (resp as { root?: string })?.root || slug;
-        setActiveRoot(root);
+        setActiveEntity(root);
         return fetchAgents().then(() => {
           // Clear params before navigating away so the user's history
           // doesn't carry the success token across page changes.
@@ -88,7 +88,7 @@ export default function BillingPanel() {
         // Strip params so a refresh doesn't try to spawn again.
         setSearchParams(new URLSearchParams(), { replace: true });
       });
-  }, [searchParams, setSearchParams, navigate, fetchAgents, setActiveRoot]);
+  }, [searchParams, setSearchParams, navigate, fetchAgents, setActiveEntity]);
 
   const totalLabel = useMemo(() => {
     if (!overview) return "";

@@ -34,8 +34,8 @@ function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
 }
 
 export default function AgentsPage() {
-  const activeRoot = useUIStore((s) => s.activeRoot);
-  const setActiveRoot = useUIStore((s) => s.setActiveRoot);
+  const activeEntity = useUIStore((s) => s.activeEntity);
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const agents = useDaemonStore((s) => s.agents);
   const navigate = useNavigate();
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -51,7 +51,7 @@ export default function AgentsPage() {
     setError(null);
 
     api
-      .getRoots()
+      .getEntities()
       .then((data) => {
         const raw = data?.roots || data?.projects || data?.agent_spawns || [];
         const items: RootApiItem[] = Array.isArray(raw) ? raw : [];
@@ -99,7 +99,7 @@ export default function AgentsPage() {
   }, [navigate]);
 
   const selectEntity = (entity: Entity) => {
-    setActiveRoot(entity.id);
+    setActiveEntity(entity.id);
     navigate(`/${encodeURIComponent(entity.id)}`);
   };
 
@@ -137,7 +137,7 @@ export default function AgentsPage() {
         <ul className="entities-list" role="list">
           {entities.map((entity) => {
             const label = entity.name;
-            const selected = entity.id === activeRoot;
+            const selected = entity.id === activeEntity;
             return (
               <li key={entity.id}>
                 <button

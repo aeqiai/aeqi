@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getScopedRoot } from "@/lib/appMode";
+import { getScopedEntity } from "@/lib/appMode";
 
 const SIDEBAR_WIDTH_DEFAULT = 224;
 const SIDEBAR_WIDTH_MIN = 180;
@@ -19,10 +19,10 @@ function readStoredSidebarWidth(): number {
 interface UIState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
-  activeRoot: string;
+  activeEntity: string;
   toggleSidebar: () => void;
   setSidebarWidth: (w: number) => void;
-  setActiveRoot: (id: string) => void;
+  setActiveEntity: (id: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -39,13 +39,13 @@ export const useUIStore = create<UIState>((set) => ({
     localStorage.setItem("aeqi_sidebar_width", String(next));
     set({ sidebarWidth: next });
   },
-  activeRoot: getScopedRoot(),
-  setActiveRoot: (id) => {
+  activeEntity: getScopedEntity(),
+  setActiveEntity: (id) => {
     if (id) {
-      localStorage.setItem("aeqi_root", id);
+      localStorage.setItem("aeqi_entity", id);
     } else {
-      localStorage.removeItem("aeqi_root");
+      localStorage.removeItem("aeqi_entity");
     }
-    set({ activeRoot: id });
+    set({ activeEntity: id });
   },
 }));

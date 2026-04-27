@@ -12,18 +12,21 @@ export function isPlatformAppMode(mode: AppMode | null | undefined): mode is "pl
 }
 
 /**
- * Resolve the routing key (`X-Root` header / WS `?root=`) for the current
+ * Resolve the routing key (`X-Entity` header / WS `?root=`) for the current
  * URL. Every agent is addressable at `/:agentId/...`, but the platform
  * proxies to a runtime by the tree's root — hosting topology lives at the
  * root, not at every node. So the URL segment identifies the *target*
  * agent (passed separately as `agent_id` in payloads) and this function
  * produces the *routing key* by walking that segment up the parent chain.
  *
- * Falls back to the cached `aeqi_root` (kept in sync by AppLayout) when
+ * Falls back to the cached `aeqi_entity` (kept in sync by AppLayout) when
  * the agent store hasn't loaded yet, and finally to the raw URL segment
  * for cold-start with nothing cached.
+ *
+ * Migration: reads the old `aeqi_root` key once on first call, writes
+ * `aeqi_entity`, then removes the old key so no stale data persists.
  */
-export function getScopedRoot(): string {
+export function getScopedEntity(): string {
   const path = window.location.pathname;
   const segments = path.split("/").filter(Boolean);
   const urlSegment =
@@ -44,16 +47,24 @@ export function getScopedRoot(): string {
     }
   }
 
-  let stored = localStorage.getItem("aeqi_root");
+  // Migrate legacy key on first read.
+  const legacy = localStorage.getItem("aeqi_root");
+  if (legacy) {
+    localStorage.setItem("aeqi_entity", legacy);
+    localStorage.removeItem("aeqi_root");
+  }
+
+  let stored = localStorage.getItem("aeqi_entity");
   if (!stored) {
-    const legacy = localStorage.getItem("aeqi_company");
-    if (legacy) {
-      localStorage.setItem("aeqi_root", legacy);
-      stored = legacy;
+    const olderLegacy = localStorage.getItem("aeqi_company");
+    if (olderLegacy) {
+      localStorage.setItem("aeqi_entity", olderLegacy);
+      localStorage.removeItem("aeqi_company");
+      stored = olderLegacy;
     }
   }
   if (stored && NON_AGENT_ROUTES.has(stored)) {
-    localStorage.removeItem("aeqi_root");
+    localStorage.removeItem("aeqi_entity");
     stored = null;
   }
   if (stored) return stored;

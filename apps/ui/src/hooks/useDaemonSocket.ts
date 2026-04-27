@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { getScopedRoot } from "@/lib/appMode";
+import { getScopedEntity } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
@@ -8,7 +8,7 @@ import { useUIStore } from "@/store/ui";
 export function useDaemonSocket() {
   const token = useAuthStore((s) => s.token);
   const appMode = useAuthStore((s) => s.appMode);
-  const activeRoot = useUIStore((s) => s.activeRoot);
+  const activeEntity = useUIStore((s) => s.activeEntity);
   const pushWorkerEvent = useDaemonStore((s) => s.pushWorkerEvent);
   const setWsConnected = useDaemonStore((s) => s.setWsConnected);
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
@@ -25,9 +25,9 @@ export function useDaemonSocket() {
     const connect = () => {
       if (closed) return;
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const root = getScopedRoot();
+      const entity = getScopedEntity();
       const ws = new WebSocket(
-        `${protocol}//${window.location.host}/api/ws?token=${token}&root=${encodeURIComponent(root)}`,
+        `${protocol}//${window.location.host}/api/ws?token=${token}&root=${encodeURIComponent(entity)}`,
       );
       wsRef.current = ws;
 
@@ -74,7 +74,7 @@ export function useDaemonSocket() {
   }, [
     token,
     appMode,
-    activeRoot,
+    activeEntity,
     pushWorkerEvent,
     setWsConnected,
     fetchQuests,
