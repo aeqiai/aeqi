@@ -56,17 +56,19 @@
   --color-card-elevated: #ffffff;
   --color-section-alt: #ffffff;
 
-  /* Tier 2: card — soft off-white, the new primary reading surface.
-     Was #ffffff before the v5 elevation pass (2026-04-27); shifted six
-     points toward grey so cards register as a tier above paper without
-     bleaching the eye, and so `--color-card-elevated` has somewhere to
-     sit ABOVE them. */
-  --color-card: #fafafa;
+  /* Tier 2: card — whisper-tinted off-white, the primary reading
+     surface. Tight 3-point gap to elevated keeps the elevation real
+     but unforced; v5.1 (2026-04-27) compressed the ladder from
+     #fafafa → #fcfcfd to read more "Linear / Notion clean" instead of
+     "darker grey panel". */
+  --color-card: #fcfcfd;
 
-  /* Tier 3: paper — main neutral-grey surface, no hue */
-  --color-paper: #f4f4f5;
+  /* Tier 3: paper — page bg + sidebar shell. Single tone for the
+     outer frame; cards float above it as a clear tier. */
+  --color-paper: #f3f3f4;
 
-  /* Tier 4/5: inset family inside the card (deeper greys) */
+  /* Tier 4/5: inset family inside the card (deeper greys) — separate
+     from the outer page bg now that page bg lifts to paper. */
   --color-slab: #ededf0;
   --color-slab-elevated: #f8f8f9; /* hover inside slab */
   --color-slab-border: rgba(0, 0, 0, 0.06);
@@ -79,8 +81,11 @@
   --color-card-muted: var(--color-slab);
 
   /* Compatibility bridge for existing selectors. Internal only — not part
-     of the public design-system terminology. */
-  --color-bg-base: var(--color-card-muted);
+     of the public design-system terminology.
+     Page-level "bg-base" used to alias `--color-card-muted` (slab,
+     #ededf0) — that conflated outer-page-bg with inset-inside-card.
+     v5.1 splits them: page bg uses paper, inset wells stay on slab. */
+  --color-bg-base: var(--color-paper);
   --color-bg-surface: var(--color-card-subtle);
   --color-bg-elevated: var(--color-card-elevated);
   --color-bg-overlay: var(--color-card-elevated);

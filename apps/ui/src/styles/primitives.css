@@ -17,12 +17,12 @@
        card         — the white reading surface inside the shell
        card-subtle  — lighter grouped controls inside the white card
        card-muted   — stronger recessed panes inside the white card */
-  --color-canvas: var(--color-card-muted);
-  --bg-base: var(--color-card-muted);
+  --color-canvas: var(--color-paper);
+  --bg-base: var(--color-paper);
   --bg-surface: var(--color-card-subtle);
   --bg-elevated: var(--color-card-elevated);
   --bg-overlay: var(--color-card-elevated);
-  --bg-canvas: var(--color-card-muted);
+  --bg-canvas: var(--color-paper);
   --bg-paper: var(--color-card);
 
   /* Sidebar tint — a single subtle value step below the white content
