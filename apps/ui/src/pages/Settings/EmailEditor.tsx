@@ -33,6 +33,10 @@ async function authedJson<T>(path: string, body: unknown): Promise<T> {
  *
  * Synthetic addresses (`wallet+xxx@aeqi.ai`, `passkey+xxx@aeqi.ai`)
  * generated for wallet/passkey-only signups flow through this editor.
+ *
+ * Uses the canonical `.account-field-row` flex pattern from SecurityPanel
+ * for "input + action button" so styling matches the rest of Settings —
+ * no inline styles, no per-screen CSS forks.
  */
 export default function EmailEditor({ currentEmail, onChanged }: Props) {
   const [step, setStep] = useState<"display" | "input" | "verify">("display");
@@ -81,18 +85,11 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
 
   if (step === "display") {
     return (
-      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-        <Input
-          id="account-email"
-          size="lg"
-          type="email"
-          value={currentEmail}
-          disabled
-          style={{ flex: 1 }}
-        />
+      <div className="account-field-row">
+        <Input id="account-email" size="lg" type="email" value={currentEmail} disabled />
         <Button
           variant="secondary"
-          size="md"
+          size="lg"
           type="button"
           onClick={() => {
             setStep("input");
@@ -107,8 +104,8 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
 
   if (step === "input") {
     return (
-      <div>
-        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+      <>
+        <div className="account-field-row">
           <Input
             size="lg"
             type="email"
@@ -117,30 +114,29 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             disabled={busy}
-            style={{ flex: 1 }}
           />
           <Button
             variant="primary"
-            size="md"
+            size="lg"
             type="button"
             onClick={begin}
             disabled={busy || !newEmail.includes("@")}
           >
             {busy ? "Sending…" : "Send code"}
           </Button>
-          <Button variant="ghost" size="md" type="button" onClick={() => setStep("display")}>
+          <Button variant="ghost" size="lg" type="button" onClick={() => setStep("display")}>
             Cancel
           </Button>
         </div>
         {error && <div className="auth-error">{error}</div>}
-      </div>
+      </>
     );
   }
 
   return (
-    <div>
+    <>
       <p className="account-field-desc">{feedback}</p>
-      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+      <div className="account-field-row">
         <Input
           size="lg"
           type="text"
@@ -149,23 +145,22 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
           value={code}
           onChange={(e) => setCode(e.target.value)}
           disabled={busy}
-          style={{ flex: 1 }}
           maxLength={6}
         />
         <Button
           variant="primary"
-          size="md"
+          size="lg"
           type="button"
           onClick={finish}
           disabled={busy || code.length < 6}
         >
           {busy ? "Verifying…" : "Verify"}
         </Button>
-        <Button variant="ghost" size="md" type="button" onClick={() => setStep("display")}>
+        <Button variant="ghost" size="lg" type="button" onClick={() => setStep("display")}>
           Cancel
         </Button>
       </div>
       {error && <div className="auth-error">{error}</div>}
-    </div>
+    </>
   );
 }
