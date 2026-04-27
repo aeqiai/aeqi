@@ -16,15 +16,25 @@ export function useMessageProcessor() {
     let currentAgent: Message | null = null;
     let stepCount = 0;
     let sawStoredStepMarkers = false;
+    // Tracks whether the current assistant turn has been sealed by an
+    // `assistant_complete` row. Reset on every new user message and on
+    // flush. If the turn flushes without a seal, it's a still-streaming
+    // turn reconstructed mid-flight — flag it as draft so the live-attach
+    // path can drop it before the StreamingMessage replays the content.
+    let currentCompleted = false;
 
     const flushAgent = () => {
       if (currentAgent) {
         if (!currentAgent.stepCount) {
           currentAgent.stepCount = countStepSegments(currentAgent.segments);
         }
+        if (!currentCompleted) {
+          currentAgent.draft = true;
+        }
         processed.push(currentAgent);
         currentAgent = null;
       }
+      currentCompleted = false;
     };
 
     const ensureCurrentAgent = (timestamp: number) => {
@@ -88,6 +98,7 @@ export function useMessageProcessor() {
         }
         startStep(numberFromMeta(meta.step), ts);
       } else if (eventType === "assistant_complete") {
+        currentCompleted = true;
         if (currentAgent && typeof m.id === "number") {
           currentAgent.messageId = m.id;
         }

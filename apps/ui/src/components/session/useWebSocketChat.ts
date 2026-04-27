@@ -247,13 +247,23 @@ export function useWebSocketChat({
       setStreaming(true);
       setLiveSegments([]);
       setSessionStreaming(sessionId, true);
+      // The DB-reconstructed history may end with a `draft: true` assistant
+      // turn — the user refreshed mid-stream so no `assistant_complete`
+      // row was persisted yet. The StreamingMessage is about to replay
+      // the same content from the broadcast backlog and continue live, so
+      // drop the static partial here to avoid two thinking boxes for the
+      // same turn.
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        return last && last.role === "assistant" && last.draft ? prev.slice(0, -1) : prev;
+      });
 
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
       attachEventHandlers(ws, 0);
     },
-    [token, attachEventHandlers, replaceSocket, setSessionStreaming],
+    [token, attachEventHandlers, replaceSocket, setSessionStreaming, setMessages],
   );
 
   useEffect(() => {

@@ -64,6 +64,13 @@ export interface Message {
    * bubble but without copy / final-message chrome.
    */
   status?: "split";
+  /**
+   * `true` when the assistant turn was reconstructed from DB rows but no
+   * `assistant_complete` row was seen — the turn is still streaming. Used
+   * by the live-attach path to skip rendering the partial DB version (the
+   * StreamingMessage replays the same content from backlog).
+   */
+  draft?: boolean;
   /** Populated when role === "event_fire". */
   eventFire?: EventFire;
   /** DB message ID — used for fork-from-here. */
