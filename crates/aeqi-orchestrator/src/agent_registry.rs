@@ -1819,6 +1819,7 @@ impl AgentRegistry {
             agent_id: Some(agent_id.to_string()),
             scope,
             depends_on: Vec::new(),
+            idea_id: None,
             idea_ids: idea_ids.to_vec(),
             labels: labels.to_vec(),
             retry_count: 0,
@@ -1836,8 +1837,8 @@ impl AgentRegistry {
 
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, created_at)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, created_at, idea_id)
+             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8, NULL)",
             params![
                 quest_id,
                 subject,
@@ -1962,8 +1963,8 @@ impl AgentRegistry {
 
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
-            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, depends_on, created_at)
-             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO quests (id, subject, description, status, priority, agent_id, scope, idea_ids, labels, depends_on, created_at, idea_id)
+             VALUES (?1, ?2, ?3, 'pending', 'normal', ?4, ?5, ?6, ?7, ?8, ?9, NULL)",
             params![
                 quest_id,
                 subject,
@@ -2780,6 +2781,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
         agent_id: row.get("agent_id").ok(),
         scope: quest_scope,
         depends_on: serde_json::from_str(&deps_str).unwrap_or_default(),
+        idea_id: row.get::<_, Option<String>>("idea_id").unwrap_or(None),
         idea_ids: serde_json::from_str(&idea_ids_str).unwrap_or_default(),
         labels: serde_json::from_str(&labels_str).unwrap_or_default(),
         retry_count: row.get::<_, u32>("retry_count").unwrap_or(0),

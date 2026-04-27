@@ -689,6 +689,7 @@ mod tests {
             agent_id: agent_id.map(str::to_string),
             scope: aeqi_core::Scope::SelfScope,
             depends_on: Vec::new(),
+            idea_id: None,
             idea_ids: Vec::new(),
             labels: Vec::new(),
             retry_count: 0,

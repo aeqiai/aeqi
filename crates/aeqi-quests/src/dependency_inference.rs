@@ -179,6 +179,7 @@ mod tests {
             agent_id: None,
             scope: aeqi_core::Scope::Global,
             depends_on: vec![],
+            idea_id: None,
             idea_ids: vec![],
             labels: vec![],
             retry_count: 0,

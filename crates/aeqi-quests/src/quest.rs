@@ -175,7 +175,14 @@ pub struct Quest {
     /// Quest IDs that must be completed before this one can start.
     #[serde(default)]
     pub depends_on: Vec<QuestId>,
-    /// Idea IDs that this quest references (replaces the old skill field).
+    /// FK to the idea that owns this quest's editorial body (subject + content).
+    /// Nullable during the additive migration phase; flips to NOT NULL in
+    /// phase 3 (see docs/quest-idea-unification.md).
+    #[serde(default)]
+    pub idea_id: Option<String>,
+    /// Legacy: idea IDs this quest references. Deprecated in favor of the
+    /// single `idea_id` FK + wiki-links inside the idea body. Retained
+    /// for phase-2 read-back compat; dropped in phase 3.
     #[serde(default)]
     pub idea_ids: Vec<String>,
     /// Labels for categorization.
@@ -234,6 +241,7 @@ impl Quest {
             agent_id: agent_id.map(|s| s.to_string()),
             scope,
             depends_on: Vec::new(),
+            idea_id: None,
             idea_ids: Vec::new(),
             labels: Vec::new(),
             retry_count: 0,
