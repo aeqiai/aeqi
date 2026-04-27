@@ -90,8 +90,8 @@ const MetricsIcon = () => (
 
 const OwnershipIcon = () => (
   <svg {...iconProps}>
-    <circle cx="5" cy="8" r="2.5" />
-    <path d="M7.5 8h6M11 8v2.2M13.5 8v2.2" />
+    <circle cx="8" cy="8" r="5.5" />
+    <path d="M8 8 L8 2.5 A5.5 5.5 0 0 1 13.5 8 Z" fill="currentColor" stroke="none" />
   </svg>
 );
 
@@ -113,8 +113,9 @@ const GovernanceIcon = () => (
 
 const EconomyIcon = () => (
   <svg {...iconProps}>
-    <circle cx="8" cy="8" r="5.5" />
-    <path d="M8 8 L8 2.5 A5.5 5.5 0 0 1 13.5 8 Z" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="8" r="6" />
+    <ellipse cx="8" cy="8" rx="2.5" ry="6" />
+    <path d="M2 8h12" />
   </svg>
 );
 
@@ -194,12 +195,28 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         ) : (
           <button
             type="button"
-            className="sidebar-nav-item sidebar-collapse-expand"
+            className="sidebar-public-brand-toggle"
             onClick={toggleSidebar}
             aria-label="Expand sidebar"
             title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
           >
-            <PanelGlyph />
+            <span className="sidebar-public-brand-toggle-rest" aria-hidden="true">
+              <span
+                style={{
+                  fontFamily: "var(--font-brand)",
+                  fontSize: 18,
+                  fontWeight: 400,
+                  letterSpacing: "-0.02em",
+                  color: "var(--color-accent)",
+                  lineHeight: 1,
+                }}
+              >
+                æ
+              </span>
+            </span>
+            <span className="sidebar-public-brand-toggle-hover" aria-hidden="true">
+              <PanelGlyph />
+            </span>
           </button>
         )}
       </div>
@@ -210,12 +227,12 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <CompanySwitcher />
         </div>
 
-        {/* ── Action row: + (new), search, ? help — white-icon circles. ── */}
+        {/* ── Action row: + (strong), search, ? help — small utility circles. ── */}
         <div className="sidebar-icon-row">
           <NewMenu />
           <button
             type="button"
-            className="ideas-toolbar-btn"
+            className="sidebar-utility-btn"
             onClick={openPalette}
             aria-label="Open command palette"
             title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}

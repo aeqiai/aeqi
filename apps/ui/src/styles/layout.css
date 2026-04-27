@@ -668,19 +668,61 @@
  * stylesheet pins on <button>; pin it back to --font-sans explicitly
  * so it doesn't inherit a UA value that might not match. */
 /* Action row beneath the Company switcher — `+ New`, search, `?` help —
- * three white icon-circles in a single horizontal lane. Reuses the
- * canonical .ideas-toolbar-btn pattern (white surface, 30px circle,
- * 1px input border) per its own doc-comment, until <ToolbarIconButton>
- * lives in the design system. */
+ * three small utility circles. Smaller than .ideas-toolbar-btn (a
+ * page-level toolbar primitive); these need to read as utility chrome
+ * inside the rail, not as floating logos. */
 .sidebar-icon-row {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px 8px;
+  gap: 4px;
+  padding: 2px 8px 6px;
 }
 .left-sidebar.collapsed .sidebar-icon-row {
   display: none;
+}
+
+.sidebar-utility-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--input-bg, var(--bg-base));
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.sidebar-utility-btn:hover,
+.sidebar-utility-btn:focus-visible {
+  color: var(--text-primary);
+  background: var(--bg-row);
+  border-color: var(--input-border-focus, var(--border-hover));
+  outline: none;
+}
+.sidebar-utility-btn > svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+/* Strong variant — the + (create) button reads slightly heavier so the
+ * primary creation affordance is the first thing the eye lands on in the
+ * row. Same circle, darker icon ink. */
+.sidebar-utility-btn--strong {
+  color: var(--text-title);
+}
+.sidebar-utility-btn--strong:hover,
+.sidebar-utility-btn--strong:focus-visible {
+  color: var(--text-title);
+  background: var(--bg-row);
 }
 
 /* Brand wordmark in the sidebar header — Link wrapping <Wordmark>.
@@ -714,21 +756,22 @@
 .sidebar-group-title {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 10px 8px 4px 12px;
+  gap: 6px;
+  padding: 14px 8px 6px 12px;
   background: transparent;
   border: 0;
   cursor: pointer;
   font-family: inherit;
-  font-size: var(--font-size-micro);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
   text-align: left;
   transition: color 0.12s ease;
 }
 .sidebar-group-title:hover {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 .sidebar-group-chevron {
   display: inline-flex;
@@ -6409,20 +6452,4 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .new-menu-trigger:hover .new-menu-plus {
   color: var(--color-accent);
-}
-
-/* ── Sidebar collapse expand button (collapsed state) ─────────────── */
-.sidebar-collapse-expand {
-  background: transparent;
-  border: 0;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  justify-content: center;
-  padding: 8px;
-}
-.sidebar-collapse-expand:hover {
-  background: var(--state-hover);
-  color: var(--color-text-title);
 }

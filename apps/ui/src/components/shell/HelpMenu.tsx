@@ -54,7 +54,7 @@ export default function HelpMenu() {
   const trigger = (
     <button
       type="button"
-      className="ideas-toolbar-btn"
+      className="sidebar-utility-btn"
       aria-label="Help"
       title={`Help — shortcuts, docs (${isMac ? "⌘" : "Ctrl"}/?)`}
     >
