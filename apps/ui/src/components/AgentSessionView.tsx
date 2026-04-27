@@ -78,6 +78,12 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     processRawMessages,
   });
 
+  // Mirror the messages list into a ref so the WS hook can read the
+  // current trailing message synchronously (decides skip-vs-attach on
+  // live subscribe without going through React state propagation).
+  const messagesRef = useRef(sessionManager.messages);
+  messagesRef.current = sessionManager.messages;
+
   const wsChat = useWebSocketChat({
     token,
     agentId,
@@ -87,6 +93,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     prevSessionRef: sessionManager.prevSessionRef,
     setSession: sessionManager.setSession,
     setSessions: sessionManager.setSessions,
+    messagesRef,
     setMessages: sessionManager.setMessages,
     sessionIdeas,
     sessionTask,

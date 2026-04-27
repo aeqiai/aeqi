@@ -22,6 +22,10 @@ interface UseWebSocketChatOptions {
   prevSessionRef: React.MutableRefObject<string | null>;
   setSession: (sid: string | null) => void;
   setSessions: React.Dispatch<React.SetStateAction<SessionInfo[]>>;
+  /** Snapshot of the current messages list. Read-only here — kept fresh by
+   * the parent — used to decide whether to live-attach (skip when the
+   * trailing assistant is already a completed turn). */
+  messagesRef: React.MutableRefObject<Message[]>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   sessionIdeas: string[];
   sessionTask: { id: string; name: string } | null;
@@ -43,6 +47,7 @@ export function useWebSocketChat({
   prevSessionRef,
   setSession,
   setSessions,
+  messagesRef,
   setMessages,
   sessionIdeas,
   sessionTask,
@@ -244,26 +249,41 @@ export function useWebSocketChat({
   const attachToLiveStream = useCallback(
     (sessionId: string) => {
       if (!token || !sessionId) return;
+      // Decide based on what's already in the messages list.
+      //
+      // - Trailing draft assistant: turn is in-flight server-side, the
+      //   StreamingMessage will replay the same content from the broadcast
+      //   backlog and continue live. Drop the static partial here so the
+      //   live trail is the only render.
+      //
+      // - Trailing completed assistant: the turn already finished, the DB
+      //   reconstruction has the canonical content. `isSessionActive`
+      //   sometimes returns true for a few hundred ms after the agent
+      //   exits (registry race) — and the broadcast backlog isn't always
+      //   cleared in time, so a fresh subscription would replay the whole
+      //   turn into a SECOND committed message. Skip the live-attach.
+      //
+      // - No trailing assistant (just a user message, or empty): a fresh
+      //   turn is presumably starting; attach so its events stream in.
+      const last = messagesRef.current[messagesRef.current.length - 1];
+      if (last?.role === "assistant" && !last.draft) return;
+
       setStreaming(true);
       setLiveSegments([]);
       setSessionStreaming(sessionId, true);
-      // The DB-reconstructed history may end with a `draft: true` assistant
-      // turn — the user refreshed mid-stream so no `assistant_complete`
-      // row was persisted yet. The StreamingMessage is about to replay
-      // the same content from the broadcast backlog and continue live, so
-      // drop the static partial here to avoid two thinking boxes for the
-      // same turn.
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        return last && last.role === "assistant" && last.draft ? prev.slice(0, -1) : prev;
-      });
+      if (last?.role === "assistant" && last.draft) {
+        setMessages((prev) => {
+          const tail = prev[prev.length - 1];
+          return tail?.role === "assistant" && tail.draft ? prev.slice(0, -1) : prev;
+        });
+      }
 
       const ws = openChatSocket(token);
       replaceSocket(ws, sessionId);
       ws.onopen = () => ws.send(JSON.stringify({ subscribe: true, session_id: sessionId }));
       attachEventHandlers(ws, 0);
     },
-    [token, attachEventHandlers, replaceSocket, setSessionStreaming, setMessages],
+    [token, attachEventHandlers, replaceSocket, setSessionStreaming, setMessages, messagesRef],
   );
 
   useEffect(() => {
