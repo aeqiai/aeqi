@@ -242,8 +242,9 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <HelpMenu />
         </div>
 
-        {/* ── Operate ── */}
-        <SidebarGroup title="Operate" groupKey="operate">
+        {/* ── Inbox — elevated above the categorical groups since it is
+            the attention queue, not a category sibling. ── */}
+        <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href={base || "/"}
@@ -256,6 +257,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
+        </nav>
+
+        {/* ── Operate ── */}
+        <SidebarGroup title="Operate" groupKey="operate">
           {navItem("projects", "Projects", <ProjectsIcon />)}
           {navItem("company", "Company", <CompanyIcon />)}
           {navItem("crm", "CRM", <CRMIcon />)}
