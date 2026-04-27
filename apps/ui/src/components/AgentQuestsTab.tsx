@@ -831,9 +831,14 @@ function QuestBoard({
 
       {view === "list" ? (
         <QuestList
-          quests={sortedVisibleQuests}
+          groups={columns.map((col) => ({
+            status: col.status,
+            label: col.label,
+            quests: grouped[col.status] || [],
+          }))}
           optimistic={optimistic}
           focusId={focusId}
+          totalCount={sortedVisibleQuests.length}
           onPick={onPick}
           onNew={onCompose}
           search={search}
@@ -935,21 +940,32 @@ function QuestBoard({
  * `.empty-state-hero` markup that IdeasListView uses.
  */
 function QuestList({
-  quests,
+  groups,
   optimistic,
   focusId,
+  totalCount,
   onPick,
   onNew,
   search,
 }: {
-  quests: Quest[];
+  groups: Array<{ status: QuestStatus; label: string; quests: Quest[] }>;
   optimistic: Record<string, QuestStatus>;
   focusId: string | null;
+  totalCount: number;
   onPick: (id: string) => void;
   onNew: () => void;
   search: string;
 }) {
-  if (quests.length === 0) {
+  // Per-group collapsed state. Empty groups stay hidden entirely; the
+  // four canonical statuses (todo / in progress / blocked / done) all
+  // render their headers when non-empty so the list mirrors the board's
+  // left-to-right reading order.
+  const [collapsed, setCollapsed] = useState<Partial<Record<QuestStatus, boolean>>>({});
+  const toggle = useCallback((s: QuestStatus) => {
+    setCollapsed((prev) => ({ ...prev, [s]: !prev[s] }));
+  }, []);
+
+  if (totalCount === 0) {
     const hasSearch = search.trim().length > 0;
     return (
       <div className="ideas-list-body">
@@ -981,30 +997,71 @@ function QuestList({
       </div>
     );
   }
+
   return (
     <div className="ideas-list-body">
-      {quests.map((q) => {
-        const status = optimistic[q.id] ?? q.status;
-        const isFocused = focusId === q.id;
+      {groups.map((group) => {
+        if (group.quests.length === 0) return null;
+        const isCollapsed = !!collapsed[group.status];
         return (
-          <button
-            key={q.id}
-            type="button"
-            className={`ideas-list-row${isFocused ? " focus" : ""}`}
-            onClick={() => onPick(q.id)}
-          >
-            <div className="ideas-list-row-head">
-              <StatusDot status={status} />
-              <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
-              {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-              {q.priority !== "normal" && (
-                <span className={`quest-list-row-prio quest-list-row-prio--${q.priority}`}>
-                  {PRIORITY_LABELS[q.priority]}
-                </span>
-              )}
-              {q.updated_at && <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>}
-            </div>
-          </button>
+          <section key={group.status} className="ideas-list-group">
+            <button
+              type="button"
+              className="ideas-list-group-head"
+              aria-expanded={!isCollapsed}
+              onClick={() => toggle(group.status)}
+            >
+              <svg
+                className={`ideas-list-group-chevron${isCollapsed ? "" : " is-open"}`}
+                width="10"
+                height="10"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4.5 3 L7.5 6 L4.5 9" />
+              </svg>
+              <StatusDot status={group.status} />
+              <span className="ideas-list-group-label">{group.label}</span>
+              <span className="ideas-list-group-count">{group.quests.length}</span>
+            </button>
+            {!isCollapsed && (
+              <div className="ideas-list-group-body">
+                {group.quests.map((q) => {
+                  const status = optimistic[q.id] ?? q.status;
+                  const isFocused = focusId === q.id;
+                  return (
+                    <button
+                      key={q.id}
+                      type="button"
+                      className={`ideas-list-row${isFocused ? " focus" : ""}`}
+                      onClick={() => onPick(q.id)}
+                    >
+                      <div className="ideas-list-row-head">
+                        <StatusDot status={status} />
+                        <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
+                        {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+                        {q.priority !== "normal" && (
+                          <span
+                            className={`quest-list-row-prio quest-list-row-prio--${q.priority}`}
+                          >
+                            {PRIORITY_LABELS[q.priority]}
+                          </span>
+                        )}
+                        {q.updated_at && (
+                          <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         );
       })}
     </div>

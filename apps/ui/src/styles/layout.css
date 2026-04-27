@@ -4407,6 +4407,77 @@
   gap: 2px;
   padding: 6px 14px 14px;
 }
+
+/* List-view groups — same four buckets as the board (Todo / In progress
+   / Blocked / Done), stacked vertically with a collapsible header per
+   group. Header sits at `--bg-row` (slab #ededf0) so it reads as a
+   clear tier below the card surface, distinct from the soft hover
+   tint on individual rows. Empty groups are skipped at the React
+   layer, so the header always anchors a non-empty section. */
+.ideas-list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ideas-list-group + .ideas-list-group {
+  margin-top: 10px;
+}
+.ideas-list-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 12px;
+  background: var(--bg-row);
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.ideas-list-group-head:hover {
+  background: var(--color-card-muted);
+  color: var(--color-text-title);
+}
+.ideas-list-group-head:focus-visible {
+  outline: none;
+  box-shadow: var(--input-ring-focus, var(--ring-muted));
+}
+.ideas-list-group-chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transform: rotate(0deg);
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ideas-list-group-chevron.is-open {
+  transform: rotate(90deg);
+}
+.ideas-list-group-label {
+  flex: 1;
+  min-width: 0;
+}
+.ideas-list-group-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.ideas-list-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .ideas-list-row {
   position: relative;
   display: flex;
