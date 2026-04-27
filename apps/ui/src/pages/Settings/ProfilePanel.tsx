@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import UserAvatar from "@/components/UserAvatar";
 import { Button, Input } from "@/components/ui";
+import AvatarUploader from "./AvatarUploader";
 import EmailEditor from "@/pages/Settings/EmailEditor";
 
 interface UserData {
@@ -43,29 +43,6 @@ export default function ProfilePanel() {
   const displayName = `${firstName} ${lastName}`.trim() || "Profile";
   const email = user?.email || "";
 
-  const handleAvatarChange = async (file: File | null) => {
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setFeedback({ type: "error", msg: "Image must be under 2 MB." });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        await api.updateAvatar(reader.result as string);
-        setUser((prev) => (prev ? { ...prev, avatar_url: reader.result as string } : prev));
-        setFeedback({ type: "success", msg: "Avatar updated." });
-        setTimeout(() => setFeedback(null), 3000);
-      } catch (err: unknown) {
-        setFeedback({
-          type: "error",
-          msg: err instanceof Error ? err.message : "Upload failed.",
-        });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleSave = async () => {
     setFeedback(null);
     if (!firstName.trim()) {
@@ -90,28 +67,14 @@ export default function ProfilePanel() {
   return (
     <>
       <div className="account-profile-header">
-        <label className="account-avatar-label" aria-label="Change avatar">
-          <UserAvatar name={displayName} size={48} src={user?.avatar_url} />
-          <div className="account-avatar-badge" aria-hidden="true">
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="#fff"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <path d="M6 2.5v7M2.5 6h7" />
-            </svg>
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            className="account-hidden-input"
-            onChange={(e) => handleAvatarChange(e.target.files?.[0] ?? null)}
-          />
-        </label>
+        <AvatarUploader
+          name={displayName}
+          src={user?.avatar_url ?? null}
+          onSrcChange={(next) =>
+            setUser((prev) => (prev ? { ...prev, avatar_url: next ?? undefined } : prev))
+          }
+          onFeedback={setFeedback}
+        />
         <div>
           <div className="account-profile-name">{displayName}</div>
           <div className="account-profile-email">{email}</div>
