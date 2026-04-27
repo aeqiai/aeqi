@@ -97,16 +97,19 @@
 
   /* Ink / Text — the ink-on-paper scale, PURE NEUTRAL (zero chroma).
      The near-black reads as charcoal, not blue-black or warm-black.
-     92/85/54/36/22 covers titles, body, secondary, marginalia, and
-     disabled.
+     v5.1 bumped every tier ~10 alpha points (95/90/65/48/30) because
+     the v5 elevation pass moved cards off pure white (#fcfcfd), and
+     the previous 92/85/54/36/22 ladder read soft / washed against
+     the new lighter surface. Linear / Notion sit text in the same
+     65-90 alpha range against their light cards.
      --color-text-* are the canonical code-facing aliases; --color-ink-*
      mirror them so new code reads naturally (ink-on-paper). */
   --color-ink: #0a0a0b; /* near-black reference */
-  --color-ink-primary: rgba(10, 10, 11, 0.92); /* titles */
-  --color-ink-text: rgba(10, 10, 11, 0.85); /* body */
-  --color-ink-secondary: rgba(10, 10, 11, 0.54); /* lead, captions */
-  --color-ink-muted: rgba(10, 10, 11, 0.36); /* eyebrows */
-  --color-ink-disabled: rgba(10, 10, 11, 0.22); /* disabled */
+  --color-ink-primary: rgba(10, 10, 11, 0.95); /* titles */
+  --color-ink-text: rgba(10, 10, 11, 0.9); /* body */
+  --color-ink-secondary: rgba(10, 10, 11, 0.65); /* lead, captions, menu */
+  --color-ink-muted: rgba(10, 10, 11, 0.48); /* eyebrows */
+  --color-ink-disabled: rgba(10, 10, 11, 0.3); /* disabled */
 
   --color-text-title: var(--color-ink-primary);
   --color-text-primary: var(--color-ink-text);

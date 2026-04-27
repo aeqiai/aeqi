@@ -707,7 +707,10 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 50%;
-  color: var(--text-muted);
+  /* Icon glyph reads at body-text strength so the affordance survives
+     against the new lighter shell. v5.1 bumped from --text-muted (48%)
+     to --text-secondary (65%); hover lifts to --text-primary. */
+  color: var(--text-secondary);
   font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1;
@@ -1095,7 +1098,9 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 50%;
-  color: var(--text-muted);
+  /* v5.1: matches the rest of the icon-button language (sidebar-icon-btn,
+     ideas-toolbar-btn) — readable at rest on the new lighter shell. */
+  color: var(--text-secondary);
   font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1;
@@ -3711,7 +3716,12 @@
   width: 30px;
   height: 30px;
   padding: 0;
-  color: var(--text-secondary);
+  /* v5.1: icons read at full ink-text strength on the new white
+     button surface. Pre-bump rest was --text-secondary (54%) ×
+     svg opacity 0.85 = ~46% effective black on #fcfcfd cards —
+     too washed. Now: text-primary (90%) at full opacity, no
+     compounding multiplier. */
+  color: var(--text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
   border-radius: 999px;
@@ -3723,17 +3733,10 @@
     border-color 0.12s ease,
     box-shadow 0.12s ease;
 }
-.ideas-toolbar-btn svg {
-  opacity: 0.85;
-  transition: opacity 0.12s ease;
-}
 .ideas-toolbar-btn:hover {
-  color: var(--text-primary);
+  color: var(--text-title);
   background: var(--bg-row);
   border-color: var(--input-border-focus, var(--border-hover));
-}
-.ideas-toolbar-btn:hover svg {
-  opacity: 1;
 }
 .ideas-toolbar-btn.open {
   color: var(--accent);
