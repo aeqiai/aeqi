@@ -98,7 +98,7 @@ futures = "0.3"
 ratatui = "0.30"
 crossterm = { version = "0.28", features = ["event-stream"] }
 tungstenite = "0.29"
-pulldown-cmark = "0.12"
+pulldown-cmark = "0.13"
 syntect = "5.3"
 similar = "2"
 
