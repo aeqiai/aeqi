@@ -3506,6 +3506,21 @@
 .quest-detail-eyebrow-sep {
   opacity: 0.45;
 }
+/* Shared-spec badge — surfaces when the linked idea is referenced by
+   other quests. Sits on the eyebrow row so the user knows that body
+   edits ripple to siblings before they start typing. */
+.quest-detail-shared-badge {
+  margin-left: auto;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-bg-base);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
 .quest-detail-title {
   margin: 0 0 18px;
   font-size: clamp(26px, 2.6vw, 32px);

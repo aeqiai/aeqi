@@ -298,7 +298,24 @@ export default function IdeaCanvas({
   const handleDelete = async () => {
     if (!idea) return;
     try {
-      await api.deleteIdea(idea.id);
+      const res = await api.deleteIdea(idea.id);
+      // FK pre-flight: backend reports `in_use` + the offending quest ids.
+      // Surface them inline so the user can click through and detach.
+      if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
+        const ids = res.quest_ids;
+        const formatted = ids.length === 1 ? `quest ${ids[0]}` : `${ids.length} quests`;
+        setError(
+          `In use by ${formatted}. Detach or delete first: ${ids.slice(0, 5).join(", ")}` +
+            (ids.length > 5 ? ` …` : ""),
+        );
+        setDeleteArmed(false);
+        return;
+      }
+      if (!res.ok) {
+        setError(res.error ?? "Delete failed");
+        setDeleteArmed(false);
+        return;
+      }
       removeIdea(agentId, idea.id);
       goAgent(agentId, "ideas", undefined, { replace: true });
     } catch (e) {

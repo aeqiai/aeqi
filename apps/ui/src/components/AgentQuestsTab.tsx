@@ -497,6 +497,14 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
               ·
             </span>
             <span className="quest-detail-eyebrow-id">{quest.id.slice(0, 8)}</span>
+            {quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 && (
+              <span
+                className="quest-detail-shared-badge"
+                title={`This idea is also tracked by ${quest.sibling_quest_ids.length} other quest${quest.sibling_quest_ids.length === 1 ? "" : "s"}`}
+              >
+                Shared spec · {quest.sibling_quest_ids.length + 1} quests
+              </span>
+            )}
           </div>
 
           <h2 className="quest-detail-title">{quest.idea?.name ?? quest.subject}</h2>

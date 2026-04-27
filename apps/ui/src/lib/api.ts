@@ -435,10 +435,15 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Returns `{ ok: false, error: "in_use", quest_ids }` (HTTP 200) when
+  // the idea is FK'd from one or more quests — the cross-DB pre-flight
+  // can't translate to a real 4xx without breaking the existing
+  // ipc_proxy contract, so the caller checks `error === "in_use"`.
   deleteIdea: (id: string) =>
-    request<{ ok: boolean }>(`/ideas/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    }),
+    request<{ ok: boolean; error?: string; quest_ids?: string[] }>(
+      `/ideas/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    ),
 
   // Idea edges: outgoing links + incoming backlinks for a single idea.
   getIdeaEdges: (id: string) =>
