@@ -149,7 +149,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             type="button"
             className="sidebar-launch-cta"
             onClick={() => navigate(`/signup${next}`)}
-            title="Start your first autonomous company"
+            title="Start your first aeqi company"
             aria-label="Start a company"
           >
             <span className="sidebar-launch-cta-plus" aria-hidden="true">
