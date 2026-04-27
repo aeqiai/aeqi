@@ -4709,8 +4709,11 @@
 .ideas-tags-strip {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 28px;
+  /* Uniform vertical rhythm: padding-top, inter-row gap, padding-bottom
+     all equal `--space-3` (12px) so the strip reads as evenly spaced
+     above, between, and below the tag/ref rows. */
+  gap: var(--space-3);
+  padding: var(--space-3) 28px;
   border-bottom: 1px solid var(--border-faint);
   flex-shrink: 0;
   background: var(--color-card, transparent);
@@ -5530,7 +5533,6 @@
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  margin-bottom: 12px;
   min-height: 22px;
 }
 .ideas-tag-chip {

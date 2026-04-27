@@ -397,7 +397,7 @@ export default function IdeaCanvas({
             >
               <path d="M8 3 L4.5 6.5 L8 10" />
             </svg>
-            Back
+            Ideas
           </Button>
           {!showCompose && (
             <Button variant="primary" size="sm" onClick={onNew} title="New idea (N)">
