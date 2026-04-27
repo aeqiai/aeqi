@@ -3380,6 +3380,33 @@
   background: var(--text-muted);
 }
 
+/* Priority mark — same 7px disc language as status. Critical fills
+   destructive red, high fills accent (graphite), normal/low taper
+   into muted tones so the eye scans the priority ladder without a
+   rainbow palette. */
+.quest-priority-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+.quest-priority-dot--critical {
+  background: var(--destructive);
+}
+.quest-priority-dot--high {
+  background: var(--accent);
+}
+.quest-priority-dot--normal {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+}
+.quest-priority-dot--low {
+  background: transparent;
+  border: 1.5px solid var(--border);
+}
+
 .quest-detail-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -3427,10 +3454,6 @@
 .quest-detail-eyebrow-sep {
   opacity: 0.45;
 }
-.quest-detail-eyebrow-status {
-  color: var(--text-muted);
-}
-
 .quest-detail-title {
   margin: 0 0 18px;
   font-size: clamp(26px, 2.6vw, 32px);
@@ -3438,28 +3461,6 @@
   letter-spacing: -0.015em;
   line-height: 1.18;
   color: var(--text-primary);
-}
-
-.quest-detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 22px;
-  margin-bottom: 28px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border);
-}
-.quest-detail-meta-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 120px;
-}
-.quest-detail-meta-label {
-  font-family: var(--font-sans);
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 .quest-detail-section {
   margin-bottom: 28px;

@@ -8,6 +8,8 @@ import type { Quest, QuestStatus, QuestPriority, ScopeValue } from "@/lib/types"
 import { timeAgo } from "@/lib/format";
 import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
 import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/QuestsSortPopover";
+import QuestStatusPopover from "./quests/QuestStatusPopover";
+import QuestPriorityPopover from "./quests/QuestPriorityPopover";
 
 const PRIORITY_RANK: Record<QuestPriority, number> = {
   critical: 0,
@@ -200,14 +202,6 @@ type SaveState = "idle" | "saving" | "error";
 
 const SAVE_DEBOUNCE_MS = 700;
 
-const STATUS_LABELS: Record<QuestStatus, string> = {
-  pending: "Pending",
-  in_progress: "In Progress",
-  blocked: "Blocked",
-  done: "Done",
-  cancelled: "Cancelled",
-};
-
 const PRIORITY_LABELS: Record<QuestPriority, string> = {
   critical: "Critical",
   high: "High",
@@ -373,9 +367,6 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     );
   }
 
-  const statuses: QuestStatus[] = ["pending", "in_progress", "blocked", "done", "cancelled"];
-  const priorities: QuestPriority[] = ["critical", "high", "normal", "low"];
-
   return (
     <div className="asv-main quest-detail">
       <div className="ideas-list-head">
@@ -424,6 +415,9 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             </svg>
             New
           </Button>
+          <QuestStatusPopover status={status} onChange={handleStatusChange} />
+          <QuestPriorityPopover priority={priority} onChange={handlePriorityChange} />
+          {quest.scope && <QuestScopeChip scope={quest.scope} />}
           <div className="ideas-toolbar-spacer" aria-hidden />
           {saveState === "saving" ? (
             <span className="quest-detail-savestate">
@@ -447,36 +441,10 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             <span className="quest-detail-eyebrow-sep" aria-hidden>
               ·
             </span>
-            <span className="quest-detail-eyebrow-status">{STATUS_LABELS[quest.status]}</span>
-            {quest.scope && <QuestScopeChip scope={quest.scope} />}
-            <span className="quest-detail-eyebrow-sep" aria-hidden>
-              ·
-            </span>
             <span className="quest-detail-eyebrow-id">{quest.id.slice(0, 8)}</span>
           </div>
 
           <h2 className="quest-detail-title">{quest.subject}</h2>
-
-          <div className="quest-detail-meta">
-            <label className="quest-detail-meta-field">
-              <span className="quest-detail-meta-label">Status</span>
-              <Select
-                size="sm"
-                value={status}
-                onChange={(v) => handleStatusChange(v as QuestStatus)}
-                options={statuses.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
-              />
-            </label>
-            <label className="quest-detail-meta-field">
-              <span className="quest-detail-meta-label">Priority</span>
-              <Select
-                size="sm"
-                value={priority}
-                onChange={(v) => handlePriorityChange(v as QuestPriority)}
-                options={priorities.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
-              />
-            </label>
-          </div>
 
           <div className="quest-detail-section">
             <div className="quest-detail-section-label">Description</div>
@@ -1144,7 +1112,7 @@ function NewQuestModal({
           />
         </div>
         <div className="quest-new-actions">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button variant="primary" onClick={submit} disabled={!subject.trim()} loading={busy}>
