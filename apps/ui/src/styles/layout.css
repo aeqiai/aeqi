@@ -4619,22 +4619,22 @@
    tabular numerals keeps the column visually aligned across rows; the
    row hover lifts it to the secondary text colour so it earns its
    place when the row is engaged but stays quiet on rest. */
+/* Timestamps need to actually read at rest — pre-v5.2 was 10px ×
+   muted (48%) × 0.72 opacity = ~35% effective black; visible only
+   when staring. Now: 11px × secondary (65%) × full opacity. Hover
+   lifts to title for the engaged read. */
 .ideas-list-row-time {
   font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
-  opacity: 0.72;
   flex-shrink: 0;
-  transition:
-    color 0.12s ease,
-    opacity 0.12s ease;
+  transition: color 0.12s ease;
 }
 .ideas-list-row:hover .ideas-list-row-time,
 .ideas-list-row:focus-visible .ideas-list-row-time {
-  color: var(--text-secondary);
-  opacity: 1;
+  color: var(--color-text-title);
 }
 .ideas-list-row-snippet {
   font-family: var(--font-sans);

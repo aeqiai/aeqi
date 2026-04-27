@@ -3105,28 +3105,29 @@
      toolbar extend full-width like Ideas. */
 }
 
-/* List-view priority pill — quiet text label, scoped to list rows.
-   Critical pops via accent foreground; high pops via primary text;
-   low fades to muted. Pills are pre-rendered only when priority is
-   not "normal" so the row stays clean. Token-based, no hex. */
-.quest-list-row-prio {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+/* Priority indicator — three-bar Linear-style glyph, replaces the
+   old text-pill in list rows + board cards. Always rendered (even at
+   normal/low) so the affordance is consistent and clickable for the
+   inline-edit popover. Color codes the level: critical pops red,
+   high reads at title strength, normal at secondary, low fades to
+   muted. The `<rect>` strokes inherit `currentColor` from this
+   class, so the icon-fill follows automatically. */
+.quest-prio-icon {
   flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: color 0.12s ease;
 }
-.quest-list-row-prio--critical {
-  color: var(--accent);
+.quest-prio-icon--critical {
+  color: var(--error);
 }
-.quest-list-row-prio--high {
-  color: var(--text-primary);
+.quest-prio-icon--high {
+  color: var(--color-text-title);
 }
-.quest-list-row-prio--low {
+.quest-prio-icon--normal {
+  color: var(--text-secondary);
+}
+.quest-prio-icon--low {
   color: var(--text-muted);
-  opacity: 0.7;
 }
 
 /* Quest-compose page — the body is `<IdeaCanvas>` (full editor with
@@ -3299,21 +3300,26 @@
   padding: 18px 28px 28px;
 }
 
+/* v5.2: columns drop the heavy 1px border in favour of a soft tier
+   shift — the column body sits on `--bg-row` (slab) so it reads as
+   recessed below the card surface, the cards inside lift back up to
+   `--color-card-elevated`. Borderless / boxless / "Linear board" register. */
 .quest-col {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-md);
-  background: var(--bg-canvas);
+  background: var(--bg-row);
   overflow: hidden;
   transition:
-    border-color 0.15s,
-    box-shadow 0.15s,
-    background 0.15s;
+    background 0.15s,
+    box-shadow 0.15s;
 }
 .quest-col[data-status="in_progress"] {
-  border-color: var(--border-accent);
+  /* Quiet ring rather than a bordered look — keeps the in-progress
+     column anchored visually without re-introducing the boxy chrome. */
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
 }
 /* Active drop target — subtle accent frame + lifted background; children
    keep their own hover so the drop still feels precise. */
@@ -3330,34 +3336,35 @@
   color: var(--color-accent);
   font-style: normal;
   font-family: var(--font-sans);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
+/* v5.2: header sits on the slab background (same as column body) — no
+   divider, no surface tint. Title is sentence-case ink-text rather
+   than uppercase tracked muted so it reads as a real label, not a
+   marginal eyebrow. Mirrors the list-view group head exactly. */
 .quest-col-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
 }
 .quest-col-label {
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
 }
 .quest-col-count {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--text-muted);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
-  padding: 1px 6px;
-  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 .quest-col-body {
   flex: 1;
@@ -3376,22 +3383,28 @@
   font-style: italic;
 }
 
+/* Cards sit on the column's slab background, lifted to the elevated
+   white tier so they read as discrete pieces of paper on a felt
+   board. v5.2 dropped the visible 1px frame in favour of a near-
+   transparent hairline that only appears on hover/focus — the lift
+   comes from the tier shift, not a heavy outline. */
 .quest-card {
   position: relative;
   padding: 10px 12px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   cursor: grab;
   transition:
     border-color 0.12s,
     background 0.12s,
+    box-shadow 0.12s,
     opacity 0.12s,
     transform 0.12s;
 }
 .quest-card:hover {
-  border-color: var(--border-hover);
-  background: var(--state-hover);
+  border-color: var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .quest-card:active {
   cursor: grabbing;
@@ -3424,35 +3437,12 @@
   gap: 6px;
   justify-content: space-between;
 }
-.quest-card-priority {
-  font-family: var(--font-sans);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 2px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  background: var(--bg-canvas);
-}
-.quest-card-priority--critical {
-  color: #9a3b3b;
-  border-color: rgba(154, 59, 59, 0.35);
-  background: rgba(154, 59, 59, 0.06);
-}
-.quest-card-priority--high {
-  color: var(--color-accent);
-  border-color: var(--border-accent);
-  background: var(--color-accent-bg);
-}
-.quest-card-priority--low {
-  color: var(--text-muted);
-}
+/* Card timestamps — same readability lift as the list row. */
 .quest-card-time {
   font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
   margin-left: auto;
 }
 

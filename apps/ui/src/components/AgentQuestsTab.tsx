@@ -204,15 +204,48 @@ function QuestsFilterPopover({
 
 type SaveState = "idle" | "saving" | "error";
 
-const PRIORITY_LABELS: Record<QuestPriority, string> = {
-  critical: "Critical",
-  high: "High",
-  normal: "Normal",
-  low: "Low",
-};
-
 function StatusDot({ status }: { status: QuestStatus }) {
   return <span className={`quest-status-dot quest-status-dot--${status}`} />;
+}
+
+/**
+ * Priority indicator — three ascending bars (Linear / Notion idiom).
+ * Fill count maps to the priority level: low=1 / normal=2 / high=3 /
+ * critical=3 with a destructive accent so it pops past the rest.
+ * Empty bars stroke at the muted ink tone so the unfilled state still
+ * registers as "this is a priority indicator", not absent UI.
+ */
+function PriorityIcon({ priority }: { priority: QuestPriority }) {
+  const filled = priority === "critical" || priority === "high" ? 3 : priority === "normal" ? 2 : 1;
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      className={`quest-prio-icon quest-prio-icon--${priority}`}
+      aria-hidden
+    >
+      {[0, 1, 2].map((i) => {
+        const h = 3 + i * 2; // 3, 5, 7
+        const y = 10 - h;
+        const isFilled = i < filled;
+        return (
+          <rect
+            key={i}
+            x={1 + i * 4}
+            y={y}
+            width={2}
+            height={h}
+            rx={0.5}
+            fill={isFilled ? "currentColor" : "transparent"}
+            stroke="currentColor"
+            strokeWidth={1}
+            opacity={isFilled ? 1 : 0.35}
+          />
+        );
+      })}
+    </svg>
+  );
 }
 
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
@@ -911,13 +944,7 @@ function QuestBoard({
                       >
                         <div className="quest-card-subject">{q.idea?.name ?? q.id}</div>
                         <div className="quest-card-meta">
-                          {q.priority !== "normal" && (
-                            <span
-                              className={`quest-card-priority quest-card-priority--${q.priority}`}
-                            >
-                              {PRIORITY_LABELS[q.priority]}
-                            </span>
-                          )}
+                          <PriorityIcon priority={q.priority} />
                           {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
                           {q.updated_at && (
                             <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
@@ -1051,13 +1078,7 @@ function QuestList({
                         <StatusDot status={status} />
                         <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
                         {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-                        {q.priority !== "normal" && (
-                          <span
-                            className={`quest-list-row-prio quest-list-row-prio--${q.priority}`}
-                          >
-                            {PRIORITY_LABELS[q.priority]}
-                          </span>
-                        )}
+                        <PriorityIcon priority={q.priority} />
                         {q.updated_at && (
                           <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
                         )}
