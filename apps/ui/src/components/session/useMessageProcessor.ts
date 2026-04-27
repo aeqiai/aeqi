@@ -116,6 +116,13 @@ export function useMessageProcessor() {
           pendingTools = [];
         }
         applyMetaToCurrentAssistant((m.metadata || {}) as Record<string, unknown>);
+        // Seal the turn now. Without this, lifecycle event_fired rows for
+        // the NEXT turn (session:execution_start fires before the next
+        // user message lands) get appended to the previous turn's segments
+        // instead of being held for fold-into-next-trail.
+        flushAgent();
+        stepCount = 0;
+        sawStoredStepMarkers = false;
       } else if (m.role === "assistant") {
         const agent = !sawStoredStepMarkers ? startStep(undefined, ts) : ensureCurrentAgent(ts);
         if (agent.timestamp == null) {
