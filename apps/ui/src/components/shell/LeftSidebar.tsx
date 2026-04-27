@@ -277,11 +277,13 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           {navItem("governance", "Governance", <GovernanceIcon />)}
         </SidebarGroup>
 
-        {/* ── Bottom group — Network + Account, pinned to the rail's foot
+        {/* ── Bottom group — Economy + Account, pinned to the rail's foot
             via mt:auto so the user dropdown always sits at the very
-            bottom regardless of how many workspace items are above. ── */}
+            bottom regardless of how many workspace items are above.
+            Economy reads as a top-level destination, not a one-item
+            group with a label. ── */}
         <div className="sidebar-bottom-group">
-          <SidebarGroup title="Network" groupKey="network">
+          <nav className="sidebar-surface-nav" aria-label="Economy">
             <a
               className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
               href="/economy"
@@ -294,7 +296,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
               <EconomyIcon />
               <span className="sidebar-nav-label">Economy</span>
             </a>
-          </SidebarGroup>
+          </nav>
           <div className="sidebar-user-zone">
             <AccountDropdown />
           </div>
