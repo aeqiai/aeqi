@@ -90,11 +90,7 @@ export default function ProfilePanel() {
     <>
       <div className="account-profile-header">
         <label className="account-avatar-label" aria-label="Change avatar">
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="" className="account-avatar-img" />
-          ) : (
-            <UserAvatar name={displayName} size={48} />
-          )}
+          <UserAvatar name={displayName} size={48} src={user?.avatar_url} />
           <div className="account-avatar-badge" aria-hidden="true">
             <svg
               width="10"

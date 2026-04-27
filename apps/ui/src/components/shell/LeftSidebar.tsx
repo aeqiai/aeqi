@@ -194,7 +194,11 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         >
           <span className="sidebar-nav-avatar">
             <span className="sidebar-nav-avatar-glyph" aria-hidden="true">
-              <UserAvatar name={userName} size={sidebarCollapsed ? 20 : 16} />
+              <UserAvatar
+                name={userName}
+                size={sidebarCollapsed ? 20 : 16}
+                src={user?.avatar_url}
+              />
             </span>
             {sidebarCollapsed && (
               <span className="sidebar-nav-avatar-expand" aria-hidden="true">

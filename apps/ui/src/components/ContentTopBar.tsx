@@ -71,7 +71,7 @@ export default function ContentTopBar() {
           (path === "/" ? (
             <span className="content-topbar-agent">
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <UserAvatar name={userName} size={18} />
+                <UserAvatar name={userName} size={18} src={user?.avatar_url} />
               </span>
               <span className="content-topbar-agent-name">{userName}</span>
             </span>
@@ -82,7 +82,7 @@ export default function ContentTopBar() {
               title="Back to your home"
             >
               <span className="content-topbar-agent-avatar" aria-hidden>
-                <UserAvatar name={userName} size={18} />
+                <UserAvatar name={userName} size={18} src={user?.avatar_url} />
               </span>
               <span className="content-topbar-agent-name">{userName}</span>
             </Link>
