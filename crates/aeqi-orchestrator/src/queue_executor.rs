@@ -395,9 +395,9 @@ impl SessionExecutor for QueueExecutor {
 
             let mut terminal_status = match outcome_status {
                 "done" => aeqi_quests::QuestStatus::Done,
-                "blocked" => aeqi_quests::QuestStatus::Blocked,
-                "retry" => aeqi_quests::QuestStatus::Pending,
-                _ => aeqi_quests::QuestStatus::Pending,
+                "blocked" => aeqi_quests::QuestStatus::Backlog,
+                "retry" => aeqi_quests::QuestStatus::Todo,
+                _ => aeqi_quests::QuestStatus::Todo,
             };
 
             // Adaptive retry: on failure, ask the classifier to label the
@@ -406,7 +406,7 @@ impl SessionExecutor for QueueExecutor {
             // budget exhaustion escalate straight to Blocked.
             if self.adaptive_retry
                 && !self.failure_analysis_model.is_empty()
-                && terminal_status == aeqi_quests::QuestStatus::Pending
+                && terminal_status == aeqi_quests::QuestStatus::Todo
                 && outcome_status != "done"
                 && let Some(ref al) = self.activity_log
             {
@@ -443,7 +443,7 @@ impl SessionExecutor for QueueExecutor {
                         mode,
                         FailureMode::ExternalBlocker | FailureMode::BudgetExhausted
                     ) {
-                        terminal_status = aeqi_quests::QuestStatus::Blocked;
+                        terminal_status = aeqi_quests::QuestStatus::Backlog;
                     }
                     // Append enrichment to the linked idea body so the
                     // editorial surface reflects the failure context (the
@@ -470,7 +470,7 @@ impl SessionExecutor for QueueExecutor {
             // Single transaction: status flip + retry bump + closed_at stamp.
             // `bump_retry` only fires on the Pending path, so
             // `max_task_retries` eventually halts the cycle.
-            let bump_retry = terminal_status == aeqi_quests::QuestStatus::Pending;
+            let bump_retry = terminal_status == aeqi_quests::QuestStatus::Todo;
             let finalize_ok = match self
                 .agent_registry
                 .finalize_quest(quest_id, terminal_status, bump_retry)

@@ -31,7 +31,7 @@ pub async fn handle_roots(
                 let open = tasks.iter().filter(|t| !t.is_closed()).count();
                 let pending = tasks
                     .iter()
-                    .filter(|t| t.status == aeqi_quests::QuestStatus::Pending)
+                    .filter(|t| t.status == aeqi_quests::QuestStatus::Todo)
                     .count();
                 let in_progress = tasks
                     .iter()

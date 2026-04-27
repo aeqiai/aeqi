@@ -5,24 +5,31 @@ use tracing::debug;
 
 use crate::quest::{Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord, QuestStatus};
 
-/// Valid transitions for the quest state machine.
+/// Valid transitions for the five-status quest state machine
+/// (Backlog → Todo → InProgress → Done | Cancelled). Backlog is the
+/// "parked / not yet committed" tier; Todo is "ready to work on".
+/// Anything can be cancelled; in-progress can re-queue back to Todo
+/// on worker failure.
 fn valid_transition(from: &QuestStatus, to: &QuestStatus) -> bool {
     use QuestStatus::*;
     matches!(
         (from, to),
-        // Normal forward flow
-        (Pending, InProgress)
+        // Forward flow
+        (Backlog, Todo)
+            | (Todo, InProgress)
             | (InProgress, Done)
-            | (InProgress, Blocked)
             | (InProgress, Cancelled)
-            // Retry/re-queue (from worker failure handling)
-            | (InProgress, Pending)
-            | (Blocked, Pending)
+            // Retry / re-queue from worker failure
+            | (InProgress, Todo)
+            | (InProgress, Backlog)
+            // Park: pull a Todo back to the backlog
+            | (Todo, Backlog)
             // Cancellation from any non-terminal state
-            | (Pending, Cancelled)
-            | (Blocked, Cancelled)
+            | (Backlog, Cancelled)
+            | (Todo, Cancelled)
             // Same-state (no-op)
-            | (Pending, Pending)
+            | (Backlog, Backlog)
+            | (Todo, Todo)
             | (InProgress, InProgress)
     )
 }
@@ -243,8 +250,12 @@ impl QuestBoard {
             .get(id)
             .ok_or_else(|| anyhow::anyhow!("quest not found: {id}"))?;
 
-        if quest.status != QuestStatus::Pending {
-            anyhow::bail!("quest {} is not Pending (status: {:?})", id, quest.status);
+        if quest.status != QuestStatus::Todo {
+            anyhow::bail!(
+                "quest {} is not Todo (status: {:?}) — only Todo quests can be checked out",
+                id,
+                quest.status
+            );
         }
 
         // Concurrency is now handled by the scheduler via status transitions.
@@ -311,7 +322,7 @@ impl QuestBoard {
             if parent_has_checkpoints {
                 // Parent was actively worked on — re-queue for synthesis, do NOT auto-close.
                 if let Err(e) = self.update(&parent_id.0, |b| {
-                    b.status = QuestStatus::Pending;
+                    b.status = QuestStatus::Todo;
                 }) {
                     debug!(parent = %parent_id, error = %e, "failed to re-queue parent for synthesis");
                     return;
@@ -745,16 +756,10 @@ mod tests {
         let c3 = store.create_child(&parent.id, "Step 3: Ship").unwrap();
 
         store.close(&c1.id.0, "built").unwrap();
-        assert_eq!(
-            store.get(&parent.id.0).unwrap().status,
-            QuestStatus::Pending
-        );
+        assert_eq!(store.get(&parent.id.0).unwrap().status, QuestStatus::Todo);
 
         store.close(&c2.id.0, "tested").unwrap();
-        assert_eq!(
-            store.get(&parent.id.0).unwrap().status,
-            QuestStatus::Pending
-        );
+        assert_eq!(store.get(&parent.id.0).unwrap().status, QuestStatus::Todo);
 
         store.close(&c3.id.0, "shipped").unwrap();
         assert_eq!(store.get(&parent.id.0).unwrap().status, QuestStatus::Done);

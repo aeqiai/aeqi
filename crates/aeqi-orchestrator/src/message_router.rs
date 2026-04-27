@@ -234,7 +234,7 @@ impl MessageRouter {
 
     fn task_completion_reason(task: &aeqi_quests::Quest) -> Option<String> {
         match task.status {
-            aeqi_quests::QuestStatus::Blocked => task.blocker_context(),
+            aeqi_quests::QuestStatus::Backlog => task.blocker_context(),
             _ => task.outcome_summary(),
         }
     }
@@ -753,7 +753,7 @@ impl MessageRouter {
                         completions.push(completion);
                     }
                 }
-                Some((aeqi_quests::QuestStatus::Blocked, reason)) => {
+                Some((aeqi_quests::QuestStatus::Backlog, reason)) => {
                     if let Some(completion) = self
                         .consume_pending_completion(&qid, CompletionStatus::Blocked, reason)
                         .await
@@ -834,7 +834,7 @@ impl MessageRouter {
                 self.consume_pending_completion(quest_id, CompletionStatus::Done, reason)
                     .await
             }
-            Some((aeqi_quests::QuestStatus::Blocked, reason)) => {
+            Some((aeqi_quests::QuestStatus::Backlog, reason)) => {
                 self.consume_pending_completion(quest_id, CompletionStatus::Blocked, reason)
                     .await
             }

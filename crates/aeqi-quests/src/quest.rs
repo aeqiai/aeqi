@@ -58,23 +58,28 @@ impl From<String> for QuestId {
     }
 }
 
+/// Five-status Linear-style lifecycle. v5.2 (2026-04-27) renamed
+/// `Pending → Todo` and folded the legacy `Blocked` variant into a
+/// new `Backlog` tier — the canonical column order is now
+/// Backlog → Todo → InProgress → Done → Cancelled, matching the
+/// reading flow Linear / Notion / Height converged on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuestStatus {
-    Pending,
+    Backlog,
+    Todo,
     InProgress,
     Done,
-    Blocked,
     Cancelled,
 }
 
 impl fmt::Display for QuestStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Pending => write!(f, "pending"),
+            Self::Backlog => write!(f, "backlog"),
+            Self::Todo => write!(f, "todo"),
             Self::InProgress => write!(f, "in_progress"),
             Self::Done => write!(f, "done"),
-            Self::Blocked => write!(f, "blocked"),
             Self::Cancelled => write!(f, "cancelled"),
         }
     }
@@ -239,7 +244,7 @@ impl Quest {
             id,
             idea_id: None,
             idea: None,
-            status: QuestStatus::Pending,
+            status: QuestStatus::Todo,
             priority: Priority::Normal,
             agent_id: agent_id.map(|s| s.to_string()),
             scope,
@@ -287,7 +292,8 @@ impl Quest {
 
     /// Is this quest ready to work on? (pending + no unresolved dependencies)
     pub fn is_ready(&self, resolved: &dyn Fn(&QuestId) -> bool) -> bool {
-        self.status == QuestStatus::Pending && self.depends_on.iter().all(resolved)
+        matches!(self.status, QuestStatus::Todo | QuestStatus::Backlog)
+            && self.depends_on.iter().all(resolved)
     }
 
     /// Whether the scheduler should temporarily hold this quest from execution.
@@ -464,7 +470,7 @@ mod tests {
         assert_eq!(quest.title(), "");
         assert_eq!(quest.body(), "");
         assert!(quest.idea_id.is_none());
-        assert_eq!(quest.status, QuestStatus::Pending);
+        assert_eq!(quest.status, QuestStatus::Todo);
         assert_eq!(quest.priority, Priority::Normal);
         assert!(quest.agent_id.is_none());
         assert!(quest.depends_on.is_empty());
@@ -497,7 +503,7 @@ mod tests {
         quest.status = QuestStatus::Cancelled;
         assert!(quest.is_closed());
 
-        quest.status = QuestStatus::Blocked;
+        quest.status = QuestStatus::Backlog;
         assert!(!quest.is_closed());
     }
 
@@ -657,10 +663,10 @@ mod tests {
 
     #[test]
     fn quest_status_display() {
-        assert_eq!(QuestStatus::Pending.to_string(), "pending");
+        assert_eq!(QuestStatus::Backlog.to_string(), "backlog");
+        assert_eq!(QuestStatus::Todo.to_string(), "todo");
         assert_eq!(QuestStatus::InProgress.to_string(), "in_progress");
         assert_eq!(QuestStatus::Done.to_string(), "done");
-        assert_eq!(QuestStatus::Blocked.to_string(), "blocked");
         assert_eq!(QuestStatus::Cancelled.to_string(), "cancelled");
     }
 

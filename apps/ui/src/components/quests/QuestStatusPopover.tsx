@@ -3,12 +3,12 @@ import { Popover } from "../ui/Popover";
 import { Button } from "../ui";
 import type { QuestStatus } from "@/lib/types";
 
-const STATUS_VALUES: QuestStatus[] = ["pending", "in_progress", "blocked", "done", "cancelled"];
+const STATUS_VALUES: QuestStatus[] = ["backlog", "todo", "in_progress", "done", "cancelled"];
 
 const STATUS_LABEL: Record<QuestStatus, string> = {
-  pending: "Pending",
+  backlog: "Backlog",
+  todo: "Todo",
   in_progress: "In Progress",
-  blocked: "Blocked",
   done: "Done",
   cancelled: "Cancelled",
 };

@@ -594,11 +594,15 @@ pub async fn handle_update_quest(
     }
 
     let status = status_str.map(|s| match s {
+        "backlog" => aeqi_quests::QuestStatus::Backlog,
+        "todo" => aeqi_quests::QuestStatus::Todo,
         "in_progress" => aeqi_quests::QuestStatus::InProgress,
         "done" => aeqi_quests::QuestStatus::Done,
-        "blocked" => aeqi_quests::QuestStatus::Blocked,
         "cancelled" => aeqi_quests::QuestStatus::Cancelled,
-        _ => aeqi_quests::QuestStatus::Pending,
+        // Legacy aliases — map old vocabulary onto the v5.2 set.
+        "pending" => aeqi_quests::QuestStatus::Todo,
+        "blocked" => aeqi_quests::QuestStatus::Backlog,
+        _ => aeqi_quests::QuestStatus::Todo,
     });
 
     let priority = priority_str.map(|s| match s {

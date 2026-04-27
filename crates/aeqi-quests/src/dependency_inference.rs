@@ -188,7 +188,7 @@ mod tests {
             id: QuestId(id.to_string()),
             idea_id: Some(idea.id.clone()),
             idea: Some(idea),
-            status: QuestStatus::Pending,
+            status: QuestStatus::Todo,
             priority: Priority::Normal,
             agent_id: None,
             scope: aeqi_core::Scope::Global,

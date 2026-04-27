@@ -324,7 +324,7 @@ fn cleanup_legacy_quest_columns(conn: &Connection) -> rusqlite::Result<()> {
          CREATE TABLE quests_new (
              id TEXT PRIMARY KEY,
              idea_id TEXT NOT NULL,
-             status TEXT NOT NULL DEFAULT 'pending',
+             status TEXT NOT NULL DEFAULT 'todo',
              priority TEXT NOT NULL DEFAULT 'normal',
              agent_id TEXT,
              scope TEXT NOT NULL DEFAULT 'self',
@@ -882,7 +882,7 @@ impl AgentRegistry {
             "CREATE TABLE IF NOT EXISTS quests (
                  id TEXT PRIMARY KEY,
                  idea_id TEXT NOT NULL,
-                 status TEXT NOT NULL DEFAULT 'pending',
+                 status TEXT NOT NULL DEFAULT 'todo',
                  priority TEXT NOT NULL DEFAULT 'normal',
                  agent_id TEXT,
                  scope TEXT NOT NULL DEFAULT 'self',
@@ -944,6 +944,19 @@ impl AgentRegistry {
         // ALTER TABLE DROP COLUMN, so the rebuild is the safe lowest-common-
         // denominator path.
         cleanup_legacy_quest_columns(&sconn)?;
+
+        // ── v5.2 status rename (idempotent) ────────────────────────────────
+        // Rewrites the two legacy status strings to the canonical 5-status
+        // Linear-style vocabulary in place. UPDATE … WHERE clauses make
+        // both calls cheap no-ops once the rows have been migrated.
+        sconn.execute(
+            "UPDATE quests SET status = 'todo' WHERE status = 'pending'",
+            [],
+        )?;
+        sconn.execute(
+            "UPDATE quests SET status = 'backlog' WHERE status = 'blocked'",
+            [],
+        )?;
 
         // Activity table (audit log, cost tracking — in sessions.db).
         crate::activity_log::ActivityLog::create_tables(&sconn)?;
@@ -2168,7 +2181,7 @@ impl AgentRegistry {
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
             "INSERT INTO quests (id, idea_id, status, priority, agent_id, scope, created_at)
-             VALUES (?1, ?2, 'pending', 'normal', ?3, ?4, ?5)",
+             VALUES (?1, ?2, 'todo', 'normal', ?3, ?4, ?5)",
             params![
                 quest_id,
                 idea_id,
@@ -2261,7 +2274,7 @@ impl AgentRegistry {
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
             "INSERT INTO quests (id, idea_id, status, priority, agent_id, scope, depends_on, created_at)
-             VALUES (?1, ?2, 'pending', 'normal', ?3, ?4, ?5, ?6)",
+             VALUES (?1, ?2, 'todo', 'normal', ?3, ?4, ?5, ?6)",
             params![quest_id, idea_id, agent_id, scope.as_str(), deps_json, now.to_rfc3339()],
         )?;
 
@@ -2380,7 +2393,7 @@ impl AgentRegistry {
         let sdb = self.sessions_db.lock().await;
         sdb.execute(
             "INSERT INTO quests (id, idea_id, status, priority, agent_id, scope, depends_on, created_at)
-             VALUES (?1, ?2, 'pending', 'normal', ?3, ?4, ?5, ?6)",
+             VALUES (?1, ?2, 'todo', 'normal', ?3, ?4, ?5, ?6)",
             params![quest_id, idea_id, agent_id, scope.as_str(), deps_json, now.to_rfc3339()],
         )?;
 
@@ -2413,7 +2426,7 @@ impl AgentRegistry {
         let task = db
             .query_row(
                 "SELECT * FROM quests
-                 WHERE idea_id = ?1 AND status IN ('pending', 'in_progress')
+                 WHERE idea_id = ?1 AND status IN ('todo', 'in_progress')
                  LIMIT 1",
                 params![idea_id],
                 |row| Ok(row_to_task(row)),
@@ -2422,11 +2435,13 @@ impl AgentRegistry {
         Ok(task)
     }
 
-    /// Get all pending tasks that are ready to run (no unmet dependencies).
+    /// All quests ready to run — Todo status, no unmet dependencies.
+    /// Backlog quests are explicitly NOT ready: they're parked, awaiting
+    /// the user to promote them to Todo.
     pub async fn ready_tasks(&self) -> Result<Vec<aeqi_quests::Quest>> {
         let db = self.sessions_db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT * FROM quests WHERE status = 'pending' ORDER BY
+            "SELECT * FROM quests WHERE status = 'todo' ORDER BY
              CASE priority
                 WHEN 'critical' THEN 0
                 WHEN 'high' THEN 1
@@ -2657,7 +2672,7 @@ impl AgentRegistry {
     pub async fn reset_stale_in_progress(&self) -> Result<usize> {
         let db = self.sessions_db.lock().await;
         let count = db.execute(
-            "UPDATE quests SET status = 'pending', retry_count = retry_count + 1 WHERE status = 'in_progress'",
+            "UPDATE quests SET status = 'todo', retry_count = retry_count + 1 WHERE status = 'in_progress'",
             [],
         )?;
         Ok(count)
@@ -3227,13 +3242,22 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
     let metadata_str: String = row.get("metadata").unwrap_or_else(|_| "{}".to_string());
     let outcome_str: String = row.get("outcome").unwrap_or_else(|_| String::new());
 
-    let status_str: String = row.get("status").unwrap_or_else(|_| "pending".to_string());
+    // Status string parser. Legacy "pending" / "blocked" rows from
+    // before the v5.2 status rename get mapped on read so the
+    // five-status enum is never surprised — the boot migration also
+    // rewrites them in place, but the read-side fallback covers any
+    // stragglers (incl. JSONL replay paths that bypass the SQL UPDATE).
+    let status_str: String = row.get("status").unwrap_or_else(|_| "todo".to_string());
     let status = match status_str.as_str() {
+        "backlog" => aeqi_quests::QuestStatus::Backlog,
+        "todo" => aeqi_quests::QuestStatus::Todo,
         "in_progress" => aeqi_quests::QuestStatus::InProgress,
         "done" => aeqi_quests::QuestStatus::Done,
-        "blocked" => aeqi_quests::QuestStatus::Blocked,
         "cancelled" => aeqi_quests::QuestStatus::Cancelled,
-        _ => aeqi_quests::QuestStatus::Pending,
+        // Legacy values:
+        "pending" => aeqi_quests::QuestStatus::Todo,
+        "blocked" => aeqi_quests::QuestStatus::Backlog,
+        _ => aeqi_quests::QuestStatus::Todo,
     };
 
     let priority_str: String = row.get("priority").unwrap_or_else(|_| "normal".to_string());
@@ -3399,7 +3423,7 @@ mod tests {
                      id TEXT PRIMARY KEY,
                      subject TEXT NOT NULL,
                      description TEXT NOT NULL DEFAULT '',
-                     status TEXT NOT NULL DEFAULT 'pending',
+                     status TEXT NOT NULL DEFAULT 'todo',
                      priority TEXT NOT NULL DEFAULT 'normal',
                      agent_id TEXT,
                      scope TEXT NOT NULL DEFAULT 'self',
@@ -3641,7 +3665,7 @@ mod tests {
         // `idea_id` is now NOT NULL — inserting a row without one fails.
         let err = quest_conn.execute(
             "INSERT INTO quests (id, status, priority, scope, created_at)
-             VALUES ('as-003', 'pending', 'normal', 'self', ?1)",
+             VALUES ('as-003', 'todo', 'normal', 'self', ?1)",
             rusqlite::params![Utc::now().to_rfc3339()],
         );
         assert!(err.is_err(), "NOT NULL constraint should reject the insert");
@@ -3814,15 +3838,15 @@ mod tests {
             .await
             .unwrap();
 
-        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Pending, true)
+        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Todo, true)
             .await
             .unwrap();
-        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Pending, true)
+        reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Todo, true)
             .await
             .unwrap();
 
         let got = reg.get_task(&quest.id.0).await.unwrap().unwrap();
-        assert_eq!(got.status, aeqi_quests::QuestStatus::Pending);
+        assert_eq!(got.status, aeqi_quests::QuestStatus::Todo);
         assert_eq!(got.retry_count, 2);
         assert!(got.closed_at.is_none(), "Pending must not stamp closed_at");
     }
@@ -4062,12 +4086,12 @@ mod tests {
         reg.update_task_status(&t1.id.0, aeqi_quests::QuestStatus::Done)
             .await
             .unwrap();
-        let mut pending = reg.list_tasks(Some("pending"), None).await.unwrap();
-        for q in pending.iter_mut() {
+        let mut todo = reg.list_tasks(Some("todo"), None).await.unwrap();
+        for q in todo.iter_mut() {
             reg.hydrate_quest_idea(q).await.unwrap();
         }
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].title(), "Write tests");
+        assert_eq!(todo.len(), 1);
+        assert_eq!(todo[0].title(), "Write tests");
 
         let mut done = reg.list_tasks(Some("done"), None).await.unwrap();
         for q in done.iter_mut() {

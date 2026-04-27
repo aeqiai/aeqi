@@ -36,7 +36,7 @@ export interface Checkpoint {
   steps_used: number;
 }
 
-export type QuestStatus = "pending" | "in_progress" | "done" | "blocked" | "cancelled";
+export type QuestStatus = "backlog" | "todo" | "in_progress" | "done" | "cancelled";
 export type QuestPriority = "critical" | "high" | "normal" | "low";
 
 export interface QuestOutcome {

@@ -3493,9 +3493,19 @@
   background: var(--text-muted);
   flex-shrink: 0;
 }
+/* v5.2 status dots — Linear-ish palette. Backlog reads as a hollow
+   ring (parked, not committed); Todo reads as a filled muted dot
+   (committed, ready to start); InProgress in info-blue; Done in
+   success-jade; Cancelled muted. The two legacy aliases (pending,
+   blocked) survive for any in-flight optimistic state that flickers
+   the old name before the round-trip completes. */
+.quest-status-dot--backlog,
 .quest-status-dot--pending {
   background: transparent;
   border: 1.5px solid var(--text-muted);
+}
+.quest-status-dot--todo {
+  background: var(--text-secondary);
 }
 .quest-status-dot--in_progress {
   background: var(--info);

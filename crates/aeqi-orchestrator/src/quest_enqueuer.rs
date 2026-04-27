@@ -262,7 +262,7 @@ impl QuestEnqueuer {
                     warn!(task = %task.id, error = %e, "payload serialize failed; rolling back");
                     let _ = self
                         .agent_registry
-                        .update_task_status(&task.id.0, aeqi_quests::QuestStatus::Pending)
+                        .update_task_status(&task.id.0, aeqi_quests::QuestStatus::Todo)
                         .await;
                     continue;
                 }
@@ -292,7 +292,7 @@ impl QuestEnqueuer {
                     warn!(task = %task.id, error = %e, "enqueue failed; rolling back status");
                     let _ = self
                         .agent_registry
-                        .update_task_status(&task.id.0, aeqi_quests::QuestStatus::Pending)
+                        .update_task_status(&task.id.0, aeqi_quests::QuestStatus::Todo)
                         .await;
                 }
             }
@@ -418,7 +418,7 @@ mod tests {
             .unwrap();
 
         for _ in 0..4 {
-            reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Pending, true)
+            reg.finalize_quest(&quest.id.0, aeqi_quests::QuestStatus::Todo, true)
                 .await
                 .unwrap();
         }

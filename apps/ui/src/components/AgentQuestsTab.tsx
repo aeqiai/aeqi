@@ -313,7 +313,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   // embedded `<IdeaCanvas>`'s own save path. `bodyDirty` mirrors the
   // canvas's internal dirty signal so Cancel + Save in the toolbar
   // can show only when there's something to save / revert.
-  const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "pending");
+  const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "todo");
   const [priority, setPriority] = useState<QuestPriority>(quest?.priority ?? "normal");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [bodyDirty, setBodyDirty] = useState(false);
@@ -324,7 +324,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   lifecycleRef.current = { status, priority };
 
   useEffect(() => {
-    setStatus(quest?.status ?? "pending");
+    setStatus(quest?.status ?? "todo");
     setPriority(quest?.priority ?? "normal");
     setSaveState("idle");
   }, [quest?.id, quest?.status, quest?.priority]);
@@ -638,23 +638,27 @@ function QuestBoard({
     [quests, optimistic, onCreated],
   );
 
+  // v5.2: five-status Linear ladder. Backlog (parked) → Todo (ready) →
+  // In progress → Done | Cancelled. Reading order left-to-right on the
+  // board, top-to-bottom in the list view.
   const columns: Array<{ status: QuestStatus; label: string }> = [
-    { status: "pending", label: "Todo" },
+    { status: "backlog", label: "Backlog" },
+    { status: "todo", label: "Todo" },
     { status: "in_progress", label: "In progress" },
-    { status: "blocked", label: "Blocked" },
     { status: "done", label: "Done" },
+    { status: "cancelled", label: "Cancelled" },
   ];
 
   // Bucket the already-sorted source by displayed status. Stable sort
   // means within-column order honors the active sort mode without a
-  // secondary pass. Done is capped at the 10 MOST-RECENT regardless of
-  // sort mode (Done is a recency archive, not a leaderboard); the chosen
-  // sort then orders that 10 for display.
+  // secondary pass. Done + Cancelled are capped at the 10 MOST-RECENT
+  // regardless of sort mode (terminal columns are recency archives, not
+  // leaderboards); the chosen sort then orders that 10 for display.
   const grouped: Record<QuestStatus, Quest[]> = useMemo(() => {
     const buckets: Record<QuestStatus, Quest[]> = {
-      pending: [],
+      backlog: [],
+      todo: [],
       in_progress: [],
-      blocked: [],
       done: [],
       cancelled: [],
     };
@@ -662,21 +666,23 @@ function QuestBoard({
       const s = optimistic[q.id] ?? q.status;
       buckets[s]?.push(q);
     }
-    if (buckets.done.length > 10) {
-      const recent = [...buckets.done].sort(byUpdatedDesc).slice(0, 10);
-      buckets.done = sortQuests(recent, sort);
+    for (const terminal of ["done", "cancelled"] as const) {
+      if (buckets[terminal].length > 10) {
+        const recent = [...buckets[terminal]].sort(byUpdatedDesc).slice(0, 10);
+        buckets[terminal] = sortQuests(recent, sort);
+      }
     }
     return buckets;
   }, [sortedVisibleQuests, optimistic, sort]);
 
   // Flat traversal order used by j/k. In Board view: column-major over
-  // pending → in_progress → blocked → done (matches reading order).
-  // In List view: the flat-sorted order.
+  // backlog → todo → in_progress → done → cancelled. In List view:
+  // the flat-sorted order.
   const flatOrderKey = useMemo(() => {
     if (view === "list") {
       return sortedVisibleQuests.map((q) => q.id).join("|");
     }
-    const order: QuestStatus[] = ["pending", "in_progress", "blocked", "done"];
+    const order: QuestStatus[] = ["backlog", "todo", "in_progress", "done", "cancelled"];
     const ids: string[] = [];
     for (const s of order) for (const q of grouped[s] ?? []) ids.push(q.id);
     return ids.join("|");

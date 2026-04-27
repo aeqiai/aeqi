@@ -222,7 +222,7 @@ fn build_project_monitor(
         open_quests
             .iter()
             .copied()
-            .filter(|q| q.status == QuestStatus::Blocked)
+            .filter(|q| q.status == QuestStatus::Backlog)
             .collect(),
     );
     let in_progress_quests = open_quests
@@ -236,7 +236,7 @@ fn build_project_monitor(
     let budget_blocked_quests = open_quests
         .iter()
         .filter(|q| {
-            q.status == QuestStatus::Blocked
+            q.status == QuestStatus::Backlog
                 && q.idea_tags()
                     .iter()
                     .any(|label| label.eq_ignore_ascii_case("budget-blocked"))

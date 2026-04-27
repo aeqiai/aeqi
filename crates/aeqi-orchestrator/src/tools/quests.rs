@@ -357,14 +357,17 @@ impl QuestsTool {
         let status = match status_str {
             Some(s) => {
                 let parsed = match s.to_lowercase().as_str() {
-                    "pending" => aeqi_quests::QuestStatus::Pending,
+                    "backlog" => aeqi_quests::QuestStatus::Backlog,
+                    "todo" => aeqi_quests::QuestStatus::Todo,
                     "in_progress" => aeqi_quests::QuestStatus::InProgress,
                     "done" => aeqi_quests::QuestStatus::Done,
-                    "blocked" => aeqi_quests::QuestStatus::Blocked,
                     "cancelled" => aeqi_quests::QuestStatus::Cancelled,
+                    // Legacy vocabulary — accept on read, write the canonical names.
+                    "pending" => aeqi_quests::QuestStatus::Todo,
+                    "blocked" => aeqi_quests::QuestStatus::Backlog,
                     _ => {
                         return Ok(ToolResult::error(format!(
-                            "Invalid status: {s}. Use: pending, in_progress, done, blocked, cancelled"
+                            "Invalid status: {s}. Use: backlog, todo, in_progress, done, cancelled"
                         )));
                     }
                 };
@@ -590,7 +593,7 @@ impl Tool for QuestsTool {
                         "enum": ["self", "siblings", "children", "branch", "global"],
                         "description": "Visibility scope (for create). Defaults to 'self'."
                     },
-                    "status": { "type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter or new status (for list, update)" },
+                    "status": { "type": "string", "enum": ["backlog", "todo", "in_progress", "done", "cancelled"], "description": "Filter or new status (for list, update). Legacy 'pending'/'blocked' values still accepted." },
                     "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)" },
                     "result": { "type": "string", "description": "Completion result (for close)" },
                     "reason": { "type": "string", "description": "Cancellation reason (for cancel)" }
