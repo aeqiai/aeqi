@@ -331,7 +331,7 @@ export default function IdeasListView({
                 </button>
               ))}
               <button type="button" className="ideas-list-chip-clear" onClick={clearAll}>
-                clear all
+                Clear all
               </button>
             </div>
           )}
@@ -368,7 +368,7 @@ export default function IdeasListView({
                   className="ideas-list-tag-more"
                   onClick={() => setTagsExpanded(false)}
                 >
-                  show less
+                  Show less
                 </button>
               )}
             </div>
@@ -381,7 +381,7 @@ export default function IdeasListView({
           ideas.length === 0 ? (
             <div className="empty-state-hero">
               <span className="empty-state-hero-eyebrow">a blank notebook</span>
-              <h3 className="empty-state-hero-title">nothing thought yet.</h3>
+              <h3 className="empty-state-hero-title">Nothing thought yet.</h3>
               <p className="empty-state-hero-body">
                 Ideas are how this agent remembers — instructions, decisions, references. The first
                 idea seeds the next thousand.
@@ -427,10 +427,10 @@ export default function IdeasListView({
               <h3 className="empty-state-hero-title">
                 {noMatchTrimmed ? (
                   <>
-                    nothing for <span className="empty-state-hero-query">{noMatchTrimmed}</span>
+                    Nothing for <span className="empty-state-hero-query">{noMatchTrimmed}</span>
                   </>
                 ) : (
-                  <>no ideas match these filters.</>
+                  <>No ideas match these filters.</>
                 )}
               </h3>
               <p className="empty-state-hero-body">

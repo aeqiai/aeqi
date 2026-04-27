@@ -4,8 +4,8 @@ import { Popover } from "../ui/Popover";
 export type IdeasView = "list" | "graph";
 
 const VIEW_LABEL: Record<IdeasView, string> = {
-  list: "list",
-  graph: "graph",
+  list: "List",
+  graph: "Graph",
 };
 
 const VIEW_GLYPH: Record<IdeasView, ReactElement> = {

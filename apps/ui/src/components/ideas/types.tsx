@@ -30,8 +30,8 @@ export const SCOPE_LABEL: Record<IdeasFilter, string> = {
 export type SortMode = "tag" | "recent" | "alpha";
 export const SORT_MODES: SortMode[] = ["tag", "recent", "alpha"];
 export const SORT_LABELS: Record<SortMode, string> = {
-  tag: "by tag",
-  recent: "recent",
+  tag: "By tag",
+  recent: "Recent",
   alpha: "A → Z",
 };
 

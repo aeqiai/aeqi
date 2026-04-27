@@ -50,7 +50,7 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
     return (
       <div className="empty-state-hero">
         <span className="empty-state-hero-eyebrow">a blank canvas</span>
-        <h3 className="empty-state-hero-title">no pipelines yet.</h3>
+        <h3 className="empty-state-hero-title">No pipelines yet.</h3>
         <p className="empty-state-hero-body">
           Events are when-and-then. A pattern fires — a session starts, a webhook lands, a cron
           ticks — and the event runs an ordered chain of tool calls. This is where you replace
