@@ -3632,6 +3632,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 /* Search flexes to fill the row — the modifier cluster (sort /
    filter / view) and the labeled `+ New <primitive>` pill sit
