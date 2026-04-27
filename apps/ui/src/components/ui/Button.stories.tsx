@@ -7,6 +7,24 @@ const meta: Meta<typeof Button> = {
   title: "Primitives/Actions/Button",
   component: Button,
   tags: ["autodocs"],
+  parameters: {
+    docs: {
+      description: {
+        component: `
+**Variant decision rule** — locked across the app.
+
+| Variant | Use when |
+|---------|---------|
+| \`primary\` | The one filled CTA per surface (Save, Send code, Create event). |
+| \`secondary\` | Visible-at-rest partner to primary; Cancel beside Save; "Set up later" beside "Connect". |
+| \`ghost\` | Quiet inline action where hover/focus reveals it (toolbar overflow, list-row × close, transcript controls). **Never** as the Cancel sibling next to a primary — pair with \`secondary\` so the dismiss path is visible at rest. |
+| \`danger\` | Destructive primary (Delete agent, Sign out everywhere). |
+
+All sizes are pill-shaped (\`--radius-full\`). Industry parallel: Stripe, Linear, Vercel, GitHub.
+        `,
+      },
+    },
+  },
   argTypes: {
     variant: {
       control: "select",
@@ -33,7 +51,16 @@ export const Secondary: Story = {
 };
 
 export const Ghost: Story = {
-  args: { children: "Cancel", variant: "ghost" },
+  name: "Ghost (quiet inline)",
+  args: { children: "Refresh", variant: "ghost" },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Quiet inline action where hover/focus reveals the affordance — toolbar overflow, list-row × close, transcript controls. Do **not** use as the Cancel sibling next to a primary CTA; pair with `secondary` instead so the dismiss path stays visible at rest.",
+      },
+    },
+  },
 };
 
 export const Danger: Story = {
@@ -143,6 +170,14 @@ export const AgentToolbar: Story = {
 
 export const FormActions: Story = {
   name: "Form Submit / Cancel",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Cancel beside a primary CTA uses `secondary` — outlined and visible at rest — so the dismiss path is never invisible. `ghost` would disappear into the surface until hovered.",
+      },
+    },
+  },
   render: () => (
     <div
       style={{
@@ -170,7 +205,7 @@ export const FormActions: Story = {
           paddingTop: 16,
         }}
       >
-        <Button variant="ghost">Cancel</Button>
+        <Button variant="secondary">Cancel</Button>
         <Button variant="primary">Create Agent</Button>
       </div>
     </div>
@@ -206,7 +241,7 @@ export const ButtonGroup: Story = {
             Archive
           </Button>
           <Button variant="danger" size="sm">
-            Cancel
+            Delete
           </Button>
         </div>
       </div>
@@ -223,7 +258,7 @@ export const ButtonGroup: Story = {
           Destructive confirmation
         </p>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="ghost">Keep Agent</Button>
+          <Button variant="secondary">Keep Agent</Button>
           <Button variant="danger">Delete Agent</Button>
         </div>
       </div>

@@ -3633,9 +3633,18 @@
   align-items: center;
   gap: 6px;
 }
+/* Search anchors the toolbar at a standard width — preferred 420px,
+   shrinks below on narrow viewports, never grows wider so the search
+   stays a search field, not a "search pad" filling the whole row. */
 .ideas-toolbar > .ideas-list-search-field {
-  flex: 1;
+  flex: 0 1 420px;
   min-width: 0;
+}
+/* The labeled primary `+ New <primitive>` action pins to the right
+   edge of the toolbar — visible gap separates it from the quiet
+   modifier cluster (sort / filter / view) on the search's right. */
+.primitive-toolbar-new {
+  margin-left: auto;
 }
 /* Quiet meta label sometimes used inside the toolbar (graph view's
    nodes/edges count). Mono, tabular-nums, lives between the search
@@ -4304,6 +4313,20 @@
 .ideas-list-search:focus {
   border-color: var(--input-border-focus, var(--border-hover));
   box-shadow: var(--input-ring-focus, var(--ring-muted));
+}
+/* Suppress any UA-rendered clear button or password-manager glyph so
+   the field never paints two × at once — our `.ideas-list-search-clear`
+   is the only one. */
+.ideas-list-search::-webkit-search-cancel-button,
+.ideas-list-search::-webkit-search-decoration,
+.ideas-list-search::-webkit-search-results-button,
+.ideas-list-search::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ideas-list-search::-ms-clear,
+.ideas-list-search::-ms-reveal {
+  display: none;
 }
 /* Leading magnifier — quiet 12px glyph anchors the search field so the
    row has an identity even before the user types. Sits inside the

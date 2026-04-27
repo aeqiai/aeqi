@@ -303,7 +303,13 @@ export default function IdeasListView({
             onChange={onFilter}
           />
           <IdeasViewPopover view={view} onChange={onViewChange} />
-          <Button variant="primary" size="sm" onClick={() => fireNew()} title="New idea (N)">
+          <Button
+            variant="primary"
+            size="sm"
+            className="primitive-toolbar-new"
+            onClick={() => fireNew()}
+            title="New idea (N)"
+          >
             <svg
               width="11"
               height="11"

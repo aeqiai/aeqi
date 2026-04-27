@@ -794,6 +794,7 @@ function QuestBoard({
           <Button
             variant="primary"
             size="sm"
+            className="primitive-toolbar-new"
             onClick={() => onNewOpenChange(true)}
             title="New quest (N)"
           >
