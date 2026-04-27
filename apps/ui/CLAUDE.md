@@ -2,6 +2,28 @@
 
 Frontend for the AEQI agent runtime. Vite + React 19 + Zustand + TypeScript.
 
+## Before any UI change
+
+Read [`./.impeccable.md`](./.impeccable.md). It's the design-system
+constitution — palette, typefaces, ratio rule, locked toolbar zones,
+anti-references. Non-negotiable; supersedes any default behavior the
+agent would otherwise drift toward.
+
+For component APIs and pattern recipes, the Storybook docs are the
+canonical reference:
+
+- `src/components/ui/Welcome.mdx` — sidebar map, where to look for what.
+- `src/components/ui/docs/Foundations*.mdx` — color, typography, spacing,
+  radii, motion, principles.
+- `src/components/ui/docs/Patterns*.mdx` — composed recipes.
+  `PatternsToolbar.mdx` is the canonical search / sort / filter / view /
+  + New layout, including the chrome / paper / ink tier rule.
+
+When a need doesn't map to an existing primitive, propose a new one
+before writing a page-level class. Grep before adding any new style or
+component — the codebase has more primitives than the file structure
+suggests.
+
 ## MVP charter — read this before touching any UI
 
 **The goal is to ship the MVP.** Every UI decision must be measured against
