@@ -4398,6 +4398,14 @@
 .ideas-list-body {
   flex: 1;
   overflow-y: auto;
+  /* v5.1: rows are discrete cards — gap between them, inset from the
+     scroll edge — instead of an edge-to-edge dividered list. Same
+     reading register as sidebar nav items: each row is its own zone,
+     hover lights its background, the active accent lives on the left. */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 14px 14px;
 }
 .ideas-list-row {
   position: relative;
@@ -4406,9 +4414,12 @@
   gap: 4px;
   width: 100%;
   min-height: 36px;
-  padding: 12px 28px;
+  /* Padding pulls in slightly from the edges so the rounded corners
+     are visible against the card surface, and the inner content sits
+     comfortably inside the rounded shape. */
+  padding: 10px 14px;
   border: 0;
-  border-bottom: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
   background: transparent;
   font: inherit;
   color: inherit;
@@ -4424,31 +4435,38 @@
     color 0.12s ease;
 }
 /* Left-edge accent rail — anchors the active row without moving content.
-   A 2px column slides in from the left on hover/focus. Uses the token
-   already reserved for in-progress rows, so the ideas surface inherits
-   the same visual signal family as quests/events. */
+   A 2px column slides in from the left on hover/focus. Mirrors the
+   sidebar-nav-item active rail (same 6px insets, same accent token)
+   so the two surfaces speak the same visual language. */
 .ideas-list-row::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: 6px;
+  bottom: 6px;
   width: 2px;
-  background: var(--accent-bar-running);
-  transform: scaleY(0);
-  transform-origin: center;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
   transition: transform 0.12s ease;
 }
 .ideas-list-row:hover,
 .ideas-list-row:focus-visible {
   background: var(--state-hover);
+  color: var(--color-text-title);
 }
 .ideas-list-row:focus-visible {
   outline: none;
 }
 .ideas-list-row:hover::before,
-.ideas-list-row:focus-visible::before {
-  transform: scaleY(1);
+.ideas-list-row:focus-visible::before,
+.ideas-list-row.focus::before {
+  transform: scaleX(1);
+}
+.ideas-list-row.focus {
+  background: var(--state-selected);
+  color: var(--color-text-title);
 }
 
 /* Search-match highlight — inline <mark> wrapper for the matched token
