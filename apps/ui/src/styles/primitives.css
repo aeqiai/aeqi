@@ -148,7 +148,13 @@
   --input-h: 32px;
   --input-px: 12px;
   --input-radius: var(--radius-md);
-  --input-bg: var(--color-card-subtle);
+  /* Input + toolbar-button chrome lifts to the elevated tier so it
+     stays crisp white against the new mid-tone card (#fafafa). Pre-v5
+     this pointed at `--color-card-subtle` (#f8f8f9) — fine when the
+     card was pure white, invisible against the new card grey. Linear
+     / Notion / GitHub all sit input chrome ABOVE the card surface for
+     the same reason. */
+  --input-bg: var(--color-card-elevated);
   --input-border: var(--border);
   --input-border-focus: var(--border-hover);
   --input-ring-focus: var(--ring-muted);
