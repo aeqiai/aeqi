@@ -9,11 +9,13 @@ import SettingsIntegrationsPage from "@/pages/Settings/Integrations";
 import ApiKeyPanel from "@/pages/Settings/ApiKeyPanel";
 import InvitesPanel from "@/pages/Settings/InvitesPanel";
 import PreferencesPanel from "@/pages/Settings/PreferencesPanel";
+import WalletsPanel from "@/pages/Settings/WalletsPanel";
 
 const TABS = [
   { id: "profile", label: "Profile" },
   { id: "billing", label: "Billing" },
   { id: "security", label: "Security" },
+  { id: "wallets", label: "Wallets" },
   { id: "devices", label: "Devices" },
   { id: "integrations", label: "Integrations" },
   { id: "api", label: "API keys" },
@@ -58,6 +60,7 @@ export default function ProfilePage() {
         {activeTab === "profile" && <ProfilePanel />}
         {activeTab === "billing" && <BillingPanel />}
         {activeTab === "security" && <SecurityPanel />}
+        {activeTab === "wallets" && <WalletsPanel />}
         {activeTab === "devices" && <DevicesPanel />}
         {activeTab === "integrations" && <SettingsIntegrationsPage />}
         {activeTab === "api" && <ApiKeyPanel />}

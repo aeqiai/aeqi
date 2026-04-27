@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import AddPasskeyButton from "@/pages/Settings/AddPasskeyButton";
 
 type Feedback = { type: "success" | "error"; msg: string } | null;
 
@@ -349,6 +350,15 @@ export default function SecurityPanel() {
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="account-field-lg">
+        <label className="account-field-label">Passkeys</label>
+        <p className="account-field-desc">
+          Add a Touch ID / Face ID / Windows Hello / hardware-key credential as an additional way to
+          sign in to this account.
+        </p>
+        <AddPasskeyButton />
       </div>
 
       <div className="account-danger-zone">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import UserAvatar from "@/components/UserAvatar";
 import { Button, Input } from "@/components/ui";
+import EmailEditor from "@/pages/Settings/EmailEditor";
 
 interface UserData {
   email?: string;
@@ -152,7 +153,10 @@ export default function ProfilePanel() {
         <label className="account-field-label" htmlFor="account-email">
           Email
         </label>
-        <Input id="account-email" size="lg" type="email" value={email} disabled />
+        <EmailEditor
+          currentEmail={email}
+          onChanged={(e) => setUser((u) => (u ? { ...u, email: e } : u))}
+        />
       </div>
 
       <div className="account-field-md">
