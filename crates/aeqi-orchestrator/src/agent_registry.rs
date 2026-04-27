@@ -249,7 +249,7 @@ fn ensure_scope_columns(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 /// Phase 1 of the quest ↔ idea unification: add the `idea_id` FK column to
-/// legacy `quests` tables. Nullable until the backfill (WS-1b) has populated
+/// legacy `quests` tables. Nullable until the backfill (WS-1c) has populated
 /// every row; phase 3 (WS-8) flips to NOT NULL after the legacy editorial
 /// columns are dropped. Idempotent — only ADDs the column if missing.
 fn ensure_quest_idea_id_column(conn: &Connection) -> rusqlite::Result<()> {
@@ -265,6 +265,141 @@ fn ensure_quest_idea_id_column(conn: &Connection) -> rusqlite::Result<()> {
     // Index added on legacy DBs so the FK lookup path exists immediately.
     conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_quests_idea ON quests(idea_id)")?;
     Ok(())
+}
+
+/// Phase 1 backfill (WS-1c): for every quest with `idea_id IS NULL`, mint or
+/// reuse an idea row in `aeqi.db` and link the quest to it.
+///
+/// Idempotent: re-running the function is a no-op once every quest carries a
+/// non-null `idea_id`. Cross-DB writes are not transactional — on crash
+/// between the idea INSERT and the quest UPDATE, the orphan idea is detected
+/// on the next pass via the `(COALESCE(agent_id,''), name)` unique index, so
+/// the same quest re-links to the same idea instead of duplicating.
+///
+/// `idea_id_db` is `aeqi.db`; `quests_db` is `sessions.db`. Both are taken by
+/// shared reference because this runs inside the synchronous `open()` path
+/// where we already hold raw `Connection` handles before pool conversion.
+fn backfill_quest_idea_ids(
+    idea_db: &Connection,
+    quests_db: &Connection,
+) -> rusqlite::Result<usize> {
+    #[derive(Debug)]
+    struct LegacyQuest {
+        id: String,
+        subject: String,
+        description: String,
+        acceptance: Option<String>,
+        labels_json: String,
+        agent_id: Option<String>,
+        scope: String,
+    }
+
+    let mut stmt = quests_db.prepare(
+        "SELECT id, subject, description, acceptance_criteria, labels, agent_id, scope
+         FROM quests WHERE idea_id IS NULL",
+    )?;
+    let legacy: Vec<LegacyQuest> = stmt
+        .query_map([], |row| {
+            Ok(LegacyQuest {
+                id: row.get(0)?,
+                subject: row.get(1)?,
+                description: row.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                acceptance: row.get::<_, Option<String>>(3)?,
+                labels_json: row
+                    .get::<_, Option<String>>(4)?
+                    .unwrap_or_else(|| "[]".into()),
+                agent_id: row.get(5)?,
+                scope: row
+                    .get::<_, Option<String>>(6)?
+                    .unwrap_or_else(|| "self".into()),
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    drop(stmt);
+
+    if legacy.is_empty() {
+        return Ok(0);
+    }
+
+    info!(
+        count = legacy.len(),
+        "backfilling idea rows for legacy quests"
+    );
+    let mut linked = 0usize;
+    let now = Utc::now().to_rfc3339();
+
+    for quest in legacy {
+        let name = if quest.subject.trim().is_empty() {
+            format!("(quest {})", quest.id)
+        } else {
+            quest.subject.clone()
+        };
+
+        let mut content = quest.description.clone();
+        if let Some(ac) = quest.acceptance.as_ref().filter(|s| !s.trim().is_empty()) {
+            if !content.is_empty() {
+                content.push_str("\n\n");
+            }
+            content.push_str("## Acceptance\n");
+            content.push_str(ac);
+        }
+        if content.is_empty() {
+            content.push_str("(backfilled from legacy quest with empty body)");
+        }
+
+        // Reuse existing idea by (agent_id, name) when present — the unique
+        // index guarantees at most one — otherwise mint a fresh row.
+        let existing_id: Option<String> = idea_db
+            .query_row(
+                "SELECT id FROM ideas
+                 WHERE COALESCE(agent_id, '') = COALESCE(?1, '') AND name = ?2
+                 LIMIT 1",
+                rusqlite::params![quest.agent_id, name],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        let idea_id = if let Some(id) = existing_id {
+            id
+        } else {
+            let id = uuid::Uuid::new_v4().to_string();
+            idea_db.execute(
+                "INSERT INTO ideas (id, name, content, scope, agent_id, created_at,
+                                    status, embedding_pending)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'active', 1)",
+                rusqlite::params![id, name, content, quest.scope, quest.agent_id, now],
+            )?;
+
+            let labels: Vec<String> = serde_json::from_str(&quest.labels_json).unwrap_or_default();
+            for tag in labels {
+                let tag = tag.trim().to_lowercase();
+                if tag.is_empty() {
+                    continue;
+                }
+                idea_db.execute(
+                    "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
+                    rusqlite::params![id, tag],
+                )?;
+            }
+            // Tag every backfill row so phase-3 cleanup / rollback can find
+            // them in one query.
+            idea_db.execute(
+                "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, 'aeqi:backfill')",
+                rusqlite::params![id],
+            )?;
+            id
+        };
+
+        quests_db.execute(
+            "UPDATE quests SET idea_id = ?1 WHERE id = ?2",
+            rusqlite::params![idea_id, quest.id],
+        )?;
+        linked += 1;
+    }
+
+    info!(linked, "quest ↔ idea backfill complete");
+    Ok(linked)
 }
 
 /// Idempotent migration: adds the `can_self_delegate` column to the `agents`
@@ -669,9 +804,23 @@ impl AgentRegistry {
 
         // ── Quest ↔ Idea FK column (idempotent) ─────────────────────────────
         // Phase 1 of the quest-idea unification: introduce the FK column on
-        // legacy DBs without touching existing rows. Backfill runs in a
-        // separate one-shot step (WS-1b).
+        // legacy DBs without touching existing rows.
         ensure_quest_idea_id_column(&sconn)?;
+
+        // ── Quest ↔ Idea backfill (WS-1c, idempotent) ──────────────────────
+        // Mints (or reuses) an idea row for every quest that still has a NULL
+        // `idea_id`. No-op once every quest is linked. Cross-DB, non-atomic;
+        // the (agent_id, name) unique index makes a crashed half-write
+        // recover correctly on the next boot.
+        //
+        // The aeqi.db `conn` was already moved into `pool`, so a separate
+        // short-lived connection covers the backfill window.
+        {
+            let backfill_idea_conn = Connection::open(&db_path)?;
+            backfill_idea_conn
+                .execute_batch("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;")?;
+            backfill_quest_idea_ids(&backfill_idea_conn, &sconn)?;
+        }
 
         // Activity table (audit log, cost tracking — in sessions.db).
         crate::activity_log::ActivityLog::create_tables(&sconn)?;
@@ -2874,6 +3023,190 @@ mod tests {
     async fn test_registry() -> AgentRegistry {
         let dir = tempfile::tempdir().unwrap();
         AgentRegistry::open(dir.path()).unwrap()
+    }
+
+    /// Minimal-schema fixture for `backfill_quest_idea_ids`. We don't reuse
+    /// `AgentRegistry::open` here because the goal is to drive the function
+    /// directly against handcrafted legacy rows.
+    fn backfill_fixture() -> (tempfile::TempDir, Connection, Connection) {
+        let dir = tempfile::tempdir().unwrap();
+        let idea_path = dir.path().join("aeqi.db");
+        let quest_path = dir.path().join("sessions.db");
+
+        let idea_conn = Connection::open(&idea_path).unwrap();
+        idea_conn
+            .execute_batch("PRAGMA foreign_keys = ON;")
+            .unwrap();
+        aeqi_ideas::SqliteIdeas::prepare_schema(&idea_conn).unwrap();
+        idea_conn
+            .execute_batch(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_agent_name_unique
+                     ON ideas(COALESCE(agent_id, ''), name);",
+            )
+            .unwrap();
+
+        let quest_conn = Connection::open(&quest_path).unwrap();
+        quest_conn
+            .execute_batch(
+                "CREATE TABLE quests (
+                     id TEXT PRIMARY KEY,
+                     subject TEXT NOT NULL,
+                     description TEXT NOT NULL DEFAULT '',
+                     status TEXT NOT NULL DEFAULT 'pending',
+                     priority TEXT NOT NULL DEFAULT 'normal',
+                     agent_id TEXT,
+                     scope TEXT NOT NULL DEFAULT 'self',
+                     idea_ids TEXT NOT NULL DEFAULT '[]',
+                     idea_id TEXT,
+                     labels TEXT NOT NULL DEFAULT '[]',
+                     acceptance_criteria TEXT,
+                     created_at TEXT NOT NULL
+                 );",
+            )
+            .unwrap();
+        (dir, idea_conn, quest_conn)
+    }
+
+    #[test]
+    fn backfill_links_legacy_quest_to_synthetic_idea() {
+        let (_dir, idea_conn, quest_conn) = backfill_fixture();
+
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, description, scope, agent_id,
+                                     labels, acceptance_criteria, created_at)
+                 VALUES (?1, ?2, ?3, 'self', ?4, ?5, ?6, ?7)",
+                rusqlite::params![
+                    "as-001",
+                    "Fix login bug",
+                    "Login is broken on Safari",
+                    "agent-1",
+                    "[\"bug\",\"frontend\"]",
+                    "User can log in on Safari without errors",
+                    Utc::now().to_rfc3339(),
+                ],
+            )
+            .unwrap();
+
+        let linked = backfill_quest_idea_ids(&idea_conn, &quest_conn).unwrap();
+        assert_eq!(linked, 1);
+
+        let idea_id: String = quest_conn
+            .query_row("SELECT idea_id FROM quests WHERE id = 'as-001'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(!idea_id.is_empty());
+
+        let (name, content, scope, agent_id): (String, String, String, Option<String>) = idea_conn
+            .query_row(
+                "SELECT name, content, scope, agent_id FROM ideas WHERE id = ?1",
+                rusqlite::params![idea_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(name, "Fix login bug");
+        assert!(content.contains("Login is broken on Safari"));
+        assert!(content.contains("## Acceptance"));
+        assert!(content.contains("User can log in on Safari without errors"));
+        assert_eq!(scope, "self");
+        assert_eq!(agent_id.as_deref(), Some("agent-1"));
+
+        let tags: Vec<String> = idea_conn
+            .prepare("SELECT tag FROM idea_tags WHERE idea_id = ?1 ORDER BY tag")
+            .unwrap()
+            .query_map(rusqlite::params![idea_id], |r| r.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(tags.contains(&"bug".to_string()));
+        assert!(tags.contains(&"frontend".to_string()));
+        assert!(tags.contains(&"aeqi:backfill".to_string()));
+    }
+
+    #[test]
+    fn backfill_is_idempotent() {
+        let (_dir, idea_conn, quest_conn) = backfill_fixture();
+
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, description, agent_id, created_at)
+                 VALUES ('as-001', 'Quest A', 'Body', 'agent-1', ?1)",
+                rusqlite::params![Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        let first = backfill_quest_idea_ids(&idea_conn, &quest_conn).unwrap();
+        let second = backfill_quest_idea_ids(&idea_conn, &quest_conn).unwrap();
+        assert_eq!(first, 1);
+        assert_eq!(second, 0);
+
+        let idea_count: i64 = idea_conn
+            .query_row("SELECT COUNT(*) FROM ideas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(idea_count, 1);
+    }
+
+    #[test]
+    fn backfill_reuses_existing_idea_by_name() {
+        let (_dir, idea_conn, quest_conn) = backfill_fixture();
+
+        // Pre-existing idea with the same (agent_id, name) the quest will
+        // resolve to: the backfill must link rather than mint a duplicate.
+        idea_conn
+            .execute(
+                "INSERT INTO ideas (id, name, content, scope, agent_id, created_at, status)
+                 VALUES ('idea-pre', 'auth-spec', 'Existing body', 'self', 'agent-1', ?1, 'active')",
+                rusqlite::params![Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, description, agent_id, created_at)
+                 VALUES ('as-001', 'auth-spec', 'New quest body', 'agent-1', ?1)",
+                rusqlite::params![Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        let linked = backfill_quest_idea_ids(&idea_conn, &quest_conn).unwrap();
+        assert_eq!(linked, 1);
+
+        let idea_id: String = quest_conn
+            .query_row("SELECT idea_id FROM quests WHERE id = 'as-001'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(idea_id, "idea-pre");
+
+        let count: i64 = idea_conn
+            .query_row("SELECT COUNT(*) FROM ideas", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn backfill_handles_empty_subject_and_body() {
+        let (_dir, idea_conn, quest_conn) = backfill_fixture();
+
+        quest_conn
+            .execute(
+                "INSERT INTO quests (id, subject, description, agent_id, created_at)
+                 VALUES ('as-001', '', '', 'agent-1', ?1)",
+                rusqlite::params![Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+
+        let linked = backfill_quest_idea_ids(&idea_conn, &quest_conn).unwrap();
+        assert_eq!(linked, 1);
+
+        let (name, content): (String, String) = idea_conn
+            .query_row("SELECT name, content FROM ideas", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(name, "(quest as-001)");
+        assert!(content.contains("backfilled from legacy quest"));
     }
 
     #[tokio::test]
