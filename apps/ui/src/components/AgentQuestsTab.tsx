@@ -458,6 +458,14 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
           <QuestStatusPopover status={status} onChange={handleStatusChange} />
           <QuestPriorityPopover priority={priority} onChange={handlePriorityChange} />
           {quest.scope && <QuestScopeChip scope={quest.scope} />}
+          {quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 && (
+            <span
+              className="quest-detail-shared-badge"
+              title={`This idea is also tracked by ${quest.sibling_quest_ids.length} other quest${quest.sibling_quest_ids.length === 1 ? "" : "s"}`}
+            >
+              Shared spec · {quest.sibling_quest_ids.length + 1} quests
+            </span>
+          )}
           <div className="ideas-toolbar-spacer" aria-hidden />
           {saveState === "saving" ? (
             <span className="quest-detail-savestate">
@@ -475,29 +483,12 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         <div className="quest-detail-col">
           {error && <div className="quest-detail-error">{error}</div>}
 
-          <div className="quest-detail-eyebrow">
-            <StatusDot status={quest.status} />
-            <span className="quest-detail-eyebrow-kind">Quest</span>
-            <span className="quest-detail-eyebrow-sep" aria-hidden>
-              ·
-            </span>
-            <span className="quest-detail-eyebrow-id">{quest.id.slice(0, 8)}</span>
-            {quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 && (
-              <span
-                className="quest-detail-shared-badge"
-                title={`This idea is also tracked by ${quest.sibling_quest_ids.length} other quest${quest.sibling_quest_ids.length === 1 ? "" : "s"}`}
-              >
-                Shared spec · {quest.sibling_quest_ids.length + 1} quests
-              </span>
-            )}
-          </div>
-
-          <h2 className="quest-detail-title">{quest.idea?.name ?? quest.id}</h2>
-
           {quest.idea ? (
-            // Phase-2 unification: editorial body lives on the linked idea.
-            // The same Apple-Notes editor renders inside the idea detail and
-            // here — edits propagate back through `api.updateIdea`.
+            // Phase-3 unification: the body IS the idea detail surface.
+            // Same tags strip, same title input, same body editor, same
+            // refs row — the only quest-shaped chrome is the toolbar
+            // above, which carries the lifecycle controls and the
+            // shared-spec chip when the idea is tracked by other quests.
             <IdeaCanvas
               embedded
               agentId={quest.agent_id ?? agent?.id ?? agentId}

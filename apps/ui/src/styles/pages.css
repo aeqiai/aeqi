@@ -3561,51 +3561,24 @@
   border-radius: var(--radius-sm);
 }
 
-.quest-detail-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  user-select: none;
-}
-.quest-detail-eyebrow-id {
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-.quest-detail-eyebrow-kind {
-  color: var(--text-secondary);
-}
-.quest-detail-eyebrow-sep {
-  opacity: 0.45;
-}
 /* Shared-spec badge — surfaces when the linked idea is referenced by
-   other quests. Sits on the eyebrow row so the user knows that body
-   edits ripple to siblings before they start typing. */
+   other quests. Sits inline in the toolbar so the user knows that body
+   edits ripple to siblings before they start typing. Sized to fit the
+   28px-tall toolbar without pushing the row apart. */
 .quest-detail-shared-badge {
-  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  padding: 2px 8px;
   border-radius: 999px;
   background: var(--color-bg-base);
   color: var(--text-secondary);
   border: 1px solid var(--border);
-}
-.quest-detail-title {
-  margin: 0 0 18px;
-  font-size: clamp(26px, 2.6vw, 32px);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1.18;
-  color: var(--text-primary);
+  white-space: nowrap;
 }
 .quest-detail-section {
   margin-bottom: 28px;
