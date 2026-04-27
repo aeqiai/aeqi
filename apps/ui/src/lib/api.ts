@@ -5,6 +5,7 @@ import type {
   AgentEvent,
   CompanyTemplate,
   EventInvocationRow,
+  Idea,
   InvocationStepRow,
   Quest,
   ScopeValue,
@@ -468,7 +469,24 @@ export const api = {
 
   createQuest: (data: {
     project: string;
-    subject: string;
+    /**
+     * Phase-2 unification: prefer one of the two `idea*` shapes over the
+     * legacy `subject`/`description` flow.
+     *
+     *   • `idea: { name, content, scope?, agent_id?, tags? }` — Flow A
+     *     mints a fresh idea row, then wraps a quest around it.
+     *   • `idea_id: "..."` — Flow B wraps an existing idea.
+     */
+    idea?: {
+      name: string;
+      content?: string;
+      scope?: string;
+      agent_id?: string;
+      tags?: string[];
+    };
+    idea_id?: string;
+    /** Legacy. Subject/description are used only when idea/idea_id are absent. */
+    subject?: string;
     description?: string;
     priority?: string;
     scope?: string;
@@ -476,7 +494,7 @@ export const api = {
     agent_id?: string;
     agent?: string;
   }) =>
-    request<Record<string, unknown>>("/quests", {
+    request<{ ok: boolean; quest: Quest; idea?: Idea; error?: string }>("/quests", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -526,7 +544,7 @@ export const api = {
       { method: "POST", body: JSON.stringify(data) },
     ),
 
-  getQuest: (id: string) => request<{ ok: boolean; quest: Quest }>(`/quests/${id}`),
+  getQuest: (id: string) => request<{ ok: boolean; quest: Quest; idea?: Idea }>(`/quests/${id}`),
 
   getSessions: (agentId?: string) => {
     const q = new URLSearchParams();

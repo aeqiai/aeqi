@@ -54,6 +54,16 @@ export interface Quest {
   priority: QuestPriority;
   scope?: ScopeValue;
   agent_id?: string;
+  /**
+   * FK to the linked idea that owns this quest's editorial body. Phase 2
+   * leaves the legacy `subject`/`description` fields populated for back-
+   * compat; new code should prefer `idea?.name`/`idea?.content`.
+   */
+  idea_id?: string | null;
+  /** Inline idea body returned by GET /quests/:id and POST /quests. */
+  idea?: Idea;
+  /** Other quests pointing at the same idea — drives the "Shared spec · N quests" badge. */
+  sibling_quest_ids?: string[];
   idea_ids?: string[];
   labels: string[];
   cost_usd: number;

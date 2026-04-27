@@ -262,7 +262,35 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
 
   const agent = agents.find((a) => a.id === agentId || a.name === agentId);
-  const quest = selectedId ? quests.find((q) => q.id === selectedId) : undefined;
+  const listQuest = selectedId ? quests.find((q) => q.id === selectedId) : undefined;
+
+  // Detail view fetches the joined `{ quest, idea }` shape from
+  // `GET /quests/:id` so the body renders the linked idea via `<IdeaCanvas>`.
+  // The list payload is the fallback while the detail is in flight.
+  const [questDetail, setQuestDetail] = useState<Quest | undefined>(undefined);
+  useEffect(() => {
+    if (!selectedId) {
+      setQuestDetail(undefined);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getQuest(selectedId)
+      .then((res) => {
+        if (cancelled || !res?.quest) return;
+        // Splice the top-level `idea` and the joined fields back onto the
+        // quest so consumers can read `quest.idea?.content` uniformly.
+        setQuestDetail({ ...res.quest, idea: res.idea ?? res.quest.idea });
+      })
+      .catch(() => {
+        if (!cancelled) setQuestDetail(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, listQuest?.updated_at]);
+
+  const quest = questDetail ?? listQuest;
 
   const [description, setDescription] = useState(quest?.description ?? "");
   const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "pending");
