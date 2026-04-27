@@ -97,13 +97,11 @@ pub async fn handle_quests(
                     serde_json::json!({
                         "id": quest.id.0,
                         "idea_id": quest.idea_id,
-                        "subject": idea.map(|i| i.name.as_str()).unwrap_or(""),
-                        "description": idea.map(|i| i.content.as_str()).unwrap_or(""),
+                        "idea": idea.map(idea_to_json),
                         "status": quest.status.to_string(),
                         "priority": quest.priority.to_string(),
                         "agent_id": quest.agent_id,
                         "scope": quest.scope.as_str(),
-                        "labels": idea.map(|i| i.tags.clone()).unwrap_or_default(),
                         "retry_count": quest.retry_count,
                         "project": quest.agent_id.as_deref().unwrap_or(""),
                         "created_at": quest.created_at.to_rfc3339(),
@@ -427,8 +425,6 @@ pub async fn handle_create_quest(
                 "quest": {
                     "id": quest.id.0,
                     "idea_id": quest.idea_id,
-                    "subject": inline_idea.as_ref().map(|i| i.name.as_str()).unwrap_or(""),
-                    "description": inline_idea.as_ref().map(|i| i.content.as_str()).unwrap_or(""),
                     "status": quest.status.to_string(),
                     "agent_id": quest.agent_id,
                     "scope": quest.scope.as_str(),
@@ -517,13 +513,10 @@ pub async fn handle_get_quest(
                 "quest": {
                     "id": quest.id.0,
                     "idea_id": quest.idea_id,
-                    "subject": inline_idea.as_ref().map(|i| i.name.as_str()).unwrap_or(""),
-                    "description": inline_idea.as_ref().map(|i| i.content.as_str()).unwrap_or(""),
                     "status": quest.status.to_string(),
                     "priority": quest.priority.to_string(),
                     "agent_id": quest.agent_id,
                     "scope": quest.scope.as_str(),
-                    "labels": inline_idea.as_ref().map(|i| i.tags.clone()).unwrap_or_default(),
                     "retry_count": quest.retry_count,
                     "project": quest.agent_id.as_deref().unwrap_or(""),
                     "created_at": quest.created_at.to_rfc3339(),
@@ -655,14 +648,12 @@ pub async fn handle_update_quest(
                 "quest": {
                     "id": quest.id.0,
                     "idea_id": quest.idea_id,
-                    "subject": idea.as_ref().map(|i| i.name.as_str()).unwrap_or(""),
-                    "description": idea.as_ref().map(|i| i.content.as_str()).unwrap_or(""),
                     "status": quest.status.to_string(),
                     "priority": quest.priority.to_string(),
                     "agent_id": quest.agent_id,
                     "scope": quest.scope.as_str(),
-                    "labels": idea.as_ref().map(|i| i.tags.clone()).unwrap_or_default(),
-                }
+                },
+                "idea": idea.as_ref().map(idea_to_json),
             })
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),

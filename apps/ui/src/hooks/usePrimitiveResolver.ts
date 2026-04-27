@@ -110,7 +110,7 @@ async function fetchQuest(id: string): Promise<ResolvedPrimitive | null> {
     return {
       kind: "quest",
       id: q.id,
-      name: q.subject,
+      name: q.idea?.name ?? q.id,
       status: q.status,
       agent_id: q.agent_id,
     };

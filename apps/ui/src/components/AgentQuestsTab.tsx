@@ -35,7 +35,9 @@ function sortQuests(arr: Quest[], mode: QuestSort): Quest[] {
         (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || byUpdatedDesc(a, b),
       );
     case "subject":
-      return sorted.sort((a, b) => a.subject.localeCompare(b.subject) || byUpdatedDesc(a, b));
+      return sorted.sort(
+        (a, b) => (a.idea?.name ?? "").localeCompare(b.idea?.name ?? "") || byUpdatedDesc(a, b),
+      );
   }
 }
 
@@ -297,7 +299,10 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 
   const quest = questDetail ?? listQuest;
 
-  const [description, setDescription] = useState(quest?.description ?? "");
+  // Description state is purely a fallback for the rare unhydrated quest
+  // (legacy DB row that hasn't backfilled). The canonical body lives on
+  // `quest.idea.content` and is rendered by `<IdeaCanvas>`.
+  const [description, setDescription] = useState(quest?.idea?.content ?? "");
   const [status, setStatus] = useState<QuestStatus>(quest?.status ?? "pending");
   const [priority, setPriority] = useState<QuestPriority>(quest?.priority ?? "normal");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -309,13 +314,13 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   latestRef.current = { description, status, priority };
 
   useEffect(() => {
-    setDescription(quest?.description ?? "");
+    setDescription(quest?.idea?.content ?? "");
     setStatus(quest?.status ?? "pending");
     setPriority(quest?.priority ?? "normal");
     setSaveState("idle");
     setError(null);
     dirtyRef.current = false;
-  }, [quest?.id, quest?.description, quest?.status, quest?.priority]);
+  }, [quest?.id, quest?.idea?.content, quest?.status, quest?.priority]);
 
   const save = useCallback(async () => {
     if (!selectedId) return;
@@ -507,7 +512,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             )}
           </div>
 
-          <h2 className="quest-detail-title">{quest.idea?.name ?? quest.subject}</h2>
+          <h2 className="quest-detail-title">{quest.idea?.name ?? quest.id}</h2>
 
           {quest.idea ? (
             // Phase-2 unification: editorial body lives on the linked idea.
@@ -542,12 +547,11 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             </div>
           )}
 
-          {quest.acceptance_criteria && (
-            <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Acceptance criteria</div>
-              <div className="quest-detail-prose">{quest.acceptance_criteria}</div>
-            </div>
-          )}
+          {/*
+            Acceptance criteria folded into `quest.idea.content` as a
+            `## Acceptance` section in phase 3 — the IdeaCanvas above
+            renders it inline.
+          */}
 
           {quest.worktree_path && (
             <div className="quest-detail-section">
@@ -561,11 +565,11 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
             </div>
           )}
 
-          {quest.labels && quest.labels.length > 0 && (
+          {quest.idea?.tags && quest.idea.tags.length > 0 && (
             <div className="quest-detail-section">
-              <div className="quest-detail-section-label">Labels</div>
+              <div className="quest-detail-section-label">Tags</div>
               <div className="quest-detail-labels">
-                {quest.labels.map((l) => (
+                {quest.idea.tags.map((l: string) => (
                   <span key={l} className="quest-detail-label-chip">
                     {l}
                   </span>
@@ -674,8 +678,8 @@ function QuestBoard({
     if (!q) return quests;
     return quests.filter(
       (x) =>
-        x.subject.toLowerCase().includes(q) ||
-        (x.description ?? "").toLowerCase().includes(q) ||
+        (x.idea?.name ?? "").toLowerCase().includes(q) ||
+        (x.idea?.content ?? "").toLowerCase().includes(q) ||
         x.id.toLowerCase().includes(q),
     );
   }, [quests, search]);
@@ -986,7 +990,7 @@ function QuestBoard({
                         }}
                         onClick={() => onPick(q.id)}
                       >
-                        <div className="quest-card-subject">{q.subject}</div>
+                        <div className="quest-card-subject">{q.idea?.name ?? q.id}</div>
                         <div className="quest-card-meta">
                           {q.priority !== "normal" && (
                             <span
@@ -1090,7 +1094,7 @@ function QuestList({
           >
             <div className="ideas-list-row-head">
               <StatusDot status={status} />
-              <span className="ideas-list-row-name">{q.subject}</span>
+              <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
               {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
               {q.priority !== "normal" && (
                 <span className={`quest-list-row-prio quest-list-row-prio--${q.priority}`}>

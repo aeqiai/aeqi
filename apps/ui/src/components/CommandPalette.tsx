@@ -131,13 +131,16 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         }));
 
         const rawQuests = (questsData.quests || []) as Array<Record<string, unknown>>;
-        const questItems: PaletteItem[] = rawQuests.slice(0, 20).map((q) => ({
-          id: `quest-${q.id}`,
-          label: `${q.id}: ${q.subject}`,
-          hint: (q.status as string) || "",
-          section: "Quests",
-          action: () => go(agentId ? `${scope}/quests/${q.id}` : "/"),
-        }));
+        const questItems: PaletteItem[] = rawQuests.slice(0, 20).map((q) => {
+          const idea = (q.idea as { name?: string } | undefined) ?? undefined;
+          return {
+            id: `quest-${q.id}`,
+            label: `${q.id}: ${idea?.name ?? ""}`,
+            hint: (q.status as string) || "",
+            section: "Quests",
+            action: () => go(agentId ? `${scope}/quests/${q.id}` : "/"),
+          };
+        });
 
         const rawIdeas = (ideasData.ideas || []) as Array<Record<string, unknown>>;
         const ideaItems: PaletteItem[] = rawIdeas.slice(0, 15).map((m) => ({

@@ -48,31 +48,32 @@ export interface QuestOutcome {
 
 export interface Quest {
   id: string;
-  subject: string;
-  description: string;
+  /**
+   * FK to the linked idea that owns the quest's editorial body. Always
+   * set on the wire (the SQL column is `NOT NULL` post-phase 3); the
+   * type leaves it nullable only for in-flight client-side construction.
+   */
+  idea_id?: string | null;
+  /**
+   * In-line idea snapshot returned alongside the quest by every endpoint
+   * (`GET /quests`, `GET /quests/:id`, `POST /quests`,
+   * `PUT /quests/:id`). UI surfaces editorial content via `quest.idea`
+   * exclusively — there are no legacy `subject` / `description` /
+   * `labels` fields on the wire any more.
+   */
+  idea?: Idea;
+  /** Other quests pointing at the same idea — drives the "Shared spec · N quests" badge. */
+  sibling_quest_ids?: string[];
   status: QuestStatus;
   priority: QuestPriority;
   scope?: ScopeValue;
   agent_id?: string;
-  /**
-   * FK to the linked idea that owns this quest's editorial body. Phase 2
-   * leaves the legacy `subject`/`description` fields populated for back-
-   * compat; new code should prefer `idea?.name`/`idea?.content`.
-   */
-  idea_id?: string | null;
-  /** Inline idea body returned by GET /quests/:id and POST /quests. */
-  idea?: Idea;
-  /** Other quests pointing at the same idea — drives the "Shared spec · N quests" badge. */
-  sibling_quest_ids?: string[];
-  idea_ids?: string[];
-  labels: string[];
   cost_usd: number;
   created_at: string;
   updated_at?: string;
   closed_at?: string;
   checkpoints?: Checkpoint[];
   depends_on?: string[];
-  acceptance_criteria?: string;
   retry_count?: number;
   outcome?: QuestOutcome;
   worktree_branch?: string;
