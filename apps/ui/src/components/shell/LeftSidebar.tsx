@@ -195,12 +195,12 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         ) : (
           <button
             type="button"
-            className="sidebar-public-brand-toggle"
+            className="sidebar-nav-item sidebar-brand-collapsed"
             onClick={toggleSidebar}
             aria-label="Expand sidebar"
             title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
           >
-            <span className="sidebar-public-brand-toggle-rest" aria-hidden="true">
+            <span className="sidebar-brand-collapsed-rest" aria-hidden="true">
               <span
                 style={{
                   fontFamily: "var(--font-brand)",
@@ -214,7 +214,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
                 æ
               </span>
             </span>
-            <span className="sidebar-public-brand-toggle-hover" aria-hidden="true">
+            <span className="sidebar-brand-collapsed-hover" aria-hidden="true">
               <PanelGlyph />
             </span>
           </button>
@@ -277,24 +277,24 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           {navItem("governance", "Governance", <GovernanceIcon />)}
         </SidebarGroup>
 
-        {/* ── Network ── */}
-        <SidebarGroup title="Network" groupKey="network">
-          <a
-            className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
-            href="/economy"
-            title="Economy"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/economy");
-            }}
-          >
-            <EconomyIcon />
-            <span className="sidebar-nav-label">Economy</span>
-          </a>
-        </SidebarGroup>
-
-        {/* ── Account dropdown — pinned to the rail's foot via mt:auto. ── */}
+        {/* ── Bottom group — Network + Account, pinned to the rail's foot
+            via mt:auto so the user dropdown always sits at the very
+            bottom regardless of how many workspace items are above. ── */}
         <div className="sidebar-bottom-group">
+          <SidebarGroup title="Network" groupKey="network">
+            <a
+              className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
+              href="/economy"
+              title="Economy"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/economy");
+              }}
+            >
+              <EconomyIcon />
+              <span className="sidebar-nav-label">Economy</span>
+            </a>
+          </SidebarGroup>
           <div className="sidebar-user-zone">
             <AccountDropdown />
           </div>

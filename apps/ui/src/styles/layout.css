@@ -744,6 +744,40 @@
   opacity: 0.85;
 }
 
+/* Collapsed brand button — extends .sidebar-nav-item so the row matches
+ * every other rail row's height and hover treatment. The rest/hover
+ * swap (æ glyph at rest → panel-glyph on hover) layers two absolutely-
+ * positioned spans inside the row so they share the same target. */
+.sidebar-brand-collapsed {
+  position: relative;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sidebar-brand-collapsed-rest,
+.sidebar-brand-collapsed-hover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.14s ease;
+}
+.sidebar-brand-collapsed-hover {
+  opacity: 0;
+}
+.sidebar-brand-collapsed:hover .sidebar-brand-collapsed-rest,
+.sidebar-brand-collapsed:focus-visible .sidebar-brand-collapsed-rest {
+  opacity: 0;
+}
+.sidebar-brand-collapsed:hover .sidebar-brand-collapsed-hover,
+.sidebar-brand-collapsed:focus-visible .sidebar-brand-collapsed-hover {
+  opacity: 1;
+}
+
 /* Sidebar group — collapsible nav cluster with a small label header
  * (Operate / Build / Control / Network). Title is the toggle target;
  * chevron rotates 180° when collapsed. Items live inside a child div
@@ -752,6 +786,9 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+}
+.sidebar-group + .sidebar-group {
+  margin-top: 10px;
 }
 .sidebar-group-title {
   display: flex;
