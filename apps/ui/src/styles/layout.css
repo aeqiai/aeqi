@@ -671,30 +671,65 @@
  * darker than its siblings. font-family is the one thing the UA
  * stylesheet pins on <button>; pin it back to --font-sans explicitly
  * so it doesn't inherit a UA value that might not match. */
-.sidebar-nav-item--search {
-  background: transparent;
-  border: 0;
-  width: 100%;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  text-align: left;
-}
-
 /* Paired row — main nav-item on the left + a small action button on
- * the right (e.g. Search + ?). The pair shares one row's vertical
- * footprint; the action button is sized to match --sidebar-row-h so
- * both children align. */
+ * the right (e.g. Documentation + sign-out in the footer). The pair
+ * shares one row's vertical footprint; the action button is sized to
+ * match --sidebar-row-h so both children align. */
 .sidebar-row-pair {
   display: flex;
-  /* Center the trailing action button (e.g. ? help) vertically inside
-     the paired row so it lines up with the collapse button in the
-     header above — both are 24×24 ghosts on the rail's right edge. */
   align-items: center;
   gap: 4px;
 }
 .sidebar-row-pair > .sidebar-nav-item {
   flex: 1;
   min-width: 0;
+}
+
+/* Compact discoverability row — the right-aligned strip with [?] +
+ * search icon that lives below Inbox + Settings. Two ghost icon
+ * buttons reuse `.sidebar-help-btn` chrome (24×24 round, transparent,
+ * border-on-hover) so the rail has a single icon-button language. */
+.sidebar-icon-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 4px 8px 0;
+}
+.sidebar-icon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.sidebar-icon-btn:hover,
+.sidebar-icon-btn:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--state-hover);
+  outline: none;
+}
+.sidebar-icon-btn > svg {
+  width: 13px;
+  height: 13px;
+}
+.left-sidebar.collapsed .sidebar-icon-row {
+  display: none;
 }
 
 /* ── Footer profile identity — stacked name + email.

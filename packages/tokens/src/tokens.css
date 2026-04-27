@@ -27,33 +27,46 @@
 :root {
   /* ── Colors ─────────────────────────────────────── */
 
-  /* Surface model — four tiers, all PURE NEUTRAL (zero chroma). The eye
-     shouldn't read any hue off a surface; every pane is a cleaner grey
-     than the last, which gives the interface its trust-through-restraint
-     register. The ramp, lightest to most recessed:
+  /* Surface model — five tiers, all PURE NEUTRAL (zero chroma). Linear-
+     style elevation: every pane is a cleaner grey than the last, which
+     gives the interface its trust-through-restraint register. The ramp,
+     most recessed → most elevated:
 
-       card     — raised white, the primary reading surface.
+       muted    — the stronger inset family INSIDE the card (page well).
+       subtle   — the gentler inset family (input recess, hover trail).
        paper    — the shell / outer app world. Sidebar, frame, body bg.
-       subtle   — the lighter inset family INSIDE the white card.
-       muted    — the stronger inset family INSIDE the white card.
+       card     — primary reading surface. A whisper above paper, not
+                  pure white — the page reads as a stack of soft tiers
+                  rather than a single bleached sheet.
+       elevated — pure white. Reserved for surfaces that lift ABOVE the
+                  card: secondary buttons sitting on cards, popovers,
+                  cards-on-cards, hovered modals.
 
      Canonical semantic roles:
 
-       --color-shell        → outer frame / authenticated app environment
-       --color-card         → primary paper / main working surface
-       --color-card-subtle  → gentle inset inside the card
-       --color-card-muted   → stronger inset inside the card
+       --color-shell         → outer frame / authenticated app env
+       --color-card          → primary paper / main working surface
+       --color-card-elevated → buttons + popovers + cards-on-cards
+       --color-card-subtle   → gentle inset inside the card
+       --color-card-muted    → stronger inset inside the card
 
      Canonical terminology is the semantic role set above. */
 
-  /* Tier 1: raised white */
-  --color-card: #ffffff;
+  /* Tier 1 (top): pure white — only for elements lifted ABOVE the card. */
+  --color-card-elevated: #ffffff;
   --color-section-alt: #ffffff;
 
-  /* Tier 2: paper — main neutral-grey surface, no hue */
+  /* Tier 2: card — soft off-white, the new primary reading surface.
+     Was #ffffff before the v5 elevation pass (2026-04-27); shifted six
+     points toward grey so cards register as a tier above paper without
+     bleaching the eye, and so `--color-card-elevated` has somewhere to
+     sit ABOVE them. */
+  --color-card: #fafafa;
+
+  /* Tier 3: paper — main neutral-grey surface, no hue */
   --color-paper: #f4f4f5;
 
-  /* Tier 3/4: inset family inside the white card */
+  /* Tier 4/5: inset family inside the card (deeper greys) */
   --color-slab: #ededf0;
   --color-slab-elevated: #f8f8f9; /* hover inside slab */
   --color-slab-border: rgba(0, 0, 0, 0.06);
@@ -69,8 +82,8 @@
      of the public design-system terminology. */
   --color-bg-base: var(--color-card-muted);
   --color-bg-surface: var(--color-card-subtle);
-  --color-bg-elevated: var(--color-card);
-  --color-bg-overlay: var(--color-card);
+  --color-bg-elevated: var(--color-card-elevated);
+  --color-bg-overlay: var(--color-card-elevated);
   --color-well-bg: var(--color-slab);
   --color-well-elevated: var(--color-slab-elevated);
   --color-well-border: var(--color-slab-border);

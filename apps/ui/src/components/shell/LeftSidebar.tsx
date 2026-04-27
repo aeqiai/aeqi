@@ -268,41 +268,12 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* Search + Inbox + Settings grouped in one zone — three primary
-            user-scope rail rows. Search at the top because it's the
-            jump-anywhere action; Inbox is scope-aware home; Settings
-            mirrors scope. The keyboard-shortcuts ? button rides on
-            Search's right edge — both are keyboard-discoverability
-            affordances. */}
+        {/* Inbox + Settings are the two primary labeled rails. The
+            jump-anywhere search and the keyboard-shortcuts help live
+            in a compact icon-only row beneath them — right-aligned,
+            so the labeled rails dominate the zone and the
+            discoverability affordances tuck out of the eye's path. */}
         <div className="sidebar-user-zone">
-          <div className="sidebar-row-pair">
-            <button
-              type="button"
-              className="sidebar-nav-item sidebar-nav-item--search"
-              onClick={openPalette}
-              aria-label="Open command palette"
-              title="Search — jump to any agent, quest, or idea"
-            >
-              <svg {...iconProps}>
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10 10l3.5 3.5" />
-              </svg>
-              <span className="sidebar-nav-label">Search</span>
-              <span className="sidebar-nav-kbd" aria-hidden="true">
-                <kbd>{isMac ? "⌘" : "Ctrl"}</kbd>
-                <kbd>K</kbd>
-              </span>
-            </button>
-            <button
-              type="button"
-              className="sidebar-help-btn"
-              onClick={openShortcuts}
-              aria-label="Keyboard shortcuts"
-              title="Keyboard shortcuts (?)"
-            >
-              ?
-            </button>
-          </div>
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href={inboxHref}
@@ -335,6 +306,29 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
               </a>
             );
           })()}
+          <div className="sidebar-icon-row" aria-label="Discoverability actions">
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              onClick={openShortcuts}
+              aria-label="Keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+            >
+              ?
+            </button>
+            <button
+              type="button"
+              className="sidebar-icon-btn"
+              onClick={openPalette}
+              aria-label="Open command palette"
+              title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
+            >
+              <svg {...iconProps}>
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M10 10l3.5 3.5" />
+              </svg>
+            </button>
+          </div>
         </div>
         <nav
           className={`sidebar-surface-nav${userScope ? " is-userscope" : ""}`}

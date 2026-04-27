@@ -20,8 +20,8 @@
   --color-canvas: var(--color-card-muted);
   --bg-base: var(--color-card-muted);
   --bg-surface: var(--color-card-subtle);
-  --bg-elevated: var(--color-card);
-  --bg-overlay: var(--color-card);
+  --bg-elevated: var(--color-card-elevated);
+  --bg-overlay: var(--color-card-elevated);
   --bg-canvas: var(--color-card-muted);
   --bg-paper: var(--color-card);
 
@@ -171,7 +171,10 @@
   /* Secondary buttons paint white (paper), not grey (chrome). They sit
      visible-at-rest on any surface and read as content-level affordances
      paired with primary fills. Transparency-at-rest belongs to ghost. */
-  --btn-secondary-bg: var(--color-card);
+  /* Secondary buttons sitting on top of cards need to LIFT off the
+     card surface, not blend with it — so they take the elevated tier
+     (pure white) while the card itself sits at the new mid-tone. */
+  --btn-secondary-bg: var(--color-card-elevated);
   --btn-secondary-text: var(--text-primary);
   --btn-secondary-border: var(--border);
 
