@@ -1,0 +1,48 @@
+/* ChipClose — icon-only close button for chips/tags/badges.
+   Small, tightly padded, sits inline within a chip element.
+   Uses a stroked × glyph matching the icon-button convention. */
+
+.chipClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+  margin-left: 4px;
+}
+
+.chipClose:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+.chipClose:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+}
+
+.chipClose:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.95);
+  transition-duration: 50ms;
+}
+
+.chipClose:disabled,
+.chipClose[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.chipClose > svg {
+  width: 10px;
+  height: 10px;
+}

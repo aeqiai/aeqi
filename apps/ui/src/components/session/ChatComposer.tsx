@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconButton, Textarea } from "@/components/ui";
+import { IconButton, Textarea, Tooltip } from "@/components/ui";
 import SlashPalette, { type SlashCommand } from "./SlashPalette";
 
 interface ChatComposerProps {
@@ -381,60 +381,65 @@ export default function ChatComposer({
             {/* Footer — attach actions left, send right */}
             <div className="asv-composer-footer">
               <div className="asv-attach-row">
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  className="asv-attach-btn"
-                  onClick={() => setShowAttachPicker("idea")}
-                  aria-label="Attach idea"
-                  title="Attach idea (Cmd+P)"
-                >
-                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-                    <path
-                      d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </IconButton>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  className="asv-attach-btn"
-                  onClick={() => setShowAttachPicker("quest")}
-                  aria-label="Attach quest"
-                  title="Attach quest (Cmd+Q)"
-                >
-                  <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-                    <path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" />
-                  </svg>
-                </IconButton>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  className="asv-attach-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                  aria-label="Attach file"
-                  title="Attach file"
-                >
-                  <svg
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
+                <Tooltip content="Attach idea (Cmd+P)">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    className="asv-attach-btn"
+                    onClick={() => setShowAttachPicker("idea")}
+                    aria-label="Attach idea"
                   >
-                    <path d="M7.5 2L4 5.5a2.12 2.12 0 003 3L10.5 5a3 3 0 00-4.24-4.24L2.5 4.5a4.24 4.24 0 006 6L12 7" />
-                  </svg>
-                </IconButton>
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+                      <path
+                        d="M7 2v2M7 10v2M2 7h2M10 7h2M3.8 3.8l1.4 1.4M8.8 8.8l1.4 1.4M10.2 3.8l-1.4 1.4M5.2 8.8l-1.4 1.4"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Attach quest (Cmd+Q)">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    className="asv-attach-btn"
+                    onClick={() => setShowAttachPicker("quest")}
+                    aria-label="Attach quest"
+                  >
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+                      <path d="M4 3h8M4 7h8M4 11h6M2 3v0M2 7v0M2 11v0" strokeLinecap="round" />
+                    </svg>
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content="Attach file">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    className="asv-attach-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Attach file"
+                  >
+                    <svg
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                    >
+                      <path d="M7.5 2L4 5.5a2.12 2.12 0 003 3L10.5 5a3 3 0 00-4.24-4.24L2.5 4.5a4.24 4.24 0 006 6L12 7" />
+                    </svg>
+                  </IconButton>
+                </Tooltip>
               </div>
               <div className="asv-send-stack">
                 {streaming && (
-                  <button className="asv-send busy" onClick={onStop} title="Stop execution">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                      <rect x="3" y="3" width="10" height="10" rx="2" />
-                    </svg>
-                    <span className="asv-send-label">Stop</span>
-                  </button>
+                  <Tooltip content="Stop execution">
+                    <button className="asv-send busy" onClick={onStop}>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="3" y="3" width="10" height="10" rx="2" />
+                      </svg>
+                      <span className="asv-send-label">Stop</span>
+                    </button>
+                  </Tooltip>
                 )}
                 {/* Send button holds the primary slot when idle; during
                     streaming it becomes Queue and is only rendered once
@@ -444,28 +449,29 @@ export default function ChatComposer({
                     streaming begins — CSS floats this button above Stop
                     when both are on-screen. */}
                 {(!streaming || input.trim()) && (
-                  <button
-                    className={`asv-send ${input.trim() ? "ready" : ""}`}
-                    onClick={pushHistoryAndSend}
-                    disabled={!input.trim()}
-                    title={streaming ? "Queue message" : "Send"}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
+                  <Tooltip content={streaming ? "Queue message" : "Send"}>
+                    <button
+                      className={`asv-send ${input.trim() ? "ready" : ""}`}
+                      onClick={pushHistoryAndSend}
+                      disabled={!input.trim()}
                     >
-                      <path
-                        d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span className="asv-send-label">{streaming ? "Queue" : "Send"}</span>
-                  </button>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
+                        <path
+                          d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span className="asv-send-label">{streaming ? "Queue" : "Send"}</span>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>

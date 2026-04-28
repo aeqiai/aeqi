@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Wordmark from "@/components/Wordmark";
+import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
 const iconProps = {
@@ -102,25 +103,26 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         <div className="left-sidebar-body">
           {/* ── Start a company CTA in new-menu slot ── */}
           <div className="sidebar-user-zone">
-            <button
-              type="button"
-              className="sidebar-nav-item new-menu-trigger"
-              onClick={() => navigate(`/signup${next}`)}
-              title="Start your first autonomous company"
-              aria-label="Start a company"
-            >
-              <span className="new-menu-plus" aria-hidden="true">
-                <svg viewBox="0 0 16 16" fill="none" width={14} height={14}>
-                  <path
-                    d="M8 3v10M3 8h10"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              <span className="sidebar-nav-label">Start a company</span>
-            </button>
+            <Tooltip content="Start your first autonomous company">
+              <button
+                type="button"
+                className="sidebar-nav-item new-menu-trigger"
+                onClick={() => navigate(`/signup${next}`)}
+                aria-label="Start a company"
+              >
+                <span className="new-menu-plus" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" width={14} height={14}>
+                    <path
+                      d="M8 3v10M3 8h10"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                <span className="sidebar-nav-label">Start a company</span>
+              </button>
+            </Tooltip>
           </div>
 
           {/* ── Economy ── */}
@@ -141,16 +143,16 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           {/* ── Log in / Sign up in account slot ── */}
           <div className="sidebar-bottom">
             <div className="sidebar-user-zone">
-              <Link
-                to={`/login${next}`}
-                className="sidebar-nav-item"
-                title="Log in to your account"
-              >
-                <span className="sidebar-nav-label">Log in</span>
-              </Link>
-              <Link to={`/signup${next}`} className="sidebar-nav-item" title="Create an account">
-                <span className="sidebar-nav-label">Sign up</span>
-              </Link>
+              <Tooltip content="Log in to your account">
+                <Link to={`/login${next}`} className="sidebar-nav-item">
+                  <span className="sidebar-nav-label">Log in</span>
+                </Link>
+              </Tooltip>
+              <Tooltip content="Create an account">
+                <Link to={`/signup${next}`} className="sidebar-nav-item">
+                  <span className="sidebar-nav-label">Sign up</span>
+                </Link>
+              </Tooltip>
             </div>
           </div>
         </div>

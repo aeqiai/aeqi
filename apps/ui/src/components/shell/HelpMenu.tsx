@@ -1,4 +1,4 @@
-import { Menu } from "@/components/ui/Menu";
+import { Menu, Tooltip } from "@/components/ui";
 import type { MenuItem } from "@/components/ui/Menu";
 
 const iconProps = {
@@ -52,14 +52,11 @@ export default function HelpMenu() {
   ];
 
   const trigger = (
-    <button
-      type="button"
-      className="sidebar-row-action-btn"
-      aria-label="Help"
-      title={`Help — shortcuts, docs (${isMac ? "⌘" : "Ctrl"}/?)`}
-    >
-      <HelpIcon />
-    </button>
+    <Tooltip content={`Help — shortcuts, docs (${isMac ? "⌘" : "Ctrl"}/?)`}>
+      <button type="button" className="sidebar-row-action-btn" aria-label="Help">
+        <HelpIcon />
+      </button>
+    </Tooltip>
   );
 
   return <Menu trigger={trigger} items={items} placement="top-end" />;

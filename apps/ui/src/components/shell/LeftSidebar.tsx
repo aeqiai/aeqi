@@ -5,6 +5,7 @@ import NewMenu from "@/components/shell/NewMenu";
 import HelpMenu from "@/components/shell/HelpMenu";
 import SidebarGroup from "@/components/shell/SidebarGroup";
 import Wordmark from "@/components/Wordmark";
+import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
 interface LeftSidebarProps {
@@ -232,15 +233,18 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             (the + opens a create menu, search opens the palette). ── */}
         <div className="sidebar-action-row">
           <NewMenu />
-          <button
-            type="button"
-            className="sidebar-row-action-btn"
-            onClick={openPalette}
-            aria-label="Open command palette"
-            title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
+          <Tooltip
+            content={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
           >
-            <SearchIcon />
-          </button>
+            <button
+              type="button"
+              className="sidebar-row-action-btn"
+              onClick={openPalette}
+              aria-label="Open command palette"
+            >
+              <SearchIcon />
+            </button>
+          </Tooltip>
         </div>
 
         {/* ── Inbox — elevated above the categorical groups since it is

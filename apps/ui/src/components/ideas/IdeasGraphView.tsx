@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Button, EmptyState, Spinner } from "../ui";
+import { Button, EmptyState, Spinner, Tooltip } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
 import IdeasFilterPopover from "./IdeasFilterPopover";
 import IdeasSortPopover from "./IdeasSortPopover";
@@ -112,26 +112,27 @@ export default function IdeasGraphView({
             onChange={onFilterChange}
           />
           <IdeasViewPopover view={view} onChange={onViewChange} />
-          <button
-            type="button"
-            className="ideas-toolbar-btn"
-            onClick={onNew}
-            title="New idea (N)"
-            aria-label="New idea"
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden
+          <Tooltip content="New idea (N)">
+            <button
+              type="button"
+              className="ideas-toolbar-btn"
+              onClick={onNew}
+              aria-label="New idea"
             >
-              <path d="M6.5 2.5v8M2.5 6.5h8" />
-            </svg>
-          </button>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
       </div>
       <div className="ideas-graph-canvas">

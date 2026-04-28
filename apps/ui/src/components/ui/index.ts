@@ -1,6 +1,9 @@
 export { Button } from "./Button";
 export type { ButtonProps } from "./Button";
 
+export { ChipClose } from "./ChipClose";
+export type { ChipCloseProps } from "./ChipClose";
+
 export { IconButton } from "./IconButton";
 export type { IconButtonProps } from "./IconButton";
 
