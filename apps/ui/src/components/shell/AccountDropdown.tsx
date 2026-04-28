@@ -58,8 +58,17 @@ export default function AccountDropdown() {
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   const userEmail = user?.name && user?.email ? user.email : null;
 
+  // The trigger reads as a rail destination just like Inbox / Economy —
+  // light up when the user is on any /account route (including billing).
+  const triggerActive = pathname === "/account" || pathname.startsWith("/account/");
+
   const trigger = (
-    <button type="button" className="account-dropdown-trigger" aria-label="Account menu">
+    <button
+      type="button"
+      className={`account-dropdown-trigger${triggerActive ? " account-dropdown-trigger--active" : ""}`}
+      aria-label="Account menu"
+      aria-current={triggerActive ? "page" : undefined}
+    >
       <span className="account-dropdown-avatar">
         <UserAvatar name={userName} size={16} src={user?.avatar_url} />
       </span>

@@ -6367,6 +6367,8 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    user avatar, name/email stack, and a chevron — same row height as
    other nav items. */
 .account-dropdown-trigger {
+  /* relative anchors the .active ::before accent bar to this row. */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6388,6 +6390,26 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .account-dropdown-trigger:hover {
   background: var(--state-hover);
   color: var(--color-text-title);
+}
+/* Active — current page is somewhere under /account. Same vocabulary
+ * as .sidebar-nav-item.active: state-selected bg, title-weight ink,
+ * 600 weight on the name, accent left bar. */
+.account-dropdown-trigger--active {
+  background: var(--state-selected);
+  color: var(--color-text-title);
+}
+.account-dropdown-trigger--active .account-dropdown-name {
+  font-weight: 600;
+}
+.account-dropdown-trigger--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
 }
 .account-dropdown-trigger:focus-visible {
   outline: 1px solid var(--border-hover);
