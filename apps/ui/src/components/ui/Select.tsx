@@ -1,7 +1,7 @@
 import { forwardRef, useId } from "react";
 import styles from "./Select.module.css";
 
-export interface SelectOption {
+export interface SelectItem {
   value: string;
   label: string;
   disabled?: boolean;
@@ -11,7 +11,7 @@ export interface SelectProps extends Omit<
   React.SelectHTMLAttributes<HTMLSelectElement>,
   "size" | "onChange"
 > {
-  options: SelectOption[];
+  options: SelectItem[];
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;

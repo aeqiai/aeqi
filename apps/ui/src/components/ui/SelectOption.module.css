@@ -1,0 +1,77 @@
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.option:hover:not(:disabled) {
+  background: var(--state-hover);
+  color: var(--color-text-primary);
+}
+
+.option:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-focus-ring);
+}
+
+.option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Selected state: subtle accent indicator (left dot) */
+.option.selected {
+  background: var(--state-selected);
+}
+
+.option.selected::before {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-focus-ring);
+  margin-left: -2px;
+}
+
+/* Layout sub-elements */
+.label {
+  flex: 1;
+  min-width: 0;
+}
+
+.leadingIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.withLeadingIcon .label {
+  margin-left: 0;
+}
+
+.trailingHint {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.withTrailingHint .label {
+  margin-right: var(--space-2);
+}

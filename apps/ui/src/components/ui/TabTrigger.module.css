@@ -1,0 +1,88 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+  cursor: pointer;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  position: relative;
+  transition:
+    color 0.12s ease,
+    background-color 0.12s ease;
+  text-align: center;
+}
+
+.trigger:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background-color: var(--state-hover);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--ink-ring-focus);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  color: var(--color-text-muted);
+}
+
+.trigger[aria-pressed="true"] {
+  color: var(--color-text-primary);
+  background-color: var(--state-selected);
+}
+
+.trigger[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: var(--space-3);
+  right: var(--space-3);
+  height: 1.5px;
+  background: var(--color-text-primary);
+  border-radius: 1.5px;
+}
+
+.leadingIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.label {
+  display: inline;
+  flex: 1;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  background-color: var(--color-accent);
+  color: var(--color-canvas);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.active {
+  /* Active state is handled by [aria-pressed="true"] selector */
+}
+
+.disabled {
+  /* Disabled state is handled by :disabled selector */
+}

@@ -19,6 +19,9 @@ export type { TextareaProps } from "./Textarea";
 export { Card, CardHeader, CardFooter } from "./Card";
 export type { CardProps } from "./Card";
 
+export { CardTrigger } from "./CardTrigger";
+export type { CardTriggerProps } from "./CardTrigger";
+
 export { Badge, StatusBadge } from "./Badge";
 export type { BadgeProps, BadgeVariant, StatusBadgeProps } from "./Badge";
 
@@ -40,6 +43,9 @@ export type { EmptyStateProps } from "./EmptyState";
 export { Tabs } from "./Tabs";
 export type { TabsProps, Tab } from "./Tabs";
 
+export { TabTrigger } from "./TabTrigger";
+export type { TabTriggerProps } from "./TabTrigger";
+
 export { TagList } from "./TagList";
 export type { TagListProps } from "./TagList";
 
@@ -50,7 +56,10 @@ export { ErrorBoundary } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
 
 export { Select } from "./Select";
-export type { SelectProps, SelectOption } from "./Select";
+export type { SelectProps, SelectItem } from "./Select";
+
+export { SelectOption } from "./SelectOption";
+export type { SelectOptionProps } from "./SelectOption";
 
 export { Popover } from "./Popover";
 export type { PopoverProps, PopoverPlacement } from "./Popover";

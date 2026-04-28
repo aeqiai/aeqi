@@ -1,0 +1,54 @@
+/* CardTrigger — makes entire card/row a clickable surface.
+ *
+ * Resets all default button styling (padding, background, border, font
+ * inheritance) so children control the card chrome. Provides hover, active,
+ * focus, and disabled states only.
+ */
+
+.cardTrigger {
+  /* Reset button defaults */
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  /* Interactions */
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+/* Hover — subtle background tint (matching audit pattern of row hover
+   → subtle bg-shift). Also brightens accent borders if the child card
+   defines them. */
+.cardTrigger:hover {
+  background: var(--state-hover);
+}
+
+/* Active — subtle press feedback via scale. Matches Button.tsx active state. */
+.cardTrigger:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 50ms;
+}
+
+/* Focus — visible focus ring using design-system token (matches Button). */
+.cardTrigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Disabled — reduced opacity, pointer-events blocked, cursor disabled. */
+.disabled,
+.cardTrigger:disabled,
+.cardTrigger[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
