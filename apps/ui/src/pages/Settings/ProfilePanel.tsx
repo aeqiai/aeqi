@@ -66,82 +66,92 @@ export default function ProfilePanel() {
 
   return (
     <>
-      <div className="account-profile-header">
-        <AvatarUploader
-          name={displayName}
-          src={user?.avatar_url ?? null}
-          onSrcChange={(next) =>
-            setUser((prev) => (prev ? { ...prev, avatar_url: next ?? undefined } : prev))
-          }
-          onFeedback={setFeedback}
-        />
-        <div>
-          <div className="account-profile-name">{displayName}</div>
-          <div className="account-profile-email">{email}</div>
-        </div>
-      </div>
+      <section className="account-section">
+        <h3 className="account-section-title">Identity</h3>
 
-      <div className="account-name-grid">
-        <div>
-          <label className="account-field-label" htmlFor="account-first-name">
-            First name
+        <div className="account-profile-header">
+          <AvatarUploader
+            name={displayName}
+            src={user?.avatar_url ?? null}
+            onSrcChange={(next) =>
+              setUser((prev) => (prev ? { ...prev, avatar_url: next ?? undefined } : prev))
+            }
+            onFeedback={setFeedback}
+          />
+          <div>
+            <div className="account-profile-name">{displayName}</div>
+            <div className="account-profile-email">{email}</div>
+          </div>
+        </div>
+
+        <div className="account-name-grid">
+          <div>
+            <label className="account-field-label" htmlFor="account-first-name">
+              First name
+            </label>
+            <Input
+              id="account-first-name"
+              size="lg"
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="First name"
+              autoComplete="given-name"
+            />
+          </div>
+          <div>
+            <label className="account-field-label" htmlFor="account-last-name">
+              Last name
+            </label>
+            <Input
+              id="account-last-name"
+              size="lg"
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Last name"
+              autoComplete="family-name"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="account-section">
+        <h3 className="account-section-title">Contact</h3>
+
+        <div className="account-field-sm">
+          <label className="account-field-label" htmlFor="account-email">
+            Email
           </label>
-          <Input
-            id="account-first-name"
-            size="lg"
-            type="text"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder="First name"
-            autoComplete="given-name"
+          <EmailEditor
+            currentEmail={email}
+            onChanged={(e) => setUser((u) => (u ? { ...u, email: e } : u))}
           />
         </div>
-        <div>
-          <label className="account-field-label" htmlFor="account-last-name">
-            Last name
+
+        <div className="account-field-md">
+          <label className="account-field-label" htmlFor="account-phone">
+            Phone
           </label>
           <Input
-            id="account-last-name"
+            id="account-phone"
             size="lg"
-            type="text"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Last name"
-            autoComplete="family-name"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 (555) 000-0000"
+            autoComplete="tel"
           />
+          <p className="account-field-desc">
+            Optional. Used for account recovery and security alerts.
+          </p>
         </div>
-      </div>
+      </section>
 
-      <div className="account-field-sm">
-        <label className="account-field-label" htmlFor="account-email">
-          Email
-        </label>
-        <EmailEditor
-          currentEmail={email}
-          onChanged={(e) => setUser((u) => (u ? { ...u, email: e } : u))}
-        />
-      </div>
+      <section className="account-section">
+        <h3 className="account-section-title">Verification</h3>
 
-      <div className="account-field-md">
-        <label className="account-field-label" htmlFor="account-phone">
-          Phone
-        </label>
-        <Input
-          id="account-phone"
-          size="lg"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+1 (555) 000-0000"
-          autoComplete="tel"
-        />
-        <p className="account-field-desc">
-          Optional. Used for account recovery and security alerts.
-        </p>
-      </div>
-
-      <div className="account-kyc-card">
-        <div className="account-kyc-row">
+        <div className="account-verification-row">
           <div>
             <label className="account-field-label">Identity verification</label>
             <p className="account-field-desc">
@@ -150,17 +160,13 @@ export default function ProfilePanel() {
           </div>
           <span className="account-badge-coming-soon">Coming soon</span>
         </div>
-      </div>
+      </section>
 
-      <Button
-        type="button"
-        variant="primary"
-        onClick={handleSave}
-        loading={saving}
-        disabled={saving}
-      >
-        Save
-      </Button>
+      <div className="account-save-row">
+        <Button type="button" variant="primary" onClick={handleSave} loading={saving}>
+          Save
+        </Button>
+      </div>
       {feedback && (
         <div
           className={`account-feedback account-feedback-${feedback.type}`}

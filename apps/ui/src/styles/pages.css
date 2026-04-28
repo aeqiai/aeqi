@@ -650,31 +650,96 @@
   font-variant-numeric: tabular-nums;
 }
 
-.account-connected-list {
+/* Settings section grouping — flat rhythm, no cards. Hierarchy comes from
+   spacing (extra room before each title) and a slightly larger title
+   weight than the per-field labels. Used by the Profile and Security
+   panels to break dense forms into readable groups. */
+.account-section {
+  margin-top: var(--space-8);
+}
+
+.account-section:first-of-type {
+  margin-top: 0;
+}
+
+.account-section-title {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4);
+  letter-spacing: -0.01em;
+}
+
+/* Danger section variant — extra top space sets it apart. The destructive
+   button variant carries the signal; no border-stripe, no red box. */
+.account-section--danger {
+  margin-top: var(--space-12);
+}
+
+/* Subgroup spacing inside a section — separates sibling concerns within a
+   single grouped section (e.g. TOTP / Password / Passkeys all under
+   Authentication). The first subgroup uses no margin; subsequent ones
+   inherit this rule. */
+.account-subsection {
+  margin-top: var(--space-6);
+}
+
+/* Right-aligned action row at the bottom of a settings form (Profile Save).
+   Settings forms canonically right-anchor their save action. */
+.account-save-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-6);
+}
+
+/* Verification row — flat row, label + desc on the left, status pill on
+   the right. Replaces the old .account-kyc-card box. */
+.account-verification-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.account-verification-row .account-field-label {
+  margin-bottom: 2px;
+}
+
+.account-verification-row .account-field-desc {
+  margin: 0;
+}
+
+/* Connected-accounts list — flat rows: brand icon · name · status · action.
+   No bordered tiles; the list reads as inventory, action sits at right. */
+.account-providers {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
-.account-connected-item {
+.account-provider-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 8px var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  min-height: 32px;
+}
+
+.account-provider-name {
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
+  font-weight: 500;
   color: var(--text-primary);
-  max-width: 300px;
+  flex: 1;
 }
 
-.account-connected-active {
-  background: var(--color-success-bg);
-  border-color: rgba(46, 143, 113, 0.2);
-}
-
-.account-connect-btn {
-  max-width: 300px;
+.account-provider-status {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--success);
+  white-space: nowrap;
 }
 
 .account-page {
@@ -936,28 +1001,6 @@
   margin-bottom: var(--space-6);
 }
 
-.account-kyc-card {
-  margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-row);
-}
-
-.account-kyc-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.account-kyc-row .account-field-label {
-  margin-bottom: 2px;
-}
-
-.account-kyc-row .account-field-desc {
-  margin: 0;
-}
-
 .account-badge-coming-soon {
   font-size: var(--font-size-micro);
   font-weight: 600;
@@ -1046,30 +1089,6 @@
   background: var(--bg-row);
   border-radius: var(--radius-xs);
   font-family: var(--font-sans);
-}
-
-.account-danger-zone {
-  margin-top: var(--space-8);
-  padding: var(--space-4);
-  border: 1px solid rgba(184, 92, 92, 0.22);
-  border-radius: var(--radius-md);
-  background: var(--color-error-bg);
-}
-
-.account-danger-label {
-  color: var(--color-error);
-}
-
-.account-danger-btn {
-  color: var(--color-error);
-  border-color: rgba(184, 92, 92, 0.35);
-  margin-top: var(--space-2);
-  font-size: var(--font-size-sm);
-}
-
-.account-danger-btn:not(:disabled):hover {
-  background: rgba(184, 92, 92, 0.08);
-  border-color: var(--color-error);
 }
 
 /* =========================================================================

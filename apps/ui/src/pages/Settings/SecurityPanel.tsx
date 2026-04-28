@@ -8,21 +8,6 @@ import AddPasskeyButton from "@/pages/Settings/AddPasskeyButton";
 
 type Feedback = { type: "success" | "error"; msg: string } | null;
 
-const CheckIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="var(--success)"
-    strokeWidth="2"
-    strokeLinecap="round"
-    aria-hidden="true"
-  >
-    <polyline points="3.5 8.5 6.5 11.5 12.5 5.5" />
-  </svg>
-);
-
 /**
  * Mirrors `validate_security_phrase` in aeqi-platform/src/server.rs. Keep
  * the rules in sync — server is the authority but the client validation
@@ -192,208 +177,215 @@ export default function SecurityPanel() {
 
   return (
     <>
-      <div className="account-field-lg">
-        <label className="account-field-label">Two-factor authentication</label>
-        {totpEnabled ? (
-          <div className="account-totp-status">
-            <div className="account-status-dot" aria-hidden="true" />
-            <span className="account-totp-status-text">Authenticator app enabled</span>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="account-totp-disable-btn"
-              onClick={disableTotp}
-            >
-              Disable
-            </Button>
-          </div>
-        ) : totpSetup ? (
-          <div>
-            <p className="account-field-desc">
-              Scan this QR code with your authenticator app, then enter the 6-digit code to verify.
-            </p>
-            <div className="account-qr-container">
-              <QRCode value={totpSetup.uri} size={200} />
-            </div>
-            <p className="account-manual-entry">
-              Manual entry: <code>{totpSetup.secret}</code>
-            </p>
-            <div className="account-field-row">
-              <Input
-                size="lg"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={totpCode}
-                onChange={(e) => {
-                  setTotpCode(e.target.value.replace(/\D/g, ""));
-                  setTotpFeedback(null);
-                }}
-                placeholder="6-digit code"
-                aria-label="Authenticator code"
-                className="account-totp-input"
-              />
+      <section className="account-section">
+        <h3 className="account-section-title">Authentication</h3>
+
+        <div>
+          <label className="account-field-label">Two-factor authentication</label>
+          {totpEnabled ? (
+            <div className="account-totp-status">
+              <div className="account-status-dot" aria-hidden="true" />
+              <span className="account-totp-status-text">Authenticator app enabled</span>
               <Button
                 type="button"
-                variant="primary"
-                loading={totpLoading}
-                disabled={totpLoading || totpCode.length !== 6}
-                onClick={verifyTotp}
+                variant="secondary"
+                size="sm"
+                className="account-totp-disable-btn"
+                onClick={disableTotp}
               >
-                Verify
+                Disable
               </Button>
             </div>
-          </div>
-        ) : (
-          <div>
-            <p className="account-field-desc">
-              Add an authenticator app for stronger login security. When enabled, you'll enter an
-              app code instead of an email code.
-            </p>
-            <Button type="button" variant="primary" onClick={startTotpSetup}>
-              Set up authenticator
-            </Button>
-          </div>
-        )}
-        {totpBackupCodes.length > 0 && (
-          <div className="account-backup-codes">
-            <label className="account-field-label account-backup-codes-label">
-              Backup codes — save these now
-            </label>
-            <p className="account-field-desc">
-              Each code can only be used once. Store them somewhere safe.
-            </p>
-            <div className="account-backup-codes-grid">
-              {totpBackupCodes.map((c) => (
-                <code key={c} className="account-backup-code">
-                  {c}
-                </code>
-              ))}
-            </div>
-          </div>
-        )}
-        {totpFeedback && (
-          <div
-            className={`account-feedback account-feedback-${totpFeedback.type}`}
-            role="status"
-            aria-live="polite"
-          >
-            {totpFeedback.msg}
-          </div>
-        )}
-      </div>
-
-      <div className="account-field-lg">
-        <label className="account-field-label" htmlFor="account-phishing-code">
-          Email security phrase
-        </label>
-        <p className="account-field-desc">
-          Choose a phrase you will recognize in sign-in emails. Do not use your email, password, or
-          verification code.
-        </p>
-        <div className="account-field-row">
-          <Input
-            id="account-phishing-code"
-            size="lg"
-            type="text"
-            value={phishingCode}
-            onChange={(e) => {
-              setPhishingCode(e.target.value);
-              setPhishingFeedback(null);
-            }}
-            placeholder="e.g., blue ocean 42"
-            maxLength={32}
-          />
-          <Button
-            type="button"
-            variant="primary"
-            onClick={handlePhishingSave}
-            loading={phishingSaving}
-            disabled={phishingSaving}
-          >
-            Save
-          </Button>
-        </div>
-        {phishingFeedback && (
-          <div
-            className={`account-feedback account-feedback-${phishingFeedback.type}`}
-            role="status"
-            aria-live="polite"
-          >
-            {phishingFeedback.msg}
-          </div>
-        )}
-      </div>
-
-      <div className="account-field-lg">
-        <label className="account-field-label">Password</label>
-        <p className="account-field-desc">
-          Change your password on a dedicated page. We'll ask for your current one first.
-        </p>
-        <Link to="/change-password" className="account-action-link">
-          Change password →
-        </Link>
-      </div>
-
-      <div className="account-field-lg">
-        <label className="account-field-label">Connected accounts</label>
-        <div className="account-connected-list">
-          {provider === "google" ? (
-            <div className="account-connected-item account-connected-active">
-              <GoogleIcon />
-              <span>Connected with Google</span>
-              <CheckIcon />
+          ) : totpSetup ? (
+            <div>
+              <p className="account-field-desc">
+                Scan this QR code with your authenticator app, then enter the 6-digit code to
+                verify.
+              </p>
+              <div className="account-qr-container">
+                <QRCode value={totpSetup.uri} size={200} />
+              </div>
+              <p className="account-manual-entry">
+                Manual entry: <code>{totpSetup.secret}</code>
+              </p>
+              <div className="account-field-row">
+                <Input
+                  size="lg"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => {
+                    setTotpCode(e.target.value.replace(/\D/g, ""));
+                    setTotpFeedback(null);
+                  }}
+                  placeholder="6-digit code"
+                  aria-label="Authenticator code"
+                  className="account-totp-input"
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  loading={totpLoading}
+                  disabled={totpLoading || totpCode.length !== 6}
+                  onClick={verifyTotp}
+                >
+                  Verify
+                </Button>
+              </div>
             </div>
           ) : (
-            <Button
-              variant="secondary"
-              className="account-connect-btn"
-              onClick={() => {
-                window.location.href = "/api/auth/google";
-              }}
-            >
-              <GoogleIcon /> Connect Google
-            </Button>
-          )}
-          {provider === "github" ? (
-            <div className="account-connected-item account-connected-active">
-              <GitHubIcon />
-              <span>Connected with GitHub</span>
-              <CheckIcon />
+            <div>
+              <p className="account-field-desc">
+                Add an authenticator app for stronger login security. When enabled, you'll enter an
+                app code instead of an email code.
+              </p>
+              <Button type="button" variant="primary" onClick={startTotpSetup}>
+                Set up authenticator
+              </Button>
             </div>
-          ) : (
-            <Button
-              variant="secondary"
-              className="account-connect-btn"
-              onClick={() => {
-                window.location.href = "/api/auth/github";
-              }}
+          )}
+          {totpBackupCodes.length > 0 && (
+            <div className="account-backup-codes">
+              <label className="account-field-label account-backup-codes-label">
+                Backup codes — save these now
+              </label>
+              <p className="account-field-desc">
+                Each code can only be used once. Store them somewhere safe.
+              </p>
+              <div className="account-backup-codes-grid">
+                {totpBackupCodes.map((c) => (
+                  <code key={c} className="account-backup-code">
+                    {c}
+                  </code>
+                ))}
+              </div>
+            </div>
+          )}
+          {totpFeedback && (
+            <div
+              className={`account-feedback account-feedback-${totpFeedback.type}`}
+              role="status"
+              aria-live="polite"
             >
-              <GitHubIcon /> Connect GitHub
-            </Button>
+              {totpFeedback.msg}
+            </div>
           )}
         </div>
-      </div>
 
-      <div className="account-field-lg">
-        <label className="account-field-label">Passkeys</label>
-        <p className="account-field-desc">
-          Add a Touch ID / Face ID / Windows Hello / hardware-key credential as an additional way to
-          sign in to this account.
-        </p>
-        <AddPasskeyButton />
-      </div>
+        <div className="account-subsection">
+          <label className="account-field-label">Password</label>
+          <p className="account-field-desc">
+            Change your password on a dedicated page. We'll ask for your current one first.
+          </p>
+          <Link to="/change-password" className="account-action-link">
+            Change password →
+          </Link>
+        </div>
 
-      <div className="account-danger-zone">
-        <label className="account-field-label account-danger-label">Danger zone</label>
+        <div className="account-subsection">
+          <label className="account-field-label">Passkeys</label>
+          <p className="account-field-desc">
+            Add a Touch ID / Face ID / Windows Hello / hardware-key credential as an additional way
+            to sign in to this account.
+          </p>
+          <AddPasskeyButton />
+        </div>
+      </section>
+
+      <section className="account-section">
+        <h3 className="account-section-title">Email security phrase</h3>
+        <div className="account-field-lg">
+          <p className="account-field-desc">
+            Choose a phrase you will recognize in sign-in emails. Do not use your email, password,
+            or verification code.
+          </p>
+          <div className="account-field-row">
+            <Input
+              id="account-phishing-code"
+              size="lg"
+              type="text"
+              value={phishingCode}
+              onChange={(e) => {
+                setPhishingCode(e.target.value);
+                setPhishingFeedback(null);
+              }}
+              placeholder="e.g., blue ocean 42"
+              maxLength={32}
+            />
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handlePhishingSave}
+              loading={phishingSaving}
+              disabled={phishingSaving}
+            >
+              Save
+            </Button>
+          </div>
+          {phishingFeedback && (
+            <div
+              className={`account-feedback account-feedback-${phishingFeedback.type}`}
+              role="status"
+              aria-live="polite"
+            >
+              {phishingFeedback.msg}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="account-section">
+        <h3 className="account-section-title">Connected accounts</h3>
+        <div className="account-providers">
+          <div className="account-provider-row">
+            <GoogleIcon />
+            <span className="account-provider-name">Google</span>
+            {provider === "google" ? (
+              <span className="account-provider-status">Connected</span>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={() => {
+                  window.location.href = "/api/auth/google";
+                }}
+              >
+                Connect
+              </Button>
+            )}
+          </div>
+          <div className="account-provider-row">
+            <GitHubIcon />
+            <span className="account-provider-name">GitHub</span>
+            {provider === "github" ? (
+              <span className="account-provider-status">Connected</span>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={() => {
+                  window.location.href = "/api/auth/github";
+                }}
+              >
+                Connect
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="account-section account-section--danger">
+        <h3 className="account-section-title">Danger zone</h3>
         <p className="account-field-desc">
           Permanently delete your account and all associated data. This cannot be undone.
         </p>
-        <Button variant="secondary" className="account-danger-btn" onClick={handleDeleteAccount}>
+        <Button variant="danger" type="button" onClick={handleDeleteAccount}>
           Delete account
         </Button>
-      </div>
+      </section>
 
       <ConfirmDialog
         open={disableTotpOpen}
