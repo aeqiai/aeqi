@@ -181,14 +181,20 @@
   min-width: 0;
 }
 
-/* Left-align icon + label inside each auth-row button so all four icons
-   start at the same X (the button's natural padding-left), regardless of
-   label length. Without this override the Button's `justify-content: center`
-   floats the [icon][gap][label] group, so longer labels pushed icons left
-   and shorter labels pushed them right. Selector specificity beats Button's
-   own class without needing !important. */
+/* Apple SIWA / Google-branded SSO pattern: icon anchored to the leading
+   rounded edge, label optically centered in the button. Centering the
+   icon+label group (Button's default) lands the icon at a different X
+   for each label length; left-aligning the group reads as utility/list.
+   The brand icon is the visual anchor; the label is what you read. */
 .auth-oauth-row button {
-  justify-content: flex-start;
+  position: relative;
+}
+
+.auth-oauth-row button > svg:first-child {
+  position: absolute;
+  left: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .auth-divider {
