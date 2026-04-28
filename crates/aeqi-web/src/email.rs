@@ -29,16 +29,19 @@ pub async fn send_verification_email(
         "Your aeqi verification code is: {code}\n\nThis code expires in 15 minutes.\n\nIf you didn't request this, you can safely ignore this email."
     );
     let heading = format!(
-        "font-family:{FONT_DISPLAY};font-weight:600;font-size:22px;letter-spacing:-0.015em;color:rgba(10,10,11,0.92);margin:0 0 8px;line-height:1.2;"
+        "font-family:{FONT_DISPLAY};font-weight:600;font-size:22px;letter-spacing:-0.015em;color:#0a0a0b;margin:0 0 10px;line-height:1.2;"
     );
     let lede = format!(
-        "font-family:{FONT_BODY};font-size:14px;line-height:1.55;color:rgba(10,10,11,0.54);margin:0 0 24px;"
+        "font-family:{FONT_BODY};font-size:14.5px;line-height:1.6;color:rgba(10,10,11,0.72);margin:0 0 24px;"
     );
     let code_box = format!(
-        "font-family:{FONT_MONO};font-size:30px;font-weight:600;letter-spacing:0.18em;text-align:center;padding:22px 16px;background:#f4f4f5;border:1px solid rgba(0,0,0,0.06);border-radius:12px;color:rgba(10,10,11,0.92);margin:0 0 14px;"
+        "font-family:{FONT_MONO};font-size:32px;font-weight:600;letter-spacing:0.22em;text-align:center;padding:20px 16px;background:#f6f6f7;border-radius:10px;color:#0a0a0b;margin:0 0 14px;"
     );
     let meta = format!(
-        "font-family:{FONT_BODY};font-size:12.5px;line-height:1.55;color:rgba(10,10,11,0.36);margin:0;"
+        "font-family:{FONT_BODY};font-size:12.5px;line-height:1.55;color:rgba(10,10,11,0.5);margin:0;"
+    );
+    let wordmark = format!(
+        "display:inline-block;text-decoration:none;color:#0a0a0b;font-family:{FONT_DISPLAY};font-weight:600;font-size:26px;letter-spacing:-0.02em;line-height:1;"
     );
 
     let body_html = format!(
@@ -50,22 +53,20 @@ pub async fn send_verification_email(
 <meta name="color-scheme" content="light only">
 <style>@font-face{{font-family:'Exo 2';font-style:normal;font-weight:600;src:url(data:font/woff2;base64,{EXO2_600_LATIN_B64}) format('woff2');}}</style>
 </head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:{FONT_BODY};color:rgba(10,10,11,0.85);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
-<div style="width:100%;background:#f4f4f5;padding:48px 16px;">
+<body style="margin:0;padding:0;background:#ececee;font-family:{FONT_BODY};color:rgba(10,10,11,0.9);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+<div style="width:100%;background:#ececee;padding:48px 16px;">
   <div style="max-width:480px;margin:0 auto;">
     <div style="text-align:center;margin:0 0 28px;">
-      <a href="https://aeqi.ai" style="text-decoration:none;line-height:0;display:inline-block;">
-        <img src="https://aeqi.ai/wordmark.png?v=2" alt="aeqi" width="80" height="24" style="display:block;border:0;outline:none;text-decoration:none;">
-      </a>
+      <a href="https://aeqi.ai" style="{wordmark}">aeqi</a>
     </div>
-    <div style="background:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;padding:36px 32px;">
+    <div style="background:#ffffff;border-radius:16px;padding:36px 32px;box-shadow:0 1px 0 rgba(10,10,11,0.02),0 8px 28px rgba(10,10,11,0.06);">
       <h1 style="{heading}">Verify your email</h1>
       <p style="{lede}">Enter this code in your browser to finish setting up your aeqi account.</p>
       <div style="{code_box}">{code}</div>
       <p style="{meta}">Expires in 15 minutes.</p>
     </div>
-    <div style="text-align:center;margin:24px 0 0;font-family:{FONT_BODY};font-size:11.5px;line-height:1.7;color:rgba(10,10,11,0.36);">
-      <p style="margin:0 0 4px;"><span style="color:rgba(10,10,11,0.54);font-weight:500;">aeqi</span> — autonomous companies, run by agents.</p>
+    <div style="text-align:center;margin:24px 0 0;font-family:{FONT_BODY};font-size:11.5px;line-height:1.7;color:rgba(10,10,11,0.5);">
+      <p style="margin:0 0 4px;"><span style="color:rgba(10,10,11,0.7);font-weight:500;">aeqi</span> — The company OS for the agent economy.</p>
       <p style="margin:0;">If you didn't request this, you can safely ignore this email.</p>
     </div>
   </div>

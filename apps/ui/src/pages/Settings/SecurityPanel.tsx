@@ -48,6 +48,37 @@ const GitHubIcon = () => (
 );
 
 /**
+ * Mirrors `validate_security_phrase` in aeqi-platform/src/server.rs. Keep
+ * the rules in sync — server is the authority but the client validation
+ * gives a fast, in-place error instead of a round-trip.
+ */
+function validateSecurityPhrase(raw: string, accountEmail: string): string | null {
+  const phrase = raw.trim();
+  if (phrase.length < 3 || phrase.length > 32) {
+    return "Phrase must be 3 to 32 characters.";
+  }
+  let hasLetter = false;
+  for (const ch of phrase) {
+    if (/[A-Za-z]/.test(ch)) {
+      hasLetter = true;
+    } else if (/[0-9 -]/.test(ch)) {
+      // allowed
+    } else {
+      return "Phrase can only contain letters, numbers, spaces, and hyphens.";
+    }
+  }
+  if (!hasLetter) return "Phrase must contain at least one letter.";
+  if (accountEmail) {
+    const lower = phrase.toLowerCase();
+    const email = accountEmail.toLowerCase();
+    if (lower === email) return "Don't use your email address as the security phrase.";
+    const local = email.split("@")[0];
+    if (local && lower === local) return "Don't use your email address as the security phrase.";
+  }
+  return null;
+}
+
+/**
  * Settings → Security tab. TOTP setup, email phishing phrase, password
  * change link, OAuth provider connections, danger zone.
  *
@@ -58,6 +89,7 @@ export default function SecurityPanel() {
   const logout = useAuthStore((s) => s.logout);
 
   const [provider, setProvider] = useState<string>("local");
+  const [accountEmail, setAccountEmail] = useState<string>("");
 
   // Phishing phrase
   const [phishingCode, setPhishingCode] = useState("");
@@ -79,19 +111,21 @@ export default function SecurityPanel() {
         const u = data as Record<string, unknown>;
         if (typeof u.phishing_code === "string") setPhishingCode(u.phishing_code);
         if (typeof u.provider === "string") setProvider(u.provider);
+        if (typeof u.email === "string") setAccountEmail(u.email);
       })
       .catch(() => {});
   }, []);
 
   const handlePhishingSave = async () => {
     setPhishingFeedback(null);
-    if (phishingCode.length < 3 || phishingCode.length > 100) {
-      setPhishingFeedback({ type: "error", msg: "Phrase must be 3-100 characters." });
+    const err = validateSecurityPhrase(phishingCode, accountEmail);
+    if (err) {
+      setPhishingFeedback({ type: "error", msg: err });
       return;
     }
     setPhishingSaving(true);
     try {
-      await api.updatePhishingCode(phishingCode);
+      await api.updatePhishingCode(phishingCode.trim());
       setPhishingFeedback({ type: "success", msg: "Security phrase updated." });
       setTimeout(() => setPhishingFeedback(null), 3000);
     } catch (e: unknown) {
@@ -265,8 +299,8 @@ export default function SecurityPanel() {
           Email security phrase
         </label>
         <p className="account-field-desc">
-          A personal phrase included in every email from aeqi. If the phrase is missing, the email
-          isn't from us.
+          Choose a phrase you will recognize in sign-in emails. Do not use your email, password, or
+          verification code.
         </p>
         <div className="account-field-row">
           <Input
@@ -279,7 +313,7 @@ export default function SecurityPanel() {
               setPhishingFeedback(null);
             }}
             placeholder="e.g., blue ocean 42"
-            maxLength={100}
+            maxLength={32}
           />
           <Button
             type="button"
