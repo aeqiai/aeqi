@@ -1,5 +1,6 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
+import { TabTrigger } from "@/components/ui";
 
 interface RailItem {
   id: string;
@@ -107,18 +108,14 @@ export default function PageRail({
     <nav className="page-rail" role="tablist" aria-orientation="vertical">
       {title && <h2 className="page-rail-title">{title}</h2>}
       {tabs.map((tab) => (
-        <button
+        <TabTrigger
           key={tab.id}
-          role="tab"
-          aria-selected={active === tab.id}
-          className={`page-rail-item${active === tab.id ? " active" : ""}`}
+          active={active === tab.id}
           onClick={() => setTab(tab.id)}
+          badge={tab.badge}
         >
-          <span className="page-rail-label">{tab.label}</span>
-          {tab.badge != null && tab.badge > 0 && (
-            <span className="page-rail-badge">{tab.badge}</span>
-          )}
-        </button>
+          {tab.label}
+        </TabTrigger>
       ))}
       {footer && <div className="page-rail-footer">{footer}</div>}
     </nav>

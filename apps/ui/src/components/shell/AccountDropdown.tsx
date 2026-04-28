@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Popover } from "@/components/ui/Popover";
+import { Popover, SelectOption } from "@/components/ui";
 import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
 
@@ -117,79 +117,46 @@ export default function AccountDropdown() {
       <div className="account-dropdown-menu" role="menu">
         {authMode !== "none" ? (
           <>
-            <button
-              type="button"
-              role="menuitem"
-              className={`account-dropdown-item${isAccount ? " account-dropdown-item--active" : ""}`}
+            <SelectOption
+              selected={isAccount}
               onClick={() => go("/account")}
-              aria-current={isAccount ? "page" : undefined}
+              leadingIcon={<AccountIcon />}
             >
-              <span className="account-dropdown-item-icon" aria-hidden="true">
-                <AccountIcon />
-              </span>
-              <span>Account</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={`account-dropdown-item${isPersonalInbox ? " account-dropdown-item--active" : ""}`}
+              Account
+            </SelectOption>
+            <SelectOption
+              selected={isPersonalInbox}
               onClick={() => go("/")}
-              aria-current={isPersonalInbox ? "page" : undefined}
+              leadingIcon={<InboxIcon />}
             >
-              <span className="account-dropdown-item-icon" aria-hidden="true">
-                <InboxIcon />
-              </span>
-              <span>Personal Inbox</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="account-dropdown-item account-dropdown-item--disabled"
+              Personal Inbox
+            </SelectOption>
+            <SelectOption
               disabled
+              leadingIcon={<NotificationsIcon />}
+              trailingHint="soon"
               title="Coming soon"
             >
-              <span className="account-dropdown-item-icon" aria-hidden="true">
-                <NotificationsIcon />
-              </span>
-              <span>Notifications</span>
-              <span className="account-dropdown-item-soon">soon</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="account-dropdown-item account-dropdown-item--disabled"
+              Notifications
+            </SelectOption>
+            <SelectOption
               disabled
+              leadingIcon={<PortfolioIcon />}
+              trailingHint="soon"
               title="Coming soon"
             >
-              <span className="account-dropdown-item-icon" aria-hidden="true">
-                <PortfolioIcon />
-              </span>
-              <span>Portfolio</span>
-              <span className="account-dropdown-item-soon">soon</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={`account-dropdown-item${isBilling ? " account-dropdown-item--active" : ""}`}
+              Portfolio
+            </SelectOption>
+            <SelectOption
+              selected={isBilling}
               onClick={() => go("/account/billing")}
-              aria-current={isBilling ? "page" : undefined}
+              leadingIcon={<BillingIcon />}
             >
-              <span className="account-dropdown-item-icon" aria-hidden="true">
-                <BillingIcon />
-              </span>
-              <span>Billing</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="account-dropdown-item account-dropdown-item--destructive"
-              onClick={signOut}
-            >
-              <span className="account-dropdown-item-icon" aria-hidden="true">
-                <SignOutIcon />
-              </span>
-              <span>Log out</span>
-            </button>
+              Billing
+            </SelectOption>
+            <SelectOption onClick={signOut} leadingIcon={<SignOutIcon />}>
+              Log out
+            </SelectOption>
           </>
         ) : (
           <div className="account-dropdown-item account-dropdown-item--label">Local mode</div>

@@ -1,5 +1,6 @@
 import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
+import { TabTrigger } from "@/components/ui";
 
 interface Tab {
   id: string;
@@ -51,18 +52,14 @@ export default function PageTabs({ tabs, defaultTab, mode = "path" }: PageTabsPr
   return (
     <div className="page-tabs" role="tablist">
       {tabs.map((tab) => (
-        <button
+        <TabTrigger
           key={tab.id}
-          role="tab"
-          aria-selected={active === tab.id}
-          className={`page-tab${active === tab.id ? " active" : ""}`}
+          active={active === tab.id}
           onClick={() => setTab(tab.id)}
+          badge={tab.badge}
         >
           {tab.label}
-          {tab.badge != null && tab.badge > 0 && (
-            <span className="page-tab-badge">{tab.badge}</span>
-          )}
-        </button>
+        </TabTrigger>
       ))}
     </div>
   );

@@ -6,7 +6,7 @@ import { useAgentDataStore } from "@/store/agentData";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
-import { Button, Popover, Spinner, Tooltip } from "./ui";
+import { Button, CardTrigger, Popover, Spinner, Tooltip } from "./ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestStatusPopover from "./quests/QuestStatusPopover";
 import QuestPriorityPopover from "./quests/QuestPriorityPopover";
@@ -644,15 +644,15 @@ function LinkedIdeaPicker({
             const count = questCounts.get(idea.id) ?? 0;
             const isPinned = pinnedIdea?.id === idea.id;
             return (
-              <button
+              <CardTrigger
                 key={idea.id}
-                type="button"
                 className={`quest-compose-picker-row${isPinned ? " is-active" : ""}`}
                 onClick={() => {
                   onPick(idea);
                   setOpen(false);
                   setQuery("");
                 }}
+                aria-label={`Select idea: ${idea.name}`}
               >
                 <span className="quest-compose-picker-name">{idea.name}</span>
                 {count > 0 && (
@@ -660,7 +660,7 @@ function LinkedIdeaPicker({
                     · {count} quest{count === 1 ? "" : "s"}
                   </span>
                 )}
-              </button>
+              </CardTrigger>
             );
           })}
         </div>

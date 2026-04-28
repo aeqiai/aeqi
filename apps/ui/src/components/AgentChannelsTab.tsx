@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useAgentDataStore, type AllowedChat, type ChannelEntry } from "@/store/agentData";
-import { Button, EmptyState } from "./ui";
+import { Button, CardTrigger, EmptyState, TabTrigger } from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
@@ -210,10 +210,9 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
         <h3 className="events-detail-name">Add Channel</h3>
         <div className="channel-type-picker" style={{ marginBottom: 12 }}>
           {CHANNEL_TYPES.map((ct) => (
-            <button
+            <TabTrigger
               key={ct.value}
-              type="button"
-              className={`channel-type-option ${newChannelType === ct.value ? "active" : ""}`}
+              active={newChannelType === ct.value}
               onClick={() => {
                 setNewChannelType(ct.value);
                 setNewChannelFields({});
@@ -221,7 +220,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
               }}
             >
               {ct.label}
-            </button>
+            </TabTrigger>
           ))}
         </div>
         {(CHANNEL_FIELDS[newChannelType] || []).map((f) => {
@@ -285,11 +284,11 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             {channels.map((c) => {
               const chats = getChats(c);
               return (
-                <button
+                <CardTrigger
                   key={c.id}
-                  type="button"
                   className="channels-list-row"
                   onClick={() => goAgent(agentId, "channels", c.id)}
+                  aria-label={`Open ${c.kind} channel`}
                 >
                   <span className="channels-list-row-kind">{c.kind.toUpperCase()}</span>
                   <span className="channels-list-row-name">channel:{c.kind}</span>
@@ -304,7 +303,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                         ? `${c.allowed_chats.length} allowed`
                         : "idle"}
                   </span>
-                </button>
+                </CardTrigger>
               );
             })}
           </>

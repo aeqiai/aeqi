@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
+import { CardTrigger } from "./ui";
 import BlockAvatar from "./BlockAvatar";
 import BrandMark from "./BrandMark";
 import type { Agent } from "@/lib/types";
@@ -175,11 +176,11 @@ function OrgNodeView({
 
   return (
     <div className={`org-node ${showChildRow ? "has-below" : ""}`}>
-      <button
-        type="button"
+      <CardTrigger
         className={`org-card ${node.isRoot ? "is-root" : ""}`}
         data-agent-id={node.id}
         onClick={() => onSelect(node.id)}
+        aria-label={`Select agent: ${node.label}`}
       >
         <span className="org-card-avatar">
           {node.isRoot ? <BlockAvatar name={node.label} size={20} /> : <BrandMark size={14} />}
@@ -188,7 +189,7 @@ function OrgNodeView({
           <span className="org-card-name">{node.label}</span>
           {node.subLabel && <span className="org-card-sub">{node.subLabel}</span>}
         </span>
-      </button>
+      </CardTrigger>
 
       {showChildRow && (
         <div
@@ -199,8 +200,7 @@ function OrgNodeView({
           ))}
           {showAddSlot && (
             <div className="org-node">
-              <button
-                type="button"
+              <CardTrigger
                 className="org-card is-add"
                 onClick={() => onAddChild(node.id)}
                 aria-label="Spawn sub-agent"
@@ -220,7 +220,7 @@ function OrgNodeView({
                     <path d="M8 3v10M3 8h10" />
                   </svg>
                 </span>
-              </button>
+              </CardTrigger>
             </div>
           )}
         </div>

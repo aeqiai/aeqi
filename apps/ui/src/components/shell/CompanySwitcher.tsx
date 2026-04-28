@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Popover } from "@/components/ui/Popover";
+import { Popover, SelectOption } from "@/components/ui";
 import BlockAvatar from "@/components/BlockAvatar";
 import { useEntities, useActiveEntity } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
@@ -18,18 +18,6 @@ const iconProps = {
 const ChevronDownIcon = () => (
   <svg {...iconProps} width={10} height={10}>
     <path d="M4 6l4 4 4-4" />
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg viewBox="0 0 12 12" width={10} height={10} fill="none">
-    <path
-      d="M2.5 6.5l2.5 2.5 4.5-5"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
   </svg>
 );
 
@@ -86,36 +74,19 @@ export default function CompanySwitcher() {
         {ordered.map((entity) => {
           const isCurrent = entity.id === activeEntityId;
           return (
-            <button
+            <SelectOption
               key={entity.id}
-              type="button"
-              role="menuitem"
-              className={`company-switcher-item${isCurrent ? " active" : ""}`}
+              selected={isCurrent}
               onClick={() => select(entity)}
+              leadingIcon={<BlockAvatar name={entity.name} size={16} />}
             >
-              <span className="company-switcher-item-avatar">
-                <BlockAvatar name={entity.name} size={16} />
-              </span>
-              <span className="company-switcher-item-name">{entity.name}</span>
-              {isCurrent && (
-                <span className="company-switcher-item-check" aria-hidden="true">
-                  <CheckIcon />
-                </span>
-              )}
-            </button>
+              {entity.name}
+            </SelectOption>
           );
         })}
-        <button
-          type="button"
-          role="menuitem"
-          className="company-switcher-item company-switcher-item--create"
-          onClick={createCompany}
-        >
-          <span className="company-switcher-item-avatar" aria-hidden="true">
-            <PlusIcon />
-          </span>
-          <span className="company-switcher-item-name">New company</span>
-        </button>
+        <SelectOption selected={false} onClick={createCompany} leadingIcon={<PlusIcon />}>
+          New company
+        </SelectOption>
       </div>
     </Popover>
   );

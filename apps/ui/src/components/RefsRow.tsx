@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Idea, IdeaRelation } from "@/lib/types";
-import { ChipClose } from "@/components/ui";
+import { ChipClose, SelectOption } from "@/components/ui";
 
 export interface RefRecord {
   target_id: string;
@@ -140,12 +140,9 @@ export default function RefsRow({
           {pickerResults.length > 0 && (
             <span className="ideas-ref-picker-list" role="listbox">
               {pickerResults.map((r, i) => (
-                <button
-                  type="button"
+                <SelectOption
                   key={r.id}
-                  role="option"
-                  aria-selected={i === pickerActive}
-                  className={`ideas-ref-picker-item${i === pickerActive ? " active" : ""}`}
+                  selected={i === pickerActive}
                   onMouseEnter={() => setPickerActive(i)}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -153,7 +150,7 @@ export default function RefsRow({
                   }}
                 >
                   §{r.name}
-                </button>
+                </SelectOption>
               ))}
             </span>
           )}
