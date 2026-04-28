@@ -4,7 +4,6 @@ import { useAuthStore } from "@/store/auth";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Spinner } from "@/components/ui";
 import AppLayout from "@/components/AppLayout";
-import PublicLayout from "@/components/PublicLayout";
 
 // Auth pages -- loaded eagerly since they gate entry
 import LoginPage from "@/pages/LoginPage";
@@ -17,9 +16,6 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
-const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
-const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
-const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -69,14 +65,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Wrapper for the two public-app surfaces (`/blueprints`, `/economy`).
- * Authed visitors see the full AppLayout dispatch (the page renders
- * inside the agent shell, with the rail's nav items already pointing
- * here). Unauthed visitors see PublicLayout — same shell silhouette,
- * brand wordmark in the corner, only Blueprints/Economy on the rail,
- * Sign up / Log in CTAs pinned below.
+ * Wrapper for `/blueprints` and `/economy`. Authed visitors hit the full
+ * AppLayout, which dispatches the matching page from the URL. Unauthed
+ * visitors bounce to /login — the public-marketing variants of these
+ * surfaces are paused until they're production-ready; PublicLayout
+ * stays in the tree for when we revive them.
  */
-function PublicOrAppShell({ publicPage }: { publicPage: React.ReactNode }) {
+function GatedAppShell() {
+  const location = useLocation();
   const authMode = useAuthStore((s) => s.authMode);
   const token = useAuthStore((s) => s.token);
   const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
@@ -86,10 +82,9 @@ function PublicOrAppShell({ publicPage }: { publicPage: React.ReactNode }) {
   }, [fetchAuthMode]);
 
   if (!authMode) return <LoadingSpinner />;
-  // Authed (or no-auth daemon) — defer to the full shell, which
-  // dispatches BlueprintsPage / EconomyPage from the URL itself.
   if (authMode === "none" || token) return <AppLayout />;
-  return <PublicLayout>{publicPage}</PublicLayout>;
+  const here = location.pathname + location.search;
+  return <Navigate to={`/login?next=${encodeURIComponent(here)}`} replace />;
 }
 
 // `/` always lands on the user-scoped home dashboard. We used to auto-bounce
@@ -118,54 +113,19 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Public app surfaces — Blueprints (the runtime catalog) and
-              Economy (coming-soon skeleton). Both are reachable without
-              auth via PublicLayout; authed visitors fall through to
-              AppLayout, which dispatches the same pages inside the
-              full shell. */}
-          <Route
-            path="/blueprints"
-            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
-          />
-          {/* Static kind sub-routes — render the same BlueprintsPage which
-              picks the active kind off the URL. Defined BEFORE the dynamic
-              :slug route so React Router's static-segment specificity
-              wins; a template with slug "agents" / "events" / "quests" /
-              "ideas" / "companies" would shadow these, so those slugs are
-              effectively reserved. */}
-          <Route
-            path="/blueprints/companies"
-            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
-          />
-          <Route
-            path="/blueprints/agents"
-            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
-          />
-          <Route
-            path="/blueprints/events"
-            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
-          />
-          <Route
-            path="/blueprints/quests"
-            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
-          />
-          <Route
-            path="/blueprints/ideas"
-            element={<PublicOrAppShell publicPage={<BlueprintsPage />} />}
-          />
-          <Route
-            path="/blueprints/:slug"
-            element={<PublicOrAppShell publicPage={<BlueprintDetailPage />} />}
-          />
-          {/* Inside-a-blueprint section sub-routes — same detail page,
-              the section param drives the right pane content. */}
-          <Route
-            path="/blueprints/:slug/:section"
-            element={<PublicOrAppShell publicPage={<BlueprintDetailPage />} />}
-          />
-          <Route path="/economy" element={<PublicOrAppShell publicPage={<EconomyPage />} />} />
-          {/* Legacy public-surface aliases — kept here so unauthed
-              visitors don't bounce through the protected shell. */}
+          {/* Blueprints and Economy — currently auth-gated end-to-end.
+              GatedAppShell dispatches AppLayout for authed visitors and
+              redirects everyone else to /login?next=<here>. Will revert
+              to a public-marketing variant once those surfaces ship. */}
+          <Route path="/blueprints" element={<GatedAppShell />} />
+          <Route path="/blueprints/companies" element={<GatedAppShell />} />
+          <Route path="/blueprints/agents" element={<GatedAppShell />} />
+          <Route path="/blueprints/events" element={<GatedAppShell />} />
+          <Route path="/blueprints/quests" element={<GatedAppShell />} />
+          <Route path="/blueprints/ideas" element={<GatedAppShell />} />
+          <Route path="/blueprints/:slug" element={<GatedAppShell />} />
+          <Route path="/blueprints/:slug/:section" element={<GatedAppShell />} />
+          <Route path="/economy" element={<GatedAppShell />} />
           <Route path="/library" element={<Navigate to="/blueprints" replace />} />
           <Route path="/protocol" element={<Navigate to="/economy" replace />} />
           <Route path="/templates" element={<Navigate to="/blueprints" replace />} />
