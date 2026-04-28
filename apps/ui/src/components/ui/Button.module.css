@@ -94,6 +94,24 @@
     0 0 0 4px var(--color-error);
 }
 
+.light {
+  background: white;
+  border-color: white;
+  color: var(--color-text-primary);
+}
+
+.light:hover {
+  background: white;
+  border-color: white;
+  opacity: 0.85;
+}
+
+.light:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  opacity: 1;
+}
+
 /* Sizes — heights pinned to the app's row rhythm so Button + Input line up.
    sm = 28px, md = 32px (matches --input-h / --sidebar-row-h), lg = 40px. */
 
@@ -115,6 +133,14 @@
   height: 40px;
   padding: 0 var(--space-5);
   font-size: var(--font-size-base);
+  border-radius: var(--radius-full);
+}
+
+.xl {
+  height: auto;
+  padding: var(--space-4) var(--space-9);
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
 }
 
@@ -164,4 +190,19 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Trailing icon — positioned to the right with gap, animates on hover */
+.trailingIcon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-2-5);
+}
+
+.button:not(:disabled):not([aria-disabled="true"]) .trailingIcon {
+  transition: transform var(--transition-fast);
+}
+
+.button:not(:disabled):not([aria-disabled="true"]):hover .trailingIcon {
+  transform: translateX(3px);
 }

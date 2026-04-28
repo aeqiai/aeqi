@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Idea, IdeaRelation } from "@/lib/types";
+import { ChipClose } from "@/components/ui";
 
 export interface RefRecord {
   target_id: string;
@@ -89,14 +90,10 @@ export default function RefsRow({
               §{label}
             </button>
             {removable && (
-              <button
-                type="button"
-                className="ideas-ref-chip-x"
+              <ChipClose
+                label={`Remove reference to ${label}`}
                 onClick={() => onRemove({ target_id: r.target_id, relation: r.relation })}
-                aria-label={`Remove reference to ${label}`}
-              >
-                ×
-              </button>
+              />
             )}
           </span>
         );

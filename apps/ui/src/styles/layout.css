@@ -1743,12 +1743,6 @@
   background: var(--composer-chip-bg);
   color: var(--composer-text);
 }
-.composer-wrap .asv-attach-chip-x {
-  color: var(--composer-text-muted);
-}
-.composer-wrap .asv-attach-chip-x:hover {
-  color: var(--composer-text);
-}
 .composer-wrap .asv-attach-btn {
   color: var(--composer-text-muted);
   position: relative;
@@ -5370,30 +5364,6 @@
 .ideas-ref-chip-label:hover {
   color: var(--accent);
 }
-.ideas-ref-chip-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  margin-left: 1px;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  opacity: 0.7;
-  transition:
-    opacity 0.15s,
-    color 0.15s;
-}
-.ideas-ref-chip-x:hover {
-  opacity: 1;
-  color: var(--destructive);
-}
 .ideas-ref-add {
   padding: 1px 8px;
   font-family: var(--font-mono);
@@ -5849,30 +5819,6 @@ button.ideas-tag-chip.active {
 }
 button.ideas-tag-chip.active .ideas-tag-chip-count {
   opacity: 0.9;
-}
-.ideas-tag-chip-x {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  margin-left: 1px;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  opacity: 0.7;
-  transition:
-    opacity 0.15s,
-    color 0.15s;
-}
-.ideas-tag-chip-x:hover {
-  opacity: 1;
-  color: var(--text-primary);
 }
 .ideas-tag-add {
   padding: 1px 8px;

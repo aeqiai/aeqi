@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconButton, Textarea, Tooltip } from "@/components/ui";
+import { ChipClose, IconButton, Textarea, Tooltip } from "@/components/ui";
 import SlashPalette, { type SlashCommand } from "./SlashPalette";
 
 interface ChatComposerProps {
@@ -321,40 +321,28 @@ export default function ChatComposer({
                 {sessionIdeas.map((p, i) => (
                   <span key={`p-${i}`} className="asv-attach-chip">
                     {p}
-                    <button
-                      type="button"
-                      className="asv-attach-chip-x"
+                    <ChipClose
+                      label={`Remove ${p}`}
                       onClick={() => setSessionIdeas((prev) => prev.filter((_, j) => j !== i))}
-                      aria-label={`Remove ${p}`}
-                    >
-                      ×
-                    </button>
+                    />
                   </span>
                 ))}
                 {sessionTask && (
                   <span className="asv-attach-chip">
                     {sessionTask.name}
-                    <button
-                      type="button"
-                      className="asv-attach-chip-x"
+                    <ChipClose
+                      label={`Remove ${sessionTask.name}`}
                       onClick={() => setSessionTask(null)}
-                      aria-label={`Remove ${sessionTask.name}`}
-                    >
-                      ×
-                    </button>
+                    />
                   </span>
                 )}
                 {attachedFiles.map((f, i) => (
                   <span key={`f-${i}`} className="asv-attach-chip">
                     {f.name}
-                    <button
-                      type="button"
-                      className="asv-attach-chip-x"
+                    <ChipClose
+                      label={`Remove ${f.name}`}
                       onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))}
-                      aria-label={`Remove ${f.name}`}
-                    >
-                      ×
-                    </button>
+                    />
                   </span>
                 ))}
               </div>

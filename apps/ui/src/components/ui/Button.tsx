@@ -1,12 +1,15 @@
 import { forwardRef } from "react";
+import type { ReactNode } from "react";
 import styles from "./Button.module.css";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
-  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "light";
+  size?: "sm" | "md" | "lg" | "xl";
   loading?: boolean;
   /** Stretch to fill the container width (auth forms, modal CTAs). */
   fullWidth?: boolean;
+  /** Icon or element rendered to the right of the label. Animated on hover with translate-x. */
+  trailingIcon?: ReactNode;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -15,6 +18,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     size = "md",
     loading = false,
     fullWidth = false,
+    trailingIcon,
     className,
     children,
     disabled,
@@ -41,6 +45,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         </span>
       )}
       {children}
+      {trailingIcon && (
+        <span className={styles.trailingIcon} aria-hidden="true">
+          {trailingIcon}
+        </span>
+      )}
     </button>
   );
 });

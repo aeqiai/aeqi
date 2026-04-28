@@ -28,11 +28,11 @@ All sizes are pill-shaped (\`--radius-full\`). Industry parallel: Stripe, Linear
   argTypes: {
     variant: {
       control: "select",
-      options: ["primary", "secondary", "ghost", "danger"],
+      options: ["primary", "secondary", "ghost", "danger", "light"],
     },
     size: {
       control: "select",
-      options: ["sm", "md", "lg"],
+      options: ["sm", "md", "lg", "xl"],
     },
   },
 };
@@ -72,16 +72,23 @@ export const Danger: Story = {
 export const AllSizes: Story = {
   name: "Size Scale",
   render: () => (
-    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-      <Button size="sm" variant="secondary">
-        sm
-      </Button>
-      <Button size="md" variant="secondary">
-        md
-      </Button>
-      <Button size="lg" variant="secondary">
-        lg
-      </Button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <Button size="sm" variant="secondary">
+          sm
+        </Button>
+        <Button size="md" variant="secondary">
+          md
+        </Button>
+        <Button size="lg" variant="secondary">
+          lg
+        </Button>
+      </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <Button size="xl" variant="primary">
+          xl (hero scale)
+        </Button>
+      </div>
     </div>
   ),
 };
@@ -264,4 +271,110 @@ export const ButtonGroup: Story = {
       </div>
     </div>
   ),
+};
+
+/* ── New features: xl size, light variant, trailing icon ── */
+
+export const ExtraLarge: Story = {
+  name: "Extra Large (xl)",
+  args: {
+    children: "Start a company",
+    variant: "primary",
+    size: "xl",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Large hero scale for marketing surfaces (hero CTA, footer actions). Matches landing hero button dimensions.",
+      },
+    },
+  },
+};
+
+export const LightVariant: Story = {
+  name: "Light Variant (on dark)",
+  render: () => (
+    <div
+      style={{
+        background: "var(--color-bg-elevated)",
+        padding: 24,
+        borderRadius: 8,
+      }}
+    >
+      <Button variant="light" size="md">
+        Explore
+      </Button>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "White button for use on dark or accent surfaces (e.g., footer with accent background). Maintains contrast and inverts the primary variant.",
+      },
+    },
+  },
+};
+
+export const WithTrailingIcon: Story = {
+  name: "With Trailing Icon",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <p style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", margin: "0 0 8px" }}>
+          Hero CTA with chevron
+        </p>
+        <Button
+          variant="primary"
+          size="xl"
+          trailingIcon={
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M6 12l4-4-4-4" />
+            </svg>
+          }
+        >
+          Start a company
+        </Button>
+      </div>
+      <div>
+        <p style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", margin: "0 0 8px" }}>
+          Standard size with arrow
+        </p>
+        <Button
+          variant="secondary"
+          size="md"
+          trailingIcon={
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M6 12l4-4-4-4" />
+            </svg>
+          }
+        >
+          Learn more
+        </Button>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Trailing icon (chevron, arrow, etc.) rendered to the right of the label. Animates with a 3px translate-x on hover for a subtle forward-motion micro-interaction.",
+      },
+    },
+  },
 };

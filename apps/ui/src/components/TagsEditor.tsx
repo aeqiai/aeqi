@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChipClose } from "@/components/ui";
 
 /**
  * Chip-row tag editor with autocomplete.
@@ -74,16 +75,7 @@ export default function TagsEditor({
         return (
           <span key={t} className={`ideas-tag-chip${removable ? " removable" : ""}`}>
             #{t}
-            {removable && (
-              <button
-                type="button"
-                className="ideas-tag-chip-x"
-                onClick={() => onRemove(t)}
-                aria-label={`Remove ${t}`}
-              >
-                ×
-              </button>
-            )}
+            {removable && <ChipClose label={`Remove ${t}`} onClick={() => onRemove(t)} />}
           </span>
         );
       })}
