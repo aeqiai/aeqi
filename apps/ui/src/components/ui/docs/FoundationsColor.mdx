@@ -10,20 +10,28 @@ this page tracks `packages/tokens/src/tokens.css` — never hardcode a hex.
 
 ## Surfaces
 
-One shell, one white working paper, one ink sheet for inversion. The
-two-step inset family lives inside the white card.
+Four-tier elevation ladder (settled 2026-04-27, v5.1). Paper outside,
+card-tier inside, elevated above the card for popovers and pills, ink
+sheet for inversion. The inset family lives inside the card.
+
+Depth comes from value contrast across the ladder, not from drop shadows.
 
 <ColorSwatchGrid
   swatches={[
     {
-      token: "--color-shell",
-      label: "App shell",
-      note: "Authenticated outer frame",
+      token: "--color-paper",
+      label: "Paper",
+      note: "Outer page bg, sidebar shell",
     },
     {
       token: "--color-card",
-      label: "Paper",
-      note: "Primary reading surface",
+      label: "Card",
+      note: "Primary reading surface (whisper-tinted, not flat white)",
+    },
+    {
+      token: "--color-card-elevated",
+      label: "Elevated",
+      note: "Pure white. Popovers, secondary buttons, cards-on-cards, nav",
     },
     {
       token: "--color-card-subtle",

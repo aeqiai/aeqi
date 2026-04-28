@@ -5,12 +5,19 @@ import { ElevationDemo } from "./ElevationDemo";
 
 # Elevation
 
-A single canonical treatment for lifted white cards. Composes a 1px
-hairline ring (inset via `box-shadow` — no layout cost) with a whisper of
-ambient shadow and a long-range soft shadow.
+Two ways to lift a surface above the page:
 
-The sheet separates from the tinted frame without any of the drop-shadow
-heaviness that reads as "AI wrapper."
+1. **Value contrast across the v5.1 ladder** (paper → card → elevated).
+   This is the default. A card sitting on paper is already lifted by
+   the tonal step; an elevated surface sitting on a card lifts again
+   to pure white. Depth without shadows.
+2. **The `--card-elevation` token** for surfaces that need a hairline
+   ring + whisper of ambient shadow (e.g. a working sheet that floats
+   over a tinted frame). Composes a 1px inset ring (via `box-shadow`,
+   no layout cost) with restrained ambient + long-range soft shadows.
+
+The sheet separates without any of the drop-shadow heaviness that reads
+as "AI wrapper."
 
 <ElevationDemo />
 
