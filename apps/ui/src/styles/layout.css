@@ -839,13 +839,21 @@
 .sidebar-group + .sidebar-group {
   margin-top: 10px;
 }
+/* Group title styled like a regular nav row — same row height, same
+ * padding and hover treatment as .sidebar-nav-item — so the toggle
+ * chevron lands at the same right-edge x as every other dropdown
+ * trigger in the rail (CompanySwitcher, AccountDropdown). The label
+ * itself stays small/uppercase to read as a category, not a destination. */
 .sidebar-group-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 14px 8px 6px 12px;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
   background: transparent;
   border: 0;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
@@ -854,10 +862,13 @@
   text-transform: uppercase;
   color: var(--text-secondary);
   text-align: left;
-  transition: color 0.12s ease;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
 }
 .sidebar-group-title:hover {
   color: var(--text-primary);
+  background: var(--state-hover);
 }
 .sidebar-group-chevron {
   margin-left: auto;
@@ -865,6 +876,7 @@
   align-items: center;
   justify-content: center;
   line-height: 0;
+  color: var(--text-muted);
   transition: transform 0.15s ease;
 }
 .sidebar-group-chevron > svg {
@@ -886,7 +898,8 @@
   display: none;
 }
 .left-sidebar.collapsed .sidebar-group-items {
-  padding: 4px 6px;
+  padding: 0;
+  gap: 2px;
 }
 
 .sidebar-nav-action {
@@ -969,30 +982,6 @@
 }
 .left-sidebar.collapsed .sidebar-surface-nav .sidebar-section-label {
   display: none;
-}
-
-/* ── Primitive tiles (sidebar-surface-nav) ──
-   Each W-primitive is a small paper tile on the sidebar's warm ground.
-   White fill + hairline border turns the lowercase brand-type word into
-   an obvious clickable surface instead of a loose letter. Active state
-   borrows the accent-tinted paper + inset bar from the explore toggle. */
-.sidebar-surface-nav {
-  gap: 4px;
-}
-/* Collapsed rail — each primitive compresses into a 36×36 square,
-   centered icon. No tile chrome; the icon alone carries the rail
-   the way Linear/Notion collapsed sidebars do. */
-.left-sidebar.collapsed .sidebar-surface-nav {
-  padding: 8px;
-  align-items: center;
-}
-.left-sidebar.collapsed .sidebar-surface-nav .sidebar-nav-item {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  min-height: 0;
-  justify-content: center;
-  align-items: center;
 }
 
 /* ── Sidebar user zone ── */
