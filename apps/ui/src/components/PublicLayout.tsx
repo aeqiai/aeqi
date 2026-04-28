@@ -57,45 +57,47 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         {/* ── Wordmark in company-switcher slot ── */}
         <div className="sidebar-header">
           {sidebarCollapsed ? (
-            <button
-              type="button"
-              className="sidebar-public-brand-toggle"
-              onClick={toggleSidebar}
-              aria-label="Expand sidebar"
-              title={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
-            >
-              <span className="sidebar-public-brand-toggle-rest" aria-hidden="true">
-                <span
-                  style={{
-                    fontFamily: "var(--font-brand)",
-                    fontSize: 20,
-                    fontWeight: 400,
-                    letterSpacing: "-0.02em",
-                    color: "var(--color-accent)",
-                    lineHeight: 1,
-                  }}
-                >
-                  æ
+            <Tooltip content={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}>
+              <button
+                type="button"
+                className="sidebar-public-brand-toggle"
+                onClick={toggleSidebar}
+                aria-label="Expand sidebar"
+              >
+                <span className="sidebar-public-brand-toggle-rest" aria-hidden="true">
+                  <span
+                    style={{
+                      fontFamily: "var(--font-brand)",
+                      fontSize: 20,
+                      fontWeight: 400,
+                      letterSpacing: "-0.02em",
+                      color: "var(--color-accent)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    æ
+                  </span>
                 </span>
-              </span>
-              <span className="sidebar-public-brand-toggle-hover" aria-hidden="true">
-                <PanelGlyph />
-              </span>
-            </button>
+                <span className="sidebar-public-brand-toggle-hover" aria-hidden="true">
+                  <PanelGlyph />
+                </span>
+              </button>
+            </Tooltip>
           ) : (
             <>
               <Link to="/blueprints" className="sidebar-public-brand" aria-label="aeqi — home">
                 <Wordmark size={20} />
               </Link>
-              <button
-                type="button"
-                className="sidebar-collapse-btn"
-                onClick={toggleSidebar}
-                aria-label="Collapse sidebar"
-                title={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}
-              >
-                <PanelGlyph />
-              </button>
+              <Tooltip content={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}>
+                <button
+                  type="button"
+                  className="sidebar-collapse-btn"
+                  onClick={toggleSidebar}
+                  aria-label="Collapse sidebar"
+                >
+                  <PanelGlyph />
+                </button>
+              </Tooltip>
             </>
           )}
         </div>
