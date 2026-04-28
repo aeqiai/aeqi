@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import type { ToolCall } from "@/lib/types";
-import { Popover } from "../ui/Popover";
+import { Popover, Textarea } from "../ui";
 import { COMMON_PATTERNS, KNOWN_TOOLS } from "../EventEditorConstants";
 import { lifecycleGroup } from "./lifecycle";
 
@@ -325,7 +325,8 @@ function ToolNode({
         <label className="events-node-popover-label" htmlFor={`${id}-args`}>
           args (JSON)
         </label>
-        <textarea
+        <Textarea
+          bare
           id={`${id}-args`}
           className="agent-settings-input events-node-popover-textarea"
           rows={5}

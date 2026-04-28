@@ -12,7 +12,7 @@ import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { Button } from "./ui";
+import { Button, Textarea } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import RefsRow, { type RefRecord } from "./RefsRow";
@@ -742,7 +742,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             </div>
             {showRejectPanel && (
               <div className="ideas-canvas-reject-panel">
-                <textarea
+                <Textarea
+                  bare
                   className="ideas-canvas-reject-textarea"
                   placeholder="Why reject? This gets appended to the idea body."
                   value={rejectRationale}
@@ -770,7 +771,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         )}
 
         {bodyMode === "edit" || !isEdit ? (
-          <textarea
+          <Textarea
+            bare
             ref={bodyRef}
             className="ideas-canvas-body"
             placeholder={

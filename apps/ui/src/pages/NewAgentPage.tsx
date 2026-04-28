@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { Textarea } from "@/components/ui";
 import "@/styles/welcome.css";
 import "@/styles/templates.css";
 import "@/styles/modals.css";
@@ -156,7 +157,8 @@ function SubAgentForm({
           <label className="new-sub-label" htmlFor="new-sub-system">
             Identity (optional)
           </label>
-          <textarea
+          <Textarea
+            bare
             id="new-sub-system"
             className="new-sub-textarea"
             value={systemPrompt}

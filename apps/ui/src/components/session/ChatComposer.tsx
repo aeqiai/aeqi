@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconButton } from "@/components/ui";
+import { IconButton, Textarea } from "@/components/ui";
 import SlashPalette, { type SlashCommand } from "./SlashPalette";
 
 interface ChatComposerProps {
@@ -359,7 +359,8 @@ export default function ChatComposer({
                 ))}
               </div>
             )}
-            <textarea
+            <Textarea
+              bare
               ref={inputRef}
               className="asv-textarea"
               placeholder={streaming ? "Queue a message..." : `Message ${displayName}...`}
