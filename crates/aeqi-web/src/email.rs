@@ -40,10 +40,6 @@ pub async fn send_verification_email(
     let meta = format!(
         "font-family:{FONT_BODY};font-size:12.5px;line-height:1.55;color:rgba(10,10,11,0.5);margin:0;"
     );
-    let wordmark = format!(
-        "display:inline-block;text-decoration:none;color:#0a0a0b;font-family:{FONT_DISPLAY};font-weight:600;font-size:26px;letter-spacing:-0.02em;line-height:1;"
-    );
-
     let body_html = format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -56,8 +52,10 @@ pub async fn send_verification_email(
 <body style="margin:0;padding:0;background:#ececee;font-family:{FONT_BODY};color:rgba(10,10,11,0.9);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
 <div style="width:100%;background:#ececee;padding:48px 16px;">
   <div style="max-width:480px;margin:0 auto;">
-    <div style="text-align:center;margin:0 0 28px;">
-      <a href="https://aeqi.ai" style="{wordmark}">aeqi</a>
+    <div style="text-align:center;margin:0 0 28px;line-height:0;">
+      <a href="https://aeqi.ai" style="display:inline-block;text-decoration:none;line-height:0;">
+        <img src="https://aeqi.ai/wordmark.png?v=3" alt="aeqi" width="120" height="36" style="display:inline-block;border:0;outline:none;text-decoration:none;width:120px;height:36px;">
+      </a>
     </div>
     <div style="background:#ffffff;border-radius:16px;padding:36px 32px;box-shadow:0 1px 0 rgba(10,10,11,0.02),0 8px 28px rgba(10,10,11,0.06);">
       <h1 style="{heading}">Verify your email</h1>
