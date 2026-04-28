@@ -63,6 +63,7 @@ use aeqi_ideas::tag_policy::TagPolicyCache;
 use aeqi_orchestrator::activity_log::ActivityLog;
 use aeqi_orchestrator::agent_registry::AgentRegistry;
 use aeqi_orchestrator::dispatch::{DispatchConfig, Dispatcher};
+use aeqi_orchestrator::entity_registry::EntityRegistry;
 use aeqi_orchestrator::event_handler::EventHandlerStore;
 use aeqi_orchestrator::execution_registry::ExecutionRegistry;
 use aeqi_orchestrator::ipc::CommandContext;
@@ -89,6 +90,7 @@ pub struct TestHarness {
     session_store: Arc<SessionStore>,
     event_handler_store: Arc<EventHandlerStore>,
     agent_registry: Arc<AgentRegistry>,
+    entity_registry: Arc<EntityRegistry>,
     idea_store: Arc<dyn IdeaStore>,
     session_manager: Arc<SessionManager>,
     dispatcher: Arc<Dispatcher>,
@@ -112,6 +114,7 @@ impl TestHarness {
         // AgentRegistry opens `aeqi.db` + `sessions.db` inside data_dir and
         // installs the ideas/events/quests schemas.
         let agent_registry = Arc::new(AgentRegistry::open(&data_dir)?);
+        let entity_registry = Arc::new(EntityRegistry::open(agent_registry.db()));
 
         // SqliteIdeas points at the SAME `aeqi.db` so scope-visibility
         // queries on the registry agree with what the store sees. This
@@ -157,6 +160,7 @@ impl TestHarness {
             session_store,
             event_handler_store,
             agent_registry,
+            entity_registry,
             idea_store,
             session_manager,
             dispatcher,
@@ -200,6 +204,7 @@ impl TestHarness {
             session_store: Some(self.session_store.clone()),
             event_handler_store: Some(self.event_handler_store.clone()),
             agent_registry: self.agent_registry.clone(),
+            entity_registry: self.entity_registry.clone(),
             idea_store: Some(self.idea_store.clone()),
             message_router: None,
             activity_buffer: self.activity_buffer.clone(),

@@ -18,6 +18,7 @@ pub mod claude_code;
 pub mod context_budget;
 pub mod daemon;
 pub mod dispatch;
+pub mod entity_registry;
 pub mod escalation;
 pub mod event_handler;
 pub mod event_matcher;
