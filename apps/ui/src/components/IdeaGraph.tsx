@@ -58,10 +58,10 @@ function readToken(name: string, fallback: string): string {
 
 function loadPalette(): Palette {
   return {
-    ink: readToken("--color-ink-text", "rgba(0,0,0,0.85)"),
-    inkSoft: readToken("--color-ink-secondary", "rgba(0,0,0,0.45)"),
-    inkDim: readToken("--color-ink-muted", "rgba(0,0,0,0.25)"),
-    paper: readToken("--color-paper", "#f4f4f5"),
+    ink: readToken("--color-ink-text", "rgba(10,10,11,0.85)"),
+    inkSoft: readToken("--color-ink-secondary", "rgba(10,10,11,0.54)"),
+    inkDim: readToken("--color-ink-muted", "rgba(10,10,11,0.36)"),
+    paper: readToken("--color-paper", "#f3f3f4"),
     border: readToken("--color-border", "rgba(0,0,0,0.06)"),
     accent: readToken("--color-accent", "#0a0a0b"),
     accentSoft: readToken("--color-accent-dim", "#52525b"),

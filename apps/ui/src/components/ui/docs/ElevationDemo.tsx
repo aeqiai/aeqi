@@ -6,7 +6,7 @@ export function ElevationDemo() {
         gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
         gap: 24,
         padding: 32,
-        background: "#f4f4f5",
+        background: "#f3f3f4",
         borderRadius: 12,
         margin: "20px 0",
       }}

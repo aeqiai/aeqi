@@ -57,7 +57,7 @@ export function MotionDemo() {
               style={{
                 position: "relative",
                 height: 24,
-                background: "#f4f4f5",
+                background: "#f3f3f4",
                 borderRadius: 12,
                 overflow: "hidden",
               }}

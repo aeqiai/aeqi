@@ -109,7 +109,7 @@ fast, reuse hard, and don't make them puke.
 - **Build:** Vite 6, React 19, TypeScript 5
 - **State:** Zustand (auth store, daemon store, chat store, ui store)
 - **Routing:** React Router v7
-- **Styling:** CSS custom properties in `src/styles/primitives.css` (light zinc palette, JetBrains Mono + Inter)
+- **Styling:** CSS custom properties in `src/styles/primitives.css` (graphite + ink v5.1 palette, Inter + Exo 2 + Zen Dots; JetBrains Mono retired 2026-04-27, `--font-mono` falls back to the system mono stack)
 - **API:** `src/lib/api.ts` -- fetch wrapper with JWT auth, auto-redirect on 401
 
 ## Layout
