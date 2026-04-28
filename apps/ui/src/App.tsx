@@ -195,8 +195,8 @@ export default function App() {
                       prefers the literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
-                    <Route path="settings" element={null} />
-                    <Route path="settings/:tab" element={null} />
+                    <Route path="account" element={null} />
+                    <Route path="account/:tab" element={null} />
                     {/* /start renders inside the shell — Company
                         creation is part of the app, not a separate
                         wizard. AppLayout dispatches StartPage when
@@ -209,9 +209,6 @@ export default function App() {
                         is resolved from the inbox item by session_id,
                         not from the URL. */}
                     <Route path="sessions/:sessionId" element={null} />
-                    {/* /profile is a per-user alias for /settings; old
-                        links / bookmarks don't dead-end. */}
-                    <Route path="profile" element={<Navigate to="/settings" replace />} />
                     <Route path=":agentId" element={null}>
                       <Route index element={null} />
                       <Route path=":tab" element={null} />

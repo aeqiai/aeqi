@@ -75,7 +75,7 @@ export default function AccountDropdown() {
             <button
               type="button"
               className="account-dropdown-item"
-              onClick={() => navigate("/settings")}
+              onClick={() => navigate("/account")}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
                 <AccountIcon />
@@ -123,7 +123,7 @@ export default function AccountDropdown() {
             <button
               type="button"
               className="account-dropdown-item"
-              onClick={() => navigate("/settings/billing")}
+              onClick={() => navigate("/account/billing")}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
                 <BillingIcon />

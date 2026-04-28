@@ -39,11 +39,7 @@ export function useShellSurface(
     const userSessionId = userSessionMatch ? decodeURIComponent(userSessionMatch[1]) : null;
     const isUserSession = !!userSessionId;
 
-    const isSettings =
-      path === "/settings" ||
-      path === "/profile" ||
-      path.startsWith("/settings/") ||
-      tab === "profile";
+    const isSettings = path === "/account" || path.startsWith("/account/") || tab === "profile";
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const blueprintMatch = path.match(/^\/blueprints\/([^/]+)\/?$/);
     const blueprintSlug = blueprintMatch ? decodeURIComponent(blueprintMatch[1]) : null;
