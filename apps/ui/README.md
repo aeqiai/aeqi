@@ -56,13 +56,13 @@ All design tokens live in `src/styles/primitives.css` as CSS custom properties:
 
 | Page | Path | Description |
 |------|------|-------------|
-| Dashboard | `/` | Stats, active quests, activity feed |
-| Quests | `/quests` | Linear-style grouped list, filterable by status and agent |
-| Sessions | `/sessions` | Chat history and live transcript with the selected agent via WebSocket |
-| Events | `/events` | Audit/activity event stream |
-| Ideas | `/ideas` | Agent knowledge and idea search |
-| Agent Detail | `/agents/:name` | Identity, files, activity |
-| Settings | `/settings` | Daemon connection, logout |
+| Company Home | `/:companyId` | Company-scoped inbox and execution surface |
+| Quests | `/:companyId/quests` | Linear-style grouped list, filterable by status and agent |
+| Sessions | `/:companyId/sessions/:sessionId` | Chat history and live transcript with the selected agent via WebSocket |
+| Events | `/:companyId/events` | Audit/activity event stream |
+| Ideas | `/:companyId/ideas` | Company knowledge and idea search |
+| Agents | `/:companyId/agents` | Company org chart and agent hierarchy |
+| Account | `/account` | User profile and account settings |
 | Login | `/login` | JWT authentication |
 
 ## Project Structure

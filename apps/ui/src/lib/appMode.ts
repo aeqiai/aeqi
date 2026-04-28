@@ -73,6 +73,9 @@ export function getScopedEntity(): string {
 }
 
 const NON_AGENT_ROUTES = new Set([
+  "account",
+  "blueprints",
+  "economy",
   "login",
   "signup",
   "waitlist",
@@ -81,7 +84,23 @@ const NON_AGENT_ROUTES = new Set([
   "reset-password",
   "new",
   "profile",
+  "sessions",
+  "start",
   "templates",
   "agents",
+  "company",
+  "crm",
   "drive",
+  "events",
+  "governance",
+  "ideas",
+  "integrations",
+  "metrics",
+  "ownership",
+  "plan",
+  "projects",
+  "quests",
+  "settings",
+  "tools",
+  "treasury",
 ]);

@@ -87,18 +87,16 @@ function GatedAppShell() {
   return <Navigate to={`/login?next=${encodeURIComponent(here)}`} replace />;
 }
 
-// `/` always lands on the user-scoped home dashboard. We used to auto-bounce
-// to the last-visited company via localStorage; that made it impossible to
-// actually see the home view once a root was in scope, so the bounce is gone.
-// The sidebar still carries the company switcher.
+// `/` is only the user-scope landing before a company exists. Once a company
+// exists, AppLayout canonicalizes the shell to `/:companyId` so sidebar tabs
+// never generate bogus top-level paths like `/quests`.
 
 /**
- * Version B — flat URL architecture. Every agent (root or child) lives at
- * `/:agentId/...`. There is no `/agents/` URL segment. AppLayout inspects the
- * current agent's `parent_id` to decide root-only rendering (billing, apps,
- * drive), but the URL shape is identical regardless of where the agent sits
- * in the tree. Profile lives at `/profile` (top-level, user-scoped) so it
- * never dead-ends when no root is active; it still inherits the shell.
+ * Version C — company-root URL architecture. The app shell lives at
+ * `/:companyId/...`; the sidebar always navigates inside that company. Child
+ * agents remain addressable where needed, but primary surfaces are company
+ * scoped. Profile lives at `/account` (top-level, user-scoped) so it never
+ * dead-ends when no root is active; it still inherits the shell.
  */
 export default function App() {
   return (

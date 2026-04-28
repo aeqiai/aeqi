@@ -34,6 +34,40 @@ const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
+const COMPANY_TABS = new Set([
+  "agents",
+  "company",
+  "crm",
+  "drive",
+  "events",
+  "governance",
+  "ideas",
+  "integrations",
+  "metrics",
+  "ownership",
+  "plan",
+  "projects",
+  "quests",
+  "settings",
+  "tools",
+  "treasury",
+]);
+
+const COMPANY_ROOT_TABS = new Set([
+  "agents",
+  "company",
+  "crm",
+  "drive",
+  "events",
+  "governance",
+  "ideas",
+  "metrics",
+  "ownership",
+  "projects",
+  "quests",
+  "treasury",
+]);
+
 function findEntity(agents: Agent[], id: string): Agent | null {
   const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
   let current = byId.get(id);
@@ -139,8 +173,9 @@ export default function AppLayout() {
 
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
+  const companyNavId = entityId || agentId;
   useGlobalShortcuts({
-    agentId,
+    agentId: companyNavId,
     searching,
     shortcutsOpen,
     openSearch,
@@ -150,16 +185,6 @@ export default function AppLayout() {
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
-
-  if (!initialLoaded) return <BootLoader />;
-
-  // Stale entity ref after a data reset would point at a non-existent
-  // agent. Bounce home — NOT to /new directly, which can self-loop when
-  // a placement exists without a matching runtime agent.
-  if (agentId && !currentAgent) {
-    localStorage.removeItem("aeqi_entity");
-    return <Navigate to="/" replace />;
-  }
 
   const {
     isHome,
@@ -172,6 +197,52 @@ export default function AppLayout() {
     userSessionId,
     blueprintSlug,
   } = surface;
+
+  if (!initialLoaded) return <BootLoader />;
+
+  const encodedEntityId = entityId ? encodeURIComponent(entityId) : "";
+  const search = location.search || "";
+
+  // Company context is canonical in the URL. Without this, the sidebar can
+  // display the selected company from localStorage while links still resolve
+  // as top-level routes (`/quests`), which React then misreads as `:agentId`.
+  if (isHome && encodedEntityId) {
+    return <Navigate to={`/${encodedEntityId}${search}`} replace />;
+  }
+
+  // Defensive migration for old top-level primitive URLs. Keep the item
+  // segment if present (`/quests/q-1` -> `/:companyId/quests/q-1`).
+  if (agentId && !currentAgent && COMPANY_TABS.has(agentId) && encodedEntityId) {
+    const item = tab ? `/${encodeURIComponent(tab)}` : "";
+    return <Navigate to={`/${encodedEntityId}/${agentId}${item}${search}`} replace />;
+  }
+
+  // Company primitives are scoped to the root company, not whichever child
+  // agent was last opened. Old deep links such as `/eng/quests/q-1` should
+  // land on `/company/quests/q-1` so Quests never depend on child-agent URLs.
+  if (
+    currentAgent &&
+    rootAgent &&
+    rootAgent.id !== currentAgent.id &&
+    tab &&
+    COMPANY_ROOT_TABS.has(tab)
+  ) {
+    const item = itemId ? `/${encodeURIComponent(itemId)}` : "";
+    return (
+      <Navigate
+        to={`/${encodeURIComponent(rootAgent.id)}/${encodeURIComponent(tab)}${item}${search}`}
+        replace
+      />
+    );
+  }
+
+  // Stale entity ref after a data reset would point at a non-existent
+  // agent. Bounce home — NOT to /new directly, which can self-loop when
+  // a placement exists without a matching runtime agent.
+  if (agentId && !currentAgent) {
+    localStorage.removeItem("aeqi_entity");
+    return <Navigate to="/" replace />;
+  }
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
   // No-tab URLs collapse to tab="sessions" so /:agentId renders the Inbox
@@ -229,7 +300,7 @@ export default function AppLayout() {
   return (
     <>
       <div className="shell">
-        <LeftSidebar agentId={agentId} path={path} />
+        <LeftSidebar agentId={companyNavId} path={path} />
 
         <div className="content-column">
           <div className="content-card">

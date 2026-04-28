@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import { useUIStore } from "@/store/ui";
 
 interface PaletteItem {
   id: string;
@@ -19,6 +20,8 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const navigate = useNavigate();
   const appMode = useAuthStore((s) => s.appMode);
   const { agentId } = useParams<{ agentId?: string }>();
+  const activeEntity = useUIStore((s) => s.activeEntity);
+  const scopeId = activeEntity || agentId || "";
 
   const go = useCallback(
     (path: string) => {
@@ -36,9 +39,9 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     }
     inputRef.current?.focus();
 
-    const scope = agentId ? `/${agentId}` : "";
+    const scope = scopeId ? `/${encodeURIComponent(scopeId)}` : "";
     const buildItems = async () => {
-      const navItems: PaletteItem[] = agentId
+      const navItems: PaletteItem[] = scopeId
         ? [
             {
               id: "nav-home",
@@ -138,7 +141,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
             label: `${q.id}: ${idea?.name ?? ""}`,
             hint: (q.status as string) || "",
             section: "Quests",
-            action: () => go(agentId ? `${scope}/quests/${q.id}` : "/"),
+            action: () => go(scopeId ? `${scope}/quests/${q.id}` : "/"),
           };
         });
 
@@ -148,7 +151,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           label: (m.name || m.title || "Idea") as string,
           hint: ((m.content || "") as string).slice(0, 50),
           section: "Ideas",
-          action: () => go(agentId ? `${scope}/ideas/${m.id || m.name}` : "/"),
+          action: () => go(scopeId ? `${scope}/ideas/${m.id || m.name}` : "/"),
         }));
 
         setItems([...navItems, ...agentItems, ...questItems, ...ideaItems]);
@@ -157,7 +160,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       }
     };
     buildItems();
-  }, [open, go, appMode, agentId]);
+  }, [open, go, appMode, agentId, scopeId]);
 
   const filtered = query
     ? items.filter(

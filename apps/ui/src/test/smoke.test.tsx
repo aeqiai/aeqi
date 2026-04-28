@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StrictMode } from "react";
-import { render } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
+import AppLayout from "@/components/AppLayout";
 import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
@@ -10,6 +11,7 @@ import AgentOrgChart from "@/components/AgentOrgChart";
 import NewAgentPage from "@/pages/NewAgentPage";
 import ShortcutsOverlay from "@/components/ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
+import { useUIStore } from "@/store/ui";
 
 /**
  * Smoke tests that catch runtime rendering bugs before they reach production.
@@ -44,6 +46,20 @@ function captureRenderErrors(ui: React.ReactElement): unknown[] {
 function isLoopError(e: unknown): boolean {
   const s = Array.isArray(e) ? e.join(" ") : String(e);
   return /Maximum update depth|Minified React error #185|infinite loop/.test(s);
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
+
+function ShellUnderTest() {
+  return (
+    <>
+      <AppLayout />
+      <LocationProbe />
+    </>
+  );
 }
 
 describe("AgentQuestsTab smoke", () => {
@@ -117,6 +133,93 @@ describe("AgentQuestsTab smoke", () => {
 });
 
 describe("shell components smoke", () => {
+  beforeEach(() => {
+    localStorage.setItem("aeqi_entity", "root-1");
+    useUIStore.setState({ activeEntity: "root-1" });
+    useDaemonStore.setState({
+      status: null,
+      dashboard: null,
+      cost: null,
+      entities: [
+        {
+          id: "root-1",
+          name: "Root",
+          type: "company",
+          root_agent_id: "root-1",
+          status: "active",
+          created_at: "2026-04-28T00:00:00Z",
+        },
+      ],
+      agents: [{ id: "root-1", name: "Root", status: "active", parent_id: null }] as never,
+      quests: [],
+      events: [],
+      workerEvents: [],
+      wsConnected: false,
+      loading: false,
+      initialLoaded: true,
+    });
+  });
+
+  it("canonicalizes / to the selected company root", async () => {
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/"]}>
+          <Routes>
+            <Route index element={<ShellUnderTest />} />
+            <Route path=":agentId" element={<ShellUnderTest />} />
+            <Route path=":agentId/:tab" element={<ShellUnderTest />} />
+            <Route path=":agentId/:tab/:itemId" element={<ShellUnderTest />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/root-1"));
+  });
+
+  it("migrates old top-level quest URLs into the company route", async () => {
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/quests"]}>
+          <Routes>
+            <Route index element={<ShellUnderTest />} />
+            <Route path=":agentId" element={<ShellUnderTest />} />
+            <Route path=":agentId/:tab" element={<ShellUnderTest />} />
+            <Route path=":agentId/:tab/:itemId" element={<ShellUnderTest />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/root-1/quests"));
+  });
+
+  it("migrates child-agent quest URLs back to the company route", async () => {
+    useDaemonStore.setState({
+      agents: [
+        { id: "root-1", name: "Root", status: "active", parent_id: null },
+        { id: "eng-1", name: "Engineer", status: "active", parent_id: "root-1" },
+      ] as never,
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/eng-1/quests/q-1"]}>
+          <Routes>
+            <Route index element={<ShellUnderTest />} />
+            <Route path=":agentId" element={<ShellUnderTest />} />
+            <Route path=":agentId/:tab" element={<ShellUnderTest />} />
+            <Route path=":agentId/:tab/:itemId" element={<ShellUnderTest />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toBe("/root-1/quests/q-1"),
+    );
+  });
+
   it("BootLoader renders the splash", () => {
     const errors = captureRenderErrors(
       <StrictMode>

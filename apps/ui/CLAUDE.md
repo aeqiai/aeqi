@@ -128,13 +128,13 @@ The UI is built around four primitives:
 
 | Page | Path | What it does |
 |------|------|-------------|
-| Dashboard | `/` | Stats, active quests, activity feed |
-| Quests | `/quests` | Quest list, filter by status/agent |
-| Sessions | `/sessions` | Split pane: session list + transcript. WebSocket chat with agents |
-| Events | `/events` | Event stream (audit trail) |
-| Ideas | `/ideas` | Agent knowledge/idea search |
-| Agent Detail | `/agents/:name` | Agent identity, files, activity |
-| Settings | `/settings` | Daemon connection, logout |
+| Company Home | `/:companyId` | Company-scoped inbox and execution surface |
+| Quests | `/:companyId/quests` | Quest list, filter by status/agent |
+| Sessions | `/:companyId/sessions/:sessionId` | Split pane: session list + transcript. WebSocket chat with agents |
+| Events | `/:companyId/events` | Event stream (audit trail) |
+| Ideas | `/:companyId/ideas` | Company knowledge/idea search |
+| Agents | `/:companyId/agents` | Company org chart and agent hierarchy |
+| Account | `/account` | User profile and account settings |
 | Login | `/login` | JWT authentication |
 
 Legacy paths redirect to their current equivalents.

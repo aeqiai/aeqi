@@ -9,6 +9,7 @@ import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
 interface LeftSidebarProps {
+  /** Canonical company root id. Sidebar tabs are company-scoped, not child-agent scoped. */
   agentId: string | null;
   path: string;
 }

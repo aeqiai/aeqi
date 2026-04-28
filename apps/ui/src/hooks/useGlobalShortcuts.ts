@@ -86,8 +86,8 @@ export function useGlobalShortcuts({
 
       // Vim go-to prefix: if `g` was tapped within the deadline, this
       // key is the destination. s→inbox, a→agents, e→events, q→quests,
-      // i→ideas. Runs even when agentId is absent (no-op on empty
-      // scope).
+      // i→ideas. Uses the canonical company scope supplied by AppLayout;
+      // with no company scope, it no-ops.
       if (gDeadlineRef.current > Date.now() && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const key = e.key.toLowerCase();
         const tabs: Record<string, string> = {
