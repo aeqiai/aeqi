@@ -368,7 +368,7 @@ export default function LoginPage() {
         </h1>
         <p className="auth-subheading">
           {step === "credentials" ? (
-            "Sign in to your autonomous company"
+            "Pick up where you left off."
           ) : step === "verify" ? (
             <>
               Code sent to <strong className="auth-email-highlight">{email}</strong>

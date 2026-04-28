@@ -280,7 +280,7 @@ export default function SignupPage() {
                 Launch a <strong>{templateLabel}</strong> powered by AI agents
               </>
             ) : (
-              "Start building your autonomous company"
+              "Start a company in minutes."
             )}
           </p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
@@ -540,31 +540,11 @@ export default function SignupPage() {
 
       <div className="signup-pitch-side">
         <div className="signup-pitch-content">
-          <h2 className="signup-pitch-heading">Build something that can work without you.</h2>
-          <p className="signup-lead">Agents that work, earn, and compound through experience.</p>
-          <p className="signup-trust">Open source. Self-hostable. Free to start.</p>
-          <div className="signup-cta-section">
-            <a
-              href="https://booking.aeqi.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="signup-cta-link"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              >
-                <rect x="2" y="3" width="12" height="11" rx="1.5" />
-                <path d="M2 7h12M5 1v4M11 1v4" />
-              </svg>
-              Book a call
-            </a>
-          </div>
+          <h2 className="signup-pitch-heading">Start something that can work without you.</h2>
+          <p className="signup-lead">
+            Build companies where humans set direction. Agents turn context into execution.
+          </p>
+          <p className="signup-trust">Open source · Self-hostable · Free to start</p>
         </div>
       </div>
     </main>
