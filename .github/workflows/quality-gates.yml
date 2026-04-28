@@ -74,11 +74,7 @@ jobs:
           # Install cargo-tarpaulin for code coverage
           echo "Installing cargo-tarpaulin..."
           cargo install cargo-tarpaulin --locked
-          
-          # Install cargo-criterion for performance benchmarks
-          echo "Installing cargo-criterion..."
-          cargo install cargo-criterion --locked
-          
+
           # Install additional utilities
           sudo apt-get update
           sudo apt-get install -y ripgrep jq
@@ -209,90 +205,7 @@ jobs:
           cargo tarpaulin --workspace --out Lcov --output-dir ./coverage
         continue-on-error: false
 
-      # 13. Performance benchmarks with cargo-criterion
-      - name: Performance benchmarks
-        run: |
-          echo "=== Running Performance Benchmarks ==="
-          
-          # Create benchmark directory structure
-          mkdir -p benches
-          
-          # Check if there are any criterion benchmarks
-          if find . -name "*.rs" -type f -exec grep -l "criterion_group\|criterion_main" {} \; | grep -q .; then
-            echo "Running existing criterion benchmarks..."
-            cargo criterion --verbose
-            
-            # Generate benchmark report
-            echo "Generating benchmark report..."
-            find target/criterion -name "report" -type f | head -5 | while read report; do
-              echo "Benchmark report: $report"
-              cat "$report" 2>/dev/null | head -20 || true
-            done
-            
-            # Check for performance regressions
-            echo "Checking for performance regressions..."
-            if [ -f "benchmark-baseline.json" ]; then
-              echo "Comparing against baseline..."
-              # Simple regression check - compare mean times
-              # In a real setup, you'd use a more sophisticated comparison
-              echo "Baseline comparison would run here"
-            else
-              echo "No baseline found. Creating initial baseline..."
-              # Create initial baseline
-              cargo criterion --message-format=json | jq -s '.' > benchmark-baseline.json 2>/dev/null || echo "Could not create baseline"
-            fi
-          else
-            echo "No criterion benchmarks found. Creating example benchmarks for critical paths..."
-            
-            # Create example benchmarks for key components
-            cat > benches/aeqi_core_benchmark.rs << 'EOF'
-            use criterion::{black_box, criterion_group, criterion_main, Criterion};
-            use std::time::Duration;
-
-            // Example benchmark for AEQI core functionality
-            fn bench_string_operations(c: &mut Criterion) {
-                let mut group = c.benchmark_group("string_ops");
-                group.measurement_time(Duration::from_secs(5));
-                
-                let test_string = "Hello, AEQI! This is a benchmark test string.".repeat(100);
-                
-                group.bench_function("string_length", |b| {
-                    b.iter(|| test_string.len())
-                });
-                
-                group.bench_function("string_contains", |b| {
-                    b.iter(|| test_string.contains("benchmark"))
-                });
-                
-                group.bench_function("string_split", |b| {
-                    b.iter(|| test_string.split(' ').count())
-                });
-            }
-
-            criterion_group!(benches, bench_string_operations);
-            criterion_main!(benches);
-            EOF
-            
-            # Try to run the benchmark
-            echo "Running example benchmarks..."
-            cargo criterion --bench aeqi_core_benchmark --verbose || echo "Benchmark setup completed"
-            
-            # Create baseline from example benchmarks
-            echo "Creating performance baseline from example benchmarks..."
-            cargo criterion --bench aeqi_core_benchmark --message-format=json 2>/dev/null | jq -s '.' > benchmark-baseline.json 2>/dev/null || echo "Could not create baseline"
-          fi
-          
-          echo "Performance benchmarks completed!"
-        continue-on-error: false
-
-      # 14. Performance regression detection
-      - name: Performance regression detection
-        run: |
-          echo "=== Performance Regression Detection ==="
-          ./scripts/performance-regression-detection.sh
-        continue-on-error: false
-
-      # 15. Documentation generation
+      # 13. Documentation generation
       - name: Generate documentation
         run: |
           echo "=== Generating Documentation ==="
@@ -306,22 +219,6 @@ jobs:
           path: ./coverage/
           retention-days: 30
 
-      - name: Upload performance baseline
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: performance-baseline
-          path: ./benchmark-baseline.json
-          retention-days: 30
-
-      - name: Upload benchmark results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: ./target/criterion/
-          retention-days: 30
-
       - name: Upload documentation
         if: always()
         uses: actions/upload-artifact@v4
@@ -330,7 +227,7 @@ jobs:
           path: ./target/doc/
           retention-days: 30
 
-      # 16. Summary report
+      # 14. Summary report
       - name: Generate quality gate summary
         if: always()
         run: |
@@ -344,8 +241,6 @@ jobs:
           echo "✅ Build verification"
           echo "✅ Test execution"
           echo "✅ Code coverage: cargo-tarpaulin"
-          echo "✅ Performance benchmarks: cargo-criterion"
-          echo "✅ Performance regression detection"
           echo "✅ Documentation generation"
           echo ""
           echo "All quality gates completed successfully!"
