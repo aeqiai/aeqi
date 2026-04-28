@@ -902,11 +902,11 @@
   line-height: 1;
 }
 
-/* "soon" chip on group titles + nav items — same micro-typographic
-   treatment everywhere so the deferred-readiness signal reads as one
-   pattern across the rail and the AccountDropdown. */
-.sidebar-group-soon,
-.sidebar-nav-soon {
+/* "soon" chip on group titles. Group-level signal is enough — once a
+   group reads "soon", repeating it on every disabled row inside is
+   visual overload. The muted + inert treatment of .sidebar-nav-item--soon
+   carries the row-level signal on its own. */
+.sidebar-group-soon {
   margin-left: auto;
   font-family: var(--font-sans);
   font-size: 9px;

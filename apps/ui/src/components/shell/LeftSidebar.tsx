@@ -174,7 +174,6 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         >
           {icon}
           <span className="sidebar-nav-label">{label}</span>
-          <span className="sidebar-nav-soon">soon</span>
         </button>
       );
     }
