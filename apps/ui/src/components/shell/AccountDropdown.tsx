@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Popover } from "@/components/ui/Popover";
 import UserAvatar from "@/components/UserAvatar";
@@ -34,6 +35,22 @@ const BillingIcon = () => (
   </svg>
 );
 
+const NotificationsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M8 2a2 2 0 0 1 2 2v.5c1.5.5 2.5 2 2.5 3.5H3.5C3.5 6.5 4.5 5 6 4.5V4a2 2 0 0 1 2-2z" />
+    <path d="M5.5 12a2.5 2.5 0 0 0 5 0" />
+  </svg>
+);
+
+const PortfolioIcon = () => (
+  <svg {...iconProps}>
+    <rect x="2" y="2" width="5" height="5" rx="0.5" />
+    <rect x="9" y="2" width="5" height="5" rx="0.5" />
+    <rect x="2" y="9" width="5" height="5" rx="0.5" />
+    <rect x="9" y="9" width="5" height="5" rx="0.5" />
+  </svg>
+);
+
 const SignOutIcon = () => (
   <svg {...iconProps}>
     <path d="M9 3H3v10h6" />
@@ -47,20 +64,32 @@ export default function AccountDropdown() {
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
   const logout = useAuthStore((s) => s.logout);
+  const [open, setOpen] = useState(false);
 
   const isAccount =
     (pathname === "/account" || pathname.startsWith("/account/")) &&
     pathname !== "/account/billing";
   const isPersonalInbox = pathname === "/";
   const isBilling = pathname === "/account/billing";
+  const triggerActive = pathname === "/account" || pathname.startsWith("/account/");
 
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   const userEmail = user?.name && user?.email ? user.email : null;
 
-  // The trigger reads as a rail destination just like Inbox / Economy —
-  // light up when the user is on any /account route (including billing).
-  const triggerActive = pathname === "/account" || pathname.startsWith("/account/");
+  const go = useCallback(
+    (to: string) => {
+      navigate(to);
+      setOpen(false);
+    },
+    [navigate],
+  );
+
+  const signOut = useCallback(() => {
+    logout();
+    setOpen(false);
+    navigate("/login");
+  }, [logout, navigate]);
 
   const trigger = (
     <button
@@ -84,14 +113,15 @@ export default function AccountDropdown() {
   );
 
   return (
-    <Popover trigger={trigger} placement="top-start" portal>
-      <div className="account-dropdown-menu">
-        {authMode !== "none" && (
+    <Popover trigger={trigger} open={open} onOpenChange={setOpen} placement="top-start" portal>
+      <div className="account-dropdown-menu" role="menu">
+        {authMode !== "none" ? (
           <>
             <button
               type="button"
+              role="menuitem"
               className={`account-dropdown-item${isAccount ? " account-dropdown-item--active" : ""}`}
-              onClick={() => navigate("/account")}
+              onClick={() => go("/account")}
               aria-current={isAccount ? "page" : undefined}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
@@ -101,8 +131,9 @@ export default function AccountDropdown() {
             </button>
             <button
               type="button"
+              role="menuitem"
               className={`account-dropdown-item${isPersonalInbox ? " account-dropdown-item--active" : ""}`}
-              onClick={() => navigate("/")}
+              onClick={() => go("/")}
               aria-current={isPersonalInbox ? "page" : undefined}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
@@ -112,40 +143,35 @@ export default function AccountDropdown() {
             </button>
             <button
               type="button"
+              role="menuitem"
               className="account-dropdown-item account-dropdown-item--disabled"
               disabled
               title="Coming soon"
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
-                <svg {...iconProps}>
-                  <path d="M8 2a2 2 0 0 1 2 2v.5c1.5.5 2.5 2 2.5 3.5H3.5C3.5 6.5 4.5 5 6 4.5V4a2 2 0 0 1 2-2z" />
-                  <path d="M5.5 12a2.5 2.5 0 0 0 5 0" />
-                </svg>
+                <NotificationsIcon />
               </span>
               <span>Notifications</span>
               <span className="account-dropdown-item-soon">soon</span>
             </button>
             <button
               type="button"
+              role="menuitem"
               className="account-dropdown-item account-dropdown-item--disabled"
               disabled
               title="Coming soon"
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
-                <svg {...iconProps}>
-                  <rect x="2" y="2" width="5" height="5" rx="0.5" />
-                  <rect x="9" y="2" width="5" height="5" rx="0.5" />
-                  <rect x="2" y="9" width="5" height="5" rx="0.5" />
-                  <rect x="9" y="9" width="5" height="5" rx="0.5" />
-                </svg>
+                <PortfolioIcon />
               </span>
               <span>Portfolio</span>
               <span className="account-dropdown-item-soon">soon</span>
             </button>
             <button
               type="button"
+              role="menuitem"
               className={`account-dropdown-item${isBilling ? " account-dropdown-item--active" : ""}`}
-              onClick={() => navigate("/account/billing")}
+              onClick={() => go("/account/billing")}
               aria-current={isBilling ? "page" : undefined}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
@@ -153,14 +179,11 @@ export default function AccountDropdown() {
               </span>
               <span>Billing</span>
             </button>
-            <div className="account-dropdown-divider" role="separator" />
             <button
               type="button"
+              role="menuitem"
               className="account-dropdown-item account-dropdown-item--destructive"
-              onClick={() => {
-                logout();
-                navigate("/login");
-              }}
+              onClick={signOut}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
                 <SignOutIcon />
@@ -168,8 +191,7 @@ export default function AccountDropdown() {
               <span>Log out</span>
             </button>
           </>
-        )}
-        {authMode === "none" && (
+        ) : (
           <div className="account-dropdown-item account-dropdown-item--label">Local mode</div>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Popover } from "@/components/ui/Popover";
 import BlockAvatar from "@/components/BlockAvatar";
@@ -44,6 +45,7 @@ export default function CompanySwitcher() {
   const activeEntityId = useUIStore((s) => s.activeEntity);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const activeEntity = useActiveEntity(activeEntityId);
+  const [open, setOpen] = useState(false);
 
   const displayName = activeEntity?.name ?? (entities.length > 0 ? entities[0].name : "Company");
   const displayEntity = activeEntity ?? entities[0] ?? null;
@@ -51,6 +53,20 @@ export default function CompanySwitcher() {
   const ordered: Entity[] = displayEntity
     ? [displayEntity, ...entities.filter((e) => e.id !== displayEntity.id)]
     : entities;
+
+  const select = useCallback(
+    (entity: Entity) => {
+      setActiveEntity(entity.id);
+      navigate(`/${encodeURIComponent(entity.id)}`);
+      setOpen(false);
+    },
+    [navigate, setActiveEntity],
+  );
+
+  const createCompany = useCallback(() => {
+    navigate("/start");
+    setOpen(false);
+  }, [navigate]);
 
   const trigger = (
     <button type="button" className="company-switcher-trigger" aria-label="Switch company">
@@ -65,19 +81,17 @@ export default function CompanySwitcher() {
   );
 
   return (
-    <Popover trigger={trigger} placement="bottom-start" portal>
-      <div className="company-switcher-menu">
+    <Popover trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-start" portal>
+      <div className="company-switcher-menu" role="menu">
         {ordered.map((entity) => {
           const isCurrent = entity.id === activeEntityId;
           return (
             <button
               key={entity.id}
               type="button"
+              role="menuitem"
               className={`company-switcher-item${isCurrent ? " active" : ""}`}
-              onClick={() => {
-                setActiveEntity(entity.id);
-                navigate(`/${encodeURIComponent(entity.id)}`);
-              }}
+              onClick={() => select(entity)}
             >
               <span className="company-switcher-item-avatar">
                 <BlockAvatar name={entity.name} size={16} />
@@ -91,18 +105,17 @@ export default function CompanySwitcher() {
             </button>
           );
         })}
-        <div className="company-switcher-footer">
-          <button
-            type="button"
-            className="company-switcher-footer-btn"
-            onClick={() => navigate("/start")}
-          >
-            <span className="company-switcher-footer-icon" aria-hidden="true">
-              <PlusIcon />
-            </span>
-            <span>New company</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          role="menuitem"
+          className="company-switcher-item company-switcher-item--create"
+          onClick={createCompany}
+        >
+          <span className="company-switcher-item-avatar" aria-hidden="true">
+            <PlusIcon />
+          </span>
+          <span className="company-switcher-item-name">New company</span>
+        </button>
       </div>
     </Popover>
   );

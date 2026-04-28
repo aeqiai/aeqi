@@ -6217,10 +6217,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    Full-width trigger in the sidebar header. Shows the entity name,
    avatar, and a down-chevron. Row height matches --sidebar-row-h so
    the slot reads as a first-class nav row, not a floating header. */
-.company-switcher-slot {
-  flex: 1;
-  min-width: 0;
-}
 .company-switcher-trigger {
   display: flex;
   align-items: center;
@@ -6322,44 +6318,16 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   display: inline-flex;
   align-items: center;
 }
-.company-switcher-footer {
-  margin-top: 4px;
-  padding-top: 4px;
-  background: var(--bg-subtle);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-.company-switcher-footer-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: var(--sidebar-row-h);
-  padding: 0 8px;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
+.company-switcher-item--create {
+  margin-top: 2px;
   color: var(--text-secondary);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background 0.1s ease,
-    color 0.1s ease;
 }
-.company-switcher-footer-btn:hover {
-  background: var(--state-hover);
-  color: var(--color-text-title);
-}
-.company-switcher-footer-btn:hover .company-switcher-footer-icon {
-  color: var(--color-accent);
-}
-.company-switcher-footer-icon {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
+.company-switcher-item--create .company-switcher-item-avatar {
   color: var(--text-muted);
   transition: color 0.1s ease;
+}
+.company-switcher-item--create:hover .company-switcher-item-avatar {
+  color: var(--color-accent);
 }
 
 /* ── Account dropdown ─────────────────────────────────────────────────
@@ -6512,6 +6480,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   opacity: 0.55;
 }
 .account-dropdown-item--destructive {
+  margin-top: 2px;
   color: var(--color-error);
 }
 .account-dropdown-item--destructive:hover {
@@ -6543,11 +6512,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   font-size: var(--font-size-micro);
   color: var(--text-muted);
   font-style: italic;
-}
-.account-dropdown-divider {
-  height: 1px;
-  background: var(--bg-subtle);
-  margin: 4px 0;
 }
 
 /* ── New menu trigger ─────────────────────────────────────────────────

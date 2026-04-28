@@ -1,28 +1,29 @@
 /* Keyboard-shortcuts reference overlay.
- * Brutalist-aligned: hairline divider between rows, mono keys, no shadow.
- * Sits inside the shared Modal primitive's surface. */
+ * Sits inside the shared Modal primitive's surface. Rows separate by
+ * spacing and tone, never hairlines. */
 
 .shortcuts-modal {
-  max-width: 420px;
+  max-width: 440px;
 }
 
 .shortcuts-list {
   margin: 0;
-  padding: 8px 0;
+  padding: 4px 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .shortcuts-row {
   display: grid;
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: 110px 1fr;
   align-items: center;
   gap: 14px;
-  padding: 10px 2px;
-  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
 }
-.shortcuts-row:first-child {
-  border-top: none;
+.shortcuts-row:hover {
+  background: var(--state-hover);
 }
 
 .shortcuts-keys {
@@ -44,8 +45,7 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--text-primary);
-  background: var(--bg-base);
-  border: 1px solid var(--border);
+  background: var(--state-hover);
   border-radius: 4px;
 }
 
@@ -77,28 +77,24 @@
 }
 
 /* Footer — "escape hatch" row at the bottom of the shortcuts card.
-   Docs is a destination, not a shortcut, so it gets a distinct treatment:
-   left-aligned link with an external-link chevron, separated from the
-   keyboard-shortcut list by a divider. Same hover pattern as the shell
-   legal strip (underline-on-hover, muted ink → primary). */
+   Docs is a destination, not a shortcut. Tinted band separates it from
+   the list (no hairline). */
 .shortcuts-footer {
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin: 12px -24px -24px;
+  padding: 12px 24px;
+  background: var(--bg-subtle);
   display: flex;
 }
 .shortcuts-footer-link {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   padding: 6px 2px;
   font-size: 13px;
   color: var(--text-secondary);
   text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease;
+  transition: color 0.12s ease;
 }
 .shortcuts-footer-link:hover,
 .shortcuts-footer-link:focus-visible {
