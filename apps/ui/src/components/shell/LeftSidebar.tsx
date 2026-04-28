@@ -303,11 +303,9 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
               <span className="sidebar-nav-label">Economy</span>
             </a>
           </nav>
-          <div className="sidebar-user-zone">
-            <div className="sidebar-action-row">
-              <AccountDropdown />
-              <HelpMenu />
-            </div>
+          <div className="sidebar-action-row sidebar-action-row--account">
+            <AccountDropdown />
+            <HelpMenu />
           </div>
         </div>
       </div>

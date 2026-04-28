@@ -728,6 +728,12 @@
   margin: 0 auto;
   gap: 2px;
 }
+/* Account row gets a small bottom inset so the avatar+name doesn't
+ * touch the rail's bottom edge — matches the breathing room the
+ * sidebar's outer padding gives every other rail row. */
+.sidebar-action-row--account {
+  padding-bottom: 4px;
+}
 
 /* Right-side affordance (search at top, help at bottom) — same shape
  * and language as .sidebar-collapse-btn (24px ghost circle with a
