@@ -159,13 +159,36 @@
   /* Screen readers announce on appearance */
 }
 
-/* OAuth button stack — wraps the Google/GitHub buttons so the gap
-   between them matches the rhythm above/below the -or- divider
-   (`.auth-divider` has margin var(--space-5) 0). */
+/* OAuth alternatives live in a recess — the page-tone surface visually
+   "drops" beneath the white card, separating alternative auth methods
+   from the primary email/password path without the hairline divider the
+   design system retired 2026-04-27. The white OAuth buttons pop against
+   the recessed paper tone the same way they would on the page itself. */
+.auth-oauth-recess {
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  background: var(--color-paper);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-oauth-recess-label {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .auth-oauth-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-3);
 }
 
 /* Two half-width buttons sharing a row, matching the column gap above/below
@@ -195,25 +218,6 @@
   left: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-}
-
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin: var(--space-5) 0;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-micro);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.auth-divider::before,
-.auth-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border);
 }
 
 .auth-switch {

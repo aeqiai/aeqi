@@ -60,8 +60,8 @@ export default function ContinueWithPasskeyButton({ onAuthenticated }: Props) {
 
   return (
     <>
-      <Button variant="secondary" size="lg" fullWidth type="button" onClick={go} disabled={busy}>
-        <PasskeyIcon /> {busy ? "Verifying…" : "Passkey"}
+      <Button variant="secondary" size="lg" fullWidth type="button" onClick={go} loading={busy}>
+        <PasskeyIcon /> Passkey
       </Button>
       {error && (
         <div className="auth-error" role="alert">

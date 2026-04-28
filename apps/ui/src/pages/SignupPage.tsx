@@ -62,7 +62,7 @@ export default function SignupPage() {
 
   // When waitlist=true, default to waitlist mode. "Have an invite code?" switches to signup.
   const [mode, setMode] = useState<"waitlist" | "signup">("signup");
-  const [step, setStep] = useState<"email" | "info" | "password" | "verify">("email");
+  const [step, setStep] = useState<"email" | "info" | "verify">("email");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -86,10 +86,10 @@ export default function SignupPage() {
   useEffect(() => {
     document.title =
       mode === "waitlist"
-        ? "waitlist · æqi"
+        ? "Waitlist · aeqi"
         : step === "verify"
-          ? "verify email · æqi"
-          : "sign up · æqi";
+          ? "Verify email · aeqi"
+          : "Sign up · aeqi";
   }, [mode, step]);
 
   useEffect(() => {
@@ -316,47 +316,47 @@ export default function SignupPage() {
           </form>
           {(googleOAuth || githubOAuth) && (
             <>
-              <div className="auth-divider">
-                <span>or</span>
-              </div>
-              <div className="auth-oauth-group">
-                {(googleOAuth || githubOAuth) && (
+              <div className="auth-oauth-recess">
+                <p className="auth-oauth-recess-label">Or</p>
+                <div className="auth-oauth-group">
+                  {(googleOAuth || githubOAuth) && (
+                    <div className="auth-oauth-row">
+                      {googleOAuth && (
+                        <Button
+                          variant="secondary"
+                          size="lg"
+                          fullWidth
+                          onClick={handleGoogle}
+                          type="button"
+                        >
+                          <GoogleIcon /> Google
+                        </Button>
+                      )}
+                      {githubOAuth && (
+                        <Button
+                          variant="secondary"
+                          size="lg"
+                          fullWidth
+                          onClick={handleGithub}
+                          type="button"
+                        >
+                          <GithubIcon /> GitHub
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   <div className="auth-oauth-row">
-                    {googleOAuth && (
-                      <Button
-                        variant="secondary"
-                        size="lg"
-                        fullWidth
-                        onClick={handleGoogle}
-                        type="button"
-                      >
-                        <GoogleIcon /> Google
-                      </Button>
-                    )}
-                    {githubOAuth && (
-                      <Button
-                        variant="secondary"
-                        size="lg"
-                        fullWidth
-                        onClick={handleGithub}
-                        type="button"
-                      >
-                        <GithubIcon /> GitHub
-                      </Button>
-                    )}
+                    <ConnectWalletButton
+                      onAuthenticated={() =>
+                        navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
+                      }
+                    />
+                    <ContinueWithPasskeyButton
+                      onAuthenticated={() =>
+                        navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
+                      }
+                    />
                   </div>
-                )}
-                <div className="auth-oauth-row">
-                  <ConnectWalletButton
-                    onAuthenticated={() =>
-                      navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
-                    }
-                  />
-                  <ContinueWithPasskeyButton
-                    onAuthenticated={() =>
-                      navigate(getRedirectAfterAuth(params, "/start"), { replace: true })
-                    }
-                  />
                 </div>
               </div>
             </>
@@ -433,7 +433,7 @@ export default function SignupPage() {
                 loading || !firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())
               }
             >
-              {loading ? "Creating account..." : "Create account"}
+              Create account
             </Button>
           </form>
           <p className="auth-switch">

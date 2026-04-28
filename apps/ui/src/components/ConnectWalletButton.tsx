@@ -104,9 +104,9 @@ export default function ConnectWalletButton({ onAuthenticated }: Props) {
         fullWidth
         type="button"
         onClick={handleClick}
-        disabled={signing}
+        loading={signing}
       >
-        <WalletIcon /> {signing ? "Signing in…" : "Wallet"}
+        <WalletIcon /> Wallet
       </Button>
       {error && (
         <div className="auth-error" role="alert">
