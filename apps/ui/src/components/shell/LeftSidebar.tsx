@@ -68,9 +68,10 @@ const EventsIcon = () => (
 
 const CompanyIcon = () => (
   <svg {...iconProps}>
-    <rect x="3" y="7" width="10" height="7" rx="0.5" />
-    <path d="M1 7h14" />
-    <path d="M6 7V4l2-2 2 2v3" />
+    <rect x="3" y="2" width="10" height="12" rx="0.5" />
+    <path d="M5.75 5h1M9.25 5h1" />
+    <path d="M5.75 8h1M9.25 8h1" />
+    <path d="M7 14v-3h2v3" />
   </svg>
 );
 

@@ -77,6 +77,7 @@ export default function CompanySwitcher() {
             <SelectOption
               key={entity.id}
               selected={isCurrent}
+              noIndicator
               onClick={() => select(entity)}
               leadingIcon={<BlockAvatar name={entity.name} size={16} />}
             >

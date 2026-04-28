@@ -9,10 +9,24 @@ export interface SelectOptionProps extends React.ButtonHTMLAttributes<HTMLButton
   leadingIcon?: ReactNode;
   /** Optional secondary text rendered to the right of the label (e.g. keyboard shortcut). */
   trailingHint?: string;
+  /** Suppress the leading dot indicator on selected rows. Use when the menu
+   * is already a single-pick disclosure (e.g. CompanySwitcher) where the
+   * selected row's identity is implicit from the trigger above — the dot
+   * adds redundant signal. The selected background tint stays. */
+  noIndicator?: boolean;
 }
 
 export const SelectOption = forwardRef<HTMLButtonElement, SelectOptionProps>(function SelectOption(
-  { selected = false, leadingIcon, trailingHint, className, children, disabled, ...rest },
+  {
+    selected = false,
+    leadingIcon,
+    trailingHint,
+    noIndicator = false,
+    className,
+    children,
+    disabled,
+    ...rest
+  },
   ref,
 ) {
   const cls = [
@@ -20,6 +34,7 @@ export const SelectOption = forwardRef<HTMLButtonElement, SelectOptionProps>(fun
     selected ? styles.selected : "",
     leadingIcon ? styles.withLeadingIcon : "",
     trailingHint ? styles.withTrailingHint : "",
+    noIndicator ? styles.noIndicator : "",
     className,
   ]
     .filter(Boolean)

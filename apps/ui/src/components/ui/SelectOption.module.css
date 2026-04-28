@@ -48,6 +48,12 @@
   margin-left: -2px;
 }
 
+/* Suppress the dot for single-pick menus where the selected identity is
+   already disclosed by the trigger (CompanySwitcher). Background tint stays. */
+.option.selected.noIndicator::before {
+  display: none;
+}
+
 /* Layout sub-elements */
 .label {
   flex: 1;

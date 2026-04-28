@@ -929,21 +929,18 @@
 .sidebar-nav-item--soon {
   /* Override the <button> UA defaults so the row matches its <a>
      siblings. Width:100% because <button> doesn't stretch in flex by
-     default. */
+     default. pointer-events:none makes the row fully inert — the
+     icon rule .sidebar-nav-item:hover > svg can't fire because the
+     :hover never matches. Mirrors .sidebar-nav-item.disabled. */
   width: 100%;
   background: transparent;
   border: 0;
   text-align: left;
   font-family: inherit;
   cursor: default;
+  pointer-events: none;
   color: var(--text-muted);
   opacity: 0.7;
-}
-
-.sidebar-nav-item--soon:hover {
-  /* Override the resting hover state — soon items don't react. */
-  background: transparent;
-  color: var(--text-muted);
 }
 
 .sidebar-nav-item--soon > svg {
