@@ -6458,6 +6458,17 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   background: var(--state-hover);
   color: var(--color-text-title);
 }
+/* Active item — current page. Uses the same state-selected bg + accent
+ * icon language as a .sidebar-nav-item.active row, so the menu reads
+ * the same "you are here" signal the rail does. */
+.account-dropdown-item--active {
+  background: var(--state-selected);
+  color: var(--color-text-title);
+  font-weight: 600;
+}
+.account-dropdown-item--active .account-dropdown-item-icon {
+  color: var(--color-accent);
+}
 .account-dropdown-item--disabled {
   color: var(--text-muted);
   cursor: default;

@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Popover } from "@/components/ui/Popover";
 import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
@@ -43,9 +43,16 @@ const SignOutIcon = () => (
 
 export default function AccountDropdown() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
   const logout = useAuthStore((s) => s.logout);
+
+  const isAccount =
+    (pathname === "/account" || pathname.startsWith("/account/")) &&
+    pathname !== "/account/billing";
+  const isPersonalInbox = pathname === "/";
+  const isBilling = pathname === "/account/billing";
 
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
@@ -74,15 +81,21 @@ export default function AccountDropdown() {
           <>
             <button
               type="button"
-              className="account-dropdown-item"
+              className={`account-dropdown-item${isAccount ? " account-dropdown-item--active" : ""}`}
               onClick={() => navigate("/account")}
+              aria-current={isAccount ? "page" : undefined}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
                 <AccountIcon />
               </span>
               <span>Account</span>
             </button>
-            <button type="button" className="account-dropdown-item" onClick={() => navigate("/")}>
+            <button
+              type="button"
+              className={`account-dropdown-item${isPersonalInbox ? " account-dropdown-item--active" : ""}`}
+              onClick={() => navigate("/")}
+              aria-current={isPersonalInbox ? "page" : undefined}
+            >
               <span className="account-dropdown-item-icon" aria-hidden="true">
                 <InboxIcon />
               </span>
@@ -122,8 +135,9 @@ export default function AccountDropdown() {
             </button>
             <button
               type="button"
-              className="account-dropdown-item"
+              className={`account-dropdown-item${isBilling ? " account-dropdown-item--active" : ""}`}
               onClick={() => navigate("/account/billing")}
+              aria-current={isBilling ? "page" : undefined}
             >
               <span className="account-dropdown-item-icon" aria-hidden="true">
                 <BillingIcon />
