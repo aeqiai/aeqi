@@ -7,6 +7,29 @@ All notable changes to aeqi are documented here. The format is loosely based on
 Per-release detail (full commit list, contributors, artifacts) lives at
 [github.com/aeqiai/aeqi/releases](https://github.com/aeqiai/aeqi/releases).
 
+## [0.14.0] — 2026-04-28
+
+- **Entity** is now a first-class primitive in the runtime (Phase A) — distinct
+  identity surface from agents, distinct routing, distinct persistence.
+- Sidebar refactor: roots → entities; LeftSidebar silhouette with brand header,
+  collapsible groups, top-level Inbox + Economy, ink-treatment account row.
+- Quests: unified compose + view on a single `QuestCanvas`; ideas-list tag
+  groups share the canonical collapsible group-head.
+- Toolbar grammar locked across Quests + Ideas (search · sort · filter · view ·
+  +); URL-persisted view + sort.
+- Design system: `.impeccable.md` wired into the UI agent constitution so every
+  session loads the design rules; portal-rendered popovers escape column
+  overflow; tag-grouped headings render canonical chip pills.
+- Deploy: post-deploy smoke checks now exercise authed endpoints (`/api/entities`,
+  `/api/billing/overview`, `/api/agents` with `X-Entity`) and assert
+  entities ↔ billing parity. Catches the bug class where prod 400s every
+  authed request while deploy reports "successful".
+- OSS readiness: rewritten outward-facing SECURITY.md, CONTRIBUTING.md,
+  CODE_OF_CONDUCT-friendly tone; CHANGELOG.md adopted; `.gitleaks.toml`
+  allowlist for test PEM fixtures; orphaned `.githooks/pre-commit`,
+  `ARCHITECTURE.md`, internal strategy docs, and 4 unpublished blog drafts
+  dropped from the tree.
+
 ## [0.13.0] — 2026-04-25
 
 - Add `aeqi-pack-slack` (Channels / Messages / Reactions / Users / Search) and

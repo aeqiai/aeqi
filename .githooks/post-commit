@@ -1,2 +1,0 @@
-#!/bin/bash
-exec /home/claudedev/aeqi/target/release/aeqi hooks run "${0##*/}" "$@" 2>/dev/null || true
