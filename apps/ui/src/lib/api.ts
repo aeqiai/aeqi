@@ -577,37 +577,24 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Company templates — pre-threaded bundles. Catalog comes from Stream C's
-  // `/api/templates`; spawn creates a root agent + seeds agents/events/ideas/
-  // quests atomically and returns the new root_agent_id.
-  getTemplates: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/templates"),
+  // Blueprints — pre-threaded company bundles. Spawn creates an entity
+  // backed by a root agent today and returns the canonical entity id.
+  getBlueprints: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/blueprints"),
 
   // Full Template including seed_agents/events/ideas/quests arrays. The
   // list endpoint returns counts only to keep the catalog payload small;
   // the detail endpoint is what the store calls when a card is selected.
-  getTemplate: (slug: string) =>
-    request<{ ok: boolean; template: CompanyTemplate }>(`/templates/${encodeURIComponent(slug)}`),
+  getBlueprint: (slug: string) =>
+    request<{ ok: boolean; template: CompanyTemplate }>(`/blueprints/${encodeURIComponent(slug)}`),
 
   // Resolves the operator-configured default Blueprint
   // (`[blueprints] default` in aeqi.toml). Used by `/start` when the
   // user lands there without a `?blueprint=:slug` query param.
-  getDefaultTemplate: () =>
-    request<{ ok: boolean; template: CompanyTemplate }>("/templates/default"),
+  getDefaultBlueprint: () =>
+    request<{ ok: boolean; template: CompanyTemplate }>("/blueprints/default"),
 
-  spawnTemplate: (data: { template: string; name?: string }) =>
-    request<{ ok: boolean; root_agent_id: string }>("/templates/spawn", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  // /start launch endpoint — platform-side. Provisions a personal
-  // sandbox seeded with the chosen Blueprint, gated by the user's
-  // lifetime free-trial Company slot. Server returns the root SLUG
-  // (the sandbox's unit name), not the agent UUID — the agent UUID
-  // is created inside the sandbox runtime and surfaces later via
-  // /api/auth/me's `roots` array.
-  launchStart: (data: { template?: string; name: string }) =>
-    request<{ ok: boolean; root: string }>("/start/launch", {
+  spawnBlueprint: (data: { blueprint: string; name?: string }) =>
+    request<{ ok: boolean; entity_id?: string; root_agent_id?: string }>("/blueprints/spawn", {
       method: "POST",
       body: JSON.stringify(data),
     }),

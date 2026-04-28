@@ -211,7 +211,7 @@ export default function AppLayout() {
   }
 
   // Defensive migration for old top-level primitive URLs. Keep the item
-  // segment if present (`/quests/q-1` -> `/:companyId/quests/q-1`).
+  // segment if present (`/quests/q-1` -> `/:entityId/quests/q-1`).
   if (agentId && !currentAgent && COMPANY_TABS.has(agentId) && encodedEntityId) {
     const item = tab ? `/${encodeURIComponent(tab)}` : "";
     return <Navigate to={`/${encodedEntityId}/${agentId}${item}${search}`} replace />;

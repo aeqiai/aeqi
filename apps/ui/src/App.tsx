@@ -87,13 +87,13 @@ function GatedAppShell() {
   return <Navigate to={`/login?next=${encodeURIComponent(here)}`} replace />;
 }
 
-// `/` is only the user-scope landing before a company exists. Once a company
-// exists, AppLayout canonicalizes the shell to `/:companyId` so sidebar tabs
+// `/` is only the user-scope landing before an entity exists. Once an entity
+// exists, AppLayout canonicalizes the shell to `/:entityId` so sidebar tabs
 // never generate bogus top-level paths like `/quests`.
 
 /**
- * Version C — company-root URL architecture. The app shell lives at
- * `/:companyId/...`; the sidebar always navigates inside that company. Child
+ * Version C — entity-root URL architecture. The app shell lives at
+ * `/:entityId/...`; the sidebar always navigates inside that entity. Child
  * agents remain addressable where needed, but primary surfaces are company
  * scoped. Profile lives at `/account` (top-level, user-scoped) so it never
  * dead-ends when no root is active; it still inherits the shell.

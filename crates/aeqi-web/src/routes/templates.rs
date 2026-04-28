@@ -13,6 +13,14 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/blueprints", get(list_templates))
+        .route("/blueprints/spawn", post(spawn_template))
+        // Literal `/blueprints/default` must register before the
+        // `{slug}` capture so axum routes the literal first.
+        .route("/blueprints/default", get(default_template))
+        .route("/blueprints/{slug}", get(template_detail))
+        // Legacy aliases. The product primitive is Blueprint; keep the old
+        // `/templates` routes temporarily so older clients do not break.
         .route("/templates", get(list_templates))
         .route("/templates/spawn", post(spawn_template))
         // Literal `/templates/default` must register before the

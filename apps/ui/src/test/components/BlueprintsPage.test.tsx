@@ -33,7 +33,7 @@ describe("BlueprintsPage (catalog)", () => {
   });
 
   it("renders the hero and at least one blueprint card after loading", async () => {
-    vi.spyOn(api, "getTemplates").mockResolvedValue({
+    vi.spyOn(api, "getBlueprints").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
     });
@@ -52,7 +52,7 @@ describe("BlueprintsPage (catalog)", () => {
   });
 
   it("falls back to local fixtures when the API errors", async () => {
-    vi.spyOn(api, "getTemplates").mockRejectedValue(new Error("offline"));
+    vi.spyOn(api, "getBlueprints").mockRejectedValue(new Error("offline"));
 
     renderApp();
 
@@ -64,11 +64,11 @@ describe("BlueprintsPage (catalog)", () => {
   });
 
   it("clicking a card navigates to the dedicated detail page", async () => {
-    vi.spyOn(api, "getTemplates").mockResolvedValue({
+    vi.spyOn(api, "getBlueprints").mockResolvedValue({
       ok: true,
       templates: FALLBACK_TEMPLATES,
     });
-    vi.spyOn(api, "getTemplate").mockResolvedValue({ ok: true, template: SOLO });
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, template: SOLO });
     const user = userEvent.setup();
 
     renderApp();
@@ -96,7 +96,7 @@ describe("BlueprintDetailPage", () => {
   });
 
   it("renders the section rail; seeds appear on each per-kind sub-route", async () => {
-    vi.spyOn(api, "getTemplate").mockResolvedValue({ ok: true, template: SOLO });
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, template: SOLO });
 
     // Overview lands by default — shows the title + the section rail.
     const overview = renderApp("/blueprints/solo-founder");
@@ -121,7 +121,7 @@ describe("BlueprintDetailPage", () => {
   });
 
   it("falls back to bundled fixtures when the detail API errors", async () => {
-    vi.spyOn(api, "getTemplate").mockRejectedValue(new Error("offline"));
+    vi.spyOn(api, "getBlueprint").mockRejectedValue(new Error("offline"));
 
     renderApp("/blueprints/solo-founder");
 
@@ -131,7 +131,7 @@ describe("BlueprintDetailPage", () => {
   });
 
   it("'Use this Blueprint' CTA navigates to /start with the slug pre-loaded", async () => {
-    vi.spyOn(api, "getTemplate").mockResolvedValue({ ok: true, template: SOLO });
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, template: SOLO });
     const user = userEvent.setup();
 
     let landed: string | null = null;

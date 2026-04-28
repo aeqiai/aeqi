@@ -14,6 +14,12 @@ import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 import "@/styles/start.css";
 
+type SpawnBlueprintResponse = Awaited<ReturnType<typeof api.spawnBlueprint>>;
+
+function entityIdFromSpawn(resp: SpawnBlueprintResponse): string {
+  return resp.entity_id || resp.root_agent_id || "";
+}
+
 /**
  * `/start` — the single place a Company is created.
  *
@@ -21,13 +27,13 @@ import "@/styles/start.css";
  * default and renders a focused launch surface: blueprint preview header,
  * monthly/annual interval toggle, and a three-card plan picker (Free /
  * Launch / Scale). The Company name is auto-derived from the Blueprint
- * (server slugifies); the user renames in Settings later.
+ * (server creates an immutable entity id); the user renames in Settings later.
  *
  * Flow:
- * - Free → POST /api/start/launch and navigate into the new sandbox.
+ * - Free → POST /api/blueprints/spawn and navigate by the returned entity id.
  * - Paid → POST /api/billing/checkout for a Stripe Checkout session and
  *   redirect to the returned URL. On success Stripe sends the user back
- *   to /settings/billing?spawn=:slug&plan=:id where the billing track
+ *   to /account/billing?spawn=:slug&plan=:id where the billing track
  *   completes the spawn.
  */
 export default function StartPage() {
@@ -38,6 +44,7 @@ export default function StartPage() {
   const authMode = useAuthStore((s) => s.authMode);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
 
   const slug = searchParams.get("blueprint") || "";
   const [template, setTemplate] = useState<CompanyTemplate | null>(null);
@@ -62,7 +69,7 @@ export default function StartPage() {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    const fetcher = slug ? api.getTemplate(slug) : api.getDefaultTemplate();
+    const fetcher = slug ? api.getBlueprint(slug) : api.getDefaultBlueprint();
     fetcher
       .then((resp) => {
         if (cancelled) return;
@@ -142,16 +149,15 @@ export default function StartPage() {
         }
         setSubmitting("free");
         try {
-          // Server slugifies template.name into the new sandbox's root slug.
-          const resp = await api.launchStart({
-            template: template.slug,
+          const resp = await api.spawnBlueprint({
+            blueprint: template.slug,
             name: template.name,
           });
-          const rootSlug = (resp as { root?: string })?.root;
-          if (!rootSlug) throw new Error("Launch returned no root slug.");
-          setActiveEntity(rootSlug);
-          await fetchAgents();
-          navigate(`/${encodeURIComponent(rootSlug)}/sessions`);
+          const entityId = entityIdFromSpawn(resp);
+          if (!entityId) throw new Error("Launch returned no entity id.");
+          setActiveEntity(entityId);
+          await Promise.all([fetchAgents(), fetchEntities()]);
+          navigate(`/${encodeURIComponent(entityId)}/sessions`);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Could not launch the Company.";
           setSubmitError(msg);
@@ -179,7 +185,7 @@ export default function StartPage() {
         setSubmitting(null);
       }
     },
-    [template, isAuthed, slug, navigate, trialUsed, setActiveEntity, fetchAgents],
+    [template, isAuthed, slug, navigate, trialUsed, setActiveEntity, fetchAgents, fetchEntities],
   );
 
   if (loading && !template) {

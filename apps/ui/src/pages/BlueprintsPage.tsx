@@ -89,7 +89,7 @@ export default function BlueprintsPage() {
     setLoading(true);
     setError(null);
     api
-      .getTemplates()
+      .getBlueprints()
       .then((resp) => {
         if (cancelled) return;
         const incoming = (resp as { templates?: CompanyTemplate[] })?.templates ?? [];

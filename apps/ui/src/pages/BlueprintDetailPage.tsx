@@ -77,7 +77,7 @@ export default function BlueprintDetailPage() {
     setLoading(true);
     setError(null);
     api
-      .getTemplate(slug)
+      .getBlueprint(slug)
       .then((resp) => {
         if (cancelled) return;
         const tpl = (resp as { template?: CompanyTemplate })?.template;

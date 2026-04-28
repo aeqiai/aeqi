@@ -18,6 +18,11 @@ type Overview = {
 };
 
 type SpawnState = { kind: "idle" } | { kind: "running" } | { kind: "error"; message: string };
+type SpawnBlueprintResponse = Awaited<ReturnType<typeof api.spawnBlueprint>>;
+
+function entityIdFromSpawn(resp: SpawnBlueprintResponse): string {
+  return resp.entity_id || resp.root_agent_id || "";
+}
 
 /**
  * `/settings/billing` — user-level rollup of every Company subscription
@@ -29,6 +34,7 @@ export default function BillingPanel() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
 
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -69,15 +75,16 @@ export default function BillingPanel() {
     spawnHandled.current = true;
     setSpawn({ kind: "running" });
     api
-      .launchStart({ template: blueprint, name: slug })
+      .spawnBlueprint({ blueprint, name: slug })
       .then((resp) => {
-        const root = (resp as { root?: string })?.root || slug;
-        setActiveEntity(root);
-        return fetchAgents().then(() => {
+        const entityId = entityIdFromSpawn(resp);
+        if (!entityId) throw new Error("Launch returned no entity id.");
+        setActiveEntity(entityId);
+        return Promise.all([fetchAgents(), fetchEntities()]).then(() => {
           // Clear params before navigating away so the user's history
           // doesn't carry the success token across page changes.
           setSearchParams(new URLSearchParams(), { replace: true });
-          navigate(`/${encodeURIComponent(root)}/sessions`);
+          navigate(`/${encodeURIComponent(entityId)}/sessions`);
         });
       })
       .catch(() => {
@@ -88,7 +95,7 @@ export default function BillingPanel() {
         // Strip params so a refresh doesn't try to spawn again.
         setSearchParams(new URLSearchParams(), { replace: true });
       });
-  }, [searchParams, setSearchParams, navigate, fetchAgents, setActiveEntity]);
+  }, [searchParams, setSearchParams, navigate, fetchAgents, fetchEntities, setActiveEntity]);
 
   const totalLabel = useMemo(() => {
     if (!overview) return "";

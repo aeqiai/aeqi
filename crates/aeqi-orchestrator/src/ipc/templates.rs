@@ -448,11 +448,12 @@ pub async fn handle_spawn_template(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let slug = super::request_field(request, "template")
+    let slug = super::request_field(request, "blueprint")
+        .or_else(|| super::request_field(request, "template"))
         .or_else(|| super::request_field(request, "slug"))
         .unwrap_or("");
     if slug.is_empty() {
-        return serde_json::json!({"ok": false, "error": "template is required"});
+        return serde_json::json!({"ok": false, "error": "blueprint is required"});
     }
 
     let root_name = super::request_field(request, "name").map(str::to_string);
@@ -507,6 +508,10 @@ pub async fn handle_spawn_template(
     {
         Ok(outcome) => serde_json::json!({
             "ok": true,
+            // Entity is the workspace primitive. For the current backing-agent
+            // implementation, entity.id == root agent id; keep the legacy field
+            // during the transition but new clients must use entity_id.
+            "entity_id": outcome.root_agent_id,
             "root_agent_id": outcome.root_agent_id,
             "root_agent_name": outcome.root_agent_name,
             "spawned_agents": outcome.spawned_agents,
