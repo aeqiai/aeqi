@@ -3,8 +3,8 @@
 # On script error, syntax error, or invalid output: falls back to allow + logs.
 #
 # Usage in settings.json:
-#   "command": "/home/claudedev/aeqi/scripts/hook-run.sh check-recall.sh"
-#   "command": "/home/claudedev/aeqi/scripts/hook-run.sh check-branch.sh"
+#   "command": "/path/to/aeqi/scripts/hook-run.sh check-recall.sh"
+#   "command": "/path/to/aeqi/scripts/hook-run.sh check-branch.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_NAME="$1"; shift

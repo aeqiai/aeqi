@@ -19,7 +19,7 @@ GRAPH_DB="${AEQI_DATA_DIR:-$HOME/.aeqi}/codegraph/${PROJECT}.db"
 [ -f "$GRAPH_DB" ] || exit 0
 
 # Get repo path for relative path computation
-CONFIG="${AEQI_CONFIG:-/home/claudedev/aeqi/config/aeqi.toml}"
+CONFIG="${AEQI_CONFIG:-$HOME/.aeqi/aeqi.toml}"
 REPO_PATH=$(awk -v proj="$PROJECT" -v home="$HOME" '
     function emit() { if (name==proj && repo) { gsub(/^~/,home,repo); print repo } }
     /^\[\[projects\]\]/ { if(in_proj) emit(); in_proj=1; name=""; repo=""; next }

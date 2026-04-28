@@ -210,6 +210,16 @@ impl LocalProvider {
         let name = sanitize_systemd_value(&record.name);
         let workdir = sanitize_systemd_value(&record.workdir);
 
+        // Run the unit as the same user that's hosting aeqi. $USER is set in
+        // every interactive login and inherited by systemd-run children;
+        // LOGNAME is the POSIX fallback. If neither is set we fall through
+        // to "aeqi" so the unit is at least syntactically valid.
+        let svc_user = sanitize_systemd_value(
+            &std::env::var("USER")
+                .or_else(|_| std::env::var("LOGNAME"))
+                .unwrap_or_else(|_| "aeqi".to_string()),
+        );
+
         let env_lines: String = env
             .iter()
             .map(|(k, v)| {
@@ -222,13 +232,13 @@ impl LocalProvider {
 
         format!(
             r#"[Unit]
-Description=AEQI Hosted App: {name}
+Description=aeqi hosted app: {name}
 After=network.target
 
 [Service]
 Type=simple
-User=claudedev
-Group=claudedev
+User={svc_user}
+Group={svc_user}
 WorkingDirectory={workdir}
 ExecStart={exec_start}{hostname_flag}
 Restart=always
@@ -241,6 +251,7 @@ Environment=PORT={port}
 WantedBy=multi-user.target
 "#,
             name = name,
+            svc_user = svc_user,
             workdir = workdir,
             exec_start = exec_start,
             hostname_flag = hostname_flag,

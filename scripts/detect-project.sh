@@ -4,12 +4,12 @@
 #
 # Usage:
 #   source detect-project.sh
-#   PROJECT=$(detect_project "/home/claudedev/aeqi/crates/foo.rs")
+#   PROJECT=$(detect_project "/path/to/repo/crates/foo.rs")
 #   PROJECT=$(detect_project)  # uses $PWD
 
 detect_project() {
     local target="${1:-$PWD}"
-    local config="${AEQI_CONFIG:-/home/claudedev/aeqi/config/aeqi.toml}"
+    local config="${AEQI_CONFIG:-$HOME/.aeqi/aeqi.toml}"
 
     [ -f "$config" ] || return 0
 
