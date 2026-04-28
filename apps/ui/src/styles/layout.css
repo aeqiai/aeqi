@@ -845,10 +845,15 @@
  * trigger in the rail (CompanySwitcher, AccountDropdown). The label
  * itself stays small/uppercase to read as a category, not a destination. */
 .sidebar-group-title {
+  /* margin matches the 8px horizontal gutter that .sidebar-group-items
+   * gives to nav-items below — so the title's outer box (and its hover
+   * background) line up exactly with a nav-item's outer box. Width is
+   * not set; flex-column parent stretches it the same way nav-items
+   * inside .sidebar-group-items get stretched. */
+  margin: 0 8px;
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
   min-height: var(--sidebar-row-h);
   padding: 0 8px;
   background: transparent;
