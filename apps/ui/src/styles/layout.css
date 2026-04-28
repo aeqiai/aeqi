@@ -709,11 +709,12 @@
 /* Action row — pairs a primary labeled trigger (left) with a single
  * utility icon button (right). Used at the top (+ New | Search) and at
  * the bottom (Account | Help). The first child stretches to fill via
- * align-items: stretch + flex:1; the right child takes its natural
- * width and matches the row height. */
+ * flex:1; the right child is a small ghost circle whose center aligns
+ * with the chevrons on the rows above (group titles, CompanySwitcher,
+ * etc.) — same right-edge x distance from the rail. */
 .sidebar-action-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 2px;
   margin: 0 8px;
 }
@@ -728,36 +729,40 @@
   gap: 2px;
 }
 
-/* Icon button for the right side of an action row — square hit area,
- * row-height tall, ghost at rest, state-hover bg on hover. Same outer
- * silhouette as .sidebar-nav-item so the pair reads as one row. */
+/* Right-side affordance (search at top, help at bottom) — same shape
+ * and language as .sidebar-collapse-btn (24px ghost circle with a
+ * transparent border that lights up on hover). 24px keeps the button
+ * center at ~20px from the rail's right inner edge, which matches the
+ * chevron centers on the group-title and CompanySwitcher rows. */
 .sidebar-row-action-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--sidebar-row-h);
-  height: var(--sidebar-row-h);
+  width: 24px;
+  height: 24px;
   padding: 0;
   background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: 50%;
   color: var(--text-secondary);
   font-family: inherit;
   cursor: pointer;
   transition:
     color 0.12s ease,
-    background 0.12s ease;
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 .sidebar-row-action-btn:hover,
 .sidebar-row-action-btn:focus-visible {
-  color: var(--color-text-title);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
   background: var(--state-hover);
   outline: none;
 }
 .sidebar-row-action-btn > svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
