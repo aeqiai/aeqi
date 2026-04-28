@@ -70,9 +70,9 @@ export default function ApiKeyPanel() {
       </p>
 
       {apiKey ? (
-        <div className="account-field" style={{ marginTop: "var(--space-4)" }}>
-          <label className="account-field-label">API Key</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        <div className="account-field account-field-stack">
+          <label className="account-field-label">API key</label>
+          <div className="account-key-row">
             <code className="key-new-value">{apiKey}</code>
             <IconButton
               variant="bordered"
@@ -105,19 +105,19 @@ export default function ApiKeyPanel() {
               )}
             </IconButton>
           </div>
-          <p className="account-field-desc" style={{ marginTop: "var(--space-2)" }}>
+          <p className="account-field-desc account-field-desc-tight">
             Active across all agents for your account until you rotate it.
           </p>
-          <div style={{ marginTop: "var(--space-3)" }}>
+          <div className="account-cta-row">
             <Button variant="secondary" onClick={handleGenerate} loading={loading}>
-              Rotate API Key
+              Rotate API key
             </Button>
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: "var(--space-4)" }}>
+        <div className="account-cta-row account-cta-row--first">
           <Button variant="primary" onClick={handleGenerate} loading={loading}>
-            Generate API Key
+            Generate API key
           </Button>
         </div>
       )}
@@ -128,11 +128,11 @@ export default function ApiKeyPanel() {
         </div>
       )}
 
-      <div style={{ marginTop: "var(--space-6)" }}>
+      <div className="account-key-footnote">
         <p className="account-field-desc">
           To create secret keys for a specific agent, go to{" "}
           <Link to={href("/settings/api")} className="key-link">
-            Settings &rarr; API Keys
+            Settings → API keys
           </Link>
           .
         </p>

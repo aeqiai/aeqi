@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui";
+import { Button, ConfirmDialog } from "@/components/ui";
 import { buildSiweMessage, fetchNonce } from "@/lib/walletAuth";
 
 interface WalletRow {
@@ -53,6 +53,8 @@ export default function WalletsPanel() {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [linking, setLinking] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -87,15 +89,23 @@ export default function WalletsPanel() {
     }
   }
 
-  async function remove(id: string) {
-    if (!confirm("Remove this wallet from your account?")) return;
+  function askRemove(id: string) {
+    setRemovingId(id);
+  }
+
+  async function performRemove() {
+    if (!removingId) return;
+    setRemoveBusy(true);
     setFeedback(null);
     try {
-      await authedJson<{ ok: boolean }>("DELETE", `/me/wallets/${id}`);
+      await authedJson<{ ok: boolean }>("DELETE", `/me/wallets/${removingId}`);
       await refresh();
       setFeedback({ type: "success", msg: "Wallet removed." });
     } catch (e) {
       setFeedback({ type: "error", msg: e instanceof Error ? e.message : "Remove failed" });
+    } finally {
+      setRemoveBusy(false);
+      setRemovingId(null);
     }
   }
 
@@ -184,7 +194,26 @@ export default function WalletsPanel() {
                 className={`account-device-item ${w.is_primary ? "account-device-current" : ""}`}
               >
                 <div className="account-device-icon" aria-hidden="true">
-                  ◈
+                  <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
+                    <rect
+                      x="6"
+                      y="13"
+                      width="36"
+                      height="24"
+                      rx="3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    />
+                    <path
+                      d="M6 19 H38 a4 4 0 0 1 4 4 v6 a4 4 0 0 1 -4 4 H6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="35" cy="26" r="1.6" fill="currentColor" />
+                  </svg>
                 </div>
                 <div className="account-device-body">
                   <div className="account-device-title">
@@ -205,7 +234,7 @@ export default function WalletsPanel() {
                     </Button>
                   )}
                   {!w.is_primary && (
-                    <Button variant="ghost" size="sm" type="button" onClick={() => remove(w.id)}>
+                    <Button variant="ghost" size="sm" type="button" onClick={() => askRemove(w.id)}>
                       Remove
                     </Button>
                   )}
@@ -215,17 +244,25 @@ export default function WalletsPanel() {
           </div>
         )}
 
-        <div style={{ marginTop: "var(--space-3)" }}>
-          <Button
-            variant="secondary"
-            size="md"
-            type="button"
-            onClick={startLink}
-            disabled={linking}
-          >
-            {linking ? "Linking…" : "Link external wallet"}
-          </Button>
-        </div>
+        <Button variant="secondary" size="md" type="button" onClick={startLink} loading={linking}>
+          Link external wallet
+        </Button>
+
+        <ConfirmDialog
+          open={removingId !== null}
+          onClose={() => (removeBusy ? null : setRemovingId(null))}
+          onConfirm={performRemove}
+          title="Remove wallet"
+          confirmLabel="Remove"
+          destructive
+          loading={removeBusy}
+          message={
+            <p>
+              This unlinks the wallet from your account. Future logins with this wallet will be
+              rejected. You can re-link it later.
+            </p>
+          }
+        />
       </div>
     </>
   );

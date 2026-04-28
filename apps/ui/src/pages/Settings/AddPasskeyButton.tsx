@@ -65,8 +65,8 @@ export default function AddPasskeyButton() {
 
   return (
     <div>
-      <Button variant="secondary" size="md" type="button" onClick={add} disabled={busy}>
-        {busy ? "Verifying…" : "Add a passkey"}
+      <Button variant="secondary" size="md" type="button" onClick={add} loading={busy}>
+        Add a passkey
       </Button>
       {feedback && <p className="account-field-desc">{feedback}</p>}
       {error && <div className="auth-error">{error}</div>}

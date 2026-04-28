@@ -28,6 +28,11 @@ export type { BadgeProps, BadgeVariant, StatusBadgeProps } from "./Badge";
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
 
+export { ConfirmDialog } from "./ConfirmDialog";
+export type { ConfirmDialogProps } from "./ConfirmDialog";
+
+export { QRCode } from "./QRCode";
+
 export { Tooltip } from "./Tooltip";
 export type { TooltipProps } from "./Tooltip";
 

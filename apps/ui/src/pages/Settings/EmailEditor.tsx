@@ -120,9 +120,10 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
             size="lg"
             type="button"
             onClick={begin}
-            disabled={busy || !newEmail.includes("@")}
+            loading={busy}
+            disabled={!newEmail.includes("@")}
           >
-            {busy ? "Sending…" : "Send code"}
+            Send code
           </Button>
           <Button variant="secondary" size="lg" type="button" onClick={() => setStep("display")}>
             Cancel
@@ -152,9 +153,10 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
           size="lg"
           type="button"
           onClick={finish}
-          disabled={busy || code.length < 6}
+          loading={busy}
+          disabled={code.length < 6}
         >
-          {busy ? "Verifying…" : "Verify"}
+          Verify
         </Button>
         <Button variant="ghost" size="lg" type="button" onClick={() => setStep("display")}>
           Cancel

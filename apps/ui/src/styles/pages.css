@@ -2073,29 +2073,51 @@
   padding: 3px var(--space-2);
 }
 
-.account-prefs-desc {
-  margin-bottom: var(--space-4);
-}
-
-.account-pref-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  cursor: pointer;
+/* Empty-state container for the Preferences tab — placeholder until the
+   backend persists per-user email preferences. */
+.account-prefs-empty {
   padding: var(--space-2) 0;
 }
 
-.account-pref-checkbox {
-  accent-color: var(--text-primary);
-  width: 16px;
-  height: 16px;
+/* Settings → API key tab. Tokenized replacements for the inline
+   marginTop / display:flex blocks the panel previously used. */
+.account-field-stack {
+  margin-top: var(--space-4);
 }
 
-.account-disabled-input {
-  opacity: 0.5;
-  cursor: not-allowed;
+.account-key-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.account-field-desc-tight {
+  margin-top: var(--space-2);
+}
+
+.account-cta-row {
+  margin-top: var(--space-3);
+}
+
+.account-cta-row--first {
+  margin-top: var(--space-4);
+}
+
+.account-key-footnote {
+  margin-top: var(--space-6);
+}
+
+/* Vertical stack for inputs inside ConfirmDialog body content
+   (disable-TOTP, delete-account). Inherits the modal body's padding;
+   each input lines up at consistent gap. */
+.account-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.account-form-stack p {
+  margin: 0 0 var(--space-1);
 }
 
 .account-hidden-input {

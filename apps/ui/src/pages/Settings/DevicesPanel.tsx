@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui";
+import { Button, ConfirmDialog } from "@/components/ui";
 
 type ActivityRow = {
   action: string;
@@ -220,6 +220,10 @@ export default function DevicesPanel() {
   const [loaded, setLoaded] = useState(false);
   const [busyJti, setBusyJti] = useState<string | null>(null);
   const [revokingOthers, setRevokingOthers] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<{ jti: string; isCurrent: boolean } | null>(
+    null,
+  );
+  const [revokeOthersOpen, setRevokeOthersOpen] = useState(false);
 
   const loadSessions = () =>
     api
@@ -243,15 +247,16 @@ export default function DevicesPanel() {
     ]).finally(() => setLoaded(true));
   }, []);
 
-  const revoke = async (jti: string, isCurrent: boolean) => {
-    const msg = isCurrent
-      ? "Sign out this device? You'll be returned to the login screen."
-      : "Sign out this device? The session will be revoked immediately.";
-    if (!window.confirm(msg)) return;
-    setBusyJti(jti);
+  const askRevoke = (jti: string, isCurrent: boolean) => {
+    setRevokeTarget({ jti, isCurrent });
+  };
+
+  const performRevoke = async () => {
+    if (!revokeTarget) return;
+    setBusyJti(revokeTarget.jti);
     try {
-      await api.revokeAuthSession(jti);
-      if (isCurrent) {
+      await api.revokeAuthSession(revokeTarget.jti);
+      if (revokeTarget.isCurrent) {
         window.location.href = "/login";
         return;
       }
@@ -261,22 +266,20 @@ export default function DevicesPanel() {
       await loadSessions();
     } finally {
       setBusyJti(null);
+      setRevokeTarget(null);
     }
   };
 
-  const revokeOthers = async () => {
-    if (
-      !window.confirm(
-        "Sign out every other device? You'll stay signed in here, but every other session is invalidated.",
-      )
-    )
-      return;
+  const askRevokeOthers = () => setRevokeOthersOpen(true);
+
+  const performRevokeOthers = async () => {
     setRevokingOthers(true);
     try {
       await api.revokeOtherAuthSessions();
       await loadSessions();
     } finally {
       setRevokingOthers(false);
+      setRevokeOthersOpen(false);
     }
   };
 
@@ -320,7 +323,7 @@ export default function DevicesPanel() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => revoke(s.jti, !!s.current)}
+                    onClick={() => askRevoke(s.jti, !!s.current)}
                     loading={busyJti === s.jti}
                     disabled={busyJti !== null}
                   >
@@ -336,7 +339,7 @@ export default function DevicesPanel() {
           <Button
             variant="danger"
             size="sm"
-            onClick={revokeOthers}
+            onClick={askRevokeOthers}
             loading={revokingOthers}
             disabled={revokingOthers || otherSessionCount === 0}
           >
@@ -390,6 +393,36 @@ export default function DevicesPanel() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onClose={() => setRevokeTarget(null)}
+        onConfirm={performRevoke}
+        title={revokeTarget?.isCurrent ? "Sign out this device" : "Revoke session"}
+        confirmLabel={revokeTarget?.isCurrent ? "Sign out" : "Revoke"}
+        destructive
+        loading={busyJti !== null}
+        message={
+          revokeTarget?.isCurrent ? (
+            <p>You'll be returned to the login screen. Active work in this tab will be lost.</p>
+          ) : (
+            <p>
+              This session will be revoked immediately. The device will need to sign in again to
+              continue.
+            </p>
+          )
+        }
+      />
+      <ConfirmDialog
+        open={revokeOthersOpen}
+        onClose={() => setRevokeOthersOpen(false)}
+        onConfirm={performRevokeOthers}
+        title="Sign out other devices"
+        confirmLabel="Sign out others"
+        destructive
+        loading={revokingOthers}
+        message={<p>You'll stay signed in here. Every other session is invalidated immediately.</p>}
+      />
     </>
   );
 }

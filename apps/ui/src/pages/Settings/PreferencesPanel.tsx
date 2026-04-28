@@ -1,23 +1,15 @@
 /**
- * Settings → Preferences tab. Email subscription toggles. The
- * checkboxes are presentational placeholders today — the daemon
- * doesn't yet persist these — so they intentionally don't carry
- * state. Wire them up when the backend gets a preferences endpoint.
+ * Settings → Preferences tab. Email subscription toggles will land
+ * once the backend persists per-user preferences. Until then, this
+ * shows an honest empty state instead of placeholder checkboxes.
  */
 export default function PreferencesPanel() {
   return (
-    <>
-      <p className="account-field-desc account-prefs-desc">
-        Transactional emails (login codes, password resets) are always sent.
+    <div className="account-prefs-empty">
+      <p className="account-field-desc">
+        Email preferences are coming soon. For now, transactional emails (login codes, password
+        resets) are always sent.
       </p>
-      <label className="account-pref-label">
-        <input type="checkbox" defaultChecked className="account-pref-checkbox" />
-        Product updates -- new features and releases
-      </label>
-      <label className="account-pref-label">
-        <input type="checkbox" defaultChecked className="account-pref-checkbox" />
-        Marketing -- tips, case studies, promotions
-      </label>
-    </>
+    </div>
   );
 }
