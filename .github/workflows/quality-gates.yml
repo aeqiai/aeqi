@@ -175,7 +175,7 @@ jobs:
           echo "=== Checking for Unused Dependencies ==="
           # Install nightly toolchain for cargo-udeps
           rustup toolchain install nightly --profile minimal --component rust-src
-          cargo +nightly udeps --workspace
+          cargo +nightly udeps --workspace --all-targets
         continue-on-error: false
 
       # 8. Code formatting check
