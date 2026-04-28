@@ -44,6 +44,7 @@ export default function SignupPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [waitlistDone, setWaitlistDone] = useState(false);
   const [waitlistMsg, setWaitlistMsg] = useState("");
+  const [hp, setHp] = useState("");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [verifyError, setVerifyError] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -79,7 +80,7 @@ export default function SignupPage() {
     e.preventDefault();
     if (!email.trim()) return;
     try {
-      const resp = await api.joinWaitlist(email);
+      const resp = await api.joinWaitlist(email, hp);
       setWaitlistDone(true);
       setWaitlistMsg(resp.message || "You're on the list!");
     } catch {
@@ -212,6 +213,26 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
+            />
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              value={hp}
+              onChange={(e) => setHp(e.target.value)}
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
+                overflow: "hidden",
+                clip: "rect(0,0,0,0)",
+                whiteSpace: "nowrap",
+                border: 0,
+              }}
             />
             <Button
               variant="primary"

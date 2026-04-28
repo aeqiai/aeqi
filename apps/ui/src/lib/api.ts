@@ -162,10 +162,10 @@ export const api = {
       body: JSON.stringify({ email, password, name, invite_code: inviteCode, template }),
     }),
 
-  joinWaitlist: (email: string) =>
+  joinWaitlist: (email: string, honeypot: string = "") =>
     request<{ ok: boolean; message: string }>("/auth/waitlist", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, _hp: honeypot }),
     }),
 
   checkInviteCode: (code: string) =>
