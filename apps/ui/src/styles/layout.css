@@ -901,6 +901,54 @@
 .sidebar-group-label {
   line-height: 1;
 }
+
+/* "soon" chip on group titles + nav items — same micro-typographic
+   treatment everywhere so the deferred-readiness signal reads as one
+   pattern across the rail and the AccountDropdown. */
+.sidebar-group-soon,
+.sidebar-nav-soon {
+  margin-left: auto;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.sidebar-group--soon .sidebar-group-chevron {
+  /* The "soon" chip already sits on the auto-margin; tighten the
+     chevron's leading gap so the two micro-tokens read as a pair. */
+  margin-left: 6px;
+}
+
+/* Disabled-with-"soon" nav row — visible silhouette (icon + label) but
+   not reachable. Mirrors .sidebar-nav-item.disabled but renders as a
+   <button disabled> so screen readers announce it as unavailable. */
+.sidebar-nav-item--soon {
+  /* Override the <button> UA defaults so the row matches its <a>
+     siblings. Width:100% because <button> doesn't stretch in flex by
+     default. */
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-family: inherit;
+  cursor: default;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.sidebar-nav-item--soon:hover {
+  /* Override the resting hover state — soon items don't react. */
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.sidebar-nav-item--soon > svg {
+  color: var(--text-muted);
+}
 .sidebar-group-items {
   display: flex;
   flex-direction: column;

@@ -156,21 +156,43 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
-  const navItem = (id: string, label: string, icon: React.ReactNode) => (
-    <a
-      key={id}
-      className={`sidebar-nav-item ${isActive(id) ? "active" : ""}`}
-      href={navHref(id)}
-      title={label}
-      onClick={(e) => {
-        e.preventDefault();
-        navigate(navHref(id));
-      }}
-    >
-      {icon}
-      <span className="sidebar-nav-label">{label}</span>
-    </a>
-  );
+  const navItem = (
+    id: string,
+    label: string,
+    icon: React.ReactNode,
+    opts: { soon?: boolean } = {},
+  ) => {
+    if (opts.soon) {
+      return (
+        <button
+          key={id}
+          type="button"
+          className="sidebar-nav-item sidebar-nav-item--soon"
+          disabled
+          title={`${label} — coming soon`}
+        >
+          {icon}
+          <span className="sidebar-nav-label">{label}</span>
+          <span className="sidebar-nav-soon">soon</span>
+        </button>
+      );
+    }
+    return (
+      <a
+        key={id}
+        className={`sidebar-nav-item ${isActive(id) ? "active" : ""}`}
+        href={navHref(id)}
+        title={label}
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(navHref(id));
+        }}
+      >
+        {icon}
+        <span className="sidebar-nav-label">{label}</span>
+      </a>
+    );
+  };
 
   return (
     <div
@@ -250,8 +272,9 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* ── Inbox — elevated above the categorical groups since it is
-            the attention queue, not a category sibling. ── */}
+        {/* ── Inbox + Company — top-level destinations, sit above the
+            categorical groups. Inbox is the attention queue (what needs
+            you); Company is the company-home noun (the org itself). ── */}
         <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
@@ -265,17 +288,11 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
+          {navItem("company", "Company", <CompanyIcon />)}
         </nav>
 
-        {/* ── Operate ── */}
-        <SidebarGroup title="Operate" groupKey="operate">
-          {navItem("projects", "Projects", <ProjectsIcon />)}
-          {navItem("company", "Company", <CompanyIcon />)}
-          {navItem("crm", "CRM", <CRMIcon />)}
-          {navItem("metrics", "Metrics", <MetricsIcon />)}
-        </SidebarGroup>
-
-        {/* ── Build ── */}
+        {/* ── Build — the active product surface. Everything below is
+            either Operate or Control, both currently coming-soon. ── */}
         <SidebarGroup title="Build" groupKey="build">
           {navItem("agents", "Agents", <AgentsIcon />)}
           {navItem("events", "Events", <EventsIcon />)}
@@ -283,11 +300,22 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           {navItem("ideas", "Ideas", <IdeasIcon />)}
         </SidebarGroup>
 
-        {/* ── Control ── */}
-        <SidebarGroup title="Control" groupKey="control">
-          {navItem("ownership", "Ownership", <OwnershipIcon />)}
-          {navItem("treasury", "Treasury", <TreasuryIcon />)}
-          {navItem("governance", "Governance", <GovernanceIcon />)}
+        {/* ── Operate (soon) — Company-side surfaces (Projects, CRM,
+            Metrics). Visible-but-disabled so the shape of the product
+            is communicated without implying readiness. Same disabled-with-
+            "soon" pattern as the AccountDropdown's deferred items. ── */}
+        <SidebarGroup title="Operate" groupKey="operate" soon>
+          {navItem("projects", "Projects", <ProjectsIcon />, { soon: true })}
+          {navItem("crm", "CRM", <CRMIcon />, { soon: true })}
+          {navItem("metrics", "Metrics", <MetricsIcon />, { soon: true })}
+        </SidebarGroup>
+
+        {/* ── Control (soon) — equity / treasury / governance. The
+            on-chain control plane. Even later than Operate. ── */}
+        <SidebarGroup title="Control" groupKey="control" soon>
+          {navItem("ownership", "Ownership", <OwnershipIcon />, { soon: true })}
+          {navItem("treasury", "Treasury", <TreasuryIcon />, { soon: true })}
+          {navItem("governance", "Governance", <GovernanceIcon />, { soon: true })}
         </SidebarGroup>
 
         {/* ── Bottom group — Economy + Account, pinned to the rail's foot
