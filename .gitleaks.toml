@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and example configs that contain non-secret material."
+paths = [
+  '''crates/aeqi-core/tests/fixtures/.*''',
+  '''config/aeqi\.example\.toml''',
+]

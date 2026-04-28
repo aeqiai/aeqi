@@ -1,231 +1,52 @@
-# AEQI Security Documentation
+# Security Policy
 
-## Overview
-This document provides security guidelines, configuration, and best practices for the AEQI platform.
+We take security issues in aeqi seriously and appreciate responsible disclosure.
 
-## Security Architecture
+## Reporting a Vulnerability
 
-### Authentication & Authorization
-- **JWT-based authentication** with configurable secrets
-- **Multiple auth modes**: None, Secret, Accounts
-- **Scope-based authorization** for agent operations
-- **Proxy headers** for internal routing with token validation
+**Do not open a public GitHub issue for security reports.**
 
-### Sandboxing
-- **Bubblewrap (bwrap)** for process isolation
-- **Git worktrees** for file system isolation
-- **Network isolation** (`--unshare-net`)
-- **PID namespace isolation** (`--unshare-pid`)
-- **Read-only system mounts** with controlled access
+Email **0x@aeqi.io** with:
 
-### Data Protection
-- **Encrypted secret store** using ChaCha20-Poly1305
-- **SQLite database** with parameterized queries
-- **File system boundaries** with path traversal protection
-- **Secure path resolution** with symlink protection
+- A clear description of the issue and the impact you believe it has.
+- Reproduction steps, a proof of concept, or a patch if you have one.
+- The version, commit, or deployment context where you observed the issue.
 
-## Security Configuration
+We will acknowledge receipt within two business days and aim to provide a substantive response within seven days. Critical issues are triaged immediately.
 
-### Required Security Settings
+If you would prefer to encrypt your report, request our PGP key at the same address.
 
-#### 1. Authentication Secret
-```bash
-# REQUIRED: Set a strong JWT signing secret
-export AEQI_AUTH_SECRET="your-strong-random-secret-here"
-```
+## Disclosure Process
 
-#### 2. HTTPS Configuration
-```bash
-# Recommended for production
-export AEQI_TLS_CERT_PATH="/path/to/cert.pem"
-export AEQI_TLS_KEY_PATH="/path/to/key.pem"
-```
+1. Report received and acknowledged.
+2. We investigate, reproduce, and assess severity.
+3. We work on a fix in a private branch.
+4. We coordinate a release date with you.
+5. We publish a fix and credit the reporter (unless you prefer to remain anonymous).
 
-#### 3. Security Headers
-Security headers are enabled by default with the following policies:
-- **Content-Security-Policy**: Restricts resources to same origin
-- **Strict-Transport-Security**: Enforces HTTPS
-- **X-Frame-Options**: Prevents clickjacking
-- **X-Content-Type-Options**: Prevents MIME sniffing
-- **Referrer-Policy**: Controls referrer information
-- **Permissions-Policy**: Restricts browser features
+We do not currently operate a paid bug bounty program. We do credit reporters in release notes and security advisories.
 
-### Optional Security Enhancements
+## Supported Versions
 
-#### Rate Limiting
-```bash
-# Configure rate limits (requests per minute)
-export AEQI_RATE_LIMIT_WINDOW=60
-export AEQI_RATE_LIMIT_MAX_REQUESTS=100
-```
+Security fixes are issued against the latest minor release on `main`. Older versions are not supported.
 
-#### Session Security
-```bash
-# Session timeout (seconds)
-export AEQI_SESSION_TIMEOUT=3600
+## Scope
 
-# Concurrent session limit
-export AEQI_MAX_CONCURRENT_SESSIONS=5
-```
+In scope:
 
-## Security Best Practices
+- The runtime kernel and crates published in this repository.
+- The reference web UI shipped from this repository.
+- The official install scripts under `scripts/`.
 
-### 1. Deployment Security
+Out of scope:
 
-#### Production Checklist
-- [ ] Use HTTPS with valid certificates
-- [ ] Set strong JWT secret (32+ random characters)
-- [ ] Enable all security headers
-- [ ] Configure rate limiting
-- [ ] Use isolated environments (Docker, VMs)
-- [ ] Regular security updates
-- [ ] Monitor security logs
+- Findings against forks, downstream redistributions, or modified deployments.
+- Issues that require physical access, social engineering, or local privilege already on the host.
+- Denial of service via volumetric load against self-hosted deployments.
+- Vulnerabilities in third-party services that aeqi integrates with — please report those upstream.
 
-#### Network Security
-- **Firewall rules**: Restrict access to necessary ports only
-- **Reverse proxy**: Use nginx/apache as reverse proxy
-- **IP whitelisting**: Restrict admin access to trusted IPs
-- **VPN access**: Use VPN for internal services
+## Operational Security Guidance
 
-### 2. Development Security
+For deployment hardening, environment variables, and security headers, see [`docs/security/configuration.md`](docs/security/configuration.md).
 
-#### Code Security
-- **Input validation**: Validate all user inputs
-- **Output encoding**: Encode outputs for context
-- **Parameterized queries**: Use SQL parameters
-- **Path traversal protection**: Use secure path resolution
-- **Error handling**: Don't leak internal details
-
-#### Dependency Security
-- **Regular updates**: Keep dependencies updated
-- **Security scanning**: Use cargo-audit, cargo-deny
-- **Minimal dependencies**: Only necessary dependencies
-- **Vulnerability monitoring**: Monitor for CVEs
-
-### 3. Operational Security
-
-#### Monitoring & Logging
-- **Security event logging**: Log auth failures, access violations
-- **Audit trails**: Maintain audit logs for sensitive operations
-- **Alerting**: Set up alerts for security events
-- **Regular reviews**: Review security logs regularly
-
-#### Backup & Recovery
-- **Regular backups**: Backup databases and configurations
-- **Encrypted backups**: Encrypt sensitive backup data
-- **Disaster recovery**: Test recovery procedures
-- **Incident response**: Have incident response plan
-
-## Security Testing
-
-### Automated Security Tests
-Run the security test suite:
-```bash
-cargo test --test security_tests
-```
-
-### Manual Security Testing
-
-#### 1. Authentication Testing
-- Test for weak passwords
-- Test for session fixation
-- Test for CSRF vulnerabilities
-- Test for brute force protection
-
-#### 2. Authorization Testing
-- Test privilege escalation
-- Test access control bypass
-- Test horizontal privilege escalation
-- Test vertical privilege escalation
-
-#### 3. Input Validation Testing
-- Test SQL injection
-- Test XSS vulnerabilities
-- Test path traversal
-- Test command injection
-
-#### 4. Configuration Testing
-- Test default credentials
-- Test information leakage
-- Test error handling
-- Test security headers
-
-## Incident Response
-
-### Security Incident Procedure
-
-#### 1. Detection
-- Monitor security logs
-- Watch for unusual patterns
-- Respond to security alerts
-
-#### 2. Containment
-- Isolate affected systems
-- Preserve evidence
-- Block malicious traffic
-
-#### 3. Eradication
-- Remove malicious content
-- Patch vulnerabilities
-- Clean affected systems
-
-#### 4. Recovery
-- Restore from clean backups
-- Verify system integrity
-- Monitor for recurrence
-
-#### 5. Post-Incident
-- Document incident
-- Update security measures
-- Review and improve
-
-### Contact Information
-- **Security Team**: security@aeqi.ai
-- **Emergency Contact**: [Specify emergency contact]
-- **Security Advisories**: [Link to security advisories]
-
-## Compliance & Standards
-
-### Security Standards
-- **OWASP Top 10**: Protection against common web vulnerabilities
-- **CIS Benchmarks**: Security configuration benchmarks
-- **NIST Framework**: Risk management framework
-
-### Data Protection
-- **Encryption**: Data at rest and in transit
-- **Access controls**: Principle of least privilege
-- **Data minimization**: Collect only necessary data
-- **Retention policies**: Define data retention periods
-
-## Updates & Maintenance
-
-### Security Updates
-- **Regular updates**: Apply security patches promptly
-- **Vulnerability scanning**: Regular vulnerability assessments
-- **Penetration testing**: Regular security testing
-- **Security reviews**: Regular code and configuration reviews
-
-### Documentation Updates
-- Keep this document updated
-- Document security changes
-- Update procedures as needed
-- Review and improve regularly
-
-## Appendix
-
-### Security Tools
-- **cargo-audit**: Rust dependency security scanner
-- **cargo-deny**: Dependency license and security checker
-- **OWASP ZAP**: Web application security scanner
-- **Nmap**: Network security scanner
-
-### References
-- [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/)
-- [Rust Security Guidelines](https://rust-lang.github.io/rust-security-guide/)
-- [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks/)
-
-### Changelog
-- **2024-01-15**: Initial security documentation
-- **2024-01-15**: Added security headers middleware
-- **2024-01-15**: Added secure path utilities
-- **2024-01-15**: Fixed default JWT secret vulnerability
+For the historical record of the April 2026 hardening pass, see [`docs/security/hardening-2026-04.md`](docs/security/hardening-2026-04.md).

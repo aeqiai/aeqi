@@ -131,7 +131,7 @@ Tenant environments run in bubblewrap sandboxes with read-only root filesystems,
 
 | Crate | Purpose |
 |-------|---------|
-| `aeqi-cli` | CLI binary, daemon, TUI chat, MCP server |
+| `aeqi-cli` | CLI binary, daemon, TUI chat |
 | `aeqi-orchestrator` | Daemon, sessions, events, delegation, middleware, approvals, budget |
 | `aeqi-core` | Agent loop, config, compaction, streaming executor, traits |
 | `aeqi-web` | Axum REST API + WebSocket streaming + SPA |
@@ -142,6 +142,13 @@ Tenant environments run in bubblewrap sandboxes with read-only root filesystems,
 | `aeqi-tools` | Shell, file I/O, git, grep, glob, delegate |
 | `aeqi-graph` | Code intelligence: Rust/TS/Solidity parsing, community detection, impact analysis |
 | `aeqi-hosting` | Multi-tenant platform, bubblewrap sandboxing |
+| `aeqi-mcp` | MCP server exposing primitives to external clients |
+| `aeqi-wallets` | Per-agent wallet keys, signing, on-chain identity |
+| `aeqi-pack-github` | Tool pack: GitHub repos, issues, releases, search |
+| `aeqi-pack-google-workspace` | Tool pack: Gmail, Calendar, Drive |
+| `aeqi-pack-notion` | Tool pack: Notion pages and databases |
+| `aeqi-pack-slack` | Tool pack: Slack messaging and search |
+| `aeqi-test-support` | Shared test fixtures and harness helpers |
 
 ### Storage
 
@@ -234,7 +241,7 @@ Pre-push hook runs all three automatically.
 - [Context Injection](docs/context-injection.md) -- how agent input context is assembled
 - [Deployment](docs/deployment.md) -- production topology, systemd, reverse proxy
 - [Quick Start](docs/quickstart.md) -- local setup for daemon, API, and UI
-- [Platform Architecture](docs/platform-architecture.md) -- multi-tenant SaaS and open-source kernel
+- [Runtime / Platform Separation](docs/runtime-platform-separation.md) -- multi-tenant platform and the open-source runtime kernel
 - [Agent Loop Parity](docs/agent-loop-parity.md) -- comparison with Claude Code's agent loop
 - [UI Design](docs/ui-design.md) -- operator UI principles
 - [Vision](docs/vision.md) -- product north star and design principles
@@ -243,4 +250,4 @@ Pre-push hook runs all three automatically.
 
 ## License
 
-[Business Source License 1.1](LICENSE) -- source-available, self-hostable, converts to Apache 2.0 on April 5, 2030. Free for individuals and small teams. See [aeqi.ai/pricing](https://aeqi.ai/pricing) for hosted plans.
+[Business Source License 1.1](LICENSE) -- source-available, self-hostable, and free for production use as long as you are not offering aeqi to third parties as a hosted or embedded service that competes with our paid offerings. Converts to Apache 2.0 on April 5, 2030. See [aeqi.ai/pricing](https://aeqi.ai/pricing) for managed plans.
