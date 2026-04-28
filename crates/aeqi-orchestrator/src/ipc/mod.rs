@@ -6,6 +6,7 @@
 pub mod agents;
 pub mod channels;
 pub mod chat;
+pub mod entities;
 pub mod events;
 pub mod files;
 pub mod ideas;
@@ -26,6 +27,7 @@ use tokio::sync::Mutex;
 use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::dispatch::Dispatcher;
+use crate::entity_registry::EntityRegistry;
 use crate::event_handler::EventHandlerStore;
 use crate::execution_registry::ExecutionRegistry;
 use crate::message_router::MessageRouter;
@@ -46,6 +48,7 @@ pub struct CommandContext {
     pub session_store: Option<Arc<SessionStore>>,
     pub event_handler_store: Option<Arc<EventHandlerStore>>,
     pub agent_registry: Arc<AgentRegistry>,
+    pub entity_registry: Arc<EntityRegistry>,
     pub idea_store: Option<Arc<dyn aeqi_core::traits::IdeaStore>>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub activity_buffer: Arc<Mutex<ActivityBuffer>>,

@@ -570,6 +570,47 @@ fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Idempotent migration: adds the `entity_id` column to the `agents` table.
+/// Also backfills `entity_id` via the `agent_ancestry` closure table so every
+/// existing agent (root and descendant) points at the correct root entity.
+///
+/// Run order: must be called AFTER `ensure_agent_columns` (column-add guard)
+/// and AFTER the entities backfill INSERT (so the root entity rows exist
+/// before the FK is populated).
+fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "entity_id") {
+        conn.execute_batch(
+            "ALTER TABLE agents ADD COLUMN entity_id TEXT REFERENCES entities(id) ON DELETE SET NULL;
+             CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(entity_id);",
+        )?;
+    } else {
+        // Column exists — still ensure the index (idempotent).
+        conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(entity_id);")?;
+    }
+
+    // Backfill agents.entity_id via ancestry walk: each agent's entity is
+    // the root ancestor (max depth in agent_ancestry).
+    conn.execute_batch(
+        "UPDATE agents
+         SET entity_id = (
+             SELECT a.ancestor_id
+             FROM agent_ancestry a
+             WHERE a.descendant_id = agents.id
+             ORDER BY a.depth DESC
+             LIMIT 1
+         )
+         WHERE entity_id IS NULL;",
+    )?;
+
+    Ok(())
+}
+
 /// Idempotent migration: adds the `reply_allowed` column to
 /// `channel_allowed_chats`. DEFAULT 1 preserves the legacy semantics for
 /// pre-existing rows — every previously-whitelisted chat keeps its ability
@@ -877,6 +918,63 @@ impl AgentRegistry {
         // Normalises legacy scope values in events and ideas to the new enum.
         ensure_aeqi_db_scope_columns(&conn)?;
 
+        // ── Entity primitive — Phase A ───────────────────────────────────────
+        // Bootstrap the entities table, backfill root agents → entity rows,
+        // add agents.entity_id column, backfill via ancestry walk, and install
+        // the trigger that auto-fills entity_id on future INSERTs. All
+        // operations are idempotent (IF NOT EXISTS / ON CONFLICT DO NOTHING /
+        // PRAGMA-guarded ALTER TABLE) so re-running on every daemon start is safe.
+
+        // 1. Create the entities table and its indexes.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS entities (
+                 id TEXT PRIMARY KEY,
+                 type TEXT NOT NULL DEFAULT 'company'
+                     CHECK (type IN ('company','human','agent','fund','dao','holding','protocol')),
+                 name TEXT NOT NULL,
+                 slug TEXT NOT NULL,
+                 parent_entity_id TEXT REFERENCES entities(id) ON DELETE SET NULL,
+                 owner_user_id TEXT,
+                 metadata TEXT NOT NULL DEFAULT '{}',
+                 created_at TEXT NOT NULL,
+                 updated_at TEXT
+             );
+             CREATE UNIQUE INDEX IF NOT EXISTS idx_entities_slug ON entities(slug);
+             CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
+             CREATE INDEX IF NOT EXISTS idx_entities_parent ON entities(parent_entity_id);",
+        )?;
+
+        // 2. Backfill: every existing root agent → entity row of type=company.
+        //    Uses agent.id as entity.id so all existing wire IDs stay stable.
+        //    ON CONFLICT DO NOTHING makes this a safe no-op on repeated runs.
+        conn.execute_batch(
+            "INSERT INTO entities (id, type, name, slug, created_at)
+             SELECT id, 'company', name, name, created_at
+             FROM agents
+             WHERE parent_id IS NULL
+             ON CONFLICT(id) DO NOTHING;",
+        )?;
+
+        // 3. Add agents.entity_id column (guarded by PRAGMA table_info check).
+        ensure_agent_entity_id_column(&conn)?;
+
+        // 4. Install the trigger that auto-fills entity_id on new INSERTs.
+        //    CREATE TRIGGER IF NOT EXISTS is idempotent.
+        conn.execute_batch(
+            "CREATE TRIGGER IF NOT EXISTS ensure_agent_entity_id
+             AFTER INSERT ON agents
+             FOR EACH ROW
+             WHEN NEW.entity_id IS NULL
+             BEGIN
+                 UPDATE agents
+                 SET entity_id = COALESCE(
+                     (SELECT entity_id FROM agents WHERE id = NEW.parent_id),
+                     NEW.id
+                 )
+                 WHERE id = NEW.id;
+             END;",
+        )?;
+
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
         info!(path = %db_path.display(), pool_size = 4, "aeqi.db opened");
@@ -1099,9 +1197,44 @@ impl AgentRegistry {
         };
 
         let db = self.db.lock().await;
+
+        // For root agents: insert the entity row FIRST (FK requires entity to
+        // exist before agents.entity_id can reference it). Idempotent via
+        // ON CONFLICT DO NOTHING so repeated calls (e.g. during backfill) are safe.
+        if parent_id.is_none() {
+            db.execute(
+                "INSERT INTO entities (id, type, name, slug, metadata, created_at)
+                 VALUES (?1, 'company', ?2, ?3, '{}', ?4)
+                 ON CONFLICT(id) DO NOTHING",
+                params![
+                    agent.id,
+                    agent.name,
+                    agent.name,
+                    agent.created_at.to_rfc3339(),
+                ],
+            )?;
+        }
+
+        // Derive entity_id defensively: if parent exists, inherit its entity_id;
+        // for root agents (no parent) the entity_id equals the agent's own id.
+        // The trigger `ensure_agent_entity_id` covers any code path that forgets
+        // this, but setting it explicitly avoids the post-hoc UPDATE overhead.
+        let entity_id: Option<String> = if let Some(pid) = parent_id {
+            db.query_row(
+                "SELECT entity_id FROM agents WHERE id = ?1",
+                params![pid],
+                |row| row.get(0),
+            )
+            .optional()?
+            .flatten()
+        } else {
+            // Root agent: entity_id == self.id (entity row already inserted above).
+            Some(id.clone())
+        };
+
         db.execute(
-            "INSERT INTO agents (id, name, display_name, parent_id, model, status, created_at, session_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO agents (id, name, display_name, parent_id, model, status, created_at, session_id, entity_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 agent.id,
                 agent.name,
@@ -1111,6 +1244,7 @@ impl AgentRegistry {
                 agent.status.to_string(),
                 agent.created_at.to_rfc3339(),
                 session_id,
+                entity_id,
             ],
         )?;
 

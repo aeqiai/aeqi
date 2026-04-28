@@ -9,6 +9,7 @@ use crate::activity::{Activity, ActivityStream};
 use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::dispatch::Dispatcher;
+use crate::entity_registry::EntityRegistry;
 use crate::gateway_manager::GatewayManager;
 use crate::message_router::MessageRouter;
 use crate::metrics::AEQIMetrics;
@@ -215,6 +216,7 @@ struct IpcContext {
     stream_registry: Arc<crate::stream_registry::StreamRegistry>,
     execution_registry: Arc<crate::execution_registry::ExecutionRegistry>,
     channel_spawner: Option<Arc<dyn crate::channel_registry::ChannelSpawner>>,
+    entity_registry: Arc<EntityRegistry>,
     // ── Round 3 additions (Agent W — write-path wiring) ──────────────────
     /// Shared policy cache used by the idea store dispatch. Initialised
     /// in `spawn_ipc_listener` alongside the embed queue so every IPC
@@ -245,6 +247,7 @@ pub struct Daemon {
     pub patrol_interval_secs: u64,
     pub background_automation_enabled: bool,
     pub agent_registry: Arc<AgentRegistry>,
+    pub entity_registry: Arc<EntityRegistry>,
     pub message_router: Option<Arc<MessageRouter>>,
     pub write_queue: Arc<std::sync::Mutex<aeqi_ideas::debounce::WriteQueue>>,
     pub activity_stream: Arc<ActivityStream>,
@@ -312,6 +315,8 @@ impl Daemon {
         agent_registry: Arc<AgentRegistry>,
         activity_log: Arc<ActivityLog>,
     ) -> Self {
+        // EntityRegistry shares the same connection pool as AgentRegistry.
+        let entity_registry = Arc::new(EntityRegistry::open(agent_registry.db()));
         Self {
             metrics,
             activity_log,
@@ -319,6 +324,7 @@ impl Daemon {
             patrol_interval_secs: 30,
             background_automation_enabled: true,
             agent_registry,
+            entity_registry,
             message_router: None,
             write_queue: Arc::new(std::sync::Mutex::new(
                 aeqi_ideas::debounce::WriteQueue::default(),
@@ -822,6 +828,7 @@ impl Daemon {
                     stream_registry: self.stream_registry.clone(),
                     execution_registry: self.execution_registry.clone(),
                     channel_spawner: self.channel_spawner.clone(),
+                    entity_registry: self.entity_registry.clone(),
                     tag_policy_cache,
                     embed_queue,
                     // ── Round 3 retrieval-side additions (Agent R) ──────
@@ -1201,6 +1208,7 @@ impl Daemon {
                 session_store: ipc_ctx.session_store.clone(),
                 event_handler_store: ipc_ctx.event_handler_store.clone(),
                 agent_registry: agent_registry.clone(),
+                entity_registry: ipc_ctx.entity_registry.clone(),
                 idea_store: ipc_ctx.idea_store.clone(),
                 message_router: message_router.clone(),
                 activity_buffer: activity_buffer.clone(),
@@ -1246,6 +1254,19 @@ impl Daemon {
                 }
                 "update_root" => {
                     crate::ipc::roots::handle_update_root(&ctx, &request, &allowed_roots).await
+                }
+
+                "entities" => {
+                    crate::ipc::entities::handle_entities(&ctx, &request, &allowed_roots).await
+                }
+                "create_entity" => {
+                    crate::ipc::entities::handle_create_entity(&ctx, &request, &allowed_roots).await
+                }
+                "update_entity" => {
+                    crate::ipc::entities::handle_update_entity(&ctx, &request, &allowed_roots).await
+                }
+                "delete_entity" => {
+                    crate::ipc::entities::handle_delete_entity(&ctx, &request, &allowed_roots).await
                 }
 
                 "metrics" => {
