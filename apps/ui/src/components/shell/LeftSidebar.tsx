@@ -23,8 +23,8 @@ const iconProps = {
 
 const InboxIcon = () => (
   <svg {...iconProps}>
-    <path d="M2 8.5 4 3h8l2 5.5v4.5H2z" />
-    <path d="M2 8.5h3.5l1 1.5h3l1-1.5H14" />
+    <path d="M2 8l2-4.5h8l2 4.5v3.5H2z" />
+    <path d="M2 8h3.5l1 1.5h3l1-1.5H14" />
   </svg>
 );
 

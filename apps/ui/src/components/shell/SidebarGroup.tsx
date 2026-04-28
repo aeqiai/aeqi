@@ -25,6 +25,7 @@ export default function SidebarGroup({ title, groupKey, children }: SidebarGroup
         aria-expanded={!collapsed}
         aria-controls={`sidebar-group-${groupKey}`}
       >
+        <span className="sidebar-group-label">{title}</span>
         <span className="sidebar-group-chevron" aria-hidden="true">
           <svg
             viewBox="0 0 16 16"
@@ -39,7 +40,6 @@ export default function SidebarGroup({ title, groupKey, children }: SidebarGroup
             <path d="M4 6l4 4 4-4" />
           </svg>
         </span>
-        <span className="sidebar-group-label">{title}</span>
       </button>
       {!collapsed && (
         <div className="sidebar-group-items" id={`sidebar-group-${groupKey}`}>

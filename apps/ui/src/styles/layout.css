@@ -860,6 +860,7 @@
   color: var(--text-primary);
 }
 .sidebar-group-chevron {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
