@@ -706,62 +706,59 @@
  * darker than its siblings. font-family is the one thing the UA
  * stylesheet pins on <button>; pin it back to --font-sans explicitly
  * so it doesn't inherit a UA value that might not match. */
-/* Action row beneath the Company switcher — `+ New`, search, `?` help —
- * three small utility circles. Smaller than .ideas-toolbar-btn (a
- * page-level toolbar primitive); these need to read as utility chrome
- * inside the rail, not as floating logos. */
-.sidebar-icon-row {
-  flex-shrink: 0;
+/* Action row — pairs a primary labeled trigger (left) with a single
+ * utility icon button (right). Used at the top (+ New | Search) and at
+ * the bottom (Account | Help). The first child stretches to fill via
+ * align-items: stretch + flex:1; the right child takes its natural
+ * width and matches the row height. */
+.sidebar-action-row {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px 6px;
+  align-items: stretch;
+  gap: 2px;
+  margin: 0 8px;
 }
-.left-sidebar.collapsed .sidebar-icon-row {
-  display: none;
+.sidebar-action-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.left-sidebar.collapsed .sidebar-action-row {
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+  gap: 2px;
 }
 
-.sidebar-utility-btn {
+/* Icon button for the right side of an action row — square hit area,
+ * row-height tall, ghost at rest, state-hover bg on hover. Same outer
+ * silhouette as .sidebar-nav-item so the pair reads as one row. */
+.sidebar-row-action-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--sidebar-row-h);
+  height: var(--sidebar-row-h);
   padding: 0;
-  background: var(--input-bg, var(--bg-base));
-  border: 1px solid var(--input-border, var(--border));
-  border-radius: 999px;
-  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
   font-family: inherit;
   cursor: pointer;
   transition:
     color 0.12s ease,
-    background 0.12s ease,
-    border-color 0.12s ease;
+    background 0.12s ease;
 }
-.sidebar-utility-btn:hover,
-.sidebar-utility-btn:focus-visible {
-  color: var(--text-primary);
-  background: var(--bg-row);
-  border-color: var(--input-border-focus, var(--border-hover));
+.sidebar-row-action-btn:hover,
+.sidebar-row-action-btn:focus-visible {
+  color: var(--color-text-title);
+  background: var(--state-hover);
   outline: none;
 }
-.sidebar-utility-btn > svg {
-  width: 13px;
-  height: 13px;
+.sidebar-row-action-btn > svg {
+  width: 16px;
+  height: 16px;
   display: block;
-}
-/* Strong variant — the + (create) button reads slightly heavier so the
- * primary creation affordance is the first thing the eye lands on in the
- * row. Same circle, darker icon ink. */
-.sidebar-utility-btn--strong {
-  color: var(--text-title);
-}
-.sidebar-utility-btn--strong:hover,
-.sidebar-utility-btn--strong:focus-visible {
-  color: var(--text-title);
-  background: var(--bg-row);
 }
 
 /* Brand wordmark in the sidebar header — Link wrapping <Wordmark>.
@@ -6414,20 +6411,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.account-dropdown-chevron {
-  flex-shrink: 0;
-  align-self: center;
-  color: var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 0;
-}
-.account-dropdown-chevron > svg {
-  display: block;
-}
-.left-sidebar.collapsed .account-dropdown-identity,
-.left-sidebar.collapsed .account-dropdown-chevron {
+.left-sidebar.collapsed .account-dropdown-identity {
   display: none;
 }
 .left-sidebar.collapsed .account-dropdown-trigger {

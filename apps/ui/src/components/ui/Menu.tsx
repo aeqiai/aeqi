@@ -17,7 +17,7 @@ export interface MenuItem {
 export interface MenuProps {
   trigger: ReactNode;
   items: MenuItem[];
-  placement?: "bottom-start" | "bottom-end";
+  placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
 }
 
 export function Menu({ trigger, items, placement = "bottom-end" }: MenuProps) {

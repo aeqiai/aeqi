@@ -12,12 +12,6 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const ChevronUpIcon = () => (
-  <svg {...iconProps} width={12} height={12}>
-    <path d="M4 10l4-4 4 4" />
-  </svg>
-);
-
 const AccountIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="5.5" r="2.5" />
@@ -69,9 +63,6 @@ export default function AccountDropdown() {
             {userEmail}
           </span>
         )}
-      </span>
-      <span className="account-dropdown-chevron" aria-hidden="true">
-        <ChevronUpIcon />
       </span>
     </button>
   );

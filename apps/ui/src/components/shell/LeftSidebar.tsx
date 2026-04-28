@@ -227,19 +227,20 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <CompanySwitcher />
         </div>
 
-        {/* ── Action row: + (strong), search, ? help — small utility circles. ── */}
-        <div className="sidebar-icon-row">
+        {/* ── Action row: labeled "+ New" with search affordance on the
+            right (Linear/Notion pattern). Search is a separate hit area
+            (the + opens a create menu, search opens the palette). ── */}
+        <div className="sidebar-action-row">
           <NewMenu />
           <button
             type="button"
-            className="sidebar-utility-btn"
+            className="sidebar-row-action-btn"
             onClick={openPalette}
             aria-label="Open command palette"
             title={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
           >
             <SearchIcon />
           </button>
-          <HelpMenu />
         </div>
 
         {/* ── Inbox — elevated above the categorical groups since it is
@@ -303,7 +304,10 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             </a>
           </nav>
           <div className="sidebar-user-zone">
-            <AccountDropdown />
+            <div className="sidebar-action-row">
+              <AccountDropdown />
+              <HelpMenu />
+            </div>
           </div>
         </div>
       </div>

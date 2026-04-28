@@ -54,7 +54,7 @@ export default function HelpMenu() {
   const trigger = (
     <button
       type="button"
-      className="sidebar-utility-btn"
+      className="sidebar-row-action-btn"
       aria-label="Help"
       title={`Help — shortcuts, docs (${isMac ? "⌘" : "Ctrl"}/?)`}
     >
@@ -62,5 +62,5 @@ export default function HelpMenu() {
     </button>
   );
 
-  return <Menu trigger={trigger} items={items} placement="bottom-start" />;
+  return <Menu trigger={trigger} items={items} placement="top-end" />;
 }

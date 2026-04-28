@@ -78,13 +78,9 @@ export default function NewMenu() {
   ];
 
   const trigger = (
-    <button
-      type="button"
-      className="sidebar-utility-btn sidebar-utility-btn--strong"
-      aria-label="Create new"
-      title="Create new"
-    >
+    <button type="button" className="sidebar-nav-item new-menu-trigger" aria-label="Create new">
       <PlusIcon />
+      <span className="sidebar-nav-label">New</span>
     </button>
   );
 
