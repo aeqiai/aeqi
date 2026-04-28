@@ -180,11 +180,8 @@ export default function SignupPage() {
       if (waitlistDone) {
         return (
           <>
-            <h1 className="auth-heading">You're on the list</h1>
-            <p className="auth-subheading">{waitlistMsg}</p>
-            <p className="auth-subheading auth-subheading-last">
-              We'll reach out when your spot is ready.
-            </p>
+            <h1 className="auth-heading">Almost there</h1>
+            <p className="auth-subheading auth-subheading-last">{waitlistMsg}</p>
             <p className="auth-switch">
               Have an invite code?{" "}
               <a
