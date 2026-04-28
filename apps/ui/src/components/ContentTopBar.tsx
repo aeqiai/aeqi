@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
-import { Button } from "@/components/ui";
+import { Button, Tooltip } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
 import UserAvatar from "./UserAvatar";
 import BudgetMeter from "./BudgetMeter";
@@ -76,16 +76,14 @@ export default function ContentTopBar() {
               <span className="content-topbar-agent-name">{userName}</span>
             </span>
           ) : (
-            <Link
-              to="/"
-              className="content-topbar-agent content-topbar-agent-link"
-              title="Back to your home"
-            >
-              <span className="content-topbar-agent-avatar" aria-hidden>
-                <UserAvatar name={userName} size={18} src={user?.avatar_url} />
-              </span>
-              <span className="content-topbar-agent-name">{userName}</span>
-            </Link>
+            <Tooltip content="Back to your home">
+              <Link to="/" className="content-topbar-agent content-topbar-agent-link">
+                <span className="content-topbar-agent-avatar" aria-hidden>
+                  <UserAvatar name={userName} size={18} src={user?.avatar_url} />
+                </span>
+                <span className="content-topbar-agent-name">{userName}</span>
+              </Link>
+            </Tooltip>
           ))}
         {agent &&
           (section === "sessions" ? (
@@ -96,27 +94,29 @@ export default function ContentTopBar() {
               <span className="content-topbar-agent-name">{agentName}</span>
             </span>
           ) : (
-            <Link
-              to={`/${encodeURIComponent(agent.id)}`}
-              className="content-topbar-agent content-topbar-agent-link"
-              title={`Back to ${agentName}'s home`}
-            >
-              <span className="content-topbar-agent-avatar" aria-hidden>
-                <AgentAvatar name={agentName} />
-              </span>
-              <span className="content-topbar-agent-name">{agentName}</span>
-            </Link>
+            <Tooltip content={`Back to ${agentName}'s home`}>
+              <Link
+                to={`/${encodeURIComponent(agent.id)}`}
+                className="content-topbar-agent content-topbar-agent-link"
+              >
+                <span className="content-topbar-agent-avatar" aria-hidden>
+                  <AgentAvatar name={agentName} />
+                </span>
+                <span className="content-topbar-agent-name">{agentName}</span>
+              </Link>
+            </Tooltip>
           ))}
         {agent && showCrumb && <span className="content-topbar-sep">/</span>}
         {showCrumb &&
           (crumbIsLink ? (
-            <Link
-              to={`/${encodeURIComponent(agent!.id)}/${section}`}
-              className="content-topbar-crumb content-topbar-crumb-link"
-              title={`Back to ${primitiveWord?.toLowerCase()}`}
-            >
-              {primitiveWord}
-            </Link>
+            <Tooltip content={`Back to ${primitiveWord?.toLowerCase()}`}>
+              <Link
+                to={`/${encodeURIComponent(agent!.id)}/${section}`}
+                className="content-topbar-crumb content-topbar-crumb-link"
+              >
+                {primitiveWord}
+              </Link>
+            </Tooltip>
           ) : (
             <span className="content-topbar-crumb">{primitiveWord}</span>
           ))}
@@ -124,29 +124,30 @@ export default function ContentTopBar() {
 
       <div className="content-topbar-right">
         {agent && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className={`topbar-settings-btn${settingsActive ? " active" : ""}`}
-            onClick={() => navigate(`/${encodeURIComponent(agent.id)}/settings`)}
-            title="Agent settings — model, tools, channels"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          <Tooltip content="Agent settings — model, tools, channels">
+            <Button
+              variant="secondary"
+              size="sm"
+              className={`topbar-settings-btn${settingsActive ? " active" : ""}`}
+              onClick={() => navigate(`/${encodeURIComponent(agent.id)}/settings`)}
             >
-              <circle cx="8" cy="8" r="2" />
-              <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
-            </svg>
-            Settings
-          </Button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="8" cy="8" r="2" />
+                <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
+              </svg>
+              Settings
+            </Button>
+          </Tooltip>
         )}
         {/* Settings button moved to the LeftSidebar (below Inbox).
             Topbar stays focused on agent-scoped chrome + budget meter. */}

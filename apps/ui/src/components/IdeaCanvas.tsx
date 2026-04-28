@@ -12,7 +12,7 @@ import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { Button, Textarea } from "./ui";
+import { Button, Textarea, Tooltip } from "./ui";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import RefsRow, { type RefRecord } from "./RefsRow";
@@ -529,57 +529,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       {!embedded && !headerSlot && (
         <div className="ideas-list-head ideas-canvas-head">
           <div className="ideas-toolbar ideas-canvas-toolbar">
-            <Button variant="secondary" size="sm" onClick={onBack} title="Back to ideas">
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M8 3 L4.5 6.5 L8 10" />
-              </svg>
-              Ideas
-            </Button>
-            {!showCompose && (
-              <Button variant="primary" size="sm" onClick={onNew} title="New idea (N)">
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M6.5 2.5v8M2.5 6.5h8" />
-                </svg>
-                New
-              </Button>
-            )}
-            <IdeasScopePopover
-              scope={headerScope}
-              locked={isEdit}
-              onChange={!isEdit ? setComposeScope : undefined}
-            />
-            <div className="ideas-toolbar-spacer" aria-hidden />
-            {isEdit && idea && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  goAgent(agentId, "quests", "new", {
-                    replace: false,
-                    search: { fromIdea: idea.id },
-                  })
-                }
-                title="Track this idea as a quest"
-              >
+            <Tooltip content="Back to ideas">
+              <Button variant="secondary" size="sm" onClick={onBack}>
                 <svg
                   width="11"
                   height="11"
@@ -591,37 +542,73 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                   strokeLinejoin="round"
                   aria-hidden
                 >
-                  <path d="M2.5 6.5h8M6.5 2.5v8" />
+                  <path d="M8 3 L4.5 6.5 L8 10" />
                 </svg>
-                Track as quest
+                Ideas
               </Button>
+            </Tooltip>
+            {!showCompose && (
+              <Tooltip content="New idea (N)">
+                <Button variant="primary" size="sm" onClick={onNew}>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    aria-hidden
+                  >
+                    <path d="M6.5 2.5v8M2.5 6.5h8" />
+                  </svg>
+                  New
+                </Button>
+              </Tooltip>
+            )}
+            <IdeasScopePopover
+              scope={headerScope}
+              locked={isEdit}
+              onChange={!isEdit ? setComposeScope : undefined}
+            />
+            <div className="ideas-toolbar-spacer" aria-hidden />
+            {isEdit && idea && (
+              <Tooltip content="Track this idea as a quest">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    goAgent(agentId, "quests", "new", {
+                      replace: false,
+                      search: { fromIdea: idea.id },
+                    })
+                  }
+                >
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M2.5 6.5h8M6.5 2.5v8" />
+                  </svg>
+                  Track as quest
+                </Button>
+              </Tooltip>
             )}
             {isEdit && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleDeleteClick}
-                onBlur={() => setDeleteArmed(false)}
-                title={deleteArmed ? "Click again to confirm delete" : "Delete idea"}
-              >
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  aria-hidden
+              <Tooltip content={deleteArmed ? "Click again to confirm delete" : "Delete idea"}>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDeleteClick}
+                  onBlur={() => setDeleteArmed(false)}
                 >
-                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-                </svg>
-                {deleteArmed ? "Confirm" : "Delete"}
-              </Button>
-            )}
-            {(showCompose || dirty) && (
-              <>
-                <Button variant="secondary" size="sm" onClick={handleCancel} title="Cancel">
                   <svg
                     width="11"
                     height="11"
@@ -634,31 +621,53 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                   >
                     <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
                   </svg>
-                  Cancel
+                  {deleteArmed ? "Confirm" : "Delete"}
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={isEdit ? flushSave : handleCreate}
-                  disabled={saveState === "saving"}
-                  loading={saveState === "saving"}
-                  title={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}
-                >
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 13 13"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
+              </Tooltip>
+            )}
+            {(showCompose || dirty) && (
+              <>
+                <Tooltip content="Cancel">
+                  <Button variant="secondary" size="sm" onClick={handleCancel}>
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      aria-hidden
+                    >
+                      <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                    </svg>
+                    Cancel
+                  </Button>
+                </Tooltip>
+                <Tooltip content={isEdit ? "Save (⌘↵)" : "Save idea (⌘↵)"}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={isEdit ? flushSave : handleCreate}
+                    disabled={saveState === "saving"}
+                    loading={saveState === "saving"}
                   >
-                    <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-                  </svg>
-                  Save
-                </Button>
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                    </svg>
+                    Save
+                  </Button>
+                </Tooltip>
               </>
             )}
           </div>

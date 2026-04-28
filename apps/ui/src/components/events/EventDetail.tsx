@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AgentEvent, ToolCall } from "@/lib/types";
-import { Button } from "../ui";
+import { Button, Tooltip } from "../ui";
 import TestTriggerPanel from "../TestTriggerPanel";
 import EventCanvasEditor, { type CanvasDraft } from "./EventCanvasEditor";
 import FiresPanel from "./FiresPanel";
@@ -107,15 +107,16 @@ export default function EventDetail({
     <div className="events-detail">
       <header className="events-detail-strip">
         <div className="events-detail-strip-lead">
-          <button
-            type="button"
-            className="events-detail-strip-back"
-            onClick={onBack}
-            title="Back to events"
-            aria-label="Back to events"
-          >
-            <span aria-hidden>←</span>
-          </button>
+          <Tooltip content="Back to events">
+            <button
+              type="button"
+              className="events-detail-strip-back"
+              onClick={onBack}
+              aria-label="Back to events"
+            >
+              <span aria-hidden>←</span>
+            </button>
+          </Tooltip>
           <input
             className="events-detail-strip-name"
             type="text"

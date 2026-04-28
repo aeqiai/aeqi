@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Spinner } from "@/components/ui";
+import { Spinner, Tooltip } from "@/components/ui";
 import type { EventInvocationRow } from "@/lib/types";
 import StepDetail, { StatusDot, durationMs } from "./StepDetail";
 
@@ -55,9 +55,11 @@ export default function FiresPanel({ eventName, pattern, fireCountHint }: FiresP
           fires
           <span className="events-fires-count">{rows.length || fireCountHint || 0}</span>
         </span>
-        <button type="button" className="events-fires-refresh" onClick={load} title="Refresh">
-          ↻
-        </button>
+        <Tooltip content="Refresh">
+          <button type="button" className="events-fires-refresh" onClick={load}>
+            ↻
+          </button>
+        </Tooltip>
       </div>
 
       {loading && (

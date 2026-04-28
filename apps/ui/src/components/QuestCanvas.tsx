@@ -6,7 +6,7 @@ import { useAgentDataStore } from "@/store/agentData";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
-import { Button, Popover, Spinner } from "./ui";
+import { Button, Popover, Spinner, Tooltip } from "./ui";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestStatusPopover from "./quests/QuestStatusPopover";
 import QuestPriorityPopover from "./quests/QuestPriorityPopover";
@@ -104,38 +104,42 @@ function QuestToolbar({
   void agentId;
   return (
     <div className="ideas-toolbar ideas-canvas-toolbar">
-      <Button variant="secondary" size="sm" onClick={onBack} title="Back to quests">
-        <svg
-          width="11"
-          height="11"
-          viewBox="0 0 13 13"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M8 3 L4.5 6.5 L8 10" />
-        </svg>
-        Quests
-      </Button>
-      {onNew && (
-        <Button variant="primary" size="sm" onClick={onNew} title="New quest (N)">
+      <Tooltip content="Back to quests">
+        <Button variant="secondary" size="sm" onClick={onBack}>
           <svg
             width="11"
             height="11"
             viewBox="0 0 13 13"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.7"
+            strokeWidth="1.6"
             strokeLinecap="round"
+            strokeLinejoin="round"
             aria-hidden
           >
-            <path d="M6.5 2.5v8M2.5 6.5h8" />
+            <path d="M8 3 L4.5 6.5 L8 10" />
           </svg>
-          New
+          Quests
         </Button>
+      </Tooltip>
+      {onNew && (
+        <Tooltip content="New quest (N)">
+          <Button variant="primary" size="sm" onClick={onNew}>
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6.5 2.5v8M2.5 6.5h8" />
+            </svg>
+            New
+          </Button>
+        </Tooltip>
       )}
       {linkedIdeaSlot}
       <QuestStatusPopover status={status} onChange={onStatusChange} />
@@ -183,43 +187,41 @@ function QuestToolbar({
       )}
       {showCancelSave && (
         <>
-          <Button variant="secondary" size="sm" onClick={onCancel} title={cancelTitle}>
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-            </svg>
-            {cancelLabel}
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onSave}
-            disabled={saveDisabled}
-            title={saveTitle}
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-            </svg>
-            {saveLabel}
-          </Button>
+          <Tooltip content={cancelTitle}>
+            <Button variant="secondary" size="sm" onClick={onCancel}>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+              </svg>
+              {cancelLabel}
+            </Button>
+          </Tooltip>
+          <Tooltip content={saveTitle}>
+            <Button variant="primary" size="sm" onClick={onSave} disabled={saveDisabled}>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+              </svg>
+              {saveLabel}
+            </Button>
+          </Tooltip>
         </>
       )}
     </div>

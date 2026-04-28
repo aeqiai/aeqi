@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNav } from "@/hooks/useNav";
-import { Button } from "../ui";
+import { Button, Tooltip } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
 import IdeasFilterPopover from "./IdeasFilterPopover";
 import IdeasSortPopover from "./IdeasSortPopover";
@@ -303,21 +303,23 @@ export default function IdeasListView({
             onChange={onFilter}
           />
           <IdeasViewPopover view={view} onChange={onViewChange} />
-          <Button variant="primary" size="sm" onClick={() => fireNew()} title="New idea (N)">
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M6.5 2.5v8M2.5 6.5h8" />
-            </svg>
-            New
-          </Button>
+          <Tooltip content="New idea (N)">
+            <Button variant="primary" size="sm" onClick={() => fireNew()}>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+              New
+            </Button>
+          </Tooltip>
         </div>
       </div>
       {(activeChips.length > 0 || tagCounts.length > 0) && (

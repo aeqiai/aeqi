@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, memo } from "react";
-import { IconButton } from "@/components/ui";
+import { IconButton, Tooltip } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import { RichMarkdown, buildIdeasByName } from "@/components/markdown/RichMarkdown";
@@ -123,39 +123,40 @@ function CopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <IconButton
-      variant="ghost"
-      size="xs"
-      className="asv-copy"
-      onClick={handleCopy}
-      aria-label={copied ? "Copied" : "Copy message"}
-      title={copied ? "Copied" : "Copy"}
-    >
-      {copied ? (
-        <svg
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3 8.5l3 3 7-7" />
-        </svg>
-      ) : (
-        <svg
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="5" y="5" width="9" height="9" rx="2" />
-          <path d="M5 11H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v1" />
-        </svg>
-      )}
-    </IconButton>
+    <Tooltip content={copied ? "Copied" : "Copy"}>
+      <IconButton
+        variant="ghost"
+        size="xs"
+        className="asv-copy"
+        onClick={handleCopy}
+        aria-label={copied ? "Copied" : "Copy message"}
+      >
+        {copied ? (
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 8.5l3 3 7-7" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="5" y="5" width="9" height="9" rx="2" />
+            <path d="M5 11H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v1" />
+          </svg>
+        )}
+      </IconButton>
+    </Tooltip>
   );
 }
 
