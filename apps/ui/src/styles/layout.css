@@ -202,7 +202,7 @@
   width: 4px;
 }
 .left-sidebar.collapsed {
-  width: 52px;
+  width: 48px;
 }
 .left-sidebar.collapsed .sidebar-scope {
   justify-content: center;
@@ -219,22 +219,61 @@
   display: none;
 }
 .left-sidebar.collapsed .sidebar-section-label {
-  text-align: center;
-  padding: var(--space-2) 0 0;
-  font-size: 8px;
+  display: none;
 }
 .left-sidebar.collapsed .sidebar-nav-label,
 .left-sidebar.collapsed .sidebar-nav-action,
 .left-sidebar.collapsed .sidebar-nav-kbd {
   display: none;
 }
+/* Square 32×32 hit area centered in the 48px column — same shape as
+ * every other rail icon, so the column reads as a stack of square
+ * tiles instead of full-width rectangles. */
 .left-sidebar.collapsed .sidebar-nav-item {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin: 0 auto;
+  padding: 0;
   justify-content: center;
-  padding: 8px;
+}
+.left-sidebar.collapsed .sidebar-nav-item.active::before {
+  /* Active rail accent doesn't fit a 32px square — kill it in collapsed
+   * and let the state-selected bg do the "you are here" job alone. */
+  display: none;
 }
 .left-sidebar.collapsed .sidebar-nav-item > svg,
 .left-sidebar.collapsed .sidebar-nav-avatar {
   width: 16px;
+  height: 16px;
+}
+/* Tighter group spacing in collapsed since the titles are hidden. */
+.left-sidebar.collapsed .sidebar-group + .sidebar-group {
+  margin-top: 4px;
+}
+.left-sidebar.collapsed .sidebar-group-items {
+  padding: 0;
+  gap: 2px;
+}
+.left-sidebar.collapsed .sidebar-surface-nav {
+  padding: 4px 0;
+  gap: 2px;
+}
+/* Utility row stacks vertically in collapsed so + / search / ? stay
+ * reachable instead of hiding. Buttons keep their 24px circle shape. */
+.left-sidebar.collapsed .sidebar-icon-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+  align-items: center;
+}
+.left-sidebar.collapsed .sidebar-bottom-group {
+  padding-bottom: 4px;
+  gap: 4px;
+}
+.left-sidebar.collapsed .sidebar-bottom-group .sidebar-surface-nav {
+  padding: 0;
 }
 /* ── Sidebar header ── */
 /* Brand left edge (16px) aligns with nav-item icon-slot left edge
@@ -765,6 +804,16 @@
   position: absolute;
   inset: 0;
   transition: opacity 0.14s ease;
+}
+/* SVGs nested inside the rest/hover spans aren't direct children of
+ * .sidebar-nav-item, so the 16px size from that selector doesn't
+ * cascade. Pin explicitly here so the panel-glyph reads at the same
+ * size as every other rail icon. */
+.sidebar-brand-collapsed-rest > svg,
+.sidebar-brand-collapsed-hover > svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 .sidebar-brand-collapsed-hover {
   opacity: 0;

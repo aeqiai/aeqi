@@ -8,8 +8,13 @@ interface SidebarGroupProps {
 }
 
 export default function SidebarGroup({ title, groupKey, children }: SidebarGroupProps) {
-  const collapsed = useUIStore((s) => !!s.collapsedGroups[groupKey]);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const groupCollapsed = useUIStore((s) => !!s.collapsedGroups[groupKey]);
   const toggle = useUIStore((s) => s.toggleGroup);
+  // When the whole rail is collapsed the group title is hidden, so the
+  // user can't toggle anyway — force items visible so every nav row
+  // remains reachable as a stack of icons.
+  const collapsed = !sidebarCollapsed && groupCollapsed;
 
   return (
     <div className={`sidebar-group${collapsed ? " collapsed" : ""}`}>
