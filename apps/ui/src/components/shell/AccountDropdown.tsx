@@ -5,6 +5,8 @@ import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
 
 const iconProps = {
+  width: 16,
+  height: 16,
   viewBox: "0 0 16 16",
   fill: "none",
   stroke: "currentColor",

@@ -785,6 +785,33 @@
   padding: 24px 12px;
   border-right: 1px solid var(--border-faint);
 }
+
+/* Vertical-rail variant of TabTrigger: full-width row, label left-aligned,
+   tighter radius. The horizontal-tab underline (TabTrigger's default active
+   treatment) is replaced by an accent left-bar for the rail context — same
+   "you are here" affordance as the LeftSidebar nav, different gesture. */
+.page-rail [role="tab"] {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: var(--radius-md);
+}
+
+.page-rail [role="tab"][aria-selected="true"]::after {
+  content: none;
+}
+
+.page-rail [role="tab"][aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
+}
 .page-rail-title {
   /* Linear/Notion sidebar-section treatment: small + heavy + uppercase
      tracking. Reads as a category label, not a heading — its job is

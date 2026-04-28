@@ -36,12 +36,12 @@
   color: var(--color-text-muted);
 }
 
-.trigger[aria-pressed="true"] {
+.trigger[aria-selected="true"] {
   color: var(--color-text-primary);
   background-color: var(--state-selected);
 }
 
-.trigger[aria-pressed="true"]::after {
+.trigger[aria-selected="true"]::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -80,7 +80,7 @@
 }
 
 .active {
-  /* Active state is handled by [aria-pressed="true"] selector */
+  /* Active state is handled by [aria-selected="true"] selector */
 }
 
 .disabled {
