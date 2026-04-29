@@ -1,0 +1,152 @@
+import { Meta } from "@storybook/blocks";
+import { Stack } from "../Stack";
+import { Inline } from "../Inline";
+
+<Meta title="Foundations/Layout" />
+
+# Layout
+
+Stack and Inline are the two layout primitives — pure flex containers that replace the bespoke `<div style={{ display: 'flex', ... }}>` pattern with a token-driven contract. Stack composes children vertically in a column. Inline composes children horizontally in a row. Both are stateless, colorless, and lock all spacing to the canonical `--space-N` tokens so the 4pt grid is preserved throughout the app.
+
+## When to use which
+
+| Use case                      | Primitive                | Example                                                                                                   |
+| ----------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **Column of items**           | Stack                    | Form fields, list rows, paragraph stack, vertical navigation rail                                         |
+| **Row of items**              | Inline                   | Label + badge, action group, breadcrumb, toolbar buttons                                                  |
+| **2D grid or multi-column**   | CSS grid directly        | Table-like layouts, tile grids. Layout primitives don't support 2D; write grid CSS at the call site       |
+| **Responsive layout changes** | Media query at call-site | Different flex direction on mobile vs desktop. Stack/Inline don't yet expose a `direction-on-mobile` prop |
+
+## Stack
+
+Vertical column layout. Main axis is always top-to-bottom (no justify prop — source order is fixed). Children are laid out one per row and stack with a consistent gap.
+
+### Props
+
+| Prop                            | Type                                                 | Default   | Purpose                                                  |
+| ------------------------------- | ---------------------------------------------------- | --------- | -------------------------------------------------------- |
+| `gap`                           | "0" \| "1" \| "2" \| "3" \| "4" \| "5" \| "6" \| "8" | "3"       | Space between children, mapped to `--space-N` tokens     |
+| `align`                         | "start" \| "center" \| "end" \| "stretch"            | "stretch" | Cross-axis alignment (left/right/full width)             |
+| `as`                            | HTML element tag                                     | "div"     | Polymorphic element (e.g., `"section"`, `"ul"`, `"nav"`) |
+| All standard `<div>` attributes | —                                                    | —         | `className`, `id`, `onClick`, etc.                       |
+
+### Defaults explained
+
+- **gap="3"** resolves to `var(--space-3)` (12px) — the most common spacing in the app
+- **align="stretch"** makes children fill the cross-axis (full width for a vertical stack) — the most common layout mode
+- No justify prop because main-axis order is always source order; no reordering or space distribution
+
+### Spacing scale is locked
+
+The gap scale accepts only the canonical SpaceToken values: 0, 1, 2, 3, 4, 5, 6, 8. Note: 7 is intentionally absent from the scale. The spacing tokens roughly double every two steps (1, 2, 4, 8, 16…), and 7 was empirically too close to 8 to earn its own slot. If you find yourself needing a value between 6 (24px) and 8 (32px), you don't — you need one or the other. If neither is right, the design needs tightening, not a new token.
+
+### Storybook
+
+`Components/UI/Stack` — gap scale, alignment variants, polymorphic `as` prop, density patterns.
+
+## Inline
+
+Horizontal row layout. Main axis is always left-to-right (no `flex-direction: row-reverse` option). Children are laid out side-by-side with a consistent gap. Two special props — `justify` for main-axis distribution and `wrap` for overflow handling — make Inline do what Stack cannot.
+
+### Props
+
+| Prop                            | Type                                                    | Default  | Purpose                                                            |
+| ------------------------------- | ------------------------------------------------------- | -------- | ------------------------------------------------------------------ |
+| `gap`                           | "0" \| "1" \| "2" \| "3" \| "4" \| "5" \| "6" \| "8"    | "3"      | Space between children, mapped to `--space-N` tokens               |
+| `align`                         | "start" \| "center" \| "end" \| "baseline" \| "stretch" | "center" | Cross-axis alignment (top/middle/bottom/text-baseline/full height) |
+| `justify`                       | "start" \| "center" \| "end" \| "between" \| "around"   | "start"  | Main-axis distribution (left/center/right/spaced/distributed)      |
+| `wrap`                          | boolean                                                 | false    | Allow children to wrap to multiple rows on overflow                |
+| `as`                            | HTML element tag                                        | "div"    | Polymorphic element (e.g., `"nav"`, `"ul"`)                        |
+| All standard `<div>` attributes | —                                                       | —        | `className`, `id`, `onClick`, etc.                                 |
+
+### Defaults explained
+
+- **gap="3"** — same 12px default as Stack
+- **align="center"** — horizontal rows default to vertical centering, the most common case (text rows, button groups, control groups)
+- **justify="start"** — items pack to the left edge by default; use `justify="between"` for space-between patterns
+- **wrap=false** — content overflows horizontally; set `wrap=true` for chip lists and tag lists that break to multiple rows
+
+### The baseline alignment value
+
+Stack doesn't have a baseline alignment option because vertical stacking doesn't use it. Inline includes `align="baseline"` for text-heavy rows where all text should align to the same baseline rather than the bounding box — useful for label + description pairs where text weight varies.
+
+### The wrap prop
+
+When `wrap=true`, children wrap to multiple rows on horizontal overflow. This is the canonical pattern for chip lists, tag lists, and any collection where items should reflow rather than overflow:
+
+```jsx
+<Inline gap="2" wrap={true}>
+  {tags.map((tag) => (
+    <Tag key={tag.id}>{tag.label}</Tag>
+  ))}
+</Inline>
+```
+
+Without wrap, the row scrolls horizontally; with wrap, the row breaks to multiple rows.
+
+### Storybook
+
+`Components/UI/Inline` — gap scale, alignment and justify variants, wrap behavior, density patterns, baseline text alignment.
+
+## Why gap, not margins
+
+Stack and Inline use CSS `gap`, not child margins. This is intentional and non-negotiable:
+
+- **gap doesn't collapse** — margin collapse can cause unexpected spacing in some CSS contexts; gap is always applied
+- **gap doesn't leak at edges** — a margin on the first or last child would add unwanted space at the container edge; gap only applies between siblings
+- **gap is set once** — one property on the parent instead of margin on every child
+- **children stay clean** — passed components shouldn't have their own margins; if a child carries `margin: 0`, it's already correct; if it has margins, the layout will look off because child margin adds to parent gap
+
+If you inherit a component with margins and you're wrapping it in Stack or Inline, remove the margins from the child. The gap on the parent now owns all spacing.
+
+## Why no dividers between children
+
+Currently Stack and Inline don't expose a `divider` prop. If a divider is needed between rows, render `<hr>` or a `<div className="divider" />` manually between children. This is a deliberate omission — adding divider support would expand the API without clear demand, and most divider use-cases resolve to "use a thin card row with border-top" instead.
+
+## Why no responsive layout props
+
+Stack and Inline don't expose a `direction-on-mobile` prop or breakpoint-aware API. Responsive layout (different directions at different viewports) is handled at the call-site with media queries or container queries. This keeps the primitives simple; consumers that need responsive behavior can manage it locally.
+
+```css
+/* At the call-site, not in Stack/Inline */
+@media (max-width: 640px) {
+  .my-flex-row {
+    flex-direction: column;
+  }
+}
+```
+
+## Composition patterns
+
+The layout primitives compose with everything. Here are canonical patterns:
+
+- **Form**: `Stack gap="4"` of `[Input, Input, Inline gap="2" justify="end"` of `[Button cancel, Button save]]`
+- **Detail card**: `Stack gap="3"` of `[DetailField, DetailField, DetailField]`
+- **Card header**: `Inline gap="3" justify="between" align="center"` of `[title, badge group]`
+- **Tag list**: `Inline gap="2" wrap={true}` of `[Tag, Tag, Tag, ...]`
+- **Page rail**: `Stack gap="1"` of `[TabTrigger, TabTrigger, TabTrigger]`
+- **Empty state**: `Stack gap="5" align="center"` of `[EmptyState icon, EmptyState text, Button]`
+- **Modal footer**: `Inline gap="3" justify="end"` of `[Button cancel, Button primary]`
+
+Bespoke `<div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>` is the anti-pattern these primitives replace. If you find one in the codebase, migrate it to Stack or Inline.
+
+## Shared contract
+
+Both Stack and Inline:
+
+- Use **only** `--space-N` tokens for gap (never inline pixel values)
+- Are **pure containers** — no color, no border, no shadow, no transition, no animation
+- Are **stateless** — no hover / focus / active / disabled states
+- Support `forwardRef` for escape hatches (access the underlying DOM node)
+- Support polymorphic `as` prop for semantic HTML (e.g., `<ul>`, `<nav>`, `<section>`)
+
+A new layout primitive would inherit this contract. Before proposing one, check: does the need fit Stack + Inline composition, or is it genuinely a new primitive?
+
+## API reference
+
+See the **Docs** tab on each component for the full prop surface:
+
+- **Stack** — `gap`, `align`, `as`, all standard `<div>` attributes
+- **Inline** — `gap`, `align`, `justify`, `wrap`, `as`, all standard `<div>` attributes
+
+Both are forwarded with `forwardRef` for direct DOM access when needed.

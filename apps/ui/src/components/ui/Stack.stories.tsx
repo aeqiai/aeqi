@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { Stack } from "./Stack";
+import { Inline } from "./Inline";
 import type { SpaceToken } from "./Stack";
 
 const meta: Meta<typeof Stack> = {
@@ -275,6 +276,162 @@ export const RealUseCase: Story = {
             Create Agent
           </div>
         </div>
+      </Stack>
+    </div>
+  ),
+};
+
+export const RealComposition: Story = {
+  name: "Real Composition — Agent Details",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates Stack + Inline composition: a vertical stack of horizontal label-value pairs. Canonical pattern for agent detail views, quest summaries, and read-only property lists. Consistent vertical rhythm with horizontal alignment.",
+      },
+    },
+  },
+  render: () => (
+    <div
+      style={{
+        maxWidth: 420,
+        padding: "var(--space-5)",
+        background: "var(--color-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-lg)",
+      }}
+    >
+      <p
+        style={{
+          fontSize: "var(--font-size-lg)",
+          fontWeight: "var(--font-weight-semibold)",
+          color: "var(--color-text-title)",
+          marginBottom: "var(--space-4)",
+        }}
+      >
+        Research Lead
+      </p>
+      <Stack gap="3">
+        {/* Row: Label + Value */}
+        <Inline justify="between" align="center">
+          <span
+            style={{
+              fontSize: "var(--font-size-xs)",
+              fontWeight: "var(--font-weight-medium)",
+              color: "var(--color-text-secondary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Status
+          </span>
+          <span
+            style={{
+              padding: "3px 8px",
+              fontSize: "var(--font-size-xs)",
+              fontWeight: "var(--font-weight-medium)",
+              color: "var(--color-success)",
+              background: "var(--color-success-bg)",
+              border: "1px solid var(--color-success-border)",
+              borderRadius: "var(--radius-full)",
+            }}
+          >
+            active
+          </span>
+        </Inline>
+
+        {/* Row: Label + Value */}
+        <Inline justify="between" align="center">
+          <span
+            style={{
+              fontSize: "var(--font-size-xs)",
+              fontWeight: "var(--font-weight-medium)",
+              color: "var(--color-text-secondary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Scope
+          </span>
+          <span
+            style={{
+              fontSize: "var(--font-size-sm)",
+              color: "var(--color-text-primary)",
+            }}
+          >
+            Company Root
+          </span>
+        </Inline>
+
+        {/* Row: Label + Value */}
+        <Inline justify="between" align="center">
+          <span
+            style={{
+              fontSize: "var(--font-size-xs)",
+              fontWeight: "var(--font-weight-medium)",
+              color: "var(--color-text-secondary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Created
+          </span>
+          <span
+            style={{
+              fontSize: "var(--font-size-sm)",
+              color: "var(--color-text-primary)",
+            }}
+          >
+            Nov 28, 2025
+          </span>
+        </Inline>
+
+        {/* Row: Label + Value */}
+        <Inline justify="between" align="center">
+          <span
+            style={{
+              fontSize: "var(--font-size-xs)",
+              fontWeight: "var(--font-weight-medium)",
+              color: "var(--color-text-secondary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Sessions
+          </span>
+          <span
+            style={{
+              fontSize: "var(--font-size-sm)",
+              color: "var(--color-text-primary)",
+              fontWeight: "var(--font-weight-semibold)",
+            }}
+          >
+            42
+          </span>
+        </Inline>
+
+        {/* Row: Label + Value */}
+        <Inline justify="between" align="center">
+          <span
+            style={{
+              fontSize: "var(--font-size-xs)",
+              fontWeight: "var(--font-weight-medium)",
+              color: "var(--color-text-secondary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Current Quest
+          </span>
+          <span
+            style={{
+              fontSize: "var(--font-size-sm)",
+              color: "var(--color-text-primary)",
+            }}
+          >
+            Market Analysis
+          </span>
+        </Inline>
       </Stack>
     </div>
   ),

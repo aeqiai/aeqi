@@ -152,8 +152,16 @@ export const Alignment: Story = {
 
 export const Justification: Story = {
   name: "Justification Variants",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates all five justify values: start, center, end, between, and around. Each row shows how content distributes horizontally within the container. Real product context: toolbar action alignment, card header layout.",
+      },
+    },
+  },
   render: () => {
-    const justifies = ["start", "between", "end"] as const;
+    const justifies = ["start", "center", "end", "between", "around"] as const;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {justifies.map((justify) => (
@@ -177,9 +185,9 @@ export const Justification: Story = {
                 padding: "var(--space-3)",
               }}
             >
-              <Chip label="alpha" />
-              <Chip label="beta" />
-              <Chip label="gamma" />
+              <Chip label="Research Lead" />
+              <Chip label="active" />
+              <Chip label="Nov 28" />
             </Inline>
           </div>
         ))}
@@ -262,6 +270,56 @@ export const RealUseCase: Story = {
             </svg>
           </div>
         </Inline>
+      </Inline>
+    </div>
+  ),
+};
+
+export const ResponsiveWrap: Story = {
+  name: "Responsive Wrap",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates wrap=true with a constrained 320px container. Ten tags reflow across multiple lines when they exceed available width. Canonical pattern for tag lists, chips, and breadcrumb-like surfaces.",
+      },
+    },
+  },
+  render: () => (
+    <div
+      style={{
+        width: 320,
+        padding: "var(--space-4)",
+        background: "var(--color-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md)",
+      }}
+    >
+      <p
+        style={{
+          fontSize: "var(--font-size-xs)",
+          color: "var(--color-text-muted)",
+          fontFamily: "var(--font-sans)",
+          marginBottom: 12,
+        }}
+      >
+        Quest Tags
+      </p>
+      <Inline wrap gap="2">
+        {[
+          "research",
+          "analysis",
+          "summarisation",
+          "drafting",
+          "fact-check",
+          "translation",
+          "review",
+          "optimization",
+          "validation",
+          "archival",
+        ].map((tag) => (
+          <Chip key={tag} label={tag} />
+        ))}
       </Inline>
     </div>
   ),
