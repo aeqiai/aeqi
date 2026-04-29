@@ -17,7 +17,7 @@
 .textarea {
   width: 100%;
   min-height: 80px;
-  padding: 10px var(--input-px);
+  padding: var(--input-py) var(--input-px);
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--input-radius);
@@ -46,7 +46,7 @@
 }
 
 .textarea:disabled {
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
 }
 

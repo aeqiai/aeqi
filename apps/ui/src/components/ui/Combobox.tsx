@@ -160,6 +160,9 @@ export function Combobox({
           role="listbox"
           id={id}
           aria-label="Options"
+          aria-activedescendant={
+            filtered.length > 0 && cursor !== null ? `${id}-option-${cursor}` : undefined
+          }
           onKeyDown={onKeyDown}
         >
           <div className={styles.search}>
@@ -182,6 +185,7 @@ export function Combobox({
               placeholder={searchPlaceholder}
               spellCheck={false}
               autoComplete="off"
+              aria-label="Filter options"
               onChange={(e) => {
                 setQuery(e.target.value);
                 setCursor(0);
@@ -191,7 +195,11 @@ export function Combobox({
           </div>
 
           <div className={styles.list} role="presentation">
-            {filtered.length === 0 && <div className={styles.empty}>{emptyLabel}</div>}
+            {filtered.length === 0 && (
+              <div className={styles.empty} aria-live="polite">
+                {emptyLabel}
+              </div>
+            )}
             {filtered.map((opt, idx) => {
               const isActive = idx === cursor;
               const isSelected = opt.value === value;
@@ -205,6 +213,7 @@ export function Combobox({
               return (
                 <button
                   key={opt.value}
+                  id={`${id}-option-${idx}`}
                   ref={(el) => {
                     if (el) rowRefs.current.set(opt.value, el);
                     else rowRefs.current.delete(opt.value);

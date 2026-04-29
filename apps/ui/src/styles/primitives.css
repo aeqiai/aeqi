@@ -146,7 +146,12 @@
      the same border/radius/colors so it reads as a member of the same
      family rather than a separate widget. */
   --input-h: 32px;
+  --input-h-sm: 28px;
+  --input-h-lg: 40px;
   --input-px: 12px;
+  --input-px-sm: 10px;
+  --input-px-lg: 14px;
+  --input-py: 10px;
   --input-radius: var(--radius-md);
   /* Input + toolbar-button chrome lifts to the elevated tier so it
      stays crisp white against the new mid-tone card (#fafafa). Pre-v5

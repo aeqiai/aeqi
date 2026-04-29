@@ -45,15 +45,15 @@
 }
 
 .select:disabled {
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
 }
 
 /* Size variants */
 
 .sm .select {
-  height: 28px;
-  padding: 0 10px;
+  height: var(--input-h-sm);
+  padding: 0 var(--input-px-sm);
   padding-right: 26px;
   font-size: var(--font-size-xs);
 }

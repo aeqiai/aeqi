@@ -45,7 +45,7 @@
 }
 
 .input:disabled {
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -74,8 +74,8 @@
    lg for hero/auth surfaces where the field should feel weighted. */
 
 .sm {
-  height: 28px;
-  padding: 0 10px;
+  height: var(--input-h-sm);
+  padding: 0 var(--input-px-sm);
   font-size: var(--font-size-xs);
 }
 
@@ -85,7 +85,7 @@
 }
 
 .lg {
-  height: 40px;
-  padding: 0 14px;
+  height: var(--input-h-lg);
+  padding: 0 var(--input-px-lg);
   font-size: var(--font-size-base);
 }

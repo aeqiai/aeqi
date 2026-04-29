@@ -44,7 +44,7 @@
 }
 
 .trigger:disabled {
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -75,7 +75,7 @@
 /* ── Size variants ── */
 
 .sm .trigger {
-  height: 28px;
+  height: var(--input-h-sm);
   padding: 0 10px;
   font-size: var(--font-size-xs);
 }
@@ -101,7 +101,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: var(--space-2);
 }
 
 .searchIcon {
@@ -153,7 +153,7 @@
 }
 
 .option:disabled {
-  opacity: 0.45;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -203,5 +203,5 @@
 /* ── Optional footer slot ── */
 
 .footer {
-  border-top: 1px solid var(--border-faint);
+  padding-top: var(--space-3);
 }

@@ -1,0 +1,215 @@
+import { Meta } from "@storybook/blocks";
+import { Input } from "../Input";
+import { Textarea } from "../Textarea";
+import { Select } from "../Select";
+import { Combobox } from "../Combobox";
+
+<Meta title="Foundations/Inputs" />
+
+# Inputs
+
+Four form-control primitives handle text capture and selection across the app. **Input** for single-line text, **Textarea** for multi-line composition, **Select** for small fixed option sets (browser-native dropdowns), and **Combobox** for large or searchable lists. Each carries the same semantic states and token contract; the choice depends on data shape, search need, and row count.
+
+## When to use which
+
+| Primitive    | Use when                                                         | Don't use when                                                   |
+| ------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Input**    | Single-line text (email, username, query, numbers, URLs)         | Text is multi-line or option-driven                              |
+| **Textarea** | Multi-line prose (quest descriptions, agent instructions, notes) | Text is single-line; text needs async composition controls       |
+| **Select**   | Pick one of ~3–10 fixed options, no search needed                | Option list is large (>10), search is needed, custom row styling |
+| **Combobox** | Pick one from many options; search needed; custom row meta/icons | Option set is tiny and fixed; UX doesn't require search          |
+
+## Input
+
+Single-line text field. Carries label, hint, error slots and one height canon across sizes so Input and Button line up on dense forms.
+
+### Sizes
+
+Three heights pinned to the app's row rhythm:
+
+| Size   | Height | Use when                                   |
+| ------ | ------ | ------------------------------------------ |
+| **sm** | 28px   | Inline filters, toolbar inputs             |
+| **md** | 32px   | Default everywhere; form fields, cards     |
+| **lg** | 40px   | Prominent page-level inputs, modal headers |
+
+All sizes scale padding and font proportionally; `var(--input-h)` / `var(--input-h-sm)` / `var(--input-h-lg)` keep alignment consistent with Button and row rhythm throughout the app.
+
+### States
+
+Every Input handles standard interactive states:
+
+| State             | What happens                                                                    | ARIA                                                          | Consumer concern                                             |
+| ----------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------ |
+| **default**       | Resting color per size                                                          | —                                                             | —                                                            |
+| **hover**         | Border shifts to `--input-border-focus`; optional shadow lift on some surfaces  | Focus-in not needed; native hover                             | —                                                            |
+| **focus-visible** | 3px muted halo ring (`--input-ring-focus`, distinct from action rings)          | Automatic `:focus-visible` outline                            | Works for keyboard nav; fires on Tab in, click, or selection |
+| **disabled**      | Opacity `var(--action-disabled-opacity)` (0.5); pointer-events locked           | `disabled` attribute                                          | Set `disabled` when input is not yet relevant; don't hide    |
+| **error**         | Border and ring shift to `var(--error)` red; error message fires `role="alert"` | `aria-invalid="true"`, `aria-describedby` links to error span | Render error text only when validation fails                 |
+
+### Modifier slots
+
+Label (above field), hint (below field, only when no error), and error message (replaces hint). No icon slots — a call-site audit found zero demand; visual affordance comes from label and context.
+
+All three are optional. Error dismisses the hint while active; when error clears, hint re-appears.
+
+### Accessibility
+
+Input wires:
+
+- `aria-invalid={error ? true : undefined}` — signals validation failure
+- `aria-describedby={[hintId, errorId]}` — links hint and error messages to the input
+- `aria-required` mirrors native `required` attribute
+- Error `<span>` carries `role="alert"` so screen readers announce it on focus
+
+### Storybook
+
+`Components/UI/Input` — sizes, states, label/hint/error combos, disabled, validation patterns.
+
+## Textarea
+
+Multi-line text field for prose composition (quest bodies, agent instructions, conversation history). Pair with a composer wrapper for auto-resize, toolbar, or submit logic.
+
+### Bare mode
+
+When `bare={true}`, Textarea emits only the `<textarea>` element with accessible attributes (`aria-invalid`, `aria-describedby`), no wrapper div or label/hint/error chrome. This lets consumer pages own their own layout — ideal for chat composers, inline editors, transcript canvases, and idea bodies.
+
+**Canonical pattern:** Pages that embed Textarea in custom flex layouts (ChatComposer, IdeaCanvas, EventCanvasEditor, NewAgentPage) use `bare={true}` to pair with external label and chrome.
+
+### Sizing
+
+- Intrinsic `min-height: 80px`; vertical resize enabled by default (user controls final height)
+- No size variants (sm/md/lg) — Textarea is intentionally one shape; consumers vary the surrounding container
+
+### No auto-resize
+
+Textarea does not auto-expand as text grows. That logic belongs in a higher-level composer wrapper component, not this primitive. Document this so future work doesn't add it in a panic.
+
+### States
+
+Mirrors Input family: default, hover, focus-visible, disabled, error. Same token contract.
+
+### Storybook
+
+`Components/UI/Textarea` — bare mode, with wrapper + label/hint/error, focus/disabled/error states.
+
+## Select (native)
+
+Browser-painted native `<select>` element. The browser owns dropdown rendering, keyboard navigation, scroll, and ARIA listbox semantics.
+
+### Sizes
+
+Two heights (sm, md only):
+
+| Size   | Height | Use when                                            |
+| ------ | ------ | --------------------------------------------------- |
+| **sm** | 28px   | Toolbar, filter dropdowns, secondary forms          |
+| **md** | 32px   | Default everywhere; form fields, dense list filters |
+
+No lg size — Selects don't scale up well in the system's editorial register; use Combobox if you need the visual prominence.
+
+### Trade-off
+
+**Zero customization of dropdown rows; full OS-native UX in return.** The browser renders option list, scrollbar, keyboard navigation. On macOS this is the Apple system font and blue highlight; on Windows, native Segoe UI. This is a feature: native controls feel fast, trustworthy, and universal.
+
+### When to reach for Select
+
+- Option set is small (3–10 items)
+- All options are always visible (no async loading)
+- Search is not required
+- Dropdown rows don't need icons, meta, or dividers
+
+### When to use Combobox instead
+
+- Option list exceeds ~10 items
+- Search or filtering is needed
+- Rows need custom styling: icons, description text, meta (e.g., "Engineer · 5y"), dividers
+- Async population (API fetch on open)
+
+### Storybook
+
+`Components/UI/Select` — sm/md sizes, disabled state, option variations, value binding.
+
+## Combobox (custom)
+
+Filterable listbox with custom-styled rows. Owns keyboard navigation, scroll, focus management, and instant search on every keystroke.
+
+### The companion to Select
+
+Use Combobox when Select's simplicity no longer fits: large option sets, search need, or rows that need visual structure (icons, metadata, dividers).
+
+### Keyboard navigation
+
+- <kbd>↓</kbd> / <kbd>↑</kbd> — cycle highlighted option; auto-scrolls to keep in view
+- <kbd>Enter</kbd> — commit the highlighted selection
+- <kbd>Escape</kbd> — close without changing value
+- Type to search — input field is auto-focused when panel opens
+
+### Row anatomy
+
+Each option can carry:
+
+- **label** (primary text)
+- **meta** (right-aligned secondary text, e.g., "Completed 3h ago")
+- **leadingIcon** (optional, visual affordance or status indicator)
+- Selected state shown by checkmark
+
+### Footer slot
+
+Optional content rendered below the option list (e.g., "+ Create new …" custom entry form). Useful for on-the-fly creation patterns.
+
+### ARIA
+
+- `role="combobox"` on the trigger button
+- `role="listbox"` on the panel; `id` matches trigger's `aria-controls`
+- `role="option"` on each row; `aria-selected` tracks choice state
+- `aria-activedescendant` on the listbox wires keyboard cursor to assistive tech
+- Search input carries `aria-label="Filter options"`
+
+### Storybook
+
+`Components/UI/Combobox` — sm/md sizes, search filtering, large lists, meta + icons, custom footer, disabled options, empty state.
+
+## Why two focus rings
+
+Two distinct ring styles exist across the form-control cluster — and this is intentional:
+
+**Action primitives** (Button, IconButton, TabTrigger, etc.) use `var(--focus-ring)` — a **4px composite ring** designed to read as a commit affordance. High contrast, commands attention. Used on any control where the action is the point.
+
+**Form-control primitives** (Input, Textarea, Select, Combobox trigger) use `var(--input-ring-focus)` — a **3px muted halo**. Restrained, doesn't compete with the typed value or the selected option. Used on any control where the data is the point.
+
+This split is locked. Don't unify them — the distinction prevents rings from fighting over visual hierarchy in dense forms.
+
+## Shared token contract
+
+All four primitives inherit the same foundation layer, so a new form-control can slot in without forking:
+
+- `var(--input-h)` / `var(--input-h-sm)` / `var(--input-h-lg)` — row heights (28, 32, 40px)
+- `var(--input-bg)` — resting background (muted neutral, never white)
+- `var(--input-border)` — resting border color
+- `var(--input-border-focus)` — border on hover / focus
+- `var(--input-ring-focus)` — the 3px halo on focus-visible
+- `var(--action-disabled-opacity)` — opacity on disabled (0.5)
+- `var(--transition-fast)` — all state transitions (150ms)
+- **Error state:** border + ring shift to `var(--error)` red, `var(--ring-danger)` halo
+
+When designing a new form-control, reach for these tokens first. Inventing a custom disabled value or focus ring is the last resort.
+
+## Composition patterns
+
+**Toolbar search:** Inputs in toolbars (Ideas, Quests, Events, Agents) use the canonical `.ideas-list-search-field` wrapper with leading SVG icon and optional clear button. The input itself gets `.ideas-list-search` class. See [Patterns/Toolbar](/?path=/docs/patterns-toolbar--page) for the chrome zone rules and the complete recipe.
+
+**Form stack:** Inputs vertically stacked with consistent label-above-field rhythm. The wrapper div reserves space for label + field + hint/error in a predictable layout. See FormPattern story for the grid.
+
+**Inline editing:** Bare-mode Textarea (`bare={true}`) pairs with external label and form chrome for surfaces that own their own layout. Canonical pattern for chat composers, transcript editors, idea bodies, and event canvases.
+
+## API reference
+
+See the **Docs** tab on each component for the full prop surface:
+
+- **Input** — `label`, `hint`, `error`, `size`, all standard `<input>` attributes
+- **Textarea** — `label`, `hint`, `error`, `bare`, all standard `<textarea>` attributes
+- **Select** — `options` array (value/label/disabled), `value`, `onChange`, `placeholder`, `size`, `fullWidth`
+- **Combobox** — `options` array (value/label/meta/disabled), `value`, `onChange`, `placeholder`, `searchPlaceholder`, `emptyLabel`, `footer`, `size`
+
+All are forwarded with `forwardRef` for direct DOM access when needed.

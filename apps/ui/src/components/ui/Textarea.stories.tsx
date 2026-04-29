@@ -10,8 +10,14 @@ const meta: Meta<typeof Textarea> = {
     docs: {
       description: {
         component:
-          "Multi-line text input with the same label/hint/error pattern as `Input`. Use for free-form prose: identity ideas, acceptance criteria, and message composition.",
+          "Multi-line text input with the same label/hint/error pattern as `Input`. Use for free-form prose: identity ideas, acceptance criteria, and message composition. Bare mode (bare=true) emits only the textarea element for use in custom flex layouts.",
       },
+    },
+  },
+  argTypes: {
+    bare: {
+      control: "boolean",
+      description: "When true, renders only the textarea without wrapper/label/hint/error chrome.",
     },
   },
 };
@@ -23,6 +29,13 @@ type Story = StoryObj<typeof Textarea>;
 
 export const Default: Story = {
   args: { placeholder: "Describe what the agent should do...", rows: 4 },
+  parameters: {
+    docs: {
+      description: {
+        story: "Basic multi-line input with placeholder and row height.",
+      },
+    },
+  },
 };
 
 export const WithLabel: Story = {
@@ -31,14 +44,29 @@ export const WithLabel: Story = {
     placeholder: "You are an agent that...",
     rows: 4,
   },
+  parameters: {
+    docs: {
+      description: {
+        story: "Textarea with optional label rendered above the field.",
+      },
+    },
+  },
 };
 
-export const WithHint: Story = {
+export const WithHelper: Story = {
+  name: "With Helper Text",
   args: {
     label: "Acceptance criteria",
     placeholder: "Define what done looks like...",
     hint: "Be specific — agents use this to decide when a quest is complete.",
     rows: 3,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: "Hint text rendered below the textarea when no error is present.",
+      },
+    },
   },
 };
 
@@ -49,6 +77,13 @@ export const WithError: Story = {
     error: "Quest description must be at least 20 characters.",
     rows: 3,
   },
+  parameters: {
+    docs: {
+      description: {
+        story: "Error state with role='alert'. Replaces hint text and sets aria-invalid=true.",
+      },
+    },
+  },
 };
 
 export const Disabled: Story = {
@@ -57,6 +92,77 @@ export const Disabled: Story = {
     value: "You are part of the orchestrator tree. Delegate aggressively.",
     disabled: true,
     rows: 3,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: "Disabled textarea for read-only or locked fields.",
+      },
+    },
+  },
+};
+
+/* ── Size / affordance ── */
+
+export const MinHeight: Story = {
+  name: "Min Height (empty affordance)",
+  render: () => (
+    <div style={{ maxWidth: 420 }}>
+      <Textarea
+        label="Notes"
+        placeholder="Start typing..."
+        style={{ minHeight: "120px" }}
+        rows={3}
+      />
+      <p style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 8, margin: 0 }}>
+        min-height creates multi-line affordance even with empty content.
+      </p>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates how min-height on the textarea element creates the multi-line affordance before the user types.",
+      },
+    },
+  },
+};
+
+/* ── Bare mode ── */
+
+export const BareComposer: Story = {
+  name: "Bare Mode (composer)",
+  render: () => (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "flex-end",
+        padding: 16,
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md)",
+        backgroundColor: "var(--color-bg-paper)",
+      }}
+    >
+      <Textarea
+        bare={true}
+        placeholder="Send a message..."
+        rows={1}
+        style={{ flex: 1, minHeight: "40px" }}
+      />
+      <Button variant="primary" size="md">
+        Send
+      </Button>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Bare mode emits only the textarea without wrapper/label/hint/error chrome. Use when a surface owns its own form chrome (chat composers, inline editors). The parent controls spacing, layout, and button placement.",
+      },
+    },
   },
 };
 

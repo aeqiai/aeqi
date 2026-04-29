@@ -21,6 +21,23 @@ const meta: Meta<typeof Select> = {
   title: "Primitives/Inputs/Select",
   component: Select,
   tags: ["autodocs"],
+  parameters: {
+    docs: {
+      description: {
+        component: `
+Native HTML select element with aeqi design tokens. Use for predefined option sets where the user chooses one value. For searchable lists, use Combobox instead.
+
+**Size rule:** \`md\` (32px) matches the app's \`--input-h\` rhythm. Use \`sm\` for toolbars.
+        `,
+      },
+    },
+  },
+  argTypes: {
+    size: {
+      control: "select",
+      options: ["sm", "md"],
+    },
+  },
 };
 
 export default meta;
@@ -31,32 +48,71 @@ export const Default: Story = {
     options: SCOPE_OPTIONS,
     value: "self",
   },
-};
-
-export const SizeSm: Story = {
-  name: "Size: sm",
-  args: {
-    options: SCOPE_OPTIONS,
-    value: "self",
-    size: "sm",
+  parameters: {
+    docs: {
+      description: {
+        story: "Basic select with md size and initial value. Trigger shows the selected option.",
+      },
+    },
   },
 };
 
-export const SizeMd: Story = {
-  name: "Size: md",
-  args: {
-    options: SCOPE_OPTIONS,
-    value: "self",
-    size: "md",
+export const AllSizes: Story = {
+  name: "Size Scale",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 8px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          sm (28px)
+        </p>
+        <Select options={SCOPE_OPTIONS} value="self" size="sm" />
+      </div>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 8px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          md (32px) — default
+        </p>
+        <Select options={SCOPE_OPTIONS} value="self" size="md" />
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: "sm for toolbars and compact layouts; md for standard forms.",
+      },
+    },
   },
 };
 
 export const WithPlaceholder: Story = {
-  name: "Empty state (placeholder)",
+  name: "Empty State (placeholder)",
   args: {
     options: MODEL_OPTIONS,
     placeholder: "Select a model…",
     value: "",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: "Empty initial state with placeholder text shown in the trigger before selection.",
+      },
+    },
   },
 };
 
@@ -66,13 +122,45 @@ export const Disabled: Story = {
     value: "global",
     disabled: true,
   },
+  parameters: {
+    docs: {
+      description: {
+        story: "Disabled select prevents interaction.",
+      },
+    },
+  },
 };
 
 export const WithDisabledOption: Story = {
-  name: "Option disabled",
+  name: "With Disabled Option",
   args: {
     options: MODEL_OPTIONS,
     value: "claude-opus-4",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Option-level disabled state (some options not selectable). GPT-4o is disabled in this example.",
+      },
+    },
+  },
+};
+
+export const FullWidth: Story = {
+  name: "Full Width",
+  render: () => (
+    <div style={{ maxWidth: 360 }}>
+      <Select options={SCOPE_OPTIONS} value="self" />
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Select stretches to fill the width of its container. Use in forms where the input should span the available width.",
+      },
+    },
   },
 };
 
@@ -90,14 +178,4 @@ export const Controlled: Story = {
       </div>
     );
   },
-};
-
-export const BothSizes: Story = {
-  name: "Both sizes",
-  render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 240 }}>
-      <Select options={SCOPE_OPTIONS} value="self" size="sm" />
-      <Select options={SCOPE_OPTIONS} value="self" size="md" />
-    </div>
-  ),
 };

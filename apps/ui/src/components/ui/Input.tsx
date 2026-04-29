@@ -34,6 +34,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           .filter(Boolean)
           .join(" ")}
         aria-invalid={error ? true : undefined}
+        aria-required={rest.required ? true : undefined}
         aria-describedby={describedBy}
         {...rest}
       />
