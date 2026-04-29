@@ -19,7 +19,8 @@
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@aeqi/web-shared/*": ["../../packages/web-shared/src/*"]
     }
   },
   "include": ["src", "vite-env.d.ts"]

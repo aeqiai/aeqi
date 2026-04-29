@@ -56,7 +56,8 @@ export class PlausibleAnalytics implements AnalyticsProvider {
 
   pageview(path: string, props?: AnalyticsProps): void {
     if (!this.enabled) return;
-    const url = typeof window !== "undefined" ? window.location.origin + path : path;
+    const url =
+      typeof window !== "undefined" ? window.location.origin + path : path;
     this.call("pageview", { props, u: url });
   }
 
@@ -65,7 +66,10 @@ export class PlausibleAnalytics implements AnalyticsProvider {
     this.call(event, props ? { props } : undefined);
   }
 
-  private call(event: string, options?: { props?: AnalyticsProps; u?: string }): void {
+  private call(
+    event: string,
+    options?: { props?: AnalyticsProps; u?: string },
+  ): void {
     if (typeof window === "undefined") return;
     // Plausible's standard queue shim. Calls made before the script
     // finishes loading land in `plausible.q` and are flushed by the
@@ -73,7 +77,8 @@ export class PlausibleAnalytics implements AnalyticsProvider {
     // the real implementation.
     if (!window.plausible) {
       const queue: unknown[] = [];
-      const stub = ((e: string, o?: object) => queue.push([e, o])) as Window["plausible"];
+      const stub = ((e: string, o?: object) =>
+        queue.push([e, o])) as Window["plausible"];
       (stub as { q?: unknown[] }).q = queue;
       window.plausible = stub;
     }
@@ -84,9 +89,12 @@ export class PlausibleAnalytics implements AnalyticsProvider {
     if (this.scriptInjected) return;
     if (typeof document === "undefined") return;
     const variant =
-      this.config.scriptVariant ?? "manual.outbound-links.file-downloads.tagged-events";
+      this.config.scriptVariant ??
+      "manual.outbound-links.file-downloads.tagged-events";
     const src = `${this.config.apiHost.replace(/\/$/, "")}/js/script.${variant}.js`;
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${src}"]`,
+    );
     if (existing) {
       this.scriptInjected = true;
       return;
@@ -95,7 +103,10 @@ export class PlausibleAnalytics implements AnalyticsProvider {
     tag.defer = true;
     tag.src = src;
     tag.setAttribute("data-domain", this.config.domain);
-    tag.setAttribute("data-api", `${this.config.apiHost.replace(/\/$/, "")}/api/event`);
+    tag.setAttribute(
+      "data-api",
+      `${this.config.apiHost.replace(/\/$/, "")}/api/event`,
+    );
     document.head.appendChild(tag);
     this.scriptInjected = true;
   }

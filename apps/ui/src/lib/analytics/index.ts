@@ -1,34 +1,31 @@
 /**
- * Public surface for analytics. Components should import from here only:
+ * Public surface for analytics. Components import from here only:
  *
  *   import { useTrack, Events } from "@/lib/analytics";
  *
- * Provider wiring (the `createAnalytics` factory + `<AnalyticsProvider>`)
- * lives at the root in `main.tsx`. Adapter implementations
- * (`PlausibleAnalytics`, `NullAnalytics`) are not re-exported — that
- * boundary stays inside this folder so swapping providers is a one-file
- * change.
+ * The provider machinery (interface, adapters, React provider, hooks)
+ * lives in `@aeqi/web-shared/analytics`. This file wires the
+ * apps/ui-specific bits — consent storage and the createAnalytics
+ * factory — onto that machinery. To swap vendors, change the body of
+ * `createAnalytics` and the underlying adapter.
  */
 
-import { NullAnalytics } from "./null";
-import { PlausibleAnalytics } from "./plausible";
+import { NullAnalytics, PlausibleAnalytics } from "@aeqi/web-shared/analytics";
+import type { IAnalyticsProvider } from "@aeqi/web-shared/analytics";
 import { readConsent } from "./consent";
-import type { AnalyticsProvider } from "./types";
 
-export { AnalyticsProvider } from "./context";
-export { useAnalytics, useTrack } from "./hooks";
-export { Events } from "./types";
-export type { AnalyticsProps, EventName } from "./types";
+export { AnalyticsProvider, useAnalytics, useTrack, Events } from "@aeqi/web-shared/analytics";
+export type { AnalyticsProps, EventName } from "@aeqi/web-shared/analytics";
 export { readConsent, writeConsent, onConsentChange } from "./consent";
 export type { ConsentLevel } from "./consent";
 
 /**
  * Build the analytics instance for this app. Driven by Vite env so tests
  * and ephemeral previews fall back to a no-op without touching any
- * caller. To swap vendors, change the body of this function and the
- * adapter file — every `useTrack()` call site is unchanged.
+ * caller. To swap vendors, change the body of this function — every
+ * `useTrack()` call site is unchanged.
  */
-export function createAnalytics(): AnalyticsProvider {
+export function createAnalytics(): IAnalyticsProvider {
   const domain = import.meta.env.VITE_ANALYTICS_DOMAIN as string | undefined;
   const apiHost = import.meta.env.VITE_ANALYTICS_HOST as string | undefined;
   if (!domain || !apiHost) return new NullAnalytics();

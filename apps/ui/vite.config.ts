@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import pkg from "./package.json" with { type: "json" };
+
+const webSharedSrc = fileURLToPath(new URL("../../packages/web-shared/src", import.meta.url));
 
 export default defineConfig({
   define: {
@@ -10,6 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": "/src",
+      "@aeqi/web-shared": webSharedSrc,
     },
   },
   build: {

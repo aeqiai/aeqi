@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import App from "./App";
 import { wagmiConfig } from "./lib/wagmiConfig";
-import { AnalyticsProvider, createAnalytics } from "./lib/analytics";
+import { AnalyticsProvider, createAnalytics, onConsentChange, readConsent } from "./lib/analytics";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./styles/index.css";
 
@@ -41,7 +41,13 @@ createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={darkTheme()} modalSize="compact">
           <BrowserRouter>
-            <AnalyticsProvider analytics={analytics}>
+            <AnalyticsProvider
+              analytics={analytics}
+              initiallyEnabled={readConsent() === "all"}
+              subscribeConsent={(setEnabled) =>
+                onConsentChange((level) => setEnabled(level === "all"))
+              }
+            >
               <App />
             </AnalyticsProvider>
           </BrowserRouter>

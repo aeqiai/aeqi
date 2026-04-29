@@ -1,0 +1,17 @@
+{
+  "name": "@aeqi/web-shared",
+  "version": "0.1.0",
+  "description": "AEQI shared web primitives — analytics provider abstraction, hooks, adapters",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./analytics": "./src/analytics/index.ts",
+    "./analytics/plausible": "./src/analytics/plausible.ts",
+    "./analytics/null": "./src/analytics/null.ts"
+  },
+  "files": ["src"],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-router-dom": ">=6"
+  }
+}

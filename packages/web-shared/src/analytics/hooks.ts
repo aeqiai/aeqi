@@ -14,7 +14,8 @@ export function useAnalytics(): AnalyticsProvider {
 export function useTrack() {
   const analytics = useAnalytics();
   return useMemo(
-    () => (event: string, props?: AnalyticsProps) => analytics.track(event, props),
+    () => (event: string, props?: AnalyticsProps) =>
+      analytics.track(event, props),
     [analytics],
   );
 }
