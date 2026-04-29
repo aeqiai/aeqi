@@ -321,3 +321,23 @@ export interface CompanyTemplate {
   seed_ideas?: TemplateSeedIdea[];
   seed_quests?: TemplateSeedQuest[];
 }
+
+export type OccupantKind = "human" | "agent" | "vacant";
+
+/** A single org-chart slot inside an entity. Occupant is a human, an
+ *  agent, or vacant ("we're hiring"). Authority is resolved by transitive
+ *  closure over `PositionEdge` (DAG, not tree). */
+export interface Position {
+  id: string;
+  entity_id: string;
+  title: string;
+  occupant_kind: OccupantKind;
+  occupant_id: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface PositionEdge {
+  parent_position_id: string;
+  child_position_id: string;
+}

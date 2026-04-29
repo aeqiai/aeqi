@@ -7,6 +7,9 @@ import type {
   EventInvocationRow,
   Idea,
   InvocationStepRow,
+  OccupantKind,
+  Position,
+  PositionEdge,
   Quest,
   ScopeValue,
 } from "@/lib/types";
@@ -297,6 +300,24 @@ export const api = {
         ...data,
         ...(data.name ? { new_name: data.name } : {}),
       }),
+    }),
+
+  // Positions — the org-chart primitive. Returns the full set of positions +
+  // edges for the entity so the caller can render either a flat list or a DAG.
+  getPositions: (entityId: string) =>
+    request<{ ok: boolean; positions: Position[]; edges: PositionEdge[] }>(
+      `/positions?entity_id=${encodeURIComponent(entityId)}`,
+    ),
+  createPosition: (data: {
+    entity_id: string;
+    title: string;
+    occupant_kind: OccupantKind;
+    occupant_id?: string;
+    parent_position_id?: string;
+  }) =>
+    request<{ ok: boolean; position: Position }>("/positions", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 
   getQuests: (params?: { status?: string; root?: string }) => {
@@ -595,6 +616,16 @@ export const api = {
 
   spawnBlueprint: (data: { blueprint: string; name?: string }) =>
     request<{ ok: boolean; entity_id: string }>("/blueprints/spawn", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Platform-side launch — creates the runtime placement, kicks off the
+  // sandbox provisioner, and returns the slug. The platform back-fills
+  // `runtime_placements.agent_id` once the sandbox reports the new
+  // entity's runtime UUID, so subsequent `getEntities()` calls surface it.
+  startLaunch: (data: { template: string; name: string }) =>
+    request<{ ok: boolean; root: string }>("/start/launch", {
       method: "POST",
       body: JSON.stringify(data),
     }),

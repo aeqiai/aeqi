@@ -63,6 +63,7 @@ const COMPANY_ROOT_TABS = new Set([
   "ideas",
   "metrics",
   "ownership",
+  "positions",
   "projects",
   "quests",
   "treasury",

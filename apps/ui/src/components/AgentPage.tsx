@@ -8,6 +8,7 @@ import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
+import EntityPositionsTab from "./EntityPositionsTab";
 import AgentIntegrationsTab from "@/pages/Agent/Integrations";
 import AgentPlanTab from "@/pages/Agent/PlanTab";
 import AgentOrgChart from "./AgentOrgChart";
@@ -30,6 +31,7 @@ const SETTINGS_SUB_TABS = [
 const TABS = [
   { id: "sessions", label: "Sessions" },
   { id: "settings", label: "Settings" },
+  { id: "positions", label: "Positions" },
   { id: "agents", label: "Agents" },
   { id: "events", label: "Events" },
   { id: "channels", label: "Channels" },
@@ -112,6 +114,8 @@ export default function AgentPage({
       {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}
 
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
+
+      {activeTab === "positions" && <EntityPositionsTab entityId={resolvedAgentId} />}
 
       {(activeTab === "settings" ||
         activeTab === "channels" ||

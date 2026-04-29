@@ -611,6 +611,71 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Phase-0 schema for the position primitive. Positions are the canonical
+/// org-chart slot inside an entity; an occupant is a human, an agent, or
+/// vacant. Authority is resolved by transitive closure over `position_edges`
+/// (DAG — flat boards at the top are first-class).
+fn bootstrap_position_tables(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS positions (
+             id TEXT PRIMARY KEY,
+             entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+             title TEXT NOT NULL DEFAULT '',
+             occupant_kind TEXT NOT NULL CHECK (occupant_kind IN ('human','agent','vacant')),
+             occupant_id TEXT,
+             created_at TEXT NOT NULL,
+             updated_at TEXT,
+             CHECK (
+                 (occupant_kind = 'vacant' AND occupant_id IS NULL)
+                 OR (occupant_kind IN ('human','agent') AND occupant_id IS NOT NULL)
+             )
+         );
+         CREATE INDEX IF NOT EXISTS idx_positions_entity ON positions(entity_id);
+         CREATE INDEX IF NOT EXISTS idx_positions_occupant
+             ON positions(occupant_kind, occupant_id);
+
+         CREATE TABLE IF NOT EXISTS position_edges (
+             parent_position_id TEXT NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+             child_position_id TEXT NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+             PRIMARY KEY (parent_position_id, child_position_id),
+             CHECK (parent_position_id <> child_position_id)
+         );
+         CREATE INDEX IF NOT EXISTS idx_position_edges_child
+             ON position_edges(child_position_id);",
+    )?;
+    Ok(())
+}
+
+/// One-shot, idempotent backfill: every existing agent gets a position in
+/// its owning entity (`position.id = agent.id` — different tables, different
+/// namespaces, no collision). Every agent.parent_id link becomes a
+/// position_edge. Re-running is safe: ON CONFLICT DO NOTHING short-circuits
+/// rows already present. Once dual-write goes live in Phase 1, every new
+/// agent INSERT also writes its position; this function then becomes a
+/// no-op on every boot.
+fn backfill_positions_from_agent_tree(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "INSERT INTO positions (id, entity_id, title, occupant_kind, occupant_id, created_at)
+         SELECT a.id, a.entity_id, a.name, 'agent', a.id, a.created_at
+         FROM agents a
+         WHERE a.entity_id IS NOT NULL
+         ON CONFLICT(id) DO NOTHING;",
+    )?;
+
+    conn.execute_batch(
+        "INSERT INTO position_edges (parent_position_id, child_position_id)
+         SELECT a.parent_id, a.id
+         FROM agents a
+         WHERE a.parent_id IS NOT NULL
+           AND a.entity_id IS NOT NULL
+           AND EXISTS (SELECT 1 FROM positions WHERE id = a.parent_id)
+           AND EXISTS (SELECT 1 FROM positions WHERE id = a.id)
+         ON CONFLICT(parent_position_id, child_position_id) DO NOTHING;",
+    )?;
+
+    Ok(())
+}
+
 /// Idempotent migration: adds the `reply_allowed` column to
 /// `channel_allowed_chats`. DEFAULT 1 preserves the legacy semantics for
 /// pre-existing rows — every previously-whitelisted chat keeps its ability
@@ -975,6 +1040,15 @@ impl AgentRegistry {
              END;",
         )?;
 
+        // ── Position primitive — Phase 0 (additive, idempotent) ─────────────
+        // Positions are the canonical org-chart slot in an entity.
+        // Authority resolution = transitive closure over `position_edges`
+        // (DAG, not a tree — boards of directors are flat sets at the top).
+        // An occupant is a human (users.id), an agent (agents.id), or vacant.
+        // The same agent or human can occupy positions across many entities.
+        bootstrap_position_tables(&conn)?;
+        backfill_positions_from_agent_tree(&conn)?;
+
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
         info!(path = %db_path.display(), pool_size = 4, "aeqi.db opened");
@@ -1260,6 +1334,26 @@ impl AgentRegistry {
                  FROM agent_ancestry WHERE descendant_id = ?2",
                 params![agent.id, pid],
             )?;
+        }
+
+        // Phase-1 dual-write — mint the position that mirrors this agent's
+        // org-chart slot. position.id == agent.id (different tables, no PK
+        // collision); occupant points back at the agent. Idempotent.
+        if let Some(ref eid) = entity_id {
+            db.execute(
+                "INSERT INTO positions (id, entity_id, title, occupant_kind, occupant_id, created_at)
+                 VALUES (?1, ?2, ?3, 'agent', ?1, ?4)
+                 ON CONFLICT(id) DO NOTHING",
+                params![agent.id, eid, agent.name, agent.created_at.to_rfc3339()],
+            )?;
+            if let Some(pid) = parent_id {
+                db.execute(
+                    "INSERT INTO position_edges (parent_position_id, child_position_id)
+                     VALUES (?1, ?2)
+                     ON CONFLICT(parent_position_id, child_position_id) DO NOTHING",
+                    params![pid, agent.id],
+                )?;
+            }
         }
 
         info!(id = %agent.id, name = %agent.name, parent_id = ?parent_id, "agent spawned");

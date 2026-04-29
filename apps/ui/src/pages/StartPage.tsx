@@ -13,12 +13,6 @@ import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 import "@/styles/start.css";
 
-type SpawnBlueprintResponse = Awaited<ReturnType<typeof api.spawnBlueprint>>;
-
-function entityIdFromSpawn(resp: SpawnBlueprintResponse): string {
-  return resp.entity_id ?? "";
-}
-
 /**
  * `/start` — the single place a Company is created.
  *
@@ -29,7 +23,10 @@ function entityIdFromSpawn(resp: SpawnBlueprintResponse): string {
  * (server creates an immutable entity id); the user renames in Settings later.
  *
  * Flow:
- * - Free → POST /api/blueprints/spawn and navigate by the returned entity id.
+ * - Free → POST /api/start/launch (platform-side) which registers a
+ *   runtime placement, kicks off the personal-sandbox provisioner, and
+ *   returns the company slug. Navigate to the new entity's Positions
+ *   tab so the user lands directly on the seeded org chart.
  * - Paid → POST /api/billing/checkout for a Stripe Checkout session and
  *   redirect to the returned URL. On success Stripe sends the user back
  *   to /account/billing?spawn=:slug&plan=:id where the billing track
@@ -135,15 +132,20 @@ export default function StartPage() {
         }
         setSubmitting("free");
         try {
-          const resp = await api.spawnBlueprint({
-            blueprint: template.slug,
+          // Platform-side launch: registers the placement, provisions a
+          // personal sandbox, seeds the chosen blueprint. Returns the slug
+          // synchronously; entity UUID back-fills via fetchEntities once
+          // the sandbox runtime reports its root.
+          const resp = await api.startLaunch({
+            template: template.slug,
             name: template.name,
           });
-          const entityId = entityIdFromSpawn(resp);
-          if (!entityId) throw new Error("Launch returned no entity id.");
-          setActiveEntity(entityId);
+          if (!resp.ok || !resp.root) throw new Error("Launch returned no slug.");
+          setActiveEntity(resp.root);
           await Promise.all([fetchAgents(), fetchEntities()]);
-          navigate(`/${encodeURIComponent(entityId)}/sessions`);
+          // Land on Positions so the user immediately sees the org chart
+          // the blueprint just seeded — that's the "company is real" moment.
+          navigate(`/${encodeURIComponent(resp.root)}/positions`);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "Could not launch the Company.";
           setSubmitError(msg);

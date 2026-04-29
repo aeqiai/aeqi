@@ -60,6 +60,15 @@ const AgentsIcon = () => (
   </svg>
 );
 
+const PositionsIcon = () => (
+  <svg {...iconProps}>
+    <rect x="6" y="2" width="4" height="2.5" rx="0.5" />
+    <rect x="2" y="11.5" width="4" height="2.5" rx="0.5" />
+    <rect x="10" y="11.5" width="4" height="2.5" rx="0.5" />
+    <path d="M8 4.5v3M8 7.5h-4v4M8 7.5h4v4" />
+  </svg>
+);
+
 const EventsIcon = () => (
   <svg {...iconProps}>
     <path d="M9 2 4 9h4l-1 5 5-7H8z" />
@@ -294,6 +303,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         {/* ── Build — the active product surface. Everything below is
             either Operate or Control, both currently coming-soon. ── */}
         <SidebarGroup title="Build" groupKey="build">
+          {navItem("positions", "Positions", <PositionsIcon />)}
           {navItem("agents", "Agents", <AgentsIcon />)}
           {navItem("events", "Events", <EventsIcon />)}
           {navItem("quests", "Quests", <QuestsIcon />)}
