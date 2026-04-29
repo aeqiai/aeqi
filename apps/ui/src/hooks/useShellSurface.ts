@@ -20,6 +20,10 @@ export interface ShellSurface {
   isDrive: boolean;
   isStart: boolean;
   isUserSession: boolean;
+  /** True when the path doesn't match any known shell surface — drives the
+   *  in-shell 404 dispatch. Stays false for `/`, `/me/...`, `/start`,
+   *  `/sessions/:id`, `/economy/...`, and `/c/:entityId/...`. */
+  isNotFound: boolean;
   /** Session id from /sessions/:sessionId (user-scope inbox view). */
   userSessionId: string | null;
   /** Blueprint slug from /economy/blueprints/:slug — null on the catalog
@@ -39,15 +43,30 @@ export function useShellSurface(
     const userSessionId = userSessionMatch ? decodeURIComponent(userSessionMatch[1]) : null;
     const isUserSession = !!userSessionId;
 
-    const isSettings = path === "/account" || path.startsWith("/account/") || tab === "profile";
+    const isSettings = path === "/me" || path.startsWith("/me/") || tab === "profile";
     const isBlueprints = path === "/economy/blueprints" || path.startsWith("/economy/blueprints/");
     const blueprintMatch = path.match(/^\/economy\/blueprints\/([^/]+)\/?$/);
     const blueprintSlug = blueprintMatch ? decodeURIComponent(blueprintMatch[1]) : null;
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
     const isStart = path === "/start";
     const isDrive = tab === "drive";
+
+    // A path is "known" when it matches one of the registered shell
+    // surfaces. Anything else is a 404 — including bogus top-level
+    // segments (`/foo`) that would otherwise fall through to a stale
+    // active-entity render.
+    const isCompanyRoute = path === "/" || /^\/c\/[^/]+(\/|$)/.test(path);
+    const isKnownShellRoute = isCompanyRoute || isSettings || isEconomy || isStart || isUserSession;
+    const isNotFound = !isKnownShellRoute;
+
     const isHome =
-      !entityId && !isSettings && !isBlueprints && !isEconomy && !isStart && !isUserSession;
+      !entityId &&
+      !isSettings &&
+      !isBlueprints &&
+      !isEconomy &&
+      !isStart &&
+      !isUserSession &&
+      !isNotFound;
 
     return {
       isHome,
@@ -57,6 +76,7 @@ export function useShellSurface(
       isDrive,
       isStart,
       isUserSession,
+      isNotFound,
       userSessionId,
       blueprintSlug,
     };

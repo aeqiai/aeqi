@@ -31,7 +31,7 @@ export function useDaemonSocket() {
       // No active entity = no scope to subscribe to. The backend proxy
       // requires `root` to route to a runtime; opening with `root=`
       // (empty) just produces a wss handshake error and a reconnect
-      // loop. User-scope routes (`/`, `/account`) hit this every time.
+      // loop. User-scope routes (`/`, `/me`) hit this every time.
       if (!entity) {
         setWsConnected(false);
         return;

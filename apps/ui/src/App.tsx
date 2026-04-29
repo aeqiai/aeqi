@@ -95,7 +95,7 @@ function GatedAppShell() {
  * Version C — entity-root URL architecture. The app shell lives at
  * `/c/:entityId/...`; the sidebar always navigates inside that entity. Child
  * agents remain addressable at `/c/:entityId/agents/:agentId/...`. Profile
- * lives at `/account` (top-level, user-scoped) so it never dead-ends when
+ * lives at `/me` (top-level, user-scoped) so it never dead-ends when
  * no root is active; it still inherits the shell.
  */
 export default function App() {
@@ -147,8 +147,8 @@ export default function App() {
                       literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
-                    <Route path="account" element={null} />
-                    <Route path="account/:tab" element={null} />
+                    <Route path="me" element={null} />
+                    <Route path="me/:tab" element={null} />
                     {/* /start renders inside the shell — Company
                         creation is part of the app, not a separate
                         wizard. AppLayout dispatches StartPage when
@@ -172,6 +172,9 @@ export default function App() {
                       <Route path=":tab" element={null} />
                       <Route path=":tab/:itemId" element={null} />
                     </Route>
+                    {/* Catch-all 404 inside the protected shell. Lives
+                        last so every other matcher above wins first. */}
+                    <Route path="*" element={null} />
                   </Route>
                 </Routes>
               </ProtectedRoute>

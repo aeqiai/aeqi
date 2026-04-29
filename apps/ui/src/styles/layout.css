@@ -6157,6 +6157,13 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   outline: 1px solid var(--border-hover);
   outline-offset: -1px;
 }
+/* Single-company at entity scope: trigger downgrades to a static label. */
+.company-switcher-trigger--static {
+  cursor: default;
+}
+.company-switcher-trigger--static:hover {
+  background: transparent;
+}
 .company-switcher-avatar {
   width: 16px;
   flex-shrink: 0;

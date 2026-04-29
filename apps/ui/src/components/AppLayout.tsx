@@ -31,6 +31,7 @@ const StartPage = lazy(() => import("@/pages/StartPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
+const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
 // Tabs whose content is wrapped by CompanyPage's PageRail (Overview,
@@ -168,7 +169,16 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
 
-  const { isHome, isSettings, isEconomy, isDrive, isStart, isUserSession, userSessionId } = surface;
+  const {
+    isHome,
+    isSettings,
+    isEconomy,
+    isDrive,
+    isStart,
+    isUserSession,
+    isNotFound,
+    userSessionId,
+  } = surface;
 
   if (!initialLoaded) return <BootLoader />;
 
@@ -214,6 +224,7 @@ export default function AppLayout() {
   }
 
   const mainContent = (() => {
+    if (isNotFound) return <NotFoundPage />;
     if (isStart) return <StartPage />;
     if (isUserSession && userSessionId) return <UserInboxSessionView sessionId={userSessionId} />;
     if (isHome) return <HomeDashboard />;
@@ -233,19 +244,27 @@ export default function AppLayout() {
   })();
 
   const sessionsMounted =
-    isUserSession ||
-    (!isDrive && !isSettings && !isHome && !isStart && !isEconomy && effectiveTab === "sessions");
+    !isNotFound &&
+    (isUserSession ||
+      (!isDrive &&
+        !isSettings &&
+        !isHome &&
+        !isStart &&
+        !isEconomy &&
+        effectiveTab === "sessions"));
   const showComposer = sessionsMounted;
   // inbox-mode: at / and /sessions/:id (user scope) — items across all agents.
   // agent-mode: at /c/<entity>/sessions[/...] — that agent's sessions only.
-  const inboxRail = (isHome || isUserSession) && !isSettings && !isEconomy && !isStart;
+  const inboxRail =
+    (isHome || isUserSession) && !isSettings && !isEconomy && !isStart && !isNotFound;
   const agentRail =
     effectiveTab === "sessions" &&
     !!routeEntityId &&
     !isSettings &&
     !isDrive &&
     !isHome &&
-    !isStart;
+    !isStart &&
+    !isNotFound;
   const showSessionsRail = inboxRail || agentRail;
   const railMode: "inbox" | "agent" = inboxRail ? "inbox" : "agent";
 

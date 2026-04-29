@@ -71,11 +71,10 @@ export default function AccountDropdown() {
   const [open, setOpen] = useState(false);
 
   const isAccount =
-    (pathname === "/account" || pathname.startsWith("/account/")) &&
-    pathname !== "/account/billing";
+    (pathname === "/me" || pathname.startsWith("/me/")) && pathname !== "/me/billing";
   const isPersonalInbox = pathname === "/";
-  const isBilling = pathname === "/account/billing";
-  const triggerActive = pathname === "/account" || pathname.startsWith("/account/");
+  const isBilling = pathname === "/me/billing";
+  const triggerActive = pathname === "/me" || pathname.startsWith("/me/");
 
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
@@ -124,7 +123,7 @@ export default function AccountDropdown() {
           <>
             <SelectOption
               selected={isAccount}
-              onClick={() => go("/account")}
+              onClick={() => go("/me")}
               leadingIcon={<AccountIcon />}
             >
               Account
@@ -154,7 +153,7 @@ export default function AccountDropdown() {
             </SelectOption>
             <SelectOption
               selected={isBilling}
-              onClick={() => go("/account/billing")}
+              onClick={() => go("/me/billing")}
               leadingIcon={<BillingIcon />}
             >
               Billing
