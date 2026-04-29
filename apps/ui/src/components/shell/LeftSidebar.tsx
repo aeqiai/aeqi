@@ -8,10 +8,12 @@ import Wordmark from "@/components/Wordmark";
 import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
-// Company sub-rail tabs are page-internal (rendered by CompanyPage's
-// PageRail). They share the entity base path with the sidebar's Company
-// nav item, so the Company row stays lit on every company sub-tab.
-const COMPANY_SUB_TABS = ["overview", "positions", "agents", "events", "quests", "ideas"];
+// Sub-tabs owned by Company's PageRail (rendered by CompanyPage). They
+// share the entity base path with the sidebar's Company nav item, so
+// the Company row stays lit on these. Agents / Events / Quests / Ideas
+// are top-level primitives in the global sidebar — they own their own
+// active state and must NOT also light up the Company row.
+const COMPANY_SUB_TABS = ["overview", "positions"];
 
 interface LeftSidebarProps {
   /** Canonical company root id. Sidebar tabs are company-scoped, not child-agent scoped. */
