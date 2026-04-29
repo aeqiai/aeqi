@@ -44,6 +44,21 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  requestLoginCode: (email: string) =>
+    request<{ ok: boolean }>("/auth/login/code/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  consumeLoginCode: (email: string, code: string) =>
+    request<{ ok: boolean; token: string; user?: Record<string, unknown> }>(
+      "/auth/login/code/consume",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+      },
+    ),
+
   signup: (email: string, password: string, name: string, inviteCode?: string) =>
     request<{
       ok: boolean;

@@ -76,6 +76,60 @@ pub async fn send_verification_email(
     send_smtp(smtp, to, &subject, &body_text, &body_html).await
 }
 
+/// Send a one-time sign-in code email (magic-link, code variant).
+pub async fn send_login_code_email(smtp: &SmtpConfig, to: &str, code: &str) -> anyhow::Result<()> {
+    let subject = "Your aeqi sign-in code".to_string();
+    let body_text = format!(
+        "Your aeqi sign-in code is: {code}\n\nThis code expires in 10 minutes.\n\nIf you didn't try to sign in, you can safely ignore this email."
+    );
+    let heading = format!(
+        "font-family:{FONT_DISPLAY};font-weight:600;font-size:22px;letter-spacing:-0.015em;color:#0a0a0b;margin:0 0 10px;line-height:1.2;"
+    );
+    let lede = format!(
+        "font-family:{FONT_BODY};font-size:14.5px;line-height:1.6;color:rgba(10,10,11,0.72);margin:0 0 24px;"
+    );
+    let code_box = format!(
+        "font-family:{FONT_MONO};font-size:32px;font-weight:600;letter-spacing:0.22em;text-align:center;padding:20px 16px;background:#f6f6f7;border-radius:10px;color:#0a0a0b;margin:0 0 14px;"
+    );
+    let meta = format!(
+        "font-family:{FONT_BODY};font-size:12.5px;line-height:1.55;color:rgba(10,10,11,0.5);margin:0;"
+    );
+    let body_html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<style>@font-face{{font-family:'Exo 2';font-style:normal;font-weight:600;src:url(data:font/woff2;base64,{EXO2_600_LATIN_B64}) format('woff2');}}</style>
+</head>
+<body style="margin:0;padding:0;background:#ececee;font-family:{FONT_BODY};color:rgba(10,10,11,0.9);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+<div style="width:100%;background:#ececee;padding:48px 16px;">
+  <div style="max-width:480px;margin:0 auto;">
+    <div style="text-align:center;margin:0 0 28px;line-height:0;">
+      <a href="https://aeqi.ai" style="display:inline-block;text-decoration:none;line-height:0;">
+        <img src="https://aeqi.ai/wordmark.png?v=3" alt="aeqi" width="120" height="36" style="display:inline-block;border:0;outline:none;text-decoration:none;width:120px;height:36px;">
+      </a>
+    </div>
+    <div style="background:#ffffff;border-radius:16px;padding:36px 32px;box-shadow:0 1px 0 rgba(10,10,11,0.02),0 8px 28px rgba(10,10,11,0.06);">
+      <h1 style="{heading}">Sign in to aeqi</h1>
+      <p style="{lede}">Enter this code in the tab you started in to finish signing in.</p>
+      <div style="{code_box}">{code}</div>
+      <p style="{meta}">Expires in 10 minutes.</p>
+    </div>
+    <div style="text-align:center;margin:24px 0 0;font-family:{FONT_BODY};font-size:11.5px;line-height:1.7;color:rgba(10,10,11,0.5);">
+      <p style="margin:0 0 4px;"><span style="color:rgba(10,10,11,0.7);font-weight:500;">aeqi</span> — The company OS for the agent economy.</p>
+      <p style="margin:0;">If you didn't try to sign in, you can safely ignore this email.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>"#
+    );
+
+    send_smtp(smtp, to, &subject, &body_text, &body_html).await
+}
+
 /// Send an email via SMTP using STARTTLS.
 async fn send_smtp(
     smtp: &SmtpConfig,

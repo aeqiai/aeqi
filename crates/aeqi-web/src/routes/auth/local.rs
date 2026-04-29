@@ -11,8 +11,9 @@ use crate::server::AppState;
 use aeqi_core::config::AuthMode;
 
 use super::{
-    CheckInviteRequest, EmailLoginRequest, ResendCodeRequest, SignupRequest, VerifyEmailRequest,
-    WaitlistRequest, server_configuration_error,
+    CheckInviteRequest, ConsumeLoginCodeRequest, EmailLoginRequest, RequestLoginCodeRequest,
+    ResendCodeRequest, SignupRequest, VerifyEmailRequest, WaitlistRequest,
+    server_configuration_error,
 };
 
 // ── Route builder ─────────────────────────────────────────
@@ -21,6 +22,14 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/auth/signup", post(signup_handler))
         .route("/api/auth/login/email", post(email_login_handler))
+        .route(
+            "/api/auth/login/code/request",
+            post(request_login_code_handler),
+        )
+        .route(
+            "/api/auth/login/code/consume",
+            post(consume_login_code_handler),
+        )
         .route("/api/auth/verify", post(verify_email_handler))
         .route("/api/auth/resend-code", post(resend_code_handler))
         .route("/api/auth/me", get(me_handler))
@@ -237,6 +246,89 @@ async fn email_login_handler(
                 Json(serde_json::json!({
                     "ok": false, "error": "login failed"
                 })),
+            )
+                .into_response();
+        }
+    };
+
+    let signing_key = match auth::signing_secret(&state) {
+        Ok(secret) => secret,
+        Err(err) => return server_configuration_error(err),
+    };
+    match auth::create_token(signing_key, 24, Some(&user.id), Some(&user.email)) {
+        Ok(token) => Json(serde_json::json!({
+            "ok": true, "token": token, "user": user,
+        }))
+        .into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn request_login_code_handler(
+    State(state): State<AppState>,
+    Json(body): Json<RequestLoginCodeRequest>,
+) -> Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+
+    if body.email.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"ok": false, "error": "email required"})),
+        )
+            .into_response();
+    }
+
+    if let Ok(Some(code)) = accounts.request_login_code(&body.email) {
+        if let Some(smtp) = &state.smtp {
+            let smtp = smtp.clone();
+            let email_addr = body.email.clone();
+            let code_copy = code.clone();
+            tokio::spawn(async move {
+                if let Err(e) =
+                    crate::email::send_login_code_email(&smtp, &email_addr, &code_copy).await
+                {
+                    tracing::error!("failed to send login code email to {}: {e}", email_addr);
+                }
+            });
+        } else {
+            tracing::info!(
+                "login-code: code for {} = {} (no SMTP configured)",
+                body.email,
+                code
+            );
+        }
+    }
+
+    // Always return ok to avoid leaking which emails have accounts.
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
+async fn consume_login_code_handler(
+    State(state): State<AppState>,
+    Json(body): Json<ConsumeLoginCodeRequest>,
+) -> Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+
+    let user = match accounts.consume_login_code(&body.email, &body.code) {
+        Ok(Some(u)) => u,
+        Ok(None) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "ok": false, "error": "invalid or expired code"
+                })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            tracing::error!("login code consume error: {e}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"ok": false, "error": "login failed"})),
             )
                 .into_response();
         }

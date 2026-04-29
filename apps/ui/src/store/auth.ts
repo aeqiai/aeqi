@@ -61,6 +61,8 @@ interface AuthState {
   ) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
+  requestLoginCode: (email: string) => Promise<boolean>;
+  loginWithCode: (email: string, code: string) => Promise<boolean>;
   verify2fa: (email: string, code: string) => Promise<boolean>;
   verifyTotp: (email: string, code: string) => Promise<boolean>;
   resend2fa: (email: string) => Promise<boolean>;
@@ -246,6 +248,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await api.resendCode(email);
       return true;
     } catch {
+      return false;
+    }
+  },
+
+  requestLoginCode: async (email: string) => {
+    try {
+      await api.requestLoginCode(email);
+      return true;
+    } catch {
+      // The endpoint always returns ok to avoid leaking account existence;
+      // this branch is for transport-level failures only.
+      return false;
+    }
+  },
+
+  loginWithCode: async (email: string, code: string) => {
+    set({ loading: true, error: null });
+    try {
+      const resp = await api.consumeLoginCode(email, code);
+      if (resp.ok && resp.token) {
+        localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
+        const user = (resp.user as User | undefined) || null;
+        set({ token: resp.token, user, loading: false, pendingEmail: null });
+        if (user?.roots) applyRoot(user.roots);
+        return true;
+      }
+      set({ loading: false, error: "Invalid or expired code" });
+      return false;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Sign-in failed";
+      set({ loading: false, error: msg });
       return false;
     }
   },

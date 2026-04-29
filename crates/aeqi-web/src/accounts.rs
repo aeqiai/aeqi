@@ -84,7 +84,17 @@ impl AccountStore {
             CREATE TABLE IF NOT EXISTS oauth_states (
                 state       TEXT PRIMARY KEY,
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-            );",
+            );
+            CREATE TABLE IF NOT EXISTS login_codes (
+                id          TEXT PRIMARY KEY,
+                email       TEXT NOT NULL COLLATE NOCASE,
+                code        TEXT NOT NULL,
+                expires_at  TEXT NOT NULL,
+                consumed_at TEXT,
+                attempts    INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email);",
         )?;
         // Migration: backfill free_company_used_at on existing user
         // tables (the column landed after the table did). SQLite's
@@ -359,6 +369,110 @@ impl AccountStore {
             params![id],
         )?;
         Ok(true)
+    }
+
+    /// Issue a 6-digit one-time login code for `email`. Returns `Some(code)`
+    /// when a user with that email exists, `None` otherwise — callers must
+    /// always respond `{ok: true}` to avoid leaking account existence.
+    /// Invalidates any prior un-consumed codes for the same email so a fresh
+    /// request always wins (no stockpiling).
+    pub fn request_login_code(&self, email: &str) -> anyhow::Result<Option<String>> {
+        let user_exists = {
+            let conn = self.conn.lock().unwrap();
+            conn.query_row::<i64, _, _>(
+                "SELECT COUNT(*) FROM users WHERE email = ?1",
+                params![email],
+                |row| row.get(0),
+            )
+            .unwrap_or(0)
+                > 0
+        };
+        if !user_exists {
+            return Ok(None);
+        }
+
+        let code = format!("{:06}", rand::random::<u32>() % 1_000_000);
+        let id = Uuid::new_v4().to_string();
+        let expires = chrono::Utc::now() + chrono::Duration::minutes(10);
+        let conn = self.conn.lock().unwrap();
+        // Invalidate prior un-consumed codes for this email.
+        conn.execute(
+            "UPDATE login_codes SET consumed_at = datetime('now')
+             WHERE email = ?1 AND consumed_at IS NULL",
+            params![email],
+        )?;
+        conn.execute(
+            "INSERT INTO login_codes (id, email, code, expires_at) VALUES (?1, ?2, ?3, ?4)",
+            params![id, email, code, expires.to_rfc3339()],
+        )?;
+        Ok(Some(code))
+    }
+
+    /// Consume a login code. Returns the matched user on success. Increments
+    /// the attempt counter on every call; the code is locked after 5 failed
+    /// attempts to bound brute-force across the 10-min TTL window. Marks the
+    /// row consumed on a successful match (single-use).
+    pub fn consume_login_code(&self, email: &str, code: &str) -> anyhow::Result<Option<User>> {
+        const MAX_ATTEMPTS: i64 = 5;
+        let row: Option<(String, String, String, i64)> = {
+            let conn = self.conn.lock().unwrap();
+            conn.query_row(
+                "SELECT id, code, expires_at, attempts FROM login_codes
+                 WHERE email = ?1 AND consumed_at IS NULL
+                 ORDER BY created_at DESC LIMIT 1",
+                params![email],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .ok()
+        };
+
+        let Some((id, stored_code, expires_str, attempts)) = row else {
+            return Ok(None);
+        };
+
+        if attempts >= MAX_ATTEMPTS {
+            // Lock it permanently so future tries also miss.
+            let conn = self.conn.lock().unwrap();
+            conn.execute(
+                "UPDATE login_codes SET consumed_at = datetime('now') WHERE id = ?1",
+                params![id],
+            )?;
+            return Ok(None);
+        }
+
+        let expired = chrono::DateTime::parse_from_rfc3339(&expires_str)
+            .map(|e| chrono::Utc::now() > e)
+            .unwrap_or(true);
+
+        if stored_code != code || expired {
+            let conn = self.conn.lock().unwrap();
+            conn.execute(
+                "UPDATE login_codes SET attempts = attempts + 1 WHERE id = ?1",
+                params![id],
+            )?;
+            return Ok(None);
+        }
+
+        // Match. Mark consumed and update last_login.
+        {
+            let conn = self.conn.lock().unwrap();
+            conn.execute(
+                "UPDATE login_codes SET consumed_at = datetime('now') WHERE id = ?1",
+                params![id],
+            )?;
+            conn.execute(
+                "UPDATE users SET last_login = datetime('now'), email_verified = 1
+                 WHERE email = ?1",
+                params![email],
+            )?;
+        }
+        // Invalidate the user cache so the bumped email_verified / last_login
+        // is re-read on the next /api/auth/me.
+        if let Ok(Some(user)) = self.get_user_by_email(email) {
+            self.user_cache.invalidate(&user.id);
+            return self.get_user_by_id(&user.id);
+        }
+        Ok(None)
     }
 
     /// Get a user by ID with their root agents. Results are served from an

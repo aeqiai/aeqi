@@ -56,6 +56,17 @@ pub struct CheckInviteRequest {
     pub code: String,
 }
 
+#[derive(Deserialize)]
+pub struct RequestLoginCodeRequest {
+    pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct ConsumeLoginCodeRequest {
+    pub email: String,
+    pub code: String,
+}
+
 // ── Route builders ────────────────────────────────────────
 
 /// Exempt from rate limiting: health/liveness, auth-mode probe, Prometheus

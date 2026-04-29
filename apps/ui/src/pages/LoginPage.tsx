@@ -30,13 +30,21 @@ export default function LoginPage() {
     verify2fa,
     verifyTotp,
     resend2fa,
+    requestLoginCode,
+    loginWithCode,
     pending2faEmail,
     isAuthenticated,
   } = useAuthStore();
 
-  const [step, setStep] = useState<"credentials" | "verify" | "2fa" | "totp" | "forgot">(
-    "credentials",
-  );
+  const [step, setStep] = useState<
+    "credentials" | "verify" | "2fa" | "totp" | "forgot" | "magic-code"
+  >("credentials");
+  const [usePassword, setUsePassword] = useState(false);
+  const [magicCode, setMagicCode] = useState(["", "", "", "", "", ""]);
+  const [magicError, setMagicError] = useState("");
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [magicResendCooldown, setMagicResendCooldown] = useState(0);
+  const magicRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [secret, setSecret] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,6 +74,7 @@ export default function LoginPage() {
       "2fa": "Two-factor · aeqi",
       totp: "Two-factor · aeqi",
       forgot: "Reset password · aeqi",
+      "magic-code": "Sign in · aeqi",
     };
     document.title = titles[step];
   }, [step]);
@@ -86,12 +95,81 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, [twoFaResendCooldown]);
 
+  useEffect(() => {
+    if (magicResendCooldown <= 0) return;
+    const timer = setTimeout(() => setMagicResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [magicResendCooldown]);
+
   const clearError = () => useAuthStore.setState({ error: null });
 
   const handleSecretSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await login(secret);
     if (ok) navigate(redirectAfter());
+  };
+
+  const handleMagicLinkRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    clearError();
+    setMagicError("");
+    const ok = await requestLoginCode(email.trim());
+    if (ok) {
+      track(Events.AuthOauthStart, { provider: "magic-code", surface: "login" });
+      setMagicCode(["", "", "", "", "", ""]);
+      setStep("magic-code");
+      setMagicResendCooldown(30);
+    } else {
+      setMagicError("Couldn't send code — try again.");
+    }
+  };
+
+  const submitMagicCode = (full: string) => {
+    setMagicLoading(true);
+    setMagicError("");
+    loginWithCode(email, full).then((ok) => {
+      setMagicLoading(false);
+      if (ok) {
+        track(Events.AuthLogin, { method: "magic_code" });
+        navigate(redirectAfter(), { replace: true });
+      } else {
+        setMagicError("Invalid or expired code");
+      }
+    });
+  };
+
+  const handleMagicCodeChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const next = [...magicCode];
+    next[index] = value.slice(-1);
+    setMagicCode(next);
+    if (value && index < 5) magicRefs.current[index + 1]?.focus();
+
+    const full = next.join("");
+    if (full.length === 6) submitMagicCode(full);
+  };
+
+  const handleMagicCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !magicCode[index] && index > 0) {
+      magicRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleMagicCodePaste = (e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (text.length === 6) {
+      e.preventDefault();
+      setMagicCode(text.split(""));
+      magicRefs.current[5]?.focus();
+      submitMagicCode(text);
+    }
+  };
+
+  const handleMagicCodeResend = async () => {
+    if (magicResendCooldown > 0) return;
+    const ok = await requestLoginCode(email);
+    if (ok) setMagicResendCooldown(30);
   };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -359,7 +437,9 @@ export default function LoginPage() {
                 ? "Verification code"
                 : step === "totp"
                   ? "Authenticator code"
-                  : "Reset password"}
+                  : step === "magic-code"
+                    ? "Check your email"
+                    : "Reset password"}
         </h1>
         <p className="auth-subheading">
           {step === "credentials" ? (
@@ -375,6 +455,10 @@ export default function LoginPage() {
             </>
           ) : step === "totp" ? (
             "Enter the 6-digit code from your authenticator app"
+          ) : step === "magic-code" ? (
+            <>
+              We sent a sign-in code to <strong className="auth-email-highlight">{email}</strong>
+            </>
           ) : (
             "Enter your email to receive a reset link"
           )}
@@ -382,7 +466,11 @@ export default function LoginPage() {
 
         {step === "credentials" && (
           <>
-            <form className="auth-form" onSubmit={handleCredentialsSubmit} autoComplete="on">
+            <form
+              className="auth-form"
+              onSubmit={usePassword ? handleCredentialsSubmit : handleMagicLinkRequest}
+              autoComplete="on"
+            >
               <Input
                 size="lg"
                 type="email"
@@ -394,23 +482,31 @@ export default function LoginPage() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   clearError();
+                  setMagicError("");
                 }}
                 autoFocus
               />
-              <PasswordInput
-                placeholder="Password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  clearError();
-                }}
-                hasError={!!error}
-                errorId="auth-error"
-              />
+              {usePassword && (
+                <PasswordInput
+                  placeholder="Password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clearError();
+                  }}
+                  hasError={!!error}
+                  errorId="auth-error"
+                />
+              )}
               {error && (
                 <div className="auth-error" role="alert" id="auth-error">
                   {error}
+                </div>
+              )}
+              {magicError && !usePassword && (
+                <div className="auth-error" role="alert">
+                  {magicError}
                 </div>
               )}
               <Button
@@ -419,9 +515,9 @@ export default function LoginPage() {
                 type="submit"
                 fullWidth
                 loading={loading}
-                disabled={loading || !email.trim() || !password}
+                disabled={loading || !email.trim() || (usePassword && !password)}
               >
-                Sign in
+                {usePassword ? "Sign in" : "Email me a code"}
               </Button>
             </form>
             <p className="auth-switch">
@@ -429,15 +525,30 @@ export default function LoginPage() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  setForgotEmail(email);
-                  setForgotSent(false);
-                  setForgotError("");
-                  setStep("forgot");
+                  setUsePassword((v) => !v);
+                  clearError();
+                  setMagicError("");
                 }}
               >
-                Forgot password?
+                {usePassword ? "Email me a code instead" : "Use password instead"}
               </a>
             </p>
+            {usePassword && (
+              <p className="auth-switch">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setForgotEmail(email);
+                    setForgotSent(false);
+                    setForgotError("");
+                    setStep("forgot");
+                  }}
+                >
+                  Forgot password?
+                </a>
+              </p>
+            )}
 
             {(googleOAuth || githubOAuth) && (
               <>
@@ -602,6 +713,72 @@ export default function LoginPage() {
           </>
         )}
 
+        {step === "magic-code" && (
+          <>
+            <div className="verify-code-inputs" onPaste={handleMagicCodePaste}>
+              {magicCode.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => {
+                    magicRefs.current[i] = el;
+                  }}
+                  className={`verify-code-digit${magicError ? " has-error" : ""}`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => {
+                    handleMagicCodeChange(i, e.target.value);
+                    if (magicError) setMagicError("");
+                  }}
+                  onKeyDown={(e) => handleMagicCodeKeyDown(i, e)}
+                  autoFocus={i === 0}
+                />
+              ))}
+            </div>
+            {magicError && (
+              <div className="auth-error" role="alert">
+                {magicError}
+              </div>
+            )}
+            {magicLoading && (
+              <p className="auth-subheading auth-verifying">
+                <Spinner size="sm" />
+                Signing in…
+              </p>
+            )}
+            <p className="auth-switch">
+              Didn't get the code?{" "}
+              {magicResendCooldown > 0 ? (
+                <span className="auth-cooldown">Resend in {magicResendCooldown}s</span>
+              ) : (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleMagicCodeResend();
+                  }}
+                >
+                  Resend code
+                </a>
+              )}
+            </p>
+            <p className="auth-switch">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setStep("credentials");
+                  setMagicCode(["", "", "", "", "", ""]);
+                  setMagicError("");
+                }}
+              >
+                Back to sign in
+              </a>
+            </p>
+          </>
+        )}
+
         {step === "totp" && (
           <>
             <div
@@ -727,7 +904,7 @@ export default function LoginPage() {
           </>
         )}
 
-        {step !== "verify" && step !== "2fa" && step !== "forgot" && (
+        {step !== "verify" && step !== "2fa" && step !== "forgot" && step !== "magic-code" && (
           <p className="auth-switch">
             Don't have an account? <Link to="/signup">Sign up</Link>
           </p>
