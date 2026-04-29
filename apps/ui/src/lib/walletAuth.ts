@@ -1,4 +1,5 @@
 import type { Hex } from "viem";
+import { apiRequest } from "@/api/client";
 
 export interface NonceResponse {
   ok: boolean;
@@ -14,22 +15,11 @@ export interface WalletAuthResponse {
   primary_wallet?: string;
 }
 
-const BASE_URL = "/api";
-
 async function request<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  return apiRequest<T>(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: body === undefined ? "{}" : JSON.stringify(body),
   });
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok) {
-    const msg = (typeof data?.error === "string" ? data.error : null) || `HTTP ${res.status}`;
-    const err = new Error(msg) as Error & { status: number };
-    err.status = res.status;
-    throw err;
-  }
-  return data as T;
 }
 
 /**

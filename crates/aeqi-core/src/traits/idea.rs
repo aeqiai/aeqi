@@ -2,6 +2,7 @@ use crate::scope::Scope;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// An idea entry owned by an agent in the tree.
 ///
@@ -157,6 +158,142 @@ impl IdeaQuery {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdeaStoreCapability {
+    BasicRead,
+    BasicWrite,
+    RichWrite,
+    AtomicSupersede,
+    StatusWrite,
+    EmbeddingWrite,
+    TagAnalytics,
+    ExplainedSearch,
+    AccessTracking,
+    Feedback,
+    GraphEdges,
+    EntityEdges,
+    GraphWalk,
+    AnnSearch,
+    TemporalSearch,
+    CoRetrievalDecay,
+}
+
+impl IdeaStoreCapability {
+    pub const fn bit(self) -> u64 {
+        match self {
+            Self::BasicRead => 1 << 0,
+            Self::BasicWrite => 1 << 1,
+            Self::RichWrite => 1 << 2,
+            Self::AtomicSupersede => 1 << 3,
+            Self::StatusWrite => 1 << 4,
+            Self::EmbeddingWrite => 1 << 5,
+            Self::TagAnalytics => 1 << 6,
+            Self::ExplainedSearch => 1 << 7,
+            Self::AccessTracking => 1 << 8,
+            Self::Feedback => 1 << 9,
+            Self::GraphEdges => 1 << 10,
+            Self::EntityEdges => 1 << 11,
+            Self::GraphWalk => 1 << 12,
+            Self::AnnSearch => 1 << 13,
+            Self::TemporalSearch => 1 << 14,
+            Self::CoRetrievalDecay => 1 << 15,
+        }
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::BasicRead => "basic_read",
+            Self::BasicWrite => "basic_write",
+            Self::RichWrite => "rich_write",
+            Self::AtomicSupersede => "atomic_supersede",
+            Self::StatusWrite => "status_write",
+            Self::EmbeddingWrite => "embedding_write",
+            Self::TagAnalytics => "tag_analytics",
+            Self::ExplainedSearch => "explained_search",
+            Self::AccessTracking => "access_tracking",
+            Self::Feedback => "feedback",
+            Self::GraphEdges => "graph_edges",
+            Self::EntityEdges => "entity_edges",
+            Self::GraphWalk => "graph_walk",
+            Self::AnnSearch => "ann_search",
+            Self::TemporalSearch => "temporal_search",
+            Self::CoRetrievalDecay => "co_retrieval_decay",
+        }
+    }
+}
+
+impl fmt::Display for IdeaStoreCapability {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IdeaStoreCapabilities {
+    bits: u64,
+}
+
+impl IdeaStoreCapabilities {
+    pub const fn empty() -> Self {
+        Self { bits: 0 }
+    }
+
+    pub const fn basic() -> Self {
+        Self::empty()
+            .with(IdeaStoreCapability::BasicRead)
+            .with(IdeaStoreCapability::BasicWrite)
+    }
+
+    pub const fn with(self, capability: IdeaStoreCapability) -> Self {
+        Self {
+            bits: self.bits | capability.bit(),
+        }
+    }
+
+    pub const fn supports(self, capability: IdeaStoreCapability) -> bool {
+        self.bits & capability.bit() != 0
+    }
+}
+
+impl Default for IdeaStoreCapabilities {
+    fn default() -> Self {
+        Self::basic()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnsupportedIdeaStoreCapability {
+    pub store: String,
+    pub method: &'static str,
+    pub capability: IdeaStoreCapability,
+}
+
+impl fmt::Display for UnsupportedIdeaStoreCapability {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "idea store '{}' does not support {} required by {}",
+            self.store, self.capability, self.method
+        )
+    }
+}
+
+impl std::error::Error for UnsupportedIdeaStoreCapability {}
+
+pub fn unsupported_idea_store_capability<T>(
+    store: &str,
+    method: &'static str,
+    capability: IdeaStoreCapability,
+) -> anyhow::Result<T> {
+    Err(UnsupportedIdeaStoreCapability {
+        store: store.to_string(),
+        method,
+        capability,
+    }
+    .into())
+}
+
 #[async_trait]
 pub trait IdeaStore: Send + Sync {
     /// Store an idea owned by an agent.
@@ -278,6 +415,12 @@ pub trait IdeaStore: Send + Sync {
     }
 
     fn name(&self) -> &str;
+
+    /// Advertise optional store features so runtime layers can fail cleanly
+    /// before invoking capability-specific methods through a trait object.
+    fn capabilities(&self) -> IdeaStoreCapabilities {
+        IdeaStoreCapabilities::basic()
+    }
 
     /// Retrieve ideas by their IDs (bulk fetch).
     /// Used by event-based idea assembly to fetch ideas referenced by events.
@@ -433,7 +576,7 @@ pub trait IdeaStore: Send + Sync {
     //
     // The following methods are added for downstream agents (W, R, N, G)
     // to plug into without changing trait signatures mid-round. Defaults
-    // either `unimplemented!()` (must be overridden to be useful) or a
+    // either return a structured unsupported-capability error or a
     // trivially-safe fallback that keeps existing call paths green.
 
     /// Provenance-rich store. Carries authored_by, confidence, bi-temporal
@@ -445,13 +588,17 @@ pub trait IdeaStore: Send + Sync {
     /// and W call this directly.
     async fn store_full(&self, input: StoreFull) -> anyhow::Result<String> {
         let _ = input;
-        unimplemented!("store_full not implemented for this store")
+        unsupported_idea_store_capability(self.name(), "store_full", IdeaStoreCapability::RichWrite)
     }
 
     /// Provenance-rich partial update. Only fields set on `patch` are touched.
     async fn update_full(&self, id: &str, patch: UpdateFull) -> anyhow::Result<()> {
         let _ = (id, patch);
-        unimplemented!("update_full not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "update_full",
+            IdeaStoreCapability::RichWrite,
+        )
     }
 
     /// Atomically supersede an existing idea. Flips `old_id.status` to
@@ -474,14 +621,22 @@ pub trait IdeaStore: Send + Sync {
         new_payload: StoreFull,
     ) -> anyhow::Result<String> {
         let _ = (old_id, new_payload);
-        unimplemented!("supersede_atomic not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "supersede_atomic",
+            IdeaStoreCapability::AtomicSupersede,
+        )
     }
 
     /// Set `status` for an idea (active | archived | superseded | ...).
     /// Used by supersession and consolidation flows.
     async fn set_status(&self, id: &str, status: &str) -> anyhow::Result<()> {
         let _ = (id, status);
-        unimplemented!("set_status not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "set_status",
+            IdeaStoreCapability::StatusWrite,
+        )
     }
 
     /// Attach a (possibly refreshed) embedding to an existing idea row and
@@ -489,7 +644,11 @@ pub trait IdeaStore: Send + Sync {
     /// embedding completes.
     async fn set_embedding(&self, id: &str, embedding: &[f32]) -> anyhow::Result<()> {
         let _ = (id, embedding);
-        unimplemented!("set_embedding not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "set_embedding",
+            IdeaStoreCapability::EmbeddingWrite,
+        )
     }
 
     /// Count ideas tagged `tag` created on/after `since`. Used by the
@@ -500,7 +659,11 @@ pub trait IdeaStore: Send + Sync {
         since: chrono::DateTime<chrono::Utc>,
     ) -> anyhow::Result<i64> {
         let _ = (tag, since);
-        unimplemented!("count_by_tag_since not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "count_by_tag_since",
+            IdeaStoreCapability::TagAnalytics,
+        )
     }
 
     /// Return active idea IDs carrying `tag` whose `created_at >= since`,
@@ -515,7 +678,11 @@ pub trait IdeaStore: Send + Sync {
         limit: usize,
     ) -> anyhow::Result<Vec<String>> {
         let _ = (tag, since, limit);
-        unimplemented!("list_active_by_tag_since not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "list_active_by_tag_since",
+            IdeaStoreCapability::TagAnalytics,
+        )
     }
 
     /// Search with per-component score explainability. Default wraps the
@@ -559,7 +726,11 @@ pub trait IdeaStore: Send + Sync {
         meta: FeedbackMeta,
     ) -> anyhow::Result<()> {
         let _ = (idea_id, signal, weight, meta);
-        unimplemented!("record_feedback not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "record_feedback",
+            IdeaStoreCapability::Feedback,
+        )
     }
 
     /// Walk the idea graph up to `max_hops` from `from`, optionally
@@ -573,7 +744,7 @@ pub trait IdeaStore: Send + Sync {
         relations: &[String],
     ) -> anyhow::Result<Vec<WalkStep>> {
         let _ = (from, max_hops, relations);
-        unimplemented!("walk not implemented for this store")
+        unsupported_idea_store_capability(self.name(), "walk", IdeaStoreCapability::GraphWalk)
     }
 
     /// ANN-backed nearest-neighbour search over `query_vec`. Stores with
@@ -586,7 +757,7 @@ pub trait IdeaStore: Send + Sync {
         top_k: usize,
     ) -> anyhow::Result<Vec<(String, f32)>> {
         let _ = (query_vec, top_k);
-        anyhow::bail!("ann_search not implemented; use brute-force hybrid search")
+        unsupported_idea_store_capability(self.name(), "ann_search", IdeaStoreCapability::AnnSearch)
     }
 
     /// Bi-temporal query. Only returns ideas whose validity window covers
@@ -599,7 +770,11 @@ pub trait IdeaStore: Send + Sync {
         as_of: chrono::DateTime<chrono::Utc>,
     ) -> anyhow::Result<Vec<Idea>> {
         let _ = (query, as_of);
-        unimplemented!("search_as_of not implemented for this store")
+        unsupported_idea_store_capability(
+            self.name(),
+            "search_as_of",
+            IdeaStoreCapability::TemporalSearch,
+        )
     }
 
     /// Decay `co_retrieved` edges that haven't been reinforced in `days`
@@ -832,5 +1007,88 @@ impl FeedbackSignal {
             Self::Wrong => "wrong",
             Self::Pinned => "pinned",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct BasicStore;
+
+    #[async_trait]
+    impl IdeaStore for BasicStore {
+        async fn store(
+            &self,
+            _name: &str,
+            _content: &str,
+            _tags: &[String],
+            _agent_id: Option<&str>,
+        ) -> anyhow::Result<String> {
+            Ok("basic".to_string())
+        }
+
+        async fn search(&self, _query: &IdeaQuery) -> anyhow::Result<Vec<Idea>> {
+            Ok(Vec::new())
+        }
+
+        async fn delete(&self, _id: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn name(&self) -> &str {
+            "basic-test"
+        }
+    }
+
+    #[test]
+    fn default_capabilities_are_basic_only() {
+        let caps = BasicStore.capabilities();
+        assert!(caps.supports(IdeaStoreCapability::BasicRead));
+        assert!(caps.supports(IdeaStoreCapability::BasicWrite));
+        assert!(!caps.supports(IdeaStoreCapability::RichWrite));
+        assert!(!caps.supports(IdeaStoreCapability::Feedback));
+    }
+
+    #[tokio::test]
+    async fn advanced_defaults_return_typed_unsupported_errors() {
+        let err = BasicStore
+            .store_full(StoreFull {
+                name: "name".to_string(),
+                content: "content".to_string(),
+                tags: Vec::new(),
+                agent_id: None,
+                scope: Scope::Global,
+                authored_by: None,
+                confidence: 1.0,
+                expires_at: None,
+                valid_from: None,
+                valid_until: None,
+                time_context: "timeless".to_string(),
+                status: "active".to_string(),
+            })
+            .await
+            .expect_err("unsupported rich write should return Err, not panic");
+
+        let unsupported = err
+            .downcast_ref::<UnsupportedIdeaStoreCapability>()
+            .expect("error should preserve unsupported capability type");
+        assert_eq!(unsupported.store, "basic-test");
+        assert_eq!(unsupported.method, "store_full");
+        assert_eq!(unsupported.capability, IdeaStoreCapability::RichWrite);
+    }
+
+    #[tokio::test]
+    async fn embedding_default_returns_typed_unsupported_error() {
+        let err = BasicStore
+            .set_embedding("idea-id", &[0.1, 0.2])
+            .await
+            .expect_err("unsupported embedding write should return Err, not panic");
+
+        let unsupported = err
+            .downcast_ref::<UnsupportedIdeaStoreCapability>()
+            .expect("error should preserve unsupported capability type");
+        assert_eq!(unsupported.method, "set_embedding");
+        assert_eq!(unsupported.capability, IdeaStoreCapability::EmbeddingWrite);
     }
 }

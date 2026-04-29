@@ -3,6 +3,7 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
+import { apiRequest } from "@/api/client";
 
 export interface PasskeyAuthResponse {
   ok: boolean;
@@ -10,22 +11,11 @@ export interface PasskeyAuthResponse {
   user: { id: string; email: string; name: string };
 }
 
-const BASE_URL = "/api";
-
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  return apiRequest<T>(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: body === undefined ? "{}" : JSON.stringify(body),
   });
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok) {
-    const msg = (typeof data?.error === "string" ? data.error : null) || `HTTP ${res.status}`;
-    const err = new Error(msg) as Error & { status: number };
-    err.status = res.status;
-    throw err;
-  }
-  return data as T;
 }
 
 interface BeginResponse {
