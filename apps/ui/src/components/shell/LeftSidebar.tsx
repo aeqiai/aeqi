@@ -165,9 +165,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  const inboxActive = base
-    ? path === `${base}/sessions` || path.startsWith(`${base}/sessions/`)
-    : path === "/";
+  // Inbox is always the user's attention queue. It lives at user scope
+  // (`/` for the list, `/sessions/:id` for an individual thread) — the
+  // active company is a *filter* applied inside the inbox view, not a
+  // routing scope. Don't light Inbox on `/c/<entity>/sessions` (that's
+  // a company-agent sessions view reached by drilling into an agent).
+  const inboxActive = path === "/" || path.startsWith("/sessions/");
   // Company is lit on the entity root and on every company sub-tab
   // (overview / positions / agents / events / quests / ideas). Sub-tab
   // navigation is owned by CompanyPage's PageRail, not this sidebar.
@@ -302,11 +305,11 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
         <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href={base ? `${base}/sessions` : "/"}
-            title={entityId ? "Company inbox" : "Your inbox"}
+            href="/"
+            title="Your inbox"
             onClick={(e) => {
               e.preventDefault();
-              navigate(base ? `${base}/sessions` : "/");
+              navigate("/");
             }}
           >
             <InboxIcon />
