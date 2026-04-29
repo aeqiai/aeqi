@@ -6,15 +6,15 @@ describe("entity API normalization", () => {
   it("maps entity roots into UI entities and drops invalid rows", () => {
     expect(
       normalizeEntityRoots({
-        roots: [
+        entities: [
           {
             id: "ent_1",
-            name: "Acme",
+            display_name: "Acme",
             running: true,
             created_at: "2026-01-01T00:00:00Z",
             budget_usd: 100,
           },
-          { name: "missing id" },
+          { display_name: "missing id" },
         ],
       }),
     ).toEqual([
@@ -38,11 +38,11 @@ describe("agent API normalization", () => {
     expect(
       buildAgentDirectory(
         {
-          roots: [
+          entities: [
             {
               id: "ent_1",
               agent_id: "agent_root",
-              name: "Acme",
+              display_name: "Acme",
               running: true,
             },
           ],

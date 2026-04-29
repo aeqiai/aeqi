@@ -11,17 +11,17 @@ export function listScopedAgents(params?: { root?: boolean }): Promise<AgentsRes
 }
 
 export function buildAgentDirectory(
-  entitiesData: { roots?: Array<Record<string, unknown>> } | null | undefined,
+  entitiesData: { entities?: Array<Record<string, unknown>> } | null | undefined,
   agentsData: AgentsResponse | null | undefined,
 ): Agent[] {
-  const rootAgents: Agent[] = Array.isArray(entitiesData?.roots)
-    ? entitiesData.roots.map((root) => {
-        const entityId = typeof root.id === "string" ? root.id : "";
-        const agentId = typeof root.agent_id === "string" ? root.agent_id : entityId;
+  const rootAgents: Agent[] = Array.isArray(entitiesData?.entities)
+    ? entitiesData.entities.map((entity) => {
+        const entityId = typeof entity.id === "string" ? entity.id : "";
+        const agentId = typeof entity.agent_id === "string" ? entity.agent_id : entityId;
         return {
           id: agentId,
-          name: typeof root.name === "string" ? root.name : "",
-          status: root.running === true ? "running" : "stopped",
+          name: typeof entity.display_name === "string" ? entity.display_name : "",
+          status: entity.running === true ? "running" : "stopped",
           entity_id: entityId,
         };
       })

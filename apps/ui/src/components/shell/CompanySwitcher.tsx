@@ -30,22 +30,19 @@ const PlusIcon = () => (
 );
 
 /**
- * Top-of-rail switcher. Two scopes:
+ * Top-of-rail workspace switcher. The user can be in two contexts:
  *
- * - **User scope** (`/`, `/me`, `/me/<sub>`, `/economy`, `/economy/<sub>`):
- *   trigger renders the user's avatar + name. The dropdown still lists
- *   companies — picking one navigates into `/c/<entity_id>`.
- * - **Entity scope** (anything under `/c/<entity_id>/...`): trigger
+ * - **User scope** (`/`, `/me`, `/me/<sub>`, `/economy`, `/economy/<sub>`,
+ *   `/sessions/<id>`, `/start`): the trigger renders the user's avatar
+ *   + name; the inbox / personal economy / settings live here.
+ * - **Entity scope** (anything under `/c/<entity_id>/...`): the trigger
  *   renders the active company's avatar + name.
  *
- * If the user has exactly one company AND we're at entity scope on that
- * company, the trigger renders as a static label (no chevron, no
- * dropdown) — there's nothing to switch to. The "+ New company"
- * affordance lives in the global "+ New" menu next to the switcher.
- *
- * If the user has zero companies, the dropdown collapses to a single
- * "+ New company" entry — only reachable at user scope (entity scope
- * isn't routable without an entity).
+ * The dropdown always carries three groups: the user themselves (so
+ * pivoting from a company back to "yourself" is one click), every
+ * company they own, and a "+ New company" affordance. With zero
+ * companies the user entry + create entry are the only items, and the
+ * trigger is still a popover — the create path is always visible.
  */
 export default function CompanySwitcher() {
   const navigate = useNavigate();
@@ -79,32 +76,6 @@ export default function CompanySwitcher() {
     navigate("/start");
     setOpen(false);
   }, [navigate]);
-
-  // Single-company at entity scope: the switcher has nothing to switch
-  // between. Render a static label, no popover — keeps the rail honest
-  // and the trigger non-interactive when a click would be a no-op.
-  const onlyCompanyShown =
-    isEntityScope &&
-    entities.length === 1 &&
-    activeEntity?.id === entities[0].id &&
-    activeEntityId === entities[0].id;
-
-  if (onlyCompanyShown && activeEntity) {
-    // No popover, no chevron — there's nothing to switch between, so the
-    // trigger downgrades to a static label using the same trigger styles
-    // (avatar + name) without the chevron or button affordance.
-    return (
-      <div
-        className="company-switcher-trigger company-switcher-trigger--static"
-        aria-label="Active company"
-      >
-        <span className="company-switcher-avatar">
-          <BlockAvatar name={activeEntity.name} size={16} />
-        </span>
-        <span className="company-switcher-name">{activeEntity.name}</span>
-      </div>
-    );
-  }
 
   // Trigger label: user identity at user scope, active-company at
   // entity scope. The dropdown contents are scope-independent — same
@@ -140,9 +111,27 @@ export default function CompanySwitcher() {
     ? [displayEntity, ...entities.filter((e) => e.id !== displayEntity.id)]
     : entities;
 
+  const goToUserScope = useCallback(() => {
+    navigate("/");
+    setOpen(false);
+  }, [navigate]);
+
   return (
     <Popover trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-start" portal>
       <div className="company-switcher-menu" role="menu">
+        {/* "You" — the user's own scope. Their inbox lives at `/`,
+             personal economy / settings at `/me`, and the active
+             company is just a filter applied inside those views. From
+             this entry the user pivots out of any company context back
+             to their own. */}
+        <SelectOption
+          selected={isUserScope}
+          noIndicator
+          onClick={goToUserScope}
+          leadingIcon={<UserAvatar name={userName} size={16} src={user?.avatar_url} />}
+        >
+          {userName}
+        </SelectOption>
         {ordered.map((entity) => {
           const isCurrent = isEntityScope && entity.id === activeEntityId;
           return (

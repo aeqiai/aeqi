@@ -331,35 +331,36 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           )}
         </nav>
 
-        {/* ── The four W-primitives (Agents=WHO, Events=WHEN,
-            Quests=WHAT, Ideas=HOW) sit flat below Company — they are
-            canonical primitives, not a tool category, so they don't
-            need a "Build" wrapper. Company-specific surfaces (Overview,
-            Positions) live inside the Company sub-rail above. ── */}
-        <nav className="sidebar-surface-nav" aria-label="Primitives">
-          {navItem("agents", "Agents", <AgentsIcon />)}
-          {navItem("events", "Events", <EventsIcon />)}
-          {navItem("quests", "Quests", <QuestsIcon />)}
-          {navItem("ideas", "Ideas", <IdeasIcon />)}
-        </nav>
+        {/* The four W-primitives, Operate, and Control are all
+            company-scoped surfaces (their URLs all live under
+            `/c/<entity>/...`). At user scope (no active company) they'd
+            either render with an empty `base` and 404 on click, or
+            their pre-fetched data calls would 400 with "X-Entity header
+            required". Hide them entirely until a company is active —
+            the user picks one via the switcher (or `/start` from the
+            dropdown). */}
+        {!!base && (
+          <>
+            <nav className="sidebar-surface-nav" aria-label="Primitives">
+              {navItem("agents", "Agents", <AgentsIcon />)}
+              {navItem("events", "Events", <EventsIcon />)}
+              {navItem("quests", "Quests", <QuestsIcon />)}
+              {navItem("ideas", "Ideas", <IdeasIcon />)}
+            </nav>
 
-        {/* ── Operate (soon) — Company-side surfaces (Projects, CRM,
-            Metrics). Visible-but-disabled so the shape of the product
-            is communicated without implying readiness. Same disabled-with-
-            "soon" pattern as the AccountDropdown's deferred items. ── */}
-        <SidebarGroup title="Operate" groupKey="operate" soon>
-          {navItem("projects", "Projects", <ProjectsIcon />, { soon: true })}
-          {navItem("crm", "CRM", <CRMIcon />, { soon: true })}
-          {navItem("metrics", "Metrics", <MetricsIcon />, { soon: true })}
-        </SidebarGroup>
+            <SidebarGroup title="Operate" groupKey="operate" soon>
+              {navItem("projects", "Projects", <ProjectsIcon />, { soon: true })}
+              {navItem("crm", "CRM", <CRMIcon />, { soon: true })}
+              {navItem("metrics", "Metrics", <MetricsIcon />, { soon: true })}
+            </SidebarGroup>
 
-        {/* ── Control (soon) — equity / treasury / governance. The
-            on-chain control plane. Even later than Operate. ── */}
-        <SidebarGroup title="Control" groupKey="control" soon>
-          {navItem("ownership", "Ownership", <OwnershipIcon />, { soon: true })}
-          {navItem("treasury", "Treasury", <TreasuryIcon />, { soon: true })}
-          {navItem("governance", "Governance", <GovernanceIcon />, { soon: true })}
-        </SidebarGroup>
+            <SidebarGroup title="Control" groupKey="control" soon>
+              {navItem("ownership", "Ownership", <OwnershipIcon />, { soon: true })}
+              {navItem("treasury", "Treasury", <TreasuryIcon />, { soon: true })}
+              {navItem("governance", "Governance", <GovernanceIcon />, { soon: true })}
+            </SidebarGroup>
+          </>
+        )}
 
         {/* ── Bottom group — Economy + Account, pinned to the rail's foot
             via mt:auto so the user dropdown always sits at the very
