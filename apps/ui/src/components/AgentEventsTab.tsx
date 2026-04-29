@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useAgentDataStore } from "@/store/agentData";
 import type { AgentEvent, ScopeValue } from "@/lib/types";
 import { Button, Select } from "./ui";
+import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
 import {
   type EventsFilterState,
@@ -114,6 +115,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
+  const track = useTrack();
   const composing = searchParams.get("compose") === "1";
 
   const filter: EventsFilterState = {
@@ -250,6 +252,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
         payload.cooldown_secs = parsedCooldown;
       }
       await api.createEvent(payload);
+      track(TrackEvents.EventCreated, { surface: "agent-events-tab", scope: newScope });
       closeCompose();
       loadEvents(agentId);
     } catch (e) {

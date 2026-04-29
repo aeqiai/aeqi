@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import { getScopedEntity } from "@/lib/appMode";
+import { Events, useTrack } from "@/lib/analytics";
 import { useChatStore } from "@/store/chat";
 import { type Message, type MessageSegment, type SessionInfo, formatDuration } from "./types";
 import {
@@ -60,6 +61,7 @@ export function useWebSocketChat({
   const wsRef = useRef<WebSocket | null>(null);
   const wsSessionRef = useRef<string | null>(null);
   const setSessionStreaming = useChatStore((s) => s.setSessionStreaming);
+  const track = useTrack();
 
   const clearLiveState = useCallback(() => {
     setStreaming(false);
@@ -182,6 +184,11 @@ export function useWebSocketChat({
       if (!token || !sessionId) return;
 
       const startTime = Date.now();
+      track(Events.SessionMessageSent, {
+        has_files: turnFiles.length > 0 ? "yes" : "no",
+        has_quest: turnTask ? "yes" : "no",
+        has_ideas: turnIdeas.length > 0 ? "yes" : "no",
+      });
       unmarkQueued(setMessages, messageText);
       setStreaming(true);
       setLiveSegments([]);

@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { Textarea } from "@/components/ui";
+import { Events, useTrack } from "@/lib/analytics";
 import "@/styles/welcome.css";
 import "@/styles/templates.css";
 import "@/styles/modals.css";
@@ -76,6 +77,7 @@ function SubAgentForm({
   const [systemPrompt, setSystemPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const track = useTrack();
 
   const canSubmit = name.trim().length > 0 && !submitting;
 
@@ -91,6 +93,7 @@ function SubAgentForm({
         ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
       });
       const newId = resp.agent?.id;
+      track(Events.AgentCreated, { surface: "new-agent-page", parent: parentId ? "yes" : "no" });
       if (newId && newId.length > 0) {
         await onSpawned(newId);
       } else {

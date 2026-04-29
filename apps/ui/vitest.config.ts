@@ -48,6 +48,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "@aeqi/web-shared": resolve(__dirname, "../../packages/web-shared/src"),
+      react: resolve(__dirname, "./node_modules/react"),
+      "react-dom": resolve(__dirname, "./node_modules/react-dom"),
+      "react-router-dom": resolve(__dirname, "./node_modules/react-router-dom"),
     },
+    dedupe: ["react", "react-dom", "react-router-dom"],
   },
 });

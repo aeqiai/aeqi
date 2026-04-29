@@ -4,9 +4,11 @@ import { api } from "@/lib/api";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
 import { Button } from "@/components/ui";
+import { Events, useTrack } from "@/lib/analytics";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const track = useTrack();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
 
@@ -49,6 +51,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
     try {
       await api.resetPassword(token, password);
+      track(Events.AuthPasswordResetCompleted);
       setSuccess(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to reset password";

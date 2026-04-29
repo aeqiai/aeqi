@@ -13,6 +13,7 @@ import { useNav } from "@/hooks/useNav";
 import { useAgentDataStore } from "@/store/agentData";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { Button, Textarea, Tooltip } from "./ui";
+import { Events, useTrack } from "@/lib/analytics";
 import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import RefsRow, { type RefRecord } from "./RefsRow";
@@ -127,6 +128,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   ref,
 ) {
   const { goAgent } = useNav();
+  const track = useTrack();
   const patchIdea = useAgentDataStore((s) => s.patchIdea);
   const removeIdea = useAgentDataStore((s) => s.removeIdea);
   const addIdea = useAgentDataStore((s) => s.addIdea);
@@ -313,6 +315,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         agent_id: agentId,
       };
       addIdea(agentId, created);
+      track(Events.IdeaCreated, { surface: "idea-canvas", scope: composeScope });
       // Replay the locally-collected references against the freshly-
       // persisted idea. We fire and-forget — if any individual edge
       // fails the user still has the idea, and they can re-add the ref

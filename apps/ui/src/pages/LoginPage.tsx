@@ -102,12 +102,14 @@ export default function LoginPage() {
       return;
     }
     if (result === "2fa") {
+      track(Events.Auth2faChallenged, { kind: "email" });
       setStep("2fa");
       setTwoFaCode(["", "", "", "", "", ""]);
       setTwoFaError("");
       return;
     }
     if (result === "totp") {
+      track(Events.Auth2faChallenged, { kind: "totp" });
       setStep("totp");
       setTwoFaCode(["", "", "", "", "", ""]);
       setTwoFaError("");
@@ -190,6 +192,8 @@ export default function LoginPage() {
       verify2fa(email, full).then((ok) => {
         setTwoFaLoading(false);
         if (ok) {
+          track(Events.Auth2faCompleted, { kind: "email" });
+          track(Events.AuthLogin, { method: "email_2fa" });
           navigate(redirectAfter(), { replace: true });
         } else {
           setTwoFaError("Invalid or expired code");
@@ -215,6 +219,8 @@ export default function LoginPage() {
       verify2fa(email, text).then((ok) => {
         setTwoFaLoading(false);
         if (ok) {
+          track(Events.Auth2faCompleted, { kind: "email" });
+          track(Events.AuthLogin, { method: "email_2fa" });
           navigate(redirectAfter(), { replace: true });
         } else {
           setTwoFaError("Invalid or expired code");
@@ -244,6 +250,8 @@ export default function LoginPage() {
       verifyTotp(email, full).then((ok) => {
         setTwoFaLoading(false);
         if (ok) {
+          track(Events.Auth2faCompleted, { kind: "totp" });
+          track(Events.AuthLogin, { method: "email_totp" });
           navigate(redirectAfter(), { replace: true });
         } else {
           setTwoFaError("Invalid or expired code");
@@ -259,9 +267,11 @@ export default function LoginPage() {
     setForgotError("");
     try {
       await api.forgotPassword(forgotEmail);
+      track(Events.AuthPasswordResetRequested);
       setForgotSent(true);
     } catch {
       // Always show success to avoid email enumeration
+      track(Events.AuthPasswordResetRequested);
       setForgotSent(true);
     } finally {
       setForgotLoading(false);
@@ -269,9 +279,11 @@ export default function LoginPage() {
   };
 
   const handleGoogle = () => {
+    track(Events.AuthOauthStart, { provider: "google", surface: "login" });
     window.location.href = "/api/auth/google";
   };
   const handleGithub = () => {
+    track(Events.AuthOauthStart, { provider: "github", surface: "login" });
     window.location.href = "/api/auth/github";
   };
 

@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
 import { Button, CardTrigger, Popover, Spinner, Tooltip } from "./ui";
+import { Events, useTrack } from "@/lib/analytics";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestStatusPopover from "./quests/QuestStatusPopover";
 import QuestPriorityPopover from "./quests/QuestPriorityPopover";
@@ -234,6 +235,7 @@ function QuestToolbar({
 function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolvedAgentId: string }) {
   const { goAgent } = useNav();
   const [searchParams] = useSearchParams();
+  const track = useTrack();
   const fromIdeaId = searchParams.get("fromIdea") ?? null;
   const presetName = searchParams.get("name") ?? "";
   const presetStatus = parseQuestStatus(searchParams.get("status"));
@@ -304,6 +306,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
         idea_id: ideaId,
       });
       const newId = res?.quest?.id;
+      if (newId) track(Events.QuestCreated, { surface: "quest-canvas", priority, scope });
       // The IPC create path uses defaults for status / assignee and
       // ignores priority/scope on the legacy SQL insert path. Patch
       // the freshly minted quest with whatever the user actually

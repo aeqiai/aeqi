@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { Button, Spinner } from "@/components/ui";
+import { Events, useTrack } from "@/lib/analytics";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
 import { PLANS, type BillingInterval, type Feature, type PlanId } from "@/lib/pricing";
@@ -35,6 +36,7 @@ import "@/styles/start.css";
 export default function StartPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const track = useTrack();
 
   const token = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
@@ -56,7 +58,8 @@ export default function StartPage() {
 
   useEffect(() => {
     document.title = "Start a Company · aeqi";
-  }, []);
+    track(Events.CompanyCreateStart, { blueprint: slug || "default" });
+  }, [track, slug]);
 
   // Resolve the Blueprint — either ?blueprint=:slug or the default.
   // If the server can't resolve it, surface the error directly.
@@ -141,6 +144,7 @@ export default function StartPage() {
             name: template.name,
           });
           if (!resp.ok || !resp.root) throw new Error("Launch returned no slug.");
+          track(Events.CompanyCreated, { plan: "free", blueprint: template.slug });
           setActiveEntity(resp.root);
           await Promise.all([fetchAgents(), fetchEntities()]);
           // Land on Positions so the user immediately sees the org chart

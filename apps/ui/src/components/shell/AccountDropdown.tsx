@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Popover, SelectOption } from "@/components/ui";
 import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
+import { Events, useTrack } from "@/lib/analytics";
 
 const iconProps = {
   width: 16,
@@ -66,6 +67,7 @@ export default function AccountDropdown() {
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
   const logout = useAuthStore((s) => s.logout);
+  const track = useTrack();
   const [open, setOpen] = useState(false);
 
   const isAccount =
@@ -88,10 +90,11 @@ export default function AccountDropdown() {
   );
 
   const signOut = useCallback(() => {
+    track(Events.AuthLogout, { surface: "account-dropdown" });
     logout();
     setOpen(false);
     navigate("/login");
-  }, [logout, navigate]);
+  }, [track, logout, navigate]);
 
   const trigger = (
     <button

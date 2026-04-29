@@ -94,8 +94,10 @@ export default function SignupPage() {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())) return;
     const result = await signup(email, password, fullName, inviteCode || undefined);
-    if (result === "pending") setStep("verify");
-    else if (result === "verified") {
+    if (result === "pending") {
+      track(Events.AuthSignupVerifySent, { method: "email" });
+      setStep("verify");
+    } else if (result === "verified") {
       track(Events.AuthSignupComplete, { method: "email" });
       navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
     }
@@ -137,6 +139,7 @@ export default function SignupPage() {
       verifyEmail(email, text).then((ok) => {
         setVerifyLoading(false);
         if (ok) {
+          track(Events.AuthSignupComplete, { method: "email_verified" });
           localStorage.removeItem("aeqi_pending_email");
           navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
         } else setVerifyError("Invalid or expired code");
@@ -151,9 +154,11 @@ export default function SignupPage() {
   };
 
   const handleGoogle = () => {
+    track(Events.AuthOauthStart, { provider: "google", surface: "signup" });
     window.location.href = "/api/auth/google";
   };
   const handleGithub = () => {
+    track(Events.AuthOauthStart, { provider: "github", surface: "signup" });
     window.location.href = "/api/auth/github";
   };
 
