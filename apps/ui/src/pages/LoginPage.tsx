@@ -9,10 +9,12 @@ import ConnectWalletButton from "@/components/ConnectWalletButton";
 import ContinueWithPasskeyButton from "@/components/ContinueWithPasskeyButton";
 import { GoogleIcon, GitHubIcon } from "@/components/icons/Brand";
 import { Button, Input, Spinner } from "@/components/ui";
+import { Events, useTrack } from "@/lib/analytics";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const track = useTrack();
   const redirectAfter = () => getRedirectAfterAuth(params);
   const {
     authMode,
@@ -112,6 +114,7 @@ export default function LoginPage() {
       return;
     }
     if (result === "ok") {
+      track(Events.AuthLogin, { method: "email" });
       navigate(redirectAfter());
     }
   };

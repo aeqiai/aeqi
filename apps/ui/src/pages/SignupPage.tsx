@@ -9,10 +9,12 @@ import ConnectWalletButton from "@/components/ConnectWalletButton";
 import ContinueWithPasskeyButton from "@/components/ContinueWithPasskeyButton";
 import { GoogleIcon, GitHubIcon } from "@/components/icons/Brand";
 import { Button, Input, Spinner } from "@/components/ui";
+import { Events, useTrack } from "@/lib/analytics";
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const track = useTrack();
   const {
     loading,
     error,
@@ -82,7 +84,10 @@ export default function SignupPage() {
   // ── Signup steps ──
   const handleCredentialsContinue = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() && password.length >= 8) setStep("info");
+    if (email.trim() && password.length >= 8) {
+      track(Events.AuthSignupStart, { method: "email" });
+      setStep("info");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,8 +95,10 @@ export default function SignupPage() {
     if (!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())) return;
     const result = await signup(email, password, fullName, inviteCode || undefined);
     if (result === "pending") setStep("verify");
-    else if (result === "verified")
+    else if (result === "verified") {
+      track(Events.AuthSignupComplete, { method: "email" });
       navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
+    }
   };
 
   const handleCodeChange = (index: number, value: string) => {
@@ -107,6 +114,7 @@ export default function SignupPage() {
       verifyEmail(email, full).then((ok) => {
         setVerifyLoading(false);
         if (ok) {
+          track(Events.AuthSignupComplete, { method: "email_verified" });
           localStorage.removeItem("aeqi_pending_email");
           navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
         } else setVerifyError("Invalid or expired code");

@@ -6,8 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import App from "./App";
 import { wagmiConfig } from "./lib/wagmiConfig";
+import { AnalyticsProvider, createAnalytics } from "./lib/analytics";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./styles/index.css";
+
+const analytics = createAnalytics();
 
 // After a deploy, the browser may still be holding an old index.html whose
 // lazy-chunk hashes no longer exist on the server (Vite removes previous
@@ -38,7 +41,9 @@ createRoot(document.getElementById("root")!).render(
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={darkTheme()} modalSize="compact">
           <BrowserRouter>
-            <App />
+            <AnalyticsProvider analytics={analytics}>
+              <App />
+            </AnalyticsProvider>
           </BrowserRouter>
         </RainbowKitProvider>
       </QueryClientProvider>
