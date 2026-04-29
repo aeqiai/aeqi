@@ -278,6 +278,17 @@ rebuild but safe for live sibling worktrees. Use this when WS-A and
 WS-B ship back-to-back and one finishes before the other releases its
 symlink.
 
+**Plain `npm install` is not always sufficient.** It can leave a
+half-installed tree where `.bin/<tool>` exists but the underlying
+package directory is partial. Symptoms: `prettier: Permission denied`
+(the .cjs entry point isn't `chmod +x`), `Error [ERR_MODULE_NOT_FOUND]:
+node_modules/rollup/parseAst` (vite trying to load a missing rollup
+file). When `npm install` succeeds but verify or build fails on
+permission / missing-module errors, fall through to the full `rm -rf
+node_modules && npm install` recipe — it's the only reliable cure
+once the tree is partial. Caveat above still applies: only fall through
+when no sibling worktrees hold a live symlink.
+
 **UI-only deploy (no Rust changed):**
 
 ```bash
