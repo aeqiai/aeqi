@@ -386,7 +386,7 @@ server {{
 
         // Symlink to sites-enabled.
         let _ = tokio::fs::remove_file(&enabled_path).await;
-        tokio::fs::symlink(&available_path, &enabled_path)
+        Self::create_symlink(&available_path, &enabled_path)
             .await
             .with_context(|| format!("failed to symlink: {enabled_path}"))?;
 
@@ -439,6 +439,29 @@ server {{
             .await
         {
             warn!(error = %e, "failed to reload nginx after config removal");
+        }
+
+        Ok(())
+    }
+
+    async fn create_symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> Result<()> {
+        let original = original.as_ref().to_owned();
+        let link = link.as_ref().to_owned();
+
+        #[cfg(unix)]
+        {
+            tokio::task::spawn_blocking(move || std::os::unix::fs::symlink(original, link))
+                .await
+                .context("symlink task panicked")?
+                .context("symlink creation failed")?;
+        }
+
+        #[cfg(windows)]
+        {
+            tokio::task::spawn_blocking(move || std::os::windows::fs::symlink_file(original, link))
+                .await
+                .context("symlink task panicked")?
+                .context("symlink creation failed")?;
         }
 
         Ok(())

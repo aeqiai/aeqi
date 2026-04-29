@@ -133,7 +133,7 @@ pub struct Template {
 // Spawn
 // ---------------------------------------------------------------------------
 
-/// Outcome of a `spawn_template` call. Returned so Stream D can route the
+/// Outcome of a `spawn_blueprint` call. Returned so Stream D can route the
 /// browser straight to the new company without a second round-trip.
 #[derive(Debug, Clone, Serialize)]
 pub struct SpawnOutcome {
@@ -154,7 +154,7 @@ pub struct SpawnedAgent {
 
 /// Spawn a company from a template. Pure logic: everything external is
 /// injected so tests can drive this without the full daemon context.
-pub async fn spawn_template(
+pub async fn spawn_blueprint(
     template: &Template,
     override_name: Option<&str>,
     agent_registry: &AgentRegistry,
@@ -395,7 +395,7 @@ async fn store_identity_idea(
 // IPC handlers
 // ---------------------------------------------------------------------------
 
-pub async fn handle_list_templates(
+pub async fn handle_list_blueprints(
     _ctx: &super::CommandContext,
     _request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
@@ -421,10 +421,10 @@ pub async fn handle_list_templates(
             })
         })
         .collect();
-    serde_json::json!({"ok": true, "templates": items})
+    serde_json::json!({"ok": true, "blueprints": items})
 }
 
-pub async fn handle_template_detail(
+pub async fn handle_blueprint_detail(
     _ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
@@ -434,7 +434,7 @@ pub async fn handle_template_detail(
         return serde_json::json!({"ok": false, "error": "slug is required"});
     }
     match crate::templates::company_template(slug) {
-        Some(t) => serde_json::json!({"ok": true, "template": t}),
+        Some(t) => serde_json::json!({"ok": true, "blueprint": t}),
         None => serde_json::json!({
             "ok": false,
             "error": format!("template not found: {slug}"),
@@ -443,15 +443,12 @@ pub async fn handle_template_detail(
     }
 }
 
-pub async fn handle_spawn_template(
+pub async fn handle_spawn_blueprint(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let slug = super::request_field(request, "blueprint")
-        .or_else(|| super::request_field(request, "template"))
-        .or_else(|| super::request_field(request, "slug"))
-        .unwrap_or("");
+    let slug = super::request_field(request, "blueprint").unwrap_or("");
     if slug.is_empty() {
         return serde_json::json!({"ok": false, "error": "blueprint is required"});
     }
@@ -497,7 +494,7 @@ pub async fn handle_spawn_template(
         return serde_json::json!({"ok": false, "error": "event handler store not available"});
     };
 
-    match spawn_template(
+    match spawn_blueprint(
         &template,
         root_name.as_deref(),
         &ctx.agent_registry,
@@ -508,18 +505,14 @@ pub async fn handle_spawn_template(
     {
         Ok(outcome) => serde_json::json!({
             "ok": true,
-            // Entity is the workspace primitive. For the current backing-agent
-            // implementation, entity.id == root agent id; keep the legacy field
-            // during the transition but new clients must use entity_id.
             "entity_id": outcome.root_agent_id,
-            "root_agent_id": outcome.root_agent_id,
             "root_agent_name": outcome.root_agent_name,
             "spawned_agents": outcome.spawned_agents,
             "created_events": outcome.created_events,
             "created_ideas": outcome.created_ideas,
             "created_quests": outcome.created_quests,
             "warnings": outcome.warnings,
-            "template": {
+            "blueprint": {
                 "slug": template.slug,
                 "name": template.name,
             },
@@ -637,13 +630,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_template_creates_root_and_seeds_atomically() {
+    async fn spawn_blueprint_creates_root_and_seeds_atomically() {
         let registry = test_registry().await;
         let event_store = EventHandlerStore::new(registry.db());
         let idea_store = test_idea_store();
 
         let template = fixture_template();
-        let outcome = spawn_template(&template, None, &registry, &event_store, Some(&idea_store))
+        let outcome = spawn_blueprint(&template, None, &registry, &event_store, Some(&idea_store))
             .await
             .expect("spawn should succeed");
 
@@ -707,12 +700,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_template_tolerates_missing_idea_store() {
+    async fn spawn_blueprint_tolerates_missing_idea_store() {
         let registry = test_registry().await;
         let event_store = EventHandlerStore::new(registry.db());
 
         let template = fixture_template();
-        let outcome = spawn_template(&template, None, &registry, &event_store, None)
+        let outcome = spawn_blueprint(&template, None, &registry, &event_store, None)
             .await
             .expect("spawn should succeed without idea store");
 
@@ -732,7 +725,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_template_warns_on_unknown_owner() {
+    async fn spawn_blueprint_warns_on_unknown_owner() {
         let registry = test_registry().await;
         let event_store = EventHandlerStore::new(registry.db());
         let idea_store = test_idea_store();
@@ -749,7 +742,7 @@ mod tests {
             tool_calls: Vec::new(),
         });
 
-        let outcome = spawn_template(&template, None, &registry, &event_store, Some(&idea_store))
+        let outcome = spawn_blueprint(&template, None, &registry, &event_store, Some(&idea_store))
             .await
             .expect("spawn should succeed despite one bad seed");
 
@@ -765,13 +758,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_template_applies_override_name() {
+    async fn spawn_blueprint_applies_override_name() {
         let registry = test_registry().await;
         let event_store = EventHandlerStore::new(registry.db());
         let idea_store = test_idea_store();
 
         let template = fixture_template();
-        let outcome = spawn_template(
+        let outcome = spawn_blueprint(
             &template,
             Some("My Cool Studio"),
             &registry,

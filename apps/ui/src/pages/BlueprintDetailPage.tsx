@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type {
   CompanyTemplate,
   TemplateSeedAgent,
@@ -40,7 +39,7 @@ const SECTION_IDS = SECTION_TABS.map((t) => t.id);
  *
  * Overview — tagline / description / tree / counts.
  * Agents / Events / Quests / Ideas — searchable list of the relevant
- * seeds with a "none found" empty state. v1 templates may not seed
+ * seeds with a "none found" empty state. v1 blueprints may not seed
  * every kind; the rail still surfaces all five so the navigation
  * shape is constant across blueprints.
  */
@@ -80,24 +79,13 @@ export default function BlueprintDetailPage() {
       .getBlueprint(slug)
       .then((resp) => {
         if (cancelled) return;
-        const tpl = (resp as { template?: CompanyTemplate })?.template;
-        if (tpl) {
-          setTemplate(tpl);
-        } else {
-          const fallback = FALLBACK_TEMPLATES.find((t) => t.slug === slug);
-          if (fallback) setTemplate(fallback);
-          else setError("Blueprint not found.");
-        }
+        const tpl = resp.blueprint;
+        if (tpl) setTemplate(tpl);
+        else setError("Blueprint not found.");
       })
       .catch((e: Error) => {
         if (cancelled) return;
-        const fallback = FALLBACK_TEMPLATES.find((t) => t.slug === slug);
-        if (fallback) {
-          setTemplate(fallback);
-          setError(e.message || "Could not reach the blueprint store.");
-        } else {
-          setError(e.message || "Blueprint not found.");
-        }
+        setError(e.message || "Could not reach the blueprint store.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -294,7 +282,7 @@ function EmptyKind({ label }: { label: string }) {
   return (
     <EmptyState
       title={`No ${label} in this Blueprint.`}
-      description="v1 templates ship sparse — not every Blueprint seeds every primitive."
+      description="v1 blueprints ship sparse — not every Blueprint seeds every primitive."
     />
   );
 }

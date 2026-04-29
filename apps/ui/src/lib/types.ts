@@ -269,10 +269,10 @@ export interface WorkerEvent {
   [key: string]: unknown;
 }
 
-// Company templates — a pre-threaded bundle of seed agents / events / ideas /
-// quests that spawns a ready-to-go root agent. The shape mirrors Stream C's
-// `/api/templates` contract; optional fields stay loose so a sparse template
-// (no seed quests, no seed events) still renders cleanly.
+// Blueprints — a pre-threaded bundle of seed agents / events / ideas /
+// quests that spawns a ready-to-go company. Optional fields stay loose
+// so a sparse Blueprint (no seed quests, no seed events) still renders
+// cleanly.
 export interface TemplateSeedAgent {
   name: string;
   tagline?: string;

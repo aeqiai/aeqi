@@ -5,10 +5,26 @@ import { userEvent } from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import BlueprintsPage from "@/pages/BlueprintsPage";
 import BlueprintDetailPage from "@/pages/BlueprintDetailPage";
-import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import { api } from "@/lib/api";
+import type { CompanyTemplate } from "@/lib/types";
 
-const SOLO = FALLBACK_TEMPLATES.find((t) => t.slug === "solo-founder")!;
+const SOLO: CompanyTemplate = {
+  slug: "solo-founder",
+  name: "Solo Founder",
+  tagline: "Ship product. Talk to users. Stay shipping.",
+  description:
+    "A lean operator for one-person companies. Wakes up with a product manager, an engineer, and a growth agent already threaded — plus a rolling backlog that keeps you moving from idea to revenue.",
+  tags: ["founder", "startup", "product"],
+  root: {
+    name: "Operator",
+    model: "anthropic/claude-sonnet-4.6",
+    color: "#0a0a0b",
+  },
+  seed_agents: [{ name: "Operator", tagline: "The founder's right hand.", role: "Company root." }],
+  seed_events: [{ pattern: "session:start", name: "Daily stand-in" }],
+  seed_ideas: [{ name: "how-to-create-a-quest", tags: ["skill"] }],
+  seed_quests: [{ subject: "Write the one-liner", priority: "high" }],
+};
 
 const renderApp = (entry = "/blueprints") =>
   render(
@@ -35,7 +51,7 @@ describe("BlueprintsPage (catalog)", () => {
   it("renders the hero and at least one blueprint card after loading", async () => {
     vi.spyOn(api, "getBlueprints").mockResolvedValue({
       ok: true,
-      templates: FALLBACK_TEMPLATES,
+      blueprints: [SOLO],
     });
 
     renderApp();
@@ -51,24 +67,21 @@ describe("BlueprintsPage (catalog)", () => {
     });
   });
 
-  it("falls back to local fixtures when the API errors", async () => {
+  it("shows an error when the catalog API errors", async () => {
     vi.spyOn(api, "getBlueprints").mockRejectedValue(new Error("offline"));
 
     renderApp();
 
-    await waitFor(() => {
-      expect(screen.getByText("Solo Founder")).toBeInTheDocument();
-      expect(screen.getByText("Studio")).toBeInTheDocument();
-      expect(screen.getByText("Small Business")).toBeInTheDocument();
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+    expect(screen.queryByText("Solo Founder")).not.toBeInTheDocument();
   });
 
   it("clicking a card navigates to the dedicated detail page", async () => {
     vi.spyOn(api, "getBlueprints").mockResolvedValue({
       ok: true,
-      templates: FALLBACK_TEMPLATES,
+      blueprints: [SOLO],
     });
-    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, template: SOLO });
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
     const user = userEvent.setup();
 
     renderApp();
@@ -96,7 +109,7 @@ describe("BlueprintDetailPage", () => {
   });
 
   it("renders the section rail; seeds appear on each per-kind sub-route", async () => {
-    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, template: SOLO });
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
 
     // Overview lands by default — shows the title + the section rail.
     const overview = renderApp("/blueprints/solo-founder");
@@ -120,18 +133,22 @@ describe("BlueprintDetailPage", () => {
     });
   });
 
-  it("falls back to bundled fixtures when the detail API errors", async () => {
+  it("shows the detail page error when the API fails", async () => {
     vi.spyOn(api, "getBlueprint").mockRejectedValue(new Error("offline"));
 
     renderApp("/blueprints/solo-founder");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Solo Founder" }),
+      await screen.findByRole("heading", { level: 3, name: "Blueprint not found." }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /back to the catalog/i })).toHaveAttribute(
+      "href",
+      "/blueprints",
+    );
   });
 
   it("'Use this Blueprint' CTA navigates to /start with the slug pre-loaded", async () => {
-    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, template: SOLO });
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
     const user = userEvent.setup();
 
     let landed: string | null = null;

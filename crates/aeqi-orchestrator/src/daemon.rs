@@ -1473,16 +1473,16 @@ impl Daemon {
                     crate::ipc::seed::handle_seed_ideas(&ctx, &request, &allowed_roots).await
                 }
 
-                "list_templates" => {
-                    crate::ipc::templates::handle_list_templates(&ctx, &request, &allowed_roots)
+                "list_blueprints" => {
+                    crate::ipc::templates::handle_list_blueprints(&ctx, &request, &allowed_roots)
                         .await
                 }
-                "template_detail" => {
-                    crate::ipc::templates::handle_template_detail(&ctx, &request, &allowed_roots)
+                "blueprint_detail" => {
+                    crate::ipc::templates::handle_blueprint_detail(&ctx, &request, &allowed_roots)
                         .await
                 }
-                "spawn_template" => {
-                    crate::ipc::templates::handle_spawn_template(&ctx, &request, &allowed_roots)
+                "spawn_blueprint" => {
+                    crate::ipc::templates::handle_spawn_blueprint(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "list_ideas" => {

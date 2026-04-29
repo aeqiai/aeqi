@@ -151,7 +151,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  signup: (email: string, password: string, name: string, inviteCode?: string, template?: string) =>
+  signup: (email: string, password: string, name: string, inviteCode?: string) =>
     request<{
       ok: boolean;
       token: string;
@@ -159,7 +159,7 @@ export const api = {
       pending_verification?: boolean;
     }>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password, name, invite_code: inviteCode, template }),
+      body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
     }),
 
   joinWaitlist: (email: string, honeypot: string = "") =>
@@ -579,22 +579,22 @@ export const api = {
 
   // Blueprints — pre-threaded company bundles. Spawn creates an entity
   // backed by a root agent today and returns the canonical entity id.
-  getBlueprints: () => request<{ ok: boolean; templates: CompanyTemplate[] }>("/blueprints"),
+  getBlueprints: () => request<{ ok: boolean; blueprints: CompanyTemplate[] }>("/blueprints"),
 
   // Full Template including seed_agents/events/ideas/quests arrays. The
   // list endpoint returns counts only to keep the catalog payload small;
   // the detail endpoint is what the store calls when a card is selected.
   getBlueprint: (slug: string) =>
-    request<{ ok: boolean; template: CompanyTemplate }>(`/blueprints/${encodeURIComponent(slug)}`),
+    request<{ ok: boolean; blueprint: CompanyTemplate }>(`/blueprints/${encodeURIComponent(slug)}`),
 
   // Resolves the operator-configured default Blueprint
   // (`[blueprints] default` in aeqi.toml). Used by `/start` when the
   // user lands there without a `?blueprint=:slug` query param.
   getDefaultBlueprint: () =>
-    request<{ ok: boolean; template: CompanyTemplate }>("/blueprints/default"),
+    request<{ ok: boolean; blueprint: CompanyTemplate }>("/blueprints/default"),
 
   spawnBlueprint: (data: { blueprint: string; name?: string }) =>
-    request<{ ok: boolean; entity_id?: string; root_agent_id?: string }>("/blueprints/spawn", {
+    request<{ ok: boolean; entity_id: string }>("/blueprints/spawn", {
       method: "POST",
       body: JSON.stringify(data),
     }),

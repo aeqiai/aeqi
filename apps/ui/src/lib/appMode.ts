@@ -13,18 +13,8 @@ export function isPlatformAppMode(mode: AppMode | null | undefined): mode is "pl
 
 /**
  * Resolve the routing key (`X-Entity` header / WS `?root=`) for the current
- * URL. Every agent is addressable at `/:agentId/...`, but the platform
- * proxies to a runtime by the tree's root — hosting topology lives at the
- * root, not at every node. So the URL segment identifies the *target*
- * agent (passed separately as `agent_id` in payloads) and this function
- * produces the *routing key* by walking that segment up the parent chain.
- *
- * Falls back to the cached `aeqi_entity` (kept in sync by AppLayout) when
- * the agent store hasn't loaded yet, and finally to the raw URL segment
- * for cold-start with nothing cached.
- *
- * Migration: reads the old `aeqi_root` key once on first call, writes
- * `aeqi_entity`, then removes the old key so no stale data persists.
+ * URL. The canonical shell is `/:entityId/...`; this function resolves the
+ * active entity from the URL or the cached `aeqi_entity` value.
  */
 export function getScopedEntity(): string {
   const path = window.location.pathname;
@@ -38,8 +28,7 @@ export function getScopedEntity(): string {
     const { agents } = useDaemonStore.getState();
     if (agents.length > 0) {
       const byId = new Map(agents.map((a) => [a.id, a] as const));
-      const byName = new Map(agents.map((a) => [a.name, a] as const));
-      let current = byId.get(urlSegment) || byName.get(urlSegment);
+      let current = byId.get(urlSegment);
       for (let i = 0; i < 20 && current; i++) {
         if (!current.parent_id) return current.id;
         current = byId.get(current.parent_id);
@@ -47,22 +36,7 @@ export function getScopedEntity(): string {
     }
   }
 
-  // Migrate legacy key on first read.
-  const legacy = localStorage.getItem("aeqi_root");
-  if (legacy) {
-    localStorage.setItem("aeqi_entity", legacy);
-    localStorage.removeItem("aeqi_root");
-  }
-
   let stored = localStorage.getItem("aeqi_entity");
-  if (!stored) {
-    const olderLegacy = localStorage.getItem("aeqi_company");
-    if (olderLegacy) {
-      localStorage.setItem("aeqi_entity", olderLegacy);
-      localStorage.removeItem("aeqi_company");
-      stored = olderLegacy;
-    }
-  }
   if (stored && NON_AGENT_ROUTES.has(stored)) {
     localStorage.removeItem("aeqi_entity");
     stored = null;
@@ -86,7 +60,6 @@ const NON_AGENT_ROUTES = new Set([
   "profile",
   "sessions",
   "start",
-  "templates",
   "agents",
   "company",
   "crm",

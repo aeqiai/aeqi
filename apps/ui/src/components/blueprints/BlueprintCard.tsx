@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
-import { DEFAULT_TEMPLATE_SLUG } from "@/lib/templateFixtures";
+import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
 import { Card } from "@/components/ui";
 import type { CompanyTemplate } from "@/lib/types";
 
@@ -33,7 +33,7 @@ function formatSeedMeta(t: CompanyTemplate): string {
  * in the meta line, not a pill.
  */
 function BlueprintCardImpl({ template }: BlueprintCardProps) {
-  const isDefault = template.slug === DEFAULT_TEMPLATE_SLUG;
+  const isDefault = template.slug === DEFAULT_BLUEPRINT_SLUG;
   const meta = formatSeedMeta(template);
   const fullMeta = isDefault ? `${meta} · Default` : meta;
 

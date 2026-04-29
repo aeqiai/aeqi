@@ -124,9 +124,6 @@ export default function App() {
           <Route path="/blueprints/:slug" element={<GatedAppShell />} />
           <Route path="/blueprints/:slug/:section" element={<GatedAppShell />} />
           <Route path="/economy" element={<GatedAppShell />} />
-          <Route path="/library" element={<Navigate to="/blueprints" replace />} />
-          <Route path="/protocol" element={<Navigate to="/economy" replace />} />
-          <Route path="/templates" element={<Navigate to="/blueprints" replace />} />
 
           {/* Protected routes */}
           <Route

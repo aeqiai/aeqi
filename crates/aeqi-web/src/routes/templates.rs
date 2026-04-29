@@ -13,27 +13,19 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/blueprints", get(list_templates))
-        .route("/blueprints/spawn", post(spawn_template))
+        .route("/blueprints", get(list_blueprints))
+        .route("/blueprints/spawn", post(spawn_blueprint))
         // Literal `/blueprints/default` must register before the
         // `{slug}` capture so axum routes the literal first.
-        .route("/blueprints/default", get(default_template))
-        .route("/blueprints/{slug}", get(template_detail))
-        // Legacy aliases. The product primitive is Blueprint; keep the old
-        // `/templates` routes temporarily so older clients do not break.
-        .route("/templates", get(list_templates))
-        .route("/templates/spawn", post(spawn_template))
-        // Literal `/templates/default` must register before the
-        // `{slug}` capture so axum routes the literal first.
-        .route("/templates/default", get(default_template))
-        .route("/templates/{slug}", get(template_detail))
+        .route("/blueprints/default", get(default_blueprint))
+        .route("/blueprints/{slug}", get(blueprint_detail))
 }
 
-async fn list_templates(State(state): State<AppState>, scope: Scope) -> Response {
+async fn list_blueprints(State(state): State<AppState>, scope: Scope) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
-        "list_templates",
+        "list_blueprints",
         serde_json::json!({}),
     )
     .await
@@ -41,18 +33,18 @@ async fn list_templates(State(state): State<AppState>, scope: Scope) -> Response
 
 /// Resolves to the configured default Blueprint (`[blueprints] default`
 /// in `aeqi.toml`). Used by `/start` when the user hasn't picked one.
-async fn default_template(State(state): State<AppState>, scope: Scope) -> Response {
+async fn default_blueprint(State(state): State<AppState>, scope: Scope) -> Response {
     let slug = state.default_blueprint_slug.clone();
     ipc_proxy(
         state,
         scope.as_ref(),
-        "template_detail",
+        "blueprint_detail",
         serde_json::json!({"slug": slug}),
     )
     .await
 }
 
-async fn template_detail(
+async fn blueprint_detail(
     State(state): State<AppState>,
     scope: Scope,
     Path(slug): Path<String>,
@@ -60,7 +52,7 @@ async fn template_detail(
     ipc_proxy(
         state,
         scope.as_ref(),
-        "template_detail",
+        "blueprint_detail",
         serde_json::json!({"slug": slug}),
     )
     .await
@@ -75,7 +67,7 @@ async fn template_detail(
 ///
 /// When auth mode is `none` (dev/local), all gating is bypassed —
 /// there is no account record to consult.
-async fn spawn_template(
+async fn spawn_blueprint(
     State(state): State<AppState>,
     scope: Scope,
     req: axum::extract::Request,
@@ -125,7 +117,7 @@ async fn spawn_template(
         params["allowed_roots"] = serde_json::json!(scope_ref.roots);
     }
 
-    let resp = match state.ipc.cmd_with("spawn_template", params).await {
+    let resp = match state.ipc.cmd_with("spawn_blueprint", params).await {
         Ok(v) => v,
         Err(e) => {
             return (
@@ -150,13 +142,13 @@ async fn spawn_template(
             tracing::warn!(
                 user_id,
                 root_id,
-                "spawn_template: failed to link root to user: {err}"
+                "spawn_blueprint: failed to link root to user: {err}"
             );
         }
         if let Err(err) = accounts.mark_free_company_used(user_id) {
             tracing::warn!(
                 user_id,
-                "spawn_template: failed to mark free trial slot used: {err}"
+                "spawn_blueprint: failed to mark free trial slot used: {err}"
             );
         }
     }

@@ -21,7 +21,7 @@ type SpawnState = { kind: "idle" } | { kind: "running" } | { kind: "error"; mess
 type SpawnBlueprintResponse = Awaited<ReturnType<typeof api.spawnBlueprint>>;
 
 function entityIdFromSpawn(resp: SpawnBlueprintResponse): string {
-  return resp.entity_id || resp.root_agent_id || "";
+  return resp.entity_id ?? "";
 }
 
 /**

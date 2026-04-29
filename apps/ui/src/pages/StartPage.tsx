@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { DEFAULT_TEMPLATE_SLUG, FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate, User } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
@@ -17,7 +16,7 @@ import "@/styles/start.css";
 type SpawnBlueprintResponse = Awaited<ReturnType<typeof api.spawnBlueprint>>;
 
 function entityIdFromSpawn(resp: SpawnBlueprintResponse): string {
-  return resp.entity_id || resp.root_agent_id || "";
+  return resp.entity_id ?? "";
 }
 
 /**
@@ -63,8 +62,7 @@ export default function StartPage() {
   }, []);
 
   // Resolve the Blueprint — either ?blueprint=:slug or the default.
-  // Falls back to bundled fixtures so the page still renders for
-  // unauthed/offline visitors.
+  // If the server can't resolve it, surface the error directly.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -73,25 +71,13 @@ export default function StartPage() {
     fetcher
       .then((resp) => {
         if (cancelled) return;
-        const tpl = (resp as { template?: CompanyTemplate })?.template;
-        if (tpl) {
-          setTemplate(tpl);
-        } else {
-          const fallback = FALLBACK_TEMPLATES.find(
-            (t) => t.slug === (slug || DEFAULT_TEMPLATE_SLUG),
-          );
-          setTemplate(fallback ?? null);
-        }
+        const tpl = resp.blueprint;
+        if (tpl) setTemplate(tpl);
+        else setLoadError("Blueprint not found.");
       })
       .catch((e: Error) => {
         if (cancelled) return;
-        const fallback = FALLBACK_TEMPLATES.find((t) => t.slug === (slug || DEFAULT_TEMPLATE_SLUG));
-        if (fallback) {
-          setTemplate(fallback);
-          setLoadError(e.message || "Could not reach the Blueprint store.");
-        } else {
-          setLoadError(e.message || "Blueprint not found.");
-        }
+        setLoadError(e.message || "Could not reach the Blueprint store.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

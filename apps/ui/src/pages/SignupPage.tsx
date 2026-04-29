@@ -10,18 +10,9 @@ import ContinueWithPasskeyButton from "@/components/ContinueWithPasskeyButton";
 import { GoogleIcon, GitHubIcon } from "@/components/icons/Brand";
 import { Button, Input, Spinner } from "@/components/ui";
 
-const TEMPLATE_LABELS: Record<string, string> = {
-  software: "Software Agent",
-  research: "Research Agent",
-  content: "Content Agent",
-  services: "Services Agent",
-};
-
 export default function SignupPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const template = params.get("template");
-  const templateLabel = template ? TEMPLATE_LABELS[template] : null;
   const {
     loading,
     error,
@@ -97,13 +88,7 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || (waitlist && !inviteCode.trim())) return;
-    const result = await signup(
-      email,
-      password,
-      fullName,
-      inviteCode || undefined,
-      template || undefined,
-    );
+    const result = await signup(email, password, fullName, inviteCode || undefined);
     if (result === "pending") setStep("verify");
     else if (result === "verified")
       navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
@@ -266,15 +251,7 @@ export default function SignupPage() {
       return (
         <>
           <h1 className="auth-heading">Create your account</h1>
-          <p className="auth-subheading">
-            {templateLabel ? (
-              <>
-                Launch a <strong>{templateLabel}</strong> powered by AI agents
-              </>
-            ) : (
-              "Start a company in minutes."
-            )}
-          </p>
+          <p className="auth-subheading">Start a company in minutes.</p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
             <Input
               size="lg"

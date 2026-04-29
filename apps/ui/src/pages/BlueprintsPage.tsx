@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { FALLBACK_TEMPLATES } from "@/lib/templateFixtures";
 import type { CompanyTemplate } from "@/lib/types";
 import { Popover, Spinner } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -62,7 +61,7 @@ export default function BlueprintsPage() {
     return KIND_IDS.includes(last as Kind) ? (last as Kind) : "companies";
   }, [location.pathname]);
 
-  const [templates, setTemplates] = useState<CompanyTemplate[]>([]);
+  const [blueprints, setBlueprints] = useState<CompanyTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,12 +91,11 @@ export default function BlueprintsPage() {
       .getBlueprints()
       .then((resp) => {
         if (cancelled) return;
-        const incoming = (resp as { templates?: CompanyTemplate[] })?.templates ?? [];
-        setTemplates(incoming.length > 0 ? incoming : FALLBACK_TEMPLATES);
+        const incoming = resp.blueprints ?? [];
+        setBlueprints(incoming);
       })
       .catch((e: Error) => {
         if (cancelled) return;
-        setTemplates(FALLBACK_TEMPLATES);
         setError(e.message || "Could not reach the Blueprint store.");
       })
       .finally(() => {
@@ -119,7 +117,7 @@ export default function BlueprintsPage() {
 
   const filtered = useMemo(() => {
     if (activeKind !== "companies") return [] as CompanyTemplate[];
-    const matched = templates.filter(
+    const matched = blueprints.filter(
       (t) => matches(t.name) || matches(t.tagline) || matches(t.description),
     );
     if (sort === "alpha") {
@@ -136,7 +134,7 @@ export default function BlueprintsPage() {
       return [...matched].sort((a, b) => score(b) - score(a));
     }
     return matched;
-  }, [templates, activeKind, matches, sort]);
+  }, [blueprints, activeKind, matches, sort]);
 
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
 

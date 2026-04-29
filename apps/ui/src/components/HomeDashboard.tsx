@@ -29,11 +29,6 @@ function firstName(name: string | undefined, email: string | undefined): string 
  *
  * First-time users (zero companies) are redirected to `/start` — the
  * single launch surface. Returning users see the director inbox intro.
- *
- * Deep link: `?template=<slug>` becomes `/start?blueprint=<slug>` for
- * zero-state users (so landing-page CTAs still land in the launch
- * flow), or `/blueprints?template=<slug>` for users with companies (so
- * they can preview without unintentionally consuming their next slot).
  */
 export default function HomeDashboard() {
   const [searchParams] = useSearchParams();
@@ -56,9 +51,9 @@ export default function HomeDashboard() {
   if (!initialLoaded) return null;
 
   if (companies.length === 0) {
-    const templateParam = searchParams.get("template");
-    const startUrl = templateParam
-      ? `/start?blueprint=${encodeURIComponent(templateParam)}`
+    const blueprintParam = searchParams.get("blueprint");
+    const startUrl = blueprintParam
+      ? `/start?blueprint=${encodeURIComponent(blueprintParam)}`
       : "/start";
     return <Navigate to={startUrl} replace />;
   }
