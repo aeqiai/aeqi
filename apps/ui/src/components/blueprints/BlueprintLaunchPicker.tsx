@@ -100,9 +100,12 @@ export function BlueprintLaunchPicker({
       setSubmitError(null);
       try {
         if (mode === "spawn-company") {
-          const resp = await api.startLaunch({ template: tpl.slug, name: tpl.name });
-          if (!resp.ok || !resp.root) throw new Error("Launch returned no slug.");
-          onSpawnedCompany?.(resp.root);
+          const resp = await api.startLaunch({
+            template: tpl.slug,
+            display_name: tpl.name,
+          });
+          if (!resp.ok || !resp.entity_id) throw new Error("Launch returned no entity_id.");
+          onSpawnedCompany?.(resp.entity_id);
         } else {
           if (!entityId) throw new Error("Missing entity id for spawn-into-entity.");
           await api.spawnBlueprintIntoEntity({ blueprint: tpl.slug, entity_id: entityId });

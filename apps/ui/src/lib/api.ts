@@ -522,12 +522,13 @@ export const api = {
       created_quests: number;
     }>("/blueprints/spawn-into", { method: "POST", body: JSON.stringify(data) }),
 
-  // Platform-side launch — creates the runtime placement, kicks off the
-  // sandbox provisioner, and returns the slug. The platform back-fills
-  // `runtime_placements.agent_id` once the sandbox reports the new
-  // entity's runtime UUID, so subsequent `getEntities()` calls surface it.
-  startLaunch: (data: { template: string; name: string }) =>
-    request<{ ok: boolean; root: string }>("/start/launch", {
+  // Platform-side launch — mints the canonical entity_id (UUID)
+  // synchronously and kicks off the sandbox provisioner async. The
+  // frontend can navigate to `/c/<entity_id>/...` immediately; the
+  // placement's `status` field flips from `pending` to `ready` once
+  // provisioning completes.
+  startLaunch: (data: { template: string; display_name: string }) =>
+    request<{ ok: boolean; entity_id: string; display_name: string }>("/start/launch", {
       method: "POST",
       body: JSON.stringify(data),
     }),
