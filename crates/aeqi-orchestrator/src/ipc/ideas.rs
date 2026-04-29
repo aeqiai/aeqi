@@ -38,9 +38,9 @@ pub async fn handle_list_ideas(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    // Agent-scoped path goes through AgentRegistry so it can join agent_ancestry
-    // and include globals (agent_id IS NULL) + self + descendants. The trait
-    // IdeaStore doesn't know about ancestry.
+    // Agent-scoped path goes through AgentRegistry so it can walk the
+    // position DAG and include globals (agent_id IS NULL) + self +
+    // descendants. The trait IdeaStore doesn't know about position edges.
     if let Some(aid) = request_field(request, "agent_id") {
         match ctx.agent_registry.list_ideas_visible_to(aid).await {
             Ok(ideas) => {

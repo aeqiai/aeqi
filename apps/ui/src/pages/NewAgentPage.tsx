@@ -87,7 +87,7 @@ function SubAgentForm({
     try {
       const resp = await api.spawnAgent({
         name: name.trim(),
-        parent_id: parentId,
+        parent_agent_id: parentId,
         ...(systemPrompt.trim() ? { system_prompt: systemPrompt.trim() } : {}),
       });
       const newId = resp.agent?.id;

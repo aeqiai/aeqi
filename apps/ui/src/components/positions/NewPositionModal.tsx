@@ -39,23 +39,10 @@ export default function NewPositionModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const scopedAgents = useMemo(() => {
-    const byId = new Map<string, Agent>();
-    for (const a of agents) byId.set(a.id, a);
-    const inScope = (a: Agent): boolean => {
-      if (a.id === entityId) return true;
-      let cursor: Agent | undefined = a;
-      const seen = new Set<string>();
-      while (cursor && cursor.parent_id) {
-        if (seen.has(cursor.id)) return false;
-        seen.add(cursor.id);
-        if (cursor.parent_id === entityId) return true;
-        cursor = byId.get(cursor.parent_id);
-      }
-      return false;
-    };
-    return agents.filter(inScope);
-  }, [agents, entityId]);
+  const scopedAgents = useMemo(
+    () => agents.filter((a) => a.entity_id === entityId || a.id === entityId),
+    [agents, entityId],
+  );
 
   const agentOptions = useMemo(
     () => scopedAgents.map((a) => ({ value: a.id, label: a.name })),

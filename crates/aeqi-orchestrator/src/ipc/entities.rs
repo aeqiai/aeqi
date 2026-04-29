@@ -20,8 +20,9 @@ pub async fn handle_entities(
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
 
-    // Tenancy filtering: entity.id == root agent.id (backfill rule), so
-    // is_allowed checks either the entity's name/slug or its id.
+    // Tenancy filtering: an entity is in scope iff its id or slug is on
+    // the allowed list. Entity UUIDs are distinct from agent UUIDs after
+    // Phase 4, so callers must pass the entity id explicitly.
     let entities: Vec<_> = if allowed.is_some() {
         entities
             .into_iter()
@@ -31,51 +32,69 @@ pub async fn handle_entities(
         entities
     };
 
+    // Pre-resolve the backing root agent per entity so the response can
+    // surface `agent_id` (used by the daemon store to keep the legacy
+    // sidebar wiring intact while we shift the rest of the UI to entity
+    // ids).
+    let all_roots = ctx
+        .agent_registry
+        .list_root_agents()
+        .await
+        .unwrap_or_default();
+
     let mut result: Vec<serde_json::Value> = Vec::new();
     for entity in &entities {
-        let task_counts = ctx
+        let backing_agent = all_roots
+            .iter()
+            .find(|a| a.entity_id.as_deref() == Some(&entity.id))
+            .map(|a| a.id.clone());
+
+        // Aggregate quest counts across every agent owned by this entity.
+        let entity_agents = ctx
             .agent_registry
-            .list_tasks(None, Some(&entity.id))
+            .list(Some(&entity.id), None)
             .await
-            .map(|tasks| {
-                let total = tasks.len();
-                let open = tasks.iter().filter(|t| !t.is_closed()).count();
-                let pending = tasks
+            .unwrap_or_default();
+        let mut total = 0usize;
+        let mut open = 0usize;
+        let mut pending = 0usize;
+        let mut in_progress = 0usize;
+        let mut done = 0usize;
+        let mut cancelled = 0usize;
+        for a in &entity_agents {
+            if let Ok(tasks) = ctx.agent_registry.list_tasks(None, Some(&a.id)).await {
+                total += tasks.len();
+                open += tasks.iter().filter(|t| !t.is_closed()).count();
+                pending += tasks
                     .iter()
                     .filter(|t| t.status == aeqi_quests::QuestStatus::Todo)
                     .count();
-                let in_progress = tasks
+                in_progress += tasks
                     .iter()
                     .filter(|t| t.status == aeqi_quests::QuestStatus::InProgress)
                     .count();
-                let done = tasks
+                done += tasks
                     .iter()
                     .filter(|t| t.status == aeqi_quests::QuestStatus::Done)
                     .count();
-                let cancelled = tasks
+                cancelled += tasks
                     .iter()
                     .filter(|t| t.status == aeqi_quests::QuestStatus::Cancelled)
                     .count();
-                (total, open, pending, in_progress, done, cancelled)
-            })
-            .unwrap_or_default();
+            }
+        }
 
-        // agent_id mirrors entity.id for backfilled root agents (entity.id == agent.id).
-        // Phase C will introduce entities without a backing agent; for those, agent_id
-        // is the same as id (no separate agent yet).
         result.push(serde_json::json!({
-            // Legacy fields (daemon parser reads these today)
             "id": entity.id,
             "name": entity.name,
-            "agent_id": entity.id,
+            "agent_id": backing_agent,
             "prefix": entity.slug,
-            "open_tasks": task_counts.1,
-            "total_tasks": task_counts.0,
-            "pending_tasks": task_counts.2,
-            "in_progress_tasks": task_counts.3,
-            "done_tasks": task_counts.4,
-            "cancelled_tasks": task_counts.5,
-            // New fields (ignored by today's daemon parser; lit up in Phase C)
+            "open_tasks": open,
+            "total_tasks": total,
+            "pending_tasks": pending,
+            "in_progress_tasks": in_progress,
+            "done_tasks": done,
+            "cancelled_tasks": cancelled,
             "type": entity.type_,
             "slug": entity.slug,
             "parent_entity_id": entity.parent_entity_id,
@@ -116,15 +135,22 @@ pub async fn handle_create_entity(
     let parent_entity_id = request.get("parent_entity_id").and_then(|v| v.as_str());
     let owner_user_id = request.get("owner_user_id").and_then(|v| v.as_str());
 
-    // For company-type entities, also spawn a backing root agent so the legacy
-    // agent tree stays consistent and quest counts work immediately.
+    // For company-type entities, also spawn a backing root agent so the
+    // agent surface stays consistent and quest counts work immediately. The
+    // spawn path mints a fresh entity UUID alongside the agent UUID; the
+    // entity is the canonical identifier exposed on the wire.
     let (entity_id, agent_spawned) = if type_ == EntityType::Company {
         match ctx.agent_registry.spawn(name, None, None).await {
             Ok(agent) => {
-                // The schema trigger / backfill already created the entity row.
-                // Ensure the entity row has the correct slug/type if we need to
-                // update it (trigger uses name as slug; same here so it's a no-op).
-                (agent.id, true)
+                let eid = agent.entity_id.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "spawned company agent has no entity_id (post-Phase-4 invariant)",
+                    )
+                });
+                match eid {
+                    Ok(eid) => (eid, true),
+                    Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+                }
             }
             Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
         }
@@ -215,9 +241,16 @@ pub async fn handle_update_entity(
         return serde_json::json!({"ok": false, "error": e.to_string()});
     }
 
-    // Also update the backing agent name when present and name changed.
-    if let Some(new_name) = new_name {
-        let _ = ctx.agent_registry.update_name(&entity.id, new_name).await;
+    // Also update the backing agent name (when present) so the agent label
+    // and the entity name stay in sync. The backing agent is the (single)
+    // agent inside this entity that has no incoming position edges.
+    if let Some(new_name) = new_name
+        && let Ok(roots) = ctx.agent_registry.list_root_agents().await
+        && let Some(root) = roots
+            .into_iter()
+            .find(|a| a.entity_id.as_deref() == Some(&entity.id))
+    {
+        let _ = ctx.agent_registry.update_name(&root.id, new_name).await;
     }
 
     serde_json::json!({"ok": true})

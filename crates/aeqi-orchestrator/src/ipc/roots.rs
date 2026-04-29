@@ -87,7 +87,7 @@ pub async fn handle_create_root(
         .map(|s| s.to_string())
         .unwrap_or_else(|| name.chars().take(2).collect::<String>().to_lowercase());
 
-    // Spawn a root agent (parent_id = None).
+    // Spawn a root agent (no parent → fresh entity + agent + position).
     let agent = ctx.agent_registry.spawn(name, None, None).await;
     match agent {
         Ok(a) => {

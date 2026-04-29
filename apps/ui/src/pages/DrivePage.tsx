@@ -14,15 +14,10 @@ interface DriveFile {
   uploaded_at: string;
 }
 
-/** Walk up parent_id to find the root ancestor id. */
-function findRootId(agents: { id: string; name: string; parent_id?: string | null }[], id: string) {
-  const byId = new Map(agents.map((a) => [a.id, a]));
-  let current = byId.get(id) || agents.find((a) => a.name === id);
-  for (let i = 0; i < 20 && current; i++) {
-    if (!current.parent_id) return current.id;
-    current = byId.get(current.parent_id);
-  }
-  return current?.id || id;
+/** Resolve the entity that owns this agent — the canonical drive scope. */
+function findRootId(agents: { id: string; name: string; entity_id?: string | null }[], id: string) {
+  const found = agents.find((a) => a.id === id) || agents.find((a) => a.name === id);
+  return found?.entity_id || found?.id || id;
 }
 
 function formatBytes(n: number): string {

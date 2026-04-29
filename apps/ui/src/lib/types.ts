@@ -6,7 +6,6 @@ export interface Entity {
   id: string;
   name: string;
   type: EntityType;
-  root_agent_id: string;
   status: "active" | "paused" | "archived";
   avatar?: string;
   color?: string;
@@ -18,7 +17,7 @@ export interface Entity {
 export interface Agent {
   id: string;
   name: string;
-  parent_id?: string | null;
+  entity_id?: string | null;
   status: string;
   model?: string;
   session_id?: string;

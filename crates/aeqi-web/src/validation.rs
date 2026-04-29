@@ -282,7 +282,7 @@ pub struct CreateAgentRequest {
     pub model: Option<String>,
 
     #[validate(custom(function = "validate_identifier"))]
-    pub parent_id: Option<String>,
+    pub parent_agent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

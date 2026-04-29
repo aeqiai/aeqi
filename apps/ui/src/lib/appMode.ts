@@ -27,11 +27,9 @@ export function getScopedEntity(): string {
   if (urlSegment) {
     const { agents } = useDaemonStore.getState();
     if (agents.length > 0) {
-      const byId = new Map(agents.map((a) => [a.id, a] as const));
-      let current = byId.get(urlSegment);
-      for (let i = 0; i < 20 && current; i++) {
-        if (!current.parent_id) return current.id;
-        current = byId.get(current.parent_id);
+      const found = agents.find((a) => a.id === urlSegment);
+      if (found) {
+        return found.entity_id || found.id;
       }
     }
   }

@@ -634,12 +634,12 @@ export const api = {
     name: string;
     template?: string;
     project?: string;
-    parent_id?: string;
+    parent_agent_id?: string;
     system_prompt?: string;
   }) =>
     request<{
       ok: boolean;
-      agent: { id: string; name: string; parent_id?: string | null; status?: string };
+      agent: { id: string; name: string; entity_id?: string | null; status?: string };
       warnings?: string[];
     }>("/agents/spawn", { method: "POST", body: JSON.stringify(data) }),
 
@@ -915,13 +915,13 @@ export const api = {
 };
 
 /// One row of the director-inbox query — see `crates/aeqi-orchestrator/src/ipc/inbox.rs`.
-/// `agent_name` and `root_agent_id` are joined server-side; `last_agent_message`
+/// `agent_name` and `entity_id` are joined server-side; `last_agent_message`
 /// is the truncated assistant message that immediately precedes the ask.
 export interface InboxItem {
   session_id: string;
   agent_id: string | null;
   agent_name: string | null;
-  root_agent_id: string | null;
+  entity_id: string | null;
   session_name: string;
   awaiting_subject: string | null;
   awaiting_at: string;

@@ -1,15 +1,14 @@
 //! Entity Registry — first-class entity primitive.
 //!
-//! An entity is the organisational unit that owns agents. After Phase A every
-//! existing root agent is wrapped in an entity row of type=company, with the
-//! same UUID (`entity.id == agent.id`). Future types (fund, dao, holding, …)
-//! can exist without a backing root agent.
+//! An entity is the organisational unit that owns agents. Every agent
+//! belongs to exactly one entity (`agents.entity_id`). Entities mint fresh
+//! UUIDs at creation, distinct from any agent UUID.
 //!
 //! The registry borrows its connection-pool shape from [`AgentRegistry`]:
 //! - `Arc<ConnectionPool>` hand-off so both registries share the same pool.
 //! - Every mutating method acquires the lock, performs the write, drops.
 //! - Tests use an in-memory pool seeded by `AgentRegistry::open` so the
-//!   full schema (including agent_ancestry, triggers, etc.) is in place.
+//!   full position-DAG schema is in place.
 
 use crate::agent_registry::ConnectionPool;
 use anyhow::{Result, bail};
@@ -124,9 +123,8 @@ impl EntityRegistry {
         Ok(rows)
     }
 
-    /// List only entities whose id appears in `allowed`.
-    /// Used for tenancy scoping: `allowed` contains root agent IDs the current
-    /// scope can see (entity.id == root agent.id by the backfill rule).
+    /// List only entities whose id appears in `allowed`. Used for tenancy
+    /// scoping — `allowed` contains entity ids the current scope can see.
     pub async fn list_filtered(&self, allowed: &[String]) -> Result<Vec<Entity>> {
         if allowed.is_empty() {
             return Ok(vec![]);
@@ -335,35 +333,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn idempotent_backfill_upsert_ignore() {
-        let (agent_reg, er) = test_registry().await;
-        // Spawn a root agent — the schema bootstrap already inserted an entity row
-        // via the backfill trigger. The upsert_ignore should be a no-op.
-        let agent = agent_reg.spawn("acme", None, None).await.unwrap();
-        // The trigger/backfill should have created the entity row already.
-        // Call upsert_ignore again — must not duplicate.
-        er.upsert_ignore(
-            &agent.id,
-            "acme",
-            "acme",
-            EntityType::Company,
-            &agent.created_at.to_rfc3339(),
-        )
-        .await
-        .unwrap();
-        er.upsert_ignore(
-            &agent.id,
-            "acme",
-            "acme",
-            EntityType::Company,
-            &agent.created_at.to_rfc3339(),
-        )
-        .await
-        .unwrap();
+    async fn idempotent_upsert_ignore() {
+        let (_agent_reg, er) = test_registry().await;
+        let id = "ent-upsert";
+        er.upsert_ignore(id, "acme", "acme-upsert", EntityType::Company, "2026-04-29")
+            .await
+            .unwrap();
+        er.upsert_ignore(id, "acme", "acme-upsert", EntityType::Company, "2026-04-29")
+            .await
+            .unwrap();
 
         let list = er.list().await.unwrap();
-        // Should have exactly one entity for this agent.
-        let matching: Vec<_> = list.iter().filter(|e| e.id == agent.id).collect();
+        let matching: Vec<_> = list.iter().filter(|e| e.id == id).collect();
         assert_eq!(matching.len(), 1);
     }
 
@@ -528,17 +509,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_creates_entity_row() {
+    async fn spawn_creates_entity_with_fresh_uuid() {
         let (agent_reg, er) = test_registry().await;
         let agent = agent_reg.spawn("my-company", None, None).await.unwrap();
 
-        // The open() bootstrap + trigger should have created an entity row.
-        let entity = er.get(&agent.id).await.unwrap();
-        assert!(
-            entity.is_some(),
-            "spawning a root agent must create an entity row"
+        let entity_id = agent.entity_id.clone().expect("agent must own an entity");
+        assert_ne!(
+            entity_id, agent.id,
+            "entity UUID must differ from agent UUID"
         );
-        let entity = entity.unwrap();
+
+        let entity = er.get(&entity_id).await.unwrap().expect("entity row");
         assert_eq!(entity.type_, EntityType::Company);
         assert_eq!(entity.name, "my-company");
     }
@@ -552,20 +533,9 @@ mod tests {
             .await
             .unwrap();
 
-        // agents.entity_id on child must equal root.id (set by trigger or spawn).
-        let db = agent_reg.db();
-        let locked = db.lock().await;
-        let child_entity_id: Option<String> = locked
-            .query_row(
-                "SELECT entity_id FROM agents WHERE id = ?1",
-                params![child.id],
-                |row| row.get(0),
-            )
-            .unwrap();
         assert_eq!(
-            child_entity_id,
-            Some(root.id.clone()),
-            "child agent entity_id must equal root id"
+            child.entity_id, root.entity_id,
+            "child agent must inherit the root's entity_id"
         );
     }
 }

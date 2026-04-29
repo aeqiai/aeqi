@@ -65,8 +65,12 @@ export default function AgentPage({
 
   const resolvedAgentId = agent?.id || agentId;
 
-  // Child agents for the "agents" tab
-  const childAgents = agents.filter((a) => a.parent_id === agent?.id);
+  // Child agents for the "agents" tab — every agent inside the same
+  // entity is a candidate; AgentOrgChart filters down to the position
+  // DAG when it renders.
+  const childAgents = agents.filter(
+    (a) => a.entity_id && a.entity_id === agent?.entity_id && a.id !== agent?.id,
+  );
 
   // Save feedback toast
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
@@ -177,25 +181,13 @@ function AgentsTab({
     return () => window.removeEventListener("aeqi:create", goToSpawn);
   }, [goToSpawn]);
 
-  // Deep descendant count across the whole subtree — lets the header
-  // distinguish "5 direct reports" from "5 direct · 23 in the tree".
+  // Deep descendant count across the whole entity. Position-DAG awareness
+  // doesn't add value here — every agent in the same entity counts.
   const totalDescendants = useMemo(() => {
-    const byParent = new Map<string, string[]>();
-    for (const a of allAgents) {
-      if (!a.parent_id) continue;
-      const list = byParent.get(a.parent_id) || [];
-      list.push(a.id);
-      byParent.set(a.parent_id, list);
-    }
-    let count = 0;
-    const stack: string[] = [parentAgentId];
-    while (stack.length) {
-      const id = stack.pop() as string;
-      const kids = byParent.get(id) || [];
-      count += kids.length;
-      for (const k of kids) stack.push(k);
-    }
-    return count;
+    const parent = allAgents.find((a) => a.id === parentAgentId);
+    if (!parent?.entity_id) return 0;
+    return allAgents.filter((a) => a.entity_id === parent.entity_id && a.id !== parentAgentId)
+      .length;
   }, [allAgents, parentAgentId]);
 
   if (childAgents.length === 0) {
@@ -408,10 +400,11 @@ function SettingsPanel({
 }) {
   const agents = useDaemonStore((s) => s.agents);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
-  const childAgents = useMemo(
-    () => agents.filter((a) => a.parent_id === resolvedAgentId),
-    [agents, resolvedAgentId],
-  );
+  const childAgents = useMemo(() => {
+    const self = agents.find((a) => a.id === resolvedAgentId);
+    if (!self?.entity_id) return [];
+    return agents.filter((a) => a.entity_id === self.entity_id && a.id !== resolvedAgentId);
+  }, [agents, resolvedAgentId]);
 
   // Optimistic local model state so the picker reflects the selection the
   // moment the radio flips, not when the refetch round-trips back.
@@ -549,7 +542,15 @@ function DangerZone({
   const [deleting, setDeleting] = useState(false);
 
   const agentName = agent?.name || resolvedAgentId;
-  const isRoot = !agent?.parent_id;
+  // A "root" agent (in this UI sense) is one that owns its entity end-to-end
+  // — equivalent to "this is the only agent in the entity, deleting it will
+  // orphan the company" for confirmation copy purposes.
+  const otherAgentsInEntity = useDaemonStore
+    .getState()
+    .agents.filter(
+      (a) => a.entity_id && a.entity_id === agent?.entity_id && a.id !== agent?.id,
+    ).length;
+  const isRoot = otherAgentsInEntity === 0;
   const canConfirm = confirmText.trim() === agentName && !deleting;
 
   const handleDelete = async () => {
@@ -565,8 +566,8 @@ function DangerZone({
       const count = res.deleted ?? 1;
       showToast(`Deleted ${count} agent${count === 1 ? "" : "s"}`);
       await fetchAgents();
-      if (agent?.parent_id) {
-        navigate(`/${agent.parent_id}`);
+      if (agent?.entity_id && agent.entity_id !== agent.id) {
+        navigate(`/${agent.entity_id}`);
       } else {
         navigate("/");
       }

@@ -52,13 +52,13 @@ impl AgentsTool {
             .map(str::trim)
             .filter(|s| !s.is_empty());
 
-        // `parent_id` can be an explicit agent id, or defaults to the calling
-        // agent so hiring from inside a session always attaches a child.
+        // `parent_agent_id` can be an explicit agent id, or defaults to the
+        // calling agent so hiring from inside a session always attaches a child.
         let parent_hint = args
-            .get("parent_id")
+            .get("parent_agent_id")
             .and_then(|v| v.as_str())
             .unwrap_or(&self.agent_id);
-        let parent_id = match self.agent_registry.resolve_by_hint(parent_hint).await? {
+        let parent_agent_id = match self.agent_registry.resolve_by_hint(parent_hint).await? {
             Some(parent) => parent.id,
             None => {
                 return Ok(ToolResult::error(format!(
@@ -69,7 +69,7 @@ impl AgentsTool {
 
         let agent = self
             .agent_registry
-            .spawn(name, Some(&parent_id), model)
+            .spawn(name, Some(&parent_agent_id), model)
             .await?;
 
         if let (Some(store), Some(prompt)) = (self.idea_store.as_ref(), system_prompt) {
@@ -84,7 +84,7 @@ impl AgentsTool {
             .activity_log
             .emit(
                 "child_added",
-                Some(&parent_id),
+                Some(&parent_agent_id),
                 None,
                 None,
                 &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
@@ -113,13 +113,14 @@ impl AgentsTool {
             .set_status(&agent.id, crate::agent_registry::AgentStatus::Retired)
             .await?;
 
-        // Emit child_removed for the parent.
-        if let Some(ref parent_id) = agent.parent_id {
+        // Emit child_removed under the agent's entity (the canonical
+        // tenancy anchor; position-DAG ancestors aren't needed here).
+        if let Some(ref entity_id) = agent.entity_id {
             let _ = self
                 .activity_log
                 .emit(
                     "child_removed",
-                    Some(parent_id),
+                    Some(entity_id),
                     None,
                     None,
                     &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
@@ -229,7 +230,7 @@ impl AgentsTool {
             result.insert(
                 "tree".to_string(),
                 serde_json::json!({
-                    "parent_id": agent.parent_id,
+                    "entity_id": agent.entity_id,
                     "ancestors": parent_chain,
                     "children": children_list,
                 }),
@@ -331,9 +332,9 @@ impl Tool for AgentsTool {
                         "type": "string",
                         "description": "Optional persona. Stored as an identity idea on the new agent (for hire)"
                     },
-                    "parent_id": {
+                    "parent_agent_id": {
                         "type": "string",
-                        "description": "Parent agent ID — defaults to calling agent (for hire)"
+                        "description": "Parent agent ID — the new agent's position is wired under the parent's primary position. Defaults to the calling agent."
                     },
                     "agent": {
                         "type": "string",

@@ -35,18 +35,18 @@ const PLAN_BADGE_VARIANT: Record<Company["plan"], "neutral" | "info" | "success"
   scale: "success",
 };
 
-/** Walk parent_id chain back to the root (parent_id == null). */
+/** Resolve the entity-owning root agent for a given agent id or name. */
 function findRoot(agents: Agent[], id: string): Agent | null {
-  let current = agents.find((a) => a.id === id || a.name === id) || null;
-  const seen = new Set<string>();
-  while (current && current.parent_id) {
-    if (seen.has(current.id)) return null;
-    seen.add(current.id);
-    const next = agents.find((a) => a.id === current!.parent_id) || null;
-    if (!next) return current;
-    current = next;
-  }
-  return current;
+  const start = agents.find((a) => a.id === id || a.name === id) || null;
+  if (!start) return null;
+  const eid = start.entity_id;
+  if (!eid) return start;
+  // The "root agent" of an entity is the placeholder row the daemon store
+  // synthesizes for the company; its id matches the entity's reported
+  // agent_id (often equal to the entity_id today). We just return the
+  // first agent in this entity that has no further entity-level
+  // information — for billing the entity pointer is enough.
+  return agents.find((a) => a.id === eid) || start;
 }
 
 /**

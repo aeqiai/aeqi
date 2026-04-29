@@ -8,12 +8,10 @@ pub async fn handle_agents_registry(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let parent_id = request.get("parent_id").and_then(|v| v.as_str());
-    let parent_filter: Option<Option<&str>> = if request.get("parent_id").is_some() {
-        Some(parent_id)
-    } else {
-        None
-    };
+    let entity_id = request
+        .get("entity_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty());
     let status_filter = request.get("status").and_then(|v| v.as_str());
     let status = status_filter.and_then(|s| match s {
         "active" => Some(crate::agent_registry::AgentStatus::Active),
@@ -21,36 +19,20 @@ pub async fn handle_agents_registry(
         "retired" => Some(crate::agent_registry::AgentStatus::Retired),
         _ => None,
     });
-    match ctx.agent_registry.list(parent_filter, status).await {
+    match ctx.agent_registry.list(entity_id, status).await {
         Ok(agents) => {
-            let filtered_agents = if allowed.is_some() {
-                let root_ids: std::collections::HashSet<String> = agents
-                    .iter()
-                    .filter(|a| {
-                        a.parent_id.is_none()
-                            && (is_allowed(allowed, &a.name) || is_allowed(allowed, &a.id))
-                    })
-                    .map(|a| a.id.clone())
-                    .collect();
-                let mut allowed_ids = root_ids.clone();
-                loop {
-                    let before = allowed_ids.len();
-                    for a in &agents {
-                        if !allowed_ids.contains(&a.id)
-                            && a.parent_id
-                                .as_ref()
-                                .is_some_and(|pid| allowed_ids.contains(pid))
-                        {
-                            allowed_ids.insert(a.id.clone());
-                        }
-                    }
-                    if allowed_ids.len() == before {
-                        break;
-                    }
-                }
+            let filtered_agents = if let Some(list) = allowed.as_ref() {
+                // An agent is reachable iff its entity matches a name/id in
+                // the allowed scope. Tenancy maps to entity, not parent_id.
                 agents
                     .into_iter()
-                    .filter(|a| allowed_ids.contains(&a.id))
+                    .filter(|a| {
+                        a.entity_id
+                            .as_deref()
+                            .map(|eid| list.iter().any(|c| c == eid))
+                            .unwrap_or(false)
+                            || list.iter().any(|c| c == &a.name || c == &a.id)
+                    })
                     .collect::<Vec<_>>()
             } else {
                 agents
@@ -60,7 +42,7 @@ pub async fn handle_agents_registry(
                 items.push(serde_json::json!({
                     "id": a.id,
                     "name": a.name,
-                    "parent_id": a.parent_id,
+                    "entity_id": a.entity_id,
                     "model": a.model,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
@@ -98,7 +80,7 @@ pub async fn handle_agent_children(
                 items.push(serde_json::json!({
                     "id": a.id,
                     "name": a.name,
-                    "parent_id": a.parent_id,
+                    "entity_id": a.entity_id,
                     "model": a.model,
                     "status": a.status,
                     "created_at": a.created_at.to_rfc3339(),
@@ -113,10 +95,11 @@ pub async fn handle_agent_children(
 /// Spawn a new agent from a request body.
 ///
 /// Required: `name`.
-/// Optional: `parent_id` (attaches under an existing agent; root otherwise),
-/// `model`, `system_prompt` (persisted as an `identity` +
-/// `evergreen` idea owned by the new agent — matches the shape used by
-/// company-template spawns so `assemble_ideas` picks it up at session:start).
+/// Optional: `parent_agent_id` (attaches the new agent's position under the
+/// parent agent's primary position; root otherwise), `model`,
+/// `system_prompt` (persisted as an `identity` + `evergreen` idea owned by
+/// the new agent — matches the shape used by company-template spawns so
+/// `assemble_ideas` picks it up at session:start).
 pub async fn handle_agent_spawn(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -131,8 +114,8 @@ pub async fn handle_agent_spawn(
         return serde_json::json!({"ok": false, "error": "name is required"});
     };
 
-    let parent_id = request
-        .get("parent_id")
+    let parent_agent_id = request
+        .get("parent_agent_id")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty());
@@ -149,7 +132,7 @@ pub async fn handle_agent_spawn(
     let can_self_delegate = request.get("can_self_delegate").and_then(|v| v.as_bool());
     let can_ask_director = request.get("can_ask_director").and_then(|v| v.as_bool());
 
-    let agent = match ctx.agent_registry.spawn(name, parent_id, model).await {
+    let agent = match ctx.agent_registry.spawn(name, parent_agent_id, model).await {
         Ok(a) => a,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
@@ -196,7 +179,7 @@ pub async fn handle_agent_spawn(
         "agent": {
             "id": agent.id,
             "name": agent.name,
-            "parent_id": agent.parent_id,
+            "entity_id": agent.entity_id,
             "status": agent.status,
         },
         "warnings": warnings,
@@ -286,7 +269,7 @@ pub async fn handle_agent_info(
                 "ok": true,
                 "id": agent.id,
                 "name": agent.name,
-                "parent_id": agent.parent_id,
+                "entity_id": agent.entity_id,
                 "model": agent.model,
                 "status": agent.status,
                 "idea_chain": idea_chain,

@@ -8,35 +8,21 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const events = useDaemonStore((s) => s.events);
 
-  const entity = agents.find((a) => a.id === entityId);
+  // Every agent owned by this entity belongs to the subtree by definition —
+  // entity_id is the canonical scoping anchor.
+  const entityAgents = useMemo(
+    () => agents.filter((a) => a.entity_id === entityId || a.id === entityId),
+    [agents, entityId],
+  );
 
-  const subtreeIds = useMemo(() => {
-    const byParent = new Map<string, string[]>();
-    for (const a of agents) {
-      if (!a.parent_id) continue;
-      const list = byParent.get(a.parent_id) || [];
-      list.push(a.id);
-      byParent.set(a.parent_id, list);
-    }
-    const ids = new Set<string>([entityId]);
-    const stack = [entityId];
-    while (stack.length) {
-      const id = stack.pop() as string;
-      for (const k of byParent.get(id) || []) {
-        if (!ids.has(k)) {
-          ids.add(k);
-          stack.push(k);
-        }
-      }
-    }
-    return ids;
-  }, [agents, entityId]);
+  const entity = entityAgents[0] ?? agents.find((a) => a.id === entityId);
 
-  const subtreeNames = useMemo(() => {
-    const names = new Set<string>();
-    for (const a of agents) if (subtreeIds.has(a.id)) names.add(a.name);
-    return names;
-  }, [agents, subtreeIds]);
+  const subtreeIds = useMemo(() => new Set<string>(entityAgents.map((a) => a.id)), [entityAgents]);
+
+  const subtreeNames = useMemo(
+    () => new Set<string>(entityAgents.map((a) => a.name)),
+    [entityAgents],
+  );
 
   const agentCount = subtreeIds.size;
 

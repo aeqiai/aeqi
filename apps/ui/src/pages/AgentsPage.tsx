@@ -25,11 +25,19 @@ interface RootApiItem {
 }
 
 function deriveEntitiesFromAgents(agents: Agent[]): Entity[] {
-  const roots = agents.filter((a) => !a.parent_id);
-  return roots.map((a) => ({
-    id: a.id,
-    name: a.name,
-    agentCount: agents.filter((child) => child.name === a.name).length,
+  // After Phase 4 every agent carries entity_id; group by it to surface a
+  // company list when the dedicated `/api/entities` payload is unavailable.
+  const byEntity = new Map<string, Agent[]>();
+  for (const a of agents) {
+    const eid = a.entity_id ?? a.id;
+    const list = byEntity.get(eid) ?? [];
+    list.push(a);
+    byEntity.set(eid, list);
+  }
+  return Array.from(byEntity.entries()).map(([eid, members]) => ({
+    id: eid,
+    name: members[0]?.name ?? eid,
+    agentCount: members.length,
   }));
 }
 
@@ -70,15 +78,24 @@ export default function AgentsPage() {
         } else {
           return api.getAgents({ root: true }).then((agentData) => {
             const agentList = (agentData?.agents || []) as Array<Record<string, unknown>>;
-            const roots = agentList.filter((a) => !a.parent_id);
-            if (roots.length > 0) {
-              setEntities(
-                roots.map((a) => ({
-                  id: (a.id as string) || "",
+            // Group by entity_id — one row per entity.
+            const byEntity = new Map<string, { id: string; name: string; agentCount: number }>();
+            for (const a of agentList) {
+              const eid = (a.entity_id as string) ?? (a.id as string) ?? "";
+              if (!eid) continue;
+              const existing = byEntity.get(eid);
+              if (existing) {
+                existing.agentCount += 1;
+              } else {
+                byEntity.set(eid, {
+                  id: eid,
                   name: (a.name as string) || "",
-                  agentCount: agentList.filter((c) => c.parent_id === a.id).length,
-                })),
-              );
+                  agentCount: 1,
+                });
+              }
+            }
+            if (byEntity.size > 0) {
+              setEntities(Array.from(byEntity.values()));
             } else {
               setEntities(deriveEntitiesFromAgents(agents));
             }

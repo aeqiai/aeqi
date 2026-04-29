@@ -1,11 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore, selectInboxCount } from "@/store/inbox";
-import type { Agent } from "@/lib/types";
-
-const NO_AGENTS: Agent[] = [];
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -33,7 +30,7 @@ function firstName(name: string | undefined, email: string | undefined): string 
 export default function HomeDashboard() {
   const [searchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
-  const agents = useDaemonStore((s) => s.agents) || NO_AGENTS;
+  const entities = useDaemonStore((s) => s.entities);
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
 
   useEffect(() => {
@@ -44,13 +41,11 @@ export default function HomeDashboard() {
   const greet = greeting();
   const heading = name ? `${greet}, ${name}` : greet;
 
-  const companies = useMemo(() => agents.filter((a) => !a.parent_id), [agents]);
-
   // Wait for the daemon to load before deciding zero-state vs returning
   // — otherwise the redirect can fire on stale empty state.
   if (!initialLoaded) return null;
 
-  if (companies.length === 0) {
+  if (entities.length === 0) {
     const blueprintParam = searchParams.get("blueprint");
     const startUrl = blueprintParam
       ? `/start?blueprint=${encodeURIComponent(blueprintParam)}`

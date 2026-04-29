@@ -157,13 +157,13 @@ function InboxRail({ selectedSessionId }: { selectedSessionId: string | null }) 
       .map((it) => {
         const ts = it.awaiting_at ? new Date(it.awaiting_at).getTime() : 0;
         const agentLabel = it.agent_name ?? "agent";
-        const showRoot =
-          it.root_agent_id != null && it.agent_id != null && it.root_agent_id !== it.agent_id;
+        const showEntity =
+          it.entity_id != null && it.agent_id != null && it.entity_id !== it.agent_id;
         // Subject is the line the user reads to triage. Fall back to
         // the session name only if the join is missing (defensive —
         // backend always populates subject on awaiting rows).
         const subject = it.awaiting_subject || it.session_name || "(no subject)";
-        const secondary = showRoot ? `${agentLabel} · ${it.root_agent_id}` : agentLabel;
+        const secondary = showEntity ? `${agentLabel} · ${it.entity_id}` : agentLabel;
         return {
           id: it.session_id,
           primary: subject,

@@ -137,6 +137,8 @@ pub struct Template {
 /// browser straight to the new company without a second round-trip.
 #[derive(Debug, Clone, Serialize)]
 pub struct SpawnOutcome {
+    /// The entity (company) that was just minted. Distinct from any agent UUID.
+    pub entity_id: String,
     pub root_agent_id: String,
     pub root_agent_name: String,
     pub spawned_agents: Vec<SpawnedAgent>,
@@ -339,7 +341,12 @@ pub async fn spawn_blueprint(
         }
     }
 
+    let entity_id = root.entity_id.clone().ok_or_else(|| {
+        anyhow::anyhow!("spawned root agent has no entity_id (post-Phase-4 invariant)")
+    })?;
+
     Ok(SpawnOutcome {
+        entity_id,
         root_agent_id: root.id.clone(),
         root_agent_name: root.name.clone(),
         spawned_agents,
@@ -505,7 +512,8 @@ pub async fn handle_spawn_blueprint(
     {
         Ok(outcome) => serde_json::json!({
             "ok": true,
-            "entity_id": outcome.root_agent_id,
+            "entity_id": outcome.entity_id,
+            "root_agent_id": outcome.root_agent_id,
             "root_agent_name": outcome.root_agent_name,
             "spawned_agents": outcome.spawned_agents,
             "created_events": outcome.created_events,
@@ -669,8 +677,10 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(editor.parent_id.as_deref(), Some(root.id.as_str()));
-        assert_eq!(dist.parent_id.as_deref(), Some(root.id.as_str()));
+        let editor_ancestors = registry.get_ancestor_ids(&editor.id).await.unwrap();
+        let dist_ancestors = registry.get_ancestor_ids(&dist.id).await.unwrap();
+        assert!(editor_ancestors.contains(&root.id));
+        assert!(dist_ancestors.contains(&root.id));
 
         // Verify events were attached to the correct owners.
         let root_events = event_store.list_for_agent(&root.id).await.unwrap();

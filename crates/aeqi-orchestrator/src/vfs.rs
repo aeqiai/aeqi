@@ -150,10 +150,10 @@ impl VfsTree {
             }
         }
 
-        // Search root agents.
-        if let Ok(agents) = self.agent_registry.list(None, None).await {
+        // Search root agents (agents whose position has no incoming edges).
+        if let Ok(agents) = self.agent_registry.list_root_agents().await {
             for a in &agents {
-                if a.parent_id.is_none() && a.name.to_lowercase().contains(&q) {
+                if a.name.to_lowercase().contains(&q) {
                     results.push(VfsSearchResult {
                         path: format!("/roots/{}", a.name),
                         name: a.name.clone(),
@@ -281,16 +281,14 @@ impl VfsTree {
 
     async fn list_root_agents_vfs(&self) -> anyhow::Result<Vec<VfsNode>> {
         let mut nodes = Vec::new();
-        if let Ok(agents) = self.agent_registry.list(None, None).await {
+        if let Ok(agents) = self.agent_registry.list_root_agents().await {
             for a in &agents {
-                if a.parent_id.is_none() {
-                    nodes.push(dir_node(
-                        &a.name,
-                        &format!("/roots/{}", a.name),
-                        Some("🏢"),
-                        None,
-                    ));
-                }
+                nodes.push(dir_node(
+                    &a.name,
+                    &format!("/roots/{}", a.name),
+                    Some("🏢"),
+                    None,
+                ));
             }
         }
         Ok(nodes)
@@ -476,10 +474,10 @@ impl VfsTree {
 
     async fn read_root_agent_info(&self, name: &str) -> anyhow::Result<VfsReadResponse> {
         // Look up the root agent matching this name.
-        let info = if let Ok(agents) = self.agent_registry.list(None, None).await {
+        let info = if let Ok(agents) = self.agent_registry.list_root_agents().await {
             agents
                 .iter()
-                .find(|a| a.name == *name && a.parent_id.is_none())
+                .find(|a| a.name == *name)
                 .map(|a| {
                     serde_json::json!({
                         "name": a.name,

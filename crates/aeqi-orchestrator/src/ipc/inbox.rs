@@ -49,51 +49,28 @@ pub async fn handle_inbox(
     json!({"ok": true, "items": items})
 }
 
-/// Walk the agent's parent chain to find the root, and look up the agent
-/// name. Both fields are useful row metadata for the inbox UI; doing it
-/// here keeps the SessionStore query free of agent-graph awareness.
-///
-/// Defensive caps: walks at most 16 levels (matches `tenancy::check_agent_access`
-/// neighborhood — agent trees are not expected to be deeper than this).
+/// Enrich the awaiting-session row with agent name and owning entity_id.
+/// The entity is the canonical tenancy anchor — walking the position DAG
+/// adds nothing the inbox UI uses today (it just wants "which company is
+/// this from").
 async fn enrich_row(
     agent_registry: &crate::agent_registry::AgentRegistry,
     row: AwaitingSessionRow,
 ) -> Value {
     let agent_id = row.agent_id.clone();
     let mut agent_name: Option<String> = None;
-    let mut root_agent_id: Option<String> = None;
-    if let Some(ref id) = agent_id {
-        // Look up the immediate agent for the display name.
-        if let Ok(Some(agent)) = agent_registry.get(id).await {
-            agent_name = Some(agent.name.clone());
-            // Walk to the root.
-            let mut cursor: Option<String> = Some(agent.id.clone());
-            let mut depth = 0;
-            while let Some(curr) = cursor {
-                if depth > 16 {
-                    break;
-                }
-                match agent_registry.get(&curr).await.ok().flatten() {
-                    Some(a) => match a.parent_id {
-                        Some(pid) => {
-                            cursor = Some(pid);
-                            depth += 1;
-                        }
-                        None => {
-                            root_agent_id = Some(a.id);
-                            break;
-                        }
-                    },
-                    None => break,
-                }
-            }
-        }
+    let mut entity_id: Option<String> = None;
+    if let Some(ref id) = agent_id
+        && let Ok(Some(agent)) = agent_registry.get(id).await
+    {
+        agent_name = Some(agent.name.clone());
+        entity_id = agent.entity_id.clone();
     }
     json!({
         "session_id": row.session_id,
         "agent_id": agent_id,
         "agent_name": agent_name,
-        "root_agent_id": root_agent_id,
+        "entity_id": entity_id,
         "session_name": row.session_name,
         "awaiting_subject": row.awaiting_subject,
         "awaiting_at": row.awaiting_at,

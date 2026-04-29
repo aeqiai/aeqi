@@ -80,18 +80,19 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       const raw: Array<Record<string, unknown>> = Array.isArray(data?.roots)
         ? (data.roots as Array<Record<string, unknown>>)
         : [];
-      const nextEntities: Entity[] = raw.map((r) => ({
-        id: (r.id as string) ?? (r.name as string),
-        name: r.name as string,
-        type: "company" as const,
-        root_agent_id: (r.id as string) ?? (r.name as string),
-        status: (r.running as boolean) ? "active" : ("paused" as const),
-        avatar: r.avatar as string | undefined,
-        color: r.color as string | undefined,
-        budget_usd: r.budget_usd as number | undefined,
-        created_at: (r.created_at as string) ?? new Date(0).toISOString(),
-        last_active: r.last_active as string | undefined,
-      }));
+      const nextEntities: Entity[] = raw
+        .map<Entity>((r) => ({
+          id: (r.id as string) ?? "",
+          name: r.name as string,
+          type: "company" as const,
+          status: (r.running as boolean) ? "active" : "paused",
+          avatar: r.avatar as string | undefined,
+          color: r.color as string | undefined,
+          budget_usd: r.budget_usd as number | undefined,
+          created_at: (r.created_at as string) ?? new Date(0).toISOString(),
+          last_active: r.last_active as string | undefined,
+        }))
+        .filter((e) => e.id);
       if (nextEntities.length === 0 && raw.length === 0) return;
       set({ entities: nextEntities });
     } catch {
@@ -109,13 +110,23 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     const agentsPromise = api.getAgents().catch(() => null);
     const [entitiesData, agentsData] = await Promise.all([entitiesPromise, agentsPromise]);
 
+    // Each entity in `entitiesData.roots` corresponds to one company. We
+    // synthesize a placeholder Agent record per entity so the sidebar can
+    // render a row even when the per-entity agents list hasn't loaded.
+    // After Phase 4 these placeholders carry the entity_id (the agent_id
+    // surfaced by the IPC response is the entity's root agent id, but the
+    // sidebar treats them interchangeably for navigation purposes).
     const rootAgents: Agent[] = Array.isArray(entitiesData?.roots)
-      ? (entitiesData.roots as Array<Record<string, unknown>>).map((r) => ({
-          id: (r.id as string) ?? (r.name as string),
-          name: r.name as string,
-          status: (r.running as boolean) ? "running" : "stopped",
-          parent_id: null,
-        }))
+      ? (entitiesData.roots as Array<Record<string, unknown>>).map((r) => {
+          const entityId = (r.id as string) ?? "";
+          const agentId = (r.agent_id as string) ?? entityId;
+          return {
+            id: agentId,
+            name: r.name as string,
+            status: (r.running as boolean) ? "running" : "stopped",
+            entity_id: entityId,
+          };
+        })
       : [];
     const scopedAgents: Agent[] = (agentsData?.agents as Agent[]) || [];
 
