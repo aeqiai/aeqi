@@ -91,41 +91,6 @@ function GatedAppShell() {
 // exists, AppLayout canonicalizes the shell to `/c/:entityId` so sidebar tabs
 // never generate bogus top-level paths like `/quests`.
 
-// User-scope first segments. Anything under these stays at the top level —
-// the legacy `/<entity_id>/...` redirect must not swallow them.
-const USER_SCOPE_SEGMENTS = new Set([
-  "account",
-  "auth",
-  "c",
-  "change-password",
-  "economy",
-  "login",
-  "new",
-  "profile",
-  "reset-password",
-  "sessions",
-  "signup",
-  "start",
-  "verify",
-  "waitlist",
-]);
-
-/**
- * One-shot redirect for legacy bare-entity URLs (`/<entity_id>` /
- * `/<entity_id>/quests/q-1`) into the canonical `/c/<entity_id>/...`
- * shape. Bookmarks and external links keep working; nothing else
- * preserves the old URL shape.
- */
-function LegacyEntityRedirect() {
-  const location = useLocation();
-  const segments = location.pathname.split("/").filter(Boolean);
-  if (segments.length === 0) return <Navigate to="/" replace />;
-  const first = segments[0];
-  if (USER_SCOPE_SEGMENTS.has(first)) return null;
-  const target = `/c/${segments.map(encodeURIComponent).join("/")}${location.search}${location.hash}`;
-  return <Navigate to={target} replace />;
-}
-
 /**
  * Version C — entity-root URL architecture. The app shell lives at
  * `/c/:entityId/...`; the sidebar always navigates inside that entity. Child
@@ -208,10 +173,6 @@ export default function App() {
                       <Route path=":tab/:itemId" element={null} />
                     </Route>
                   </Route>
-                  {/* Legacy `/<entity_id>/...` redirect to `/c/<entity_id>/...`.
-                      One-shot bounce for old bookmarks; falls through for
-                      user-scope routes registered above. */}
-                  <Route path="*" element={<LegacyEntityRedirect />} />
                 </Routes>
               </ProtectedRoute>
             }
