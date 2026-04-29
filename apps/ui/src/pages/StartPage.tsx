@@ -193,7 +193,7 @@ export default function StartPage() {
           <p className="start-missing-title">Blueprint not found.</p>
           <p className="start-missing-sub">
             {loadError || "We couldn't find that Blueprint."}{" "}
-            <Link to="/blueprints">Browse the catalog →</Link>
+            <Link to="/economy/blueprints">Browse the catalog →</Link>
           </p>
         </div>
       </div>
@@ -218,7 +218,7 @@ export default function StartPage() {
             <h2 className="start-step-title">{template.name}</h2>
             {template.tagline && <p className="start-step-sub">{template.tagline}</p>}
             <Link
-              to={`/blueprints?from=start${slug ? `&current=${encodeURIComponent(slug)}` : ""}`}
+              to={`/economy/blueprints?from=start${slug ? `&current=${encodeURIComponent(slug)}` : ""}`}
               className="start-switch-link"
             >
               Pick a different Blueprint →

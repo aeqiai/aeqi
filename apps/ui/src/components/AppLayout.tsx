@@ -28,8 +28,6 @@ import type { Agent } from "@/lib/types";
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
-const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
-const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
@@ -187,17 +185,7 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
 
-  const {
-    isHome,
-    isSettings,
-    isBlueprints,
-    isEconomy,
-    isDrive,
-    isStart,
-    isUserSession,
-    userSessionId,
-    blueprintSlug,
-  } = surface;
+  const { isHome, isSettings, isEconomy, isDrive, isStart, isUserSession, userSessionId } = surface;
 
   if (!initialLoaded) return <BootLoader />;
 
@@ -267,7 +255,6 @@ export default function AppLayout() {
     if (isHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
-    if (isBlueprints) return blueprintSlug ? <BlueprintDetailPage /> : <BlueprintsPage />;
     if (isEconomy) return <EconomyPage />;
     if (tab === "projects") return <ProjectsPage />;
     if (tab === "company") return <CompanyPage />;
@@ -281,18 +268,11 @@ export default function AppLayout() {
 
   const sessionsMounted =
     isUserSession ||
-    (!isDrive &&
-      !isSettings &&
-      !isHome &&
-      !isStart &&
-      !isBlueprints &&
-      !isEconomy &&
-      effectiveTab === "sessions");
+    (!isDrive && !isSettings && !isHome && !isStart && !isEconomy && effectiveTab === "sessions");
   const showComposer = sessionsMounted;
   // inbox-mode: at / and /sessions/:id (user scope) — items across all agents.
   // agent-mode: at /:agentId/sessions[/...] — that agent's sessions only.
-  const inboxRail =
-    (isHome || isUserSession) && !isSettings && !isBlueprints && !isEconomy && !isStart;
+  const inboxRail = (isHome || isUserSession) && !isSettings && !isEconomy && !isStart;
   const agentRail =
     effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome && !isStart;
   const showSessionsRail = inboxRail || agentRail;

@@ -26,14 +26,14 @@ const SOLO: CompanyTemplate = {
   seed_quests: [{ subject: "Write the one-liner", priority: "high" }],
 };
 
-const renderApp = (entry = "/blueprints") =>
+const renderApp = (entry = "/economy/blueprints") =>
   render(
     <StrictMode>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
-          <Route path="/blueprints" element={<BlueprintsPage />} />
-          <Route path="/blueprints/:slug" element={<BlueprintDetailPage />} />
-          <Route path="/blueprints/:slug/:section" element={<BlueprintDetailPage />} />
+          <Route path="/economy/blueprints" element={<BlueprintsPage />} />
+          <Route path="/economy/blueprints/:slug" element={<BlueprintDetailPage />} />
+          <Route path="/economy/blueprints/:slug/:section" element={<BlueprintDetailPage />} />
         </Routes>
       </MemoryRouter>
     </StrictMode>,
@@ -112,7 +112,7 @@ describe("BlueprintDetailPage", () => {
     vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
 
     // Overview lands by default — shows the title + the section rail.
-    const overview = renderApp("/blueprints/solo-founder");
+    const overview = renderApp("/economy/blueprints/solo-founder");
     await screen.findByRole("heading", { level: 1, name: "Solo Founder" });
     expect(screen.getByRole("tab", { name: /overview/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /agents/i })).toBeInTheDocument();
@@ -120,14 +120,14 @@ describe("BlueprintDetailPage", () => {
     overview.unmount();
 
     // Events sub-route renders the event patterns from the seeds.
-    const eventsRender = renderApp("/blueprints/solo-founder/events");
+    const eventsRender = renderApp("/economy/blueprints/solo-founder/events");
     await waitFor(() => {
       expect(screen.getByText("session:start")).toBeInTheDocument();
     });
     eventsRender.unmount();
 
     // Ideas sub-route renders the seeded idea titles.
-    renderApp("/blueprints/solo-founder/ideas");
+    renderApp("/economy/blueprints/solo-founder/ideas");
     await waitFor(() => {
       expect(screen.getByText("how-to-create-a-quest")).toBeInTheDocument();
     });
@@ -136,14 +136,14 @@ describe("BlueprintDetailPage", () => {
   it("shows the detail page error when the API fails", async () => {
     vi.spyOn(api, "getBlueprint").mockRejectedValue(new Error("offline"));
 
-    renderApp("/blueprints/solo-founder");
+    renderApp("/economy/blueprints/solo-founder");
 
     expect(
       await screen.findByRole("heading", { level: 3, name: "Blueprint not found." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to the catalog/i })).toHaveAttribute(
       "href",
-      "/blueprints",
+      "/economy/blueprints",
     );
   });
 
@@ -160,9 +160,9 @@ describe("BlueprintDetailPage", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/blueprints/solo-founder"]}>
+        <MemoryRouter initialEntries={["/economy/blueprints/solo-founder"]}>
           <Routes>
-            <Route path="/blueprints/:slug" element={<BlueprintDetailPage />} />
+            <Route path="/economy/blueprints/:slug" element={<BlueprintDetailPage />} />
             <Route path="/start" element={<Probe />} />
           </Routes>
         </MemoryRouter>

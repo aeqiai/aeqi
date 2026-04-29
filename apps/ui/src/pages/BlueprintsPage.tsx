@@ -33,10 +33,11 @@ const VIEW_LABELS: Record<View, string> = { grid: "Grid", list: "List" };
 const VIEW_ORDER: View[] = ["grid", "list"];
 
 /**
- * `/blueprints` — catalog with a vertical PageRail (Companies / Agents /
- * Events / Quests / Ideas) on the left. Companies is the canonical
- * landing route at `/blueprints`; the other kinds live at
- * `/blueprints/:kind` and render empty-state placeholders until v2.
+ * `/economy/blueprints` — catalog with a vertical PageRail (Companies /
+ * Agents / Events / Quests / Ideas) on the left. Companies is the
+ * canonical landing route at `/economy/blueprints`; the other kinds
+ * live at `/economy/blueprints/:kind` and render empty-state
+ * placeholders until v2.
  *
  * Mirrors the `/settings` shell pattern. Search + sort + view live in
  * the per-kind toolbar; the kind itself is no longer a popover filter
@@ -51,10 +52,11 @@ export default function BlueprintsPage() {
   const importIntoId = searchParams.get("import_into") || null;
   const isImportMode = !!importIntoId;
 
-  // Resolve the active kind from the URL path. /blueprints → companies
-  // (default); /blueprints/agents → agents, etc. Anything that doesn't
-  // match a known kind falls back to companies — this also covers the
-  // detail page (which uses a different route, but defensively).
+  // Resolve the active kind from the URL path. /economy/blueprints →
+  // companies (default); /economy/blueprints/agents → agents, etc.
+  // Anything that doesn't match a known kind falls back to companies —
+  // this also covers the detail page (which uses a different route, but
+  // defensively).
   const activeKind: Kind = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
     const last = segments[segments.length - 1];
@@ -158,7 +160,12 @@ export default function BlueprintsPage() {
 
   return (
     <div className="page-rail-shell">
-      <PageRail tabs={KIND_TABS} defaultTab="companies" title="Blueprints" basePath="/blueprints" />
+      <PageRail
+        tabs={KIND_TABS}
+        defaultTab="companies"
+        title="Blueprints"
+        basePath="/economy/blueprints"
+      />
       <main className="page-rail-content page-rail-content--full">
         <div className="ideas-list-head">
           <div className="ideas-toolbar bp-toolbar">
@@ -255,7 +262,7 @@ export default function BlueprintsPage() {
             <EmptyState
               title={`No standalone ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} yet.`}
               description="v1 ships Companies — full org bundles with agents, ideas, events, and quests pre-threaded. Standalone primitive bundles land next."
-              action={<Link to="/blueprints/companies">Open Companies →</Link>}
+              action={<Link to="/economy/blueprints/companies">Open Companies →</Link>}
             />
           ) : filtered.length === 0 ? (
             <EmptyState
@@ -275,7 +282,9 @@ export default function BlueprintsPage() {
                     type="button"
                     className="bp-list-row-btn"
                     onClick={() =>
-                      navigate(`/blueprints/${encodeURIComponent(t.slug)}${importTargetSuffix}`)
+                      navigate(
+                        `/economy/blueprints/${encodeURIComponent(t.slug)}${importTargetSuffix}`,
+                      )
                     }
                   >
                     <span className="bp-list-row-name">{t.name}</span>

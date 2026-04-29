@@ -165,7 +165,7 @@ function AgentsTab({
     [navigate, parentAgentId],
   );
   const goToImportBlueprint = useCallback(
-    () => navigate(`/blueprints?import_into=${encodeURIComponent(parentAgentId)}`),
+    () => navigate(`/economy/blueprints?import_into=${encodeURIComponent(parentAgentId)}`),
     [navigate, parentAgentId],
   );
   useEffect(() => {

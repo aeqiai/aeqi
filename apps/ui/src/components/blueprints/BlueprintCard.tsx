@@ -25,7 +25,7 @@ function formatSeedMeta(t: CompanyTemplate): string {
 }
 
 /**
- * Catalog card on `/blueprints`. Uses the shared `Card` primitive in
+ * Catalog card on `/economy/blueprints`. Uses the shared `Card` primitive in
  * `interactive` mode so hover, border, radius, padding, and surface
  * tone come from the design system — no bespoke colors, no per-card
  * accents, no extra hover gestures. Pure typography hierarchy:
@@ -39,7 +39,7 @@ function BlueprintCardImpl({ template }: BlueprintCardProps) {
 
   return (
     <Link
-      to={`/blueprints/${encodeURIComponent(template.slug)}`}
+      to={`/economy/blueprints/${encodeURIComponent(template.slug)}`}
       className="bp-card-link"
       role="listitem"
       aria-label={`${template.name} blueprint${template.tagline ? ` — ${template.tagline}` : ""}`}

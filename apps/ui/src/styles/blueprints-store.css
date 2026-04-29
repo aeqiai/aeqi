@@ -1,4 +1,4 @@
-/* /blueprints — uses the shared `.page-rail-shell` two-column layout
+/* /economy/blueprints — uses the shared `.page-rail-shell` two-column layout
    (defined in pages.css; same shell as /settings + agent settings).
    Catalog page mirrors the ideas surface: `.ideas-list-head` band on
    top with the toolbar inside, hairline-bottom; the actual content
@@ -224,7 +224,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Detail page (/blueprints/:slug) ───────────────
+/* ── Detail page (/economy/blueprints/:slug) ───────────────
  *
  * Same shape language as the ideas canvas: slim head band on top
  * (back-icon + title + primary CTA on the right), single-column

@@ -65,11 +65,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Wrapper for `/blueprints` and `/economy`. Authed visitors hit the full
- * AppLayout, which dispatches the matching page from the URL. Unauthed
- * visitors bounce to /login — the public-marketing variants of these
- * surfaces are paused until they're production-ready; PublicLayout
- * stays in the tree for when we revive them.
+ * Wrapper for `/economy` (including its `/economy/blueprints` sub-rail).
+ * Authed visitors hit the full AppLayout, which dispatches the matching
+ * page from the URL. Unauthed visitors bounce to /login — the
+ * public-marketing variants of these surfaces are paused until they're
+ * production-ready; PublicLayout stays in the tree for when we revive
+ * them.
  */
 function GatedAppShell() {
   const location = useLocation();
@@ -111,19 +112,20 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Blueprints and Economy — currently auth-gated end-to-end.
-              GatedAppShell dispatches AppLayout for authed visitors and
-              redirects everyone else to /login?next=<here>. Will revert
-              to a public-marketing variant once those surfaces ship. */}
-          <Route path="/blueprints" element={<GatedAppShell />} />
-          <Route path="/blueprints/companies" element={<GatedAppShell />} />
-          <Route path="/blueprints/agents" element={<GatedAppShell />} />
-          <Route path="/blueprints/events" element={<GatedAppShell />} />
-          <Route path="/blueprints/quests" element={<GatedAppShell />} />
-          <Route path="/blueprints/ideas" element={<GatedAppShell />} />
-          <Route path="/blueprints/:slug" element={<GatedAppShell />} />
-          <Route path="/blueprints/:slug/:section" element={<GatedAppShell />} />
+          {/* Economy and its Blueprints sub-rail — currently auth-gated
+              end-to-end. GatedAppShell dispatches AppLayout for authed
+              visitors and redirects everyone else to /login?next=<here>.
+              Will revert to a public-marketing variant once those
+              surfaces ship. */}
           <Route path="/economy" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/companies" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/agents" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/events" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/quests" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/ideas" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/:slug" element={<GatedAppShell />} />
+          <Route path="/economy/blueprints/:slug/:section" element={<GatedAppShell />} />
 
           {/* Protected routes */}
           <Route
@@ -143,11 +145,12 @@ export default function App() {
 
                   {/* Home dashboard + profile + every agent at
                       /:agentId/... share the same shell — AppLayout
-                      decides content from path + params. /blueprints
-                      and /economy are routed publicly above and never
-                      enter the protected branch. User-scoped routes
-                      are registered before :agentId so react-router
-                      prefers the literal match. */}
+                      decides content from path + params. /economy
+                      (and its /economy/blueprints sub-rail) is routed
+                      publicly above and never enters the protected
+                      branch. User-scoped routes are registered before
+                      :agentId so react-router prefers the literal
+                      match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="account" element={null} />
