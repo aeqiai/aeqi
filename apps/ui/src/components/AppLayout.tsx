@@ -17,7 +17,6 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import ProjectsPage from "@/pages/ProjectsPage";
-import CompanyPage from "@/pages/CompanyPage";
 import CRMPage from "@/pages/CRMPage";
 import MetricsPage from "@/pages/MetricsPage";
 import OwnershipPage from "@/pages/OwnershipPage";
@@ -36,7 +35,6 @@ const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
 const COMPANY_TABS = new Set([
   "agents",
-  "company",
   "crm",
   "drive",
   "events",
@@ -44,6 +42,7 @@ const COMPANY_TABS = new Set([
   "ideas",
   "integrations",
   "metrics",
+  "overview",
   "ownership",
   "plan",
   "projects",
@@ -55,13 +54,13 @@ const COMPANY_TABS = new Set([
 
 const COMPANY_ROOT_TABS = new Set([
   "agents",
-  "company",
   "crm",
   "drive",
   "events",
   "governance",
   "ideas",
   "metrics",
+  "overview",
   "ownership",
   "positions",
   "projects",
@@ -146,7 +145,7 @@ export default function AppLayout() {
       quests: "Quests",
       ideas: "Ideas",
       projects: "Projects",
-      company: "Company",
+      overview: "Overview",
       crm: "CRM",
       metrics: "Metrics",
       ownership: "Ownership",
@@ -270,7 +269,6 @@ export default function AppLayout() {
     if (isBlueprints) return blueprintSlug ? <BlueprintDetailPage /> : <BlueprintsPage />;
     if (isEconomy) return <EconomyPage />;
     if (tab === "projects") return <ProjectsPage />;
-    if (tab === "company") return <CompanyPage />;
     if (tab === "crm") return <CRMPage />;
     if (tab === "metrics") return <MetricsPage />;
     if (tab === "ownership") return <OwnershipPage />;
