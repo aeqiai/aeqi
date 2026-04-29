@@ -177,7 +177,17 @@ export default function StartPage() {
         setSubmitting(null);
       }
     },
-    [template, isAuthed, slug, navigate, trialUsed, setActiveEntity, fetchAgents, fetchEntities],
+    [
+      template,
+      isAuthed,
+      slug,
+      navigate,
+      trialUsed,
+      setActiveEntity,
+      fetchAgents,
+      fetchEntities,
+      track,
+    ],
   );
 
   if (loading && !template) {

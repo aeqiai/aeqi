@@ -61,7 +61,7 @@ export default function EventDetail({
     setErr(null);
     setShowTrigger(false);
     setShowFires(false);
-  }, [event.id]);
+  }, [event.cooldown_secs, event.enabled, event.id, event.name, event.pattern, event.tool_calls]);
 
   const dirty =
     name !== event.name ||

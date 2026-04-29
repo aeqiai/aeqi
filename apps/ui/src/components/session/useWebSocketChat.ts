@@ -250,6 +250,7 @@ export function useWebSocketChat({
       sessionTask,
       attachedFiles,
       setSessionStreaming,
+      track,
     ],
   );
 

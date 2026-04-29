@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
@@ -15,7 +15,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const track = useTrack();
-  const redirectAfter = () => getRedirectAfterAuth(params);
+  const redirectAfter = useCallback(() => getRedirectAfterAuth(params), [params]);
   const {
     authMode,
     googleOAuth,
@@ -72,7 +72,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated()) navigate(redirectAfter(), { replace: true });
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, redirectAfter]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;

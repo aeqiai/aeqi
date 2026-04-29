@@ -325,7 +325,18 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
       setErr(e instanceof Error ? e.message : "Failed to create quest");
       setBusy(false);
     }
-  }, [busy, status, priority, assignee, scope, resolvedAgentId, fetchQuests, goAgent, agentId]);
+  }, [
+    busy,
+    status,
+    priority,
+    assignee,
+    scope,
+    resolvedAgentId,
+    fetchQuests,
+    goAgent,
+    agentId,
+    track,
+  ]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

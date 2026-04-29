@@ -341,7 +341,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setError(e instanceof Error ? e.message : "Save failed");
       throw e;
     }
-  }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs, onPersisted]);
+  }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs, onPersisted, track]);
 
   // Edit-mode revert: drop the in-memory snapshot back to the
   // persisted idea. Used by both the canvas's own Cancel button

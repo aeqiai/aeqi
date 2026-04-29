@@ -27,6 +27,10 @@ const SECTION_TABS: { id: Section; label: string }[] = [
   { id: "ideas", label: "Ideas" },
 ];
 const SECTION_IDS = SECTION_TABS.map((t) => t.id);
+const EMPTY_SEED_AGENTS: TemplateSeedAgent[] = [];
+const EMPTY_SEED_EVENTS: TemplateSeedEvent[] = [];
+const EMPTY_SEED_QUESTS: TemplateSeedQuest[] = [];
+const EMPTY_SEED_IDEAS: TemplateSeedIdea[] = [];
 
 /**
  * `/economy/blueprints/:slug[/:section]` — inspect a Blueprint and
@@ -293,7 +297,7 @@ function NoMatch({ query }: { query: string }) {
 
 function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
   const [query, setQuery] = useState("");
-  const all = seeds ?? [];
+  const all = seeds ?? EMPTY_SEED_AGENTS;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return all;
@@ -330,7 +334,7 @@ function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
 
 function EventsSection({ seeds }: { seeds?: TemplateSeedEvent[] }) {
   const [query, setQuery] = useState("");
-  const all = seeds ?? [];
+  const all = seeds ?? EMPTY_SEED_EVENTS;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return all;
@@ -367,7 +371,7 @@ function EventsSection({ seeds }: { seeds?: TemplateSeedEvent[] }) {
 
 function QuestsSection({ seeds }: { seeds?: TemplateSeedQuest[] }) {
   const [query, setQuery] = useState("");
-  const all = seeds ?? [];
+  const all = seeds ?? EMPTY_SEED_QUESTS;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return all;
@@ -402,7 +406,7 @@ function QuestsSection({ seeds }: { seeds?: TemplateSeedQuest[] }) {
 
 function IdeasSection({ seeds }: { seeds?: TemplateSeedIdea[] }) {
   const [query, setQuery] = useState("");
-  const all = seeds ?? [];
+  const all = seeds ?? EMPTY_SEED_IDEAS;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return all;
