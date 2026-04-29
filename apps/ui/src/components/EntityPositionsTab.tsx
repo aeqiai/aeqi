@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type { Position, PositionEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, EmptyState, Input } from "./ui";
+import NewPositionModal from "./positions/NewPositionModal";
 
 type ViewMode = "list" | "chart";
 type SortMode = "title" | "kind" | "created";
@@ -38,6 +39,7 @@ export default function EntityPositionsTab({ entityId }: { entityId: string }) {
   const [edges, setEdges] = useState<PositionEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
 
   // Map agent_id → agent for resolving occupant labels. The daemon store
   // already fetches the agent subtree; we just look up by id.
@@ -162,7 +164,7 @@ export default function EntityPositionsTab({ entityId }: { entityId: string }) {
           </div>
         </div>
         <div className="primitive-head-actions">
-          <Button variant="primary" disabled title="Adding positions ships next">
+          <Button variant="primary" onClick={() => setComposing(true)}>
             + New position
           </Button>
         </div>
@@ -179,6 +181,17 @@ export default function EntityPositionsTab({ entityId }: { entityId: string }) {
           <PositionsChart positions={filtered} edges={edges} agentById={agentById} />
         )}
       </div>
+      <NewPositionModal
+        open={composing}
+        onClose={() => setComposing(false)}
+        entityId={entityId}
+        positions={positions}
+        agents={agents}
+        onCreated={(p) => {
+          setComposing(false);
+          setPositions((prev) => [...prev, p]);
+        }}
+      />
     </div>
   );
 }
