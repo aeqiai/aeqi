@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
 import AppLayout from "@/components/AppLayout";
@@ -9,6 +10,7 @@ import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
 import AgentOrgChart from "@/components/AgentOrgChart";
 import ShortcutsOverlay from "@/components/ShortcutsOverlay";
+import { agentKeys, entityKeys, runtimeKeys } from "@/queries/keys";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
@@ -41,6 +43,17 @@ function captureRenderErrors(ui: React.ReactElement): unknown[] {
   } finally {
     spy.mockRestore();
   }
+}
+
+function withQueryClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const daemonState = useDaemonStore.getState();
+  queryClient.setQueryData(entityKeys.all, daemonState.entities);
+  queryClient.setQueryData(agentKeys.directory, daemonState.agents);
+  queryClient.setQueryData(runtimeKeys.cost, daemonState.cost);
+  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
 }
 
 function isLoopError(e: unknown): boolean {
@@ -161,16 +174,18 @@ describe("shell components smoke", () => {
 
   it("canonicalizes / to the selected company root", async () => {
     render(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/"]}>
-          <Routes>
-            <Route index element={<ShellUnderTest />} />
-            <Route path="c/:entityId" element={<ShellUnderTest />} />
-            <Route path="c/:entityId/:tab" element={<ShellUnderTest />} />
-            <Route path="c/:entityId/:tab/:itemId" element={<ShellUnderTest />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter initialEntries={["/"]}>
+            <Routes>
+              <Route index element={<ShellUnderTest />} />
+              <Route path="c/:entityId" element={<ShellUnderTest />} />
+              <Route path="c/:entityId/:tab" element={<ShellUnderTest />} />
+              <Route path="c/:entityId/:tab/:itemId" element={<ShellUnderTest />} />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
     );
 
     await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/c/root-1"));
@@ -187,32 +202,36 @@ describe("shell components smoke", () => {
 
   it("LeftSidebar renders at the root scope", () => {
     const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1"]}>
-          <Routes>
-            <Route
-              path="c/:entityId/*"
-              element={<LeftSidebar entityId="root-1" path="/c/root-1" />}
-            />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter initialEntries={["/c/root-1"]}>
+            <Routes>
+              <Route
+                path="c/:entityId/*"
+                element={<LeftSidebar entityId="root-1" path="/c/root-1" />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
     );
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
   it("LeftSidebar renders with a drilled-in child agent", () => {
     const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/agents/child-1/sessions"]}>
-          <Routes>
-            <Route
-              path="c/:entityId/*"
-              element={<LeftSidebar entityId="root-1" path="/c/root-1/agents/child-1/sessions" />}
-            />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
+      withQueryClient(
+        <StrictMode>
+          <MemoryRouter initialEntries={["/c/root-1/agents/child-1/sessions"]}>
+            <Routes>
+              <Route
+                path="c/:entityId/*"
+                element={<LeftSidebar entityId="root-1" path="/c/root-1/agents/child-1/sessions" />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </StrictMode>,
+      ),
     );
     expect(errors.find(isLoopError)).toBeUndefined();
   });

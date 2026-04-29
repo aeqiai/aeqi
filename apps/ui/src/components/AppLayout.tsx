@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 import AgentPage from "./AgentPage";
@@ -8,6 +9,7 @@ import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
 import ShortcutsOverlay from "./ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
+import { activityKeys, agentKeys, entityKeys, questKeys, runtimeKeys } from "@/queries/keys";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
@@ -39,6 +41,7 @@ const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 const COMPANY_PAGERAIL_TABS = new Set(["overview", "positions"]);
 
 export default function AppLayout() {
+  const queryClient = useQueryClient();
   const location = useLocation();
   const [searching, setSearching] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -131,14 +134,24 @@ export default function AppLayout() {
   // Pause the periodic refresh while rate-limited — polling while blocked
   // just piles on more 429s and extends the window the user is stuck in.
   const fetchAll = useDaemonStore((s) => s.fetchAll);
+  const invalidateShellQueries = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: entityKeys.all });
+    void queryClient.invalidateQueries({ queryKey: agentKeys.all });
+    void queryClient.invalidateQueries({ queryKey: questKeys.all });
+    void queryClient.invalidateQueries({ queryKey: activityKeys.all });
+    void queryClient.invalidateQueries({ queryKey: runtimeKeys.all });
+  }, [queryClient]);
+
   useEffect(() => {
     fetchAll();
+    invalidateShellQueries();
     const i = setInterval(() => {
       if (isRateLimited()) return;
       fetchAll();
+      invalidateShellQueries();
     }, 30000);
     return () => clearInterval(i);
-  }, [fetchAll, entityId]);
+  }, [fetchAll, entityId, invalidateShellQueries]);
   useDaemonSocket();
 
   const openSearch = useCallback(() => setSearching(true), []);

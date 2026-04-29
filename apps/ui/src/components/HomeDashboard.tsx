@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
+import { useEntitiesQuery } from "@/queries/entities";
 import { useAuthStore } from "@/store/auth";
-import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore, selectInboxCount } from "@/store/inbox";
 
 function greeting(): string {
@@ -30,8 +30,8 @@ function firstName(name: string | undefined, email: string | undefined): string 
 export default function HomeDashboard() {
   const [searchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
-  const entities = useDaemonStore((s) => s.entities);
-  const initialLoaded = useDaemonStore((s) => s.initialLoaded);
+  const entitiesQuery = useEntitiesQuery();
+  const entities = entitiesQuery.data ?? [];
 
   useEffect(() => {
     document.title = "home · æqi";
@@ -41,9 +41,9 @@ export default function HomeDashboard() {
   const greet = greeting();
   const heading = name ? `${greet}, ${name}` : greet;
 
-  // Wait for the daemon to load before deciding zero-state vs returning
+  // Wait for the entity query to load before deciding zero-state vs returning
   // — otherwise the redirect can fire on stale empty state.
-  if (!initialLoaded) return null;
+  if (entitiesQuery.isLoading && !entitiesQuery.isFetched) return null;
 
   if (entities.length === 0) {
     const blueprintParam = searchParams.get("blueprint");

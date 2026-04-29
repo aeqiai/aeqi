@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Popover, SelectOption } from "@/components/ui";
 import BlockAvatar from "@/components/BlockAvatar";
-import { useEntities, useActiveEntity } from "@/store/daemon";
+import { useEntities, useActiveEntity } from "@/queries/entities";
 import { useUIStore } from "@/store/ui";
 import type { Entity } from "@/lib/types";
 
