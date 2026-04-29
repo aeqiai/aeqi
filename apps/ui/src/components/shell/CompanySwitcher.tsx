@@ -77,23 +77,25 @@ export default function CompanySwitcher() {
     setOpen(false);
   }, [navigate]);
 
-  // Trigger label: user identity at user scope, active-company at
-  // entity scope. The dropdown contents are scope-independent — same
-  // list of companies + create affordance everywhere.
-  const triggerLabel = isUserScope
-    ? userName
-    : (activeEntity?.name ?? entities[0]?.name ?? "Company");
-  const triggerAvatar = isUserScope ? (
-    <UserAvatar name={userName} size={16} src={user?.avatar_url} />
+  // Trigger label is sticky to the active workspace, NOT the URL
+  // scope. Going to `/me/inbox` from inside `/c/acme` shouldn't make
+  // the switcher flip to "You" — Acme is still the user's current
+  // workspace; the URL just put them in a personal lens temporarily.
+  // Only when there's no active entity at all (brand-new user) does
+  // the trigger fall back to user identity.
+  const triggerEntity = activeEntity ?? null;
+  const triggerLabel = triggerEntity?.name ?? userName;
+  const triggerAvatar = triggerEntity ? (
+    <BlockAvatar name={triggerEntity.name} size={16} />
   ) : (
-    <BlockAvatar name={triggerLabel} size={16} />
+    <UserAvatar name={userName} size={16} src={user?.avatar_url} />
   );
 
   const trigger = (
     <button
       type="button"
       className="company-switcher-trigger"
-      aria-label={isUserScope ? "Open company switcher" : "Switch company"}
+      aria-label={triggerEntity ? "Switch workspace" : "Open workspace switcher"}
     >
       <span className="company-switcher-avatar">{triggerAvatar}</span>
       <span className="company-switcher-name">{triggerLabel}</span>
@@ -103,10 +105,10 @@ export default function CompanySwitcher() {
     </button>
   );
 
-  // Order entities so the active one is first when at entity scope.
-  // At user scope the order is the entities list as returned — no
-  // "active" company in that view.
-  const displayEntity = isEntityScope ? (activeEntity ?? entities[0] ?? null) : null;
+  // Active entity floats to the top of the list so the user's current
+  // workspace is the first row in the dropdown — one click to return
+  // to it from `/me/*` or any other user-scope surface.
+  const displayEntity = activeEntity ?? null;
   const ordered: Entity[] = displayEntity
     ? [displayEntity, ...entities.filter((e) => e.id !== displayEntity.id)]
     : entities;
