@@ -30,7 +30,10 @@ const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
-const HomeDashboard = lazy(() => import("./HomeDashboard"));
+const Feed = lazy(() => import("./Feed"));
+const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
+const MeQuestsPage = lazy(() => import("@/pages/MeQuestsPage"));
+const MePortfolioPage = lazy(() => import("@/pages/MePortfolioPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
@@ -66,7 +69,7 @@ export default function AppLayout() {
 
   // Declared above any conditional return so the inbox-agent hook below
   // can read surface.userSessionId without violating React's rules-of-hooks.
-  const surface = useShellSurface(path, routeEntityId, tab);
+  const surface = useShellSurface(path, tab);
   const inboxAgentId = useInboxStore((s) =>
     surface.userSessionId
       ? (s.items.find((i) => i.session_id === surface.userSessionId)?.agent_id ?? null)
@@ -177,6 +180,9 @@ export default function AppLayout() {
     isStart,
     isUserSession,
     isNotFound,
+    isMyInbox,
+    isMyQuests,
+    isMyPortfolio,
     userSessionId,
   } = surface;
 
@@ -201,20 +207,19 @@ export default function AppLayout() {
   const activeAgentId = activeAgent?.id ?? "";
 
   const base = encodedEntityId ? `/c/${encodedEntityId}` : "/";
-  // The Inbox is one universal surface; the active company is a
-  // *filter*, encoded in the URL as the `/c/<entity>` segment so the
-  // filter is shareable, refresh-stable, and a route param the way
-  // every primitive page uses one. `/` is the unfiltered inbox; the
-  // bare `/c/<entity>` URL is the same inbox, scoped to that company.
-  // Overview / Positions / etc. are explicit tabs the user clicks.
+  // No-tab at every scope renders Feed (the canonical home). Tabs
+  // route to specific surfaces — overview/positions to CompanyPage,
+  // sessions/quests/events/ideas/etc. to AgentPage. The default
+  // fallback below handles tabs not enumerated explicitly.
   const effectiveTab = tab || "sessions";
 
-  // Entity inbox: the bare `/c/<entity>` URL with no tab and no
-  // drilled agent. Renders the same HomeDashboard shape as `/` —
-  // greeting + status + inbox rail on the left, no chat composer.
-  // The chat surface (composer + transcript) is reserved for drilled
-  // agents at `/c/<entity>/agents/<id>/sessions/...`.
-  const isEntityHome = !!routeEntityId && !drilledAgent && !tab && !isUserSession;
+  // Feed surfaces — the bare URL at each scope renders the Feed
+  // component (one component, three modes).
+  // - `/` (no tab, no entity): user feed.
+  // - `/c/<entity>` (no tab, no drilled agent): company feed.
+  // - `/c/<entity>/agents/<id>` (no tab, drilled agent): agent feed.
+  const isCompanyFeed = !!routeEntityId && !drilledAgent && !tab && !isUserSession;
+  const isAgentFeed = !!drilledAgent && !tab;
 
   // Runtime mode has no account-level identity surface.
   if (isSettings && appMode && appMode !== "platform") {
@@ -231,7 +236,12 @@ export default function AppLayout() {
     if (isNotFound) return <NotFoundPage />;
     if (isStart) return <StartPage />;
     if (isUserSession && userSessionId) return <UserInboxSessionView sessionId={userSessionId} />;
-    if (isHome || isEntityHome) return <HomeDashboard />;
+    if (isMyInbox) return <MeInboxPage />;
+    if (isMyQuests) return <MeQuestsPage />;
+    if (isMyPortfolio) return <MePortfolioPage />;
+    if (isHome) return <Feed scope="user" />;
+    if (isCompanyFeed) return <Feed scope="company" entityId={routeEntityId} />;
+    if (isAgentFeed) return <Feed scope="agent" entityId={routeEntityId} agentId={activeAgentId} />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
@@ -261,39 +271,39 @@ export default function AppLayout() {
     );
   })();
 
+  // Composer + sessions rail mount only on the chat surface
+  // (`/c/<entity>/agents/<id>/sessions[/...]` and `/sessions/<id>`
+  // user-scope view). Feed surfaces are self-contained: no rail, no
+  // composer. Inbox is its own destination at `/me/inbox`, also no
+  // rail/composer (it's a list page).
+  const isAnyFeed = isHome || isCompanyFeed || isAgentFeed;
   const sessionsMounted =
     !isNotFound &&
     (isUserSession ||
       (!isDrive &&
         !isSettings &&
-        !isHome &&
-        !isEntityHome &&
+        !isAnyFeed &&
+        !isMyInbox &&
+        !isMyQuests &&
+        !isMyPortfolio &&
         !isStart &&
         !isEconomy &&
         effectiveTab === "sessions"));
   const showComposer = sessionsMounted;
-  // inbox-mode rail: at `/` (user inbox), `/sessions/:id` (user
-  // session view), and `/c/<entity>` (entity-scoped inbox). Lists items
-  // across every agent in scope.
-  // agent-mode rail: at `/c/<entity>/agents/<id>/sessions[/...]` — that
-  // agent's sessions only, the chat surface.
-  const inboxRail =
-    (isHome || isUserSession || isEntityHome) &&
-    !isSettings &&
-    !isEconomy &&
-    !isStart &&
-    !isNotFound;
-  const agentRail =
-    effectiveTab === "sessions" &&
-    !!routeEntityId &&
-    !isEntityHome &&
-    !isSettings &&
-    !isDrive &&
-    !isHome &&
-    !isStart &&
-    !isNotFound;
-  const showSessionsRail = inboxRail || agentRail;
-  const railMode: "inbox" | "agent" = inboxRail ? "inbox" : "agent";
+  // The sessions rail only mounts in agent mode (drilled agent's
+  // sessions chat). Inbox mode is gone — feed surfaces own the
+  // attention surface for their scope; the dedicated `/me/inbox`
+  // page renders inbox items inline (no rail).
+  const showSessionsRail =
+    isUserSession ||
+    (effectiveTab === "sessions" &&
+      !!routeEntityId &&
+      !!drilledAgent &&
+      !isSettings &&
+      !isDrive &&
+      !isStart &&
+      !isNotFound);
+  const railMode: "inbox" | "agent" = isUserSession ? "inbox" : "agent";
 
   return (
     <>

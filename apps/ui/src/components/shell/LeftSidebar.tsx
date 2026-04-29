@@ -30,10 +30,25 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
+const HomeIcon = () => (
+  <svg {...iconProps}>
+    <path d="M2.5 7.5L8 3l5.5 4.5" />
+    <path d="M3.5 7v6.5h9V7" />
+  </svg>
+);
+
 const InboxIcon = () => (
   <svg {...iconProps}>
     <rect x="2" y="3.5" width="12" height="9" rx="0.5" />
     <path d="M2 8h3.5l1 1.5h3l1-1.5H14" />
+  </svg>
+);
+
+const PortfolioIcon = () => (
+  <svg {...iconProps}>
+    <rect x="2" y="5" width="12" height="8" rx="1" />
+    <path d="M5.5 5V3.5h5V5" />
+    <path d="M2 9h12" />
   </svg>
 );
 
@@ -172,18 +187,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  // Inbox is one universal surface; the active company is a filter
-  // encoded in the URL path. `/` is the unfiltered inbox; the bare
-  // `/c/<entity>` URL is the same inbox scoped to that company. The
-  // sidebar Inbox item routes to whichever the user is currently in
-  // — when an entity is active it points at `/c/<entity>` (so the
-  // filter persists), at user scope it points at `/`. Always labeled
-  // "Inbox" — it's the user's inbox at every scope, the entity is
-  // just the filter.
-  const inboxHref = isEntityScope ? base : "/";
-  const inboxActive = isEntityScope
-    ? path === base || path === `${base}/sessions` || path.startsWith(`${base}/sessions/`)
-    : path === "/" || path.startsWith("/sessions/");
+  // My zone — user-scope destinations that always live at user-scope
+  // URLs. Active states are path-equality checks; nothing fuzzy.
+  const homeActive = path === "/" || path.startsWith("/sessions/");
+  const myInboxActive = path === "/me/inbox";
+  const myQuestsActive = path === "/me/quests";
+  const myPortfolioActive = path === "/me/portfolio";
   // Company sidebar item points at the company's Overview surface
   // (the org card / Positions PageRail). Active on overview /
   // positions tabs only.
@@ -310,50 +319,86 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* ── Inbox + Company — Inbox is the action center (the daily
-            landing, "what needs me"); Company carries the org-as-noun
-            (Overview / Positions). Inbox is first because it's the
-            canonical destination; Company is only shown at entity
-            scope as a secondary surface for that company's shape. ── */}
-        <nav className="sidebar-surface-nav" aria-label="Attention">
+        {/* ── My zone ── Personal lens. Items here are user-scoped
+            destinations the user has across every company they own.
+            Always visible regardless of scope; the *content* of each
+            page filters by the active scope (Home shows your feed
+            scoped to your data; Inbox shows what needs you). ── */}
+        <nav className="sidebar-surface-nav sidebar-zone" aria-label="My">
+          <div className="sidebar-zone-header">My</div>
           <a
-            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href={inboxHref}
-            title="Inbox"
+            className={`sidebar-nav-item ${homeActive ? "active" : ""}`}
+            href="/"
+            title="Home"
             onClick={(e) => {
               e.preventDefault();
-              navigate(inboxHref);
+              navigate("/");
+            }}
+          >
+            <HomeIcon />
+            <span className="sidebar-nav-label">Home</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${myInboxActive ? "active" : ""}`}
+            href="/me/inbox"
+            title="My inbox"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/me/inbox");
             }}
           >
             <InboxIcon />
-            <span className="sidebar-nav-label">Inbox</span>
+            <span className="sidebar-nav-label">My inbox</span>
           </a>
-          {isEntityScope && base && (
-            <a
-              className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
-              href={`${base}/overview`}
-              title="Company"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(`${base}/overview`);
-              }}
-            >
-              <CompanyIcon />
-              <span className="sidebar-nav-label">Company</span>
-            </a>
-          )}
+          <a
+            className={`sidebar-nav-item ${myQuestsActive ? "active" : ""}`}
+            href="/me/quests"
+            title="My quests"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/me/quests");
+            }}
+          >
+            <QuestsIcon />
+            <span className="sidebar-nav-label">My quests</span>
+          </a>
+          <a
+            className={`sidebar-nav-item ${myPortfolioActive ? "active" : ""}`}
+            href="/me/portfolio"
+            title="My portfolio"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/me/portfolio");
+            }}
+          >
+            <PortfolioIcon />
+            <span className="sidebar-nav-label">My portfolio</span>
+          </a>
         </nav>
 
-        {/* The four W-primitives, Operate, and Control are all
-            company-scoped surfaces (their URLs all live under
-            `/c/<entity>/...`). Only render them when the URL itself
-            puts the user inside a company — at user scope (`/`, `/me`,
-            `/economy`, …) the sidebar collapses to Inbox + Economy +
-            Account. The user picks a company via the switcher (or
-            `/start` from the dropdown). */}
+        {/* ── Workspace zone ── Company-as-noun. Only shown when the
+            URL puts the user inside a company. Company points at the
+            org's Overview surface (card + Positions PageRail);
+            Agents/Events/Quests/Ideas are the four primitives at
+            company scope. ── */}
         {isEntityScope && (
           <>
-            <nav className="sidebar-surface-nav" aria-label="Primitives">
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
+              <div className="sidebar-zone-header">Workspace</div>
+              {base && (
+                <a
+                  className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
+                  href={`${base}/overview`}
+                  title="Company"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(`${base}/overview`);
+                  }}
+                >
+                  <CompanyIcon />
+                  <span className="sidebar-nav-label">Company</span>
+                </a>
+              )}
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("events", "Events", <EventsIcon />)}
               {navItem("quests", "Quests", <QuestsIcon />)}

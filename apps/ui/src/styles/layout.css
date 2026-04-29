@@ -6461,3 +6461,23 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .new-menu-trigger:hover .new-menu-plus {
   color: var(--color-accent);
 }
+
+/* ── Sidebar zone headers (My, Workspace) ──────────────────── */
+
+.sidebar-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-zone-header {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 12px 12px 4px;
+}
+.left-sidebar.collapsed .sidebar-zone-header {
+  display: none;
+}

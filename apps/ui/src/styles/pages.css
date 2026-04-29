@@ -3748,3 +3748,208 @@
 }
 
 /* ── Onboarding celebration animations ──────────────── */
+
+/* ── Feed (canonical scope-root surface) ──────────────────── */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 24px 32px;
+  gap: 20px;
+}
+.feed-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.feed-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.feed-header-avatar {
+  display: inline-flex;
+}
+.feed-heading {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+.feed-stat-strip {
+  display: flex;
+  gap: 32px;
+}
+.feed-stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.feed-stat-value {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.feed-stat-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.feed-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.feed-quiet {
+  margin: 32px 0 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-transform: lowercase;
+}
+.feed-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.feed-activity-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+}
+.feed-activity-meta {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.feed-activity-body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-activity-time {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Zero state — first-time user lands here, no companies yet. */
+.feed--zero {
+  padding: 48px 32px;
+  gap: 32px;
+}
+.feed-zero-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 640px;
+}
+.feed-zero-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+.feed-zero-sub {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+/* ── /me/inbox + stub pages ───────────────────────────────── */
+
+.me-inbox,
+.me-stub {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 32px;
+  height: 100%;
+  overflow-y: auto;
+}
+.me-inbox-header,
+.me-stub-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.me-inbox-heading,
+.me-stub-heading {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+.me-inbox-status,
+.me-stub-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.me-inbox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.me-inbox-row {
+  margin: 0;
+}
+.me-inbox-row-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.me-inbox-row-btn:hover {
+  background: var(--bg-hover);
+}
+.me-inbox-row-from {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: lowercase;
+}
+.me-inbox-row-preview {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
