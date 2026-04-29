@@ -102,6 +102,29 @@ not a fork.
 The user is shipping a product, not commissioning a design system. Move
 fast, reuse hard, and don't make them puke.
 
+### Nav structure default — page-internal sub-rail, not global sidebar
+
+When the user describes a vertical sub-nav for a top-level destination
+("Company has Overview as the first option," "Economy needs Discovery
+and Blueprints"), the default answer is a **page-internal `PageRail`**
+inside that destination's page (mirror `EconomyPage.tsx`,
+`BlueprintDetailPage.tsx`, `ProfilePage.tsx`), NOT new entries in the
+global `LeftSidebar`. The global sidebar is reserved for top-level
+destinations only — Inbox, Company, Operate, Control, Economy.
+
+Cost of guessing wrong (2026-04-29): six sub-tabs got promoted to root
+sidebar items, the user rejected the shape, full restructure required.
+Cheaper rule: ask once if it's not obvious which level a nav item lives at.
+
+### UI bug-report triage — read source before blaming cache
+
+When the user reports the UI looking wrong, read the relevant source
+file FIRST and confirm the deployed shape matches what they want, BEFORE
+suggesting a hard-refresh / cache-bust. "Browser cache" is a hypothesis,
+not a default. If the deployed shape is itself wrong, hard-refreshing
+just shows them the same wrong shape faster — which is the opposite of
+helpful.
+
 ## Stack
 
 - **Build:** Vite 6, React 19, TypeScript 5
