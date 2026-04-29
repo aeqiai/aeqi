@@ -26,6 +26,27 @@ const SETTINGS_SUB_TABS = [
   { id: "plan", label: "Plan" },
 ];
 
+// Agent-scoped page rail — shown only when drilled into a specific
+// agent (`/c/<entity>/agents/<agentId>/...`). Mirrors the Company /
+// Profile / Economy pattern: a left rail of in-scope sections, with
+// the active content rendered in the right pane. Sessions is the
+// agent's home landing (canonical no-tab destination). Settings
+// collapses the existing nested sub-rail (Settings / Tools /
+// Integrations / Plan) under one entry so the rail stays narrow.
+const AGENT_RAIL_TABS = [
+  { id: "sessions", label: "Sessions" },
+  { id: "quests", label: "Quests" },
+  { id: "events", label: "Events" },
+  { id: "ideas", label: "Ideas" },
+  { id: "channels", label: "Channels" },
+  { id: "settings", label: "Settings" },
+];
+
+// Tabs that light the rail's "Settings" entry (the nested sub-rail
+// inside Settings handles finer selection). Channels is excluded —
+// it has its own top-level rail entry.
+const SETTINGS_TAB_IDS = new Set(["settings", "tools", "integrations", "plan"]);
+
 // Routes that AgentPage knows how to render. No-tab resolves to the Sessions
 // surface — the agent's home landing. ContentTopBar is the primary nav and
 // lives outside of this component.
@@ -48,10 +69,16 @@ export default function AgentPage({
   agentId,
   tab: tabProp,
   itemId: itemIdProp,
+  isDrilled = false,
 }: {
   agentId: string;
   tab?: string;
   itemId?: string | null;
+  /** True when rendered for a drilled agent (`/c/<entity>/agents/<id>/...`).
+   *  Wraps the surface in the agent's PageRail so the user can switch
+   *  between this agent's Sessions / Quests / Events / Ideas /
+   *  Channels / Settings without leaving the surface. */
+  isDrilled?: boolean;
 }) {
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
@@ -78,7 +105,7 @@ export default function AgentPage({
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  return (
+  const body = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {/* Save feedback toast */}
       {toast && (
@@ -137,6 +164,26 @@ export default function AgentPage({
           {activeTab === "plan" && <AgentPlanTab agentId={resolvedAgentId} />}
         </SettingsShell>
       )}
+    </div>
+  );
+
+  if (!isDrilled) return body;
+
+  // The rail's "Settings" entry stays lit when the user is on any of
+  // its nested sub-tabs (settings/tools/integrations/plan). Channels
+  // is its own rail entry, so it doesn't fall into Settings.
+  const railCurrent = SETTINGS_TAB_IDS.has(activeTab) ? "settings" : activeTab;
+
+  return (
+    <div className="page-rail-shell">
+      <PageRail
+        tabs={AGENT_RAIL_TABS}
+        defaultTab="sessions"
+        title={agent?.name || "Agent"}
+        basePath={`/c/${encodeURIComponent(resolvedEntityId)}/agents/${encodeURIComponent(resolvedAgentId)}`}
+        currentValue={railCurrent}
+      />
+      <div className="page-rail-content page-rail-content--full">{body}</div>
     </div>
   );
 }

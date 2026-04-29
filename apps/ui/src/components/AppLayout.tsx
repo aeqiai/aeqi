@@ -238,9 +238,23 @@ export default function AppLayout() {
     if (tab === "treasury") return <TreasuryPage />;
     if (tab === "governance") return <GovernancePage />;
     if (routeEntityId && !drilledAgent && COMPANY_PAGERAIL_TABS.has(effectiveTab)) {
-      return <CompanyPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
+      return (
+        <CompanyPage
+          agentId={activeAgentId}
+          entityId={routeEntityId}
+          tab={effectiveTab}
+          itemId={itemId}
+        />
+      );
     }
-    return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
+    return (
+      <AgentPage
+        agentId={activeAgentId}
+        tab={effectiveTab}
+        itemId={itemId}
+        isDrilled={!!drilledAgent}
+      />
+    );
   })();
 
   const sessionsMounted =
