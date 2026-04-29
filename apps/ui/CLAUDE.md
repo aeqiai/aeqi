@@ -269,6 +269,15 @@ tree, and the .bin/ symlinks come back broken. `rm -rf` removes the
 whole tree atomically and npm rebuilds clean — same wall-clock cost,
 total reliability.
 
+**Caveat — sibling worktree symlinks active.** If another worktree's
+`apps/ui/node_modules` still symlinks to this one (parallel subagent
+mid-flight), `rm -rf` errors on the same viem / walletconnect nested
+dirs because the symlink target keeps file handles open. Plain
+`npm install` (no rm) repairs `.bin/` in place — slower than a clean
+rebuild but safe for live sibling worktrees. Use this when WS-A and
+WS-B ship back-to-back and one finishes before the other releases its
+symlink.
+
 **UI-only deploy (no Rust changed):**
 
 ```bash
