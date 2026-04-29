@@ -1,28 +1,10 @@
 import { useState } from "react";
+import { apiRequest } from "@/api/client";
 import { Button, Input } from "@/components/ui";
 
 interface Props {
   currentEmail: string;
   onChanged: (newEmail: string) => void;
-}
-
-const BASE_URL = "/api";
-
-async function authedJson<T>(path: string, body: unknown): Promise<T> {
-  const token = localStorage.getItem("aeqi_token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok) {
-    const msg = (typeof data?.error === "string" ? data.error : null) || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data as T;
 }
 
 /**
@@ -52,8 +34,11 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await authedJson<{ ok: boolean }>("/me/email/change/begin", {
-        new_email: newEmail.trim(),
+      await apiRequest<{ ok: boolean }>("/me/email/change/begin", {
+        method: "POST",
+        body: JSON.stringify({
+          new_email: newEmail.trim(),
+        }),
       });
       setStep("verify");
       setFeedback(`Verification code sent to ${newEmail.trim()}.`);
@@ -68,8 +53,11 @@ export default function EmailEditor({ currentEmail, onChanged }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const res = await authedJson<{ ok: boolean; email: string }>("/me/email/change/finish", {
-        code: code.trim(),
+      const res = await apiRequest<{ ok: boolean; email: string }>("/me/email/change/finish", {
+        method: "POST",
+        body: JSON.stringify({
+          code: code.trim(),
+        }),
       });
       onChanged(res.email);
       setFeedback("Email updated.");

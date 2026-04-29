@@ -12,8 +12,8 @@ pub use embedder::Embedder;
 pub use gateway::{CompletedResponse, DeliveryMode, SessionGateway};
 pub use idea::{
     AccessContext, CacheSource, EntityRef, FeedbackMeta, FeedbackSignal, Idea, IdeaEdgeRow,
-    IdeaEdges, IdeaGraphEdge, IdeaQuery, IdeaStore, SearchHit, StoreFull, UpdateFull, WalkStep,
-    Why,
+    IdeaEdges, IdeaGraphEdge, IdeaQuery, IdeaStore, IdeaStoreCapabilities, IdeaStoreCapability,
+    SearchHit, StoreFull, UnsupportedIdeaStoreCapability, UpdateFull, WalkStep, Why,
 };
 pub use observer::{
     CompactInstructions, ContextAttachment, Event, LogObserver, LoopAction, Observer,

@@ -7,28 +7,7 @@
  * refresh / disconnect.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || "/api";
-
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem("aeqi_token");
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return headers;
-}
-
-async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init?.headers as Record<string, string>) },
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error || `${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as T;
-}
+import { apiRequest } from "@/api/client";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -93,7 +72,7 @@ export interface BootstrapStatusResponse {
 
 export const integrationsApi = {
   listIntegrations(): Promise<{ integrations: IntegrationCatalogEntry[] }> {
-    return jsonFetch("/integrations");
+    return apiRequest("/integrations");
   },
 
   listCredentials(scope?: {
@@ -105,7 +84,7 @@ export const integrationsApi = {
           scope.scope_id,
         )}`
       : "";
-    return jsonFetch(`/credentials${qs}`);
+    return apiRequest(`/credentials${qs}`);
   },
 
   bootstrap(body: {
@@ -114,24 +93,24 @@ export const integrationsApi = {
     scope_id: string;
     oauth_scopes?: string[];
   }): Promise<BootstrapStartResponse> {
-    return jsonFetch("/credentials/bootstrap", {
+    return apiRequest("/credentials/bootstrap", {
       method: "POST",
       body: JSON.stringify(body),
     });
   },
 
   bootstrapStatus(handle: string): Promise<BootstrapStatusResponse> {
-    return jsonFetch(`/credentials/bootstrap/${encodeURIComponent(handle)}`);
+    return apiRequest(`/credentials/bootstrap/${encodeURIComponent(handle)}`);
   },
 
   refreshCredential(id: string): Promise<{ ok: boolean; credential: CredentialView }> {
-    return jsonFetch(`/credentials/${encodeURIComponent(id)}/refresh`, {
+    return apiRequest(`/credentials/${encodeURIComponent(id)}/refresh`, {
       method: "POST",
     });
   },
 
   deleteCredential(id: string): Promise<{ ok: boolean }> {
-    return jsonFetch(`/credentials/${encodeURIComponent(id)}`, {
+    return apiRequest(`/credentials/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
   },

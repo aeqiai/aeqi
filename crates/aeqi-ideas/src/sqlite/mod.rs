@@ -10,8 +10,8 @@ mod tags;
 mod ttl;
 
 use aeqi_core::traits::{
-    AccessContext, Embedder, FeedbackMeta, Idea, IdeaQuery, IdeaStore, SearchHit, StoreFull,
-    UpdateFull, WalkStep,
+    AccessContext, Embedder, FeedbackMeta, Idea, IdeaQuery, IdeaStore, IdeaStoreCapabilities,
+    IdeaStoreCapability, SearchHit, StoreFull, UpdateFull, WalkStep,
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -194,6 +194,24 @@ impl IdeaStore for SqliteIdeas {
 
     fn name(&self) -> &str {
         "sqlite"
+    }
+
+    fn capabilities(&self) -> IdeaStoreCapabilities {
+        IdeaStoreCapabilities::basic()
+            .with(IdeaStoreCapability::RichWrite)
+            .with(IdeaStoreCapability::AtomicSupersede)
+            .with(IdeaStoreCapability::StatusWrite)
+            .with(IdeaStoreCapability::EmbeddingWrite)
+            .with(IdeaStoreCapability::TagAnalytics)
+            .with(IdeaStoreCapability::ExplainedSearch)
+            .with(IdeaStoreCapability::AccessTracking)
+            .with(IdeaStoreCapability::Feedback)
+            .with(IdeaStoreCapability::GraphEdges)
+            .with(IdeaStoreCapability::EntityEdges)
+            .with(IdeaStoreCapability::GraphWalk)
+            .with(IdeaStoreCapability::AnnSearch)
+            .with(IdeaStoreCapability::TemporalSearch)
+            .with(IdeaStoreCapability::CoRetrievalDecay)
     }
 
     async fn reassign_agent(&self, old_agent_id: &str, new_agent_id: &str) -> Result<u64> {

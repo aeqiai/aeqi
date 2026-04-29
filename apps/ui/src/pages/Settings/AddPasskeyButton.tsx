@@ -1,26 +1,8 @@
 import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
+import { apiRequest } from "@/api/client";
 import { Button } from "@/components/ui";
-
-const BASE_URL = "/api";
-
-async function authedJson<T>(path: string, body?: unknown): Promise<T> {
-  const token = localStorage.getItem("aeqi_token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers,
-    body: body === undefined ? "{}" : JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok) {
-    const msg = (typeof data?.error === "string" ? data.error : null) || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data as T;
-}
 
 interface BeginResponse {
   ok: boolean;
@@ -44,11 +26,17 @@ export default function AddPasskeyButton() {
     setError(null);
     setFeedback(null);
     try {
-      const begin = await authedJson<BeginResponse>("/me/passkeys/add/begin");
+      const begin = await apiRequest<BeginResponse>("/me/passkeys/add/begin", {
+        method: "POST",
+        body: "{}",
+      });
       const credential = await startRegistration({ optionsJSON: begin.publicKey });
-      await authedJson<{ ok: boolean }>("/me/passkeys/add/finish", {
-        session_id: begin.session_id,
-        credential,
+      await apiRequest<{ ok: boolean }>("/me/passkeys/add/finish", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: begin.session_id,
+          credential,
+        }),
       });
       setFeedback("Passkey added.");
     } catch (e) {

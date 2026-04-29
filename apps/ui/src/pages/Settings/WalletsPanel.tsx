@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { apiRequest } from "@/api/client";
 import { api } from "@/lib/api";
 import { Button, ConfirmDialog } from "@/components/ui";
 import { buildSiweMessage, fetchNonce } from "@/lib/walletAuth";
@@ -18,25 +19,6 @@ interface MeResponse {
 }
 
 type Feedback = { type: "success" | "error"; msg: string } | null;
-
-const BASE_URL = "/api";
-
-async function authedJson<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const token = localStorage.getItem("aeqi_token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!res.ok) {
-    const msg = (typeof data?.error === "string" ? data.error : null) || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data as T;
-}
 
 function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -81,7 +63,7 @@ export default function WalletsPanel() {
   async function setPrimary(id: string) {
     setFeedback(null);
     try {
-      await authedJson<{ ok: boolean }>("PUT", `/me/wallets/${id}/primary`);
+      await apiRequest<{ ok: boolean }>(`/me/wallets/${id}/primary`, { method: "PUT" });
       await refresh();
       setFeedback({ type: "success", msg: "Primary wallet updated." });
     } catch (e) {
@@ -98,7 +80,7 @@ export default function WalletsPanel() {
     setRemoveBusy(true);
     setFeedback(null);
     try {
-      await authedJson<{ ok: boolean }>("DELETE", `/me/wallets/${removingId}`);
+      await apiRequest<{ ok: boolean }>(`/me/wallets/${removingId}`, { method: "DELETE" });
       await refresh();
       setFeedback({ type: "success", msg: "Wallet removed." });
     } catch (e) {
@@ -127,9 +109,9 @@ export default function WalletsPanel() {
         statement: "Link this wallet to your aeqi account",
       });
       const signature = await signMessageAsync({ message });
-      await authedJson<{ ok: boolean; address: string }>("POST", "/me/wallets/link", {
-        message,
-        signature,
+      await apiRequest<{ ok: boolean; address: string }>("/me/wallets/link", {
+        method: "POST",
+        body: JSON.stringify({ message, signature }),
       });
       await refresh();
       setFeedback({ type: "success", msg: "Wallet linked." });

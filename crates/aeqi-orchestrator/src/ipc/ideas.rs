@@ -27,11 +27,35 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use aeqi_core::traits::{IdeaStore, StoreFull, UpdateFull};
+use aeqi_core::traits::{IdeaStore, IdeaStoreCapability, StoreFull, UpdateFull};
 use aeqi_ideas::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarIdea};
 use aeqi_ideas::tag_policy::{EffectivePolicy, POLICY_TAG};
 
 use super::request_field;
+
+fn unsupported_capability_response(
+    idea_store: &dyn IdeaStore,
+    method: &'static str,
+    capability: IdeaStoreCapability,
+) -> Option<serde_json::Value> {
+    if idea_store.capabilities().supports(capability) {
+        return None;
+    }
+
+    Some(serde_json::json!({
+        "ok": false,
+        "code": "unsupported_capability",
+        "capability": capability.as_str(),
+        "method": method,
+        "store": idea_store.name(),
+        "error": format!(
+            "idea store '{}' does not support {} required by {}",
+            idea_store.name(),
+            capability,
+            method
+        ),
+    }))
+}
 
 pub async fn handle_list_ideas(
     ctx: &super::CommandContext,
@@ -363,6 +387,14 @@ async fn dispatch_create(
     effective: &EffectivePolicy,
     redacted_content: &str,
 ) -> serde_json::Value {
+    if let Some(response) = unsupported_capability_response(
+        idea_store.as_ref(),
+        "store_full",
+        IdeaStoreCapability::RichWrite,
+    ) {
+        return response;
+    }
+
     let payload = build_store_full(input, effective, redacted_content);
     let id = match idea_store.store_full(payload).await {
         Ok(id) => id,
@@ -426,6 +458,14 @@ async fn dispatch_merge(
     effective: &EffectivePolicy,
     redacted_content: &str,
 ) -> serde_json::Value {
+    if let Some(response) = unsupported_capability_response(
+        idea_store.as_ref(),
+        "update_full",
+        IdeaStoreCapability::RichWrite,
+    ) {
+        return response;
+    }
+
     // Load the existing row so we can append + union tags + bump confidence.
     let existing = match idea_store
         .get_by_ids(&[existing_id.to_string()])
@@ -512,6 +552,14 @@ async fn dispatch_supersede(
     effective: &EffectivePolicy,
     redacted_content: &str,
 ) -> serde_json::Value {
+    if let Some(response) = unsupported_capability_response(
+        idea_store.as_ref(),
+        "supersede_atomic",
+        IdeaStoreCapability::AtomicSupersede,
+    ) {
+        return response;
+    }
+
     // Atomic supersession: single SQLite transaction flips old → superseded,
     // inserts the new row, and writes the supersedes edge. If any step
     // errors mid-way, the tx rolls back and the old row stays `active` —
@@ -622,6 +670,17 @@ async fn check_consolidation_threshold(
     let Some((ref tag, ref trigger)) = effective.consolidate_when else {
         return;
     };
+    if !idea_store
+        .capabilities()
+        .supports(IdeaStoreCapability::TagAnalytics)
+    {
+        tracing::debug!(
+            tag,
+            store = idea_store.name(),
+            "idea store does not support tag analytics; skipping consolidation threshold"
+        );
+        return;
+    }
     // Only count when the trigger's tag is actually on the idea (defensive:
     // merged policies can surface a trigger for a tag the idea doesn't
     // carry; we still count in case the triggering tag is one of the
@@ -1391,6 +1450,14 @@ pub async fn handle_feedback_idea(
                 "error": "idea not visible to this agent",
             });
         }
+    }
+
+    if let Some(response) = unsupported_capability_response(
+        idea_store.as_ref(),
+        "record_feedback",
+        IdeaStoreCapability::Feedback,
+    ) {
+        return response;
     }
 
     match idea_store.record_feedback(id, signal, weight, meta).await {
