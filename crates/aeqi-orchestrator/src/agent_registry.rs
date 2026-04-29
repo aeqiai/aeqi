@@ -1396,6 +1396,22 @@ impl AgentRegistry {
         parent_agent_id: Option<&str>,
         model: Option<&str>,
     ) -> Result<Agent> {
+        self.spawn_with_entity_id(name, parent_agent_id, model, None)
+            .await
+    }
+
+    /// Spawn variant that lets the caller supply the `entity_id` for the
+    /// fresh-root case. Used by the platform-driven `/start/launch` path:
+    /// the platform mints the canonical UUID and passes it through. No-op
+    /// when `parent_agent_id` is `Some` (child spawns always reuse the
+    /// parent's entity_id).
+    pub async fn spawn_with_entity_id(
+        &self,
+        name: &str,
+        parent_agent_id: Option<&str>,
+        model: Option<&str>,
+        entity_id_override: Option<&str>,
+    ) -> Result<Agent> {
         let agent_id = uuid::Uuid::new_v4().to_string();
         let position_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
@@ -1435,7 +1451,9 @@ impl AgentRegistry {
 
             (parent_entity_id, parent_pos)
         } else {
-            let fresh_entity_id = uuid::Uuid::new_v4().to_string();
+            let fresh_entity_id = entity_id_override
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
             db.execute(
                 "INSERT INTO entities (id, type, name, slug, metadata, created_at)
                      VALUES (?1, 'company', ?2, ?3, '{}', ?4)",

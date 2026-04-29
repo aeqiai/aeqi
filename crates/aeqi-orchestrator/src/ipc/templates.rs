@@ -161,12 +161,15 @@ pub struct SpawnedAgent {
 /// sub-agent under that parent (reusing the parent's entity); seed_agents
 /// nest under the blueprint's root just like a normal spawn. This is the
 /// "import blueprint into existing entity" path that powers `+ New agent`.
-/// When `None`, a fresh entity is minted (the canonical company-spawn
-/// path that powers `/start`).
+/// When `None`, a fresh entity is minted unless `entity_id_override` is
+/// supplied — the platform mints the canonical UUID and passes it through
+/// for the `/start/launch` path so the runtime adopts the platform-side ID
+/// instead of minting its own.
 pub async fn spawn_blueprint(
     template: &Template,
     override_name: Option<&str>,
     parent_agent_id: Option<&str>,
+    entity_id_override: Option<&str>,
     agent_registry: &AgentRegistry,
     event_store: &EventHandlerStore,
     idea_store: Option<&Arc<dyn aeqi_core::traits::IdeaStore>>,
@@ -175,10 +178,11 @@ pub async fn spawn_blueprint(
 
     // ---- root agent ----
     let root = agent_registry
-        .spawn(
+        .spawn_with_entity_id(
             override_name.unwrap_or(&template.root.name),
             parent_agent_id,
             template.root.model.as_deref(),
+            entity_id_override,
         )
         .await?;
     apply_visual_identity(
@@ -469,6 +473,10 @@ pub async fn handle_spawn_blueprint(
     }
 
     let root_name = super::request_field(request, "name").map(str::to_string);
+    // Optional platform-supplied entity_id (UUID). When present, the
+    // runtime adopts it instead of minting its own — the canonical
+    // `/start/launch` path.
+    let entity_id_override = super::request_field(request, "entity_id").map(str::to_string);
 
     let template = match crate::templates::company_template(slug) {
         Some(t) => t,
@@ -513,6 +521,7 @@ pub async fn handle_spawn_blueprint(
         &template,
         root_name.as_deref(),
         None,
+        entity_id_override.as_deref(),
         &ctx.agent_registry,
         event_store.as_ref(),
         ctx.idea_store.as_ref(),
@@ -596,6 +605,7 @@ pub async fn handle_spawn_blueprint_into_entity(
         &template,
         None,
         Some(&parent.id),
+        None,
         &ctx.agent_registry,
         event_store.as_ref(),
         ctx.idea_store.as_ref(),
@@ -744,6 +754,7 @@ mod tests {
             &template,
             None,
             None,
+            None,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -818,7 +829,7 @@ mod tests {
         let event_store = EventHandlerStore::new(registry.db());
 
         let template = fixture_template();
-        let outcome = spawn_blueprint(&template, None, None, &registry, &event_store, None)
+        let outcome = spawn_blueprint(&template, None, None, None, &registry, &event_store, None)
             .await
             .expect("spawn should succeed without idea store");
 
@@ -859,6 +870,7 @@ mod tests {
             &template,
             None,
             None,
+            None,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -888,6 +900,7 @@ mod tests {
             &template,
             Some("My Cool Studio"),
             None,
+            None,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -915,6 +928,7 @@ mod tests {
         let host = spawn_blueprint(
             &host_template,
             Some("Host Co"),
+            None,
             None,
             &registry,
             &event_store,
@@ -954,6 +968,7 @@ mod tests {
             &imported_template,
             None,
             Some(&host_root_id),
+            None,
             &registry,
             &event_store,
             Some(&idea_store),
