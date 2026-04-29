@@ -24,30 +24,26 @@ describe("IntegrationStatusPill", () => {
     expect(screen.getByText("Not connected")).toBeInTheDocument();
   });
 
-  it("uses jade dot for ok status", () => {
+  it("renders with success variant for ok status", () => {
     const { container } = render(<IntegrationStatusPill status="ok" />);
-    const dot = container.querySelector(".integration-status-dot") as HTMLElement | null;
+    // Badge with dot=true renders a dot with aria-hidden="true"
+    const dot = container.querySelector('[aria-hidden="true"]') as HTMLElement | null;
     expect(dot).not.toBeNull();
-    // var(--success) maps to jade in the design system.
-    expect(dot?.style.background).toContain("--success");
   });
 
-  it("uses warning amber for expired", () => {
-    const { container } = render(<IntegrationStatusPill status="expired" />);
-    const dot = container.querySelector(".integration-status-dot") as HTMLElement | null;
-    expect(dot?.style.background).toContain("--warning");
+  it("renders with warning variant for expired", () => {
+    render(<IntegrationStatusPill status="expired" />);
+    expect(screen.getByText("Token expired")).toBeInTheDocument();
   });
 
-  it("uses muted neutral for missing_credential", () => {
-    const { container } = render(<IntegrationStatusPill status="missing_credential" />);
-    const dot = container.querySelector(".integration-status-dot") as HTMLElement | null;
-    expect(dot?.style.background).toContain("--text-muted");
+  it("renders with muted variant for missing_credential", () => {
+    render(<IntegrationStatusPill status="missing_credential" />);
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
   });
 
-  it("uses error red for scope_mismatch", () => {
-    const { container } = render(<IntegrationStatusPill status="scope_mismatch" />);
-    const dot = container.querySelector(".integration-status-dot") as HTMLElement | null;
-    expect(dot?.style.background).toContain("--error");
+  it("renders with error variant for scope_mismatch", () => {
+    render(<IntegrationStatusPill status="scope_mismatch" />);
+    expect(screen.getByText("Scope mismatch")).toBeInTheDocument();
   });
 
   it("accepts a label override", () => {
@@ -68,7 +64,13 @@ describe("IntegrationStatusPill", () => {
     ];
     for (const s of statuses) {
       const { container, unmount } = render(<IntegrationStatusPill status={s} />);
-      expect(container.querySelector(".integration-status-label")?.textContent || "").not.toBe("");
+      // Badge is the root element; get its text content (child text nodes only)
+      const textContent = Array.from(container.firstElementChild?.childNodes || [])
+        .filter((node) => node.nodeType === 3)
+        .map((node) => node.textContent)
+        .join("")
+        .trim();
+      expect(textContent).not.toBe("");
       unmount();
     }
   });

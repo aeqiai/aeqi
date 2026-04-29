@@ -1,0 +1,246 @@
+import { Meta } from "@storybook/blocks";
+import { Badge, StatusBadge } from "../Badge";
+import { DetailField } from "../DetailField";
+import { Icon } from "../Icon";
+import { TagList } from "../TagList";
+import { Plus, AlertCircle, Check } from "lucide-react";
+
+<Meta title="Foundations/Data Display" />
+
+# Data Display
+
+Badge, DetailField, Icon, and TagList present information without accepting input. They serve different purposes: Badge signals state and status, DetailField structures label-value pairs in detail cards, Icon provides semantic or decorative visual content, and TagList renders read-only chip collections. Together they form the display layer—the complement to actions (buttons, inputs, containers).
+
+## When to use which
+
+| Primitive       | Role                                  | Use when                                                                  |
+| --------------- | ------------------------------------- | ------------------------------------------------------------------------- |
+| **Badge**       | Status or state indicator             | Marking lifecycle state, credential status, or semantic tags              |
+| **StatusBadge** | Convenience wrapper for status values | You have a status string (e.g., "in_progress") and want automatic mapping |
+| **DetailField** | Label-value pair in a detail card     | Displaying structured data in agent cards, quest panels, or detail modals |
+| **Icon**        | Semantic or decorative SVG icon       | Marking actions, states, or adding visual affordance to other elements    |
+| **TagList**     | Read-only chip collection             | Displaying skills, expertise, tags, or other enumerated attributes        |
+
+## Badge / StatusBadge
+
+Status indicators in a pill shape, sized and colored to communicate semantic meaning without demanding focus.
+
+### Seven variants
+
+| Variant     | Color      | Use for                                                        |
+| ----------- | ---------- | -------------------------------------------------------------- |
+| **success** | Jade       | Completed, healthy, OK, verified, connected — the winning path |
+| **warning** | Amber      | Needs attention, expiring, throttled, token refresh needed     |
+| **error**   | Oxide red  | Failed, blocked, revoked, unauthorized, scope mismatch         |
+| **info**    | Graphite   | Informational, neutral progress, pending, generic state        |
+| **accent**  | Graphite   | Active, in-progress, brand highlight, working state            |
+| **neutral** | Grey       | Idle, paused, default, offline — no special significance       |
+| **muted**   | Faint grey | Cancelled, archived, disabled, low-priority                    |
+
+All variants are locked. Don't add new ones per surface. If a status doesn't fit, propose extending `STATUS_VARIANT_MAP` in `Badge.tsx`.
+
+### Sizes and dot prefix
+
+| Size   | Use when                                         |
+| ------ | ------------------------------------------------ |
+| **sm** | Compact tables, list rows, inline status markers |
+| **md** | Default everywhere; cards, headers, toolbars     |
+
+Both sizes include an optional `dot={true}` prefix—a 5–7px circle in the variant's color. Use the dot when space is tight or when icon brevity matters (agent row showing status at a glance). Omit it for prose contexts where the label is enough.
+
+### StatusBadge convenience wrapper
+
+StatusBadge takes a status string and maps it automatically via `STATUS_VARIANT_MAP`:
+
+```tsx
+<StatusBadge status="in_progress" />
+// Renders: Badge variant="info", label="In Progress", dot=true
+
+<StatusBadge status="expired" size="sm" />
+// Renders: Badge variant="warning", label="Token expired", size="sm"
+```
+
+See Badge.tsx for the complete map. Add new statuses by extending it—don't write conditional Badge wrappers elsewhere.
+
+### Canonical for all status conveyance
+
+**Badge is the only source of truth for status indicators.** Don't:
+
+- Write bespoke `<span style={{ background }}>` status divs
+- Add new CSS classes like `.quest-status-dot--*` or `.scope-dot-*`
+- Recolor Badge variants per surface
+- Create IntegrationStatusPill or other single-purpose replicas
+
+If a status doesn't map, extend the map. If a visual treatment doesn't fit the current palette, propose a new variant—don't fork.
+
+### Storybook
+
+`Components/UI/Badge` — all variants, sizes, dot toggle, StatusBadge wrapper.
+
+## DetailField
+
+Structured label-value pair used in detail cards, quest panels, and agent information displays.
+
+### Structure
+
+```tsx
+<DetailField label="Status">In Progress</DetailField>
+<DetailField label="Owner">Alice Chen</DetailField>
+<DetailField label="Created">2026-04-28</DetailField>
+```
+
+Each field renders a label (secondary text) above a value. Fields are stateless and carry no interactivity.
+
+### Auto-divider between fields
+
+When DetailFields are stacked, each field includes a structural divider (1px line, `--color-border`) below the value. This divider is not decorative—it's the canonical "list of label-value pairs" separator, distinct from hairlines we reject elsewhere in the system.
+
+### Zero production call sites today
+
+DetailField is scaffolding for surfaces shipping soon: agent detail cards, quest detail panels, and idea bodies. It's ready to use; it has no live consumers yet. When you add a detail surface, reach for DetailField first before writing custom label-value markup.
+
+### Storybook
+
+`Components/UI/DetailField` — single field, stacked fields, divider rendering.
+
+## Icon
+
+Lucide React wrapper enforcing consistent size scale, stroke weight, and accessibility semantics.
+
+### Four sizes pinned to the ink rhythm
+
+| Size   | Pixel size | Use when                                        |
+| ------ | ---------- | ----------------------------------------------- |
+| **xs** | 12px       | Inline inside text, keybinding labels, metadata |
+| **sm** | 14px       | Compact list markers, tight toolbar icons       |
+| **md** | 16px       | Default everywhere; buttons, headers, rows      |
+| **lg** | 20px       | Prominent icons, hero moments, large toolbars   |
+
+All sizes use `stroke-width: 1.5` (stroked, not filled) for consistent visual weight. Don't import lucide-react icons directly—use Icon to enforce the contract.
+
+### Accessibility bifurcation
+
+```tsx
+// Decorative (default)
+<Icon icon={Plus} decorative={true} />
+// Renders aria-hidden; icon doesn't contribute to screen reader tree
+
+// Semantic (requires label)
+<Icon icon={AlertCircle} decorative={false} label="Warning" />
+// Renders role="img" + aria-label; assistive tech announces it
+```
+
+When an icon has semantic meaning (status marker, error indicator, success checkmark), set `decorative={false}` and supply a label. Decorative icons (bullets, separators, visual texture) default to `aria-hidden`. Missing label when `decorative=false` logs a dev warning.
+
+### Stroke weight and color
+
+Icon accepts `strokeWidth` and `color` props for flexibility. Default is 1.5 and `currentColor`. Override when needed; use token-based colors (e.g., `--color-success`) to stay within the palette.
+
+### Why not direct lucide imports
+
+Direct `<Plus size={16} />` from lucide-react bypasses the size scale, ARIA contract, and transition consistency. Icon centralizes these rules so they don't fragment across the codebase.
+
+### Storybook
+
+`Components/UI/Icon` — four sizes, decorative vs semantic, color props, common lucide icons.
+
+## TagList
+
+Read-only chip collection for displaying enumerated attributes—skills, tags, expertise, categories.
+
+### Rendering and empty state
+
+```tsx
+<TagList items={["React", "TypeScript", "Vite"]} />
+// Renders: Three styled spans in a flex wrapper
+
+<TagList items={[]} empty="No skills yet" />
+// Renders: "No skills yet" in secondary text
+```
+
+TagList is purely presentational. No click handler, no remove button, no hover state. If a future need requires removable chips, add an `onRemove` prop and confirm the interaction with a designer—don't bolt hover effects onto a read-only display.
+
+### Styling
+
+Chips render in a flex row with consistent spacing. Each tag uses a light background tint and pill-shaped border radius. The styling matches the badge palette; specific colors (success, warning, error, info, accent) can be applied per call site if needed, but the default is a neutral background.
+
+### Empty and fallback handling
+
+The `empty` prop displays secondary text when the item array is empty or falsy. This prevents awkward blank spaces in detail cards and lists.
+
+### Storybook
+
+`Components/UI/TagList` — populated list, empty state, custom empty text.
+
+## Why these primitives are stateless
+
+Actions (Button, IconButton, Menu) manage focus, hover, active, disabled. Inputs (Input, Textarea, Select) manage validation, error, selection. Containers (Card, Tabs) manage layout and switching.
+
+Data-display primitives don't accept input. They present. They carry no hover state, no focus ring, no active press. The one exception was an earlier TagList with hover signaling interactivity it didn't deliver—removed in this wave.
+
+**When a display primitive becomes interactive**, wrap it in an action primitive. A clickable badge sits inside a Button. A removable tag sits inside a removal affordance (ChipClose or similar). Don't bolt interaction onto display components—layer them.
+
+## Shared token contract
+
+All four primitives reach for the same canonical tokens:
+
+- **Color:** `--color-text-primary`, `--color-text-secondary`, `--color-success`, `--color-warning`, `--color-error`, `--color-info`, `--color-accent`, `--color-border`
+- **Spacing:** 4pt grid (`--space-0` through `--space-5`)
+- **Radius:** `--radius-full` for pills, `--radius-sm` for subtle corners
+- **Motion:** `--transition-fast` (150ms) when transitions exist (Icon on color change)
+- **No hairlines:** Decoration-only 1px borders are banned. DetailField's between-field divider is structural, not decorative—a different category.
+
+A new display primitive should slot into this contract without forking.
+
+## Composition patterns
+
+**Agent card status** — Stack Badge + agent metadata in a Card:
+
+```tsx
+<Card>
+  <div className="flex items-center gap-3">
+    <span className="text-lg font-weight-600">{agent.name}</span>
+    <StatusBadge status={agent.lifecycle} dot />
+  </div>
+</Card>
+```
+
+**Detail card** — Repeat DetailField to render stacked label-value pairs:
+
+```tsx
+<Card padding="md">
+  <DetailField label="Status">{quest.status}</DetailField>
+  <DetailField label="Owner">{quest.owner}</DetailField>
+  <DetailField label="Created">{formatDate(quest.created_at)}</DetailField>
+</Card>
+```
+
+**Skill / expertise display** — TagList renders enumerated attributes:
+
+```tsx
+<div>
+  <div className="text-secondary text-sm">Skills</div>
+  <TagList items={agent.tags} empty="No skills yet" />
+</div>
+```
+
+**Inline icon** — Icon decorates actions or headers:
+
+```tsx
+<Button>
+  <Icon icon={Plus} size="sm" />
+  New quest
+</Button>
+```
+
+## API reference
+
+See the **Docs** tab on each component for the full prop surface:
+
+- **Badge** — `variant`, `size`, `dot`, `children`, `className`
+- **StatusBadge** — `status`, `size`, `className` (maps to Badge variants)
+- **DetailField** — `label`, `children`
+- **Icon** — `icon`, `size`, `decorative`, `label`, `strokeWidth`, `color`, all standard SVG attributes
+- **TagList** — `items` (array of strings), `empty` (fallback text)
+
+All are forwarded with `forwardRef` where applicable for direct DOM access when needed.

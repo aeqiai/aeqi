@@ -183,3 +183,202 @@ export const NoDot: Story = {
   name: "Without Dot",
   args: { children: "v0.5.0", variant: "neutral" },
 };
+
+/* ── Long label truncation ── */
+
+export const LongLabelTruncation: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Badge with a long label string demonstrates truncation and wrapping behavior at sm and md sizes within constrained container widths (200px). Consumers should expect text truncation with overflow handling for exceptionally long status strings.",
+      },
+    },
+  },
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Small (200px container)
+        </p>
+        <div
+          style={{
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-4)",
+            maxWidth: 200,
+          }}
+        >
+          <Badge variant="info" size="sm" dot>
+            in_progress_pending_external_review_blocked_on_legal
+          </Badge>
+        </div>
+      </div>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Medium (200px container)
+        </p>
+        <div
+          style={{
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-4)",
+            maxWidth: 200,
+          }}
+        >
+          <Badge variant="warning" size="md" dot>
+            in_progress_pending_external_review_blocked_on_legal
+          </Badge>
+        </div>
+      </div>
+    </div>
+  ),
+};
+
+/* ── Contextual surfaces ── */
+
+export const ContextualSurfaces: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Badge variants rendered on different surface backgrounds (white card, paper, dark ink panel) to demonstrate color contrast and visibility across contexts. Each variant maintains semantic meaning and readability regardless of surface.",
+      },
+    },
+  },
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div
+        style={{
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          padding: "var(--space-4)",
+          maxWidth: 320,
+          background: "white",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          White card surface
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Badge variant="success" dot>
+            Active
+          </Badge>
+          <Badge variant="error" dot>
+            Failed
+          </Badge>
+          <Badge variant="warning" dot>
+            Blocked
+          </Badge>
+          <Badge variant="info" dot>
+            In Progress
+          </Badge>
+          <Badge variant="accent" dot>
+            Working
+          </Badge>
+        </div>
+      </div>
+      <div
+        style={{
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          padding: "var(--space-4)",
+          maxWidth: 320,
+          background: "var(--color-bg-secondary)",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Paper background
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Badge variant="success" dot>
+            Active
+          </Badge>
+          <Badge variant="error" dot>
+            Failed
+          </Badge>
+          <Badge variant="warning" dot>
+            Blocked
+          </Badge>
+          <Badge variant="info" dot>
+            In Progress
+          </Badge>
+          <Badge variant="accent" dot>
+            Working
+          </Badge>
+        </div>
+      </div>
+      <div
+        style={{
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          padding: "var(--space-4)",
+          maxWidth: 320,
+          background: "var(--color-ink-card)",
+          color: "var(--color-ink-card-text)",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(255,255,255,0.5)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Ink panel
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Badge variant="success" dot>
+            Active
+          </Badge>
+          <Badge variant="error" dot>
+            Failed
+          </Badge>
+          <Badge variant="warning" dot>
+            Blocked
+          </Badge>
+          <Badge variant="info" dot>
+            In Progress
+          </Badge>
+          <Badge variant="accent" dot>
+            Working
+          </Badge>
+        </div>
+      </div>
+    </div>
+  ),
+};

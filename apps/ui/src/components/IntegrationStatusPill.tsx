@@ -1,34 +1,26 @@
 import type { CredentialStatus } from "@/api/integrations";
 import { statusLabel } from "@/api/integrations";
+import { Badge, type BadgeVariant } from "./ui/Badge";
 
 /**
- * Small dot + label representing a credential's reason code, mapped to
- * design system v4 colors:
- *
- * | reason code              | dot color                  |
- * | ------------------------ | -------------------------- |
- * | ok                       | jade (`--success`)         |
- * | expired / refresh_failed | amber (`--warning`)        |
- * | revoked_by_provider      | near-black (`--text-muted`)|
- * | missing_credential       | near-black (`--text-muted`)|
- * | scope_mismatch           | red (`--error`)            |
- * | unsupported_lifecycle    | red (`--error`)            |
- * | unresolved_ref           | red (`--error`)            |
+ * Status badge for credential status. Thin wrapper around Badge
+ * that maps CredentialStatus to design system variants and renders with a dot.
+ * Supports optional label override.
  */
-function statusDotColor(status: CredentialStatus): string {
+function credentialStatusToVariant(status: CredentialStatus): BadgeVariant {
   switch (status) {
     case "ok":
-      return "var(--success)";
+      return "success";
     case "expired":
     case "refresh_failed":
-      return "var(--warning)";
+      return "warning";
     case "missing_credential":
     case "revoked_by_provider":
-      return "var(--text-muted)";
+      return "muted";
     case "scope_mismatch":
     case "unsupported_lifecycle":
     case "unresolved_ref":
-      return "var(--error)";
+      return "error";
   }
 }
 
@@ -40,18 +32,12 @@ export function IntegrationStatusPill({
   /** Optional override — falls back to the canonical label for the code. */
   label?: string;
 }) {
+  const variant = credentialStatusToVariant(status);
+  const displayLabel = label ?? statusLabel(status);
+
   return (
-    <span
-      className="integration-status-pill"
-      role="status"
-      aria-label={`Status: ${label ?? statusLabel(status)}`}
-    >
-      <span
-        className="integration-status-dot"
-        aria-hidden="true"
-        style={{ background: statusDotColor(status) }}
-      />
-      <span className="integration-status-label">{label ?? statusLabel(status)}</span>
-    </span>
+    <Badge variant={variant} dot className="integration-status-pill">
+      {displayLabel}
+    </Badge>
   );
 }

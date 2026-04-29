@@ -1,3 +1,14 @@
+/**
+ * TagList: Read-only tag display
+ *
+ * TagList renders a collection of tags as static, non-interactive chips.
+ * No hover state, no affordance for interaction. Tags are purely informational.
+ *
+ * If a future consumer needs removable tags, add an `onRemove?: (tag: string) => void`
+ * prop, render a trailing × button per tag with proper aria-label, AND restore the
+ * hover state to signal interactivity. Do not add hover state without interaction.
+ */
+
 .wrapper {
   display: flex;
   flex-wrap: wrap;
@@ -11,14 +22,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
-  transition:
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.tag:hover {
-  background: var(--color-border-hover);
-  border-color: var(--color-border-hover);
 }
 
 .empty {

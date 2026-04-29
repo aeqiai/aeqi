@@ -8,6 +8,7 @@
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  /* Tight line-height; no --leading-* token at this value yet, intentional. */
   line-height: 1.4;
   min-height: 20px;
 }

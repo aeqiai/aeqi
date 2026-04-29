@@ -137,3 +137,32 @@ export const QuestDetailCard: Story = {
     </div>
   ),
 };
+
+/* ── Long value overflow ── */
+
+export const LongValueOverflow: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "DetailField with a long string value demonstrates text wrapping behavior within a 320px constrained container. Long user-provided values like system prompts or descriptions wrap naturally without truncation, maintaining readability in narrow layouts.",
+      },
+    },
+  },
+  render: () => (
+    <div
+      style={{
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md)",
+        padding: "var(--space-4)",
+        maxWidth: 320,
+      }}
+    >
+      <DetailField label="System Instructions">
+        You are a senior software engineer. Your role is to review code submissions, provide
+        constructive feedback on design decisions, and mentor junior developers on best practices.
+        Focus on maintainability, performance, and security.
+      </DetailField>
+    </div>
+  ),
+};

@@ -18,6 +18,7 @@ export interface BadgeProps {
 }
 
 const STATUS_VARIANT_MAP: Record<string, BadgeVariant> = {
+  // Quest/agent lifecycle statuses
   idle: "neutral",
   working: "accent",
   offline: "muted",
@@ -29,9 +30,19 @@ const STATUS_VARIANT_MAP: Record<string, BadgeVariant> = {
   failed: "error",
   active: "success",
   paused: "muted",
+  // Credential/integration statuses
+  ok: "success",
+  expired: "warning",
+  refresh_failed: "warning",
+  missing_credential: "muted",
+  revoked_by_provider: "muted",
+  scope_mismatch: "error",
+  unsupported_lifecycle: "error",
+  unresolved_ref: "error",
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  // Quest/agent lifecycle statuses
   idle: "Idle",
   working: "Working",
   offline: "Offline",
@@ -43,6 +54,15 @@ const STATUS_LABELS: Record<string, string> = {
   failed: "Failed",
   active: "Active",
   paused: "Paused",
+  // Credential/integration statuses
+  ok: "Connected",
+  expired: "Token expired",
+  refresh_failed: "Refresh failed",
+  missing_credential: "Not connected",
+  revoked_by_provider: "Revoked by provider",
+  scope_mismatch: "Scope mismatch",
+  unsupported_lifecycle: "Unsupported",
+  unresolved_ref: "Unresolved",
 };
 
 export function Badge({

@@ -81,3 +81,23 @@ export const ManyTags: Story = {
     ],
   },
 };
+
+/* ── Long individual tag ── */
+
+export const LongIndividualTag: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "TagList with long individual tag strings demonstrates text wrapping and truncation behavior on tag content within the tag itself. Each tag adapts to its content; wrapping occurs naturally when tag label exceeds available width in narrow containers.",
+      },
+    },
+  },
+  args: {
+    items: [
+      "machine-learning-infrastructure-engineer",
+      "advanced-distributed-systems-architecture",
+      "typescript",
+    ],
+  },
+};

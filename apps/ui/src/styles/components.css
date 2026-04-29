@@ -983,26 +983,6 @@
 
 /* Status pill — used both inside cards and in the future Tools detail
    surfaces. Compact dot + label, neutral background. */
-.integration-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.integration-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.integration-status-label {
-  white-space: nowrap;
-}
-
 /* Connect modal — modal-backdrop pattern matches the rest of the dashboard
    (see modals.css) but kept self-contained so the integrations surface can
    ship without touching layout.css or modals.css. */
