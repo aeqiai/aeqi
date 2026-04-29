@@ -8,6 +8,8 @@ import { Button, Popover } from "./ui";
 import QuestCanvas from "./QuestCanvas";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue, User } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
+import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
+import { ImportMenu } from "./blueprints/ImportMenu";
 import QuestsViewPopover, { type QuestsView } from "./quests/QuestsViewPopover";
 import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/QuestsSortPopover";
 import PriorityIcon from "./quests/PriorityIcon";
@@ -60,6 +62,41 @@ const QUEST_FILTER_VALUES: QuestFilter[] = [
 
 function isQuestInherited(q: Quest, agentId: string): boolean {
   return q.agent_id != null && q.agent_id !== agentId;
+}
+
+/**
+ * Import a single markdown file as a quest. `subject` is the first H1
+ * (or filename stripped of extension); `description` is the remaining
+ * body. Frontmatter `priority` overrides the default `normal` if set
+ * and recognized.
+ */
+const QUEST_PRIORITIES = ["critical", "high", "normal", "low"] as const;
+type QuestPriorityValue = (typeof QUEST_PRIORITIES)[number];
+
+async function importQuestFromMarkdown(file: File, agentId: string): Promise<void> {
+  const raw = await file.text();
+  const { body, data } = parseFrontmatter(raw);
+  const filenameSubject = file.name.replace(/\.(md|markdown)$/i, "") || "Untitled";
+  // First-H1 wins over filename (frontmatter `subject` wins over both).
+  const h1Match = /^\s*#\s+(.+?)\s*$/m.exec(body);
+  const h1Subject = h1Match ? h1Match[1].trim() : "";
+  const subject =
+    (typeof data.subject === "string" && data.subject.trim()) || h1Subject || filenameSubject;
+  const description = h1Match ? body.replace(h1Match[0], "").trim() : body.trim();
+  const priorityRaw = typeof data.priority === "string" ? data.priority.toLowerCase() : "";
+  const priority: QuestPriorityValue = (QUEST_PRIORITIES as readonly string[]).includes(priorityRaw)
+    ? (priorityRaw as QuestPriorityValue)
+    : "normal";
+  const tags = asStringArray(data.tags);
+  // Flow A: mint a fresh idea row, wrap a quest around it. The subject
+  // becomes the idea name; the body becomes the idea content; quest
+  // metadata (priority) lives on the quest row itself.
+  await api.createQuest({
+    project: agentId,
+    priority,
+    agent_id: agentId,
+    idea: { name: subject, content: description, tags, agent_id: agentId },
+  });
 }
 
 function matchesQuestFilter(q: Quest, filter: QuestFilter, agentId: string): boolean {
@@ -344,6 +381,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
       <QuestBoard
         agentId={agentId}
         resolvedAgentId={agent?.id || agentId}
+        entityId={entityId}
         quests={filteredQuests}
         allQuests={visibleQuests}
         scopeFilter={questFilter}
@@ -382,6 +420,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
 function QuestBoard({
   agentId: _agentId,
   resolvedAgentId,
+  entityId,
   quests,
   allQuests,
   scopeFilter,
@@ -398,6 +437,7 @@ function QuestBoard({
 }: {
   agentId: string;
   resolvedAgentId: string;
+  entityId: string;
   quests: Quest[];
   allQuests: Quest[];
   scopeFilter: QuestFilter;
@@ -653,6 +693,27 @@ function QuestBoard({
             onChange={onScopeChange}
           />
           <QuestsViewPopover view={view} onChange={onViewChange} />
+          <ImportMenu
+            entityId={entityId}
+            parts={["quests"]}
+            blueprintTitle="Import quests from a Blueprint"
+            onMarkdownPicked={async (files) => {
+              setErr(null);
+              const failures: string[] = [];
+              for (const file of Array.from(files)) {
+                try {
+                  await importQuestFromMarkdown(file, resolvedAgentId);
+                } catch (e) {
+                  failures.push(
+                    `${file.name}: ${e instanceof Error ? e.message : "import failed"}`,
+                  );
+                }
+              }
+              onCreated();
+              if (failures.length > 0) setErr(failures.join("; "));
+            }}
+            onBlueprintSpawned={onCreated}
+          />
           <Button variant="primary" size="sm" onClick={() => onCompose()} title="New quest (N)">
             <svg
               width="11"

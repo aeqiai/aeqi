@@ -75,7 +75,7 @@ export default function BillingPanel() {
     spawnHandled.current = true;
     setSpawn({ kind: "running" });
     api
-      .spawnBlueprint({ blueprint, name: slug })
+      .spawnBlueprint({ blueprint, display_name: slug })
       .then((resp) => {
         const entityId = entityIdFromSpawn(resp);
         if (!entityId) throw new Error("Launch returned no entity id.");
@@ -121,7 +121,7 @@ export default function BillingPanel() {
         const { url } = await api.createCheckoutSession({
           plan,
           interval,
-          root_slug: rootSlug,
+          display_name: rootSlug,
         });
         window.location.href = url;
       } catch (e: unknown) {

@@ -14,6 +14,10 @@ interface BlueprintLaunchPickerProps {
   /** Required when `mode === "spawn-into-entity"`. The host entity that
    *  the picked Blueprint attaches under. */
   entityId?: string;
+  /** Optional `parts` filter for `spawn-into-entity`. When set, only the
+   *  named seed blocks materialize on spawn (e.g. `["ideas"]` for the
+   *  Ideas Import flow). Omit for full-company import. */
+  parts?: string[];
   /** Fired after a successful `spawn-company`. Receives the new entity slug
    *  so callers can navigate. */
   onSpawnedCompany?: (slug: string) => void;
@@ -40,6 +44,7 @@ interface BlueprintLaunchPickerProps {
 export function BlueprintLaunchPicker({
   mode,
   entityId,
+  parts,
   onSpawnedCompany,
   onSpawnedAgent,
 }: BlueprintLaunchPickerProps) {
@@ -108,7 +113,11 @@ export function BlueprintLaunchPicker({
           onSpawnedCompany?.(resp.entity_id);
         } else {
           if (!entityId) throw new Error("Missing entity id for spawn-into-entity.");
-          await api.spawnBlueprintIntoEntity({ blueprint: tpl.slug, entity_id: entityId });
+          await api.spawnBlueprintIntoEntity({
+            blueprint: tpl.slug,
+            entity_id: entityId,
+            parts,
+          });
           onSpawnedAgent?.(tpl.slug);
         }
       } catch (e: unknown) {
@@ -117,7 +126,7 @@ export function BlueprintLaunchPicker({
         setSubmittingSlug(null);
       }
     },
-    [bySlug, mode, entityId, onSpawnedCompany, onSpawnedAgent],
+    [bySlug, mode, entityId, parts, onSpawnedCompany, onSpawnedAgent],
   );
 
   const isBusy = submittingSlug !== null;

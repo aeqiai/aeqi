@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNav } from "@/hooks/useNav";
 import { Button, Tooltip } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
+import { api } from "@/lib/api";
+import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
+import { useAgentIdeasCache } from "@/queries/ideas";
+import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import IdeasFilterPopover from "./IdeasFilterPopover";
 import IdeasSortPopover from "./IdeasSortPopover";
 import IdeasViewPopover from "./IdeasViewPopover";
@@ -140,6 +144,44 @@ export default function IdeasListView({
   const fireNew = (name?: string) =>
     window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
   const clearAll = () => onFilter({ search: "", scope: "all", tags: [], needsReview: false });
+
+  const { invalidateIdeas } = useAgentIdeasCache(agentId);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const handleMarkdownImport = async (files: FileList) => {
+    setImportError(null);
+    const failures: string[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const raw = await file.text();
+        const { body, data } = parseFrontmatter(raw);
+        // Strip `.md` / `.markdown` from the filename — kept case-sensitive
+        // since OS filesystems are; the user can rename if it matters.
+        const name =
+          (typeof data.title === "string" && data.title) ||
+          file.name.replace(/\.(md|markdown)$/i, "") ||
+          "Untitled";
+        const tags = asStringArray(data.tags);
+        const summary = typeof data.summary === "string" ? data.summary.trim() : "";
+        // Stash summary as a leading paragraph if present and not already
+        // duplicated in the body — the Idea schema has no `summary` field.
+        const content =
+          summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
+        await api.storeIdea({
+          name,
+          content,
+          tags,
+          agent_id: agentId,
+        });
+      } catch (e) {
+        failures.push(`${file.name}: ${e instanceof Error ? e.message : "import failed"}`);
+      }
+    }
+    await invalidateIdeas();
+    if (failures.length > 0) {
+      setImportError(failures.join("; "));
+    }
+  };
   const toggleTag = (tag: string) => {
     const next = filter.tags.includes(tag)
       ? filter.tags.filter((t) => t !== tag)
@@ -303,6 +345,13 @@ export default function IdeasListView({
             onChange={onFilter}
           />
           <IdeasViewPopover view={view} onChange={onViewChange} />
+          <ImportMenu
+            entityId={entityId}
+            parts={["ideas"]}
+            blueprintTitle="Import ideas from a Blueprint"
+            onMarkdownPicked={(files) => void handleMarkdownImport(files)}
+            onBlueprintSpawned={() => void invalidateIdeas()}
+          />
           <Tooltip content="New idea (N)">
             <Button variant="primary" size="sm" onClick={() => fireNew()}>
               <svg
@@ -322,6 +371,11 @@ export default function IdeasListView({
           </Tooltip>
         </div>
       </div>
+      {importError && (
+        <div className="bp-error" role="alert">
+          {importError}
+        </div>
+      )}
       {(activeChips.length > 0 || tagCounts.length > 0) && (
         <div className="ideas-tags-strip">
           {activeChips.length > 0 && (

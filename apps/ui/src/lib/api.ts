@@ -504,16 +504,17 @@ export const api = {
   getDefaultBlueprint: () =>
     request<{ ok: boolean; blueprint: CompanyTemplate }>("/blueprints/default"),
 
-  spawnBlueprint: (data: { blueprint: string; name?: string }) =>
+  spawnBlueprint: (data: { blueprint: string; display_name?: string }) =>
     request<{ ok: boolean; entity_id: string }>("/blueprints/spawn", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  // Spawn a Blueprint INTO an existing entity. Powers `+ New agent`: the
-  // blueprint's root attaches under the entity's root agent; seeds nest
-  // under that root. Same blueprint JSON, different destination.
-  spawnBlueprintIntoEntity: (data: { blueprint: string; entity_id: string }) =>
+  // Spawn a Blueprint INTO an existing entity. Powers `+ New agent` (full
+  // company merge) and Import-from-blueprint on Ideas / Quests (scoped
+  // via `parts`). Server defaults to all four parts when `parts` is
+  // omitted; pass e.g. `["ideas"]` to materialize only seed_ideas.
+  spawnBlueprintIntoEntity: (data: { blueprint: string; entity_id: string; parts?: string[] }) =>
     request<{
       ok: boolean;
       spawned_agents: number;
@@ -765,7 +766,8 @@ export const api = {
     plan: "launch" | "scale";
     interval: "monthly" | "annual";
     blueprint?: string;
-    root_slug?: string;
+    // not entity_id — entity is minted post-checkout when user lands on /start.
+    display_name?: string;
   }) =>
     request<{ url: string }>("/billing/checkout", {
       method: "POST",
@@ -773,7 +775,7 @@ export const api = {
         plan: data.plan === "launch" ? "starter" : "growth",
         interval: data.interval,
         blueprint: data.blueprint,
-        root_slug: data.root_slug,
+        display_name: data.display_name,
       }),
     }),
 

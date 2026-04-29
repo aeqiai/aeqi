@@ -100,7 +100,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
         const { url } = await api.createCheckoutSession({
           plan,
           interval,
-          root_slug: rootSlug,
+          display_name: rootSlug,
         });
         if (!url) throw new Error("Checkout returned no URL.");
         window.location.href = url;

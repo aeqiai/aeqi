@@ -154,6 +154,62 @@ pub struct SpawnedAgent {
     pub name: String,
 }
 
+/// Which parts of a blueprint to seed. Used by Import flows that want
+/// to materialize only ideas or only quests (the full set is the
+/// default, fresh-company path). Unknown values get dropped during
+/// parsing so unknown keys never 400 a spawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlueprintPart {
+    Agents,
+    Events,
+    Ideas,
+    Quests,
+}
+
+impl BlueprintPart {
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "agents" => Some(Self::Agents),
+            "events" => Some(Self::Events),
+            "ideas" => Some(Self::Ideas),
+            "quests" => Some(Self::Quests),
+            _ => None,
+        }
+    }
+
+    /// All four parts — the default behavior when callers don't specify.
+    pub const ALL: [Self; 4] = [Self::Agents, Self::Events, Self::Ideas, Self::Quests];
+}
+
+/// Read `parts` from an IPC request. Missing / empty → all four; unknown
+/// values warn-and-skip (the brief: "drop the parts validation
+/// server-side: unknown values get ignored"). Returns a `Vec` so the
+/// caller can hand `&parts` to `spawn_blueprint`.
+fn parse_parts(request: &serde_json::Value) -> Vec<BlueprintPart> {
+    let Some(arr) = request.get("parts").and_then(|v| v.as_array()) else {
+        return BlueprintPart::ALL.to_vec();
+    };
+    if arr.is_empty() {
+        return BlueprintPart::ALL.to_vec();
+    }
+    let mut out: Vec<BlueprintPart> = Vec::with_capacity(arr.len());
+    for v in arr {
+        if let Some(s) = v.as_str()
+            && let Some(p) = BlueprintPart::parse(s)
+            && !out.contains(&p)
+        {
+            out.push(p);
+        } else if let Some(s) = v.as_str() {
+            tracing::warn!(value = %s, "blueprint spawn: ignoring unknown 'parts' value");
+        }
+    }
+    if out.is_empty() {
+        BlueprintPart::ALL.to_vec()
+    } else {
+        out
+    }
+}
+
 /// Spawn a company from a template. Pure logic: everything external is
 /// injected so tests can drive this without the full daemon context.
 ///
@@ -165,11 +221,17 @@ pub struct SpawnedAgent {
 /// supplied — the platform mints the canonical UUID and passes it through
 /// for the `/start/launch` path so the runtime adopts the platform-side ID
 /// instead of minting its own.
+///
+/// `parts` selects which seed blocks to materialize. The root agent is
+/// always created (it owns the entity); seed_agents/events/ideas/quests
+/// are gated on the corresponding `BlueprintPart` flag. The Import flows
+/// pass `[Ideas]` or `[Quests]` to scope a spawn to one primitive.
 pub async fn spawn_blueprint(
     template: &Template,
     override_name: Option<&str>,
     parent_agent_id: Option<&str>,
     entity_id_override: Option<&str>,
+    parts: &[BlueprintPart],
     agent_registry: &AgentRegistry,
     event_store: &EventHandlerStore,
     idea_store: Option<&Arc<dyn aeqi_core::traits::IdeaStore>>,
@@ -210,38 +272,46 @@ pub async fn spawn_blueprint(
         name: root.name.clone(),
     }];
 
-    for seed in &template.seed_agents {
-        if seed.owner != "root" && seed.owner != template.root.name {
-            warnings.push(format!(
-                "seed_agent '{}' owner '{}' not supported; attaching under root",
-                seed.name, seed.owner,
-            ));
-        }
-        let child = match agent_registry
-            .spawn(&seed.name, Some(&root.id), seed.model.as_deref())
-            .await
-        {
-            Ok(a) => a,
-            Err(err) => {
-                warnings.push(format!("seed_agent '{}' spawn failed: {err}", seed.name));
-                continue;
+    let want_agents = parts.contains(&BlueprintPart::Agents);
+    let want_events = parts.contains(&BlueprintPart::Events);
+    let want_ideas = parts.contains(&BlueprintPart::Ideas);
+    let want_quests = parts.contains(&BlueprintPart::Quests);
+
+    if want_agents {
+        for seed in &template.seed_agents {
+            if seed.owner != "root" && seed.owner != template.root.name {
+                warnings.push(format!(
+                    "seed_agent '{}' owner '{}' not supported; attaching under root",
+                    seed.name, seed.owner,
+                ));
             }
-        };
-        apply_visual_identity(
-            agent_registry,
-            &child.id,
-            seed.color.as_deref(),
-            seed.avatar.as_deref(),
-        )
-        .await;
-        if let (Some(store), Some(prompt)) = (idea_store, seed.system_prompt.as_ref()) {
-            store_identity_idea(store.as_ref(), &child.id, &seed.name, prompt, &mut warnings).await;
+            let child = match agent_registry
+                .spawn(&seed.name, Some(&root.id), seed.model.as_deref())
+                .await
+            {
+                Ok(a) => a,
+                Err(err) => {
+                    warnings.push(format!("seed_agent '{}' spawn failed: {err}", seed.name));
+                    continue;
+                }
+            };
+            apply_visual_identity(
+                agent_registry,
+                &child.id,
+                seed.color.as_deref(),
+                seed.avatar.as_deref(),
+            )
+            .await;
+            if let (Some(store), Some(prompt)) = (idea_store, seed.system_prompt.as_ref()) {
+                store_identity_idea(store.as_ref(), &child.id, &seed.name, prompt, &mut warnings)
+                    .await;
+            }
+            owner_to_agent_id.insert(seed.name.clone(), child.id.clone());
+            spawned_agents.push(SpawnedAgent {
+                id: child.id.clone(),
+                name: child.name.clone(),
+            });
         }
-        owner_to_agent_id.insert(seed.name.clone(), child.id.clone());
-        spawned_agents.push(SpawnedAgent {
-            id: child.id.clone(),
-            name: child.name.clone(),
-        });
     }
 
     // ---- seed ideas ----
@@ -249,107 +319,115 @@ pub async fn spawn_blueprint(
     // could, in principle, be resolved later. Current template shape doesn't
     // require it but this preserves the invariant for v2.
     let mut created_ideas = 0usize;
-    if let Some(store) = idea_store {
-        for idea in &template.seed_ideas {
-            let owner_id = match resolve_owner(&owner_to_agent_id, &idea.owner) {
-                Some(id) => id,
-                None => {
-                    warnings.push(format!(
-                        "seed_idea '{}' owner '{}' not found; skipping",
-                        idea.name, idea.owner,
-                    ));
-                    continue;
-                }
-            };
-            let tags = if idea.tags.is_empty() {
-                vec!["fact".to_string()]
-            } else {
-                idea.tags.clone()
-            };
-            match store
-                .store(&idea.name, &idea.content, &tags, Some(owner_id))
-                .await
-            {
-                Ok(_) => created_ideas += 1,
-                Err(err) => {
-                    warnings.push(format!("seed_idea '{}' store failed: {err}", idea.name,))
+    if want_ideas {
+        if let Some(store) = idea_store {
+            for idea in &template.seed_ideas {
+                let owner_id = match resolve_owner(&owner_to_agent_id, &idea.owner) {
+                    Some(id) => id,
+                    None => {
+                        warnings.push(format!(
+                            "seed_idea '{}' owner '{}' not found; skipping",
+                            idea.name, idea.owner,
+                        ));
+                        continue;
+                    }
+                };
+                let tags = if idea.tags.is_empty() {
+                    vec!["fact".to_string()]
+                } else {
+                    idea.tags.clone()
+                };
+                match store
+                    .store(&idea.name, &idea.content, &tags, Some(owner_id))
+                    .await
+                {
+                    Ok(_) => created_ideas += 1,
+                    Err(err) => {
+                        warnings.push(format!("seed_idea '{}' store failed: {err}", idea.name,))
+                    }
                 }
             }
+        } else if !template.seed_ideas.is_empty() {
+            warnings.push(format!(
+                "idea store unavailable; skipped {} seed_ideas",
+                template.seed_ideas.len(),
+            ));
         }
-    } else if !template.seed_ideas.is_empty() {
-        warnings.push(format!(
-            "idea store unavailable; skipped {} seed_ideas",
-            template.seed_ideas.len(),
-        ));
     }
 
     // ---- seed events ----
     let mut created_events = 0usize;
-    for ev in &template.seed_events {
-        let owner_id = match resolve_owner(&owner_to_agent_id, &ev.owner) {
-            Some(id) => id,
-            None => {
-                warnings.push(format!(
-                    "seed_event '{}' owner '{}' not found; skipping",
-                    ev.name, ev.owner,
-                ));
-                continue;
+    if want_events {
+        for ev in &template.seed_events {
+            let owner_id = match resolve_owner(&owner_to_agent_id, &ev.owner) {
+                Some(id) => id,
+                None => {
+                    warnings.push(format!(
+                        "seed_event '{}' owner '{}' not found; skipping",
+                        ev.name, ev.owner,
+                    ));
+                    continue;
+                }
+            };
+            let tool_calls: Vec<ToolCall> = ev
+                .tool_calls
+                .iter()
+                .map(|tc| ToolCall {
+                    tool: tc.tool.clone(),
+                    args: tc.args.clone(),
+                })
+                .collect();
+            let new_event = NewEvent {
+                agent_id: Some(owner_id.to_string()),
+                scope: aeqi_core::Scope::SelfScope,
+                name: ev.name.clone(),
+                pattern: ev.pattern.clone(),
+                idea_ids: Vec::new(),
+                query_template: ev.query_template.clone(),
+                query_top_k: ev.query_top_k,
+                query_tag_filter: ev.query_tag_filter.clone(),
+                tool_calls,
+                cooldown_secs: ev.cooldown_secs,
+                system: false,
+            };
+            match event_store.create(&new_event).await {
+                Ok(_) => created_events += 1,
+                Err(err) => warnings.push(format!("seed_event '{}' create failed: {err}", ev.name)),
             }
-        };
-        let tool_calls: Vec<ToolCall> = ev
-            .tool_calls
-            .iter()
-            .map(|tc| ToolCall {
-                tool: tc.tool.clone(),
-                args: tc.args.clone(),
-            })
-            .collect();
-        let new_event = NewEvent {
-            agent_id: Some(owner_id.to_string()),
-            scope: aeqi_core::Scope::SelfScope,
-            name: ev.name.clone(),
-            pattern: ev.pattern.clone(),
-            idea_ids: Vec::new(),
-            query_template: ev.query_template.clone(),
-            query_top_k: ev.query_top_k,
-            query_tag_filter: ev.query_tag_filter.clone(),
-            tool_calls,
-            cooldown_secs: ev.cooldown_secs,
-            system: false,
-        };
-        match event_store.create(&new_event).await {
-            Ok(_) => created_events += 1,
-            Err(err) => warnings.push(format!("seed_event '{}' create failed: {err}", ev.name)),
         }
     }
 
     // ---- seed quests ----
     let mut created_quests = 0usize;
-    for q in &template.seed_quests {
-        let owner_id = match resolve_owner(&owner_to_agent_id, &q.owner) {
-            Some(id) => id,
-            None => {
-                warnings.push(format!(
-                    "seed_quest '{}' owner '{}' not found; skipping",
-                    q.subject, q.owner,
-                ));
-                continue;
+    if want_quests {
+        for q in &template.seed_quests {
+            let owner_id = match resolve_owner(&owner_to_agent_id, &q.owner) {
+                Some(id) => id,
+                None => {
+                    warnings.push(format!(
+                        "seed_quest '{}' owner '{}' not found; skipping",
+                        q.subject, q.owner,
+                    ));
+                    continue;
+                }
+            };
+            match agent_registry
+                .create_task_v2(
+                    owner_id,
+                    &q.subject,
+                    &q.description,
+                    &[],
+                    &q.labels,
+                    &[],
+                    None,
+                )
+                .await
+            {
+                Ok(_) => created_quests += 1,
+                Err(err) => {
+                    warnings.push(format!("seed_quest '{}' create failed: {err}", q.subject,))
+                }
             }
-        };
-        match agent_registry
-            .create_task_v2(
-                owner_id,
-                &q.subject,
-                &q.description,
-                &[],
-                &q.labels,
-                &[],
-                None,
-            )
-            .await
-        {
-            Ok(_) => created_quests += 1,
-            Err(err) => warnings.push(format!("seed_quest '{}' create failed: {err}", q.subject,)),
         }
     }
 
@@ -472,7 +550,8 @@ pub async fn handle_spawn_blueprint(
         return serde_json::json!({"ok": false, "error": "blueprint is required"});
     }
 
-    let root_name = super::request_field(request, "name").map(str::to_string);
+    // `display_name` is the canonical override key (mirrors `/start/launch`).
+    let display_name = super::request_field(request, "display_name").map(str::to_string);
     // Optional platform-supplied entity_id (UUID). When present, the
     // runtime adopts it instead of minting its own — the canonical
     // `/start/launch` path.
@@ -489,14 +568,14 @@ pub async fn handle_spawn_blueprint(
         }
     };
 
-    let requested_root_name = root_name.as_deref().unwrap_or(&template.root.name);
+    let requested_display_name = display_name.as_deref().unwrap_or(&template.root.name);
 
     // Reject if a root agent with this name already exists — template spawns
     // are meant to be the beginning of a fresh company, not a silent merge
     // into an existing one.
     match ctx
         .agent_registry
-        .get_active_by_name(requested_root_name)
+        .get_active_by_name(requested_display_name)
         .await
     {
         Ok(Some(existing)) => {
@@ -504,7 +583,7 @@ pub async fn handle_spawn_blueprint(
                 "ok": false,
                 "error": format!(
                     "an agent named '{}' already exists (id {}); pick a different company name or retire the existing one",
-                    requested_root_name, existing.id,
+                    requested_display_name, existing.id,
                 ),
                 "code": "conflict",
             });
@@ -519,9 +598,10 @@ pub async fn handle_spawn_blueprint(
 
     match spawn_blueprint(
         &template,
-        root_name.as_deref(),
+        display_name.as_deref(),
         None,
         entity_id_override.as_deref(),
+        &BlueprintPart::ALL,
         &ctx.agent_registry,
         event_store.as_ref(),
         ctx.idea_store.as_ref(),
@@ -601,11 +681,19 @@ pub async fn handle_spawn_blueprint_into_entity(
         return serde_json::json!({"ok": false, "error": "event handler store not available"});
     };
 
+    // `parts` filter: when omitted, seed all four (full-company import,
+    // current behavior). When set, only the listed parts materialize —
+    // the Import-from-blueprint flow on Ideas / Quests narrows this to
+    // a single primitive. Unknown values are ignored (warn + skip), not
+    // 400'd, so a forward-compatible client never breaks the spawn.
+    let parts = parse_parts(request);
+
     match spawn_blueprint(
         &template,
         None,
         Some(&parent.id),
         None,
+        &parts,
         &ctx.agent_registry,
         event_store.as_ref(),
         ctx.idea_store.as_ref(),
@@ -755,6 +843,7 @@ mod tests {
             None,
             None,
             None,
+            &BlueprintPart::ALL,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -829,9 +918,18 @@ mod tests {
         let event_store = EventHandlerStore::new(registry.db());
 
         let template = fixture_template();
-        let outcome = spawn_blueprint(&template, None, None, None, &registry, &event_store, None)
-            .await
-            .expect("spawn should succeed without idea store");
+        let outcome = spawn_blueprint(
+            &template,
+            None,
+            None,
+            None,
+            &BlueprintPart::ALL,
+            &registry,
+            &event_store,
+            None,
+        )
+        .await
+        .expect("spawn should succeed without idea store");
 
         // Agents, events, quests still land; ideas are skipped with a warning.
         assert_eq!(outcome.spawned_agents.len(), 3);
@@ -871,6 +969,7 @@ mod tests {
             None,
             None,
             None,
+            &BlueprintPart::ALL,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -901,6 +1000,7 @@ mod tests {
             Some("My Cool Studio"),
             None,
             None,
+            &BlueprintPart::ALL,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -930,6 +1030,7 @@ mod tests {
             Some("Host Co"),
             None,
             None,
+            &BlueprintPart::ALL,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -969,6 +1070,7 @@ mod tests {
             None,
             Some(&host_root_id),
             None,
+            &BlueprintPart::ALL,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -998,6 +1100,93 @@ mod tests {
             .unwrap();
         let helper_ancestors = registry.get_ancestor_ids(&helper.id).await.unwrap();
         assert!(helper_ancestors.contains(&imported.root_agent_id));
+    }
+
+    #[tokio::test]
+    async fn spawn_blueprint_with_only_ideas_skips_other_seeds() {
+        let registry = test_registry().await;
+        let event_store = EventHandlerStore::new(registry.db());
+        let idea_store = test_idea_store();
+
+        let template = fixture_template();
+        let outcome = spawn_blueprint(
+            &template,
+            None,
+            None,
+            None,
+            &[BlueprintPart::Ideas],
+            &registry,
+            &event_store,
+            Some(&idea_store),
+        )
+        .await
+        .expect("spawn should succeed");
+
+        // Only the root spawned (no seed_agents), no events, no quests, but
+        // ideas owned by `root` are seeded. Editor's seed_idea (owner =
+        // "Editor") is skipped because the Editor agent wasn't spawned —
+        // the warning trail records it.
+        assert_eq!(outcome.spawned_agents.len(), 1);
+        assert_eq!(outcome.created_events, 0);
+        assert_eq!(outcome.created_quests, 0);
+        assert_eq!(outcome.created_ideas, 1);
+        assert!(
+            outcome
+                .warnings
+                .iter()
+                .any(|w| w.contains("Rubric") && w.contains("Editor")),
+            "expected owner-not-found warning for Editor's idea; got {:?}",
+            outcome.warnings,
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_blueprint_with_only_quests_skips_other_seeds() {
+        let registry = test_registry().await;
+        let event_store = EventHandlerStore::new(registry.db());
+        let idea_store = test_idea_store();
+
+        let template = fixture_template();
+        let outcome = spawn_blueprint(
+            &template,
+            None,
+            None,
+            None,
+            &[BlueprintPart::Quests],
+            &registry,
+            &event_store,
+            Some(&idea_store),
+        )
+        .await
+        .expect("spawn should succeed");
+
+        assert_eq!(outcome.spawned_agents.len(), 1);
+        assert_eq!(outcome.created_events, 0);
+        assert_eq!(outcome.created_ideas, 0);
+        // root-owned quest lands; Editor-owned quest skips with a warning.
+        assert_eq!(outcome.created_quests, 1);
+    }
+
+    #[test]
+    fn parse_parts_defaults_to_all_when_missing_or_empty() {
+        let req_no_parts = serde_json::json!({});
+        assert_eq!(parse_parts(&req_no_parts), BlueprintPart::ALL.to_vec());
+
+        let req_empty = serde_json::json!({"parts": []});
+        assert_eq!(parse_parts(&req_empty), BlueprintPart::ALL.to_vec());
+    }
+
+    #[test]
+    fn parse_parts_drops_unknown_values_silently() {
+        let req = serde_json::json!({"parts": ["ideas", "wat", "quests"]});
+        assert_eq!(
+            parse_parts(&req),
+            vec![BlueprintPart::Ideas, BlueprintPart::Quests],
+        );
+
+        // All-unknown collapses to ALL — never spawn nothing.
+        let req = serde_json::json!({"parts": ["mystery"]});
+        assert_eq!(parse_parts(&req), BlueprintPart::ALL.to_vec());
     }
 
     #[tokio::test]
