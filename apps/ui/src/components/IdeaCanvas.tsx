@@ -9,8 +9,9 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { api } from "@/lib/api";
+import * as ideasApi from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
-import { useAgentDataStore } from "@/store/agentData";
+import { useAgentIdeas, useAgentIdeasCache } from "@/queries/ideas";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { Button, Textarea, Tooltip } from "./ui";
 import { Events, useTrack } from "@/lib/analytics";
@@ -129,10 +130,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
 ) {
   const { goAgent } = useNav();
   const track = useTrack();
-  const patchIdea = useAgentDataStore((s) => s.patchIdea);
-  const removeIdea = useAgentDataStore((s) => s.removeIdea);
-  const addIdea = useAgentDataStore((s) => s.addIdea);
-  const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId]);
+  const { data: ideas } = useAgentIdeas(agentId);
+  const { patchIdea, removeIdea, addIdea } = useAgentIdeasCache(agentId);
   const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
   // All tags the agent has used elsewhere — ranked by frequency — power the
   // tag-autocomplete dropdown. Self-tags are excluded in TagsEditor.
@@ -247,12 +246,12 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setSaveState("saving");
     setError(null);
     try {
-      await api.updateIdea(idea.id, {
+      await ideasApi.updateIdea(idea.id, {
         name: effectiveName,
         content: snapshot.content,
         tags,
       });
-      patchIdea(agentId, idea.id, {
+      patchIdea(idea.id, {
         name: effectiveName,
         content: snapshot.content,
         tags,
@@ -269,7 +268,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     } finally {
       inflightRef.current = false;
     }
-  }, [idea, agentId, patchIdea]);
+  }, [idea, patchIdea]);
 
   // Flush on unmount / idea switch so accidental navigation doesn't lose work.
   // No debounced autosave while typing — the Save button / Cmd+Enter is the
@@ -299,7 +298,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setSaveState("saving");
     setError(null);
     try {
-      const res = await api.storeIdea({
+      const res = await ideasApi.storeIdea({
         name: effectiveName,
         content: snapshot.content,
         tags,
@@ -314,7 +313,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         scope: composeScope,
         agent_id: agentId,
       };
-      addIdea(agentId, created);
+      addIdea(created);
       track(Events.IdeaCreated, { surface: "idea-canvas", scope: composeScope });
       // Replay the locally-collected references against the freshly-
       // persisted idea. We fire and-forget — if any individual edge
@@ -424,7 +423,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const handleDelete = async () => {
     if (!idea) return;
     try {
-      const res = await api.deleteIdea(idea.id);
+      const res = await ideasApi.deleteIdea(idea.id);
       // FK pre-flight: backend reports `in_use` + the offending quest ids.
       // Surface them inline so the user can click through and detach.
       if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
@@ -442,7 +441,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         setDeleteArmed(false);
         return;
       }
-      removeIdea(agentId, idea.id);
+      removeIdea(idea.id);
       goAgent(agentId, "ideas", undefined, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
@@ -455,15 +454,15 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setDecisionError(null);
     const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "promoted"];
     try {
-      await api.updateIdea(idea.id, { tags: nextTags });
-      patchIdea(agentId, idea.id, { tags: nextTags });
+      await ideasApi.updateIdea(idea.id, { tags: nextTags });
+      patchIdea(idea.id, { tags: nextTags });
       setTypedTags(nextTags);
       setDecisionState("done");
     } catch (e) {
       setDecisionState("idle");
       setDecisionError(e instanceof Error ? e.message : "Promote failed");
     }
-  }, [idea, agentId, patchIdea]);
+  }, [idea, patchIdea]);
 
   const handleReject = useCallback(async () => {
     if (!idea || !rejectRationale.trim()) return;
@@ -472,8 +471,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "rejected"];
     const nextContent = content.trimEnd() + "\n\n## Rejection rationale\n" + rejectRationale.trim();
     try {
-      await api.updateIdea(idea.id, { tags: nextTags, content: nextContent });
-      patchIdea(agentId, idea.id, { tags: nextTags, content: nextContent });
+      await ideasApi.updateIdea(idea.id, { tags: nextTags, content: nextContent });
+      patchIdea(idea.id, { tags: nextTags, content: nextContent });
       setTypedTags(nextTags);
       setContent(nextContent);
       setDecisionState("done");
@@ -482,7 +481,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setDecisionState("idle");
       setDecisionError(e instanceof Error ? e.message : "Reject failed");
     }
-  }, [idea, agentId, patchIdea, content, rejectRationale]);
+  }, [idea, patchIdea, content, rejectRationale]);
 
   const inlineTags = mergeTags(content, typedTags);
   // Resolved scope for display in the header popover. In compose mode the

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
-import { api } from "@/lib/api";
-import { useAgentDataStore } from "@/store/agentData";
+import * as eventsApi from "@/api/events";
+import { useAgentEvents, useAgentEventsCache } from "@/queries/events";
 import type { AgentEvent, ScopeValue } from "@/lib/types";
 import { Button, Select } from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
@@ -153,14 +153,8 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     [patchParams],
   );
 
-  const events = useAgentDataStore((s) => s.eventsByAgent[agentId] ?? NO_EVENTS);
-  const loadEvents = useAgentDataStore((s) => s.loadEvents);
-  const patchEvent = useAgentDataStore((s) => s.patchEvent);
-  const removeEvent = useAgentDataStore((s) => s.removeEvent);
-
-  useEffect(() => {
-    loadEvents(agentId);
-  }, [agentId, loadEvents]);
+  const { data: events = NO_EVENTS } = useAgentEvents(agentId);
+  const { invalidateEvents, patchEvent, removeEvent } = useAgentEventsCache(agentId);
 
   useEffect(() => {
     const handler = () => patchParams((p) => p.set("compose", "1"));
@@ -251,10 +245,10 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       if (Number.isFinite(parsedCooldown) && parsedCooldown > 0) {
         payload.cooldown_secs = parsedCooldown;
       }
-      await api.createEvent(payload);
+      await eventsApi.createEvent(payload);
       track(TrackEvents.EventCreated, { surface: "agent-events-tab", scope: newScope });
       closeCompose();
-      loadEvents(agentId);
+      void invalidateEvents();
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : "Failed to create event");
     } finally {
@@ -404,12 +398,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             event={selected}
             agentId={agentId}
             onSave={async (fields) => {
-              await api.updateEvent(selected.id, fields as Record<string, unknown>);
-              patchEvent(agentId, selected.id, fields);
+              await eventsApi.updateEvent(selected.id, fields as Record<string, unknown>);
+              patchEvent(selected.id, fields);
             }}
             onDelete={async () => {
-              await api.deleteEvent(selected.id);
-              removeEvent(agentId, selected.id);
+              await eventsApi.deleteEvent(selected.id);
+              removeEvent(selected.id);
               goAgent(agentId, "events", undefined, { replace: true });
             }}
             onBack={() => goAgent(agentId, "events", undefined, { replace: true })}
