@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
-import { useAgentDataStore } from "@/store/agentData";
+import { useAgentIdeas } from "@/queries/ideas";
 import type { Idea } from "@/lib/types";
 import type { GraphNode, GraphEdge } from "./IdeaGraph";
 import IdeasListView from "./ideas/IdeasListView";
@@ -99,12 +99,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     [patchParams],
   );
 
-  const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId] ?? NO_IDEAS);
-  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
-
-  useEffect(() => {
-    loadIdeas(agentId);
-  }, [agentId, loadIdeas]);
+  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId);
 
   // Apply scope + search + tag to the agent's ideas. The graph view
   // filters its own nodes against this same universe so the two views

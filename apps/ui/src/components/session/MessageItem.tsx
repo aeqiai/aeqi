@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, memo } from "react";
+import { useMemo, useState, memo } from "react";
 import { IconButton, Tooltip } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
-import { useAgentDataStore } from "@/store/agentData";
+import { useAgentIdeas } from "@/queries/ideas";
 import { RichMarkdown, buildIdeasByName } from "@/components/markdown/RichMarkdown";
 import {
   type Message,
@@ -110,7 +110,7 @@ function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: bo
 
 function SessionMarkdown({ body }: { body: string }) {
   const { agentId } = useNav();
-  const ideas = useAgentDataStore((s) => (agentId ? s.ideasByAgent[agentId] : undefined));
+  const { data: ideas } = useAgentIdeas(agentId);
   const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
   return <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={agentId} />;
 }
@@ -356,14 +356,8 @@ export function SegmentRenderer({
 function EventFireItem({ msg }: { msg: Message }) {
   const { goAgent, agentId } = useNav();
   const fire = msg.eventFire;
-  const ideas = useAgentDataStore((s) => (agentId ? s.ideasByAgent[agentId] : undefined));
-  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
+  const { data: ideas } = useAgentIdeas(agentId);
   const ideaIds = fire?.ideaIds ?? [];
-  const hasUnresolved = ideaIds.length > 0 && ideas === undefined;
-
-  useEffect(() => {
-    if (hasUnresolved && agentId) loadIdeas(agentId);
-  }, [hasUnresolved, agentId, loadIdeas]);
 
   if (!fire) return null;
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
-import { useAgentDataStore } from "@/store/agentData";
+import { useAgentIdeas } from "@/queries/ideas";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
@@ -240,9 +240,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
   const presetName = searchParams.get("name") ?? "";
   const presetStatus = parseQuestStatus(searchParams.get("status"));
 
-  const ideasRaw = useAgentDataStore((s) => s.ideasByAgent[resolvedAgentId]);
-  const ideas = useMemo(() => ideasRaw ?? [], [ideasRaw]);
-  const loadIdeas = useAgentDataStore((s) => s.loadIdeas);
+  const { data: ideas = [] } = useAgentIdeas(resolvedAgentId);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const agents = useDaemonStore((s) => s.agents);
@@ -272,10 +270,6 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
   const [canSave, setCanSave] = useState(false);
 
   const canvasRef = useRef<IdeaCanvasHandle | null>(null);
-
-  useEffect(() => {
-    void loadIdeas(resolvedAgentId);
-  }, [loadIdeas, resolvedAgentId]);
 
   useEffect(() => {
     if (!fromIdeaId) {

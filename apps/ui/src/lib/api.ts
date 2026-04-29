@@ -12,7 +12,7 @@ import type {
   Quest,
   ScopeValue,
 } from "@/lib/types";
-import type { AllowedChat } from "@/store/agentData";
+import type { AllowedChat } from "@/api/channels";
 export { RateLimitedError };
 
 export const api = {

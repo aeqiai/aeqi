@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useNav } from "@/hooks/useNav";
-import { useAgentDataStore } from "@/store/agentData";
+import { useAgentIdeas } from "@/queries/ideas";
 import type { Idea, IdeaEdges, IdeaLink } from "@/lib/types";
 import RefsRow, { type RefRecord } from "./RefsRow";
 
@@ -17,7 +17,7 @@ const NO_IDEAS: Idea[] = [];
  */
 export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; agentId: string }) {
   const { goAgent } = useNav();
-  const ideas = useAgentDataStore((s) => s.ideasByAgent[agentId] ?? NO_IDEAS);
+  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId);
   const [edges, setEdges] = useState<IdeaEdges>(NO_EDGES);
 
   const loadEdges = useMemo(

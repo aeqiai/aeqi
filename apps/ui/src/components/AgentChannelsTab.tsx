@@ -1,21 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
-import { api } from "@/lib/api";
-import { useAgentDataStore, type AllowedChat, type ChannelEntry } from "@/store/agentData";
+import * as channelsApi from "@/api/channels";
+import type { AllowedChat, ChannelEntry } from "@/api/channels";
+import { useAgentChannels, useAgentChannelsCache, useChannelSessions } from "@/queries/channels";
 import { Button, CardTrigger, EmptyState, TabTrigger } from "./ui";
 import { BaileysPairingPanel } from "./BaileysPairingPanel";
 
 // Stable empty-array reference — see selector-hygiene.test.ts.
 const NO_CHANNELS: ChannelEntry[] = [];
-
-interface ChannelSession {
-  channel_key: string;
-  session_id: string;
-  chat_id: string;
-  transport: string;
-  created_at: string;
-}
 
 const CHANNEL_TYPES = [
   { value: "telegram", label: "Telegram" },
@@ -64,12 +57,10 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 
-  const channels = useAgentDataStore((s) => s.channelsByAgent[agentId] ?? NO_CHANNELS);
-  const loadChannels = useAgentDataStore((s) => s.loadChannels);
-  const removeChannel = useAgentDataStore((s) => s.removeChannel);
-  const patchChannel = useAgentDataStore((s) => s.patchChannel);
-
-  const [channelSessions, setChannelSessions] = useState<ChannelSession[]>([]);
+  const { data: channels = NO_CHANNELS } = useAgentChannels(agentId);
+  const { data: channelSessions = [] } = useChannelSessions(agentId);
+  const { getChannels, invalidateChannels, removeChannel, patchChannel } =
+    useAgentChannelsCache(agentId);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChannelType, setNewChannelType] = useState("telegram");
   const [newChannelFields, setNewChannelFields] = useState<Record<string, string>>({});
@@ -82,22 +73,6 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
   // responses arrive stale and would flip the UI back). We bump the seq on
   // each call and compare on completion — late responses are dropped.
   const allowedSeqRef = useRef(0);
-
-  useEffect(() => {
-    loadChannels(agentId);
-  }, [agentId, loadChannels]);
-
-  const loadSessions = useCallback(async () => {
-    try {
-      const data = await api.getChannelSessions(agentId);
-      setChannelSessions((data.sessions || []) as ChannelSession[]);
-    } catch {
-      setChannelSessions([]);
-    }
-  }, [agentId]);
-  useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
 
   useEffect(() => {
     const handler = () => {
@@ -123,13 +98,13 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     }
     setSaving(true);
     try {
-      await api.createAgentChannel({
+      await channelsApi.createAgentChannel({
         agent_id: agentId,
         config: buildConfig(newChannelType, newChannelFields),
       });
       setShowAddForm(false);
       setNewChannelFields({});
-      loadChannels(agentId);
+      void invalidateChannels();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -185,22 +160,21 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
     channelId: string,
     reducer: (current: AllowedChat[]) => AllowedChat[],
   ) => {
-    const storeState = useAgentDataStore.getState();
-    const ch = storeState.channelsByAgent[agentId]?.find((c) => c.id === channelId);
+    const ch = getChannels().find((c) => c.id === channelId);
     if (!ch) return;
     const next = reducer(ch.allowed_chats);
-    patchChannel(agentId, channelId, { allowed_chats: next });
+    patchChannel(channelId, { allowed_chats: next });
     // Rapid clicks fire overlapping PATCHes. Record our seq at dispatch and
     // ignore our error handler if a newer call has already fired — old
     // failures would otherwise trigger a refetch that races the newer call.
     const mySeq = ++allowedSeqRef.current;
     try {
-      await api.setChannelAllowedChats(channelId, next);
+      await channelsApi.setChannelAllowedChats(channelId, next);
     } catch (e) {
       if (mySeq !== allowedSeqRef.current) return; // superseded
       setError(e instanceof Error ? e.message : "Failed to update whitelist");
       // Refetch — authoritative truth trumps guessing at rollback state.
-      loadChannels(agentId);
+      void invalidateChannels();
     }
   };
 
@@ -358,8 +332,8 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             setDeleting(true);
             setError(null);
             try {
-              await api.deleteAgentChannel(selected.id);
-              removeChannel(agentId, selected.id);
+              await channelsApi.deleteAgentChannel(selected.id);
+              removeChannel(selected.id);
               goAgent(agentId, "channels", undefined, { replace: true });
             } catch (e) {
               setError(e instanceof Error ? e.message : "Failed to disconnect");
