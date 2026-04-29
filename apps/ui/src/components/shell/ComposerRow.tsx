@@ -4,6 +4,7 @@ import ChatComposer from "@/components/session/ChatComposer";
 import { api } from "@/lib/api";
 import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
+import { findAgentByAnyId } from "@/lib/entityLookup";
 
 interface ComposerRowProps {
   /** Current agent receiving messages, or null when no chat is mounted. */
@@ -46,7 +47,7 @@ export default function ComposerRow({
   const agents = useDaemonStore((s) => s.agents);
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
 
-  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const agent = findAgentByAnyId(agents, agentId ?? "");
   const agentDisplayName = agent?.name || agentId || "";
   const currentSessionId =
     explicitSessionId !== undefined

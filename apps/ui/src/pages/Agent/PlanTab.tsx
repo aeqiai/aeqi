@@ -5,6 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import type { Agent } from "@/lib/types";
+import { findAgentByAnyId } from "@/lib/entityLookup";
 import type { BillingInterval, PlanId } from "@/lib/pricing";
 import "@/styles/billing.css";
 
@@ -35,17 +36,13 @@ const PLAN_BADGE_VARIANT: Record<Company["plan"], "neutral" | "info" | "success"
   scale: "success",
 };
 
-/** Resolve the entity-owning root agent for a given agent id or name. */
+/** Resolve the entity-owning root agent for a given URL token (entity_id,
+ * agent_id, or legacy name). */
 function findRoot(agents: Agent[], id: string): Agent | null {
-  const start = agents.find((a) => a.id === id || a.name === id) || null;
+  const start = findAgentByAnyId(agents, id);
   if (!start) return null;
   const eid = start.entity_id;
   if (!eid) return start;
-  // The "root agent" of an entity is the placeholder row the daemon store
-  // synthesizes for the company; its id matches the entity's reported
-  // agent_id (often equal to the entity_id today). We just return the
-  // first agent in this entity that has no further entity-level
-  // information — for billing the entity pointer is enough.
   return agents.find((a) => a.id === eid) || start;
 }
 

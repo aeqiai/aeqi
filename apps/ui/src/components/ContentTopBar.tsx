@@ -5,6 +5,7 @@ import { Button, Tooltip } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
 import UserAvatar from "./UserAvatar";
 import BudgetMeter from "./BudgetMeter";
+import { findAgentByAnyId } from "@/lib/entityLookup";
 
 /**
  * Content top bar — the layout navigation row.
@@ -44,7 +45,7 @@ export default function ContentTopBar() {
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
 
-  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const agent = findAgentByAnyId(agents, agentId ?? "");
   const section = tab || "sessions";
   const primitiveWord = PRIMITIVE_WORDS[section];
   // User-scoped topbar: mirror the agent-topbar shape when we're on

@@ -13,6 +13,7 @@ import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/Qu
 import PriorityIcon from "./quests/PriorityIcon";
 import AssigneeAvatar from "./quests/AssigneeAvatar";
 import AssigneePicker from "./quests/AssigneePicker";
+import { findAgentByAnyId } from "@/lib/entityLookup";
 
 const PRIORITY_RANK: Record<QuestPriority, number> = {
   critical: 0,
@@ -287,7 +288,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     ];
   }, [currentUser]);
 
-  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const agent = findAgentByAnyId(agents, agentId);
   const listQuest = selectedId ? quests.find((q) => q.id === selectedId) : undefined;
 
   // Detail view fetches the joined `{ quest, idea }` shape from

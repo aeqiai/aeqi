@@ -23,6 +23,7 @@ import OwnershipPage from "@/pages/OwnershipPage";
 import TreasuryPage from "@/pages/TreasuryPage";
 import GovernancePage from "@/pages/GovernancePage";
 import type { Agent } from "@/lib/types";
+import { findAgentByAnyId } from "@/lib/entityLookup";
 
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
@@ -75,7 +76,13 @@ const COMPANY_ROOT_TABS = new Set([
 ]);
 
 function findEntity(agents: Agent[], id: string): Agent | null {
-  const start = agents.find((a) => a.id === id);
+  // The URL token can be the canonical entity_id (post-Phase-4 default
+  // from the switcher), the agent_id (legacy URLs / bookmarks), or the
+  // agent name (very legacy slugs). Match all three.
+  const start =
+    agents.find((a) => a.id === id) ||
+    agents.find((a) => a.entity_id === id) ||
+    agents.find((a) => a.name === id);
   if (!start) return null;
   const eid = start.entity_id;
   if (!eid) return start;
@@ -112,7 +119,7 @@ export default function AppLayout() {
   );
 
   const { currentAgent, rootAgent } = useMemo(() => {
-    const current = agents.find((a) => a.id === agentId || a.name === agentId) || null;
+    const current = findAgentByAnyId(agents, agentId);
     const root = current ? findEntity(agents, current.id) : null;
     return {
       currentAgent: current,

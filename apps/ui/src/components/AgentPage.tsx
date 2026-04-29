@@ -16,6 +16,7 @@ import AgentOrgChart from "./AgentOrgChart";
 import PageRail from "./PageRail";
 import { Button, EmptyState } from "./ui";
 import ModelPicker from "./ModelPicker";
+import { findAgentByAnyId } from "@/lib/entityLookup";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
@@ -62,7 +63,7 @@ export default function AgentPage({
   const sessionId = activeTab === "sessions" ? itemId || null : null;
 
   const agents = useDaemonStore((s) => s.agents);
-  const agent = agents.find((a) => a.id === agentId || a.name === agentId);
+  const agent = findAgentByAnyId(agents, agentId);
 
   const resolvedAgentId = agent?.id || agentId;
 
