@@ -26,6 +26,7 @@ import BudgetMeter from "./BudgetMeter";
 // carried by the lit Settings button + the settings-shell sub-tab row
 // below; repeating them here is just noise.
 const PRIMITIVE_WORDS: Record<string, string> = {
+  overview: "Overview",
   positions: "Positions",
   agents: "Agents",
   events: "Events",

@@ -75,12 +75,12 @@ const EventsIcon = () => (
   </svg>
 );
 
-const CompanyIcon = () => (
+const OverviewIcon = () => (
   <svg {...iconProps}>
-    <rect x="3" y="2" width="10" height="12" rx="0.5" />
-    <path d="M5.75 5h1M9.25 5h1" />
-    <path d="M5.75 8h1M9.25 8h1" />
-    <path d="M7 14v-3h2v3" />
+    <rect x="2.5" y="2.5" width="5" height="5" rx="0.5" />
+    <rect x="8.5" y="2.5" width="5" height="5" rx="0.5" />
+    <rect x="2.5" y="8.5" width="5" height="5" rx="0.5" />
+    <rect x="8.5" y="8.5" width="5" height="5" rx="0.5" />
   </svg>
 );
 
@@ -281,9 +281,8 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* ── Inbox + Company — top-level destinations, sit above the
-            categorical groups. Inbox is the attention queue (what needs
-            you); Company is the company-home noun (the org itself). ── */}
+        {/* ── Inbox — top-level destination, sits above the categorical
+            groups. The attention queue (what needs you). ── */}
         <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
@@ -297,12 +296,12 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
-          {navItem("company", "Company", <CompanyIcon />)}
         </nav>
 
         {/* ── Build — the active product surface. Everything below is
             either Operate or Control, both currently coming-soon. ── */}
         <SidebarGroup title="Build" groupKey="build">
+          {navItem("overview", "Overview", <OverviewIcon />)}
           {navItem("positions", "Positions", <PositionsIcon />)}
           {navItem("agents", "Agents", <AgentsIcon />)}
           {navItem("events", "Events", <EventsIcon />)}

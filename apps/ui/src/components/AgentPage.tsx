@@ -9,6 +9,7 @@ import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import EntityPositionsTab from "./EntityPositionsTab";
+import EntityOverviewTab from "./EntityOverviewTab";
 import AgentIntegrationsTab from "@/pages/Agent/Integrations";
 import AgentPlanTab from "@/pages/Agent/PlanTab";
 import AgentOrgChart from "./AgentOrgChart";
@@ -29,6 +30,7 @@ const SETTINGS_SUB_TABS = [
 // surface — the agent's home landing. ContentTopBar is the primary nav and
 // lives outside of this component.
 const TABS = [
+  { id: "overview", label: "Overview" },
   { id: "sessions", label: "Sessions" },
   { id: "settings", label: "Settings" },
   { id: "positions", label: "Positions" },
@@ -95,6 +97,8 @@ export default function AgentPage({
       )}
 
       {/* Tab content */}
+      {activeTab === "overview" && <EntityOverviewTab entityId={resolvedAgentId} />}
+
       {activeTab === "sessions" && (
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />
