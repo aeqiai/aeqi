@@ -201,9 +201,11 @@ export default function AppLayout() {
   const activeAgentId = activeAgent?.id ?? "";
 
   const base = encodedEntityId ? `/c/${encodedEntityId}` : "/";
-  // No-tab at entity scope renders Overview; no-tab at user scope renders
-  // the Inbox.
-  const effectiveTab = tab || (routeEntityId ? "overview" : "sessions");
+  // Inbox is the canonical scope-root surface at every level. `/` is
+  // the user's personal inbox; `/c/<entity>` is the same shape but
+  // filtered to that entity. Overview / Positions / etc. are tabs the
+  // user clicks into — they never own the no-tab landing.
+  const effectiveTab = tab || "sessions";
 
   // Runtime mode has no account-level identity surface.
   if (isSettings && appMode && appMode !== "platform") {

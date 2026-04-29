@@ -172,19 +172,22 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  // Inbox is always the user's attention queue. It lives at user scope
-  // (`/` for the list, `/sessions/:id` for an individual thread) — the
-  // active company is a *filter* applied inside the inbox view, not a
-  // routing scope. Don't light Inbox on `/c/<entity>/sessions` (that's
-  // a company-agent sessions view reached by drilling into an agent).
-  const inboxActive = path === "/" || path.startsWith("/sessions/");
-  // Company is lit on the entity root and on every company sub-tab
-  // (overview / positions / agents / events / quests / ideas). Sub-tab
-  // navigation is owned by CompanyPage's PageRail, not this sidebar.
+  // Inbox is the canonical scope-root surface and means different
+  // things at different scopes: `/` is the user's personal inbox,
+  // `/c/<entity>` is the same shape filtered to that entity. The
+  // sidebar item routes to whichever applies. Active on the bare
+  // scope-root URL plus any `/sessions/<id>` thread view in that scope.
+  const inboxHref = isEntityScope ? base : "/";
+  const inboxActive = isEntityScope
+    ? path === base || path === `${base}/sessions` || path.startsWith(`${base}/sessions/`)
+    : path === "/" || path.startsWith("/sessions/");
+  // Company sidebar item points at the company's "overview" surface
+  // (the org card / positions PageRail) — the bare `/c/<entity>` URL
+  // is the inbox, not the Company card. Active on overview / positions
+  // tabs only.
   const companyActive =
     !!base &&
-    (path === base ||
-      COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`)));
+    COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`));
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   const navItem = (
@@ -312,11 +315,11 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
         <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href="/"
-            title="Your inbox"
+            href={inboxHref}
+            title={isEntityScope ? "Company inbox" : "Your inbox"}
             onClick={(e) => {
               e.preventDefault();
-              navigate("/");
+              navigate(inboxHref);
             }}
           >
             <InboxIcon />
@@ -325,11 +328,11 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           {isEntityScope && base && (
             <a
               className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
-              href={base}
+              href={`${base}/overview`}
               title="Company"
               onClick={(e) => {
                 e.preventDefault();
-                navigate(base);
+                navigate(`${base}/overview`);
               }}
             >
               <CompanyIcon />
