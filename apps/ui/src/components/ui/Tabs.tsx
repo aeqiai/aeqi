@@ -37,6 +37,8 @@ export function Tabs({ tabs, defaultTab }: TabsProps) {
                 let next = -1;
                 if (e.key === "ArrowRight") next = (idx + 1) % tabs.length;
                 if (e.key === "ArrowLeft") next = (idx - 1 + tabs.length) % tabs.length;
+                if (e.key === "Home") next = 0;
+                if (e.key === "End") next = tabs.length - 1;
                 if (next >= 0) {
                   e.preventDefault();
                   setActive(tabs[next].id);

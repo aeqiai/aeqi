@@ -196,3 +196,137 @@ export const StatTiles: Story = {
     </div>
   ),
 };
+
+/* ── Composition: Structured panel with header and footer ── */
+
+export const WithHeaderAndFooter: Story = {
+  name: "With Header and Footer",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Canonical structured panel pattern: Card with padding='none' houses CardHeader (title + actions), manual-padding body content, and CardFooter with action row. Used for dialogs, detail panes, and form containers.",
+      },
+    },
+  },
+  render: () => (
+    <div style={{ maxWidth: 420 }}>
+      <Card padding="none">
+        <CardHeader title="Edit quest parameters" actions={<Badge variant="info">PRD-187</Badge>} />
+        <div style={{ padding: "16px", fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+              Title
+            </label>
+            <div
+              style={{
+                padding: "8px 12px",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                fontSize: 13,
+              }}
+            >
+              Refactor authentication module
+            </div>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+              Assigned agent
+            </label>
+            <div
+              style={{
+                padding: "8px 12px",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                fontSize: 13,
+              }}
+            >
+              code-reviewer
+            </div>
+          </div>
+        </div>
+        <CardFooter>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="secondary" size="sm">
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm">
+              Save
+            </Button>
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  ),
+};
+
+/* ── Composition: Flat list of cards ── */
+
+export const FlatList: Story = {
+  name: "Flat List",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Flat-variant cards stacked as a list, no outer padding. Content rows separated by spacing, no dividers. Demonstrates the flat variant for list-like surfaces and quest rows.",
+      },
+    },
+  },
+  render: () => (
+    <div style={{ maxWidth: 420 }}>
+      <Card variant="flat" padding="none">
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {["QST-042: Migrate SDK", "QST-039: Add test coverage", "QST-035: Refactor parser"].map(
+            (title, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: idx < 2 ? "1px solid rgba(0,0,0,0.06)" : undefined,
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ fontWeight: 500, marginBottom: 4 }}>{title}</div>
+                <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                  @code-reviewer · in progress
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+      </Card>
+    </div>
+  ),
+};
+
+/* ── Composition: Nested surface hierarchy ── */
+
+export const NestedSurface: Story = {
+  name: "Nested Surface",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Surface-variant Card containing a default-variant Card, demonstrating nesting hierarchy and how surfaces stack for visual separation and grouping.",
+      },
+    },
+  },
+  render: () => (
+    <div style={{ maxWidth: 420, padding: 20, background: "var(--color-bg-surface)" }}>
+      <Card variant="surface" padding="md">
+        <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600 }}>Workspace settings</h4>
+        <div style={{ marginBottom: 16, fontSize: 13, color: "rgba(0,0,0,0.6)" }}>
+          Configure team permissions and workspace behavior.
+        </div>
+        <Card variant="default" padding="md">
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>Member limit</div>
+            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
+              Up to 50 agents per company
+            </div>
+          </div>
+        </Card>
+      </Card>
+    </div>
+  ),
+};

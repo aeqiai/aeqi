@@ -1,0 +1,289 @@
+import { Meta } from "@storybook/blocks";
+import { Card, CardHeader, CardFooter } from "../Card";
+import { Tabs } from "../Tabs";
+import { CardTrigger } from "../CardTrigger";
+import { TabTrigger } from "../TabTrigger";
+
+<Meta title="Foundations/Containers" />
+
+# Containers
+
+Card and Tabs are the two container primitives that group and organize related content. CardTrigger and TabTrigger are the lightweight action buttons that compose with containers to add click affordances. Together they form a composition layer: cards hold content, tabs switch between panels, and triggers make those surfaces interactive.
+
+## When to use which
+
+| Primitive       | Role                                                    | Use when                                                                                   |
+| --------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Card**        | A content surface with optional variants and padding    | Group related information visually; create list rows, tiles, detail panels                 |
+| **Tabs**        | A panel-switcher with keyboard nav and focus management | Switch between related content under one heading; pages with Overview / Details / Settings |
+| **CardTrigger** | A whole-card button affordance                          | The entire card or row is the click target; wrap agent tiles, quest rows, list items       |
+| **TabTrigger**  | A single pill-shaped selectable button                  | Build custom tab-like pickers where Tabs' full panel system is overkill; sidebar rails     |
+
+## Card
+
+A generic content container. Carries three background variants and four padding steps so it works for dense list rows (flat, padSm) and hero cards (default, padLg). When interactive, it lifts on hover.
+
+### Variants
+
+| Variant     | Background                  | Use when                                              |
+| ----------- | --------------------------- | ----------------------------------------------------- |
+| **default** | White card with subtle hint | Standard card surfaces (agent detail, quest panel)    |
+| **surface** | Mid-tone grey, recessed     | Nested cards or background layers that recede         |
+| **flat**    | Transparent, faint border   | List rows stacked without breathing room between them |
+
+All variants use the same border radius and border color; only the background changes.
+
+### Padding
+
+Four steps anchored to the app's spacing grid:
+
+| Size     | Value | Use when                                      |
+| -------- | ----- | --------------------------------------------- |
+| **none** | 0     | Composing with CardHeader + body + CardFooter |
+| **sm**   | 12px  | Compact rows (quest list, agent badges)       |
+| **md**   | 16px  | Default everywhere — agent cards, event tiles |
+| **lg**   | 24px  | Hero cards, empty state panels, detail modals |
+
+### Interactive mode
+
+When `interactive={true}`, the card gains hover lift and a focus ring. The component remains a `<div>` — it's a visual treatment, not a button. Use this for cards that respond to clicks but don't need full keyboard semantics.
+
+```jsx
+<Card interactive={true} onClick={handleSelect}>
+  Content here
+</Card>
+```
+
+For whole-row click semantics with keyboard activation, use [CardTrigger](#cardtrigger) instead.
+
+### States
+
+| State             | What happens                                                       | Consumer concern                                                 |
+| ----------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| **default**       | Resting color per variant                                          | —                                                                |
+| **hover**         | When `interactive`: border brightens, background shifts to surface | —                                                                |
+| **focus-visible** | When `interactive`: 2px action ring (`--focus-ring`)               | Works for keyboard nav; avoid nesting other interactive elements |
+| **disabled**      | Opacity 0.5 when `interactive` and disabled                        | Set via prop; don't hide the card                                |
+
+### Compound API: CardHeader + CardFooter
+
+For cards with clear internal rhythm, compose with CardHeader and CardFooter:
+
+```jsx
+<Card padding="none">
+  <CardHeader
+    title="Quest details"
+    actions={
+      <Button variant="ghost" size="sm">
+        Edit
+      </Button>
+    }
+  />
+  <div className="body-content">Main content here</div>
+  <CardFooter>
+    <Button variant="primary">Save</Button>
+    <Button variant="secondary">Cancel</Button>
+  </CardFooter>
+</Card>
+```
+
+CardFooter separates from the body via `margin-top: var(--space-5)` and `padding-top` — never a hairline border (anti-pattern locked in memory).
+
+### Storybook
+
+`Components/UI/Card` — variants, padding steps, interactive state, compound patterns.
+
+## Tabs
+
+A complete tablist + tabpanel system with automatic focus management, keyboard navigation, and ARIA semantics. Pass an array of tab definitions and let the component manage state and rendering.
+
+### API
+
+```jsx
+const tabs = [
+  { id: "overview", label: "Overview", count: 12, content: <OverviewPane /> },
+  { id: "details", label: "Details", content: <DetailsPane /> },
+  { id: "settings", label: "Settings", content: <SettingsPane /> },
+];
+
+<Tabs tabs={tabs} defaultTab="overview" />;
+```
+
+Each tab object carries:
+
+- `id` — unique identifier for the tab
+- `label` — display text
+- `count` — optional count badge (e.g., "Quests (5)")
+- `content` — React node for the panel
+
+### Keyboard navigation
+
+- <kbd>ArrowRight</kbd> / <kbd>ArrowLeft</kbd> — cycle through tabs; wraps at the end
+- <kbd>Home</kbd> — jump to first tab
+- <kbd>End</kbd> — jump to last tab
+- <kbd>Enter</kbd> / <kbd>Space</kbd> — activate selected tab (automatic for buttons)
+
+### ARIA
+
+The component wires all tab roles and ARIA attributes:
+
+- `role="tablist"` on the container
+- `role="tab"` on each button
+- `aria-selected={true|false}` on each tab
+- `aria-controls="[panelId]"` links tab to panel
+- `role="tabpanel"` on each panel
+- `aria-labelledby="[tabId]"` links panel to tab
+
+### States
+
+| State             | What happens                                                   | Consumer concern                    |
+| ----------------- | -------------------------------------------------------------- | ----------------------------------- |
+| **default**       | Text color secondary; no background or underline               | —                                   |
+| **hover**         | Text color shifts to primary                                   | —                                   |
+| **focus-visible** | 2px action ring (`--focus-ring`) around the tab button         | Works for keyboard nav              |
+| **selected**      | Text color primary; 2px underline bottom (active indicator)    | Automatic when aria-selected="true" |
+| **active/press**  | Scale down 2% (`--active-scale`) with active easing            | —                                   |
+| **disabled**      | Opacity 0.5 (`--action-disabled-opacity`); pointer-events none | Set via tab.disabled; rarely used   |
+
+### When to use Tabs vs TabTrigger
+
+**Tabs is the full panel switcher.** It owns state, keyboard nav, and ARIA wiring. Use it when you need the complete tablist + content binding.
+
+**TabTrigger is a single pill button.** Use it when you're building custom state management (e.g., a sidebar page rail, a mode picker, or a custom toolbar) and don't want Tabs' panel layer.
+
+### Storybook
+
+`Components/UI/Tabs` — basic usage, keyboard nav, disabled tabs, empty state.
+
+## TabTrigger
+
+A single pill-shaped button with active/inactive state. Unlike Tabs, it's stateless — you manage the active state and bind the click handler. Renders with `role="tab"` and `aria-selected` for semantic consistency.
+
+### Props
+
+| Prop           | Type      | Purpose                                    |
+| -------------- | --------- | ------------------------------------------ |
+| `active`       | boolean   | Whether this trigger is currently selected |
+| `onClick`      | function  | Fired when clicked                         |
+| `children`     | ReactNode | Label text                                 |
+| `leadingIcon?` | ReactNode | Optional icon to the left of the label     |
+| `badge?`       | number    | Optional count displayed to the right      |
+| `disabled?`    | boolean   | Disables interaction and dims the button   |
+
+### Example: sidebar page rail
+
+```jsx
+<div className="rail">
+  {pages.map((page) => (
+    <TabTrigger
+      key={page.id}
+      active={currentPage === page.id}
+      onClick={() => navigate(page.path)}
+      leadingIcon={<Icon name={page.icon} />}
+    >
+      {page.label}
+    </TabTrigger>
+  ))}
+</div>
+```
+
+### States
+
+Same as Tabs: default, hover, focus-visible, selected (active), active-press, disabled. Uses `--focus-ring` for keyboard focus and `--active-scale` for press feedback.
+
+### Storybook
+
+`Components/UI/TabTrigger` — active/inactive states, icons, badge, disabled.
+
+## CardTrigger
+
+A `<button>` wrapper that makes an entire card or list row a single clickable affordance. It resets all default button styling so your custom card chrome shows through, then applies focus, hover, active, and disabled treatments.
+
+### Props
+
+| Prop          | Type      | Purpose                                      |
+| ------------- | --------- | -------------------------------------------- |
+| `onClick`     | function  | Fired when clicked                           |
+| `children`    | ReactNode | Content rendered inside the button           |
+| `disabled?`   | boolean   | Disables interaction and dims the button     |
+| `aria-label?` | string    | Screen-reader label if children are non-text |
+
+### Example: agent in an org chart
+
+```jsx
+<CardTrigger onClick={() => navigate(`/agents/${agent.id}`)}>
+  <Card padding="md">
+    <div className="flex items-center gap-3">
+      <Avatar src={agent.avatar} alt={agent.name} />
+      <div>
+        <div>{agent.name}</div>
+        <div className="text-secondary">{agent.title}</div>
+      </div>
+    </div>
+  </Card>
+</CardTrigger>
+```
+
+### States
+
+| State             | What happens                                             | Consumer concern                     |
+| ----------------- | -------------------------------------------------------- | ------------------------------------ |
+| **default**       | Content rendered at full opacity                         | —                                    |
+| **hover**         | Subtle background tint (var(--state-hover))              | —                                    |
+| **focus-visible** | 2px action ring (`--focus-ring`) around the whole button | Works for keyboard nav and Tab key   |
+| **active/press**  | Scale 0.98 with fast easing for tactile feedback         | —                                    |
+| **disabled**      | Opacity 0.5; pointer-events none; cursor disabled        | Set via prop; don't hide the trigger |
+
+### Important: CardTrigger vs Card.interactive
+
+- **Card.interactive** — a visual treatment on a `<div>`. Hover lift, focus ring. No keyboard semantics. Use for cards that respond to click but don't need activation.
+- **CardTrigger** — a real `<button>` wrapper. Full keyboard semantics, ARIA, native submit in forms. Use when the row is a true affordance.
+
+If you need `<Enter>` to work, or the component sits in a form, or you want assistive tech to read it as a button, use **CardTrigger**. If you just want visual hover feedback on a card, use **Card.interactive**.
+
+### Storybook
+
+`Components/UI/CardTrigger` — basic card, complex rows, disabled state.
+
+## Why containers use the action focus ring
+
+Wave 2 established two focus-ring styles: `--focus-ring` for actions (Button family, 4px composite, high contrast) and `--input-ring-focus` for form controls (Input family, 3px muted halo, low contrast).
+
+Containers — Card.interactive, Tabs, TabTrigger, CardTrigger — join the action register because they're **click affordances for navigation and selection**, not value-input affordances. When a card is interactive, it behaves like a button. So it gets the action ring.
+
+The form-control ring stays reserved for primitives where the user is typing or selecting a value (Input, Textarea, Select, Combobox trigger). This split is locked — don't unify them. The distinction prevents rings from competing in dense forms.
+
+## Shared token contract
+
+All container primitives inherit the same foundational behavior, so a new container can slot in without forking:
+
+- `var(--focus-ring)` — 2px action ring on keyboard focus
+- `var(--action-disabled-opacity)` — opacity on disabled (0.5)
+- `var(--active-scale)` — press-feedback scale (0.98)
+- `var(--transition-fast)` — all state transitions (150ms)
+- `var(--transition-active)` — press feedback duration (50ms)
+- `var(--state-hover)` — subtle background tint on hover
+- `var(--state-selected)` — background for selected/active state
+
+## Composition patterns
+
+**Quest or event list** — Stack `Card variant="flat" padding="sm"` rows. Optionally wrap each row in `CardTrigger` if clicking navigates. Separate rows via `gap` instead of borders.
+
+**Multi-tab page** — Use `Tabs` for the tablist + panels. Anchor the component at the top of the page. Panel content can include Cards, Inputs, or nested containers.
+
+**Sidebar page rail** — Use `TabTrigger` per page entry. Caller manages routing state and click handlers. Each trigger is independent; the rail doesn't manage panels.
+
+**Org chart or card grid** — Wrap each `Card` in `CardTrigger` to make the whole tile clickable. Set `onClick={() => navigate(...)}` to link to detail pages.
+
+**Modal with footer actions** — `Card padding="none"` + `CardHeader` + body content + `CardFooter` carrying Button pair.
+
+## API reference
+
+See the **Docs** tab on each component for the full prop surface and type definitions.
+
+- **Card** — `variant`, `padding`, `interactive`, all standard `<div>` attributes
+- **Tabs** — `tabs` array (id/label/count/content), `defaultTab`
+- **TabTrigger** — `active`, `onClick`, `children`, `leadingIcon?`, `badge?`, `disabled?`
+- **CardTrigger** — `onClick`, `children`, `disabled?`, `aria-label?`, all standard `<button>` attributes
+
+All are forwarded with `forwardRef` for direct DOM access when needed.

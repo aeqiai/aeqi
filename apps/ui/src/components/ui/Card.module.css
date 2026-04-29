@@ -62,7 +62,9 @@
 .interactive:focus-visible {
   outline: none;
   border-color: var(--border-hover);
-  box-shadow: var(--ring-muted);
+  /* Containers join the action focus register — same ring as Button/CardTrigger/Tabs.
+     The form-control ring (--input-ring-focus) is reserved for Input/Textarea/Select/Combobox. */
+  box-shadow: var(--focus-ring);
 }
 
 /* Slots — optional header/body/footer when a card needs internal rhythm. */
@@ -84,6 +86,5 @@
 
 .footer {
   margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-faint);
+  padding-top: var(--space-5);
 }

@@ -1,6 +1,3 @@
-export { Accordion } from "./Accordion";
-export type { AccordionProps, AccordionItemProps } from "./Accordion";
-
 export { Button } from "./Button";
 export type { ButtonProps } from "./Button";
 

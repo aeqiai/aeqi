@@ -152,3 +152,77 @@ export const SettingsTabs: Story = {
     ],
   },
 };
+
+/* ── Keyboard navigation demo ── */
+
+export const KeyboardNavDemo: Story = {
+  name: "Keyboard Navigation Demo",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates keyboard navigation support: ArrowLeft/Right cycles through tabs sequentially, Home jumps to first tab, End jumps to last tab. Focus management ensures accessibility in multi-tab interfaces.",
+      },
+    },
+  },
+  args: {
+    tabs: [
+      {
+        id: "tab1",
+        label: "Overview",
+        content: (
+          <div style={{ padding: 16, fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            Use arrow keys to navigate, Home/End to jump.
+          </div>
+        ),
+      },
+      {
+        id: "tab2",
+        label: "Details",
+        content: (
+          <div style={{ padding: 16, fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            Second tab content.
+          </div>
+        ),
+      },
+      {
+        id: "tab3",
+        label: "Events",
+        count: 42,
+        content: (
+          <div style={{ padding: 16, fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            Activity feed and timeline.
+          </div>
+        ),
+      },
+      {
+        id: "tab4",
+        label: "History",
+        content: (
+          <div style={{ padding: 16, fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            Change history and audit log.
+          </div>
+        ),
+      },
+      {
+        id: "tab5",
+        label: "Related",
+        count: 3,
+        content: (
+          <div style={{ padding: 16, fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            Linked items and references.
+          </div>
+        ),
+      },
+      {
+        id: "tab6",
+        label: "Settings",
+        content: (
+          <div style={{ padding: 16, fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            Configuration and preferences.
+          </div>
+        ),
+      },
+    ],
+  },
+};

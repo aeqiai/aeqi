@@ -183,3 +183,93 @@ export const Single: Story = {
     </div>
   ),
 };
+
+function IconInbox() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path d="M2 4h12v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4z" />
+      <path d="M2 4l1.5-1.5A1 1 0 015 2h6a1 1 0 01.5.5L14 4" />
+    </svg>
+  );
+}
+
+/** With leading icon and badge (notification/inbox pattern). */
+export const WithBadgeAndIcon: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Combined leadingIcon + badge commonly used for inbox and notification tab patterns. Icon appears left of label, badge count right. Both can be optional.",
+      },
+    },
+  },
+  render: () => <WithBadgeAndIconExample />,
+};
+
+function WithBadgeAndIconExample() {
+  const [active, setActive] = useState<string>("inbox");
+  return (
+    <div style={{ display: "flex", gap: "1rem", padding: "1rem" }}>
+      <TabTrigger
+        active={active === "inbox"}
+        onClick={() => setActive("inbox")}
+        leadingIcon={<IconInbox />}
+        badge={12}
+      >
+        Inbox
+      </TabTrigger>
+      <TabTrigger
+        active={active === "drafts"}
+        onClick={() => setActive("drafts")}
+        leadingIcon={<IconInbox />}
+        badge={0}
+      >
+        Drafts
+      </TabTrigger>
+      <TabTrigger
+        active={active === "sent"}
+        onClick={() => setActive("sent")}
+        leadingIcon={<IconInbox />}
+      >
+        Sent
+      </TabTrigger>
+    </div>
+  );
+}
+
+/** Long label showing truncation/wrapping behaviour. */
+export const LongLabelOverflow: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Documents how TabTrigger handles unusually long labels: ellipsis truncation at a fixed max-width prevents layout shift and keeps tab bar responsive.",
+      },
+    },
+  },
+  render: () => <LongLabelOverflowExample />,
+};
+
+function LongLabelOverflowExample() {
+  const [active, setActive] = useState<string>("short");
+  return (
+    <div style={{ display: "flex", gap: "1rem", padding: "1rem", maxWidth: 500 }}>
+      <TabTrigger active={active === "short"} onClick={() => setActive("short")}>
+        Short
+      </TabTrigger>
+      <TabTrigger active={active === "long"} onClick={() => setActive("long")}>
+        This is a very long label that might wrap or truncate
+      </TabTrigger>
+      <TabTrigger active={active === "medium"} onClick={() => setActive("medium")}>
+        Medium length label here
+      </TabTrigger>
+    </div>
+  );
+}

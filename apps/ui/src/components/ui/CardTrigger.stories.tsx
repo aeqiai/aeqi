@@ -205,3 +205,76 @@ function InteractiveListExample() {
 export const InteractiveList: Story = {
   render: () => <InteractiveListExample />,
 };
+
+function IconStar() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 1l2.5 5h5.5l-4.5 3.5 1.5 5-5.5-4-5.5 4 1.5-5-4.5-3.5h5.5z" />
+    </svg>
+  );
+}
+
+/**
+ * With icon and badge: CardTrigger row containing leading icon, label, and trailing badge/count.
+ * Mirrors the AgentOrgChart org-node pattern in production use.
+ */
+export const WithIconAndBadge: Story = {
+  render: () => (
+    <div style={{ maxWidth: 400 }}>
+      <CardTrigger onClick={() => alert("Selected org unit")} aria-label="Select org unit">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "12px 16px",
+          }}
+        >
+          {/* Leading icon */}
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 6,
+              background: "var(--color-bg-elevated)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--color-accent)",
+              flexShrink: 0,
+            }}
+          >
+            <IconStar />
+          </div>
+          {/* Label */}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>
+              Engineering
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 2 }}>
+              parent org
+            </div>
+          </div>
+          {/* Trailing badge */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: 28,
+              height: 24,
+              borderRadius: 12,
+              background: "var(--color-bg-muted)",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "var(--color-text-muted)",
+              flexShrink: 0,
+            }}
+          >
+            8
+          </div>
+        </div>
+      </CardTrigger>
+    </div>
+  ),
+};
