@@ -8,6 +8,11 @@ import Wordmark from "@/components/Wordmark";
 import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
+// Company sub-rail tabs are page-internal (rendered by CompanyPage's
+// PageRail). They share the entity base path with the sidebar's Company
+// nav item, so the Company row stays lit on every company sub-tab.
+const COMPANY_SUB_TABS = ["overview", "positions", "agents", "events", "quests", "ideas"];
+
 interface LeftSidebarProps {
   /** Canonical company root id. Sidebar tabs are company-scoped, not child-agent scoped. */
   agentId: string | null;
@@ -30,10 +35,12 @@ const InboxIcon = () => (
   </svg>
 );
 
-const QuestsIcon = () => (
+const CompanyIcon = () => (
   <svg {...iconProps}>
-    <path d="M4 2v12" />
-    <path d="M4 3h7l-2 2.5L11 8H4z" />
+    <rect x="3" y="2" width="10" height="12" rx="0.5" />
+    <path d="M5.75 5h1M9.25 5h1" />
+    <path d="M5.75 8h1M9.25 8h1" />
+    <path d="M7 14v-3h2v3" />
   </svg>
 );
 
@@ -43,44 +50,6 @@ const ProjectsIcon = () => (
     <rect x="8.5" y="2" width="5.5" height="5.5" rx="0.5" />
     <rect x="2" y="8.5" width="5.5" height="5.5" rx="0.5" />
     <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="0.5" />
-  </svg>
-);
-
-const IdeasIcon = () => (
-  <svg {...iconProps}>
-    <path d="M5 7a3 3 0 0 1 6 0c0 1.5-1 2.5-1 3.5h-4c0-1-1-2-1-3.5z" />
-    <path d="M6.5 12h3M7 14h2" />
-  </svg>
-);
-
-const AgentsIcon = () => (
-  <svg {...iconProps}>
-    <circle cx="8" cy="5.5" r="2.5" />
-    <path d="M3 13.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5" />
-  </svg>
-);
-
-const PositionsIcon = () => (
-  <svg {...iconProps}>
-    <rect x="6" y="2" width="4" height="2.5" rx="0.5" />
-    <rect x="2" y="11.5" width="4" height="2.5" rx="0.5" />
-    <rect x="10" y="11.5" width="4" height="2.5" rx="0.5" />
-    <path d="M8 4.5v3M8 7.5h-4v4M8 7.5h4v4" />
-  </svg>
-);
-
-const EventsIcon = () => (
-  <svg {...iconProps}>
-    <path d="M9 2 4 9h4l-1 5 5-7H8z" />
-  </svg>
-);
-
-const OverviewIcon = () => (
-  <svg {...iconProps}>
-    <rect x="2.5" y="2.5" width="5" height="5" rx="0.5" />
-    <rect x="8.5" y="2.5" width="5" height="5" rx="0.5" />
-    <rect x="2.5" y="8.5" width="5" height="5" rx="0.5" />
-    <rect x="8.5" y="8.5" width="5" height="5" rx="0.5" />
   </svg>
 );
 
@@ -166,6 +135,13 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
   const inboxActive = base
     ? path === `${base}/sessions` || path.startsWith(`${base}/sessions/`)
     : path === "/";
+  // Company is lit on the entity root and on every company sub-tab
+  // (overview / positions / agents / events / quests / ideas). Sub-tab
+  // navigation is owned by CompanyPage's PageRail, not this sidebar.
+  const companyActive =
+    !!base &&
+    (path === base ||
+      COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`)));
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   const navItem = (
@@ -283,8 +259,13 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* ── Inbox — top-level destination, sits above the categorical
-            groups. The attention queue (what needs you). ── */}
+        {/* ── Inbox + Company — top-level destinations, sit above the
+            categorical groups. Inbox is the attention queue (what needs
+            you); Company is the company-home noun (the org itself).
+            Company's sub-rail (Overview / Positions / Agents / Events /
+            Quests / Ideas) is rendered by CompanyPage, not duplicated
+            in this sidebar — same pattern as Economy's Discovery /
+            Blueprints. ── */}
         <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
@@ -298,18 +279,21 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
+          {base && (
+            <a
+              className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
+              href={base}
+              title="Company"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(base);
+              }}
+            >
+              <CompanyIcon />
+              <span className="sidebar-nav-label">Company</span>
+            </a>
+          )}
         </nav>
-
-        {/* ── Build — the active product surface. Everything below is
-            either Operate or Control, both currently coming-soon. ── */}
-        <SidebarGroup title="Build" groupKey="build">
-          {navItem("overview", "Overview", <OverviewIcon />)}
-          {navItem("positions", "Positions", <PositionsIcon />)}
-          {navItem("agents", "Agents", <AgentsIcon />)}
-          {navItem("events", "Events", <EventsIcon />)}
-          {navItem("quests", "Quests", <QuestsIcon />)}
-          {navItem("ideas", "Ideas", <IdeasIcon />)}
-        </SidebarGroup>
 
         {/* ── Operate (soon) — Company-side surfaces (Projects, CRM,
             Metrics). Visible-but-disabled so the shape of the product

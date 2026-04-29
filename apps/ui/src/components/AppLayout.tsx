@@ -28,8 +28,22 @@ const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
+const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
+
+// Tabs whose content is wrapped by CompanyPage's PageRail (Overview /
+// Positions / Agents / Events / Quests / Ideas). Every other agent-
+// scoped tab (sessions, settings, channels, tools, integrations, plan)
+// renders bare AgentPage so it doesn't get a duplicate rail.
+const COMPANY_PAGERAIL_TABS = new Set([
+  "overview",
+  "positions",
+  "agents",
+  "events",
+  "quests",
+  "ideas",
+]);
 
 const COMPANY_TABS = new Set([
   "agents",
@@ -254,6 +268,9 @@ export default function AppLayout() {
     if (tab === "ownership") return <OwnershipPage />;
     if (tab === "treasury") return <TreasuryPage />;
     if (tab === "governance") return <GovernancePage />;
+    if (agentId && COMPANY_PAGERAIL_TABS.has(effectiveTab)) {
+      return <CompanyPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
+    }
     return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
