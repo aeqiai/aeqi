@@ -20,7 +20,7 @@
 
 .button:disabled,
 .button[aria-disabled="true"] {
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -84,26 +84,24 @@
 }
 
 .danger:hover {
-  opacity: 0.85;
+  opacity: var(--action-hover-opacity);
 }
 
 .danger:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--color-bg-base),
-    0 0 0 4px var(--color-error);
+  box-shadow: var(--focus-ring-danger);
 }
 
 .light {
-  background: white;
-  border-color: white;
+  background: var(--color-card-elevated);
+  border-color: var(--color-card-elevated);
   color: var(--color-text-primary);
 }
 
 .light:hover {
-  background: white;
-  border-color: white;
-  opacity: 0.85;
+  background: var(--color-card-elevated);
+  border-color: var(--color-card-elevated);
+  opacity: var(--action-hover-opacity);
 }
 
 .light:focus-visible {
@@ -139,6 +137,8 @@
 .xl {
   height: auto;
   padding: var(--space-4) var(--space-9);
+  /* Scale gap: 13 (xs) → 14 (sm) → 14 (md) → 15 (base) → 16 (lg).
+     15px is between base and lg; no dedicated token in shared scale. */
   font-size: 15px;
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
@@ -151,8 +151,8 @@
 
 /* Active state — all variants */
 .button:active:not(:disabled):not([aria-disabled="true"]) {
-  transform: scale(0.98);
-  transition-duration: 50ms;
+  transform: scale(var(--active-scale));
+  transition: transform var(--transition-active);
 }
 
 /* Loading */
@@ -184,6 +184,22 @@
   border-radius: var(--radius-full);
   animation: btn-spin 0.6s linear infinite;
   opacity: 0.7;
+}
+
+/* Spinner sizing — scale by button size */
+.sm .spinner::after {
+  width: 12px;
+  height: 12px;
+}
+
+.lg .spinner::after {
+  width: 16px;
+  height: 16px;
+}
+
+.xl .spinner::after {
+  width: 18px;
+  height: 18px;
 }
 
 @keyframes btn-spin {

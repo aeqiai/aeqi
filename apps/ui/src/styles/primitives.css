@@ -173,7 +173,7 @@
      against the paper bg. Hover pushes to pure black. */
   --btn-primary-bg: var(--color-accent);
   --btn-primary-bg-hover: var(--color-accent-hover);
-  --btn-primary-text: #ffffff;
+  --btn-primary-text: var(--color-text-on-accent);
   /* Secondary buttons paint white (paper), not grey (chrome). They sit
      visible-at-rest on any surface and read as content-level affordances
      paired with primary fills. Transparency-at-rest belongs to ghost. */

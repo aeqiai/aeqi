@@ -27,12 +27,17 @@
 
 .trigger:focus-visible {
   outline: none;
-  box-shadow: var(--ink-ring-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.trigger:active:not(:disabled) {
+  transform: scale(var(--active-scale));
+  transition-duration: var(--transition-active);
 }
 
 .trigger:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   color: var(--color-text-muted);
 }
 

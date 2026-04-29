@@ -32,6 +32,17 @@
   box-shadow: var(--focus-ring);
 }
 
+.tab:active:not(:disabled) {
+  transform: scale(var(--active-scale));
+  transition-duration: var(--transition-active);
+}
+
+.tab:disabled {
+  opacity: var(--action-disabled-opacity);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .tab[aria-selected="true"] {
   background: transparent;
   color: var(--color-text-primary);

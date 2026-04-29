@@ -23,11 +23,16 @@
 
 .option:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 2px var(--color-focus-ring);
+  box-shadow: var(--focus-ring);
+}
+
+.option:active:not(:disabled) {
+  transform: scale(var(--active-scale));
+  transition-duration: var(--transition-active);
 }
 
 .option:disabled {
-  opacity: 0.5;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
   pointer-events: none;
 }

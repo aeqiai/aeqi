@@ -35,13 +35,19 @@
   background: var(--state-hover);
 }
 
+.item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .item:active:not(.disabled) {
   background: var(--state-pressed);
 }
 
 .item.disabled {
-  opacity: 0.45;
+  opacity: var(--action-disabled-opacity);
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Destructive variant — red label on hover / active / armed */

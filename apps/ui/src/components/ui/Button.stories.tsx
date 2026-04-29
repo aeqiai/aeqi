@@ -378,3 +378,340 @@ export const WithTrailingIcon: Story = {
     },
   },
 };
+
+/* ── Composition: All sizes × all variants matrix ── */
+
+export const AllSizesMatrix: Story = {
+  name: "All Sizes Matrix",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Primary
+        </p>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Button variant="primary" size="sm">
+            Save
+          </Button>
+          <Button variant="primary" size="md">
+            Save
+          </Button>
+          <Button variant="primary" size="lg">
+            Save
+          </Button>
+          <Button variant="primary" size="xl">
+            Save
+          </Button>
+        </div>
+      </div>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Secondary
+        </p>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Button variant="secondary" size="sm">
+            Cancel
+          </Button>
+          <Button variant="secondary" size="md">
+            Cancel
+          </Button>
+          <Button variant="secondary" size="lg">
+            Cancel
+          </Button>
+          <Button variant="secondary" size="xl">
+            Cancel
+          </Button>
+        </div>
+      </div>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Ghost
+        </p>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Button variant="ghost" size="sm">
+            Dismiss
+          </Button>
+          <Button variant="ghost" size="md">
+            Dismiss
+          </Button>
+          <Button variant="ghost" size="lg">
+            Dismiss
+          </Button>
+          <Button variant="ghost" size="xl">
+            Dismiss
+          </Button>
+        </div>
+      </div>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Danger
+        </p>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Button variant="danger" size="sm">
+            Delete
+          </Button>
+          <Button variant="danger" size="md">
+            Delete
+          </Button>
+          <Button variant="danger" size="lg">
+            Delete
+          </Button>
+          <Button variant="danger" size="xl">
+            Delete
+          </Button>
+        </div>
+      </div>
+      <div>
+        <p
+          style={{
+            fontSize: 12,
+            color: "rgba(0,0,0,0.4)",
+            margin: "0 0 12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Light
+        </p>
+        <div
+          style={{
+            background: "var(--color-bg-elevated)",
+            padding: 12,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ display: "flex", gap: 12 }}>
+            <Button variant="light" size="sm">
+              Continue
+            </Button>
+            <Button variant="light" size="md">
+              Continue
+            </Button>
+            <Button variant="light" size="lg">
+              Continue
+            </Button>
+            <Button variant="light" size="xl">
+              Continue
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Canonical 5-row × 4-column lookup table showing all variants (primary, secondary, ghost, danger, light) across all sizes (sm, md, lg, xl). Use this as the reference for visual consistency across the product.",
+      },
+    },
+  },
+};
+
+/* ── Composition: Full width auth form button ── */
+
+export const WithFullWidth: Story = {
+  name: "Full Width (auth form)",
+  render: () => (
+    <div
+      style={{
+        maxWidth: 360,
+        padding: 24,
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md)",
+      }}
+    >
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          margin: "0 0 16px",
+        }}
+      >
+        Sign in to your company
+      </p>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <input
+          type="email"
+          placeholder="you@example.com"
+          style={{
+            padding: "10px 12px",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-md)",
+            fontSize: 14,
+          }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          style={{
+            padding: "10px 12px",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-md)",
+            fontSize: 14,
+          }}
+        />
+      </div>
+      <Button variant="primary" size="lg" fullWidth>
+        Continue
+      </Button>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Full-width button at the base of an auth form or modal (360px container). Stretches edge-to-edge for clear CTA affordance in narrow contexts. Use on signup, login, and modal action rows.",
+      },
+    },
+  },
+};
+
+/* ── Composition: Modal action row ── */
+
+export const ModalActionRow: Story = {
+  name: "Modal Action Row",
+  render: () => (
+    <div
+      style={{
+        maxWidth: 480,
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-md)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          padding: "24px",
+          borderBottom: "1px solid var(--color-border)",
+        }}
+      >
+        <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 8px" }}>Delete Agent</p>
+        <p style={{ fontSize: 13, color: "rgba(0,0,0,0.6)", margin: 0 }}>
+          This action cannot be undone. All quest history and associated data will be permanently
+          removed.
+        </p>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "16px 24px",
+          backgroundColor: "var(--color-bg-paper)",
+        }}
+      >
+        <Button variant="danger" size="md">
+          Delete
+        </Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="secondary" size="md">
+            Cancel
+          </Button>
+          <Button variant="primary" size="md">
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Canonical modal footer pattern: danger action left-aligned, secondary Cancel + primary Save right-aligned. Separates destructive choice from affirmative flow while keeping both paths visible.",
+      },
+    },
+  },
+};
+
+/* ── Composition: Empty state CTA ── */
+
+export const EmptyStateCTA: Story = {
+  name: "Empty State CTA",
+  render: () => (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 16,
+        padding: "48px 24px",
+        textAlign: "center",
+      }}
+    >
+      <p
+        style={{
+          fontSize: 16,
+          fontWeight: 500,
+          color: "rgba(0,0,0,0.8)",
+          margin: 0,
+        }}
+      >
+        No quests yet
+      </p>
+      <p
+        style={{
+          fontSize: 14,
+          color: "rgba(0,0,0,0.6)",
+          margin: 0,
+          maxWidth: 280,
+        }}
+      >
+        Create a quest to get your agent started on its first task.
+      </p>
+      <Button variant="primary" size="lg">
+        Create Quest
+      </Button>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Centered empty state with headline, subtitle, and primary CTA. Use on blank dashboards, list pages, and zero-state surfaces to guide users toward the first action.",
+      },
+    },
+  },
+};

@@ -1,0 +1,105 @@
+import { Meta } from "@storybook/blocks";
+import { Button } from "../Button";
+
+<Meta title="Foundations/Button" />
+
+# Button
+
+Button is the universal control for any action that creates, modifies, navigates, or destroys data. It carries visual weight proportional to the urgency and consequence of that action — primary CTA gets fill and focus, secondary gets outline, destructive gets red, quiet actions disappear until hovered. Every button shares one height canon across sm/md/lg sizes so Button and Input line up vertically in dense layouts.
+
+## Variants
+
+Five variants map to five distinct affordances. **Same action = same variant everywhere.** This rule has been validated across 170 call sites with zero conflicts.
+
+| Variant       | Role                                     | Use when                                                                                                       | Never when                                                                                                 |
+| ------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **primary**   | Creates, saves, commits, progresses      | The one filled CTA per surface (Save, Send code, Create quest, + New)                                          | There's already a primary on this surface; you need Cancel next to an action                               |
+| **secondary** | Visible-at-rest companion                | Cancel beside Save; Back navigation; Set up later; scope picker — anything that needs to stay readable at rest | You want to hide an action until hover; destructive needs to be subtle                                     |
+| **ghost**     | Quiet inline action, hover/focus reveals | Toolbar overflow, list-row × close, transcript controls, refresh buttons                                       | The Cancel sibling next to a primary — always pair Cancel with `secondary` so the dismiss path never hides |
+| **danger**    | Destructive primary                      | Delete agent, Sign out everywhere, Revoke access — the red CTA on a deletion surface                           | The action isn't permanent; you want to be quiet about destructive choice                                  |
+| **light**     | Inverse CTA on dark surfaces             | Hero button on footer with accent background; white text for contrast on dark or accent tint                   | Light surfaces; you have a primary on the same surface; you want a quiet action                            |
+
+See [Patterns/Toolbar](/?path=/docs/patterns-toolbar--page) for the variant decision tree in context and the chrome/paper/ink tier rule.
+
+## Sizes
+
+Four heights pinned to the app's row rhythm so Button + Input line up vertically.
+
+| Size   | Height                | Use when                                                                            |
+| ------ | --------------------- | ----------------------------------------------------------------------------------- |
+| **sm** | 28px                  | Toolbar buttons (New, Sort, Filter, View), menu actions, icon-only pairs            |
+| **md** | 32px (var(--input-h)) | Default everywhere — form CTAs, card actions, modal buttons. Most buttons are md    |
+| **lg** | 40px                  | Prominent CTAs in empty states, page-level actions, hero section partner to heading |
+| **xl** | auto-padded           | Hero CTA on marketing pages, landing footer actions. Largest scale, statement piece |
+
+All sizes use `border-radius: --radius-full` (pill shape), matching the industry standard: Stripe, Linear, Vercel, GitHub. Sizes scale the internal padding and font size proportionally; the spinner inside scales with the button.
+
+## States
+
+Every button handles standard interactive states. The component supplies the DOM and ARIA attributes; you supply the semantic meaning.
+
+| State             | What happens                                                                                                                                                                                   | ARIA                                              | Consumer concern                                                                                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **default**       | Resting color per variant                                                                                                                                                                      | `button` role native                              | —                                                                                                                                                                                  |
+| **hover**         | Primary: darker fill + shadow. Secondary: border-color shifts darker. Ghost: background tints. Others: opacity fade or fill adjust                                                             | Focus-in not needed; native hover                 | —                                                                                                                                                                                  |
+| **focus-visible** | 2px ring around the button (--focus-ring)                                                                                                                                                      | Automatic `:focus-visible` outline                | Works for keyboard nav; pass `autoFocus` when needed for first-page CTAs                                                                                                           |
+| **active/press**  | Scale down 2% (`--active-scale`) with fast easing for tactile feedback                                                                                                                         | `active` pseudo-class                             | —                                                                                                                                                                                  |
+| **disabled**      | Opacity 0.5 by default; **primary disabled is special**: uses --color-border (graphite unfilled) at opacity 1 so it reads as "not ready" and pulls the eye to inputs that still need attention | `disabled` attribute locks `pointer-events: none` | Set `disabled` when form validation isn't satisfied; don't hide the button                                                                                                         |
+| **loading**       | Spinner replaces text, button stays locked. Pass `loading={true}`                                                                                                                              | `aria-busy="true"` fires automatically            | Set `loadingLabel=""` if the button label already describes the action (e.g., "Save" + spinner should say just "Save" to screen readers, not "Save Loading"). Default is "Loading" |
+
+## Affordance identity rules
+
+**Locked across the app.** These have been validated without conflicts:
+
+- **"Save" / "+ New" / "Create" → primary.** The one action that creates or commits on this surface.
+- **"Cancel" / "Back" / dismiss sibling → secondary.** Always secondary, never ghost, so the dismiss path stays readable at rest.
+- **Quiet inline actions → ghost.** Refresh, overflow menu triggers, list-row × close, transcript controls. Hover/focus reveals them.
+- **Destructive → danger.** Delete agent, Sign out everywhere, Revoke. Red fill signals permanent consequence.
+- **Dark-surface CTA → light.** White button on accent or dark backgrounds (e.g., landing footer Explore CTA). Rare; use when inversion is needed.
+
+## Disabled-state-as-form-affordance
+
+Primary buttons have a special disabled rule: instead of fading to opacity 0.5, disabled primary uses `--color-border` (graphite, unfilled) at opacity 1. This reads as "not ready" rather than "broken" and draws the eye to input fields that still need attention.
+
+Example: sign-up form with all fields required. The "Sign Up" button starts disabled and painted graphite. As the user fills fields, it stays disabled until every field validates. When enabled, it fills with ink and gains weight. The disabled graphite state is a visual affordance that says "complete the form" — not a state to hide.
+
+Use this pattern for:
+
+- Primary CTAs that depend on form validation
+- Progression buttons that unlock after required steps
+- Save buttons that only enable on actual changes
+
+All other variants use standard `opacity: var(--action-disabled-opacity)` (0.5).
+
+## Composition patterns
+
+**Sibling primitives that share Button's contracts:**
+
+- **[IconButton](/?path=/docs/primitives-actions-iconbutton--page)** — Icon-only square (circular), same states and `--focus-ring`
+- **[ChipClose](/?path=/docs/primitives-actions-chipclose--page)** — × button inside a chip, same states
+- **[TabTrigger](/?path=/docs/primitives-actions-tabtrigger--page)** — Tab header pill, same `--focus-ring` and `--active-scale`
+- **[SelectOption](/?path=/docs/primitives-inputs-selectoption--page)** — Dropdown row, inherits `--action-disabled-opacity`
+- **[CardTrigger](/?path=/docs/primitives-actions-cardtrigger--page)** — Whole-row click container, same disabled contract
+
+All share:
+
+- `--focus-ring` for keyboard nav
+- `--action-disabled-opacity` for disabled states
+- `--active-scale` for press feedback
+- Pill shape (`--radius-full`)
+
+See [Patterns/Toolbar](/?path=/docs/patterns-toolbar--page) for the canonical primitive-page header (search + sort/filter/view + Button), including the chrome/paper/ink zone tier rule and the variant decision table.
+
+## API reference
+
+See the **Docs** tab for the full prop surface, including:
+
+- `variant` — "primary" | "secondary" | "ghost" | "danger" | "light" (default: "secondary")
+- `size` — "sm" | "md" | "lg" | "xl" (default: "md")
+- `loading` — boolean; fires `aria-busy="true"` and disables the button
+- `loadingLabel` — string for screen readers; defaults to "Loading", set to "" to suppress
+- `fullWidth` — boolean for auth forms and modal action rows
+- `trailingIcon` — ReactNode rendered to the right of the label, animates on hover
+- All standard `<button>` HTML attributes (`disabled`, `onClick`, `title`, etc.)
+
+The component is forwarded with `forwardRef`, so you can access the underlying `<button>` DOM node directly.

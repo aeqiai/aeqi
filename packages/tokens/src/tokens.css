@@ -297,6 +297,7 @@
   --transition-fast: 150ms ease;
   --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-active: 50ms ease;
 
   /* ── Z-index ────────────────────────────────────── */
 
@@ -334,7 +335,16 @@
   --hover-lift: -1px;
   --hover-bg: rgba(0, 0, 0, 0.03);
   --focus-ring: 0 0 0 2px var(--color-card), 0 0 0 4px rgba(0, 0, 0, 0.16);
+  --focus-ring-danger: 0 0 0 2px var(--color-card), 0 0 0 4px var(--color-error);
   --active-scale: 0.98;
+
+  /* ── Action primitive states ────────────────────── */
+  /* Reused by Button, IconButton, ChipClose, TabTrigger, SelectOption,
+   * CardTrigger, Menu — anywhere a clickable action surface fades or
+   * dims. Centralised so disabled and hover-fade values can be tuned in
+   * one place across the family. */
+  --action-disabled-opacity: 0.5;
+  --action-hover-opacity: 0.85;
 
   /* ── Prose / content widths ─────────────────────── */
 

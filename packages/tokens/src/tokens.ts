@@ -195,6 +195,7 @@ export const transition = {
   fast: "150ms ease",
   normal: "200ms cubic-bezier(0.4, 0, 0.2, 1)",
   slow: "500ms cubic-bezier(0.4, 0, 0.2, 1)",
+  active: "50ms ease",
 } as const;
 
 export const zIndex = {
