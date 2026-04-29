@@ -32,18 +32,12 @@ const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
 const HomeDashboard = lazy(() => import("./HomeDashboard"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
-// Tabs whose content is wrapped by CompanyPage's PageRail (Overview /
-// Positions / Agents / Events / Quests / Ideas). Every other agent-
-// scoped tab (sessions, settings, channels, tools, integrations, plan)
-// renders bare AgentPage so it doesn't get a duplicate rail.
-const COMPANY_PAGERAIL_TABS = new Set([
-  "overview",
-  "positions",
-  "agents",
-  "events",
-  "quests",
-  "ideas",
-]);
+// Tabs whose content is wrapped by CompanyPage's PageRail (Overview,
+// Positions only — these are the company-specific surfaces). The four
+// W-primitives (Agents, Events, Quests, Ideas) remain top-level
+// destinations in the global LeftSidebar's Build group; they render
+// through AgentPage directly with no PageRail wrapper.
+const COMPANY_PAGERAIL_TABS = new Set(["overview", "positions"]);
 
 const COMPANY_TABS = new Set([
   "agents",

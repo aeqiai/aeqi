@@ -5,10 +5,6 @@ import PageRail from "@/components/PageRail";
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "positions", label: "Positions" },
-  { id: "agents", label: "Agents" },
-  { id: "events", label: "Events" },
-  { id: "quests", label: "Quests" },
-  { id: "ideas", label: "Ideas" },
 ];
 
 interface CompanyPageProps {
@@ -33,10 +29,6 @@ export default function CompanyPage({ agentId, tab, itemId }: CompanyPageProps) 
     const titles: Record<string, string> = {
       overview: "overview",
       positions: "positions",
-      agents: "agents",
-      events: "events",
-      quests: "quests",
-      ideas: "ideas",
     };
     const section = titles[tab] || "company";
     document.title = `${section} · æqi`;

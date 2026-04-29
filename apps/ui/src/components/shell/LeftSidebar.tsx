@@ -44,6 +44,33 @@ const CompanyIcon = () => (
   </svg>
 );
 
+const AgentsIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="8" cy="5.5" r="2.5" />
+    <path d="M3 13.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5" />
+  </svg>
+);
+
+const EventsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M9 2 4 9h4l-1 5 5-7H8z" />
+  </svg>
+);
+
+const QuestsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M4 2v12" />
+    <path d="M4 3h7l-2 2.5L11 8H4z" />
+  </svg>
+);
+
+const IdeasIcon = () => (
+  <svg {...iconProps}>
+    <path d="M5 7a3 3 0 0 1 6 0c0 1.5-1 2.5-1 3.5h-4c0-1-1-2-1-3.5z" />
+    <path d="M6.5 12h3M7 14h2" />
+  </svg>
+);
+
 const ProjectsIcon = () => (
   <svg {...iconProps}>
     <rect x="2" y="2" width="5.5" height="5.5" rx="0.5" />
@@ -294,6 +321,17 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
             </a>
           )}
         </nav>
+
+        {/* ── Build — the four W-primitives (Agents=WHO, Events=WHEN,
+            Quests=WHAT, Ideas=HOW) live globally so the user can reach
+            them from any context. Company-specific surfaces (Overview,
+            Positions) live inside the Company sub-rail above. ── */}
+        <SidebarGroup title="Build" groupKey="build">
+          {navItem("agents", "Agents", <AgentsIcon />)}
+          {navItem("events", "Events", <EventsIcon />)}
+          {navItem("quests", "Quests", <QuestsIcon />)}
+          {navItem("ideas", "Ideas", <IdeasIcon />)}
+        </SidebarGroup>
 
         {/* ── Operate (soon) — Company-side surfaces (Projects, CRM,
             Metrics). Visible-but-disabled so the shape of the product
