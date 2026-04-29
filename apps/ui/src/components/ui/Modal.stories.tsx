@@ -226,3 +226,188 @@ export const CompleteQuest: Story = {
   name: "Quest Completion",
   render: () => <CompleteQuestDemo />,
 };
+
+/* ── Long content with scrolling ── */
+
+function LongContentDemo() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        View Full Event Log
+      </Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Event Log: code-reviewer">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "85vh" }}>
+          {Array.from({ length: 35 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "8px 12px",
+                border: "1px solid rgba(0,0,0,0.08)",
+                borderRadius: 6,
+                fontSize: 12,
+                color: "rgba(0,0,0,0.65)",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "rgba(0,0,0,0.85)", marginBottom: 2 }}>
+                Event #{35 - i}: session:step_start
+              </div>
+              <div>
+                Executed tool call: ideas.search, query "authentication patterns", returned 7
+                results
+              </div>
+              <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 2 }}>
+                2026-04-28 {String(10 + i).padStart(2, "0")}:30:45 UTC
+              </div>
+            </div>
+          ))}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+export const LongContentScroll: Story = {
+  name: "Long Content Scroll",
+  render: () => <LongContentDemo />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Modal body content exceeds 85vh max-height. The modal scrolls internally; header stays fixed. Demonstrates scroll-within-modal pattern for long event logs or lists.",
+      },
+    },
+  },
+};
+
+/* ── Loading state with spinner ── */
+
+function LoadingStateDemo() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Sync Agents
+      </Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Syncing Agents">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+            padding: "24px 0",
+            minHeight: 140,
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              border: "2px solid rgba(0,0,0,0.1)",
+              borderTopColor: "rgba(0,0,0,0.6)",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 14, color: "rgba(0,0,0,0.7)", marginBottom: 4 }}>
+              Fetching 12 agents...
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+              This may take a few seconds
+            </div>
+          </div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </Modal>
+    </>
+  );
+}
+
+export const LoadingState: Story = {
+  name: "Loading State",
+  render: () => <LoadingStateDemo />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Modal showing a loading spinner during async work. The close button remains active. Pattern: use a centered spinner with descriptive text; don't disable the modal to show loading.",
+      },
+    },
+  },
+};
+
+/* ── Empty title (header close-button-only) ── */
+
+function EmptyTitleDemo() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Show Notification
+      </Button>
+      <Modal open={open} onClose={() => setOpen(false)}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "20px 0",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              background: "rgba(34, 197, 94, 0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              color: "rgb(34, 197, 94)",
+              fontSize: 24,
+            }}
+          >
+            ✓
+          </div>
+          <div
+            style={{ fontSize: 15, fontWeight: 600, color: "rgba(0,0,0,0.85)", marginBottom: 8 }}
+          >
+            Agent Created
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)" }}>
+            The agent{" "}
+            <code
+              style={{
+                background: "rgba(0,0,0,0.04)",
+                padding: "2px 6px",
+                borderRadius: 3,
+                fontFamily: "var(--font-sans)",
+                fontSize: 12,
+              }}
+            >
+              audit-log-crawler
+            </code>{" "}
+            is ready to use.
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+export const EmptyTitle: Story = {
+  name: "Empty Title",
+  render: () => <EmptyTitleDemo />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Modal rendered without a title prop. Header shows only the close button, leaving full width for centered content. Useful for notifications or visual confirmations.",
+      },
+    },
+  },
+};

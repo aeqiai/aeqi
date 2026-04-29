@@ -13,6 +13,8 @@ export interface ModalProps {
 export function Modal({ open, onClose, title, children, className }: ModalProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const dialogId = useRef(`modal-${Math.random().toString(36).slice(2, 9)}`).current;
+  const titleId = `${dialogId}-title`;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -81,13 +83,15 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         className={[styles.surface, className].filter(Boolean).join(" ")}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
           <div className={styles.header}>
-            <h2 className={styles.title}>{title}</h2>
+            <h2 className={styles.title} id={titleId}>
+              {title}
+            </h2>
             <button
               className={styles.close}
               onClick={onClose}

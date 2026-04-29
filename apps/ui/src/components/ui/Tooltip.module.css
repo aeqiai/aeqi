@@ -3,6 +3,12 @@
   display: inline-flex;
 }
 
+/*
+  Inverted color scheme is intentional. Tooltip is the only primitive that flips
+  ink/paper — graphite background + light text — to read as a transient hover
+  hint distinct from any resting surface in the system. Don't "fix" to a
+  card-tier background.
+*/
 .bubble {
   position: absolute;
   z-index: var(--z-tooltip);

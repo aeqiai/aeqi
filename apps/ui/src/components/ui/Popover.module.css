@@ -14,7 +14,7 @@
 
 .panel {
   position: absolute;
-  z-index: 20;
+  z-index: var(--z-popover);
   min-width: 160px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);

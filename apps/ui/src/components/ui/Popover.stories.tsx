@@ -112,3 +112,114 @@ export const Uncontrolled: Story = {
     </div>
   ),
 };
+
+/* ── Portal mode with scrollable container ── */
+
+export const PortalMode: Story = {
+  name: "Portal Mode",
+  render: () => (
+    <div style={{ padding: 40 }}>
+      <div
+        style={{
+          width: 300,
+          height: 300,
+          overflowY: "auto",
+          border: "1px solid rgba(0,0,0,0.12)",
+          borderRadius: 8,
+          padding: 16,
+          background: "rgba(0,0,0,0.02)",
+        }}
+      >
+        <div
+          style={{
+            height: 400,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+          }}
+        >
+          <Popover
+            trigger={<Button variant="secondary">Open (portal mode)</Button>}
+            placement="bottom-start"
+            portal={true}
+          >
+            <SampleContent />
+          </Popover>
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Popover with portal={true} inside a scrollable container. The bubble escapes the overflow boundary and stays anchored to the trigger. Portal mode prevents clipping; omit it for inline behaviour.",
+      },
+    },
+  },
+};
+
+/* ── Long list with scroll ── */
+
+export const LongList: Story = {
+  name: "Long List",
+  render: () => (
+    <div style={{ padding: 40 }}>
+      <Popover trigger={<Button variant="secondary">Many Items</Button>} placement="bottom-start">
+        <div style={{ padding: "8px 0", maxHeight: 300, overflowY: "auto" }}>
+          {Array.from({ length: 25 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "6px 14px",
+                fontSize: 13,
+                cursor: "pointer",
+                color: "var(--text-primary)",
+                borderBottom: i < 24 ? "1px solid rgba(0,0,0,0.06)" : "none",
+              }}
+            >
+              Quest {i + 1}:{" "}
+              {["Refactor auth", "Add logging", "Fix bug", "Write docs", "Review PR"][i % 5]}
+            </div>
+          ))}
+        </div>
+      </Popover>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Popover containing 25+ menu items. The panel itself scrolls (max-height + overflow-y: auto). Demonstrates scrolling within a bounded popover panel.",
+      },
+    },
+  },
+};
+
+/* ── Disabled trigger ── */
+
+export const DisabledTrigger: Story = {
+  name: "Disabled Trigger",
+  render: () => (
+    <div style={{ padding: 40 }}>
+      <Popover
+        trigger={
+          <Button variant="secondary" disabled>
+            Can't Open
+          </Button>
+        }
+        placement="bottom-start"
+      >
+        <SampleContent />
+      </Popover>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Trigger button is disabled={true}. Clicking the disabled trigger does not open the popover. The affordance communicates that interaction is unavailable.",
+      },
+    },
+  },
+};

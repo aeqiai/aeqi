@@ -7,13 +7,13 @@
   justify-content: center;
   background: var(--color-scrim);
   backdrop-filter: blur(8px);
-  animation: fadeIn 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn var(--transition-normal);
 }
 
 .surface {
   position: relative;
   z-index: var(--z-modal);
-  background: var(--color-bg-base);
+  background: var(--color-card-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   width: 520px;
@@ -22,7 +22,7 @@
   overflow-y: auto;
   padding: var(--space-6);
   box-shadow: var(--shadow-lg);
-  animation: slideIn 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  animation: slideIn var(--transition-normal);
 }
 
 .surface:focus {

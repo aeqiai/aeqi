@@ -131,3 +131,75 @@ export const BadgeTooltip: Story = {
     </Tooltip>
   ),
 };
+
+/* ── Keyboard focus accessibility ── */
+
+export const KeyboardFocus: Story = {
+  name: "Keyboard Focus",
+  render: () => (
+    <Tooltip content="View full agent transcript" position="bottom">
+      <Button variant="secondary">Tab to me</Button>
+    </Tooltip>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Tooltip appears on keyboard focus (Tab key) and disappears on blur. Tooltip is keyboard-accessible; not just hover-triggered. Press Tab to focus the button.",
+      },
+    },
+  },
+};
+
+/* ── Long text constraint ── */
+
+export const LongText: Story = {
+  name: "Long Text",
+  args: {
+    content:
+      "This is a long tooltip text with more than fifty characters to demonstrate the constraint",
+    position: "top",
+    children: <Button variant="secondary">Long tooltip</Button>,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Tooltip with long content (50+ chars) applies white-space: nowrap and constrains width. For longer descriptions, use a Popover instead; Tooltip is for short, single-line hints.",
+      },
+    },
+  },
+};
+
+/* ── Inside scroll container with portal ── */
+
+export const InsideScrollContainer: Story = {
+  name: "Inside Scroll Container",
+  render: () => (
+    <div
+      style={{
+        width: 200,
+        height: 200,
+        overflow: "hidden",
+        border: "1px solid rgba(0,0,0,0.12)",
+        borderRadius: 8,
+        padding: 16,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Tooltip content="This tooltip uses portal mode" position="top" portal={true}>
+        <Button variant="secondary">Hover me</Button>
+      </Tooltip>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Tooltip inside a container with overflow: hidden. With portal={true}, the tooltip escapes the clip boundary and renders above it. Without portal, the tooltip clips. Portal opt-in fixes container-trapped tooltips.",
+      },
+    },
+  },
+};

@@ -1,0 +1,138 @@
+import { Meta } from "@storybook/blocks";
+import { Modal } from "../Modal";
+import { Popover } from "../Popover";
+import { Tooltip } from "../Tooltip";
+
+<Meta title="Foundations/Overlays" />
+
+# Overlays
+
+Three primitives float above the page's primary surface, each with a distinct interaction contract. **Modal** demands full attention and locks focus until dismissed. **Popover** is a lightweight floating panel anchored to a trigger, used for filters, pickers, and context menus. **Tooltip** is a transient hover hint with no interactive surface. All three use the z-index stack to guarantee predictable layering.
+
+## When to use which
+
+| Primitive   | Use when                                                               | Don't use when                                               |
+| ----------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Modal**   | Full-attention workflow requiring user response (confirm, form, block) | The interaction is lightweight or non-blocking               |
+| **Popover** | Lightweight floating panel attached to trigger (filter, menu, picker)  | The content needs focus trapping or full-page attention      |
+| **Tooltip** | Transient keyboard/hover hint with 2–8 words of text                   | The hint is longer than 8 words or needs interactive content |
+
+## The z-index stack — locked
+
+Four layers form the canonical stacking order for floating UI. Each is layered numerically, with each overlay type guaranteed to render above the layers below it:
+
+```
+--z-modal-backdrop: 40
+--z-modal: 50
+--z-popover: 60
+--z-tooltip: 70
+```
+
+**This stack is non-negotiable.** A popover opened inside a modal (60 > 50) sits above the modal surface. A tooltip on top of a popover (70 > 60) sits above the popover. Never hardcode `z-index: 20`, `z-index: 999`, or any literal value. Pre-Wave 5, Popover hardcoded z=20 and silently broke when used inside modals. The token is the only acceptable source.
+
+Any new floating layer must declare itself in the same range and be added to `packages/tokens/src/tokens.css` explicitly, with a design review.
+
+## Modal
+
+Full-attention dialog that traps focus and blocks the page beneath.
+
+- **Portal:** Always portaled to `document.body`
+- **Focus trap:** Tab/Shift+Tab cycle within surface; Tab past the last focusable element wraps to the first
+- **Focus restore:** On close, focus returns to the element that had focus before the modal opened
+- **Escape:** Always closes the modal
+- **Backdrop click:** Always closes the modal
+- **ARIA:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby` points to title heading (not an aria-label string)
+- **Surface:** Uses `--color-card-elevated` (#ffffff) — the elevated tier reserved for cards-on-cards, popovers, and modals
+- **Scroll lock:** `body { overflow: hidden }` applied while open
+- **Animation:** Backdrop fade + surface slide (200ms cubic-bezier via `--transition-normal`)
+- **Storybook:** `Primitives/Overlays/Modal`
+
+### Composition patterns
+
+- **Confirmation modal** — Modal containing a paragraph + Button pair (Cancel/Delete)
+- **Form modal** — Modal containing Input/Textarea/Select primitives + footer Button row
+
+## Popover
+
+Lightweight floating panel anchored to a trigger, used for dropdowns, filters, and menu-like interactions.
+
+### Render modes
+
+- **Inline mode (default):** `position: absolute` within parent container. Zero additional layout cost. Use when the trigger is in a normal flow context.
+- **Portal mode** (`portal={true}`): `position: fixed` + renders to `document.body`. Use when the trigger lives inside a scrollable container or any ancestor has `overflow: hidden`, which would otherwise clip the panel. Portal mode recomputes position on scroll and resize.
+
+### Interaction contract
+
+- **Focus trap:** No. `aria-modal="false"` — Tab returns focus to the page, not cycling within the panel
+- **Focus restore:** Yes. On close, focus returns to the first focusable element in the trigger
+- **Escape:** Closes the popover
+- **Click-outside:** Closes the popover (both inline and portal modes handle this)
+- **Trigger ARIA:** `aria-haspopup="dialog"`, `aria-expanded` (boolean), `aria-controls` (points to panel id)
+- **Panel:** `role="dialog"` (not aria-modal=true)
+- **Surface:** Uses `--color-card-elevated` (#ffffff)
+- **z-index:** `var(--z-popover)` (60)
+- **Storybook:** `Primitives/Overlays/Popover`
+
+### When to use portal mode
+
+Use `portal={true}` when:
+
+- Trigger is inside a scrollable container (list, kanban column, modal body)
+- Any ancestor has `overflow: hidden` or `overflow: auto`
+- The popover content is tall and would clip
+
+Inline mode is cheaper (no portal cost) but clips in overflow contexts.
+
+## Tooltip
+
+Transient hover/focus hint rendered as a small bubble near the trigger.
+
+### Render modes
+
+- **Inline mode (default):** Wrapper that measures the trigger and positions the bubble absolutely. Zero portal cost. Use in normal flow contexts.
+- **Portal mode** (`portal={true}`): `position: fixed` + renders to `document.body`. Use inside overflow:hidden / scrollable parents.
+
+### Interaction contract
+
+- **Triggered by:** Hover + keyboard focus (both modes). Accessible to screen readers.
+- **Show delay:** 200ms (avoids flicker on hover-through; gives users time to move the mouse)
+- **ARIA:** `role="tooltip"` on bubble, `aria-describedby` on trigger pointing to bubble id
+- **z-index:** `var(--z-tooltip)` (70)
+- **Storybook:** `Primitives/Overlays/Tooltip`
+
+### Visual contract — inverted colors (intentional)
+
+Tooltip is the only primitive in the system that uses **inverted colors** — graphite background + light text. This is locked by design. Tooltips read as transient hover hints, visually distinct from any resting surface (which use paper/card tiers). If a tooltip used `--color-card-elevated` it would be indistinguishable from a Popover, breaking the visual contract.
+
+Do not "fix" tooltip colors to match card backgrounds. The inversion is the signal that distinguishes "temporary hover help" from "persistent panel."
+
+### Content guidelines
+
+Tooltips are for short hints: 2–8 words. Examples: "Sent 3h ago", "Requires approval", "Copy to clipboard." Longer explanations need a Popover or a separate help surface.
+
+## The interaction contract — full matrix
+
+| Behaviour               | Modal          | Popover  | Tooltip  |
+| ----------------------- | -------------- | -------- | -------- |
+| Portal                  | always         | optional | optional |
+| Focus trap              | yes            | no       | no       |
+| Focus restore           | yes            | yes      | n/a      |
+| Escape closes           | yes            | yes      | n/a      |
+| Click-outside closes    | yes (backdrop) | yes      | n/a      |
+| Hover triggers          | n/a            | n/a      | yes      |
+| Keyboard focus triggers | n/a            | n/a      | yes      |
+| Scroll lock             | yes            | no       | no       |
+| ARIA role               | dialog         | dialog   | tooltip  |
+| aria-modal              | true           | false    | n/a      |
+
+A new overlay primitive should slot into one of these rows. If it doesn't fit any row, it's a new contract — bring it through design-system review before shipping.
+
+## API reference
+
+Each primitive's autodocs Docs tab carries the full prop table. Key surfaces:
+
+- **Modal** — `open`, `onClose`, `title`, `children`, `className`
+- **Popover** — `trigger`, `children`, `open`, `onOpenChange`, `placement`, `portal`, `className`
+- **Tooltip** — `content`, `position`, `portal`, `children`
+
+All components are forwarded with `forwardRef` for direct DOM access when needed.

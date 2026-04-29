@@ -105,14 +105,17 @@ describe("Modal", () => {
     expect(dialog).toHaveAttribute("role", "dialog");
   });
 
-  it("sets aria-label from title prop", () => {
+  it("sets aria-labelledby from title prop", () => {
     render(
       <Modal open={true} onClose={vi.fn()} title="Confirm Action">
         Body
       </Modal>,
     );
     const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveAttribute("aria-label", "Confirm Action");
+    const ariaLabelledby = dialog.getAttribute("aria-labelledby");
+    expect(ariaLabelledby).toBeTruthy();
+    const titleElement = document.getElementById(ariaLabelledby!);
+    expect(titleElement?.textContent).toBe("Confirm Action");
   });
 
   it("sets aria-modal to true", () => {
