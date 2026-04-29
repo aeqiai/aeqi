@@ -6,9 +6,25 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import App from "./App";
 import { wagmiConfig } from "./lib/wagmiConfig";
-import { AnalyticsProvider, createAnalytics, onConsentChange, readConsent } from "./lib/analytics";
+import {
+  AnalyticsProvider,
+  createAnalytics,
+  onConsentChange,
+  readConsent,
+  writeConsent,
+} from "./lib/analytics";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./styles/index.css";
+
+// Authed users have already accepted the privacy policy at signup, so
+// analytics defaults to on for them. Anonymous app visitors (rare —
+// the app is gated) stay null until they auth in or explicitly opt in.
+// Once a user toggles consent in /account/preferences, that decision
+// is respected on every subsequent boot.
+if (typeof window !== "undefined" && readConsent() === null) {
+  const hasToken = !!window.localStorage.getItem("aeqi_token");
+  if (hasToken) writeConsent("all");
+}
 
 const analytics = createAnalytics();
 

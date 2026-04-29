@@ -4,8 +4,17 @@ import type { AppMode } from "@/lib/appMode";
 import { useUIStore } from "@/store/ui";
 import { useInboxStore } from "@/store/inbox";
 import { clearSessionData } from "@/lib/session";
+import { readConsent, writeConsent } from "@/lib/analytics/consent";
 
 export type AuthMode = "none" | "secret" | "accounts" | null;
+
+/** Default analytics consent to "all" on first successful auth. The user
+ * accepted the privacy policy at signup, so opt-in is implicit; the
+ * Preferences panel lets them flip back to "essential" any time. Only
+ * fires when consent is null — never overrides an explicit user choice. */
+function defaultAnalyticsConsentOnAuth() {
+  if (readConsent() === null) writeConsent("all");
+}
 
 /** Set the active entity from a server response into both localStorage and Zustand.
  * After login, the router reads from localStorage to redirect to /:entityId. */
@@ -100,6 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (loginResp.ok && loginResp.token) {
             clearSessionData();
             localStorage.setItem("aeqi_token", loginResp.token);
+            defaultAnalyticsConsentOnAuth();
             set({ token: loginResp.token });
           }
         } catch {
@@ -119,6 +129,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (resp.ok && resp.token) {
         clearSessionData();
         localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
         set({ token: resp.token, loading: false });
         return true;
       }
@@ -147,6 +158,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (resp.ok && resp.token) {
         clearSessionData();
         localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
         const user = (resp.user as User | undefined) || null;
         set({ token: resp.token, user, loading: false });
         applyRoot(user?.roots);
@@ -178,6 +190,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (resp.ok && resp.pending_verification) {
         if (resp.token) {
           localStorage.setItem("aeqi_token", resp.token);
+          defaultAnalyticsConsentOnAuth();
           localStorage.setItem("aeqi_pending_email", email);
           set({
             token: resp.token,
@@ -192,6 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
         set({ token: resp.token, user: (resp.user as User | undefined) || null, loading: false });
         return "verified";
       }
@@ -210,6 +224,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resp = await api.verifyEmail(email, code);
       if (resp.ok && resp.token) {
         localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
         const user = (resp.user as User | undefined) || null;
         set({ token: resp.token, user, loading: false, pendingEmail: null });
         // Root was already set during signup -- don't wipe it.
@@ -242,6 +257,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (resp.ok && resp.token) {
         clearSessionData();
         localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
         const user = (resp.user as User | undefined) || null;
         set({ token: resp.token, user, loading: false, pending2faEmail: null });
         applyRoot(user?.roots);
@@ -263,6 +279,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if ((resp as Record<string, unknown>).ok && (resp as Record<string, unknown>).token) {
         clearSessionData();
         localStorage.setItem("aeqi_token", (resp as Record<string, unknown>).token as string);
+        defaultAnalyticsConsentOnAuth();
         const user = ((resp as Record<string, unknown>).user as User | undefined) || null;
         set({
           token: (resp as Record<string, unknown>).token as string,
@@ -294,6 +311,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   handleOAuthCallback: (token: string) => {
     clearSessionData();
     localStorage.setItem("aeqi_token", token);
+    defaultAnalyticsConsentOnAuth();
     set({ token });
     // Fetch user profile to get roots -- OAuth doesn't return user inline.
     get()
