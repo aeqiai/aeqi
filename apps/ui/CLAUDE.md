@@ -253,17 +253,21 @@ git push origin --delete design/<topic>
 ```
 
 **If `vite: not found` after cleanup:** the parent's node_modules/.bin/
-got damaged by the worktree teardown. Recover:
+got damaged by the worktree teardown. Recover with a clean nuke +
+reinstall:
 
 ```bash
-find /home/claudedev/aeqi/apps/ui/node_modules -delete   # rm -rf hits
-                                                          # ENOTEMPTY on
-                                                          # locked nested
-                                                          # deps (porto,
-                                                          # walletconnect,
-                                                          # viem, etc.)
-npm install
+rm -rf /home/claudedev/aeqi/apps/ui/node_modules
+cd /home/claudedev/aeqi/apps/ui && npm install
 ```
+
+`rm -rf` succeeds where `find -delete` does not. The earlier
+`find -delete + npm install` recipe was unreliable: find returns
+ENOTEMPTY on locked nested deps (`@reown/appkit`, `porto`,
+`walletconnect`, `viem`, …), npm install then layers into a partial
+tree, and the .bin/ symlinks come back broken. `rm -rf` removes the
+whole tree atomically and npm rebuilds clean — same wall-clock cost,
+total reliability.
 
 **UI-only deploy (no Rust changed):**
 
