@@ -322,16 +322,17 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           )}
         </nav>
 
-        {/* ── Build — the four W-primitives (Agents=WHO, Events=WHEN,
-            Quests=WHAT, Ideas=HOW) live globally so the user can reach
-            them from any context. Company-specific surfaces (Overview,
+        {/* ── The four W-primitives (Agents=WHO, Events=WHEN,
+            Quests=WHAT, Ideas=HOW) sit flat below Company — they are
+            canonical primitives, not a tool category, so they don't
+            need a "Build" wrapper. Company-specific surfaces (Overview,
             Positions) live inside the Company sub-rail above. ── */}
-        <SidebarGroup title="Build" groupKey="build">
+        <nav className="sidebar-surface-nav" aria-label="Primitives">
           {navItem("agents", "Agents", <AgentsIcon />)}
           {navItem("events", "Events", <EventsIcon />)}
           {navItem("quests", "Quests", <QuestsIcon />)}
           {navItem("ideas", "Ideas", <IdeasIcon />)}
-        </SidebarGroup>
+        </nav>
 
         {/* ── Operate (soon) — Company-side surfaces (Projects, CRM,
             Metrics). Visible-but-disabled so the shape of the product
