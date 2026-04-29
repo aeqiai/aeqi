@@ -547,13 +547,11 @@
 .account-feedback-success {
   background: var(--color-success-bg);
   color: var(--color-success);
-  border: 1px solid rgba(46, 143, 113, 0.2);
 }
 
 .account-feedback-error {
   background: var(--color-error-bg);
   color: var(--color-error);
-  border: 1px solid rgba(184, 92, 92, 0.2);
 }
 
 /* ── Settings page ─────────────────────────────────── */
@@ -1070,9 +1068,8 @@
 
 .account-qr-container {
   padding: var(--space-4);
-  background: var(--color-bg-base);
+  background: var(--color-card);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border);
   display: inline-block;
   margin-bottom: var(--space-3);
 }
@@ -1095,7 +1092,6 @@
   margin-top: var(--space-3);
   padding: var(--space-3);
   background: var(--color-warning-bg);
-  border: 1px solid rgba(185, 138, 71, 0.22);
   border-radius: var(--radius-md);
 }
 
