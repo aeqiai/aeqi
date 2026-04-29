@@ -296,8 +296,12 @@ If you add a new shared package:
 
 1. tsconfig.json — add `paths` for `@aeqi/<name>/*`
 2. vite.config.ts — add matching `resolve.alias` entry
-3. If the new package itself imports any peer-dep not already in the
-   `react / react-dom / react-router-dom` set, pin THAT one too.
+3. **vitest.config.ts** — mirror the same `resolve.alias` entry. Vitest
+   does NOT inherit vite.config.ts; the smoke test will fail with
+   `Failed to resolve import "@aeqi/<name>"` until you do.
+4. If the new package itself imports any peer-dep not already in the
+   `react / react-dom / react-router-dom` set, pin THAT one too in all
+   three files (vite.config.ts, tsconfig.json, vitest.config.ts).
 
 ## Running tools from a worktree without npm-install
 
