@@ -209,6 +209,13 @@ export default function AppLayout() {
   // Overview / Positions / etc. are explicit tabs the user clicks.
   const effectiveTab = tab || "sessions";
 
+  // Entity inbox: the bare `/c/<entity>` URL with no tab and no
+  // drilled agent. Renders the same HomeDashboard shape as `/` —
+  // greeting + status + inbox rail on the left, no chat composer.
+  // The chat surface (composer + transcript) is reserved for drilled
+  // agents at `/c/<entity>/agents/<id>/sessions/...`.
+  const isEntityHome = !!routeEntityId && !drilledAgent && !tab && !isUserSession;
+
   // Runtime mode has no account-level identity surface.
   if (isSettings && appMode && appMode !== "platform") {
     return <Navigate to="/" replace />;
@@ -224,7 +231,7 @@ export default function AppLayout() {
     if (isNotFound) return <NotFoundPage />;
     if (isStart) return <StartPage />;
     if (isUserSession && userSessionId) return <UserInboxSessionView sessionId={userSessionId} />;
-    if (isHome) return <HomeDashboard />;
+    if (isHome || isEntityHome) return <HomeDashboard />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
@@ -260,17 +267,26 @@ export default function AppLayout() {
       (!isDrive &&
         !isSettings &&
         !isHome &&
+        !isEntityHome &&
         !isStart &&
         !isEconomy &&
         effectiveTab === "sessions"));
   const showComposer = sessionsMounted;
-  // inbox-mode: at / and /sessions/:id (user scope) — items across all agents.
-  // agent-mode: at /c/<entity>/sessions[/...] — that agent's sessions only.
+  // inbox-mode rail: at `/` (user inbox), `/sessions/:id` (user
+  // session view), and `/c/<entity>` (entity-scoped inbox). Lists items
+  // across every agent in scope.
+  // agent-mode rail: at `/c/<entity>/agents/<id>/sessions[/...]` — that
+  // agent's sessions only, the chat surface.
   const inboxRail =
-    (isHome || isUserSession) && !isSettings && !isEconomy && !isStart && !isNotFound;
+    (isHome || isUserSession || isEntityHome) &&
+    !isSettings &&
+    !isEconomy &&
+    !isStart &&
+    !isNotFound;
   const agentRail =
     effectiveTab === "sessions" &&
     !!routeEntityId &&
+    !isEntityHome &&
     !isSettings &&
     !isDrive &&
     !isHome &&
