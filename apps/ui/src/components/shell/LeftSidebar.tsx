@@ -292,40 +292,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Workspace switcher — picks the active scope (you / a
-            company). Sits at the very top because it sets the URL
-            filter (`/` vs `/c/<entity>`) that every nav item below
-            inherits — Linear / Notion / Slack pattern. ── */}
-        <div className="sidebar-user-zone">
-          <CompanySwitcher />
-        </div>
-
-        {/* ── Action row: labeled "+ New" with search affordance on the
-            right (Linear/Notion pattern). Search is a separate hit area
-            (the + opens a create menu, search opens the palette). ── */}
-        <div className="sidebar-action-row">
-          <NewMenu />
-          <Tooltip
-            content={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
-          >
-            <button
-              type="button"
-              className="sidebar-row-action-btn"
-              onClick={openPalette}
-              aria-label="Open command palette"
-            >
-              <SearchIcon />
-            </button>
-          </Tooltip>
-        </div>
-
-        {/* ── My zone ── Personal lens. Items here are user-scoped
-            destinations the user has across every company they own.
-            Always visible regardless of scope; the *content* of each
-            page filters by the active scope (Home shows your feed
-            scoped to your data; Inbox shows what needs you). ── */}
+        {/* Personal items at the top — invariant, always visible. The
+            user's daily destinations across every company they own.
+            No "MY" header label; the spacing + the workspace switcher
+            below act as the implicit boundary between user-scope and
+            workspace-scope items. */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="My">
-          <div className="sidebar-zone-header">My</div>
           <a
             className={`sidebar-nav-item ${homeActive ? "active" : ""}`}
             href="/"
@@ -376,15 +348,40 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </a>
         </nav>
 
-        {/* ── Workspace zone ── Company-as-noun. Only shown when the
-            URL puts the user inside a company. Company points at the
-            org's Overview surface (card + Positions PageRail);
-            Agents/Events/Quests/Ideas are the four primitives at
-            company scope. ── */}
+        {/* Workspace switcher sits at the *junction* — between the
+            invariant personal items above and the scope-conditional
+            workspace items below. It's the pivot, so it lives between
+            the two scopes it pivots between. */}
+        <div className="sidebar-user-zone">
+          <CompanySwitcher />
+        </div>
+
+        {/* +New / search action row. */}
+        <div className="sidebar-action-row">
+          <NewMenu />
+          <Tooltip
+            content={`Search — jump to any agent, quest, or idea (${isMac ? "⌘" : "Ctrl"}K)`}
+          >
+            <button
+              type="button"
+              className="sidebar-row-action-btn"
+              onClick={openPalette}
+              aria-label="Open command palette"
+            >
+              <SearchIcon />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Workspace items — only shown when the URL puts the user
+            inside a company. Company points at the org's Overview
+            surface (card + Positions PageRail); Agents/Events/Quests/
+            Ideas are the four primitives at company scope. No header
+            label — the spacing above (the action row) is the implicit
+            boundary. */}
         {isEntityScope && (
           <>
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
-              <div className="sidebar-zone-header">Workspace</div>
               {base && (
                 <a
                   className={`sidebar-nav-item ${companyActive ? "active" : ""}`}

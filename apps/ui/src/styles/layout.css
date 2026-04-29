@@ -6462,22 +6462,11 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   color: var(--color-accent);
 }
 
-/* ── Sidebar zone headers (My, Workspace) ──────────────────── */
-
+/* Sidebar item zones — items grouped without header labels.
+   Hierarchy comes from spacing + the workspace switcher between
+   the personal items above and the workspace items below. */
 .sidebar-zone {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-.sidebar-zone-header {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  padding: 12px 12px 4px;
-}
-.left-sidebar.collapsed .sidebar-zone-header {
-  display: none;
 }
