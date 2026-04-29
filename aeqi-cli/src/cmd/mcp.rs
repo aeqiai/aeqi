@@ -670,9 +670,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     "cmd": "agent_spawn",
                                     "template": template,
                                 });
-                                if let Some(parent) = args.get("parent_id").and_then(|v| v.as_str())
+                                if let Some(parent) =
+                                    args.get("parent_agent_id").and_then(|v| v.as_str())
                                 {
-                                    ipc["parent_id"] = serde_json::json!(parent);
+                                    ipc["parent_agent_id"] = serde_json::json!(parent);
                                 }
                                 ipc_request_sync(&sock_path, &ipc)
                             }

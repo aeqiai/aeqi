@@ -136,13 +136,13 @@ async fn spawn_blueprint(
     if let (Some(accounts), Some(user_id)) = (&state.accounts, acting_user_id.as_deref())
         && succeeded
     {
-        if let Some(root_id) = resp.get("root_agent_id").and_then(|v| v.as_str())
-            && let Err(err) = accounts.add_director(user_id, root_id)
+        if let Some(entity_id) = resp.get("entity_id").and_then(|v| v.as_str())
+            && let Err(err) = accounts.add_director(user_id, entity_id)
         {
             tracing::warn!(
                 user_id,
-                root_id,
-                "spawn_blueprint: failed to link root to user: {err}"
+                entity_id,
+                "spawn_blueprint: failed to link entity to user: {err}"
             );
         }
         if let Err(err) = accounts.mark_free_company_used(user_id) {

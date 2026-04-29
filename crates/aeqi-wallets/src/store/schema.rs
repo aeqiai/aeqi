@@ -96,23 +96,6 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_wallet_signing_audit_signed_at
             ON wallet_signing_audit(signed_at);
 
-        -- Director relation: which users direct which agents (companies and
-        -- sub-agents). Multi-row per agent for multi-director companies and
-        -- DAO-controlled agents. Lives in the runtime DB alongside the
-        -- agents table; harmless on platform.db (the FK won't exist there).
-        CREATE TABLE IF NOT EXISTS agent_directors (
-            agent_id      TEXT NOT NULL,
-            user_id       TEXT NOT NULL,
-            role          TEXT NOT NULL CHECK (role IN ('director','member','observer')),
-            rights_jsonb  TEXT,
-            added_at      TEXT NOT NULL,
-            revoked_at    TEXT,
-            PRIMARY KEY (agent_id, user_id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_agent_directors_user_active
-            ON agent_directors(user_id) WHERE revoked_at IS NULL;
-
         -- Agent wallets. Every agent (company / sub-agent / AI worker) gets
         -- exactly one wallet at creation time, parallel to user_wallets but
         -- without the multi-wallet / primary-swap concerns. Custody, signing,

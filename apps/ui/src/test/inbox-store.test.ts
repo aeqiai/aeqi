@@ -7,7 +7,7 @@ function makeItem(sessionId: string, awaitingAt = "2026-04-25T10:00:00Z"): Inbox
     session_id: sessionId,
     agent_id: `agent-${sessionId}`,
     agent_name: `Agent ${sessionId}`,
-    root_agent_id: `agent-${sessionId}`,
+    entity_id: `entity-${sessionId}`,
     session_name: `session ${sessionId}`,
     awaiting_subject: "subject",
     awaiting_at: awaitingAt,

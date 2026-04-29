@@ -27,9 +27,11 @@ pub fn check_project(
     None
 }
 
-/// Walk the agent's parent chain up to a root agent and check if it's allowed.
-/// Handles arbitrary nesting depth (safety limit of 10 levels).
-/// The allowed list may contain either agent names or UUIDs.
+/// Check whether the agent is reachable from the allowed scope. The agent's
+/// owning entity (`agents.entity_id`) is the canonical tenancy anchor;
+/// allowing an entity grants access to every agent inside it. The legacy
+/// shape (allowed contains agent names) is supported by also matching the
+/// agent's own name/id directly.
 pub async fn check_agent_access(
     registry: &AgentRegistry,
     allowed: &Option<Vec<String>>,
@@ -40,51 +42,41 @@ pub async fn check_agent_access(
     }
     let allowed = allowed.as_ref().unwrap();
 
-    let mut current_id = agent_id.to_string();
-    for _ in 0..10 {
-        match registry.get(&current_id).await {
-            Ok(Some(agent)) => {
-                if agent.parent_id.is_none() {
-                    // Check both name and ID against the allowed list.
-                    return allowed.iter().any(|c| c == &agent.name || c == &agent.id);
-                }
-                match agent.parent_id {
-                    Some(pid) => current_id = pid,
-                    None => return false,
-                }
+    match registry.get(agent_id).await {
+        Ok(Some(agent)) => {
+            if let Some(eid) = agent.entity_id.as_deref()
+                && allowed.iter().any(|c| c == eid)
+            {
+                return true;
             }
-            _ => return false,
+            allowed.iter().any(|c| c == &agent.name || c == &agent.id)
         }
+        _ => false,
     }
-    false
 }
 
-/// Build the set of agent IDs belonging to allowed root agents.
-/// Used for filtering lists of quests, approvals, etc.
-/// The allowed list may contain either agent names or UUIDs.
+/// Build the set of agent IDs belonging to allowed entities. Used for
+/// filtering lists of quests, approvals, etc. The allowed list may contain
+/// entity ids, entity slugs, or root-agent names/ids; an agent is in scope
+/// when its owning entity hits any of those, or when the agent itself is
+/// named explicitly in the allowed list.
 pub async fn allowed_agent_ids(
     registry: &AgentRegistry,
     allowed: &Option<Vec<String>>,
 ) -> Option<std::collections::HashSet<String>> {
     let allowed = allowed.as_ref()?;
     let all_agents = registry.list(None, None).await.unwrap_or_default();
-    let root_ids: std::collections::HashSet<String> = all_agents
-        .iter()
-        .filter(|a| a.parent_id.is_none() && allowed.iter().any(|c| c == &a.name || c == &a.id))
-        .map(|a| a.id.clone())
-        .collect();
-    // Iteratively expand to include all descendants.
-    let mut ids = root_ids.clone();
-    loop {
-        let before = ids.len();
-        for a in &all_agents {
-            if !ids.contains(&a.id) && a.parent_id.as_ref().is_some_and(|pid| ids.contains(pid)) {
-                ids.insert(a.id.clone());
-            }
-        }
-        if ids.len() == before {
-            break;
-        }
-    }
-    Some(ids)
+    Some(
+        all_agents
+            .iter()
+            .filter(|a| {
+                a.entity_id
+                    .as_deref()
+                    .map(|eid| allowed.iter().any(|c| c == eid))
+                    .unwrap_or(false)
+                    || allowed.iter().any(|c| c == &a.name || c == &a.id)
+            })
+            .map(|a| a.id.clone())
+            .collect(),
+    )
 }

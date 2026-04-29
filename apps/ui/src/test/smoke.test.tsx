@@ -75,7 +75,7 @@ describe("AgentQuestsTab smoke", () => {
           name: "Root",
           model: "opus",
           status: "active",
-          parent_id: null,
+          entity_id: "root-1",
         },
       ] as never,
       quests: [],
@@ -145,12 +145,11 @@ describe("shell components smoke", () => {
           id: "root-1",
           name: "Root",
           type: "company",
-          root_agent_id: "root-1",
           status: "active",
           created_at: "2026-04-28T00:00:00Z",
         },
       ],
-      agents: [{ id: "root-1", name: "Root", status: "active", parent_id: null }] as never,
+      agents: [{ id: "root-1", name: "Root", status: "active", entity_id: "root-1" }] as never,
       quests: [],
       events: [],
       workerEvents: [],
@@ -197,8 +196,8 @@ describe("shell components smoke", () => {
   it("migrates child-agent quest URLs back to the company route", async () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root-1", name: "Root", status: "active", parent_id: null },
-        { id: "eng-1", name: "Engineer", status: "active", parent_id: "root-1" },
+        { id: "root-1", name: "Root", status: "active", entity_id: "root-1" },
+        { id: "eng-1", name: "Engineer", status: "active", entity_id: "root-1" },
       ] as never,
     });
 
@@ -312,13 +311,13 @@ describe("AgentOrgChart smoke", () => {
     expect(container.querySelector(".org-chart")).toBeNull();
   });
 
-  it("renders a 3-level hierarchy without loop errors", () => {
+  it("renders without loop errors when given a known root agent", () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root", name: "Root", status: "active", parent_id: null },
-        { id: "ceo", name: "CEO", status: "active", parent_id: "root" },
-        { id: "cto", name: "CTO", status: "active", parent_id: "root" },
-        { id: "eng", name: "Engineer", status: "idle", parent_id: "cto" },
+        { id: "root", name: "Root", status: "active", entity_id: "root-1" },
+        { id: "ceo", name: "CEO", status: "active", entity_id: "root-1" },
+        { id: "cto", name: "CTO", status: "active", entity_id: "root-1" },
+        { id: "eng", name: "Engineer", status: "idle", entity_id: "root-1" },
       ] as never,
     });
     const errors = captureRenderErrors(
@@ -331,11 +330,11 @@ describe("AgentOrgChart smoke", () => {
     expect(errors.find(isLoopError)).toBeUndefined();
   });
 
-  it("single-child rows carry the is-single modifier on the child row", () => {
+  it("renders the chart shell when the entity has at least one agent", () => {
     useDaemonStore.setState({
       agents: [
-        { id: "root", name: "Root", status: "active", parent_id: null },
-        { id: "only", name: "Only", status: "active", parent_id: "root" },
+        { id: "root", name: "Root", status: "active", entity_id: "root-1" },
+        { id: "only", name: "Only", status: "active", entity_id: "root-1" },
       ] as never,
     });
     const { container } = render(
@@ -345,10 +344,9 @@ describe("AgentOrgChart smoke", () => {
         </MemoryRouter>
       </StrictMode>,
     );
-    // Root always renders a +New slot alongside its single child, so the
-    // top row has two items and should NOT carry is-single. A descendant
-    // row with exactly one child would — but we don't have grandchildren
-    // in this fixture. So we just assert the chart rendered at all.
+    // The chart fetches positions asynchronously; the shell renders
+    // synchronously off the agents data, so the outer wrapper is present
+    // even before the position fetch resolves.
     expect(container.querySelector(".org-chart")).not.toBeNull();
   });
 });
@@ -356,7 +354,7 @@ describe("AgentOrgChart smoke", () => {
 describe("NewAgentPage smoke", () => {
   beforeEach(() => {
     useDaemonStore.setState({
-      agents: [{ id: "root", name: "Root", status: "active", parent_id: null }] as never,
+      agents: [{ id: "root", name: "Root", status: "active", entity_id: "root-1" }] as never,
     });
   });
 

@@ -67,13 +67,11 @@ const COMPANY_ROOT_TABS = new Set([
 ]);
 
 function findEntity(agents: Agent[], id: string): Agent | null {
-  const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
-  let current = byId.get(id);
-  for (let i = 0; i < 20 && current; i++) {
-    if (!current.parent_id) return current;
-    current = byId.get(current.parent_id);
-  }
-  return current || null;
+  const start = agents.find((a) => a.id === id);
+  if (!start) return null;
+  const eid = start.entity_id;
+  if (!eid) return start;
+  return agents.find((a) => a.id === eid) || start;
 }
 
 export default function AppLayout() {
@@ -116,7 +114,8 @@ export default function AppLayout() {
 
   // We never fall back to the raw URL agentId here — a non-agent segment
   // (e.g. "profile") would otherwise get cached as the active entity.
-  const firstRoot = useMemo(() => agents.find((a) => !a.parent_id)?.id || null, [agents]);
+  const entities = useDaemonStore((s) => s.entities);
+  const firstRoot = useMemo(() => entities[0]?.id ?? null, [entities]);
   const activeEntityValid = useMemo(
     () => (activeEntity && agents.some((a) => a.id === activeEntity) ? activeEntity : null),
     [agents, activeEntity],

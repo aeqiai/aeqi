@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { CardTrigger } from "./ui";
 import BlockAvatar from "./BlockAvatar";
 import BrandMark from "./BrandMark";
-import type { Agent } from "@/lib/types";
+import type { Agent, Position, PositionEdge } from "@/lib/types";
 import "@/styles/org-chart.css";
 
 interface OrgNode {
@@ -15,31 +16,72 @@ interface OrgNode {
   children: OrgNode[];
 }
 
-function buildOrg(agents: Agent[], rootId: string): OrgNode | null {
-  const byId = new Map<string, Agent>(agents.map((a) => [a.id, a]));
-  const root = byId.get(rootId);
-  if (!root) return null;
+/**
+ * Build a tree of agent OrgNodes from the position DAG. Roots are
+ * positions with no incoming edges. The DAG is rendered as a tree by
+ * walking each child position once (cycle-safe via a visited set).
+ */
+function buildOrgFromPositions(
+  agents: Agent[],
+  positions: Position[],
+  edges: PositionEdge[],
+  rootAgentId: string,
+): OrgNode | null {
+  const agentById = new Map<string, Agent>(agents.map((a) => [a.id, a]));
+  const positionById = new Map<string, Position>(positions.map((p) => [p.id, p]));
 
-  const childrenByParent = new Map<string, Agent[]>();
-  for (const a of agents) {
-    if (!a.parent_id) continue;
-    const list = childrenByParent.get(a.parent_id) || [];
-    list.push(a);
-    childrenByParent.set(a.parent_id, list);
+  const childrenByPosition = new Map<string, string[]>();
+  const incomingByPosition = new Map<string, number>();
+  for (const p of positions) incomingByPosition.set(p.id, 0);
+  for (const e of edges) {
+    const list = childrenByPosition.get(e.parent_position_id) || [];
+    list.push(e.child_position_id);
+    childrenByPosition.set(e.parent_position_id, list);
+    incomingByPosition.set(
+      e.child_position_id,
+      (incomingByPosition.get(e.child_position_id) || 0) + 1,
+    );
   }
 
-  function toNode(agent: Agent, isRoot: boolean): OrgNode {
-    const kids = childrenByParent.get(agent.id) || [];
+  const rootPosition = positions.find(
+    (p) => p.occupant_kind === "agent" && p.occupant_id === rootAgentId,
+  );
+  if (!rootPosition) {
+    const fallback = agentById.get(rootAgentId);
+    if (!fallback) return null;
     return {
-      id: agent.id,
-      label: agent.name,
-      subLabel: agent.status,
-      isRoot,
-      children: kids.map((k) => toNode(k, false)),
+      id: fallback.id,
+      label: fallback.name,
+      subLabel: fallback.status,
+      isRoot: true,
+      children: [],
     };
   }
 
-  return toNode(root, true);
+  function toNode(positionId: string, isRoot: boolean, visited: Set<string>): OrgNode | null {
+    if (visited.has(positionId)) return null;
+    visited.add(positionId);
+    const position = positionById.get(positionId);
+    if (!position) return null;
+    const occupant =
+      position.occupant_kind === "agent" && position.occupant_id
+        ? agentById.get(position.occupant_id)
+        : undefined;
+    const label = occupant?.name ?? position.title ?? "(vacant)";
+    const subLabel = occupant?.status ?? position.occupant_kind;
+    const kids = (childrenByPosition.get(positionId) || [])
+      .map((cid) => toNode(cid, false, visited))
+      .filter((n): n is OrgNode => n != null);
+    return {
+      id: occupant?.id ?? position.id,
+      label,
+      subLabel,
+      isRoot,
+      children: kids,
+    };
+  }
+
+  return toNode(rootPosition.id, true, new Set());
 }
 
 /**
@@ -61,7 +103,41 @@ export default function AgentOrgChart({
 }) {
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
-  const org = useMemo(() => buildOrg(agents, parentAgentId), [agents, parentAgentId]);
+  const entityId = useMemo(() => {
+    const found = agents.find((a) => a.id === parentAgentId);
+    return found?.entity_id ?? null;
+  }, [agents, parentAgentId]);
+
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [edges, setEdges] = useState<PositionEdge[]>([]);
+  useEffect(() => {
+    if (!entityId) {
+      setPositions([]);
+      setEdges([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getPositions(entityId)
+      .then((resp) => {
+        if (cancelled) return;
+        setPositions(resp.positions ?? []);
+        setEdges(resp.edges ?? []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPositions([]);
+        setEdges([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entityId]);
+
+  const org = useMemo(
+    () => buildOrgFromPositions(agents, positions, edges, parentAgentId),
+    [agents, positions, edges, parentAgentId],
+  );
 
   // Flat nav index: for each node, remember the parent, the sibling row
   // (in display order), and the first child. Arrow keys turn this into a

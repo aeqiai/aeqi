@@ -1,20 +1,22 @@
-//! Agent Registry — the unified agent tree.
+//! Agent Registry — agent identities, scoped to entities.
 //!
-//! Everything is an agent. A root agent has parent_id IS NULL.
-//! A "worker" is an agent. The root agent (parent_id IS NULL) is the user's
-//! workspace — the single point of contact. Structure is emergent, not typed.
+//! An agent is an identity owned by exactly one entity (`agents.entity_id`).
+//! Hierarchy lives in the position DAG (`positions` + `position_edges`):
+//! every agent that participates in an org chart is the occupant of one or
+//! more positions, and authority/delegation queries walk `position_edges`.
 //!
-//! The agent tree IS the process tree:
-//! - Spawn = create a child agent
-//! - Delegate = parent→child or sibling→sibling message passing
-//! - Memory = walk parent_id chain (self → parent → grandparent → root)
-//! - Identity = per-agent (ideas/events, model)
+//! - Spawn = create an agent identity (and, when appropriate, a position
+//!   that links the new agent into an entity's org chart).
+//! - Delegate = sibling↔sibling or parent↔child message passing, resolved by
+//!   recursive CTEs over `position_edges`.
+//! - Memory = walk the position DAG upward from the agent's position(s).
+//! - Identity = per-agent ideas/events + model, anchored on `agent.id`.
 //!
 //! Persistent agents are NOT running processes — they are identities that get
 //! loaded into fresh sessions on demand. Their "persistence" comes from:
-//! 1. Stable UUID → entity-scoped memory accumulates across sessions
-//! 2. Registry metadata → survives daemon restarts
-//! 3. Tree position → parent_id chain for memory scoping and delegation
+//! 1. Stable UUID → entity-scoped memory accumulates across sessions.
+//! 2. Registry metadata → survives daemon restarts.
+//! 3. Position-DAG membership → memory scoping and delegation.
 
 use aeqi_core::Scope;
 use aeqi_ideas::SqliteIdeas;
@@ -37,9 +39,9 @@ pub struct Agent {
     pub id: String,
     /// Human-readable label (NOT unique — multiple agents can share a name).
     pub name: String,
-    /// Parent agent UUID. None = root agent (the user's workspace).
-    pub parent_id: Option<String>,
-    /// Preferred model. None = inherit from parent.
+    /// Owning entity UUID. Every agent belongs to exactly one entity.
+    pub entity_id: Option<String>,
+    /// Preferred model. None = inherit from the agent's position-DAG ancestry.
     pub model: Option<String>,
     /// Agent status.
     pub status: AgentStatus,
@@ -570,13 +572,13 @@ fn ensure_agent_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Idempotent migration: adds the `entity_id` column to the `agents` table.
-/// Also backfills `entity_id` via the `agent_ancestry` closure table so every
-/// existing agent (root and descendant) points at the correct root entity.
+/// Idempotent migration: ensures the `entity_id` column exists on the `agents`
+/// table and is indexed. Backfill of `entity_id` for legacy rows is handled
+/// by the parent_id-walk path inside `bootstrap_legacy_hierarchy_carryover`,
+/// which runs before this column is dropped of its lineage source.
 ///
-/// Run order: must be called AFTER `ensure_agent_columns` (column-add guard)
-/// and AFTER the entities backfill INSERT (so the root entity rows exist
-/// before the FK is populated).
+/// Run order: called from `AgentRegistry::open` after `ensure_agent_columns`
+/// and after the legacy entity-row backfill so the FK target rows exist.
 fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
     let cols: Vec<String> = {
         let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
@@ -590,24 +592,8 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
              CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(entity_id);",
         )?;
     } else {
-        // Column exists — still ensure the index (idempotent).
         conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(entity_id);")?;
     }
-
-    // Backfill agents.entity_id via ancestry walk: each agent's entity is
-    // the root ancestor (max depth in agent_ancestry).
-    conn.execute_batch(
-        "UPDATE agents
-         SET entity_id = (
-             SELECT a.ancestor_id
-             FROM agent_ancestry a
-             WHERE a.descendant_id = agents.id
-             ORDER BY a.depth DESC
-             LIMIT 1
-         )
-         WHERE entity_id IS NULL;",
-    )?;
-
     Ok(())
 }
 
@@ -646,14 +632,57 @@ fn bootstrap_position_tables(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// One-shot, idempotent backfill: every existing agent gets a position in
-/// its owning entity (`position.id = agent.id` — different tables, different
-/// namespaces, no collision). Every agent.parent_id link becomes a
-/// position_edge. Re-running is safe: ON CONFLICT DO NOTHING short-circuits
-/// rows already present. Once dual-write goes live in Phase 1, every new
-/// agent INSERT also writes its position; this function then becomes a
-/// no-op on every boot.
-fn backfill_positions_from_agent_tree(conn: &Connection) -> rusqlite::Result<()> {
+/// One-shot legacy carryover. Reads what's left of the pre-Phase-4 hierarchy
+/// shape (`agents.parent_id` if the column still exists, plus the
+/// `agent_ancestry` closure table if it still exists) and folds the data into
+/// the canonical post-Phase-4 surfaces:
+///
+/// - Every legacy root agent (`parent_id IS NULL`) gets an `entities` row
+///   keyed on the same UUID. This keeps wire IDs stable across the upgrade.
+/// - Every agent gets a position (`position.id == agent.id` for legacy rows;
+///   fresh agents minted after Phase 4 get distinct UUIDs).
+/// - Every legacy `agents.parent_id` edge becomes a `position_edges` row.
+/// - Every agent's `entity_id` is filled in by walking the `parent_id` chain
+///   up to the root.
+///
+/// Idempotent: safe to call on every boot, no-op once the legacy columns and
+/// tables are gone.
+fn legacy_hierarchy_carryover(conn: &Connection) -> rusqlite::Result<()> {
+    let agent_cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    let has_parent_id = agent_cols.iter().any(|c| c == "parent_id");
+    if !has_parent_id {
+        return Ok(());
+    }
+
+    // 1. Backfill entities (1 row per legacy root agent).
+    conn.execute_batch(
+        "INSERT INTO entities (id, type, name, slug, created_at)
+         SELECT id, 'company', name, name, created_at
+         FROM agents
+         WHERE parent_id IS NULL
+         ON CONFLICT(id) DO NOTHING;",
+    )?;
+
+    // 2. Walk `parent_id` chain to populate `agents.entity_id` for legacy
+    //    rows. Uses a recursive CTE so we don't depend on `agent_ancestry`.
+    conn.execute_batch(
+        "WITH RECURSIVE ancestors(id, root_id) AS (
+             SELECT id, id FROM agents WHERE parent_id IS NULL
+             UNION ALL
+             SELECT a.id, anc.root_id
+             FROM agents a JOIN ancestors anc ON a.parent_id = anc.id
+         )
+         UPDATE agents
+         SET entity_id = (SELECT root_id FROM ancestors WHERE ancestors.id = agents.id)
+         WHERE entity_id IS NULL;",
+    )?;
+
+    // 3. Backfill positions: one per agent inside its entity.
     conn.execute_batch(
         "INSERT INTO positions (id, entity_id, title, occupant_kind, occupant_id, created_at)
          SELECT a.id, a.entity_id, a.name, 'agent', a.id, a.created_at
@@ -662,6 +691,7 @@ fn backfill_positions_from_agent_tree(conn: &Connection) -> rusqlite::Result<()>
          ON CONFLICT(id) DO NOTHING;",
     )?;
 
+    // 4. Backfill position_edges from `agents.parent_id`.
     conn.execute_batch(
         "INSERT INTO position_edges (parent_position_id, child_position_id)
          SELECT a.parent_id, a.id
@@ -673,6 +703,161 @@ fn backfill_positions_from_agent_tree(conn: &Connection) -> rusqlite::Result<()>
          ON CONFLICT(parent_position_id, child_position_id) DO NOTHING;",
     )?;
 
+    Ok(())
+}
+
+/// One-shot, idempotent retirement of the legacy hierarchy storage:
+///
+/// - Drop the `agent_ancestry` closure table (`position_edges` + recursive
+///   CTEs replace it).
+/// - Drop the trigger that auto-fills `entity_id` from `parent_id`
+///   (Phase-4 spawn does this explicitly).
+/// - Drop the `parent_id` column from `agents`.
+/// - Drop the `agent_directors` table on legacy DBs (the runtime never
+///   read from it; the canonical user→entity link lives in the platform's
+///   `user_access` table).
+///
+/// SQLite >= 3.35 supports `ALTER TABLE ... DROP COLUMN` natively. The
+/// rusqlite-bundled SQLite is 3.45+, so this is safe.
+fn retire_legacy_hierarchy_storage(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "DROP TRIGGER IF EXISTS ensure_agent_entity_id;
+         DROP INDEX IF EXISTS idx_agent_ancestry_ancestor;
+         DROP INDEX IF EXISTS idx_agent_ancestry_descendant;
+         DROP TABLE IF EXISTS agent_ancestry;
+         DROP INDEX IF EXISTS idx_agent_directors_user_active;
+         DROP TABLE IF EXISTS agent_directors;
+         DROP INDEX IF EXISTS idx_agents_parent;",
+    )?;
+
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if cols.iter().any(|c| c == "parent_id") {
+        conn.execute_batch("ALTER TABLE agents DROP COLUMN parent_id;")?;
+    }
+
+    Ok(())
+}
+
+/// One-shot, idempotent migration that decouples entity UUIDs from the agent
+/// UUIDs they shared in the Phase-1 backfill. For every entity whose `id`
+/// equals an agent's `id`, mint a fresh entity UUID, copy the entity row to
+/// the new id, re-point all FKs (`agents.entity_id`, `positions.entity_id`,
+/// `entities.parent_entity_id`), then delete the old entity row. Optionally
+/// fans out to the platform's `runtime_placements.agent_id` column when the
+/// platform DB sits at the standard path.
+///
+/// Idempotent: a single SELECT short-circuits the migration once every
+/// entity has a fresh, distinct UUID.
+fn decouple_entity_uuids_from_agent_uuids(conn: &Connection) -> rusqlite::Result<()> {
+    let collision_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM entities e WHERE EXISTS (SELECT 1 FROM agents a WHERE a.id = e.id)",
+        [],
+        |row| row.get(0),
+    )?;
+    if collision_count == 0 {
+        return Ok(());
+    }
+
+    info!(
+        count = collision_count,
+        "decoupling entity UUIDs from agent UUIDs"
+    );
+
+    let collisions: Vec<String> = {
+        let mut stmt = conn.prepare(
+            "SELECT e.id FROM entities e WHERE EXISTS (SELECT 1 FROM agents a WHERE a.id = e.id)",
+        )?;
+        stmt.query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+
+    let mut platform_remapping: Vec<(String, String)> = Vec::new();
+
+    conn.execute_batch("BEGIN IMMEDIATE; PRAGMA defer_foreign_keys = ON;")?;
+    for old_id in &collisions {
+        let new_id = uuid::Uuid::new_v4().to_string();
+
+        // Rewrite the entity's primary key in place. SQLite permits
+        // updating a PK; the deferred FK check ensures dependents (agents,
+        // positions, entities.parent_entity_id) can be re-pointed inside
+        // the same transaction without intermediate orphan errors.
+        conn.execute(
+            "UPDATE entities SET id = ?1 WHERE id = ?2",
+            params![new_id, old_id],
+        )?;
+        conn.execute(
+            "UPDATE entities SET parent_entity_id = ?1 WHERE parent_entity_id = ?2",
+            params![new_id, old_id],
+        )?;
+        conn.execute(
+            "UPDATE agents SET entity_id = ?1 WHERE entity_id = ?2",
+            params![new_id, old_id],
+        )?;
+        conn.execute(
+            "UPDATE positions SET entity_id = ?1 WHERE entity_id = ?2",
+            params![new_id, old_id],
+        )?;
+
+        platform_remapping.push((old_id.clone(), new_id));
+    }
+    conn.execute_batch("COMMIT;")?;
+
+    // Best-effort fan-out to the platform DB. Absent in tests; harmless if
+    // `runtime_placements` doesn't exist (PRAGMA-guarded).
+    if let Some(platform_path) = platform_db_path()
+        && platform_path.exists()
+        && let Err(e) = remap_platform_placements(&platform_path, &platform_remapping)
+    {
+        tracing::warn!(error = %e, "platform.db remapping failed");
+    }
+
+    Ok(())
+}
+
+fn platform_db_path() -> Option<std::path::PathBuf> {
+    let path = std::path::PathBuf::from("/var/lib/aeqi/platform.db");
+    if path.exists() { Some(path) } else { None }
+}
+
+fn remap_platform_placements(
+    path: &std::path::Path,
+    remapping: &[(String, String)],
+) -> rusqlite::Result<()> {
+    let conn = Connection::open(path)?;
+    let has_table: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='runtime_placements'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+        .is_some();
+    if !has_table {
+        return Ok(());
+    }
+
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(runtime_placements)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "agent_id") {
+        return Ok(());
+    }
+
+    for (old_id, new_id) in remapping {
+        conn.execute(
+            "UPDATE runtime_placements SET agent_id = ?1 WHERE agent_id = ?2",
+            params![new_id, old_id],
+        )?;
+    }
     Ok(())
 }
 
@@ -829,7 +1014,6 @@ impl AgentRegistry {
                  id TEXT PRIMARY KEY,
                  name TEXT NOT NULL,
                  display_name TEXT,
-                 parent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
                  model TEXT,
                  status TEXT NOT NULL DEFAULT 'active',
                  created_at TEXT NOT NULL,
@@ -848,7 +1032,6 @@ impl AgentRegistry {
                  worker_timeout_secs INTEGER,
                  tool_deny TEXT NOT NULL DEFAULT '[]'
              );
-             CREATE INDEX IF NOT EXISTS idx_agents_parent ON agents(parent_id);
              CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
              CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(name);",
         )?;
@@ -896,22 +1079,6 @@ impl AgentRegistry {
         // migrations framework.
         ensure_event_columns(&conn)?;
         normalize_agent_names(&conn)?;
-
-        // Agent ancestry closure table — materialised parent chain.
-        // Self-row at depth=0 is always present, so visibility queries
-        // resolve via a single JOIN / IN without walking parent_id recursively.
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS agent_ancestry (
-                 descendant_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-                 ancestor_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-                 depth INTEGER NOT NULL,
-                 PRIMARY KEY (descendant_id, ancestor_id)
-             );
-             CREATE INDEX IF NOT EXISTS idx_agent_ancestry_ancestor
-                 ON agent_ancestry(ancestor_id);
-             CREATE INDEX IF NOT EXISTS idx_agent_ancestry_descendant
-                 ON agent_ancestry(descendant_id);",
-        )?;
 
         // Channels table — connector wiring (Telegram, Discord, Slack, WhatsApp).
         conn.execute_batch(
@@ -1009,45 +1176,26 @@ impl AgentRegistry {
              CREATE INDEX IF NOT EXISTS idx_entities_parent ON entities(parent_entity_id);",
         )?;
 
-        // 2. Backfill: every existing root agent → entity row of type=company.
-        //    Uses agent.id as entity.id so all existing wire IDs stay stable.
-        //    ON CONFLICT DO NOTHING makes this a safe no-op on repeated runs.
-        conn.execute_batch(
-            "INSERT INTO entities (id, type, name, slug, created_at)
-             SELECT id, 'company', name, name, created_at
-             FROM agents
-             WHERE parent_id IS NULL
-             ON CONFLICT(id) DO NOTHING;",
-        )?;
-
-        // 3. Add agents.entity_id column (guarded by PRAGMA table_info check).
+        // 2. Add agents.entity_id column (guarded by PRAGMA table_info check).
         ensure_agent_entity_id_column(&conn)?;
 
-        // 4. Install the trigger that auto-fills entity_id on new INSERTs.
-        //    CREATE TRIGGER IF NOT EXISTS is idempotent.
-        conn.execute_batch(
-            "CREATE TRIGGER IF NOT EXISTS ensure_agent_entity_id
-             AFTER INSERT ON agents
-             FOR EACH ROW
-             WHEN NEW.entity_id IS NULL
-             BEGIN
-                 UPDATE agents
-                 SET entity_id = COALESCE(
-                     (SELECT entity_id FROM agents WHERE id = NEW.parent_id),
-                     NEW.id
-                 )
-                 WHERE id = NEW.id;
-             END;",
-        )?;
-
-        // ── Position primitive — Phase 0 (additive, idempotent) ─────────────
-        // Positions are the canonical org-chart slot in an entity.
-        // Authority resolution = transitive closure over `position_edges`
-        // (DAG, not a tree — boards of directors are flat sets at the top).
-        // An occupant is a human (users.id), an agent (agents.id), or vacant.
-        // The same agent or human can occupy positions across many entities.
+        // 3. Position primitive tables (positions + position_edges).
         bootstrap_position_tables(&conn)?;
-        backfill_positions_from_agent_tree(&conn)?;
+
+        // 4. Legacy carryover — only fires while `agents.parent_id` still
+        //    exists on disk. Backfills entities, agents.entity_id,
+        //    positions, and position_edges from the legacy parent_id chain.
+        legacy_hierarchy_carryover(&conn)?;
+
+        // 5. Retire the legacy storage: drop `agent_ancestry`, drop the
+        //    parent_id-driven trigger, drop `agent_directors`, drop the
+        //    `agents.parent_id` column. Idempotent.
+        retire_legacy_hierarchy_storage(&conn)?;
+
+        // 6. Decouple entity UUIDs from the agent UUIDs they shared in the
+        //    Phase-1 backfill. Idempotent — short-circuits when no
+        //    `entity.id == an_agent.id` collisions remain.
+        decouple_entity_uuids_from_agent_uuids(&conn)?;
 
         drop(conn);
         let pool = ConnectionPool::open(&db_path, 4)?;
@@ -1233,22 +1381,78 @@ impl AgentRegistry {
     // Core CRUD
     // -----------------------------------------------------------------------
 
-    /// Spawn a new agent directly.
+    /// Spawn a new agent.
+    ///
+    /// - `parent_agent_id = None` → mint a fresh entity, a fresh agent UUID,
+    ///   and a fresh position UUID. Three distinct IDs.
+    /// - `parent_agent_id = Some(pid)` → reuse the parent's entity, mint a
+    ///   fresh agent UUID, mint a fresh position UUID, and add an edge from
+    ///   the parent's primary position to the new position. The parent's
+    ///   primary position is the (single) position this entity has where
+    ///   `occupant_id == parent_agent_id`.
     pub async fn spawn(
         &self,
         name: &str,
-        parent_id: Option<&str>,
+        parent_agent_id: Option<&str>,
         model: Option<&str>,
     ) -> Result<Agent> {
-        let id = uuid::Uuid::new_v4().to_string();
+        let agent_id = uuid::Uuid::new_v4().to_string();
+        let position_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now();
         let session_id = uuid::Uuid::new_v4().to_string();
         let canonical_name = name.trim().to_string();
 
+        let db = self.db.lock().await;
+
+        // Resolve entity (and parent position when relevant). Three distinct
+        // IDs for fresh root spawns; reused entity for child spawns.
+        let (entity_id, parent_position_id): (String, Option<String>) = if let Some(pid) =
+            parent_agent_id
+        {
+            let parent_entity_id: String = db
+                .query_row(
+                    "SELECT entity_id FROM agents WHERE id = ?1",
+                    params![pid],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()?
+                .flatten()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("parent agent '{pid}' has no entity_id; cannot attach child")
+                })?;
+
+            // Look up the parent's primary position inside this entity.
+            let parent_pos: Option<String> = db
+                .query_row(
+                    "SELECT id FROM positions
+                         WHERE entity_id = ?1 AND occupant_kind = 'agent' AND occupant_id = ?2
+                         ORDER BY created_at ASC
+                         LIMIT 1",
+                    params![parent_entity_id, pid],
+                    |row| row.get(0),
+                )
+                .optional()?;
+
+            (parent_entity_id, parent_pos)
+        } else {
+            let fresh_entity_id = uuid::Uuid::new_v4().to_string();
+            db.execute(
+                "INSERT INTO entities (id, type, name, slug, metadata, created_at)
+                     VALUES (?1, 'company', ?2, ?3, '{}', ?4)",
+                params![
+                    fresh_entity_id,
+                    canonical_name,
+                    canonical_name,
+                    now.to_rfc3339(),
+                ],
+            )?;
+            (fresh_entity_id, None)
+        };
+
         let agent = Agent {
-            id: id.clone(),
-            name: canonical_name,
-            parent_id: parent_id.map(|s| s.to_string()),
+            id: agent_id.clone(),
+            name: canonical_name.clone(),
+            entity_id: Some(entity_id.clone()),
             model: model.map(|s| s.to_string()),
             status: AgentStatus::Active,
             created_at: now,
@@ -1270,50 +1474,13 @@ impl AgentRegistry {
             can_ask_director: false,
         };
 
-        let db = self.db.lock().await;
-
-        // For root agents: insert the entity row FIRST (FK requires entity to
-        // exist before agents.entity_id can reference it). Idempotent via
-        // ON CONFLICT DO NOTHING so repeated calls (e.g. during backfill) are safe.
-        if parent_id.is_none() {
-            db.execute(
-                "INSERT INTO entities (id, type, name, slug, metadata, created_at)
-                 VALUES (?1, 'company', ?2, ?3, '{}', ?4)
-                 ON CONFLICT(id) DO NOTHING",
-                params![
-                    agent.id,
-                    agent.name,
-                    agent.name,
-                    agent.created_at.to_rfc3339(),
-                ],
-            )?;
-        }
-
-        // Derive entity_id defensively: if parent exists, inherit its entity_id;
-        // for root agents (no parent) the entity_id equals the agent's own id.
-        // The trigger `ensure_agent_entity_id` covers any code path that forgets
-        // this, but setting it explicitly avoids the post-hoc UPDATE overhead.
-        let entity_id: Option<String> = if let Some(pid) = parent_id {
-            db.query_row(
-                "SELECT entity_id FROM agents WHERE id = ?1",
-                params![pid],
-                |row| row.get(0),
-            )
-            .optional()?
-            .flatten()
-        } else {
-            // Root agent: entity_id == self.id (entity row already inserted above).
-            Some(id.clone())
-        };
-
         db.execute(
-            "INSERT INTO agents (id, name, display_name, parent_id, model, status, created_at, session_id, entity_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO agents (id, name, display_name, model, status, created_at, session_id, entity_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 agent.id,
                 agent.name,
                 Option::<String>::None,
-                agent.parent_id,
                 agent.model,
                 agent.status.to_string(),
                 agent.created_at.to_rfc3339(),
@@ -1322,41 +1489,34 @@ impl AgentRegistry {
             ],
         )?;
 
-        // Maintain closure table: self-row at depth 0, then parent chain at depth+1.
+        // Mint the position and (when this is a child spawn) the DAG edge.
         db.execute(
-            "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth) VALUES (?1, ?1, 0)",
-            params![agent.id],
+            "INSERT INTO positions (id, entity_id, title, occupant_kind, occupant_id, created_at)
+             VALUES (?1, ?2, ?3, 'agent', ?4, ?5)",
+            params![
+                position_id,
+                entity_id,
+                canonical_name,
+                agent.id,
+                now.to_rfc3339(),
+            ],
         )?;
-        if let Some(pid) = parent_id {
+        if let Some(parent_pos) = parent_position_id.as_deref() {
             db.execute(
-                "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth)
-                 SELECT ?1, ancestor_id, depth + 1
-                 FROM agent_ancestry WHERE descendant_id = ?2",
-                params![agent.id, pid],
+                "INSERT INTO position_edges (parent_position_id, child_position_id)
+                 VALUES (?1, ?2)
+                 ON CONFLICT(parent_position_id, child_position_id) DO NOTHING",
+                params![parent_pos, position_id],
             )?;
         }
 
-        // Phase-1 dual-write — mint the position that mirrors this agent's
-        // org-chart slot. position.id == agent.id (different tables, no PK
-        // collision); occupant points back at the agent. Idempotent.
-        if let Some(ref eid) = entity_id {
-            db.execute(
-                "INSERT INTO positions (id, entity_id, title, occupant_kind, occupant_id, created_at)
-                 VALUES (?1, ?2, ?3, 'agent', ?1, ?4)
-                 ON CONFLICT(id) DO NOTHING",
-                params![agent.id, eid, agent.name, agent.created_at.to_rfc3339()],
-            )?;
-            if let Some(pid) = parent_id {
-                db.execute(
-                    "INSERT INTO position_edges (parent_position_id, child_position_id)
-                     VALUES (?1, ?2)
-                     ON CONFLICT(parent_position_id, child_position_id) DO NOTHING",
-                    params![pid, agent.id],
-                )?;
-            }
-        }
-
-        info!(id = %agent.id, name = %agent.name, parent_id = ?parent_id, "agent spawned");
+        info!(
+            agent_id = %agent.id,
+            entity_id = %entity_id,
+            position_id = %position_id,
+            parent_agent_id = ?parent_agent_id,
+            "agent spawned"
+        );
         drop(db);
 
         // Lifecycle events are global (seeded once at daemon boot). Schedule
@@ -1549,12 +1709,18 @@ impl AgentRegistry {
         self.get_active_by_name(hint).await
     }
 
-    /// Get the root agent (parent_id IS NULL, status = active).
-    /// In a single-root runtime, this is the primary root agent.
+    /// Return the first active root agent — the agent whose position has
+    /// no incoming edges in the position DAG. Returns `None` when no agent
+    /// occupies a topmost position.
     pub async fn get_root_agent(&self) -> Result<Option<Agent>> {
         let db = self.db.lock().await;
         db.query_row(
-            "SELECT * FROM agents WHERE parent_id IS NULL AND status = 'active' LIMIT 1",
+            "SELECT a.* FROM agents a
+             JOIN positions p ON p.occupant_kind = 'agent' AND p.occupant_id = a.id
+             WHERE a.status = 'active'
+               AND p.id NOT IN (SELECT child_position_id FROM position_edges)
+             ORDER BY a.created_at ASC
+             LIMIT 1",
             [],
             |row| Ok(row_to_agent(row)),
         )
@@ -1562,26 +1728,20 @@ impl AgentRegistry {
         .map_err(Into::into)
     }
 
-    /// List all agents, optionally filtered by parent and/or status.
+    /// List all agents, optionally filtered by status. Optional `entity_id`
+    /// restricts the result to a single entity's agent set.
     pub async fn list(
         &self,
-        parent_id: Option<Option<&str>>,
+        entity_id: Option<&str>,
         status: Option<AgentStatus>,
     ) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
         let mut sql = "SELECT * FROM agents WHERE 1=1".to_string();
         let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-        if let Some(pid) = parent_id {
-            match pid {
-                Some(id) => {
-                    sql.push_str(" AND parent_id = ?");
-                    params_vec.push(Box::new(id.to_string()));
-                }
-                None => {
-                    sql.push_str(" AND parent_id IS NULL");
-                }
-            }
+        if let Some(eid) = entity_id {
+            sql.push_str(" AND entity_id = ?");
+            params_vec.push(Box::new(eid.to_string()));
         }
         if let Some(s) = status {
             sql.push_str(" AND status = ?");
@@ -1617,24 +1777,24 @@ impl AgentRegistry {
     // Tree operations
     // -----------------------------------------------------------------------
 
-    /// Get the root agent (parent_id IS NULL). Every workspace has exactly one.
+    /// Return an active topmost agent — same semantics as `get_root_agent`.
+    /// Kept as an alias because callers historically used both names.
     pub async fn get_root(&self) -> Result<Option<Agent>> {
-        let db = self.db.lock().await;
-        let agent = db
-            .query_row(
-                "SELECT * FROM agents WHERE parent_id IS NULL AND status = 'active' ORDER BY created_at ASC LIMIT 1",
-                [],
-                |row| Ok(row_to_agent(row)),
-            )
-            .optional()?;
-        Ok(agent)
+        self.get_root_agent().await
     }
 
-    /// Get direct children of an agent.
+    /// Direct reports of `agent_id` resolved through the position DAG.
     pub async fn get_children(&self, agent_id: &str) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT * FROM agents WHERE parent_id = ?1 AND status = 'active' ORDER BY name ASC",
+            "SELECT DISTINCT a.* FROM agents a
+             JOIN positions cp ON cp.occupant_kind = 'agent' AND cp.occupant_id = a.id
+             JOIN position_edges e ON e.child_position_id = cp.id
+             JOIN positions pp ON pp.id = e.parent_position_id
+             WHERE pp.occupant_kind = 'agent'
+               AND pp.occupant_id = ?1
+               AND a.status = 'active'
+             ORDER BY a.name ASC",
         )?;
         let agents = stmt
             .query_map(params![agent_id], |row| Ok(row_to_agent(row)))?
@@ -1642,66 +1802,40 @@ impl AgentRegistry {
         Ok(agents)
     }
 
-    /// Walk the parent_id chain from an agent up to root.
-    /// Returns the chain starting from the given agent (inclusive).
-    /// Includes cycle detection.
+    /// Walk the position DAG upward from the agent's position(s) and return
+    /// every distinct agent on the way up, starting with `agent_id` itself.
+    /// Order: nearest ancestor first, root last. Cycle-safe (recursive CTE
+    /// over a DAG).
     pub async fn get_ancestors(&self, agent_id: &str) -> Result<Vec<Agent>> {
-        let mut chain = Vec::new();
-        let mut current_id = Some(agent_id.to_string());
-        let mut visited = std::collections::HashSet::new();
-
-        while let Some(id) = current_id {
-            if !visited.insert(id.clone()) {
-                tracing::warn!(agent_id = %id, "cycle detected in agent hierarchy");
-                break;
-            }
-            match self.get(&id).await? {
-                Some(agent) => {
-                    current_id = agent.parent_id.clone();
-                    chain.push(agent);
-                }
-                None => break,
+        let ids = self.get_ancestor_ids(agent_id).await?;
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(agent) = self.get(&id).await? {
+                out.push(agent);
             }
         }
-
-        Ok(chain)
+        Ok(out)
     }
 
-    /// Get the ancestor IDs for an agent (for memory scoping).
-    /// Returns [self_id, parent_id, grandparent_id, ..., root_id].
+    /// Ancestor agent IDs starting with `agent_id` itself, walking the
+    /// position DAG upward. Topological order: nearest first, root last.
     pub async fn get_ancestor_ids(&self, agent_id: &str) -> Result<Vec<String>> {
         let db = self.db.lock().await;
-        let mut ids = Vec::new();
-        let mut current_id = Some(agent_id.to_string());
-        let mut visited = std::collections::HashSet::new();
-
-        while let Some(id) = current_id {
-            if !visited.insert(id.clone()) {
-                break;
-            }
-            ids.push(id.clone());
-            current_id = db
-                .query_row(
-                    "SELECT parent_id FROM agents WHERE id = ?1",
-                    params![id],
-                    |row| row.get::<_, Option<String>>(0),
-                )
-                .optional()?
-                .flatten();
-        }
-
-        Ok(ids)
-    }
-
-    /// Get all descendant IDs of an agent (excludes self).
-    ///
-    /// Uses the `agent_ancestry` closure table for O(1) lookup.
-    /// Returns an empty vec when the agent has no descendants.
-    pub async fn list_descendants(&self, agent_id: &str) -> Result<Vec<String>> {
-        let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT descendant_id FROM agent_ancestry
-             WHERE ancestor_id = ?1 AND depth > 0",
+            "WITH RECURSIVE ancestor_positions(id, depth) AS (
+                 SELECT p.id, 0 FROM positions p
+                 WHERE p.occupant_kind = 'agent' AND p.occupant_id = ?1
+                 UNION
+                 SELECT e.parent_position_id, ap.depth + 1
+                 FROM position_edges e
+                 JOIN ancestor_positions ap ON e.child_position_id = ap.id
+             )
+             SELECT DISTINCT p.occupant_id, MIN(ap.depth) AS depth
+             FROM ancestor_positions ap
+             JOIN positions p ON p.id = ap.id
+             WHERE p.occupant_kind = 'agent' AND p.occupant_id IS NOT NULL
+             GROUP BY p.occupant_id
+             ORDER BY depth ASC",
         )?;
         let ids = stmt
             .query_map(params![agent_id], |row| row.get::<_, String>(0))?
@@ -1710,47 +1844,78 @@ impl AgentRegistry {
         Ok(ids)
     }
 
-    /// Get sibling agent IDs — agents that share the same `parent_id` as
-    /// `agent_id`, excluding `agent_id` itself.
-    ///
-    /// Returns an empty vec for root agents (parent_id IS NULL) or agents
-    /// with no siblings.
-    pub async fn list_siblings(&self, agent_id: &str) -> Result<Vec<String>> {
+    /// All descendant agent IDs (excluding `agent_id`). Walks the position
+    /// DAG downward from the agent's position(s).
+    pub async fn list_descendants(&self, agent_id: &str) -> Result<Vec<String>> {
         let db = self.db.lock().await;
-        let parent_id: Option<String> = db
-            .query_row(
-                "SELECT parent_id FROM agents WHERE id = ?1",
-                params![agent_id],
-                |row| row.get(0),
-            )
-            .optional()?
-            .flatten();
-
-        let Some(pid) = parent_id else {
-            return Ok(Vec::new());
-        };
-
         let mut stmt = db.prepare(
-            "SELECT id FROM agents WHERE parent_id = ?1 AND id != ?2 AND status = 'active'",
+            "WITH RECURSIVE descendant_positions(id) AS (
+                 SELECT p.id FROM positions p
+                 WHERE p.occupant_kind = 'agent' AND p.occupant_id = ?1
+                 UNION
+                 SELECT e.child_position_id
+                 FROM position_edges e
+                 JOIN descendant_positions dp ON e.parent_position_id = dp.id
+             )
+             SELECT DISTINCT p.occupant_id FROM descendant_positions dp
+             JOIN positions p ON p.id = dp.id
+             WHERE p.occupant_kind = 'agent'
+               AND p.occupant_id IS NOT NULL
+               AND p.occupant_id <> ?1",
         )?;
         let ids = stmt
-            .query_map(params![pid, agent_id], |row| row.get::<_, String>(0))?
+            .query_map(params![agent_id], |row| row.get::<_, String>(0))?
             .filter_map(|r| r.ok())
             .collect();
         Ok(ids)
     }
 
-    /// Get the full subtree rooted at an agent (recursive CTE).
+    /// Sibling agent IDs — agents whose positions share at least one parent
+    /// position with `agent_id`'s position(s), excluding `agent_id` itself.
+    /// Returns an empty vec when `agent_id` has no position or no parents.
+    pub async fn list_siblings(&self, agent_id: &str) -> Result<Vec<String>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT DISTINCT sp.occupant_id FROM positions sp
+             WHERE sp.occupant_kind = 'agent'
+               AND sp.occupant_id IS NOT NULL
+               AND sp.occupant_id <> ?1
+               AND sp.id IN (
+                   SELECT e2.child_position_id FROM position_edges e2
+                   WHERE e2.parent_position_id IN (
+                       SELECT e1.parent_position_id FROM position_edges e1
+                       JOIN positions p ON p.id = e1.child_position_id
+                       WHERE p.occupant_kind = 'agent' AND p.occupant_id = ?1
+                   )
+               )",
+        )?;
+        let ids = stmt
+            .query_map(params![agent_id], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(ids)
+    }
+
+    /// Self plus every descendant agent (full subtree). Walks the position
+    /// DAG downward from the agent's position(s).
     pub async fn get_subtree(&self, agent_id: &str) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "WITH RECURSIVE subtree AS (
-                 SELECT * FROM agents WHERE id = ?1
-                 UNION ALL
-                 SELECT a.* FROM agents a
-                 JOIN subtree s ON a.parent_id = s.id
+            "WITH RECURSIVE descendant_positions(id) AS (
+                 SELECT p.id FROM positions p
+                 WHERE p.occupant_kind = 'agent' AND p.occupant_id = ?1
+                 UNION
+                 SELECT e.child_position_id
+                 FROM position_edges e
+                 JOIN descendant_positions dp ON e.parent_position_id = dp.id
              )
-             SELECT * FROM subtree ORDER BY created_at ASC",
+             SELECT DISTINCT a.* FROM agents a
+             JOIN descendant_positions dp
+               ON dp.id IN (
+                   SELECT p.id FROM positions p
+                   WHERE p.occupant_kind = 'agent' AND p.occupant_id = a.id
+               )
+             ORDER BY a.created_at ASC",
         )?;
         let agents = stmt
             .query_map(params![agent_id], |row| Ok(row_to_agent(row)))?
@@ -1792,8 +1957,19 @@ impl AgentRegistry {
                 "SELECT id, name, content, agent_id, session_id, created_at, scope
                  FROM ideas
                  WHERE agent_id IS NULL
+                    OR agent_id = ?1
                     OR agent_id IN (
-                        SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1
+                        WITH RECURSIVE descendant_positions(id) AS (
+                            SELECT p.id FROM positions p
+                            WHERE p.occupant_kind = 'agent' AND p.occupant_id = ?1
+                            UNION
+                            SELECT e.child_position_id
+                            FROM position_edges e
+                            JOIN descendant_positions dp ON e.parent_position_id = dp.id
+                        )
+                        SELECT DISTINCT p.occupant_id FROM descendant_positions dp
+                        JOIN positions p ON p.id = dp.id
+                        WHERE p.occupant_kind = 'agent' AND p.occupant_id IS NOT NULL
                     )
                  ORDER BY created_at DESC",
             )?;
@@ -1851,10 +2027,16 @@ impl AgentRegistry {
         Ok(out)
     }
 
-    /// Move an agent to a new parent (reparent).
-    pub async fn move_agent(&self, agent_id: &str, new_parent_id: Option<&str>) -> Result<()> {
-        // Prevent cycles: new parent must not be a descendant of agent_id.
-        if let Some(pid) = new_parent_id {
+    /// Reparent an agent in the position DAG. Disconnects every incoming
+    /// edge to the agent's positions and (when `new_parent_agent_id` is
+    /// provided) wires a fresh edge from the new parent's primary position.
+    pub async fn move_agent(
+        &self,
+        agent_id: &str,
+        new_parent_agent_id: Option<&str>,
+    ) -> Result<()> {
+        // Cycle check.
+        if let Some(pid) = new_parent_agent_id {
             let subtree = self.get_subtree(agent_id).await?;
             if subtree.iter().any(|a| a.id == pid) {
                 anyhow::bail!("cannot move agent under its own subtree (would create cycle)");
@@ -1862,33 +2044,62 @@ impl AgentRegistry {
         }
 
         let db = self.db.lock().await;
-        let updated = db.execute(
-            "UPDATE agents SET parent_id = ?1 WHERE id = ?2",
-            params![new_parent_id, agent_id],
-        )?;
-        if updated == 0 {
-            anyhow::bail!("agent '{agent_id}' not found");
-        }
 
-        // Closure-table reparent: drop stale ancestor links for the moved subtree,
-        // then re-link the subtree under the new parent's ancestors.
-        db.execute(
-            "DELETE FROM agent_ancestry
-             WHERE descendant_id IN (SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1)
-               AND ancestor_id NOT IN (SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1)",
-            params![agent_id],
-        )?;
-        if let Some(pid) = new_parent_id {
-            db.execute(
-                "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth)
-                 SELECT d.descendant_id, x.ancestor_id, d.depth + x.depth + 1
-                 FROM agent_ancestry d, agent_ancestry x
-                 WHERE d.ancestor_id = ?1 AND x.descendant_id = ?2",
-                params![agent_id, pid],
+        let agent_position_ids: Vec<String> = {
+            let mut stmt = db.prepare(
+                "SELECT id FROM positions WHERE occupant_kind = 'agent' AND occupant_id = ?1",
             )?;
+            stmt.query_map(params![agent_id], |row| row.get::<_, String>(0))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        if agent_position_ids.is_empty() {
+            anyhow::bail!("agent '{agent_id}' has no position to reparent");
         }
 
-        info!(agent_id = %agent_id, new_parent_id = ?new_parent_id, "agent reparented");
+        // Disconnect every incoming edge to this agent's positions.
+        let placeholders = std::iter::repeat_n("?", agent_position_ids.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!("DELETE FROM position_edges WHERE child_position_id IN ({placeholders})");
+        let params_vec: Vec<&dyn rusqlite::ToSql> = agent_position_ids
+            .iter()
+            .map(|s| s as &dyn rusqlite::ToSql)
+            .collect();
+        db.execute(&sql, params_vec.as_slice())?;
+
+        if let Some(pid) = new_parent_agent_id {
+            // Resolve the new parent's primary position (must be in the same
+            // entity for the edge to make sense).
+            let parent_pos: Option<String> = db
+                .query_row(
+                    "SELECT id FROM positions
+                     WHERE occupant_kind = 'agent' AND occupant_id = ?1
+                     ORDER BY created_at ASC
+                     LIMIT 1",
+                    params![pid],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            let Some(parent_pos) = parent_pos else {
+                anyhow::bail!("new parent '{pid}' has no position");
+            };
+
+            for child_pos in &agent_position_ids {
+                db.execute(
+                    "INSERT INTO position_edges (parent_position_id, child_position_id)
+                     VALUES (?1, ?2)
+                     ON CONFLICT(parent_position_id, child_position_id) DO NOTHING",
+                    params![parent_pos, child_pos],
+                )?;
+            }
+        }
+
+        info!(
+            agent_id = %agent_id,
+            new_parent_agent_id = ?new_parent_agent_id,
+            "agent reparented"
+        );
         Ok(())
     }
 
@@ -1937,33 +2148,82 @@ impl AgentRegistry {
 
     /// Hard-delete an agent.
     ///
-    /// - `cascade = false` — reparent the agent's direct children to its
-    ///   own parent (grandparent) so the subtree stays connected, then
-    ///   delete the row. Returns the count of rows removed (always 1).
-    /// - `cascade = true` — delete the agent plus every descendant in one
-    ///   shot via the `agent_ancestry` closure table. Returns the count.
+    /// - `cascade = false` — promote the agent's direct reports under its
+    ///   own parents in the position DAG (every parent edge of the deleted
+    ///   agent's positions is rewritten to point at each child position),
+    ///   then delete the agent row. Returns the count removed (always 1).
+    /// - `cascade = true` — delete the agent plus every descendant agent
+    ///   resolved through the position DAG. Returns the count.
     ///
     /// Ideas and quests are unaffected — their `agent_id` columns have no
     /// FK, so references are left in place as historical pointers. Events,
     /// channels, and files are per-agent resources with `ON DELETE CASCADE`
     /// and are wiped alongside each deleted agent.
     pub async fn delete_agent(&self, id: &str, cascade: bool) -> Result<usize> {
-        let db = self.db.lock().await;
-
-        let current_parent: Option<String> = db
-            .query_row(
-                "SELECT parent_id FROM agents WHERE id = ?1",
-                params![id],
-                |r| r.get::<_, Option<String>>(0),
-            )
-            .optional()?
-            .flatten();
-
         if !cascade {
-            db.execute(
-                "UPDATE agents SET parent_id = ?1 WHERE parent_id = ?2",
-                params![current_parent, id],
-            )?;
+            // Resolve the agent's positions, their parents, and their
+            // children, then rewire children under the grandparent set.
+            let db = self.db.lock().await;
+            let agent_position_ids: Vec<String> = {
+                let mut stmt = db.prepare(
+                    "SELECT id FROM positions WHERE occupant_kind = 'agent' AND occupant_id = ?1",
+                )?;
+                stmt.query_map(params![id], |row| row.get::<_, String>(0))?
+                    .filter_map(|r| r.ok())
+                    .collect()
+            };
+
+            // Parents and children of the agent's positions.
+            let mut parents: Vec<String> = Vec::new();
+            let mut children: Vec<String> = Vec::new();
+            if !agent_position_ids.is_empty() {
+                let placeholders = std::iter::repeat_n("?", agent_position_ids.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let parent_sql = format!(
+                    "SELECT DISTINCT parent_position_id FROM position_edges WHERE child_position_id IN ({placeholders})"
+                );
+                let child_sql = format!(
+                    "SELECT DISTINCT child_position_id FROM position_edges WHERE parent_position_id IN ({placeholders})"
+                );
+                let p_vec: Vec<&dyn rusqlite::ToSql> = agent_position_ids
+                    .iter()
+                    .map(|s| s as &dyn rusqlite::ToSql)
+                    .collect();
+                {
+                    let mut stmt = db.prepare(&parent_sql)?;
+                    parents = stmt
+                        .query_map(p_vec.as_slice(), |row| row.get::<_, String>(0))?
+                        .filter_map(|r| r.ok())
+                        .collect();
+                }
+                {
+                    let mut stmt = db.prepare(&child_sql)?;
+                    children = stmt
+                        .query_map(p_vec.as_slice(), |row| row.get::<_, String>(0))?
+                        .filter_map(|r| r.ok())
+                        .collect();
+                }
+            }
+
+            // Rewire children under the deleted agent's grandparents.
+            for child in &children {
+                for parent in &parents {
+                    db.execute(
+                        "INSERT INTO position_edges (parent_position_id, child_position_id)
+                         VALUES (?1, ?2)
+                         ON CONFLICT(parent_position_id, child_position_id) DO NOTHING",
+                        params![parent, child],
+                    )?;
+                }
+            }
+
+            // Delete the agent — `ON DELETE CASCADE` on positions.entity_id
+            // is not what we want here; positions for this agent get
+            // dropped explicitly so any other entity references stay clean.
+            for pos in &agent_position_ids {
+                db.execute("DELETE FROM positions WHERE id = ?1", params![pos])?;
+            }
             let deleted = db.execute("DELETE FROM agents WHERE id = ?1", params![id])?;
             if deleted == 0 {
                 anyhow::bail!("agent '{id}' not found");
@@ -1972,18 +2232,16 @@ impl AgentRegistry {
             return Ok(deleted);
         }
 
-        let mut stmt =
-            db.prepare("SELECT descendant_id FROM agent_ancestry WHERE ancestor_id = ?1")?;
-        let subtree: Vec<String> = stmt
-            .query_map(params![id], |r| r.get::<_, String>(0))?
-            .filter_map(std::result::Result::ok)
-            .collect();
-        drop(stmt);
+        // Cascade: collect every descendant agent (and self), drop them all.
+        let mut subtree = self.list_descendants(id).await?;
+        subtree.push(id.to_string());
 
-        if subtree.is_empty() {
+        let exists = self.get(id).await?.is_some();
+        if !exists {
             anyhow::bail!("agent '{id}' not found");
         }
 
+        let db = self.db.lock().await;
         let placeholders = std::iter::repeat_n("?", subtree.len())
             .collect::<Vec<_>>()
             .join(",");
@@ -1991,6 +2249,14 @@ impl AgentRegistry {
         let params_vec: Vec<&dyn rusqlite::ToSql> =
             subtree.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
         let deleted = db.execute(&sql, params_vec.as_slice())?;
+
+        // Drop the matching positions (positions are scoped to entities and
+        // `ON DELETE CASCADE` would fire only if the entity was deleted).
+        let pos_sql = format!(
+            "DELETE FROM positions WHERE occupant_kind = 'agent' AND occupant_id IN ({placeholders})"
+        );
+        db.execute(&pos_sql, params_vec.as_slice())?;
+
         info!(id = %id, count = deleted, "agent subtree deleted");
         Ok(deleted)
     }
@@ -3398,10 +3664,17 @@ impl AgentRegistry {
         Ok(total_affected)
     }
 
-    /// List root agents (agents with no parent).
+    /// List root agents — agents whose position has no incoming edges in
+    /// the position DAG. A position-DAG model can carry multiple roots per
+    /// entity (e.g. a board); today every entity has exactly one.
     pub async fn list_root_agents(&self) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
-        let mut stmt = db.prepare("SELECT * FROM agents WHERE parent_id IS NULL ORDER BY name")?;
+        let mut stmt = db.prepare(
+            "SELECT DISTINCT a.* FROM agents a
+             JOIN positions p ON p.occupant_kind = 'agent' AND p.occupant_id = a.id
+             WHERE p.id NOT IN (SELECT child_position_id FROM position_edges)
+             ORDER BY a.name",
+        )?;
         let agents = stmt
             .query_map([], |row| Ok(row_to_agent(row)))?
             .collect::<Result<Vec<_>, _>>()?;
@@ -3595,7 +3868,7 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
     Agent {
         id: row.get("id").unwrap_or_default(),
         name: row.get("name").unwrap_or_default(),
-        parent_id: row.get("parent_id").ok(),
+        entity_id: row.get("entity_id").ok(),
         model: row.get("model").ok(),
         status,
         created_at: row
@@ -3989,6 +4262,172 @@ mod tests {
         assert!(cols.iter().any(|c| c == "subject"));
     }
 
+    /// Reproduce the exact pre-Phase-4 production shape: one entity row,
+    /// one agent row, one position row — all sharing the same UUID. Run
+    /// the open() boot sequence and assert the post-migration invariants:
+    ///
+    /// - `agents.parent_id` column is gone.
+    /// - `agent_ancestry` and `agent_directors` tables are gone.
+    /// - The entity has a fresh UUID, distinct from the agent UUID.
+    /// - `agents.entity_id` is rewritten to point at the fresh UUID.
+    /// - `positions.entity_id` is rewritten to the fresh UUID.
+    /// - The migration is idempotent — running open() a second time is a no-op.
+    #[tokio::test]
+    async fn phase4_migration_decouples_legacy_uuids() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("aeqi.db");
+
+        // Build the legacy schema by hand and seed with the production shape.
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                "PRAGMA journal_mode = WAL;
+                 CREATE TABLE agents (
+                     id TEXT PRIMARY KEY,
+                     name TEXT NOT NULL,
+                     parent_id TEXT,
+                     entity_id TEXT,
+                     status TEXT NOT NULL DEFAULT 'active',
+                     created_at TEXT NOT NULL,
+                     last_active TEXT,
+                     session_count INTEGER NOT NULL DEFAULT 0,
+                     total_tokens INTEGER NOT NULL DEFAULT 0,
+                     model TEXT,
+                     display_name TEXT,
+                     color TEXT,
+                     avatar TEXT,
+                     faces TEXT,
+                     max_concurrent INTEGER NOT NULL DEFAULT 1,
+                     session_id TEXT,
+                     workdir TEXT,
+                     budget_usd REAL,
+                     execution_mode TEXT,
+                     quest_prefix TEXT,
+                     worker_timeout_secs INTEGER,
+                     tool_deny TEXT NOT NULL DEFAULT '[]',
+                     can_self_delegate INTEGER NOT NULL DEFAULT 0,
+                     can_ask_director INTEGER NOT NULL DEFAULT 0
+                 );
+                 CREATE INDEX idx_agents_parent ON agents(parent_id);
+                 CREATE TABLE agent_ancestry (
+                     descendant_id TEXT NOT NULL,
+                     ancestor_id TEXT NOT NULL,
+                     depth INTEGER NOT NULL,
+                     PRIMARY KEY (descendant_id, ancestor_id)
+                 );",
+            )
+            .unwrap();
+
+            // Single root agent, just like the live Luca Eich entry.
+            let shared_id = "1b6bcf4e-79f0-4d8e-9a55-501e87149836";
+            conn.execute(
+                "INSERT INTO agents (id, name, parent_id, entity_id, created_at)
+                 VALUES (?1, 'Luca Eich', NULL, ?1, '2026-04-01T00:00:00Z')",
+                params![shared_id],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO agent_ancestry (descendant_id, ancestor_id, depth) VALUES (?1, ?1, 0)",
+                params![shared_id],
+            )
+            .unwrap();
+        }
+
+        // Open the registry — this fires every Phase-4 migration helper.
+        let _registry = AgentRegistry::open(dir.path()).unwrap();
+
+        // Re-open the file directly to inspect the post-migration shape.
+        let conn = Connection::open(&db_path).unwrap();
+
+        // 1. parent_id column is gone.
+        let agent_cols: Vec<String> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(agents)").unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+        assert!(
+            !agent_cols.iter().any(|c| c == "parent_id"),
+            "agents.parent_id must be dropped",
+        );
+
+        // 2. agent_ancestry table is gone.
+        let has_ancestry: Option<i64> = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_ancestry'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .unwrap();
+        assert!(
+            has_ancestry.is_none(),
+            "agent_ancestry table must be dropped"
+        );
+
+        // 3. Entity UUID is fresh; agent UUID stays.
+        let agent_id = "1b6bcf4e-79f0-4d8e-9a55-501e87149836";
+        let agent_entity_id: String = conn
+            .query_row(
+                "SELECT entity_id FROM agents WHERE id = ?1",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_ne!(
+            agent_entity_id, agent_id,
+            "entity UUID must be decoupled from the agent UUID",
+        );
+
+        let entity_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM entities WHERE id = ?1",
+                params![agent_entity_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(entity_count, 1, "entity row must live at the fresh UUID");
+
+        let old_entity_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM entities WHERE id = ?1",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            old_entity_count, 0,
+            "the legacy entity row sharing the agent UUID must be deleted",
+        );
+
+        // 4. Position re-pointed.
+        let position_entity_id: String = conn
+            .query_row(
+                "SELECT entity_id FROM positions WHERE occupant_id = ?1",
+                params![agent_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(position_entity_id, agent_entity_id);
+
+        // 5. Idempotence: a second open() is a clean no-op.
+        drop(conn);
+        let _registry2 = AgentRegistry::open(dir.path()).unwrap();
+        let conn = Connection::open(&db_path).unwrap();
+        let entity_count_after: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM entities WHERE id = ?1",
+                params![agent_entity_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            entity_count_after, 1,
+            "second open() must not duplicate or drop the entity row"
+        );
+    }
+
     #[tokio::test]
     async fn spawn_and_get() {
         let reg = test_registry().await;
@@ -3998,7 +4437,15 @@ mod tests {
             .unwrap();
 
         assert_eq!(agent.name, "Shadow");
-        assert!(agent.parent_id.is_none()); // Root agent
+        assert!(
+            agent.entity_id.is_some(),
+            "spawned agent must own an entity"
+        );
+        assert_ne!(
+            agent.entity_id.as_deref(),
+            Some(agent.id.as_str()),
+            "entity UUID must be distinct from agent UUID"
+        );
         assert_eq!(agent.status, AgentStatus::Active);
 
         let fetched = reg.get(&agent.id).await.unwrap().unwrap();
@@ -4172,7 +4619,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_with_parent_and_status_filters() {
+    async fn list_filters_by_entity_and_status() {
         let reg = test_registry().await;
         let root = reg.spawn("root", None, None).await.unwrap();
         let child_a = reg.spawn("a", Some(&root.id), None).await.unwrap();
@@ -4185,20 +4632,19 @@ mod tests {
         let all = reg.list(None, None).await.unwrap();
         assert_eq!(all.len(), 3);
 
-        let children = reg.list(Some(Some(&root.id)), None).await.unwrap();
-        assert_eq!(children.len(), 2);
+        let entity_id = root.entity_id.as_deref().unwrap();
+        let entity_agents = reg.list(Some(entity_id), None).await.unwrap();
+        assert_eq!(entity_agents.len(), 3);
 
-        // parent IS NULL = root agents only
-        let roots = reg.list(Some(None), None).await.unwrap();
+        let roots = reg.list_root_agents().await.unwrap();
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].name, "root");
 
-        let active_children = reg
-            .list(Some(Some(&root.id)), Some(AgentStatus::Active))
+        let active_in_entity = reg
+            .list(Some(entity_id), Some(AgentStatus::Active))
             .await
             .unwrap();
-        assert_eq!(active_children.len(), 1);
-        assert_eq!(active_children[0].name, "b");
+        assert_eq!(active_in_entity.len(), 2);
 
         let paused = reg.list(None, Some(AgentStatus::Paused)).await.unwrap();
         assert_eq!(paused.len(), 1);
@@ -4243,10 +4689,17 @@ mod tests {
         assert_eq!(deleted, 1);
 
         assert!(reg.get(&middle.id).await.unwrap().is_none());
-        let a = reg.get(&leaf_a.id).await.unwrap().unwrap();
-        let b = reg.get(&leaf_b.id).await.unwrap().unwrap();
-        assert_eq!(a.parent_id.as_deref(), Some(root.id.as_str()));
-        assert_eq!(b.parent_id.as_deref(), Some(root.id.as_str()));
+        // After delete-with-promote, leaf_a and leaf_b should report root
+        // among their position-DAG ancestors.
+        for leaf in [&leaf_a, &leaf_b] {
+            let ancestors = reg.get_ancestor_ids(&leaf.id).await.unwrap();
+            assert!(
+                ancestors.contains(&root.id),
+                "leaf {} should have root in ancestors after promote; got {:?}",
+                leaf.name,
+                ancestors,
+            );
+        }
     }
 
     #[tokio::test]
@@ -4275,8 +4728,10 @@ mod tests {
 
         reg.delete_agent(&root.id, false).await.unwrap();
 
-        let orphan = reg.get(&child.id).await.unwrap().unwrap();
-        assert!(orphan.parent_id.is_none());
+        // After deleting the root, the child has no remaining ancestors
+        // beyond itself in the position DAG.
+        let ancestors = reg.get_ancestor_ids(&child.id).await.unwrap();
+        assert_eq!(ancestors, vec![child.id.clone()]);
     }
 
     #[tokio::test]

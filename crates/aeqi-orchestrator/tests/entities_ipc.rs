@@ -44,11 +44,12 @@ async fn entities_scope_filtering() {
     let a1 = h.registry().spawn("allowed-co", None, None).await.unwrap();
     let _a2 = h.registry().spawn("denied-co", None, None).await.unwrap();
 
-    let allowed = Some(vec![a1.id.clone()]);
+    let entity_id_a1 = a1.entity_id.expect("agent must own an entity");
+    let allowed = Some(vec![entity_id_a1.clone()]);
     let resp = handle_entities(&ctx, &serde_json::Value::Null, &allowed).await;
     let roots = resp["roots"].as_array().unwrap();
     assert_eq!(roots.len(), 1, "scope must filter to exactly one entity");
-    assert_eq!(roots[0]["id"], a1.id);
+    assert_eq!(roots[0]["id"], entity_id_a1);
 }
 
 // ── handle_create_entity ─────────────────────────────────────────────────────
@@ -82,17 +83,22 @@ async fn create_entity_company_creates_agent() {
     )
     .await;
     assert_eq!(resp["ok"], true);
-    let id = resp["id"].as_str().unwrap();
+    let entity_id = resp["id"].as_str().unwrap();
 
     // Entity row exists.
-    let entity = ctx.entity_registry.get(id).await.unwrap();
+    let entity = ctx.entity_registry.get(entity_id).await.unwrap();
     assert!(entity.is_some(), "entity row must exist after create");
 
-    // Backing agent also exists.
-    let agent = h.registry().get(id).await.unwrap();
-    assert!(
-        agent.is_some(),
-        "backing root agent must exist for company entity"
+    // Backing agent exists with a fresh UUID (distinct from the entity id).
+    let backing_agents = h.registry().list(Some(entity_id), None).await.unwrap();
+    assert_eq!(
+        backing_agents.len(),
+        1,
+        "exactly one backing agent must own the new company"
+    );
+    assert_ne!(
+        backing_agents[0].id, entity_id,
+        "backing agent UUID must be distinct from the entity UUID"
     );
 }
 
@@ -108,16 +114,16 @@ async fn create_entity_non_company_no_agent() {
     )
     .await;
     assert_eq!(resp["ok"], true);
-    let id = resp["id"].as_str().unwrap();
+    let entity_id = resp["id"].as_str().unwrap();
 
     // Entity row exists.
-    let entity = ctx.entity_registry.get(id).await.unwrap();
+    let entity = ctx.entity_registry.get(entity_id).await.unwrap();
     assert!(entity.is_some());
 
     // No backing agent for non-company type.
-    let agent = h.registry().get(id).await.unwrap();
+    let backing = h.registry().list(Some(entity_id), None).await.unwrap();
     assert!(
-        agent.is_none(),
+        backing.is_empty(),
         "non-company entity must NOT spawn a backing agent"
     );
 }
@@ -130,16 +136,17 @@ async fn update_entity_renames_name_and_slug() {
     let ctx = h.ctx();
 
     let agent = h.registry().spawn("old-co", None, None).await.unwrap();
+    let entity_id = agent.entity_id.clone().expect("agent must own an entity");
 
     let resp = handle_update_entity(
         &ctx,
-        &serde_json::json!({"id": agent.id, "new_name": "new-co", "new_slug": "new-co"}),
+        &serde_json::json!({"id": entity_id, "new_name": "new-co", "new_slug": "new-co"}),
         &None,
     )
     .await;
     assert_eq!(resp["ok"], true);
 
-    let entity = ctx.entity_registry.get(&agent.id).await.unwrap().unwrap();
+    let entity = ctx.entity_registry.get(&entity_id).await.unwrap().unwrap();
     assert_eq!(entity.name, "new-co");
     assert_eq!(entity.slug, "new-co");
 }
@@ -150,7 +157,8 @@ async fn update_entity_requires_new_name_or_slug() {
     let ctx = h.ctx();
 
     let agent = h.registry().spawn("some-co", None, None).await.unwrap();
-    let resp = handle_update_entity(&ctx, &serde_json::json!({"id": agent.id}), &None).await;
+    let entity_id = agent.entity_id.clone().expect("agent must own an entity");
+    let resp = handle_update_entity(&ctx, &serde_json::json!({"id": entity_id}), &None).await;
     assert_eq!(resp["ok"], false);
 }
 
@@ -160,10 +168,11 @@ async fn update_entity_access_denied_when_scoped() {
     let ctx = h.ctx();
 
     let agent = h.registry().spawn("secret-co", None, None).await.unwrap();
+    let entity_id = agent.entity_id.clone().expect("agent must own an entity");
     let allowed = Some(vec!["some-other-id".to_string()]);
     let resp = handle_update_entity(
         &ctx,
-        &serde_json::json!({"id": agent.id, "new_name": "hacked"}),
+        &serde_json::json!({"id": entity_id, "new_name": "hacked"}),
         &allowed,
     )
     .await;

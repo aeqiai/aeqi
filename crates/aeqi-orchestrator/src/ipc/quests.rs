@@ -36,23 +36,18 @@ pub async fn handle_quests(
                     .list(None, None)
                     .await
                     .unwrap_or_default();
-                let root_ids: std::collections::HashSet<String> = all_agents
-                    .iter()
-                    .filter(|a| {
-                        a.parent_id.is_none()
-                            && (is_allowed(allowed, &a.name) || is_allowed(allowed, &a.id))
-                    })
-                    .map(|a| a.id.clone())
-                    .collect();
+                // Tenancy maps to entity, not parent_id. An agent is in
+                // scope iff its entity_id (or own name/id) hits the allowed list.
                 Some(
                     all_agents
                         .iter()
                         .filter(|a| {
-                            root_ids.contains(&a.id)
-                                || a.parent_id
-                                    .as_ref()
-                                    .map(|p| root_ids.contains(p))
-                                    .unwrap_or(false)
+                            a.entity_id
+                                .as_deref()
+                                .map(|eid| is_allowed(allowed, eid))
+                                .unwrap_or(false)
+                                || is_allowed(allowed, &a.name)
+                                || is_allowed(allowed, &a.id)
                         })
                         .map(|a| a.id.clone())
                         .collect(),

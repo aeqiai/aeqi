@@ -24,10 +24,10 @@ const parseSort = (raw: string | null): SortMode =>
  * tabs and back preserves state.
  *
  * Positions are seeded automatically when an entity is spawned from a
- * Blueprint — every seeded agent gets a position whose `id == agent.id`,
- * and every parent_id link becomes a `position_edge`. The "+ New
- * position" affordance for vacant slots / human seats is intentionally
- * deferred until the spawn flow + DAG-edit primitives are richer.
+ * Blueprint — every seeded agent gets a fresh position UUID, and every
+ * delegation edge becomes a `position_edge`. The "+ New position"
+ * affordance creates additional slots (vacant or occupied) inside the
+ * entity's DAG.
  */
 export default function EntityPositionsTab({ entityId }: { entityId: string }) {
   const [searchParams, setSearchParams] = useSearchParams();

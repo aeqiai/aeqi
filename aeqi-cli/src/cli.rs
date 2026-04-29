@@ -276,9 +276,9 @@ pub enum AgentAction {
     },
     /// List all persistent agents from the registry.
     Registry {
-        /// Filter by root agent.
-        #[arg(short = 'r', long = "root")]
-        root: Option<String>,
+        /// Filter by owning entity (id or slug).
+        #[arg(short = 'e', long = "entity")]
+        entity: Option<String>,
     },
 }
 
