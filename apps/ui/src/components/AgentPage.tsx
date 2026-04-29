@@ -8,16 +8,15 @@ import AgentEventsTab from "./AgentEventsTab";
 import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
+import EntityAgentsTab from "./EntityAgentsTab";
 import EntityPositionsTab from "./EntityPositionsTab";
 import EntityOverviewTab from "./EntityOverviewTab";
 import AgentIntegrationsTab from "@/pages/Agent/Integrations";
 import AgentPlanTab from "@/pages/Agent/PlanTab";
-import AgentOrgChart from "./AgentOrgChart";
 import PageRail from "./PageRail";
-import { Button, EmptyState } from "./ui";
+import { Button } from "./ui";
 import ModelPicker from "./ModelPicker";
 import { findAgentByAnyId } from "@/lib/entityLookup";
-import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
 const SETTINGS_SUB_TABS = [
@@ -55,7 +54,6 @@ export default function AgentPage({
   tab?: string;
   itemId?: string | null;
 }) {
-  const { goAgent } = useNav();
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
   const itemId = itemIdProp ?? params.itemId;
@@ -66,13 +64,11 @@ export default function AgentPage({
   const agent = findAgentByAnyId(agents, agentId);
 
   const resolvedAgentId = agent?.id || agentId;
-
-  // Child agents for the "agents" tab — every agent inside the same
-  // entity is a candidate; AgentOrgChart filters down to the position
-  // DAG when it renders.
-  const childAgents = agents.filter(
-    (a) => a.entity_id && a.entity_id === agent?.entity_id && a.id !== agent?.id,
-  );
+  // Entity-scoped tabs (Agents, Positions, Overview) work on the
+  // entity_id — falling back to the resolved agent id when the lookup
+  // is in flight or the agent doesn't carry an entity. Mirrors the
+  // pattern LeftSidebar adopted post-Phase-4.
+  const resolvedEntityId = agent?.entity_id || resolvedAgentId;
 
   // Save feedback toast
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
@@ -103,7 +99,7 @@ export default function AgentPage({
       )}
 
       {/* Tab content */}
-      {activeTab === "overview" && <EntityOverviewTab entityId={resolvedAgentId} />}
+      {activeTab === "overview" && <EntityOverviewTab entityId={resolvedEntityId} />}
 
       {activeTab === "sessions" && (
         <div className="agent-page-chat">
@@ -111,13 +107,7 @@ export default function AgentPage({
         </div>
       )}
 
-      {activeTab === "agents" && (
-        <AgentsTab
-          parentAgentId={resolvedAgentId}
-          childAgents={childAgents}
-          onSelectChild={(id) => goAgent(id)}
-        />
-      )}
+      {activeTab === "agents" && <EntityAgentsTab entityId={resolvedEntityId} />}
 
       {activeTab === "quests" && <AgentQuestsTab agentId={resolvedAgentId} />}
 
@@ -125,7 +115,7 @@ export default function AgentPage({
 
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 
-      {activeTab === "positions" && <EntityPositionsTab entityId={resolvedAgentId} />}
+      {activeTab === "positions" && <EntityPositionsTab entityId={resolvedEntityId} />}
 
       {(activeTab === "settings" ||
         activeTab === "channels" ||
@@ -149,106 +139,6 @@ export default function AgentPage({
           {activeTab === "plan" && <AgentPlanTab agentId={resolvedAgentId} />}
         </SettingsShell>
       )}
-    </div>
-  );
-}
-
-/**
- * Agents sub-tab. Listens for the shared `aeqi:create` event and opens the
- * Blueprint picker modal scoped to the current entity. The picker spawns
- * the chosen blueprint INTO the entity (root attaches under the entity's
- * root; seeds nest under that root). Same blueprint JSON as `/start`; the
- * destination determines behavior.
- */
-function AgentsTab({
-  parentAgentId,
-  childAgents,
-  onSelectChild,
-}: {
-  parentAgentId: string;
-  childAgents: ReturnType<typeof useDaemonStore.getState>["agents"];
-  onSelectChild: (id: string) => void;
-}) {
-  const allAgents = useDaemonStore((s) => s.agents);
-  const parentAgent = allAgents.find((a) => a.id === parentAgentId);
-  const entityId = parentAgent?.entity_id ?? parentAgentId;
-
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const openPicker = useCallback(() => setPickerOpen(true), []);
-
-  useEffect(() => {
-    window.addEventListener("aeqi:create", openPicker);
-    return () => window.removeEventListener("aeqi:create", openPicker);
-  }, [openPicker]);
-
-  // Deep descendant count across the whole entity. Position-DAG awareness
-  // doesn't add value here — every agent in the same entity counts.
-  const totalDescendants = useMemo(() => {
-    if (!parentAgent?.entity_id) return 0;
-    return allAgents.filter((a) => a.entity_id === parentAgent.entity_id && a.id !== parentAgentId)
-      .length;
-  }, [allAgents, parentAgent, parentAgentId]);
-
-  if (childAgents.length === 0) {
-    return (
-      <>
-        <div className="page-content" style={{ padding: 0 }}>
-          <div style={{ padding: 16 }}>
-            <EmptyState
-              eyebrow="Agents"
-              title="No sub-agents yet"
-              description="Pick a Blueprint and its agents join the tree under this company."
-              action={
-                <Button variant="primary" onClick={openPicker}>
-                  New agent
-                </Button>
-              }
-            />
-          </div>
-        </div>
-        <BlueprintPickerModal
-          open={pickerOpen}
-          onClose={() => setPickerOpen(false)}
-          entityId={entityId}
-        />
-      </>
-    );
-  }
-
-  const deepOnly = totalDescendants > childAgents.length;
-
-  return (
-    <div className="agents-tab">
-      <div className="agents-tab-head">
-        <div className="agents-tab-stat">
-          <span className="agents-tab-stat-count">{childAgents.length}</span>
-          <span className="agents-tab-stat-label">
-            {childAgents.length === 1 ? "direct report" : "direct reports"}
-          </span>
-          {deepOnly && (
-            <>
-              <span className="agents-tab-stat-sep" aria-hidden>
-                ·
-              </span>
-              <span className="agents-tab-stat-count">{totalDescendants}</span>
-              <span className="agents-tab-stat-label">in the tree</span>
-            </>
-          )}
-        </div>
-        <div className="agents-tab-actions">
-          <Button variant="primary" size="sm" onClick={openPicker}>
-            New agent
-          </Button>
-        </div>
-      </div>
-      <div className="agents-tab-body">
-        <AgentOrgChart parentAgentId={parentAgentId} onSelect={onSelectChild} />
-      </div>
-      <BlueprintPickerModal
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        entityId={entityId}
-      />
     </div>
   );
 }
