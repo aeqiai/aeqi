@@ -63,6 +63,7 @@ interface AuthState {
   resendCode: (email: string) => Promise<boolean>;
   requestLoginCode: (email: string) => Promise<boolean>;
   loginWithCode: (email: string, code: string) => Promise<boolean>;
+  loginWithMagicLink: (token: string) => Promise<boolean>;
   verify2fa: (email: string, code: string) => Promise<boolean>;
   verifyTotp: (email: string, code: string) => Promise<boolean>;
   resend2fa: (email: string) => Promise<boolean>;
@@ -276,6 +277,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return true;
       }
       set({ loading: false, error: "Invalid or expired code" });
+      return false;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Sign-in failed";
+      set({ loading: false, error: msg });
+      return false;
+    }
+  },
+
+  loginWithMagicLink: async (token: string) => {
+    set({ loading: true, error: null });
+    try {
+      const resp = await api.consumeMagicLink(token);
+      if (resp.ok && resp.token) {
+        localStorage.setItem("aeqi_token", resp.token);
+        defaultAnalyticsConsentOnAuth();
+        const user = (resp.user as User | undefined) || null;
+        set({ token: resp.token, user, loading: false, pendingEmail: null });
+        if (user?.roots) applyRoot(user.roots);
+        return true;
+      }
+      set({ loading: false, error: "Invalid or expired sign-in link" });
       return false;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Sign-in failed";

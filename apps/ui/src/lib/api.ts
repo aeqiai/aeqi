@@ -59,6 +59,15 @@ export const api = {
       },
     ),
 
+  consumeMagicLink: (token: string) =>
+    request<{ ok: boolean; token: string; user?: Record<string, unknown> }>(
+      "/auth/login/magic/consume",
+      {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      },
+    ),
+
   signup: (email: string, password: string, name: string, inviteCode?: string) =>
     request<{
       ok: boolean;
