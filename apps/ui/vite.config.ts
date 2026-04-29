@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import pkg from "./package.json" with { type: "json" };
 
 const webSharedSrc = fileURLToPath(new URL("../../packages/web-shared/src", import.meta.url));
+const appNodeModules = fileURLToPath(new URL("./node_modules", import.meta.url));
 
 export default defineConfig({
   define: {
@@ -14,7 +15,15 @@ export default defineConfig({
     alias: {
       "@": "/src",
       "@aeqi/web-shared": webSharedSrc,
+      // Pin peer-deps of the shared package to apps/ui's node_modules so
+      // imports inside packages/web-shared/* resolve regardless of where
+      // the file lives on disk. Without this, Rollup walks up from the
+      // package's own dir and finds nothing.
+      react: `${appNodeModules}/react`,
+      "react-dom": `${appNodeModules}/react-dom`,
+      "react-router-dom": `${appNodeModules}/react-router-dom`,
     },
+    dedupe: ["react", "react-dom", "react-router-dom"],
   },
   build: {
     rollupOptions: {
