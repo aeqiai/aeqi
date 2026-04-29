@@ -232,19 +232,13 @@ export default function AppLayout() {
   }
 
   const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
-  // No-tab URLs collapse to tab="sessions" so /:agentId renders the Inbox
-  // directly — no redirect, no per-agent welcome splash.
-  const effectiveTab = tab || "sessions";
+  // No-tab at entity scope renders Overview; no-tab at user scope renders
+  // the Inbox.
+  const effectiveTab = tab || (agentId ? "overview" : "sessions");
 
   // Runtime mode has no account-level identity surface.
   if (isSettings && appMode && appMode !== "platform") {
     return <Navigate to="/" replace />;
-  }
-
-  // Collapse /:agentId/sessions (no session picked) onto bare /:agentId.
-  // Keep /:agentId/sessions/:sessionId intact — the itemId is real state.
-  if (agentId && tab === "sessions" && !itemId) {
-    return <Navigate to={`/${encodeURIComponent(agentId)}`} replace />;
   }
 
   const mainContent = (() => {

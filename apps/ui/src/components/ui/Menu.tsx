@@ -113,7 +113,9 @@ export function Menu({ trigger, items, placement = "bottom-end" }: MenuProps) {
       id={menuId}
       role="menu"
       aria-label="Actions"
+      tabIndex={-1}
       className={styles.menu}
+      data-open={open || undefined}
       onKeyDown={handleKeyDown}
       onMouseDown={handleMenuMouseDown}
     >

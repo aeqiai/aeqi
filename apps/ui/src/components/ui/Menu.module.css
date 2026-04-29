@@ -9,6 +9,7 @@
 .menu {
   padding: 4px 0;
   min-width: 160px;
+  outline: none;
 }
 
 .item {

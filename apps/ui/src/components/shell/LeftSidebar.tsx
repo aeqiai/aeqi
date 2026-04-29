@@ -163,7 +163,9 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  const inboxActive = base ? path === base || path.startsWith(`${base}/sessions`) : path === "/";
+  const inboxActive = base
+    ? path === `${base}/sessions` || path.startsWith(`${base}/sessions/`)
+    : path === "/";
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   const navItem = (
@@ -286,11 +288,11 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
         <nav className="sidebar-surface-nav" aria-label="Attention">
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href={base || "/"}
+            href={base ? `${base}/sessions` : "/"}
             title={agentId ? "Company inbox" : "Your inbox"}
             onClick={(e) => {
               e.preventDefault();
-              navigate(base || "/");
+              navigate(base ? `${base}/sessions` : "/");
             }}
           >
             <InboxIcon />

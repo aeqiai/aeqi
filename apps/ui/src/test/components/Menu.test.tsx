@@ -19,7 +19,7 @@ describe("Menu", () => {
     it("hides menu items initially", () => {
       render(<Menu trigger={<button>Actions</button>} items={defaultItems} />);
       const menu = screen.getByRole("menu");
-      expect(menu.className).not.toContain("open");
+      expect(menu).not.toHaveAttribute("data-open");
     });
 
     it("renders all menu items when open", async () => {
@@ -62,7 +62,7 @@ describe("Menu", () => {
 
       expect(onSelect).toHaveBeenCalledTimes(1);
       const menu = screen.getByRole("menu");
-      expect(menu.className).not.toContain("open");
+      expect(menu).not.toHaveAttribute("data-open");
     });
   });
 
@@ -258,12 +258,7 @@ describe("Menu", () => {
     });
   });
 
-  // Menu wraps Popover in controlled mode (open prop set). Popover's controlled
-  // mode renders the trigger slot with onClick=undefined, so clicking the trigger
-  // never opens the menu. Keyboard nav and hover-active-index also depend on
-  // open=true (focus useEffect is gated on it). Skipped pending a Menu/Popover
-  // fix that wires the trigger click to setOpen in controlled mode.
-  describe.skip("keyboard navigation", () => {
+  describe("keyboard navigation", () => {
     it("navigates with ArrowDown", async () => {
       const user = userEvent.setup();
       const items = [
@@ -312,10 +307,10 @@ describe("Menu", () => {
 
       await user.click(screen.getByRole("button", { name: "Actions" }));
       const menu = screen.getByRole("menu");
-      expect(menu.className).toContain("open");
+      expect(menu).toHaveAttribute("data-open");
 
       await user.keyboard("{Escape}");
-      expect(menu.className).not.toContain("open");
+      expect(menu).not.toHaveAttribute("data-open");
     });
 
     it("wraps navigation with ArrowDown at the end", async () => {
@@ -339,9 +334,7 @@ describe("Menu", () => {
     });
   });
 
-  // Same blocker as keyboard navigation — open=true required for the
-  // setActiveIndex → focus effect to run.
-  describe.skip("mouse hover", () => {
+  describe("mouse hover", () => {
     it("sets active index on mouse enter", async () => {
       const user = userEvent.setup();
       const items = [
