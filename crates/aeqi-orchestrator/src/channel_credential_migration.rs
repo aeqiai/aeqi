@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use aeqi_core::credentials::{CredentialInsert, CredentialKey, CredentialStore, ScopeKind};
 use anyhow::{Context, Result};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use tracing::{debug, warn};
 
 use crate::agent_registry::ConnectionPool;
@@ -57,8 +57,28 @@ pub async fn migrate_and_strip_channel_tokens(
     // Pull all channel rows up front so we don't hold the pool lock across
     // the per-row credential write + UPDATE roundtrip. The set is small
     // (one row per agent per kind) — bounded.
+    //
+    // Fresh-DB tolerance: this migration runs at daemon boot BEFORE
+    // `AgentRegistry::open` creates the `channels` table on a fresh
+    // tenant. Returning (0, 0) when the table doesn't exist lets the
+    // boot continue — the table will be created downstream and there
+    // are no rows to migrate yet. Without this, fresh tenants
+    // crash-loop forever (systemd restart counter hit 45,000+ for the
+    // 2026-04-29 sandbox-launch incident).
     let rows: Vec<ChannelRow> = {
         let conn = db.lock().await;
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='channels'",
+                [],
+                |_| Ok(true),
+            )
+            .optional()
+            .context("probe channels table existence")?
+            .unwrap_or(false);
+        if !table_exists {
+            return Ok((0, 0));
+        }
         let mut stmt = conn
             .prepare("SELECT id, kind, config FROM channels")
             .context("prepare channels select")?;
