@@ -8,7 +8,6 @@ import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
 import AgentOrgChart from "@/components/AgentOrgChart";
-import NewAgentPage from "@/pages/NewAgentPage";
 import ShortcutsOverlay from "@/components/ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
@@ -348,41 +347,6 @@ describe("AgentOrgChart smoke", () => {
     // synchronously off the agents data, so the outer wrapper is present
     // even before the position fetch resolves.
     expect(container.querySelector(".org-chart")).not.toBeNull();
-  });
-});
-
-describe("NewAgentPage smoke", () => {
-  beforeEach(() => {
-    useDaemonStore.setState({
-      agents: [{ id: "root", name: "Root", status: "active", entity_id: "root-1" }] as never,
-    });
-  });
-
-  it("redirects to /start when accessed without ?parent (root mode is gone)", () => {
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/new"]}>
-          <Routes>
-            <Route path="/new" element={<NewAgentPage />} />
-            <Route path="/start" element={<div>start surface</div>} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
-  });
-
-  it("renders sub-agent mode (?parent=root) with the identity picker", () => {
-    const errors = captureRenderErrors(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/new?parent=root"]}>
-          <Routes>
-            <Route path="/new" element={<NewAgentPage />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-    expect(errors.find(isLoopError)).toBeUndefined();
   });
 });
 

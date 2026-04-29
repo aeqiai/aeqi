@@ -232,8 +232,8 @@ export default function AppLayout() {
   }
 
   // Stale entity ref after a data reset would point at a non-existent
-  // agent. Bounce home — NOT to /new directly, which can self-loop when
-  // a placement exists without a matching runtime agent.
+  // agent. Bounce home; the user picks (or creates) a fresh entity from
+  // there.
   if (agentId && !currentAgent) {
     localStorage.removeItem("aeqi_entity");
     return <Navigate to="/" replace />;

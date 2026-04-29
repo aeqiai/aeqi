@@ -510,6 +510,18 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Spawn a Blueprint INTO an existing entity. Powers `+ New agent`: the
+  // blueprint's root attaches under the entity's root agent; seeds nest
+  // under that root. Same blueprint JSON, different destination.
+  spawnBlueprintIntoEntity: (data: { blueprint: string; entity_id: string }) =>
+    request<{
+      ok: boolean;
+      spawned_agents: number;
+      created_events: number;
+      created_ideas: number;
+      created_quests: number;
+    }>("/blueprints/spawn-into", { method: "POST", body: JSON.stringify(data) }),
+
   // Platform-side launch — creates the runtime placement, kicks off the
   // sandbox provisioner, and returns the slug. The platform back-fills
   // `runtime_placements.agent_id` once the sandbox reports the new

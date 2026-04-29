@@ -13,7 +13,6 @@ import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 // App pages -- lazy-loaded for route-level code splitting
-const NewAgentPage = lazy(() => import("@/pages/NewAgentPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 
@@ -137,11 +136,6 @@ export default function App() {
                       that intentionally do NOT inherit the shell. */}
                   <Route path="agents" element={<AgentsPage />} />
                   <Route path="change-password" element={<ChangePasswordPage />} />
-
-                  {/* /new is now sub-agent-only (`/new?parent=:id`). The
-                      no-parent variant (root creation) self-redirects
-                      to /start from inside NewAgentPage. */}
-                  <Route path="new" element={<NewAgentPage />} />
 
                   {/* Home dashboard + profile + every agent at
                       /:agentId/... share the same shell — AppLayout

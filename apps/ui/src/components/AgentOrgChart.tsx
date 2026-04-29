@@ -5,6 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { CardTrigger } from "./ui";
 import BlockAvatar from "./BlockAvatar";
 import BrandMark from "./BrandMark";
+import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import type { Agent, Position, PositionEdge } from "@/lib/types";
 import "@/styles/org-chart.css";
 
@@ -91,8 +92,8 @@ function buildOrgFromPositions(
  * hairline connectors drawn with CSS pseudo-elements.
  *
  * The rightmost slot of the first row is a "+ New agent" placeholder
- * that routes to /new?parent=<id>, so spawning a report is one click
- * away from reading the structure.
+ * that opens the Blueprint picker modal, so spawning a report is one
+ * click away from reading the structure.
  */
 export default function AgentOrgChart({
   parentAgentId,
@@ -107,6 +108,7 @@ export default function AgentOrgChart({
     const found = agents.find((a) => a.id === parentAgentId);
     return found?.entity_id ?? null;
   }, [agents, parentAgentId]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const [positions, setPositions] = useState<Position[]>([]);
   const [edges, setEdges] = useState<PositionEdge[]>([]);
@@ -197,7 +199,7 @@ export default function AgentOrgChart({
     if (!id) return;
     if (isPlus) {
       e.preventDefault();
-      navigate(`/new?parent=${encodeURIComponent(id)}`);
+      setPickerOpen(true);
       return;
     }
     const entry = navIndex.get(id);
@@ -227,12 +229,15 @@ export default function AgentOrgChart({
   return (
     <div className="org-chart" ref={chartRef} onKeyDown={onKeyDown}>
       <div className="org-scroll">
-        <OrgNodeView
-          node={org}
-          onSelect={handleSelect}
-          onAddChild={(parentId) => navigate(`/new?parent=${encodeURIComponent(parentId)}`)}
-        />
+        <OrgNodeView node={org} onSelect={handleSelect} onAddChild={() => setPickerOpen(true)} />
       </div>
+      {entityId && (
+        <BlueprintPickerModal
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          entityId={entityId}
+        />
+      )}
     </div>
   );
 }
@@ -244,7 +249,7 @@ function OrgNodeView({
 }: {
   node: OrgNode;
   onSelect: (id: string) => void;
-  onAddChild: (parentId: string) => void;
+  onAddChild: () => void;
 }) {
   const hasChildren = node.children.length > 0;
   const showAddSlot = node.isRoot; // Only the root exposes an inline +New on the org chart.
@@ -278,7 +283,7 @@ function OrgNodeView({
             <div className="org-node">
               <CardTrigger
                 className="org-card is-add"
-                onClick={() => onAddChild(node.id)}
+                onClick={onAddChild}
                 aria-label="Spawn sub-agent"
                 title="Spawn sub-agent"
               >

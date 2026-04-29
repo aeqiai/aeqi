@@ -125,7 +125,18 @@ export function useGlobalShortcuts({
       }
       if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        navigate(agentId ? `/new?parent=${encodeURIComponent(agentId)}` : "/start");
+        // Inside an entity, hop to the agents tab and fire the shared
+        // `aeqi:create` event so the AgentsTab listener opens the
+        // Blueprint picker. At user scope (no entity) fall back to /start
+        // (company creation).
+        if (agentId) {
+          navigate(`/${encodeURIComponent(agentId)}/agents`);
+          // Give the route swap a tick before dispatching so the agents
+          // tab is mounted and listening.
+          setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
+        } else {
+          navigate("/start");
+        }
         return;
       }
       if (e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {

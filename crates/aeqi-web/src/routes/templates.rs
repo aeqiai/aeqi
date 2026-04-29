@@ -15,6 +15,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/blueprints", get(list_blueprints))
         .route("/blueprints/spawn", post(spawn_blueprint))
+        .route("/blueprints/spawn-into", post(spawn_blueprint_into_entity))
         // Literal `/blueprints/default` must register before the
         // `{slug}` capture so axum routes the literal first.
         .route("/blueprints/default", get(default_blueprint))
@@ -154,4 +155,16 @@ async fn spawn_blueprint(
     }
 
     Json(resp).into_response()
+}
+
+/// Spawn a Blueprint INTO an existing entity. The blueprint's root attaches
+/// as a sub-agent under the entity's root; seed_agents nest under that root.
+/// Powers the `+ New agent` UX. No trial-slot gating: the user already owns
+/// the host entity.
+async fn spawn_blueprint_into_entity(
+    State(state): State<AppState>,
+    scope: Scope,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    ipc_proxy(state, scope.as_ref(), "spawn_blueprint_into_entity", body).await
 }

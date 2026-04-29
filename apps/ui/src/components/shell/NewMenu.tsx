@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
 import { Menu } from "@/components/ui/Menu";
 import type { MenuItem } from "@/components/ui/Menu";
+import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 
 const iconProps = {
   viewBox: "0 0 16 16",
@@ -36,6 +38,7 @@ const AgentIcon = () => (
 export default function NewMenu() {
   const navigate = useNavigate();
   const activeEntity = useUIStore((s) => s.activeEntity);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const items: MenuItem[] = [
     {
@@ -48,8 +51,12 @@ export default function NewMenu() {
       key: "agent",
       label: "+ Agent",
       icon: <AgentIcon />,
-      onSelect: () =>
-        navigate(activeEntity ? `/new?parent=${encodeURIComponent(activeEntity)}` : "/new"),
+      // `+ Agent` imports a Blueprint INTO the active entity. Disabled
+      // when no entity is active — there's no host to attach under.
+      disabled: !activeEntity,
+      onSelect: () => {
+        if (activeEntity) setPickerOpen(true);
+      },
     },
     {
       key: "quest",
@@ -84,5 +91,16 @@ export default function NewMenu() {
     </button>
   );
 
-  return <Menu trigger={trigger} items={items} placement="bottom-start" />;
+  return (
+    <>
+      <Menu trigger={trigger} items={items} placement="bottom-start" />
+      {activeEntity && (
+        <BlueprintPickerModal
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          entityId={activeEntity}
+        />
+      )}
+    </>
+  );
 }

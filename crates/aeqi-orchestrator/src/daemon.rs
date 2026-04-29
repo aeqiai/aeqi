@@ -1502,6 +1502,14 @@ impl Daemon {
                     crate::ipc::templates::handle_spawn_blueprint(&ctx, &request, &allowed_roots)
                         .await
                 }
+                "spawn_blueprint_into_entity" => {
+                    crate::ipc::templates::handle_spawn_blueprint_into_entity(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
                 "list_ideas" => {
                     crate::ipc::ideas::handle_list_ideas(&ctx, &request, &allowed_roots).await
                 }

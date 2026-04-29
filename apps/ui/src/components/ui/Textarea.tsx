@@ -13,7 +13,7 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
    *
    * Constraints: `bare` disables label, hint, error rendering. Use only when the
    * parent layout controls text and form state chrome. Pages: ChatComposer, EventCanvasEditor,
-   * IdeaCanvas (both), NewAgentPage.
+   * IdeaCanvas (both).
    */
   bare?: boolean;
 }

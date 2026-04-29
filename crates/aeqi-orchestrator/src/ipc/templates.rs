@@ -156,9 +156,17 @@ pub struct SpawnedAgent {
 
 /// Spawn a company from a template. Pure logic: everything external is
 /// injected so tests can drive this without the full daemon context.
+///
+/// When `parent_agent_id` is `Some`, the blueprint's root attaches as a
+/// sub-agent under that parent (reusing the parent's entity); seed_agents
+/// nest under the blueprint's root just like a normal spawn. This is the
+/// "import blueprint into existing entity" path that powers `+ New agent`.
+/// When `None`, a fresh entity is minted (the canonical company-spawn
+/// path that powers `/start`).
 pub async fn spawn_blueprint(
     template: &Template,
     override_name: Option<&str>,
+    parent_agent_id: Option<&str>,
     agent_registry: &AgentRegistry,
     event_store: &EventHandlerStore,
     idea_store: Option<&Arc<dyn aeqi_core::traits::IdeaStore>>,
@@ -169,7 +177,7 @@ pub async fn spawn_blueprint(
     let root = agent_registry
         .spawn(
             override_name.unwrap_or(&template.root.name),
-            None,
+            parent_agent_id,
             template.root.model.as_deref(),
         )
         .await?;
@@ -504,6 +512,7 @@ pub async fn handle_spawn_blueprint(
     match spawn_blueprint(
         &template,
         root_name.as_deref(),
+        None,
         &ctx.agent_registry,
         event_store.as_ref(),
         ctx.idea_store.as_ref(),
@@ -516,6 +525,93 @@ pub async fn handle_spawn_blueprint(
             "root_agent_id": outcome.root_agent_id,
             "root_agent_name": outcome.root_agent_name,
             "spawned_agents": outcome.spawned_agents,
+            "created_events": outcome.created_events,
+            "created_ideas": outcome.created_ideas,
+            "created_quests": outcome.created_quests,
+            "warnings": outcome.warnings,
+            "blueprint": {
+                "slug": template.slug,
+                "name": template.name,
+            },
+        }),
+        Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}),
+    }
+}
+
+/// Spawn a Blueprint INTO an existing entity. The blueprint's root attaches
+/// as a sub-agent under the entity's root agent; seed_agents nest under the
+/// blueprint's root in the position DAG. Powers the `+ New agent` UX.
+pub async fn handle_spawn_blueprint_into_entity(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let slug = super::request_field(request, "blueprint").unwrap_or("");
+    if slug.is_empty() {
+        return serde_json::json!({"ok": false, "error": "blueprint is required"});
+    }
+    let entity_id = super::request_field(request, "entity_id").unwrap_or("");
+    if entity_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "entity_id is required"});
+    }
+
+    // Tenancy: the entity must be inside the caller's allowed scope.
+    if !super::tenancy::is_allowed(allowed, entity_id) {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+
+    let template = match crate::templates::company_template(slug) {
+        Some(t) => t,
+        None => {
+            return serde_json::json!({
+                "ok": false,
+                "error": format!("template not found: {slug}"),
+                "code": "not_found",
+            });
+        }
+    };
+
+    // Resolve the entity's root agent — the blueprint's root will attach
+    // as a child of this agent. A position-DAG model can in principle host
+    // multiple roots per entity; today every entity has exactly one.
+    let entity_root = match ctx.agent_registry.list_root_agents().await {
+        Ok(roots) => roots
+            .into_iter()
+            .find(|a| a.entity_id.as_deref() == Some(entity_id)),
+        Err(err) => return serde_json::json!({"ok": false, "error": err.to_string()}),
+    };
+    let Some(parent) = entity_root else {
+        return serde_json::json!({
+            "ok": false,
+            "error": format!("entity '{entity_id}' has no root agent"),
+            "code": "not_found",
+        });
+    };
+
+    let Some(ref event_store) = ctx.event_handler_store else {
+        return serde_json::json!({"ok": false, "error": "event handler store not available"});
+    };
+
+    match spawn_blueprint(
+        &template,
+        None,
+        Some(&parent.id),
+        &ctx.agent_registry,
+        event_store.as_ref(),
+        ctx.idea_store.as_ref(),
+    )
+    .await
+    {
+        Ok(outcome) => serde_json::json!({
+            "ok": true,
+            "entity_id": outcome.entity_id,
+            "root_agent_id": outcome.root_agent_id,
+            "root_agent_name": outcome.root_agent_name,
+            // Counts (not the SpawnedAgent array) so the import-flow
+            // frontend can render "Spawned 3 agents · 2 ideas · 1 quest"
+            // without iterating. The full array is a fresh-spawn-only
+            // shape returned by `handle_spawn_blueprint`.
+            "spawned_agents": outcome.spawned_agents.len(),
             "created_events": outcome.created_events,
             "created_ideas": outcome.created_ideas,
             "created_quests": outcome.created_quests,
@@ -644,9 +740,16 @@ mod tests {
         let idea_store = test_idea_store();
 
         let template = fixture_template();
-        let outcome = spawn_blueprint(&template, None, &registry, &event_store, Some(&idea_store))
-            .await
-            .expect("spawn should succeed");
+        let outcome = spawn_blueprint(
+            &template,
+            None,
+            None,
+            &registry,
+            &event_store,
+            Some(&idea_store),
+        )
+        .await
+        .expect("spawn should succeed");
 
         // Root + 2 seed agents.
         assert_eq!(outcome.spawned_agents.len(), 3);
@@ -715,7 +818,7 @@ mod tests {
         let event_store = EventHandlerStore::new(registry.db());
 
         let template = fixture_template();
-        let outcome = spawn_blueprint(&template, None, &registry, &event_store, None)
+        let outcome = spawn_blueprint(&template, None, None, &registry, &event_store, None)
             .await
             .expect("spawn should succeed without idea store");
 
@@ -752,9 +855,16 @@ mod tests {
             tool_calls: Vec::new(),
         });
 
-        let outcome = spawn_blueprint(&template, None, &registry, &event_store, Some(&idea_store))
-            .await
-            .expect("spawn should succeed despite one bad seed");
+        let outcome = spawn_blueprint(
+            &template,
+            None,
+            None,
+            &registry,
+            &event_store,
+            Some(&idea_store),
+        )
+        .await
+        .expect("spawn should succeed despite one bad seed");
 
         assert_eq!(outcome.created_events, 2);
         assert!(
@@ -777,6 +887,7 @@ mod tests {
         let outcome = spawn_blueprint(
             &template,
             Some("My Cool Studio"),
+            None,
             &registry,
             &event_store,
             Some(&idea_store),
@@ -791,6 +902,87 @@ mod tests {
             .unwrap();
         assert_eq!(root.id, outcome.root_agent_id);
         assert_eq!(root.name, "My Cool Studio");
+    }
+
+    #[tokio::test]
+    async fn spawn_blueprint_into_existing_entity_attaches_under_root() {
+        let registry = test_registry().await;
+        let event_store = EventHandlerStore::new(registry.db());
+        let idea_store = test_idea_store();
+
+        // Stand up a host entity first.
+        let host_template = fixture_template();
+        let host = spawn_blueprint(
+            &host_template,
+            Some("Host Co"),
+            None,
+            &registry,
+            &event_store,
+            Some(&idea_store),
+        )
+        .await
+        .expect("host spawn should succeed");
+        let host_root_id = host.root_agent_id.clone();
+        let host_entity_id = host.entity_id.clone();
+
+        // Now import a second blueprint into that entity.
+        let imported_template = Template {
+            slug: "imported-bp".to_string(),
+            name: "Imported BP".to_string(),
+            tagline: String::new(),
+            description: String::new(),
+            root: RootAgentSpec {
+                name: "Imported Root".to_string(),
+                model: None,
+                color: None,
+                avatar: None,
+                system_prompt: None,
+            },
+            seed_agents: vec![SeedAgentSpec {
+                owner: "root".to_string(),
+                name: "Imported Helper".to_string(),
+                model: None,
+                color: None,
+                avatar: None,
+                system_prompt: None,
+            }],
+            seed_events: Vec::new(),
+            seed_ideas: Vec::new(),
+            seed_quests: Vec::new(),
+        };
+        let imported = spawn_blueprint(
+            &imported_template,
+            None,
+            Some(&host_root_id),
+            &registry,
+            &event_store,
+            Some(&idea_store),
+        )
+        .await
+        .expect("import spawn should succeed");
+
+        // Imported blueprint reuses the host entity, not a fresh one.
+        assert_eq!(imported.entity_id, host_entity_id);
+        assert_eq!(imported.spawned_agents.len(), 2);
+
+        // Imported root is now a descendant of the host root.
+        let ancestors = registry
+            .get_ancestor_ids(&imported.root_agent_id)
+            .await
+            .unwrap();
+        assert!(
+            ancestors.contains(&host_root_id),
+            "imported root should be a descendant of the host root; ancestors: {ancestors:?}",
+        );
+
+        // Helper still nests under the imported root (not the host root).
+        let helper = registry
+            .get_active_by_name("Imported Helper")
+            .await
+            .unwrap()
+            .unwrap();
+        let helper_ancestors = registry.get_ancestor_ids(&helper.id).await.unwrap();
+        assert!(helper_ancestors.contains(&imported.root_agent_id));
     }
 
     #[tokio::test]
