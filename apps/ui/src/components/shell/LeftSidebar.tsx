@@ -172,19 +172,21 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  // Inbox is the canonical scope-root surface and means different
-  // things at different scopes: `/` is the user's personal inbox,
-  // `/c/<entity>` is the same shape filtered to that entity. The
-  // sidebar item routes to whichever applies. Active on the bare
-  // scope-root URL plus any `/sessions/<id>` thread view in that scope.
+  // Inbox is one universal surface; the active company is a filter
+  // encoded in the URL path. `/` is the unfiltered inbox; the bare
+  // `/c/<entity>` URL is the same inbox scoped to that company. The
+  // sidebar Inbox item routes to whichever the user is currently in
+  // — when an entity is active it points at `/c/<entity>` (so the
+  // filter persists), at user scope it points at `/`. Always labeled
+  // "Inbox" — it's the user's inbox at every scope, the entity is
+  // just the filter.
   const inboxHref = isEntityScope ? base : "/";
   const inboxActive = isEntityScope
     ? path === base || path === `${base}/sessions` || path.startsWith(`${base}/sessions/`)
     : path === "/" || path.startsWith("/sessions/");
-  // Company sidebar item points at the company's "overview" surface
-  // (the org card / positions PageRail) — the bare `/c/<entity>` URL
-  // is the inbox, not the Company card. Active on overview / positions
-  // tabs only.
+  // Company sidebar item points at the company's Overview surface
+  // (the org card / Positions PageRail). Active on overview /
+  // positions tabs only.
   const companyActive =
     !!base &&
     COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`));
@@ -281,7 +283,28 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Company switcher ── */}
+        {/* ── Inbox — the action center, the daily landing surface, the
+            "what needs me" view. Sits at the top of the rail because
+            it's the canonical destination; the workspace switcher
+            below it just sets the filter applied to its content. ── */}
+        <nav className="sidebar-surface-nav" aria-label="Attention">
+          <a
+            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
+            href={inboxHref}
+            title="Inbox"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(inboxHref);
+            }}
+          >
+            <InboxIcon />
+            <span className="sidebar-nav-label">Inbox</span>
+          </a>
+        </nav>
+
+        {/* ── Workspace switcher — picks the active scope (you / a
+            company). Sets the URL filter (`/` vs `/c/<entity>`) so
+            Inbox + every company-scoped surface follow. ── */}
         <div className="sidebar-user-zone">
           <CompanySwitcher />
         </div>
@@ -305,27 +328,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* ── Inbox + Company — top-level destinations, sit above the
-            categorical groups. Inbox is the attention queue (what needs
-            you); Company is the company-home noun (the org itself).
-            Company's sub-rail (Overview / Positions / Agents / Events /
-            Quests / Ideas) is rendered by CompanyPage, not duplicated
-            in this sidebar — same pattern as Economy's Discovery /
-            Blueprints. ── */}
-        <nav className="sidebar-surface-nav" aria-label="Attention">
-          <a
-            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-            href={inboxHref}
-            title={isEntityScope ? "Company inbox" : "Your inbox"}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(inboxHref);
-            }}
-          >
-            <InboxIcon />
-            <span className="sidebar-nav-label">Inbox</span>
-          </a>
-          {isEntityScope && base && (
+        {/* ── Company nav — only at entity scope, points at the
+            company's Overview surface (org card + Positions PageRail).
+            Inbox above carries the attention-queue view; this row is
+            for the company-as-noun: who's in it, what's its shape. ── */}
+        {isEntityScope && base && (
+          <nav className="sidebar-surface-nav" aria-label="Workspace">
             <a
               className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
               href={`${base}/overview`}
@@ -338,8 +346,8 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               <CompanyIcon />
               <span className="sidebar-nav-label">Company</span>
             </a>
-          )}
-        </nav>
+          </nav>
+        )}
 
         {/* The four W-primitives, Operate, and Control are all
             company-scoped surfaces (their URLs all live under

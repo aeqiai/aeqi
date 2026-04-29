@@ -201,10 +201,12 @@ export default function AppLayout() {
   const activeAgentId = activeAgent?.id ?? "";
 
   const base = encodedEntityId ? `/c/${encodedEntityId}` : "/";
-  // Inbox is the canonical scope-root surface at every level. `/` is
-  // the user's personal inbox; `/c/<entity>` is the same shape but
-  // filtered to that entity. Overview / Positions / etc. are tabs the
-  // user clicks into — they never own the no-tab landing.
+  // The Inbox is one universal surface; the active company is a
+  // *filter*, encoded in the URL as the `/c/<entity>` segment so the
+  // filter is shareable, refresh-stable, and a route param the way
+  // every primitive page uses one. `/` is the unfiltered inbox; the
+  // bare `/c/<entity>` URL is the same inbox, scoped to that company.
+  // Overview / Positions / etc. are explicit tabs the user clicks.
   const effectiveTab = tab || "sessions";
 
   // Runtime mode has no account-level identity surface.
