@@ -1,0 +1,14 @@
+{
+  "slug": "blank",
+  "name": "Blank",
+  "tagline": "Start with nothing — just a company and a wallet.",
+  "description": "An empty company. One root agent. No seeded structure. Use this when you know exactly what you want to build.",
+  "root": {
+    "name": "Root",
+    "model": "anthropic/claude-sonnet-4.6"
+  },
+  "seed_agents": [],
+  "seed_events": [],
+  "seed_ideas": [],
+  "seed_quests": []
+}

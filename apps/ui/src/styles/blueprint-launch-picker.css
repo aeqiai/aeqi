@@ -1,0 +1,177 @@
+/* BlueprintLaunchPicker — shared shell for `/start` (in-shell page) and
+   the `+ New agent` modal. Three sections stacked: Start blank, Recommended
+   grid, Browse all link. No bespoke colors or sizes — surfaces, padding,
+   radii, shadows all come from tokens; card chrome from the <Card> primitive. */
+
+.bp-launch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+/* ── /start in-shell wrapper ────────────────────── */
+
+/* `/start` renders inside `AppLayout`'s content-paper (LeftSidebar
+   visible). The picker sits on the page with the same gutter rhythm as
+   other in-shell pages (`--space-7` top/bottom, `--space-6` sides,
+   capped width so the recommended grid doesn't spread). */
+.start-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.start-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.start-sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 60ch;
+}
+
+/* ── Start blank — promoted top row ─────────────── */
+
+.bp-launch-blank {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+  appearance: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+}
+.bp-launch-blank:hover:not(:disabled) {
+  background: var(--color-card-elevated);
+  box-shadow: var(--shadow-sm);
+}
+.bp-launch-blank:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.bp-launch-blank:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.bp-launch-blank-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.bp-launch-blank-name {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+.bp-launch-blank-tagline {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.bp-launch-blank-cue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.bp-launch-blank:hover:not(:disabled) .bp-launch-blank-cue {
+  color: var(--text-primary);
+}
+
+/* ── Recommended section ───────────────────────── */
+
+.bp-launch-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.bp-launch-section-label {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.bp-launch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.bp-launch-card-btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-lg);
+}
+.bp-launch-card-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.bp-launch-card-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+/* The Card primitive owns the surface; the wrapping button is just
+   for click + keyboard semantics. Pin the inner Card to fill the
+   button so layouts stack the cards uniformly. */
+.bp-launch-card {
+  height: 100%;
+}
+
+.bp-launch-card-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ── Browse-all foot ───────────────────────────── */
+
+.bp-launch-foot {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+.bp-launch-browse-link {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.bp-launch-browse-link:hover {
+  color: var(--text-primary);
+}

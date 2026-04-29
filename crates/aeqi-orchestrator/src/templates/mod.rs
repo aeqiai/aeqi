@@ -17,6 +17,7 @@ use crate::ipc::templates::Template;
 pub const DEFAULT_BLUEPRINT_SLUG: &str = "aeqi";
 
 const AEQI_DEFAULT_JSON: &str = include_str!("../../../../presets/templates/aeqi.json");
+const BLANK_JSON: &str = include_str!("../../../../presets/templates/blank.json");
 const SOLO_FOUNDER_JSON: &str = include_str!("../../../../presets/templates/solo-founder.json");
 const STUDIO_JSON: &str = include_str!("../../../../presets/templates/studio.json");
 const SMALL_BUSINESS_JSON: &str = include_str!("../../../../presets/templates/small-business.json");
@@ -30,6 +31,7 @@ const COMMUNITY_JSON: &str = include_str!("../../../../presets/templates/communi
 
 const COMPANY_TEMPLATE_JSON: &[&str] = &[
     AEQI_DEFAULT_JSON,
+    BLANK_JSON,
     SOLO_FOUNDER_JSON,
     STUDIO_JSON,
     SMALL_BUSINESS_JSON,
