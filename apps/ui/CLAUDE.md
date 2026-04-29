@@ -164,3 +164,111 @@ npm run build
 ```bash
 npm run dev  # Vite dev server on :5173, proxies /api to :8400
 ```
+
+## Verify
+
+```bash
+npm run verify
+```
+
+One command runs the full gauntlet: tsc + prettier + eslint + vitest +
+hygiene-check + vite build. Every Storybook / primitive / wave worker
+ends with `npm run verify` — must pass clean before shipping.
+
+## Worktree workflow (canonical)
+
+For any non-trivial UI work, cut a worktree off main. Never edit main
+directly. The full ritual:
+
+**Cut + symlink:**
+```bash
+git worktree add /home/claudedev/aeqi-<topic> -b design/<topic> main
+ln -sfn /home/claudedev/aeqi/apps/ui/node_modules \
+        /home/claudedev/aeqi-<topic>/apps/ui/node_modules
+```
+
+**Inside the worktree, always use `git -C` for git ops.** The shell cwd
+does NOT persist reliably between separate Bash tool calls — relying
+on it once cost ~10 min recovering from a commit that landed on the
+wrong branch.
+
+```bash
+git -C /home/claudedev/aeqi-<topic> add -A
+git -C /home/claudedev/aeqi-<topic> commit -m "..."
+git -C /home/claudedev/aeqi-<topic> push -u origin design/<topic>
+```
+
+**Verify before merging:**
+```bash
+cd /home/claudedev/aeqi-<topic>/apps/ui && npm run verify
+```
+
+**Merge back to main (worktree-safe):**
+```bash
+cd /home/claudedev/aeqi
+git fetch origin
+git status --short        # MUST be clean before ff. If api.ts shows
+                          # uncommitted drift, that's in-flight parallel
+                          # refactor work — stash it specifically:
+                          # git stash push -- apps/ui/src/lib/api.ts
+git merge --ff-only origin/design/<topic>
+# If ff fails (main diverged):
+git cherry-pick <sha-from-the-worktree-branch>
+git push origin main
+# git stash pop  (if stashed earlier)
+```
+
+**Cleanup, in THIS order:**
+```bash
+rm /home/claudedev/aeqi-<topic>/apps/ui/node_modules    # symlink ONLY
+git worktree remove /home/claudedev/aeqi-<topic> --force
+git branch -D design/<topic>
+git push origin --delete design/<topic>
+```
+
+**If `vite: not found` after cleanup:** the parent's node_modules/.bin/
+got damaged by the worktree teardown. Recover:
+```bash
+find /home/claudedev/aeqi/apps/ui/node_modules -delete   # rm -rf hits
+                                                          # ENOTEMPTY on
+                                                          # locked nested
+                                                          # deps (porto,
+                                                          # walletconnect,
+                                                          # viem, etc.)
+npm install
+```
+
+**UI-only deploy (no Rust changed):**
+```bash
+cd /home/claudedev/aeqi/apps/ui
+./node_modules/.bin/vite build
+rsync -a --delete dist/ /home/claudedev/aeqi-platform/ui-dist/
+```
+
+Skip `./scripts/deploy.sh` — that's for full runtime+platform rebuilds.
+
+## /ship — automate the entire ritual
+
+The user has explicitly delegated the merge / push / deploy / cleanup
+sequence above to the `/ship` skill. From a worktree, invoking `/ship`
+runs all the steps end-to-end without further confirmation, then
+auto-invokes `/evolve` to capture any new friction patterns into the
+relevant CLAUDE.md / SKILL.md.
+
+If you find yourself running `git merge --ff-only` or `rsync … ui-dist/`
+by hand: stop, invoke `/ship` instead.
+
+## Known drift
+
+`apps/ui/src/lib/api.ts` may show uncommitted local edits that aren't
+yours — typically in-flight parallel refactor work. Specifically: the
+`spawnAgent` `template?: string` line gets removed/restored by a
+parallel campaign. Stash that file specifically before any ff-merge:
+
+```bash
+git stash push -- apps/ui/src/lib/api.ts
+# ... merge ...
+git stash pop
+```
+
+Don't try to commit or revert the drift — it's in-flight work.

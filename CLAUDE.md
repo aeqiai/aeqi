@@ -69,3 +69,33 @@ when `apps/ui` files are staged; Rust checks remain a manual/CI responsibility.
 ```
 ./scripts/deploy.sh
 ```
+
+For UI-only changes (no Rust touched), use the lighter UI deploy path documented in `apps/ui/CLAUDE.md` — skip `deploy.sh`.
+
+## Workflow — locked
+
+**Never work on main directly.** Every non-trivial change goes through a worktree.
+See `apps/ui/CLAUDE.md` "Worktree workflow" for the canonical ritual.
+
+**Use `/ship` to merge + deploy.** The user has delegated the full ship cycle
+(verify → commit → push → ff-or-cherry-pick → push main → cleanup → UI-only
+deploy → auto-invoke `/evolve`) to the `/ship` skill. Never type
+`git merge` / `rsync … ui-dist/` by hand from main — invoke `/ship`.
+
+**`/evolve` runs after every `/ship`.** Captures any new friction into the
+relevant CLAUDE.md / SKILL.md so the next session is smoother. Don't ask
+permission; the user has delegated it. Small fixes apply directly. Bigger
+proposals surface for review.
+
+**`/design-system-wave` for primitive cluster work.** The 7-wave campaign
+that canonized the apps/ui design system is packaged. To run another wave
+(e.g., on a new cluster), invoke `/design-system-wave` with cluster name
++ primitives. Skill handles parallel audits → synthesis → parallel
+implementation → verify → ship.
+
+## Platform-level friction (out of our hands)
+
+Tracked separately in `platform-friction.md`. These are paper cuts in the
+Claude Code platform itself — the project conventions can route around
+them but only the platform team can fix them. Add to that file when a
+new pattern emerges; don't pollute project-level docs with platform issues.
