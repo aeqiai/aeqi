@@ -1,6 +1,10 @@
 import { create } from "zustand";
-import { api } from "@/lib/api";
-import type { Agent, ActivityEntry, Entity } from "@/lib/types";
+import * as activityApi from "@/api/activity";
+import * as agentsApi from "@/api/agents";
+import * as entitiesApi from "@/api/entities";
+import * as questsApi from "@/api/quests";
+import * as runtimeApi from "@/api/runtime";
+import type { Agent, ActivityEntry, Entity, Quest } from "@/lib/types";
 
 interface WorkerEvent {
   id?: string | number;
@@ -15,7 +19,7 @@ interface DaemonState {
   cost: Record<string, unknown> | null;
   entities: Entity[];
   agents: Agent[];
-  quests: Array<Record<string, unknown>>;
+  quests: Quest[];
   events: ActivityEntry[];
   workerEvents: WorkerEvent[];
   wsConnected: boolean;
@@ -49,7 +53,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchStatus: async () => {
     try {
-      const data = await api.getStatus();
+      const data = await runtimeApi.getStatus();
       set({ status: data });
     } catch {
       set({ status: null });
@@ -59,7 +63,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   fetchDashboard: async () => {
     set({ loading: true });
     try {
-      const data = await api.getDashboard();
+      const data = await runtimeApi.getDashboard();
       set({ dashboard: data, loading: false });
     } catch {
       set({ loading: false });
@@ -68,7 +72,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchCost: async () => {
     try {
-      set({ cost: await api.getCost() });
+      set({ cost: await runtimeApi.getCost() });
     } catch {
       // Cost is non-critical, don't surface errors.
     }
@@ -76,24 +80,9 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchEntities: async () => {
     try {
-      const data = await api.getEntities();
-      const raw: Array<Record<string, unknown>> = Array.isArray(data?.roots)
-        ? (data.roots as Array<Record<string, unknown>>)
-        : [];
-      const nextEntities: Entity[] = raw
-        .map<Entity>((r) => ({
-          id: (r.id as string) ?? "",
-          name: r.name as string,
-          type: "company" as const,
-          status: (r.running as boolean) ? "active" : "paused",
-          avatar: r.avatar as string | undefined,
-          color: r.color as string | undefined,
-          budget_usd: r.budget_usd as number | undefined,
-          created_at: (r.created_at as string) ?? new Date(0).toISOString(),
-          last_active: r.last_active as string | undefined,
-        }))
-        .filter((e) => e.id);
-      if (nextEntities.length === 0 && raw.length === 0) return;
+      const data = await entitiesApi.getEntitiesRaw();
+      const nextEntities = entitiesApi.normalizeEntityRoots(data);
+      if (nextEntities.length === 0 && !Array.isArray(data.roots)) return;
       set({ entities: nextEntities });
     } catch {
       // Keep existing entities on transient failure.
@@ -106,45 +95,20 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     // active X-Entity and returns the full subtree. We fetch both so the
     // sidebar has roots to show on `/` (where no X-Entity is set) and the
     // agent subtree is available for per-company pages.
-    const entitiesPromise = api.getEntities().catch(() => null);
-    const agentsPromise = api.getAgents().catch(() => null);
-    const [entitiesData, agentsData] = await Promise.all([entitiesPromise, agentsPromise]);
+    const nextAgents = await agentsApi.listAgentDirectory();
 
-    // Each entity in `entitiesData.roots` corresponds to one company. We
-    // synthesize a placeholder Agent record per entity so the sidebar can
-    // render a row even when the per-entity agents list hasn't loaded.
-    // After Phase 4 these placeholders carry the entity_id (the agent_id
-    // surfaced by the IPC response is the entity's root agent id, but the
-    // sidebar treats them interchangeably for navigation purposes).
-    const rootAgents: Agent[] = Array.isArray(entitiesData?.roots)
-      ? (entitiesData.roots as Array<Record<string, unknown>>).map((r) => {
-          const entityId = (r.id as string) ?? "";
-          const agentId = (r.agent_id as string) ?? entityId;
-          return {
-            id: agentId,
-            name: r.name as string,
-            status: (r.running as boolean) ? "running" : "stopped",
-            entity_id: entityId,
-          };
-        })
-      : [];
-    const scopedAgents: Agent[] = (agentsData?.agents as Agent[]) || [];
-
-    if (rootAgents.length === 0 && scopedAgents.length === 0) {
+    if (nextAgents.length === 0) {
       // Both failed — keep existing state rather than blanking the tree.
       return;
     }
 
-    const byId = new Map<string, Agent>();
-    for (const r of rootAgents) byId.set(r.id, r);
-    for (const a of scopedAgents) byId.set(a.id, a);
-    set({ agents: Array.from(byId.values()) });
+    set({ agents: nextAgents });
   },
 
   fetchQuests: async () => {
     try {
-      const data = await api.getQuests({});
-      set({ quests: (data?.quests as Array<Record<string, unknown>>) || [] });
+      const data = await questsApi.listQuests({});
+      set({ quests: data.quests || [] });
     } catch {
       // Keep existing quests on transient failure.
     }
@@ -152,8 +116,8 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchEvents: async () => {
     try {
-      const data = await api.getActivityStream({ last: 30 });
-      set({ events: (data?.events as ActivityEntry[]) || [] });
+      const data = await activityApi.listActivityStream({ last: 30 });
+      set({ events: data.events || [] });
     } catch {
       // Keep existing events on transient failure.
     }

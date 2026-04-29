@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useDaemonStore } from "@/store/daemon";
+import { useAgents } from "@/queries/agents";
+import { useCostQuery } from "@/queries/runtime";
 import { useAuthStore } from "@/store/auth";
 import { Button, Tooltip } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
@@ -42,8 +43,8 @@ export default function ContentTopBar() {
   }>();
   const navigate = useNavigate();
   const path = useLocation().pathname;
-  const cost = useDaemonStore((s) => s.cost);
-  const agents = useDaemonStore((s) => s.agents);
+  const cost = useCostQuery().data;
+  const agents = useAgents();
   const appMode = useAuthStore((s) => s.appMode);
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);

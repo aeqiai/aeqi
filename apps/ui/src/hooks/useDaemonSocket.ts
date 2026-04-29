@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { activityKeys, agentKeys, entityKeys, questKeys, runtimeKeys } from "@/queries/keys";
 import { getScopedEntity } from "@/lib/appMode";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
@@ -6,6 +8,7 @@ import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 
 export function useDaemonSocket() {
+  const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const appMode = useAuthStore((s) => s.appMode);
   const activeEntity = useUIStore((s) => s.activeEntity);
@@ -46,12 +49,18 @@ export function useDaemonSocket() {
           const msg = JSON.parse(e.data);
           if (msg.event === "worker" && msg.data) {
             pushWorkerEvent(msg.data);
+            void queryClient.invalidateQueries({ queryKey: activityKeys.all });
           }
           if (msg.event === "quest_update" || msg.event === "task_update") {
             fetchQuests();
+            void queryClient.invalidateQueries({ queryKey: questKeys.all });
+            void queryClient.invalidateQueries({ queryKey: activityKeys.all });
+            void queryClient.invalidateQueries({ queryKey: runtimeKeys.cost });
           }
           if (msg.event === "agent_update") {
             fetchAgents();
+            void queryClient.invalidateQueries({ queryKey: agentKeys.all });
+            void queryClient.invalidateQueries({ queryKey: entityKeys.all });
           }
           if (msg.event === "inbox_update" && msg.data) {
             pushInboxUpdate(msg.data);
@@ -81,6 +90,7 @@ export function useDaemonSocket() {
     };
   }, [
     token,
+    queryClient,
     appMode,
     activeEntity,
     pushWorkerEvent,
