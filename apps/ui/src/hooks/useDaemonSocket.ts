@@ -24,8 +24,16 @@ export function useDaemonSocket() {
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const entity = getScopedEntity();
+      // No active entity = no scope to subscribe to. The backend proxy
+      // requires `root` to route to a runtime; opening with `root=`
+      // (empty) just produces a wss handshake error and a reconnect
+      // loop. User-scope routes (`/`, `/account`) hit this every time.
+      if (!entity) {
+        setWsConnected(false);
+        return;
+      }
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const ws = new WebSocket(
         `${protocol}//${window.location.host}/api/ws?token=${token}&root=${encodeURIComponent(entity)}`,
       );

@@ -80,8 +80,15 @@ export function useWebSocket() {
     const token = localStorage.getItem("aeqi_token");
     if (!token) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const entity = getScopedEntity();
+    // No active entity = no scope to subscribe to. Skip the connection
+    // (backend proxy rejects `root=` empty with a handshake error which
+    // would otherwise trigger an immediate reconnect loop).
+    if (!entity) {
+      setConnected(false);
+      return;
+    }
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(
       `${protocol}//${window.location.host}/api/ws?token=${token}&root=${encodeURIComponent(entity)}`,
     );
