@@ -25,7 +25,7 @@ export function BlueprintPickerModal({ open, onClose, entityId }: BlueprintPicke
   const handleSpawned = useCallback(async () => {
     await fetchAgents();
     onClose();
-    navigate(`/${encodeURIComponent(entityId)}/agents`);
+    navigate(`/c/${encodeURIComponent(entityId)}/agents`);
   }, [entityId, fetchAgents, navigate, onClose]);
 
   return (

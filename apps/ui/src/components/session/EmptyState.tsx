@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Spinner } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { timeAgo } from "@/lib/format";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 
 interface EmptyStateProps {
   agentId: string;
@@ -36,7 +35,7 @@ export default function EmptyState({
   const quests = useDaemonStore((s) => s.quests);
 
   // Look up the agent record (for last_active, session_count, etc.).
-  const agent = useMemo(() => findAgentByAnyId(agents, agentId), [agents, agentId]);
+  const agent = useMemo(() => agents.find((a) => a.id === agentId), [agents, agentId]);
 
   // Open quests for this agent — open == anything that isn't done /
   // cancelled. Defensive: quest store is loosely typed Record-of-unknown.

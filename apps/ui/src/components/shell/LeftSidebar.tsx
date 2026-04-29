@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CompanySwitcher from "@/components/shell/CompanySwitcher";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -7,9 +6,7 @@ import HelpMenu from "@/components/shell/HelpMenu";
 import SidebarGroup from "@/components/shell/SidebarGroup";
 import Wordmark from "@/components/Wordmark";
 import { Tooltip } from "@/components/ui";
-import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 
 // Sub-tabs owned by Company's PageRail (rendered by CompanyPage). They
 // share the entity base path with the sidebar's Company nav item, so
@@ -19,8 +16,8 @@ import { findAgentByAnyId } from "@/lib/entityLookup";
 const COMPANY_SUB_TABS = ["overview", "positions"];
 
 interface LeftSidebarProps {
-  /** Canonical company root id. Sidebar tabs are company-scoped, not child-agent scoped. */
-  agentId: string | null;
+  /** Canonical entity (company) id. Sidebar tabs are company-scoped, not child-agent scoped. */
+  entityId: string | null;
   path: string;
 }
 
@@ -146,30 +143,22 @@ const PanelGlyph = () => (
   </svg>
 );
 
-export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
+export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const navigate = useNavigate();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
-  const agents = useDaemonStore((s) => s.agents);
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
 
-  // Resolve the URL token to its owning entity_id. The four W-primitives
-  // (Agents/Events/Quests/Ideas) are entity-scoped — we always view them
-  // through the lens of the org, never through a sub-agent. So even when
-  // the user is at /<sub_agent_id>/sessions/..., clicking "Agents" in
-  // the sidebar should route to /<entity_id>/agents, not
-  // /<sub_agent_id>/agents.
-  const resolvedEntityId = useMemo(() => {
-    if (!agentId) return "";
-    const found = findAgentByAnyId(agents, agentId);
-    return found?.entity_id || found?.id || agentId;
-  }, [agents, agentId]);
-  const base = resolvedEntityId ? `/${encodeURIComponent(resolvedEntityId)}` : "";
+  // The URL token is canonically the entity_id; sidebar tabs route to
+  // `/c/<entity_id>/<tab>` regardless of which sub-agent surface the
+  // user is currently looking at. Per-agent drilldowns
+  // (`/c/<entity>/agents/<agent>`) inherit the same sidebar.
+  const base = entityId ? `/c/${encodeURIComponent(entityId)}` : "";
 
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
@@ -314,7 +303,7 @@ export default function LeftSidebar({ agentId, path }: LeftSidebarProps) {
           <a
             className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href={base ? `${base}/sessions` : "/"}
-            title={agentId ? "Company inbox" : "Your inbox"}
+            title={entityId ? "Company inbox" : "Your inbox"}
             onClick={(e) => {
               e.preventDefault();
               navigate(base ? `${base}/sessions` : "/");

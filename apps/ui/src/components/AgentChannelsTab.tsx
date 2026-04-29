@@ -53,7 +53,7 @@ function buildConfig(
 }
 
 export default function AgentChannelsTab({ agentId }: { agentId: string }) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
 
@@ -261,7 +261,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 <CardTrigger
                   key={c.id}
                   className="channels-list-row"
-                  onClick={() => goAgent(agentId, "channels", c.id)}
+                  onClick={() => goEntity(entityId, "channels", c.id)}
                   aria-label={`Open ${c.kind} channel`}
                 >
                   <span className="channels-list-row-kind">{c.kind.toUpperCase()}</span>
@@ -334,7 +334,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
             try {
               await channelsApi.deleteAgentChannel(selected.id);
               removeChannel(selected.id);
-              goAgent(agentId, "channels", undefined, { replace: true });
+              goEntity(entityId, "channels", undefined, { replace: true });
             } catch (e) {
               setError(e instanceof Error ? e.message : "Failed to disconnect");
               setDeleting(false);

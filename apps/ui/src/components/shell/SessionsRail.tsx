@@ -73,8 +73,25 @@ export default function SessionsRail({ mode, selectedSessionId }: SessionsRailPr
 }
 
 function AgentRail() {
-  const { agentId, itemId } = useParams<{ agentId?: string; itemId?: string }>();
-  const { goAgent } = useNav();
+  const {
+    entityId,
+    agentId: drilledAgentId,
+    itemId,
+  } = useParams<{
+    entityId?: string;
+    agentId?: string;
+    itemId?: string;
+  }>();
+  const { goEntity } = useNav();
+  // Per-agent drill (`/c/<entity>/agents/<agent>/sessions`) reads the
+  // chat store under the drilled agent id; the company surface
+  // (`/c/<entity>/sessions`) reads under the entity's root agent.
+  const agents = useDaemonStore((s) => s.agents);
+  const agentId = useMemo(() => {
+    if (drilledAgentId) return drilledAgentId;
+    if (!entityId) return null;
+    return agents.find((a) => a.entity_id === entityId)?.id ?? null;
+  }, [agents, entityId, drilledAgentId]);
 
   const sessions = useChatStore((s) =>
     agentId ? s.sessionsByAgent[agentId] || NO_SESSIONS : NO_SESSIONS,
@@ -116,12 +133,20 @@ function AgentRail() {
       .sort((a, b) => b.sortKey - a.sortKey);
   }, [sessions, awaitingSessionIds]);
 
+  const navigateLocal = useNavigate();
   const handleSelect = useCallback(
     (id: string) => {
-      if (!agentId) return;
-      goAgent(agentId, "sessions", id, { replace: true });
+      if (!entityId) return;
+      if (drilledAgentId) {
+        navigateLocal(
+          `/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(drilledAgentId)}/sessions/${encodeURIComponent(id)}`,
+          { replace: true },
+        );
+        return;
+      }
+      goEntity(entityId, "sessions", id, { replace: true });
     },
-    [agentId, goAgent],
+    [entityId, drilledAgentId, navigateLocal, goEntity],
   );
 
   return (

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
 
 interface Options {
-  agentId: string;
+  entityId: string;
   searching: boolean;
   shortcutsOpen: boolean;
   openSearch: () => void;
@@ -33,7 +33,7 @@ interface Options {
  *   aeqi:open-shortcuts  — open the cheatsheet overlay
  */
 export function useGlobalShortcuts({
-  agentId,
+  entityId,
   searching,
   shortcutsOpen,
   openSearch,
@@ -97,11 +97,11 @@ export function useGlobalShortcuts({
           q: "quests",
           i: "ideas",
         };
-        if (key in tabs && agentId) {
+        if (key in tabs && entityId) {
           e.preventDefault();
           gDeadlineRef.current = 0;
           const seg = tabs[key];
-          const base = `/${encodeURIComponent(agentId)}`;
+          const base = `/c/${encodeURIComponent(entityId)}`;
           navigate(seg ? `${base}/${seg}` : base);
           return;
         }
@@ -129,8 +129,8 @@ export function useGlobalShortcuts({
         // `aeqi:create` event so the AgentsTab listener opens the
         // Blueprint picker. At user scope (no entity) fall back to /start
         // (company creation).
-        if (agentId) {
-          navigate(`/${encodeURIComponent(agentId)}/agents`);
+        if (entityId) {
+          navigate(`/c/${encodeURIComponent(entityId)}/agents`);
           // Give the route swap a tick before dispatching so the agents
           // tab is mounted and listening.
           setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
@@ -146,5 +146,5 @@ export function useGlobalShortcuts({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [searching, shortcutsOpen, openSearch, closeSearch, setShortcutsOpen, agentId, navigate]);
+  }, [searching, shortcutsOpen, openSearch, closeSearch, setShortcutsOpen, entityId, navigate]);
 }

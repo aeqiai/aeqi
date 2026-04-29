@@ -5,12 +5,12 @@ import { useMemo } from "react";
  * surface flags the AppLayout shell can switch on. Lifted out of
  * AppLayout because the regex-and-flag soup obscured the actual
  * rendering logic — and because every flag is a function of three
- * cheap inputs (path, agentId, tab), so a single `useMemo` is
+ * cheap inputs (path, entityId, tab), so a single `useMemo` is
  * cheaper than the eight inline derivations it replaces.
  *
  * `userSessionId` is parsed from the path because `/sessions/:id`
- * is registered as a literal user-scope route in App.tsx — react-
- * router's `:agentId` matcher would otherwise eat it.
+ * is registered as a literal user-scope route in App.tsx — the
+ * `/c/:entityId` matcher would otherwise eat it.
  */
 export interface ShellSurface {
   isHome: boolean;
@@ -31,7 +31,7 @@ export interface ShellSurface {
 
 export function useShellSurface(
   path: string,
-  agentId: string,
+  entityId: string,
   tab: string | undefined,
 ): ShellSurface {
   return useMemo(() => {
@@ -47,7 +47,7 @@ export function useShellSurface(
     const isStart = path === "/start";
     const isDrive = tab === "drive";
     const isHome =
-      !agentId && !isSettings && !isBlueprints && !isEconomy && !isStart && !isUserSession;
+      !entityId && !isSettings && !isBlueprints && !isEconomy && !isStart && !isUserSession;
 
     return {
       isHome,
@@ -60,5 +60,5 @@ export function useShellSurface(
       userSessionId,
       blueprintSlug,
     };
-  }, [path, agentId, tab]);
+  }, [path, entityId, tab]);
 }

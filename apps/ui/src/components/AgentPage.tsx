@@ -16,7 +16,6 @@ import AgentPlanTab from "@/pages/Agent/PlanTab";
 import PageRail from "./PageRail";
 import { Button } from "./ui";
 import ModelPicker from "./ModelPicker";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 
 const SETTINGS_SUB_TABS = [
@@ -61,13 +60,12 @@ export default function AgentPage({
   const sessionId = activeTab === "sessions" ? itemId || null : null;
 
   const agents = useDaemonStore((s) => s.agents);
-  const agent = findAgentByAnyId(agents, agentId);
+  const agent = agents.find((a) => a.id === agentId);
 
   const resolvedAgentId = agent?.id || agentId;
-  // Entity-scoped tabs (Agents, Positions, Overview) work on the
-  // entity_id — falling back to the resolved agent id when the lookup
-  // is in flight or the agent doesn't carry an entity. Mirrors the
-  // pattern LeftSidebar adopted post-Phase-4.
+  // Entity-scoped tabs (Agents, Positions, Overview) read the agent's
+  // entity_id directly — every agent the URL points at is owned by
+  // exactly one entity (foreign-key relation, no fuzzy matching).
   const resolvedEntityId = agent?.entity_id || resolvedAgentId;
 
   // Save feedback toast
@@ -174,7 +172,7 @@ function ToolsDetail({
   showToast: (msg: string, isError?: boolean) => void;
 }) {
   const { itemId } = useParams<{ itemId?: string }>();
-  const { goAgent, agentId: scopeAgentId } = useNav();
+  const { goEntity, entityId: scopeEntityId } = useNav();
   const selected = itemId ? TOOL_BY_ID[itemId] : null;
 
   if (!selected) {
@@ -187,7 +185,7 @@ function ToolsDetail({
       { label: "agent tools", tools: agentTools },
       { label: "global tools", tools: globalTools },
     ];
-    const openTool = (id: string) => scopeAgentId && goAgent(scopeAgentId, "tools", id);
+    const openTool = (id: string) => scopeEntityId && goEntity(scopeEntityId, "tools", id);
     return (
       <div className="asv-main tools-list" style={{ overflowY: "auto" }}>
         <div className="tools-list-summary">
@@ -464,8 +462,8 @@ function DangerZone({
       const count = res.deleted ?? 1;
       showToast(`Deleted ${count} agent${count === 1 ? "" : "s"}`);
       await fetchAgents();
-      if (agent?.entity_id && agent.entity_id !== agent.id) {
-        navigate(`/${agent.entity_id}`);
+      if (agent?.entity_id) {
+        navigate(`/c/${encodeURIComponent(agent.entity_id)}`);
       } else {
         navigate("/");
       }

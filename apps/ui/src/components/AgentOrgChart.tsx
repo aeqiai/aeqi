@@ -181,7 +181,7 @@ export default function AgentOrgChart({
 
   const handleSelect = (id: string) => {
     if (onSelect) onSelect(id);
-    else navigate(`/${encodeURIComponent(id)}`);
+    else navigate(`/c/${encodeURIComponent(id)}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {

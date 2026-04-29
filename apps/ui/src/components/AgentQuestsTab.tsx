@@ -13,7 +13,6 @@ import QuestsSortPopover, { QUEST_SORT_MODES, type QuestSort } from "./quests/Qu
 import PriorityIcon from "./quests/PriorityIcon";
 import AssigneeAvatar from "./quests/AssigneeAvatar";
 import AssigneePicker from "./quests/AssigneePicker";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 
 const PRIORITY_RANK: Record<QuestPriority, number> = {
   critical: 0,
@@ -209,7 +208,7 @@ function StatusDot({ status }: { status: QuestStatus }) {
 }
 
 export default function AgentQuestsTab({ agentId }: { agentId: string }) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   // `/<agentId>/quests/new` is the dedicated compose surface; any other
   // `:itemId` is a quest id to look up. The literal `"new"` slug is
@@ -230,12 +229,12 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
       const search: Record<string, string> = {};
       if (opts?.fromIdea) search.fromIdea = opts.fromIdea;
       if (opts?.status) search.status = opts.status;
-      goAgent(agentId, "quests", "new", {
+      goEntity(entityId, "quests", "new", {
         replace: false,
         search: Object.keys(search).length > 0 ? search : undefined,
       });
     },
-    [agentId, goAgent],
+    [entityId, goEntity],
   );
 
   const setView = useCallback(
@@ -288,7 +287,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
     ];
   }, [currentUser]);
 
-  const agent = findAgentByAnyId(agents, agentId);
+  const agent = agents.find((a) => a.id === agentId);
   const listQuest = selectedId ? quests.find((q) => q.id === selectedId) : undefined;
 
   // Detail view fetches the joined `{ quest, idea }` shape from
@@ -350,7 +349,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
         scopeFilter={questFilter}
         onScopeChange={setQuestFilter}
         onCreated={fetchQuests}
-        onPick={(id) => goAgent(agentId, "quests", id)}
+        onPick={(id) => goEntity(entityId, "quests", id)}
         onCompose={(status) => openCompose(status ? { status } : undefined)}
         view={view}
         onViewChange={setView}

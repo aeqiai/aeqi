@@ -33,7 +33,7 @@ const NO_IDEAS: Idea[] = [];
  * filters to its nodes so the two views stay coherent.
  */
 export default function AgentIdeasTab({ agentId }: { agentId: string }) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -230,7 +230,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   // mode entirely.
   const handleGraphSelect = (node: GraphNode | null) => {
     if (!node) return;
-    goAgent(agentId, "ideas", node.id);
+    goEntity(entityId, "ideas", node.id);
   };
 
   // "+ New idea" — compose mode is an explicit search param so the default
@@ -239,7 +239,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   useEffect(() => {
     const handler = (e: Event) => {
       const name = (e as CustomEvent<{ name?: string }>).detail?.name;
-      goAgent(agentId, "ideas", undefined, { replace: true });
+      goEntity(entityId, "ideas", undefined, { replace: true });
       requestAnimationFrame(() => {
         const next = new URLSearchParams(window.location.search);
         next.set("compose", "1");
@@ -250,7 +250,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     };
     window.addEventListener("aeqi:new-idea", handler);
     return () => window.removeEventListener("aeqi:new-idea", handler);
-  }, [agentId, goAgent, setSearchParams]);
+  }, [entityId, goEntity, setSearchParams]);
 
   const fireNewIdea = (name?: string) =>
     window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
@@ -308,7 +308,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
         agentId={agentId}
         idea={selected}
         presetName={presetName}
-        onBack={() => goAgent(agentId, "ideas")}
+        onBack={() => goEntity(entityId, "ideas")}
         onNew={() => fireNewIdea()}
       />
     );

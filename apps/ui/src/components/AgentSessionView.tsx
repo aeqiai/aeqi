@@ -10,7 +10,6 @@ import { useFileAttachments } from "./session/useFileAttachments";
 import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 
 const EMPTY_QUEUED_DRAFTS: PendingMessage[] = [];
 
@@ -51,7 +50,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const token = useAuthStore((s) => s.token);
   const agents = useDaemonStore((s) => s.agents);
 
-  const agentInfo = findAgentByAnyId(agents, agentId);
+  const agentInfo = agents.find((a) => a.id === agentId);
   const agentName = agentInfo?.name || agentId;
   const displayName = agentName;
 

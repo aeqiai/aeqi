@@ -2,16 +2,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useCallback, useMemo } from "react";
 
 /**
- * Navigate within the current agent scope.
+ * Navigate within the current company scope.
  *
- * Version B (flat URLs): every agent — root or child — lives at
- * `/:agentId/...`. `go()` / `href()` stay within the current agent's URL
- * scope; `goAgent()` / `agentPath()` target a specific agent by id.
+ * Canonical company URLs live at `/c/:entityId/...`. `go()` / `href()` stay
+ * within the current entity's URL scope; `goEntity()` / `entityPath()` target
+ * a specific entity by id.
  */
 export function useNav() {
   const navigate = useNavigate();
-  const { agentId } = useParams<{ agentId: string }>();
-  const base = useMemo(() => (agentId ? `/${encodeURIComponent(agentId)}` : ""), [agentId]);
+  const { entityId } = useParams<{ entityId: string }>();
+  const base = useMemo(() => (entityId ? `/c/${encodeURIComponent(entityId)}` : ""), [entityId]);
 
   const go = useCallback(
     (path: string, options?: { replace?: boolean }) => {
@@ -29,24 +29,24 @@ export function useNav() {
   );
 
   /**
-   * Absolute path for any agent view. Flat — every agent gets
-   * `/:id[/:tab[/:itemId]]`, regardless of root/child status.
+   * Absolute path for a company surface. Every entity gets
+   * `/c/:entityId[/:tab[/:itemId]]`.
    */
-  const agentPath = useCallback((id: string, tab?: string, itemId?: string) => {
-    let p = `/${encodeURIComponent(id)}`;
+  const entityPath = useCallback((id: string, tab?: string, itemId?: string) => {
+    let p = `/c/${encodeURIComponent(id)}`;
     if (tab) p += `/${tab}`;
     if (itemId) p += `/${itemId}`;
     return p;
   }, []);
 
-  const goAgent = useCallback(
+  const goEntity = useCallback(
     (
       id: string,
       tab?: string,
       itemId?: string,
       options?: { replace?: boolean; search?: Record<string, string> },
     ) => {
-      let path = agentPath(id, tab, itemId);
+      let path = entityPath(id, tab, itemId);
       if (options?.search) {
         const params = new URLSearchParams();
         for (const [k, v] of Object.entries(options.search)) {
@@ -57,8 +57,8 @@ export function useNav() {
       }
       navigate(path, { replace: options?.replace });
     },
-    [navigate, agentPath],
+    [navigate, entityPath],
   );
 
-  return { go, href, agentPath, goAgent, agentId: agentId || "", base };
+  return { go, href, entityPath, goEntity, entityId: entityId || "", base };
 }

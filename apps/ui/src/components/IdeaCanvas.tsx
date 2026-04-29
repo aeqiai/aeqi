@@ -128,7 +128,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   },
   ref,
 ) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const track = useTrack();
   const { data: ideas } = useAgentIdeas(agentId);
   const { patchIdea, removeIdea, addIdea } = useAgentIdeasCache(agentId);
@@ -332,7 +332,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       if (onPersisted) {
         onPersisted(res.id);
       } else {
-        goAgent(agentId, "ideas", res.id, { replace: true });
+        goEntity(entityId, "ideas", res.id, { replace: true });
       }
       return res.id;
     } catch (e) {
@@ -340,7 +340,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setError(e instanceof Error ? e.message : "Save failed");
       throw e;
     }
-  }, [isEdit, agentId, addIdea, goAgent, composeScope, pendingRefs, onPersisted, track]);
+  }, [isEdit, agentId, entityId, addIdea, goEntity, composeScope, pendingRefs, onPersisted, track]);
 
   // Edit-mode revert: drop the in-memory snapshot back to the
   // persisted idea. Used by both the canvas's own Cancel button
@@ -442,7 +442,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         return;
       }
       removeIdea(idea.id);
-      goAgent(agentId, "ideas", undefined, { replace: true });
+      goEntity(entityId, "ideas", undefined, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
     }
@@ -580,7 +580,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
                   variant="secondary"
                   size="sm"
                   onClick={() =>
-                    goAgent(agentId, "quests", "new", {
+                    goEntity(entityId, "quests", "new", {
                       replace: false,
                       search: { fromIdea: idea.id },
                     })

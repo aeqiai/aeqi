@@ -51,7 +51,7 @@ export default function IdeasListView({
   view,
   onViewChange,
 }: IdeasListViewProps) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const searchRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const searchActive = filter.search.trim() !== "";
@@ -263,7 +263,7 @@ export default function IdeasListView({
                 } else if (e.key === "Enter") {
                   e.preventDefault();
                   if (filtered.length > 0) {
-                    goAgent(agentId, "ideas", ranked[0].id);
+                    goEntity(entityId, "ideas", ranked[0].id);
                   } else if (noMatchTrimmed) {
                     // Enter-to-create when the query matches nothing —
                     // zero-cost capture for the most obvious next move.
@@ -553,7 +553,7 @@ export default function IdeasListView({
                           }}
                           type="button"
                           className="ideas-list-row"
-                          onClick={() => goAgent(agentId, "ideas", idea.id)}
+                          onClick={() => goEntity(entityId, "ideas", idea.id)}
                           onKeyDown={(e) => {
                             if (e.key === "ArrowDown") {
                               e.preventDefault();

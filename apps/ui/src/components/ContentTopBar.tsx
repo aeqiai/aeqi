@@ -5,7 +5,6 @@ import { Button, Tooltip } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
 import UserAvatar from "./UserAvatar";
 import BudgetMeter from "./BudgetMeter";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 
 /**
  * Content top bar — the layout navigation row.
@@ -36,7 +35,11 @@ const PRIMITIVE_WORDS: Record<string, string> = {
 };
 
 export default function ContentTopBar() {
-  const { tab, agentId } = useParams<{ tab?: string; agentId?: string }>();
+  const { tab, entityId, agentId } = useParams<{
+    tab?: string;
+    entityId?: string;
+    agentId?: string;
+  }>();
   const navigate = useNavigate();
   const path = useLocation().pathname;
   const cost = useDaemonStore((s) => s.cost);
@@ -45,14 +48,18 @@ export default function ContentTopBar() {
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
 
-  const agent = findAgentByAnyId(agents, agentId ?? "");
+  // Drilled per-agent surface? Resolve that agent. Otherwise resolve the
+  // entity's root agent for breadcrumb context.
+  const agent =
+    (agentId ? agents.find((a) => a.id === agentId) : null) ??
+    (entityId ? (agents.find((a) => a.entity_id === entityId) ?? null) : null);
   const section = tab || "sessions";
   const primitiveWord = PRIMITIVE_WORDS[section];
   // User-scoped topbar: mirror the agent-topbar shape when we're on
   // the user's own surfaces (/, /settings). Avatar + name on the left,
   // gear button on the right. Runtime mode has no concept of a user
   // account, so skip it there.
-  const isUserScope = !agentId && (path === "/" || path === "/settings" || path === "/profile");
+  const isUserScope = !entityId && (path === "/" || path === "/settings" || path === "/profile");
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
   // The crumb is always a link once a primitive + agent are resolved —
@@ -99,7 +106,7 @@ export default function ContentTopBar() {
           ) : (
             <Tooltip content={`Back to ${agentName}'s home`}>
               <Link
-                to={`/${encodeURIComponent(agent.id)}`}
+                to={`/c/${encodeURIComponent(entityId ?? agent.entity_id ?? agent.id)}`}
                 className="content-topbar-agent content-topbar-agent-link"
               >
                 <span className="content-topbar-agent-avatar" aria-hidden>
@@ -114,7 +121,7 @@ export default function ContentTopBar() {
           (crumbIsLink ? (
             <Tooltip content={`Back to ${primitiveWord?.toLowerCase()}`}>
               <Link
-                to={`/${encodeURIComponent(agent!.id)}/${section}`}
+                to={`/c/${encodeURIComponent(entityId ?? agent!.entity_id ?? agent!.id)}/${section}`}
                 className="content-topbar-crumb content-topbar-crumb-link"
               >
                 {primitiveWord}
@@ -132,7 +139,11 @@ export default function ContentTopBar() {
               variant="secondary"
               size="sm"
               className={`topbar-settings-btn${settingsActive ? " active" : ""}`}
-              onClick={() => navigate(`/${encodeURIComponent(agent.id)}/settings`)}
+              onClick={() =>
+                navigate(
+                  `/c/${encodeURIComponent(entityId ?? agent.entity_id ?? agent.id)}/settings`,
+                )
+              }
             >
               <svg
                 width="12"

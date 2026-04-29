@@ -22,8 +22,6 @@ import MetricsPage from "@/pages/MetricsPage";
 import OwnershipPage from "@/pages/OwnershipPage";
 import TreasuryPage from "@/pages/TreasuryPage";
 import GovernancePage from "@/pages/GovernancePage";
-import type { Agent } from "@/lib/types";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
@@ -40,65 +38,18 @@ const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 // through AgentPage directly with no PageRail wrapper.
 const COMPANY_PAGERAIL_TABS = new Set(["overview", "positions"]);
 
-const COMPANY_TABS = new Set([
-  "agents",
-  "crm",
-  "drive",
-  "events",
-  "governance",
-  "ideas",
-  "integrations",
-  "metrics",
-  "overview",
-  "ownership",
-  "plan",
-  "projects",
-  "quests",
-  "settings",
-  "tools",
-  "treasury",
-]);
-
-const COMPANY_ROOT_TABS = new Set([
-  "agents",
-  "crm",
-  "drive",
-  "events",
-  "governance",
-  "ideas",
-  "metrics",
-  "overview",
-  "ownership",
-  "positions",
-  "projects",
-  "quests",
-  "treasury",
-]);
-
-function findEntity(agents: Agent[], id: string): Agent | null {
-  // The URL token can be the canonical entity_id (post-Phase-4 default
-  // from the switcher), the agent_id (legacy URLs / bookmarks), or the
-  // agent name (very legacy slugs). Match all three.
-  const start =
-    agents.find((a) => a.id === id) ||
-    agents.find((a) => a.entity_id === id) ||
-    agents.find((a) => a.name === id);
-  if (!start) return null;
-  const eid = start.entity_id;
-  if (!eid) return start;
-  return agents.find((a) => a.id === eid) || start;
-}
-
 export default function AppLayout() {
   const location = useLocation();
   const [searching, setSearching] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const {
-    agentId = "",
+    entityId: routeEntityId = "",
+    agentId: routeAgentId = "",
     tab,
     itemId,
   } = useParams<{
+    entityId?: string;
     agentId?: string;
     tab?: string;
     itemId?: string;
@@ -111,37 +62,44 @@ export default function AppLayout() {
 
   // Declared above any conditional return so the inbox-agent hook below
   // can read surface.userSessionId without violating React's rules-of-hooks.
-  const surface = useShellSurface(path, agentId, tab);
+  const surface = useShellSurface(path, routeEntityId, tab);
   const inboxAgentId = useInboxStore((s) =>
     surface.userSessionId
       ? (s.items.find((i) => i.session_id === surface.userSessionId)?.agent_id ?? null)
       : null,
   );
 
-  const { currentAgent, rootAgent } = useMemo(() => {
-    const current = findAgentByAnyId(agents, agentId);
-    const root = current ? findEntity(agents, current.id) : null;
-    return {
-      currentAgent: current,
-      rootAgent: root,
-    };
-  }, [agents, agentId]);
+  // The entity's root-agent record is the placeholder we synthesize from
+  // `/api/entities` — its `entity_id` matches the route token. Every
+  // company surface (`/c/<entity>/quests`, `/c/<entity>/events`, …)
+  // resolves through this record.
+  const rootAgent = useMemo(
+    () => (routeEntityId ? (agents.find((a) => a.entity_id === routeEntityId) ?? null) : null),
+    [agents, routeEntityId],
+  );
 
-  // We never fall back to the raw URL agentId here — a non-agent segment
+  // When `/c/<entity>/agents/<agent>/...` is open, the inner agentId
+  // is a direct lookup — no fuzzy matching, agents are entity-owned.
+  const drilledAgent = useMemo(
+    () => (routeAgentId ? (agents.find((a) => a.id === routeAgentId) ?? null) : null),
+    [agents, routeAgentId],
+  );
+
+  // We never fall back to the raw URL token here — a non-entity segment
   // (e.g. "profile") would otherwise get cached as the active entity.
   const entities = useDaemonStore((s) => s.entities);
   const firstRoot = useMemo(() => entities[0]?.id ?? null, [entities]);
   const activeEntityValid = useMemo(
-    () => (activeEntity && agents.some((a) => a.id === activeEntity) ? activeEntity : null),
-    [agents, activeEntity],
+    () => (activeEntity && entities.some((e) => e.id === activeEntity) ? activeEntity : null),
+    [entities, activeEntity],
   );
-  const entityId = rootAgent?.id || activeEntityValid || firstRoot || "";
+  const entityId = routeEntityId || activeEntityValid || firstRoot || "";
 
   // Only commit a verified-real entity — otherwise the pre-load render
   // can persist a bogus value into localStorage.
   useEffect(() => {
-    if (entityId && agents.some((a) => a.id === entityId)) setActiveEntity(entityId);
-  }, [entityId, agents, setActiveEntity]);
+    if (entityId && entities.some((e) => e.id === entityId)) setActiveEntity(entityId);
+  }, [entityId, entities, setActiveEntity]);
 
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -166,9 +124,9 @@ export default function AppLayout() {
     };
     const section = tab || "sessions";
     const sectionTitle = titles[section] || section;
-    const agentLabel = currentAgent?.name;
-    document.title = agentLabel ? `${sectionTitle} — ${agentLabel} · æqi` : "æqi";
-  }, [tab, currentAgent]);
+    const label = drilledAgent?.name ?? rootAgent?.name;
+    document.title = label ? `${sectionTitle} — ${label} · æqi` : "æqi";
+  }, [tab, drilledAgent, rootAgent]);
 
   // Pause the periodic refresh while rate-limited — polling while blocked
   // just piles on more 429s and extends the window the user is stuck in.
@@ -185,9 +143,8 @@ export default function AppLayout() {
 
   const openSearch = useCallback(() => setSearching(true), []);
   const closeSearch = useCallback(() => setSearching(false), []);
-  const companyNavId = entityId || agentId;
   useGlobalShortcuts({
-    agentId: companyNavId,
+    entityId,
     searching,
     shortcutsOpen,
     openSearch,
@@ -207,53 +164,40 @@ export default function AppLayout() {
 
   // Company context is canonical in the URL. Without this, the sidebar can
   // display the selected company from localStorage while links still resolve
-  // as top-level routes (`/quests`), which React then misreads as `:agentId`.
+  // as top-level routes (`/quests`).
   if (isHome && encodedEntityId) {
-    return <Navigate to={`/${encodedEntityId}${search}`} replace />;
-  }
-
-  // Defensive migration for old top-level primitive URLs. Keep the item
-  // segment if present (`/quests/q-1` -> `/:entityId/quests/q-1`).
-  if (agentId && !currentAgent && COMPANY_TABS.has(agentId) && encodedEntityId) {
-    const item = tab ? `/${encodeURIComponent(tab)}` : "";
-    return <Navigate to={`/${encodedEntityId}/${agentId}${item}${search}`} replace />;
-  }
-
-  // Company primitives are scoped to the root company, not whichever child
-  // agent was last opened. Old deep links such as `/eng/quests/q-1` should
-  // land on `/company/quests/q-1` so Quests never depend on child-agent URLs.
-  if (
-    currentAgent &&
-    rootAgent &&
-    rootAgent.id !== currentAgent.id &&
-    tab &&
-    COMPANY_ROOT_TABS.has(tab)
-  ) {
-    const item = itemId ? `/${encodeURIComponent(itemId)}` : "";
-    return (
-      <Navigate
-        to={`/${encodeURIComponent(rootAgent.id)}/${encodeURIComponent(tab)}${item}${search}`}
-        replace
-      />
-    );
+    return <Navigate to={`/c/${encodedEntityId}${search}`} replace />;
   }
 
   // Stale entity ref after a data reset would point at a non-existent
-  // agent. Bounce home; the user picks (or creates) a fresh entity from
+  // entity. Bounce home; the user picks (or creates) a fresh entity from
   // there.
-  if (agentId && !currentAgent) {
+  if (routeEntityId && !rootAgent) {
     localStorage.removeItem("aeqi_entity");
     return <Navigate to="/" replace />;
   }
 
-  const base = agentId ? `/${encodeURIComponent(agentId)}` : "/";
+  // The agent surface mounts on either the entity-root agent (company
+  // tabs: /c/<entity>/quests, /c/<entity>/events, …) or the drilled
+  // agent (per-agent tab: /c/<entity>/agents/<agent>/…). The active id
+  // is the agent record's id — what AgentPage and the sub-tabs expect.
+  const activeAgent = drilledAgent ?? rootAgent;
+  const activeAgentId = activeAgent?.id ?? "";
+
+  const base = encodedEntityId ? `/c/${encodedEntityId}` : "/";
   // No-tab at entity scope renders Overview; no-tab at user scope renders
   // the Inbox.
-  const effectiveTab = tab || (agentId ? "overview" : "sessions");
+  const effectiveTab = tab || (routeEntityId ? "overview" : "sessions");
 
   // Runtime mode has no account-level identity surface.
   if (isSettings && appMode && appMode !== "platform") {
     return <Navigate to="/" replace />;
+  }
+
+  // Defensive: route should be unreachable if `agents/<agent>` resolves
+  // to nothing — bounce up to the company shell.
+  if (routeAgentId && !drilledAgent && encodedEntityId) {
+    return <Navigate to={`/c/${encodedEntityId}${search}`} replace />;
   }
 
   const mainContent = (() => {
@@ -269,10 +213,10 @@ export default function AppLayout() {
     if (tab === "ownership") return <OwnershipPage />;
     if (tab === "treasury") return <TreasuryPage />;
     if (tab === "governance") return <GovernancePage />;
-    if (agentId && COMPANY_PAGERAIL_TABS.has(effectiveTab)) {
-      return <CompanyPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
+    if (routeEntityId && !drilledAgent && COMPANY_PAGERAIL_TABS.has(effectiveTab)) {
+      return <CompanyPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
     }
-    return <AgentPage agentId={agentId} tab={effectiveTab} itemId={itemId} />;
+    return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
   const sessionsMounted =
@@ -280,17 +224,22 @@ export default function AppLayout() {
     (!isDrive && !isSettings && !isHome && !isStart && !isEconomy && effectiveTab === "sessions");
   const showComposer = sessionsMounted;
   // inbox-mode: at / and /sessions/:id (user scope) — items across all agents.
-  // agent-mode: at /:agentId/sessions[/...] — that agent's sessions only.
+  // agent-mode: at /c/<entity>/sessions[/...] — that agent's sessions only.
   const inboxRail = (isHome || isUserSession) && !isSettings && !isEconomy && !isStart;
   const agentRail =
-    effectiveTab === "sessions" && !!agentId && !isSettings && !isDrive && !isHome && !isStart;
+    effectiveTab === "sessions" &&
+    !!routeEntityId &&
+    !isSettings &&
+    !isDrive &&
+    !isHome &&
+    !isStart;
   const showSessionsRail = inboxRail || agentRail;
   const railMode: "inbox" | "agent" = inboxRail ? "inbox" : "agent";
 
   return (
     <>
       <div className="shell">
-        <LeftSidebar agentId={companyNavId} path={path} />
+        <LeftSidebar entityId={entityId} path={path} />
 
         <div className="content-column">
           <div className="content-card">
@@ -307,7 +256,7 @@ export default function AppLayout() {
                   </div>
                   {showComposer && (
                     <ComposerRow
-                      agentId={agentId || inboxAgentId || null}
+                      agentId={activeAgentId || inboxAgentId || null}
                       base={base}
                       sessionsMounted={sessionsMounted}
                       sessionId={isUserSession ? userSessionId : undefined}

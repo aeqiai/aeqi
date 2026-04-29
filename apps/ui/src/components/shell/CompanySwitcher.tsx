@@ -45,7 +45,7 @@ export default function CompanySwitcher() {
   const select = useCallback(
     (entity: Entity) => {
       setActiveEntity(entity.id);
-      navigate(`/${encodeURIComponent(entity.id)}`);
+      navigate(`/c/${encodeURIComponent(entity.id)}`);
       setOpen(false);
     },
     [navigate, setActiveEntity],

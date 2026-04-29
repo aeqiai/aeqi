@@ -111,7 +111,7 @@ function parseGroup(raw: string | null): EventsGroup {
 }
 
 export default function AgentEventsTab({ agentId }: { agentId: string }) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -404,9 +404,9 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             onDelete={async () => {
               await eventsApi.deleteEvent(selected.id);
               removeEvent(selected.id);
-              goAgent(agentId, "events", undefined, { replace: true });
+              goEntity(entityId, "events", undefined, { replace: true });
             }}
-            onBack={() => goAgent(agentId, "events", undefined, { replace: true })}
+            onBack={() => goEntity(entityId, "events", undefined, { replace: true })}
           />
         </div>
       </div>
@@ -425,7 +425,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
       <div className="events-surface-body">
         <EventsOverview
           events={filteredEvents}
-          onSelect={(id) => goAgent(agentId, "events", id)}
+          onSelect={(id) => goEntity(entityId, "events", id)}
           onNew={openCompose}
         />
       </div>

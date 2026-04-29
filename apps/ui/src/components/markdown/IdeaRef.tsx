@@ -10,14 +10,14 @@ export function IdeaMention({
   ideasByName?: Map<string, Idea>;
   agentId?: string;
 }) {
-  const { goAgent } = useNav();
+  const { goEntity } = useNav();
   const hit = ideasByName?.get(name.toLowerCase());
   const broken = !hit;
 
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (hit && agentId) goAgent(agentId, "ideas", hit.id);
+    if (hit && agentId) goEntity(agentId, "ideas", hit.id);
   };
 
   return (
@@ -42,7 +42,7 @@ export function IdeaEmbed({
   ideasByName?: Map<string, Idea>;
   agentId?: string;
 }) {
-  const { goAgent } = useNav();
+  const { goEntity } = useNav();
   const hit = ideasByName?.get(name.toLowerCase());
 
   if (!hit) {
@@ -63,13 +63,13 @@ export function IdeaEmbed({
   return (
     <div
       className="idea-embed"
-      onClick={() => agentId && goAgent(agentId, "ideas", hit.id)}
+      onClick={() => agentId && goEntity(agentId, "ideas", hit.id)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if ((e.key === "Enter" || e.key === " ") && agentId) {
           e.preventDefault();
-          goAgent(agentId, "ideas", hit.id);
+          goEntity(agentId, "ideas", hit.id);
         }
       }}
     >

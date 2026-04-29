@@ -30,7 +30,7 @@ function NotFound({ id }: { id: string }) {
 }
 
 export function PrimitivePreview({ kind, id }: { kind: PrimitiveKind | null; id: string }) {
-  const { goAgent, agentId } = useNav();
+  const { goEntity, entityId } = useNav();
   const { data, loading, error } = usePrimitiveResolver(kind, id);
 
   if (loading) return <Skeleton />;
@@ -43,21 +43,21 @@ export function PrimitivePreview({ kind, id }: { kind: PrimitiveKind | null; id:
     e.preventDefault();
     e.stopPropagation();
     if (data.kind === "agent") {
-      goAgent(data.id);
+      goEntity(data.id);
       return;
     }
 
-    const targetAgentId = agentId || data.agent_id || "";
-    if (!targetAgentId) {
+    const targetEntityId = entityId || data.agent_id || "";
+    if (!targetEntityId) {
       return;
     }
 
     if (data.kind === "event") {
-      goAgent(targetAgentId, "events", data.id);
+      goEntity(targetEntityId, "events", data.id);
     } else if (data.kind === "idea") {
-      goAgent(targetAgentId, "ideas", data.id);
+      goEntity(targetEntityId, "ideas", data.id);
     } else if (data.kind === "quest") {
-      goAgent(targetAgentId, "quests", data.id);
+      goEntity(targetEntityId, "quests", data.id);
     }
   };
 

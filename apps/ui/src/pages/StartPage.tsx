@@ -47,7 +47,7 @@ export default function StartPage() {
       track(Events.CompanyCreated, { surface: "start", root: rootSlug });
       setActiveEntity(rootSlug);
       await Promise.all([fetchAgents(), fetchEntities()]);
-      navigate(`/${encodeURIComponent(rootSlug)}/positions`);
+      navigate(`/c/${encodeURIComponent(rootSlug)}/positions`);
     },
     [fetchAgents, fetchEntities, navigate, setActiveEntity, track],
   );

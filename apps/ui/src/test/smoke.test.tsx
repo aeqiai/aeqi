@@ -24,8 +24,9 @@ import { useUIStore } from "@/store/ui";
  * We render each component under StrictMode + MemoryRouter with realistic
  * URL shapes and watch for React's "error" console output during render.
  *
- * Version B routes: `/:agentId/[:tab[/:itemId]]` — every agent (root or
- * child) at top level. No `/agents/` segment.
+ * Canonical routes: `/c/:entityId/[:tab[/:itemId]]`. The entity-root
+ * agent renders at `/c/:entityId/...`; per-agent drilldowns live at
+ * `/c/:entityId/agents/:agentId/...`.
  */
 
 /** Inline helper — renders the component tree, returns any errors React logged. */
@@ -90,9 +91,9 @@ describe("AgentQuestsTab smoke", () => {
     expect(() =>
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/root-1/quests"]}>
+          <MemoryRouter initialEntries={["/c/root-1/quests"]}>
             <Routes>
-              <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+              <Route path="c/:entityId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -103,9 +104,9 @@ describe("AgentQuestsTab smoke", () => {
   it("exposes a New quest button on the empty board", () => {
     const { container } = render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
           <Routes>
-            <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+            <Route path="c/:entityId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -120,9 +121,9 @@ describe("AgentQuestsTab smoke", () => {
   it("does not log a React error during render", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
           <Routes>
-            <Route path=":agentId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+            <Route path="c/:entityId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -164,58 +165,15 @@ describe("shell components smoke", () => {
         <MemoryRouter initialEntries={["/"]}>
           <Routes>
             <Route index element={<ShellUnderTest />} />
-            <Route path=":agentId" element={<ShellUnderTest />} />
-            <Route path=":agentId/:tab" element={<ShellUnderTest />} />
-            <Route path=":agentId/:tab/:itemId" element={<ShellUnderTest />} />
+            <Route path="c/:entityId" element={<ShellUnderTest />} />
+            <Route path="c/:entityId/:tab" element={<ShellUnderTest />} />
+            <Route path="c/:entityId/:tab/:itemId" element={<ShellUnderTest />} />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/root-1"));
-  });
-
-  it("migrates old top-level quest URLs into the company route", async () => {
-    render(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/quests"]}>
-          <Routes>
-            <Route index element={<ShellUnderTest />} />
-            <Route path=":agentId" element={<ShellUnderTest />} />
-            <Route path=":agentId/:tab" element={<ShellUnderTest />} />
-            <Route path=":agentId/:tab/:itemId" element={<ShellUnderTest />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-
-    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/root-1/quests"));
-  });
-
-  it("migrates child-agent quest URLs back to the company route", async () => {
-    useDaemonStore.setState({
-      agents: [
-        { id: "root-1", name: "Root", status: "active", entity_id: "root-1" },
-        { id: "eng-1", name: "Engineer", status: "active", entity_id: "root-1" },
-      ] as never,
-    });
-
-    render(
-      <StrictMode>
-        <MemoryRouter initialEntries={["/eng-1/quests/q-1"]}>
-          <Routes>
-            <Route index element={<ShellUnderTest />} />
-            <Route path=":agentId" element={<ShellUnderTest />} />
-            <Route path=":agentId/:tab" element={<ShellUnderTest />} />
-            <Route path=":agentId/:tab/:itemId" element={<ShellUnderTest />} />
-          </Routes>
-        </MemoryRouter>
-      </StrictMode>,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByTestId("location").textContent).toBe("/root-1/quests/q-1"),
-    );
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/c/root-1"));
   });
 
   it("BootLoader renders the splash", () => {
@@ -230,9 +188,12 @@ describe("shell components smoke", () => {
   it("LeftSidebar renders at the root scope", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1"]}>
+        <MemoryRouter initialEntries={["/c/root-1"]}>
           <Routes>
-            <Route path=":agentId/*" element={<LeftSidebar agentId="root-1" path="/root-1" />} />
+            <Route
+              path="c/:entityId/*"
+              element={<LeftSidebar entityId="root-1" path="/c/root-1" />}
+            />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -243,11 +204,11 @@ describe("shell components smoke", () => {
   it("LeftSidebar renders with a drilled-in child agent", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/child-1/sessions"]}>
+        <MemoryRouter initialEntries={["/c/root-1/agents/child-1/sessions"]}>
           <Routes>
             <Route
-              path=":agentId/*"
-              element={<LeftSidebar agentId="child-1" path="/child-1/sessions" />}
+              path="c/:entityId/*"
+              element={<LeftSidebar entityId="root-1" path="/c/root-1/agents/child-1/sessions" />}
             />
           </Routes>
         </MemoryRouter>
@@ -259,11 +220,11 @@ describe("shell components smoke", () => {
   it("ComposerRow renders without a mounted chat (pending-message path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1"]}>
+        <MemoryRouter initialEntries={["/c/root-1"]}>
           <Routes>
             <Route
-              path=":agentId/*"
-              element={<ComposerRow agentId={null} base="/root-1" sessionsMounted={false} />}
+              path="c/:entityId/*"
+              element={<ComposerRow agentId={null} base="/c/root-1" sessionsMounted={false} />}
             />
           </Routes>
         </MemoryRouter>
@@ -275,11 +236,11 @@ describe("shell components smoke", () => {
   it("ComposerRow renders with a mounted chat (event-bridge path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/root-1/sessions"]}>
+        <MemoryRouter initialEntries={["/c/root-1/sessions"]}>
           <Routes>
             <Route
-              path=":agentId/*"
-              element={<ComposerRow agentId="root-1" base="/root-1" sessionsMounted={true} />}
+              path="c/:entityId/*"
+              element={<ComposerRow agentId="root-1" base="/c/root-1" sessionsMounted={true} />}
             />
           </Routes>
         </MemoryRouter>

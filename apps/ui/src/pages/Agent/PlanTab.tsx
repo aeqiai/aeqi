@@ -5,7 +5,6 @@ import { useDaemonStore } from "@/store/daemon";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import type { Agent } from "@/lib/types";
-import { findAgentByAnyId } from "@/lib/entityLookup";
 import type { BillingInterval, PlanId } from "@/lib/pricing";
 import "@/styles/billing.css";
 
@@ -36,14 +35,15 @@ const PLAN_BADGE_VARIANT: Record<Company["plan"], "neutral" | "info" | "success"
   scale: "success",
 };
 
-/** Resolve the entity-owning root agent for a given URL token (entity_id,
- * agent_id, or legacy name). */
+/** Resolve the entity-owning root agent for a given agent id. Agents are
+ * entity-owned; the root placeholder shares `entity_id` and is inserted
+ * first in the daemon store, so a `find` by entity_id returns it. */
 function findRoot(agents: Agent[], id: string): Agent | null {
-  const start = findAgentByAnyId(agents, id);
+  const start = agents.find((a) => a.id === id);
   if (!start) return null;
   const eid = start.entity_id;
   if (!eid) return start;
-  return agents.find((a) => a.id === eid) || start;
+  return agents.find((a) => a.entity_id === eid) || start;
 }
 
 /**

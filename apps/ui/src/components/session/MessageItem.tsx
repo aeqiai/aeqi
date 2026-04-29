@@ -109,10 +109,12 @@ function ToolBlock({ items, live = false }: { items: MessageSegment[]; live?: bo
 }
 
 function SessionMarkdown({ body }: { body: string }) {
-  const { agentId } = useNav();
-  const { data: ideas } = useAgentIdeas(agentId);
+  const { entityId } = useNav();
+  const { data: ideas } = useAgentIdeas(entityId);
   const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
-  return <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={agentId} />;
+  return (
+    <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={entityId} />
+  );
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -354,9 +356,9 @@ export function SegmentRenderer({
 // ── Memoized message item — prevents re-rendering historical messages during streaming ──
 
 function EventFireItem({ msg }: { msg: Message }) {
-  const { goAgent, agentId } = useNav();
+  const { goEntity, entityId } = useNav();
   const fire = msg.eventFire;
-  const { data: ideas } = useAgentIdeas(agentId);
+  const { data: ideas } = useAgentIdeas(entityId);
   const ideaIds = fire?.ideaIds ?? [];
 
   if (!fire) return null;
@@ -371,7 +373,7 @@ function EventFireItem({ msg }: { msg: Message }) {
       <button
         type="button"
         className="asv-event-fire-name"
-        onClick={() => agentId && goAgent(agentId, "events", fire.eventId)}
+        onClick={() => entityId && goEntity(entityId, "events", fire.eventId)}
         title={fire.pattern}
       >
         {fire.eventName || fire.pattern || "event"}
@@ -386,7 +388,7 @@ function EventFireItem({ msg }: { msg: Message }) {
             key={id}
             type="button"
             className="asv-event-fire-chip"
-            onClick={() => agentId && goAgent(agentId, "ideas", id)}
+            onClick={() => entityId && goEntity(entityId, "ideas", id)}
           >
             {nameFor(id)}
           </button>

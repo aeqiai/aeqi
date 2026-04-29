@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useNav } from "@/hooks/useNav";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Agent, Position, PositionEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -53,7 +52,12 @@ const STATUS_VALUES = new Set<StatusFilter>(STATUS_ORDER);
  * "what slots exist", Agents-chart reads "who fills those slots".
  */
 export default function EntityAgentsTab({ entityId }: { entityId: string }) {
-  const { goAgent } = useNav();
+  const navigate = useNavigate();
+  const openAgent = useCallback(
+    (agentId: string) =>
+      navigate(`/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(agentId)}`),
+    [navigate, entityId],
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -305,7 +309,7 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
           <AgentsEmptyState onNew={openPicker} />
         </div>
       ) : view === "list" ? (
-        <AgentsList agents={filtered} onSelect={(id) => goAgent(id, "sessions")} />
+        <AgentsList agents={filtered} onSelect={openAgent} />
       ) : (
         <AgentsChart
           positions={positions}
@@ -313,7 +317,7 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
           entityAgents={entityAgents}
           loading={chartLoading}
           error={chartError}
-          onSelect={(id) => goAgent(id, "sessions")}
+          onSelect={openAgent}
         />
       )}
 

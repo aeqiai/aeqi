@@ -88,15 +88,50 @@ function GatedAppShell() {
 }
 
 // `/` is only the user-scope landing before an entity exists. Once an entity
-// exists, AppLayout canonicalizes the shell to `/:entityId` so sidebar tabs
+// exists, AppLayout canonicalizes the shell to `/c/:entityId` so sidebar tabs
 // never generate bogus top-level paths like `/quests`.
+
+// User-scope first segments. Anything under these stays at the top level —
+// the legacy `/<entity_id>/...` redirect must not swallow them.
+const USER_SCOPE_SEGMENTS = new Set([
+  "account",
+  "auth",
+  "c",
+  "change-password",
+  "economy",
+  "login",
+  "new",
+  "profile",
+  "reset-password",
+  "sessions",
+  "signup",
+  "start",
+  "verify",
+  "waitlist",
+]);
+
+/**
+ * One-shot redirect for legacy bare-entity URLs (`/<entity_id>` /
+ * `/<entity_id>/quests/q-1`) into the canonical `/c/<entity_id>/...`
+ * shape. Bookmarks and external links keep working; nothing else
+ * preserves the old URL shape.
+ */
+function LegacyEntityRedirect() {
+  const location = useLocation();
+  const segments = location.pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return <Navigate to="/" replace />;
+  const first = segments[0];
+  if (USER_SCOPE_SEGMENTS.has(first)) return null;
+  const target = `/c/${segments.map(encodeURIComponent).join("/")}${location.search}${location.hash}`;
+  return <Navigate to={target} replace />;
+}
 
 /**
  * Version C — entity-root URL architecture. The app shell lives at
- * `/:entityId/...`; the sidebar always navigates inside that entity. Child
- * agents remain addressable where needed, but primary surfaces are company
- * scoped. Profile lives at `/account` (top-level, user-scoped) so it never
- * dead-ends when no root is active; it still inherits the shell.
+ * `/c/:entityId/...`; the sidebar always navigates inside that entity. Child
+ * agents remain addressable at `/c/:entityId/agents/:agentId/...`. Profile
+ * lives at `/account` (top-level, user-scoped) so it never dead-ends when
+ * no root is active; it still inherits the shell.
  */
 export default function App() {
   return (
@@ -137,14 +172,14 @@ export default function App() {
                   <Route path="agents" element={<AgentsPage />} />
                   <Route path="change-password" element={<ChangePasswordPage />} />
 
-                  {/* Home dashboard + profile + every agent at
-                      /:agentId/... share the same shell — AppLayout
+                  {/* Home dashboard + profile + every company at
+                      /c/:entityId/... share the same shell — AppLayout
                       decides content from path + params. /economy
                       (and its /economy/blueprints sub-rail) is routed
                       publicly above and never enters the protected
                       branch. User-scoped routes are registered before
-                      :agentId so react-router prefers the literal
-                      match. */}
+                      the legacy redirect so react-router prefers the
+                      literal match. */}
                   <Route element={<AppLayout />}>
                     <Route index element={null} />
                     <Route path="account" element={null} />
@@ -161,12 +196,22 @@ export default function App() {
                         is resolved from the inbox item by session_id,
                         not from the URL. */}
                     <Route path="sessions/:sessionId" element={null} />
-                    <Route path=":agentId" element={null}>
+                    {/* Canonical company route group. */}
+                    <Route path="c/:entityId" element={null}>
                       <Route index element={null} />
+                      <Route path="agents/:agentId" element={null}>
+                        <Route index element={null} />
+                        <Route path=":tab" element={null} />
+                        <Route path=":tab/:itemId" element={null} />
+                      </Route>
                       <Route path=":tab" element={null} />
                       <Route path=":tab/:itemId" element={null} />
                     </Route>
                   </Route>
+                  {/* Legacy `/<entity_id>/...` redirect to `/c/<entity_id>/...`.
+                      One-shot bounce for old bookmarks; falls through for
+                      user-scope routes registered above. */}
+                  <Route path="*" element={<LegacyEntityRedirect />} />
                 </Routes>
               </ProtectedRoute>
             }

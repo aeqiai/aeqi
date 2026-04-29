@@ -19,9 +19,9 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const appMode = useAuthStore((s) => s.appMode);
-  const { agentId } = useParams<{ agentId?: string }>();
+  const { entityId } = useParams<{ entityId?: string }>();
   const activeEntity = useUIStore((s) => s.activeEntity);
-  const scopeId = activeEntity || agentId || "";
+  const scopeId = activeEntity || entityId || "";
 
   const go = useCallback(
     (path: string) => {
@@ -39,7 +39,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     }
     inputRef.current?.focus();
 
-    const scope = scopeId ? `/${encodeURIComponent(scopeId)}` : "";
+    const scope = scopeId ? `/c/${encodeURIComponent(scopeId)}` : "";
     const buildItems = async () => {
       const navItems: PaletteItem[] = scopeId
         ? [
@@ -125,13 +125,17 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         ]);
 
         const rawAgents = (agentsData.agents || []) as Array<Record<string, unknown>>;
-        const agentItems: PaletteItem[] = rawAgents.map((a) => ({
-          id: `agent-${a.name}`,
-          label: a.name as string,
-          hint: ((a.model || a.status) as string) || "",
-          section: "Agents",
-          action: () => go(`/${a.name}`),
-        }));
+        const agentItems: PaletteItem[] = rawAgents.map((a) => {
+          const aid = (a.id as string) ?? "";
+          const eid = (a.entity_id as string) || aid;
+          return {
+            id: `agent-${aid}`,
+            label: a.name as string,
+            hint: ((a.model || a.status) as string) || "",
+            section: "Agents",
+            action: () => go(`/c/${encodeURIComponent(eid)}/agents/${encodeURIComponent(aid)}`),
+          };
+        });
 
         const rawQuests = (questsData.quests || []) as Array<Record<string, unknown>>;
         const questItems: PaletteItem[] = rawQuests.slice(0, 20).map((q) => {
@@ -160,7 +164,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       }
     };
     buildItems();
-  }, [open, go, appMode, agentId, scopeId]);
+  }, [open, go, appMode, entityId, scopeId]);
 
   const filtered = query
     ? items.filter(

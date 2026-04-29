@@ -20,7 +20,7 @@ export function useSessionManager({
   urlSessionId,
   processRawMessages,
 }: UseSessionManagerOptions) {
-  const { goAgent } = useNav();
+  const { goEntity, entityId } = useNav();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const streamingRef = useRef(false);
@@ -31,15 +31,15 @@ export function useSessionManager({
     sessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Navigate helpers. The Inbox landing is the bare `/:agentId` URL —
-  // there is no `/sessions` suffix when no session is picked. Only append
-  // the tab segment when we have a real sessionId to carry.
+  // Navigate helpers. The company sessions landing is the bare
+  // `/c/:entityId` URL — there is no `/sessions` suffix when no session is
+  // picked. Only append the tab segment when we have a real sessionId.
   const setSession = useCallback(
     (sid: string | null) => {
-      if (sid) goAgent(agentId, "sessions", sid, { replace: true });
-      else goAgent(agentId, undefined, undefined, { replace: true });
+      if (sid) goEntity(entityId, "sessions", sid, { replace: true });
+      else goEntity(entityId, undefined, undefined, { replace: true });
     },
-    [agentId, goAgent],
+    [entityId, goEntity],
   );
 
   // Load sessions for this agent
