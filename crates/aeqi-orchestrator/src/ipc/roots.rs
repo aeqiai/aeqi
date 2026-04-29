@@ -48,8 +48,17 @@ pub async fn handle_roots(
                 (total, open, pending, in_progress, done, cancelled)
             })
             .unwrap_or_default();
+        // After Phase 4 the workspace identity (`entity_id`) and the
+        // backing root agent UUID (`agent_id`) are distinct. Surface both
+        // explicitly so callers (notably the SaaS platform's placement
+        // cache) can populate each column without ambiguity. `id` stays
+        // wired to the agent UUID for legacy callers that haven't moved
+        // off `/api/roots` yet — new callers should prefer `/api/entities`
+        // where `id` = `entity_id`.
         result.push(serde_json::json!({
             "id": agent.id,
+            "agent_id": agent.id,
+            "entity_id": agent.entity_id,
             "name": agent.name,
             "prefix": agent.quest_prefix,
             "open_tasks": task_counts.1,
