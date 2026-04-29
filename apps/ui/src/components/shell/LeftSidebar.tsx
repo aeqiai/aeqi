@@ -8,11 +8,11 @@ import Wordmark from "@/components/Wordmark";
 import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
-// Sub-tabs owned by Company's PageRail (rendered by CompanyPage). They
-// share the entity base path with the sidebar's Company nav item, so
-// the Company row stays lit on these. Agents / Events / Quests / Ideas
-// are top-level primitives in the global sidebar — they own their own
-// active state and must NOT also light up the Company row.
+// Sub-tabs owned by Company's PageRail (rendered by CompanyPage):
+// the bare URL (Feed) plus Overview and Positions. Company sidebar
+// item stays lit on all three because they're facets of the same
+// surface. Agents / Events / Quests / Ideas live on sibling URLs and
+// own their own active state — they must NOT also light up Company.
 const COMPANY_SUB_TABS = ["overview", "positions"];
 
 interface LeftSidebarProps {
@@ -193,12 +193,14 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const myInboxActive = path === "/me/inbox";
   const myQuestsActive = path === "/me/quests";
   const myPortfolioActive = path === "/me/portfolio";
-  // Company sidebar item points at the company's Overview surface
-  // (the org card / Positions PageRail). Active on overview /
-  // positions tabs only.
+  // Company sidebar item points at the company's home (the Feed at
+  // the bare `/c/<id>` URL). Active on the bare URL plus the
+  // CompanyPage sub-tabs (Overview, Positions) — those are facets of
+  // the same Company surface, sharing the rail.
   const companyActive =
     !!base &&
-    COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`));
+    (path === base ||
+      COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`)));
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   const navItem = (
@@ -385,11 +387,11 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               {base && (
                 <a
                   className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
-                  href={`${base}/overview`}
+                  href={base}
                   title="Company"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate(`${base}/overview`);
+                    navigate(base);
                   }}
                 >
                   <CompanyIcon />

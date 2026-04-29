@@ -37,12 +37,13 @@ const MePortfolioPage = lazy(() => import("@/pages/MePortfolioPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
-// Tabs whose content is wrapped by CompanyPage's PageRail (Overview,
-// Positions only — these are the company-specific surfaces). The four
-// W-primitives (Agents, Events, Quests, Ideas) remain top-level
-// destinations in the global LeftSidebar's Build group; they render
+// Tabs whose content is wrapped by CompanyPage's PageRail (Feed at
+// the bare URL, plus Overview and Positions). These are the
+// company-as-noun facets — feed, info, structure — sharing the same
+// "Company" sidebar item and PageRail. The four W-primitives
+// (Agents, Events, Quests, Ideas) live on sibling URLs and render
 // through AgentPage directly with no PageRail wrapper.
-const COMPANY_PAGERAIL_TABS = new Set(["overview", "positions"]);
+const COMPANY_PAGERAIL_TABS = new Set(["feed", "overview", "positions"]);
 
 export default function AppLayout() {
   const queryClient = useQueryClient();
@@ -207,18 +208,19 @@ export default function AppLayout() {
   const activeAgentId = activeAgent?.id ?? "";
 
   const base = encodedEntityId ? `/c/${encodedEntityId}` : "/";
-  // No-tab at every scope renders Feed (the canonical home). Tabs
-  // route to specific surfaces — overview/positions to CompanyPage,
-  // sessions/quests/events/ideas/etc. to AgentPage. The default
-  // fallback below handles tabs not enumerated explicitly.
-  const effectiveTab = tab || "sessions";
+  // No-tab at company scope (`/c/<entity>` bare) routes through
+  // CompanyPage with tab="feed" so the rail (Feed | Overview |
+  // Positions) wraps the feed body. No-tab at user scope renders Feed
+  // directly (no surrounding rail). Other tabs (quests/events/etc.)
+  // fall through to AgentPage as today.
+  const effectiveTab = tab || (routeEntityId && !drilledAgent ? "feed" : "sessions");
 
-  // Feed surfaces — the bare URL at each scope renders the Feed
-  // component (one component, three modes).
-  // - `/` (no tab, no entity): user feed.
-  // - `/c/<entity>` (no tab, no drilled agent): company feed.
-  // - `/c/<entity>/agents/<id>` (no tab, drilled agent): agent feed.
-  const isCompanyFeed = !!routeEntityId && !drilledAgent && !tab && !isUserSession;
+  // Agent feed surface — bare `/c/<entity>/agents/<id>` URL. The
+  // agent rail (Sessions / Quests / Events / Ideas / Channels /
+  // Settings) is owned by AgentPage when isDrilled — the bare drill
+  // still goes through Feed directly for now (agent rail doesn't
+  // include Feed as a tab; that's the next iteration if we want
+  // identical shape at every scope).
   const isAgentFeed = !!drilledAgent && !tab;
 
   // Runtime mode has no account-level identity surface.
@@ -240,7 +242,6 @@ export default function AppLayout() {
     if (isMyQuests) return <MeQuestsPage />;
     if (isMyPortfolio) return <MePortfolioPage />;
     if (isHome) return <Feed scope="user" />;
-    if (isCompanyFeed) return <Feed scope="company" entityId={routeEntityId} />;
     if (isAgentFeed) return <Feed scope="agent" entityId={routeEntityId} agentId={activeAgentId} />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
@@ -276,7 +277,10 @@ export default function AppLayout() {
   // user-scope view). Feed surfaces are self-contained: no rail, no
   // composer. Inbox is its own destination at `/me/inbox`, also no
   // rail/composer (it's a list page).
-  const isAnyFeed = isHome || isCompanyFeed || isAgentFeed;
+  // Feed surfaces don't mount the chat composer or the sessions rail
+  // — those belong to the chat surface only. Company feed is reached
+  // via CompanyPage with tab="feed", so the gate uses effectiveTab.
+  const isAnyFeed = isHome || isAgentFeed || effectiveTab === "feed";
   const sessionsMounted =
     !isNotFound &&
     (isUserSession ||
