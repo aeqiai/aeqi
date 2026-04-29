@@ -75,7 +75,7 @@ export default function StartPage() {
       }
       if (Date.now() - start > timeoutMs) {
         setPollError(
-          "Sandbox is taking longer than usual. Refresh in a minute and pick the new company from the switcher.",
+          "Provisioning is taking longer than usual. Refresh in a minute and pick the new company from the switcher.",
         );
         setPendingSlug(null);
         return;
@@ -104,9 +104,9 @@ export default function StartPage() {
     return (
       <div className="start-page">
         <header className="start-head">
-          <h1 className="page-title">Spawning…</h1>
+          <h1 className="page-title">Provisioning your company…</h1>
           <p className="start-sub">
-            <Spinner size="sm" /> Provisioning the sandbox. This usually takes 5–15 seconds.
+            <Spinner size="sm" /> Usually takes 5–15 seconds.
           </p>
         </header>
       </div>
