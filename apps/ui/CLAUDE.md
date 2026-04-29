@@ -17,7 +17,7 @@ canonical reference:
   radii, motion, principles.
 - `src/components/ui/docs/Patterns*.mdx` — composed recipes.
   `PatternsToolbar.mdx` is the canonical search / sort / filter / view /
-  + New layout, including the chrome / paper / ink tier rule.
+  - New layout, including the chrome / paper / ink tier rule.
 
 When a need doesn't map to an existing primitive, propose a new one
 before writing a page-level class. Grep before adding any new style or
@@ -102,8 +102,6 @@ not a fork.
 The user is shipping a product, not commissioning a design system. Move
 fast, reuse hard, and don't make them puke.
 
-
-
 ## Stack
 
 - **Build:** Vite 6, React 19, TypeScript 5
@@ -119,6 +117,7 @@ Two-column layout: AgentTree sidebar (left, 240px) + content area with floating 
 ## Primitives
 
 The UI is built around four primitives:
+
 - **Agent** -- autonomous entities with parent-child hierarchy
 - **Quest** -- work items (formerly "tasks")
 - **Event** -- audit/activity stream
@@ -126,27 +125,27 @@ The UI is built around four primitives:
 
 ## Pages
 
-| Page | Path | What it does |
-|------|------|-------------|
-| Company Home | `/:companyId` | Company-scoped inbox and execution surface |
-| Quests | `/:companyId/quests` | Quest list, filter by status/agent |
-| Sessions | `/:companyId/sessions/:sessionId` | Split pane: session list + transcript. WebSocket chat with agents |
-| Events | `/:companyId/events` | Event stream (audit trail) |
-| Ideas | `/:companyId/ideas` | Company knowledge/idea search |
-| Agents | `/:companyId/agents` | Company org chart and agent hierarchy |
-| Account | `/account` | User profile and account settings |
-| Login | `/login` | JWT authentication |
+| Page         | Path                              | What it does                                                      |
+| ------------ | --------------------------------- | ----------------------------------------------------------------- |
+| Company Home | `/:companyId`                     | Company-scoped inbox and execution surface                        |
+| Quests       | `/:companyId/quests`              | Quest list, filter by status/agent                                |
+| Sessions     | `/:companyId/sessions/:sessionId` | Split pane: session list + transcript. WebSocket chat with agents |
+| Events       | `/:companyId/events`              | Event stream (audit trail)                                        |
+| Ideas        | `/:companyId/ideas`               | Company knowledge/idea search                                     |
+| Agents       | `/:companyId/agents`              | Company org chart and agent hierarchy                             |
+| Account      | `/account`                        | User profile and account settings                                 |
+| Login        | `/login`                          | JWT authentication                                                |
 
 Legacy paths redirect to their current equivalents.
 
 ## State Stores
 
-| Store | File | Purpose |
-|-------|------|---------|
-| auth | `src/store/auth.ts` | JWT token, login/logout |
-| daemon | `src/store/daemon.ts` | Agents, quests, events, cost, status |
-| chat | `src/store/chat.ts` | Selected agent, per-agent thread state |
-| ui | `src/store/ui.ts` | UI preferences (sidebar, layout) |
+| Store  | File                  | Purpose                                |
+| ------ | --------------------- | -------------------------------------- |
+| auth   | `src/store/auth.ts`   | JWT token, login/logout                |
+| daemon | `src/store/daemon.ts` | Agents, quests, events, cost, status   |
+| chat   | `src/store/chat.ts`   | Selected agent, per-agent thread state |
+| ui     | `src/store/ui.ts`     | UI preferences (sidebar, layout)       |
 
 ## Deployment
 
@@ -181,6 +180,7 @@ For any non-trivial UI work, cut a worktree off main. Never edit main
 directly. The full ritual:
 
 **Cut + symlink:**
+
 ```bash
 git worktree add /home/claudedev/aeqi-<topic> -b design/<topic> main
 ln -sfn /home/claudedev/aeqi/apps/ui/node_modules \
@@ -199,11 +199,13 @@ git -C /home/claudedev/aeqi-<topic> push -u origin design/<topic>
 ```
 
 **Verify before merging:**
+
 ```bash
 cd /home/claudedev/aeqi-<topic>/apps/ui && npm run verify
 ```
 
 **Merge back to main (worktree-safe):**
+
 ```bash
 cd /home/claudedev/aeqi
 git fetch origin
@@ -219,6 +221,7 @@ git push origin main
 ```
 
 **Cleanup, in THIS order:**
+
 ```bash
 rm /home/claudedev/aeqi-<topic>/apps/ui/node_modules    # symlink ONLY
 git worktree remove /home/claudedev/aeqi-<topic> --force
@@ -228,6 +231,7 @@ git push origin --delete design/<topic>
 
 **If `vite: not found` after cleanup:** the parent's node_modules/.bin/
 got damaged by the worktree teardown. Recover:
+
 ```bash
 find /home/claudedev/aeqi/apps/ui/node_modules -delete   # rm -rf hits
                                                           # ENOTEMPTY on
@@ -239,6 +243,7 @@ npm install
 ```
 
 **UI-only deploy (no Rust changed):**
+
 ```bash
 cd /home/claudedev/aeqi/apps/ui
 ./node_modules/.bin/vite build
@@ -272,3 +277,42 @@ git stash pop
 ```
 
 Don't try to commit or revert the drift — it's in-flight work.
+
+## Cross-package code (`packages/web-shared`, `packages/tokens`)
+
+When apps/ui imports from a sibling package (`@aeqi/web-shared/*`,
+`@aeqi/tokens`), the package's own source files import peer-deps
+(`react`, `react-dom`, `react-router-dom`) directly. Without
+intervention, Rollup walks up from the package dir looking for
+`node_modules` and finds nothing — `Rollup failed to resolve import "react-router-dom"`.
+
+**Pin peer-deps via vite alias + tsconfig paths to apps/ui's
+`node_modules`** (already wired in `vite.config.ts` + `tsconfig.json`).
+Don't reach for symlinks (`packages/<pkg>/node_modules → apps/ui/node_modules`)
+— they were the first attempted fix and they're per-checkout fragile,
+break across worktrees, and confuse npm.
+
+If you add a new shared package:
+
+1. tsconfig.json — add `paths` for `@aeqi/<name>/*`
+2. vite.config.ts — add matching `resolve.alias` entry
+3. If the new package itself imports any peer-dep not already in the
+   `react / react-dom / react-router-dom` set, pin THAT one too.
+
+## Running tools from a worktree without npm-install
+
+A worktree's `apps/ui/node_modules` is a symlink to the parent's. The
+parent has `.bin/` populated. But `npm run <script>` resolves binaries
+relative to its CWD's package.json — and inside a fresh worktree it
+sometimes can't see the parent's `.bin/`. Two recoveries:
+
+```bash
+# Option A — invoke via npx (slower; downloads if missing)
+npx tsc --noEmit
+
+# Option B — prepend the parent's .bin to PATH (fast, exact)
+PATH="/home/claudedev/aeqi/apps/ui/node_modules/.bin:$PATH" npm run verify
+```
+
+Option B is preferred for `npm run verify` since the script chains many
+binaries and `npx` per-call would be slow.
