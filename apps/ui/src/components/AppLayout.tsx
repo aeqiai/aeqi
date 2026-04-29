@@ -185,13 +185,6 @@ export default function AppLayout() {
   const encodedEntityId = entityId ? encodeURIComponent(entityId) : "";
   const search = location.search || "";
 
-  // Company context is canonical in the URL. Without this, the sidebar can
-  // display the selected company from localStorage while links still resolve
-  // as top-level routes (`/quests`).
-  if (isHome && encodedEntityId) {
-    return <Navigate to={`/c/${encodedEntityId}${search}`} replace />;
-  }
-
   // Stale entity ref after a data reset would point at a non-existent
   // entity. Bounce home; the user picks (or creates) a fresh entity from
   // there.

@@ -173,7 +173,7 @@ describe("shell components smoke", () => {
     });
   });
 
-  it("canonicalizes / to the selected company root", async () => {
+  it("keeps / at user scope even when a company is active", async () => {
     render(
       withQueryClient(
         <StrictMode>
@@ -189,7 +189,7 @@ describe("shell components smoke", () => {
       ),
     );
 
-    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/c/root-1"));
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/"));
   });
 
   it("BootLoader renders the splash", () => {

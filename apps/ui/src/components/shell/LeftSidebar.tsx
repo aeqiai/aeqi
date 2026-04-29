@@ -159,6 +159,13 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   // user is currently looking at. Per-agent drilldowns
   // (`/c/<entity>/agents/<agent>`) inherit the same sidebar.
   const base = entityId ? `/c/${encodeURIComponent(entityId)}` : "";
+  // The "in a company" check is path-based — the prop `entityId` falls
+  // back to the user's first company for context (so navigation links
+  // resolve), but at user scope (`/`, `/me`, `/economy`, …) we still
+  // want to render only the user's own surfaces. The user picks a
+  // company via the switcher; that flips the URL into `/c/<id>/...` and
+  // the company-scoped items appear.
+  const isEntityScope = path.startsWith("/c/");
 
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
@@ -315,7 +322,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
             <InboxIcon />
             <span className="sidebar-nav-label">Inbox</span>
           </a>
-          {base && (
+          {isEntityScope && base && (
             <a
               className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
               href={base}
@@ -333,13 +340,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
 
         {/* The four W-primitives, Operate, and Control are all
             company-scoped surfaces (their URLs all live under
-            `/c/<entity>/...`). At user scope (no active company) they'd
-            either render with an empty `base` and 404 on click, or
-            their pre-fetched data calls would 400 with "X-Entity header
-            required". Hide them entirely until a company is active —
-            the user picks one via the switcher (or `/start` from the
-            dropdown). */}
-        {!!base && (
+            `/c/<entity>/...`). Only render them when the URL itself
+            puts the user inside a company — at user scope (`/`, `/me`,
+            `/economy`, …) the sidebar collapses to Inbox + Economy +
+            Account. The user picks a company via the switcher (or
+            `/start` from the dropdown). */}
+        {isEntityScope && (
           <>
             <nav className="sidebar-surface-nav" aria-label="Primitives">
               {navItem("agents", "Agents", <AgentsIcon />)}
