@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import BootLoader from "@/components/shell/BootLoader";
 import AgentOrgChart from "@/components/AgentOrgChart";
 import ShortcutsOverlay from "@/components/ShortcutsOverlay";
 import { agentKeys, entityKeys, runtimeKeys } from "@/queries/keys";
+import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
@@ -271,12 +272,17 @@ describe("shell components smoke", () => {
 
 describe("AgentOrgChart smoke", () => {
   beforeEach(() => {
+    vi.spyOn(api, "getPositions").mockImplementation(() => new Promise(() => {}));
     useDaemonStore.setState({
       entities: [],
       agents: [],
       quests: [],
       events: [],
     } as never);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns null when the parent is not in the store", () => {
