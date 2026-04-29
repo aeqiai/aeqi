@@ -205,3 +205,17 @@
 .footer {
   padding-top: var(--space-3);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+
+  .chevronOpen {
+    transform: none;
+  }
+
+  .panel {
+    transition: none;
+  }
+}

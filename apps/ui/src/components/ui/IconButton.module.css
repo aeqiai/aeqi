@@ -96,3 +96,9 @@
   width: 16px;
   height: 16px;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .button:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+}

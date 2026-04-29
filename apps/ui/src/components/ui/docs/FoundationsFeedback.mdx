@@ -1,0 +1,271 @@
+import { Meta } from "@storybook/blocks";
+import { Spinner } from "../Spinner";
+import { ThinkingDot } from "../ThinkingDot";
+import { EmptyState } from "../EmptyState";
+import { ErrorBoundary } from "../ErrorBoundary";
+import { Button } from "../Button";
+
+<Meta title="Foundations/Feedback" />
+
+# Feedback
+
+Four primitives communicate state to the user: Spinner announces data is loading, ThinkingDot signals an agent is processing, EmptyState tells the user a surface has no data yet, and ErrorBoundary catches render failures and shows recovery UI instead of a blank page. Together they handle the four core feedback states—loading, thinking, empty, broken—ensuring the user always knows what the system is doing.
+
+## When to use which
+
+| Primitive         | Role                         | Use when                                                      |
+| ----------------- | ---------------------------- | ------------------------------------------------------------- |
+| **Spinner**       | Loading indicator            | Data is fetching or any long operation is in progress         |
+| **ThinkingDot**   | Streaming/thinking indicator | An agent is processing, thinking, or streaming a response     |
+| **EmptyState**    | Zero-data placeholder        | A list, feed, or surface has no items to show                 |
+| **ErrorBoundary** | Render error boundary        | Wrapping subtrees that may throw during render to catch falls |
+
+## Spinner
+
+Three sizes optimized for their context: **sm** (14px) for inline labels like "Loading…", **md** (20px) as default in most surfaces, **lg** (32px) for prominent page-level loading states.
+
+### Sizes
+
+| Size   | Use when                                                              |
+| ------ | --------------------------------------------------------------------- |
+| **sm** | Inline with a text label inside toolbars, cards, or list row contexts |
+| **md** | Default; loading states inside modals, cards, or sections             |
+| **lg** | Full-page or hero-level loading (Suspense fallback, large empty area) |
+
+### Accessibility contract
+
+- `role="status"` + `aria-label="Loading"` fire automatically
+- Screen readers announce "Loading" when the spinner appears
+- Always pair with visible text in inline contexts — don't render Spinner alone without a label a screen reader user can reach
+
+### Pattern: inline loading
+
+```tsx
+<div>
+  <Spinner size="sm" /> Loading agents…
+</div>
+```
+
+Loading inside a visible surface while context stays readable. The Spinner signals activity; the label tells the screen reader what's loading.
+
+### Pattern: page-level loading
+
+```tsx
+<Suspense
+  fallback={
+    <div style={{ display: "flex", justifyContent: "center", padding: "5rem" }}>
+      <Spinner size="lg" />
+    </div>
+  }
+>
+  {/* route content */}
+</Suspense>
+```
+
+Centred Spinner at App root or route boundary. Use `size="lg"` for page-level prominence.
+
+### Reduced-motion contract
+
+When a user sets OS preference for reduced motion, Spinner stops rotating. The ring becomes static and dims slightly to signal "waiting" without motion. State changes (opacity) happen instantly; only the spin animation disables.
+
+### Storybook
+
+`Components/UI/Spinner` — all three sizes, inline and page-level patterns, motion preference simulation.
+
+## ThinkingDot
+
+Smaller and more specialised than Spinner. Two sizes (**sm** 5px, **md** 7px) for tight inline contexts where a full Spinner would be too large.
+
+### Sizes and context
+
+| Size   | Use when                                        |
+| ------ | ----------------------------------------------- |
+| **sm** | Streaming chat messages, agent thinking signals |
+| **md** | Larger thinking indicators, prominent streaming |
+
+### Accessibility contract
+
+- `role="status"` + `aria-label="Thinking"` fire automatically
+- Pairs with a label that updates as state changes ("thinking…" → "running tool: …" → "complete")
+- Screen readers hear "Thinking" once; the label describes what the agent is doing
+
+### Example pattern
+
+```tsx
+<div>
+  <ThinkingDot size="sm" /> Thinking…
+</div>
+
+// Later, label updates:
+<div>
+  <ThinkingDot size="sm" /> Running tool: search_agents
+</div>
+```
+
+The dot stays visible while the label changes. The user sees streaming text update; a screen reader user hears the progress via label change.
+
+### Reduced-motion contract
+
+When reduced motion is active, ThinkingDot stops pulsing and becomes a static dot at full opacity. No motion, instant state feedback via colour and size alone.
+
+### Storybook
+
+`Components/UI/ThinkingDot` — both sizes, paired with labels, motion preference simulation.
+
+## EmptyState
+
+Placeholder rendered when a list, board, or surface has zero data. Brutalist layout: left-aligned, no decorative icon, optional mono eyebrow + required title + optional description + optional action (usually a "Create" button).
+
+### Slots
+
+| Slot            | Required | Content                                                           |
+| --------------- | -------- | ----------------------------------------------------------------- |
+| **eyebrow**     | No       | Optional small-caps label (e.g., "No results") in mono            |
+| **title**       | Yes      | h3, 22px Exo 2, tells the user what's missing (e.g., "No agents") |
+| **description** | No       | Secondary prose explaining why it's empty or what to do           |
+| **action**      | No       | ReactNode—typically Button or stacked Buttons for CTA             |
+
+### Stark layout, no icons
+
+Left-aligned, deliberately minimal. No icon slot—the title carries all meaning. This keeps EmptyState focused and fast, suitable for any surface: agent list, quest board, event feed, search results, filtered views.
+
+### When to render
+
+- List or pane has zero items
+- Search or filter returns no matches
+- Feature is not yet available (disabled with explanation)
+- Data load succeeded but the set was empty
+
+Don't render an empty list (`<ul></ul>`) without an EmptyState—that's a UX gap. The user won't know if data is missing, loading, or intentionally empty.
+
+### Pattern examples
+
+```tsx
+// Agents pane, zero agents
+<EmptyState
+  title="No agents yet"
+  description="Create your first agent to get started."
+  action={<Button>+ New agent</Button>}
+/>
+
+// Search with no matches
+<EmptyState
+  title="No results"
+  description="Try adjusting your search terms."
+/>
+
+// Feature unavailable
+<EmptyState
+  eyebrow="Coming soon"
+  title="Blueprints unavailable"
+  description="This feature will launch in the next release."
+/>
+```
+
+### Storybook
+
+`Components/UI/EmptyState` — all slot combinations, eyebrow examples, action patterns.
+
+## ErrorBoundary
+
+Class component that catches React render errors below it. Renders a fallback UI instead of crashing the page. When an error occurs, the boundary logs it and shows a human-readable fallback with a "Try again" button to reset and retry.
+
+### Current deployment pattern
+
+ErrorBoundary wraps the App root. Any render error anywhere in the component tree gets caught and shows the fallback.
+
+### Future: per-route boundaries
+
+Recommended for larger surfaces—wrap sub-routes to catch route-level errors so only that surface fails, not the whole app. See NestedBoundaries story for the pattern.
+
+### Fallback structure
+
+The default fallback renders:
+
+```tsx
+<div role="alert" aria-live="polite">
+  <h2>Something went wrong</h2>
+  <pre>{error.message}</pre>
+  <Button>Try again</Button>
+</div>
+```
+
+- **role="alert" aria-live="polite"** — error is announced to screen readers when it appears
+- **h2 heading** — semantic error title
+- **mono <pre>** — error message in a bounded scrollable container (max-height 50vh + overflow-y auto) for long stack traces
+- **"Try again" button** — secondary variant, resets the boundary state
+
+### What ErrorBoundary catches and doesn't catch
+
+**Catches (render phase):**
+
+- Component constructor errors
+- Render method errors
+- State updates (getDerivedStateFromError)
+- Errors from lifecycle methods
+
+**Does NOT catch (require explicit error handling):**
+
+- Promise rejections — use `.catch()` in the consumer
+- Event handler errors — wrap in try/catch
+- Async errors in effects — wrap in try/catch or add explicit error state
+
+### Custom fallback
+
+Pass `fallback` prop to override the default UI:
+
+```tsx
+<ErrorBoundary fallback={<CustomErrorUI />}>
+  <App />
+</ErrorBoundary>
+```
+
+### Storybook
+
+`Components/UI/ErrorBoundary` — default fallback, custom fallback examples, nested boundary pattern, catch/no-catch scenarios.
+
+## Reduced-motion contract — locked across all feedback primitives
+
+Every animated primitive honours `@media (prefers-reduced-motion: reduce)`:
+
+| Primitive         | At rest                    | With reduced motion           |
+| ----------------- | -------------------------- | ----------------------------- |
+| **Spinner**       | Rotating ring              | Static dim ring (opacity 0.7) |
+| **ThinkingDot**   | Pulsing dot                | Static dot at full opacity    |
+| **EmptyState**    | No motion (static already) | —                             |
+| **ErrorBoundary** | No motion in fallback      | —                             |
+
+State changes (colour, opacity shifts, border updates) happen instantly in all cases. Motion is the layer that disables when the user prefers it. This honours WCAG 2.1 SC 2.3.3 (animation from interactions).
+
+When adding a new animated primitive, include the reduced-motion override at the bottom of its CSS module:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .animated-element {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+}
+```
+
+## Shared feedback contract
+
+All four primitives:
+
+- Are stateless or render-error reactive (don't hold their own state beyond error flag in ErrorBoundary)
+- Carry semantic ARIA roles (status, alert, headings)
+- Don't have hover/focus/active/disabled states (display-only or simple reset)
+- Honour reduced-motion preferences
+- Use the token palette (--color-text, --color-border, --color-error, etc.)
+
+## API reference
+
+See the **Docs** tab on each component for the full prop surface:
+
+- **Spinner** — `size` ("sm" | "md" | "lg"), `className`, standard `span` attributes
+- **ThinkingDot** — `size` ("sm" | "md"), `className`, standard `span` attributes
+- **EmptyState** — `title` (required), `description`, `action`, `eyebrow`, `className`
+- **ErrorBoundary** — `children` (required), `fallback` (optional custom UI), standard `div` attributes on wrapper
+
+All are forwarded with `forwardRef` where applicable for direct DOM access when needed.

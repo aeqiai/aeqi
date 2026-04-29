@@ -60,3 +60,9 @@
 .tabpanel:focus {
   outline: none;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab:active:not(:disabled) {
+    transform: none;
+  }
+}

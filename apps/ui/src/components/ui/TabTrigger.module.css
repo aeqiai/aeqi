@@ -91,3 +91,9 @@
 .disabled {
   /* Disabled state is handled by :disabled selector */
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger:active:not(:disabled) {
+    transform: none;
+  }
+}

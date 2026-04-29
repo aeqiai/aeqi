@@ -93,3 +93,65 @@ export const PageLoading: Story = {
     </div>
   ),
 };
+
+/* ── Overlay pattern ── */
+
+export const OverlayPattern: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Demonstrates the canonical data-refetch overlay pattern. The Spinner is centered in a semi-transparent overlay atop existing content. The underlying surface remains visible and interactive (read-only) while background operations complete. Common on tables or detail panels during pagination, search, or background sync.",
+      },
+    },
+  },
+  render: () => (
+    <div style={{ position: "relative" }}>
+      <div
+        style={{
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-md)",
+          padding: "var(--space-4)",
+          minHeight: 200,
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-3)",
+        }}
+      >
+        <div style={{ fontWeight: 600, fontSize: 13, color: "rgba(0,0,0,0.85)" }}>
+          Quests for Orchestrator-7
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>• Validate system config</div>
+        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>• Deploy to staging</div>
+        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>• Run integration tests</div>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.04)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "var(--radius-md)",
+        }}
+      >
+        <Spinner size="md" />
+      </div>
+    </div>
+  ),
+};
+
+/* ── Reduced motion ── */
+
+export const ReducedMotion: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The Spinner respects `prefers-reduced-motion: reduce`. When the OS preference is set (Settings > Accessibility on most platforms), the spinner animation stops and a static indicator remains visible. Document this behavior; the component requires no additional code.",
+      },
+    },
+  },
+  render: () => <Spinner size="md" />,
+};

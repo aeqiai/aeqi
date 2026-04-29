@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.hasError) {
       return (
         this.props.fallback || (
-          <div className={styles.wrapper}>
+          <div className={styles.wrapper} role="alert" aria-live="polite">
             <h2 className={styles.title}>Something went wrong</h2>
             <pre className={styles.message}>{this.state.error?.message}</pre>
             <Button

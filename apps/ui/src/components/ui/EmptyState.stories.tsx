@@ -1,6 +1,8 @@
+import { useState, useEffect, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
+import { Spinner } from "./Spinner";
 
 const meta: Meta<typeof EmptyState> = {
   title: "Primitives/Feedback/EmptyState",
@@ -84,5 +86,95 @@ export const MinimalTitle: Story = {
   name: "Title Only",
   args: {
     title: "Nothing here",
+  },
+};
+
+/* ── Loading to empty transition ── */
+
+function LoadingToEmptyTransitionRender(): ReactNode {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLoading((prev) => !prev);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "48px 24px",
+        minHeight: 300,
+      }}
+    >
+      {loading ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <Spinner size="md" />
+          <span style={{ fontSize: 13, color: "rgba(0,0,0,0.4)" }}>Loading quests...</span>
+        </div>
+      ) : (
+        <EmptyState
+          title="No quests yet"
+          description="Create a quest to assign work to your agents."
+          action={
+            <Button variant="primary" size="sm">
+              New Quest
+            </Button>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+export const LoadingToEmptyTransition: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Documents the canonical fetch-to-empty pattern. Surfaces display a Spinner during data load, then transition to EmptyState when the request resolves with no results. This cycle repeats to showcase the transition. Most surfaces implement this manually; the story documents the sequence.",
+      },
+    },
+  },
+  render: () => <LoadingToEmptyTransitionRender />,
+};
+
+/* ── Secondary action ── */
+
+export const WithSecondaryAction: Story = {
+  name: "With Secondary Action",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "EmptyState with two actions side-by-side: primary (create/add) and secondary (navigate/learn). The action prop accepts ReactNode; wrap two Buttons in a flex container. Common on onboarding surfaces.",
+      },
+    },
+  },
+  args: {
+    title: "Create your first quest",
+    description: "Quests assign work to agents and track progress.",
+    action: (
+      <div style={{ display: "flex", gap: "var(--space-2)" }}>
+        <Button variant="primary" size="sm">
+          New Quest
+        </Button>
+        <Button variant="secondary" size="sm">
+          Read the docs
+        </Button>
+      </div>
+    ),
   },
 };

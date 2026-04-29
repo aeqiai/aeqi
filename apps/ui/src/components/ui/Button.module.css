@@ -222,3 +222,21 @@
 .button:not(:disabled):not([aria-disabled="true"]):hover .trailingIcon {
   transform: translateX(3px);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .button:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+
+  .spinner::after {
+    animation: none;
+  }
+
+  .button:not(:disabled):not([aria-disabled="true"]) .trailingIcon {
+    transition: none;
+  }
+
+  .button:not(:disabled):not([aria-disabled="true"]):hover .trailingIcon {
+    transform: none;
+  }
+}

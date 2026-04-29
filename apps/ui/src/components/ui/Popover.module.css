@@ -68,3 +68,21 @@
 .top_end.open {
   transform: translateY(0);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+
+  .panel.open {
+    transform: none;
+  }
+
+  .top_start {
+    transform: none;
+  }
+
+  .top_end {
+    transform: none;
+  }
+}

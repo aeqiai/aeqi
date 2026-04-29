@@ -46,3 +46,9 @@
   width: 10px;
   height: 10px;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .chipClose:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+}

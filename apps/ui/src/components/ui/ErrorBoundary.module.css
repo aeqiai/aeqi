@@ -12,9 +12,11 @@
 
 .message {
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   color: var(--color-error);
   margin-top: var(--space-4);
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .retry {

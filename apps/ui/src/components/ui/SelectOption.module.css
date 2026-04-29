@@ -86,3 +86,9 @@
 .withTrailingHint .label {
   margin-right: var(--space-2);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .option:active:not(:disabled) {
+    transform: none;
+  }
+}

@@ -72,3 +72,25 @@
 .right.visible {
   transform: translateY(-50%) translateX(0);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    transition: none;
+  }
+
+  .top {
+    transform: translateX(-50%);
+  }
+
+  .bottom {
+    transform: translateX(-50%);
+  }
+
+  .left {
+    transform: translateY(-50%);
+  }
+
+  .right {
+    transform: translateY(-50%);
+  }
+}
