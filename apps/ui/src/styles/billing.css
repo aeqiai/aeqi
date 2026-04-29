@@ -29,19 +29,12 @@
   color: var(--text-muted);
 }
 
-.billing-error {
+/* Wraps a Banner + Retry button when the panel has nothing else to show. */
+.billing-error-stack {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--color-error-bg);
-  font-size: var(--font-size-sm);
-  color: var(--color-error);
-}
-.billing-error p {
-  margin: 0;
 }
 
 /* ── Summary card ──────────────────────────────── */

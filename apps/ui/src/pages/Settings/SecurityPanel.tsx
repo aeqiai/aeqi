@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
-import { Button, Input, ConfirmDialog, QRCode } from "@/components/ui";
+import { Banner, Button, Input, ConfirmDialog, QRCode, StatusRow } from "@/components/ui";
 import { GoogleIcon, GitHubIcon } from "@/components/icons/Brand";
 import AddPasskeyButton from "@/pages/Settings/AddPasskeyButton";
 
@@ -183,19 +183,15 @@ export default function SecurityPanel() {
         <div>
           <label className="account-field-label">Two-factor authentication</label>
           {totpEnabled ? (
-            <div className="account-totp-status">
-              <div className="account-status-dot" aria-hidden="true" />
-              <span className="account-totp-status-text">Authenticator app enabled</span>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="account-totp-disable-btn"
-                onClick={disableTotp}
-              >
-                Disable
-              </Button>
-            </div>
+            <StatusRow
+              dot="active"
+              label="Authenticator app enabled"
+              action={
+                <Button type="button" variant="secondary" size="sm" onClick={disableTotp}>
+                  Disable
+                </Button>
+              }
+            />
           ) : totpSetup ? (
             <div>
               <p className="account-field-desc">
@@ -262,15 +258,7 @@ export default function SecurityPanel() {
               </div>
             </div>
           )}
-          {totpFeedback && (
-            <div
-              className={`account-feedback account-feedback-${totpFeedback.type}`}
-              role="status"
-              aria-live="polite"
-            >
-              {totpFeedback.msg}
-            </div>
-          )}
+          {totpFeedback && <Banner kind={totpFeedback.type}>{totpFeedback.msg}</Banner>}
         </div>
 
         <div className="account-subsection">
@@ -323,27 +311,18 @@ export default function SecurityPanel() {
               Save
             </Button>
           </div>
-          {phishingFeedback && (
-            <div
-              className={`account-feedback account-feedback-${phishingFeedback.type}`}
-              role="status"
-              aria-live="polite"
-            >
-              {phishingFeedback.msg}
-            </div>
-          )}
+          {phishingFeedback && <Banner kind={phishingFeedback.type}>{phishingFeedback.msg}</Banner>}
         </div>
       </section>
 
       <section className="account-section">
         <h3 className="account-section-title">Connected accounts</h3>
-        <div className="account-providers">
-          <div className="account-provider-row">
-            <GoogleIcon />
-            <span className="account-provider-name">Google</span>
-            {provider === "google" ? (
-              <span className="account-provider-status">Connected</span>
-            ) : (
+        <StatusRow
+          icon={<GoogleIcon />}
+          label="Google"
+          status={provider === "google" ? "Connected" : undefined}
+          action={
+            provider === "google" ? undefined : (
               <Button
                 variant="secondary"
                 size="sm"
@@ -354,14 +333,15 @@ export default function SecurityPanel() {
               >
                 Connect
               </Button>
-            )}
-          </div>
-          <div className="account-provider-row">
-            <GitHubIcon />
-            <span className="account-provider-name">GitHub</span>
-            {provider === "github" ? (
-              <span className="account-provider-status">Connected</span>
-            ) : (
+            )
+          }
+        />
+        <StatusRow
+          icon={<GitHubIcon />}
+          label="GitHub"
+          status={provider === "github" ? "Connected" : undefined}
+          action={
+            provider === "github" ? undefined : (
               <Button
                 variant="secondary"
                 size="sm"
@@ -372,9 +352,9 @@ export default function SecurityPanel() {
               >
                 Connect
               </Button>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       </section>
 
       <section className="account-section account-section--danger">

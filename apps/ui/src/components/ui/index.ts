@@ -42,6 +42,12 @@ export type { ThinkingDotProps } from "./ThinkingDot";
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
 
+export { Banner } from "./Banner";
+export type { BannerProps, BannerKind } from "./Banner";
+
+export { StatusRow } from "./StatusRow";
+export type { StatusRowProps, StatusDotKind } from "./StatusRow";
+
 export { Tabs } from "./Tabs";
 export type { TabsProps, Tab } from "./Tabs";
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Badge, Button, Card, Spinner } from "@/components/ui";
+import { Badge, Banner, Button, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import type { Agent } from "@/lib/types";
 import type { BillingInterval, PlanId } from "@/lib/pricing";
@@ -213,11 +213,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
         />
       </div>
 
-      {error && (
-        <div className="account-feedback account-feedback-error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <Banner kind="error">{error}</Banner>}
 
       <div className="billing-footer">
         <p className="billing-footer-line">

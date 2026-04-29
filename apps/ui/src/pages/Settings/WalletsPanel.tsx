@@ -3,7 +3,7 @@ import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { apiRequest } from "@/api/client";
 import { api } from "@/lib/api";
-import { Button, ConfirmDialog } from "@/components/ui";
+import { Banner, Button, ConfirmDialog } from "@/components/ui";
 import { buildSiweMessage, fetchNonce } from "@/lib/walletAuth";
 
 interface WalletRow {
@@ -157,11 +157,7 @@ export default function WalletsPanel() {
           wallet (MetaMask, Rabby, Coinbase, hardware) to add it as a login + signing option.
         </p>
 
-        {feedback && (
-          <div className={feedback.type === "error" ? "auth-error" : "account-feedback-success"}>
-            {feedback.msg}
-          </div>
-        )}
+        {feedback && <Banner kind={feedback.type}>{feedback.msg}</Banner>}
 
         {loading && <div className="account-activity-empty">Loading…</div>}
         {!loading && wallets.length === 0 && (

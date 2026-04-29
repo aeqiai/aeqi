@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { formatCents, type BillingInterval, type PlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
-import { Button, Card, Spinner } from "@/components/ui";
+import { Banner, Button, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import "@/styles/billing.css";
 
@@ -152,8 +152,8 @@ export default function BillingPanel() {
 
   if (error && !overview) {
     return (
-      <div className="billing-error" role="alert">
-        <p>{error}</p>
+      <div className="billing-error-stack">
+        <Banner kind="error">{error}</Banner>
         <Button variant="primary" onClick={reload}>
           Retry
         </Button>
@@ -168,11 +168,7 @@ export default function BillingPanel() {
 
   return (
     <div className="billing-panel">
-      {spawn.kind === "error" && (
-        <div className="account-feedback account-feedback-error" role="alert">
-          {spawn.message}
-        </div>
-      )}
+      {spawn.kind === "error" && <Banner kind="error">{spawn.message}</Banner>}
 
       <Card padding="lg" className="billing-summary">
         <div className="billing-summary-main">
@@ -227,11 +223,7 @@ export default function BillingPanel() {
         </div>
       )}
 
-      {error && overview && (
-        <div className="account-feedback account-feedback-error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && overview && <Banner kind="error">{error}</Banner>}
 
       <div className="billing-footer">
         <p className="billing-footer-line">

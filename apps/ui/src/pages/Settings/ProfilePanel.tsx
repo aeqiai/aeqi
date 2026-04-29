@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Button, Input } from "@/components/ui";
+import { Badge, Banner, Button, Input } from "@/components/ui";
 import AvatarUploader from "./AvatarUploader";
 import EmailEditor from "@/pages/Settings/EmailEditor";
 
@@ -158,7 +158,9 @@ export default function ProfilePanel() {
               Required for incorporation, equity issuance, and marketplace access.
             </p>
           </div>
-          <span className="account-badge-coming-soon">Coming soon</span>
+          <Badge variant="muted" size="sm">
+            Coming soon
+          </Badge>
         </div>
       </section>
 
@@ -167,15 +169,7 @@ export default function ProfilePanel() {
           Save
         </Button>
       </div>
-      {feedback && (
-        <div
-          className={`account-feedback account-feedback-${feedback.type}`}
-          role="status"
-          aria-live="polite"
-        >
-          {feedback.msg}
-        </div>
-      )}
+      {feedback && <Banner kind={feedback.type}>{feedback.msg}</Banner>}
     </>
   );
 }

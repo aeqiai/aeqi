@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
-import { Button, IconButton } from "@/components/ui";
+import { Banner, Button, IconButton } from "@/components/ui";
 
 type Feedback = { type: "success" | "error"; msg: string } | null;
 
@@ -122,11 +122,7 @@ export default function ApiKeyPanel() {
         </div>
       )}
 
-      {feedback && (
-        <div className={`account-feedback account-feedback-${feedback.type}`} role="status">
-          {feedback.msg}
-        </div>
-      )}
+      {feedback && <Banner kind={feedback.type}>{feedback.msg}</Banner>}
 
       <div className="account-key-footnote">
         <p className="account-field-desc">

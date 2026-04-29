@@ -536,24 +536,6 @@
   align-self: flex-start;
 }
 
-.account-feedback {
-  font-size: var(--font-size-xs);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  margin-top: var(--space-2);
-  line-height: 1.4;
-}
-
-.account-feedback-success {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.account-feedback-error {
-  background: var(--color-error-bg);
-  color: var(--color-error);
-}
-
 /* ── Settings page ─────────────────────────────────── */
 
 .settings-status-grid {
@@ -707,37 +689,6 @@
 
 .account-verification-row .account-field-desc {
   margin: 0;
-}
-
-/* Connected-accounts list — flat rows: brand icon · name · status · action.
-   No bordered tiles; the list reads as inventory, action sits at right. */
-.account-providers {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.account-provider-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-  min-height: 32px;
-}
-
-.account-provider-name {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-  flex: 1;
-}
-
-.account-provider-status {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--success);
-  white-space: nowrap;
 }
 
 .account-page {
@@ -1026,44 +977,9 @@
   margin-bottom: var(--space-6);
 }
 
-.account-badge-coming-soon {
-  font-size: var(--font-size-micro);
-  font-weight: 600;
-  color: var(--text-muted);
-  background: var(--bg-base);
-  padding: 3px var(--space-2);
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-}
-
 .account-sign-out-btn {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
-}
-
-.account-totp-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-}
-
-.account-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-}
-
-.account-totp-status-text {
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-}
-
-.account-totp-disable-btn {
-  margin-left: auto;
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
 }
 
 .account-qr-container {

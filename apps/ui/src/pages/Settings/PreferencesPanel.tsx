@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui";
+import { Button, StatusRow } from "@/components/ui";
 import {
   Events,
   onConsentChange,
@@ -44,18 +44,10 @@ export default function PreferencesPanel() {
             Personal-identifying fields are never collected. Off-by-default for anonymous visitors;
             on by default once you sign in.
           </p>
-          <div className="account-field-row">
-            <div className="account-totp-status">
-              <div
-                className="account-status-dot"
-                aria-hidden="true"
-                style={{
-                  background: enabled ? "var(--color-success)" : "var(--color-text-muted)",
-                }}
-              />
-              <span className="account-totp-status-text">
-                {enabled ? "Analytics on" : "Analytics off"}
-              </span>
+          <StatusRow
+            dot={enabled ? "active" : "idle"}
+            label={enabled ? "Analytics on" : "Analytics off"}
+            action={
               <Button
                 type="button"
                 variant="secondary"
@@ -64,19 +56,17 @@ export default function PreferencesPanel() {
               >
                 {enabled ? "Turn off" : "Turn on"}
               </Button>
-            </div>
-          </div>
+            }
+          />
         </div>
       </section>
 
       <section className="account-section">
         <h3 className="account-section-title">Email</h3>
-        <div className="account-prefs-empty">
-          <p className="account-field-desc">
-            Email preferences are coming soon. For now, transactional emails (login codes, password
-            resets) are always sent.
-          </p>
-        </div>
+        <p className="account-field-desc">
+          Email preferences are coming soon. For now, transactional emails (login codes, password
+          resets) are always sent.
+        </p>
       </section>
     </>
   );
