@@ -3957,6 +3957,13 @@
 .dashboard-list-more a:hover {
   color: var(--text-primary);
 }
+.dashboard-mission-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  margin: 0;
+}
 
 .dashboard-company-row {
   flex-direction: row;

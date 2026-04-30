@@ -11,6 +11,7 @@ import AgentQuestsTab from "./AgentQuestsTab";
 import EntityAgentsTab from "./EntityAgentsTab";
 import EntityPositionsTab from "./EntityPositionsTab";
 import EntityOverviewTab from "./EntityOverviewTab";
+import AgentOverviewTab from "./AgentOverviewTab";
 import AgentIntegrationsTab from "@/pages/Agent/Integrations";
 import AgentPlanTab from "@/pages/Agent/PlanTab";
 import PageRail from "./PageRail";
@@ -40,6 +41,7 @@ const SETTINGS_SUB_TABS = [
 // keeps the rail / sessions-list / chat order correct: rail on the
 // far left, sessions list to its right, chat to the right of that.
 export const AGENT_RAIL_TABS = [
+  { id: "overview", label: "Overview" },
   { id: "sessions", label: "Sessions" },
   { id: "quests", label: "Quests" },
   { id: "events", label: "Events" },
@@ -94,6 +96,10 @@ export default function AgentPage({
   // entity_id directly — every agent the URL points at is owned by
   // exactly one entity (foreign-key relation, no fuzzy matching).
   const resolvedEntityId = agent?.entity_id || resolvedAgentId;
+  // Drilled agents are distinct from their owning entity. Root agents
+  // ARE the entity (entity_id is null in the DB and falls back to the
+  // agent id). Used to route the Overview tab to the right cockpit.
+  const isDrilledAgent = resolvedAgentId !== resolvedEntityId;
 
   // Save feedback toast
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
@@ -124,7 +130,12 @@ export default function AgentPage({
       )}
 
       {/* Tab content */}
-      {activeTab === "overview" && <EntityOverviewTab entityId={resolvedEntityId} />}
+      {activeTab === "overview" &&
+        (isDrilledAgent ? (
+          <AgentOverviewTab agentId={resolvedAgentId} entityId={resolvedEntityId} />
+        ) : (
+          <EntityOverviewTab entityId={resolvedEntityId} />
+        ))}
 
       {activeTab === "sessions" && (
         <div className="agent-page-chat">
