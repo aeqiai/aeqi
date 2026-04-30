@@ -8,13 +8,6 @@ import Wordmark from "@/components/Wordmark";
 import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
-// Sub-tabs owned by Company's PageRail (rendered by CompanyPage):
-// the bare URL (Feed) plus Overview and Positions. Company sidebar
-// item stays lit on all three because they're facets of the same
-// surface. Agents / Events / Quests / Ideas live on sibling URLs and
-// own their own active state — they must NOT also light up Company.
-const COMPANY_SUB_TABS = ["overview", "positions"];
-
 interface LeftSidebarProps {
   /** Canonical entity (company) id. Sidebar tabs are company-scoped, not child-agent scoped. */
   entityId: string | null;
@@ -41,14 +34,6 @@ const InboxIcon = () => (
   <svg {...iconProps}>
     <rect x="2" y="3.5" width="12" height="9" rx="0.5" />
     <path d="M2 8h3.5l1 1.5h3l1-1.5H14" />
-  </svg>
-);
-
-const PortfolioIcon = () => (
-  <svg {...iconProps}>
-    <rect x="2" y="5" width="12" height="8" rx="1" />
-    <path d="M5.5 5V3.5h5V5" />
-    <path d="M2 9h12" />
   </svg>
 );
 
@@ -187,20 +172,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     if (!base) return false;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
-  // My zone — user-scope destinations that always live at user-scope
-  // URLs. Active states are path-equality checks; nothing fuzzy.
+  // Personal items — Home (the global director cockpit) and Inbox
+  // (the global human action queue). Both always live at user-scope
+  // URLs and don't filter by selected company. Active states are
+  // path-equality checks.
   const homeActive = path === "/" || path.startsWith("/sessions/");
-  const myInboxActive = path === "/me/inbox";
-  const myQuestsActive = path === "/me/quests";
-  const myPortfolioActive = path === "/me/portfolio";
-  // Company sidebar item points at the company's home (the Feed at
-  // the bare `/c/<id>` URL). Active on the bare URL plus the
-  // CompanyPage sub-tabs (Overview, Positions) — those are facets of
-  // the same Company surface, sharing the rail.
-  const companyActive =
-    !!base &&
-    (path === base ||
-      COMPANY_SUB_TABS.some((t) => path === `${base}/${t}` || path.startsWith(`${base}/${t}/`)));
+  const inboxActive = path === "/me/inbox";
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   const navItem = (
@@ -294,12 +271,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* Personal items at the top — invariant, always visible. The
-            user's daily destinations across every company they own.
-            No "MY" header label; the spacing + the workspace switcher
-            below act as the implicit boundary between user-scope and
-            workspace-scope items. */}
-        <nav className="sidebar-surface-nav sidebar-zone" aria-label="My">
+        {/* Home + Inbox — the two global personal destinations. Home
+            is the director cockpit (cross-company dashboard). Inbox
+            is the global human action queue. Both are invariant
+            regardless of selected company; both decline to silently
+            inherit company filter state. */}
+        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Personal">
           <a
             className={`sidebar-nav-item ${homeActive ? "active" : ""}`}
             href="/"
@@ -313,40 +290,16 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
             <span className="sidebar-nav-label">Home</span>
           </a>
           <a
-            className={`sidebar-nav-item ${myInboxActive ? "active" : ""}`}
+            className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
             href="/me/inbox"
-            title="My inbox"
+            title="Inbox"
             onClick={(e) => {
               e.preventDefault();
               navigate("/me/inbox");
             }}
           >
             <InboxIcon />
-            <span className="sidebar-nav-label">My inbox</span>
-          </a>
-          <a
-            className={`sidebar-nav-item ${myQuestsActive ? "active" : ""}`}
-            href="/me/quests"
-            title="My quests"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/me/quests");
-            }}
-          >
-            <QuestsIcon />
-            <span className="sidebar-nav-label">My quests</span>
-          </a>
-          <a
-            className={`sidebar-nav-item ${myPortfolioActive ? "active" : ""}`}
-            href="/me/portfolio"
-            title="My portfolio"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/me/portfolio");
-            }}
-          >
-            <PortfolioIcon />
-            <span className="sidebar-nav-label">My portfolio</span>
+            <span className="sidebar-nav-label">Inbox</span>
           </a>
         </nav>
 
@@ -375,34 +328,20 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* Workspace items — only shown when the URL puts the user
-            inside a company. Company points at the org's Overview
-            surface (card + Positions PageRail); Agents/Events/Quests/
-            Ideas are the four primitives at company scope. No header
-            label — the spacing above (the action row) is the implicit
-            boundary. */}
+        {/* Company group — only shown when the URL puts the user
+            inside a company. Overview is the canonical company
+            landing (its dashboard). Agents / Quests / Ideas / Events
+            are the four facets of company-scoped work, knowledge,
+            and automation. */}
         {isEntityScope && (
           <>
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
-              {base && (
-                <a
-                  className={`sidebar-nav-item ${companyActive ? "active" : ""}`}
-                  href={base}
-                  title="Company"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(base);
-                  }}
-                >
-                  <CompanyIcon />
-                  <span className="sidebar-nav-label">Company</span>
-                </a>
-              )}
+            <SidebarGroup title="Company" groupKey="company">
+              {navItem("overview", "Overview", <CompanyIcon />)}
               {navItem("agents", "Agents", <AgentsIcon />)}
-              {navItem("events", "Events", <EventsIcon />)}
               {navItem("quests", "Quests", <QuestsIcon />)}
               {navItem("ideas", "Ideas", <IdeasIcon />)}
-            </nav>
+              {navItem("events", "Events", <EventsIcon />)}
+            </SidebarGroup>
 
             <SidebarGroup title="Operate" groupKey="operate" soon>
               {navItem("projects", "Projects", <ProjectsIcon />, { soon: true })}

@@ -24,12 +24,8 @@ export interface ShellSurface {
    *  in-shell 404 dispatch. Stays false for `/`, `/me/...`, `/start`,
    *  `/sessions/:id`, `/economy/...`, and `/c/:entityId/...`. */
   isNotFound: boolean;
-  /** `/me/inbox` — the action queue. Distinct from `/` (the feed). */
+  /** `/me/inbox` — the global human action queue. */
   isMyInbox: boolean;
-  /** `/me/quests` — quests assigned to you across companies (stub). */
-  isMyQuests: boolean;
-  /** `/me/portfolio` — equity / treasury share (stub). */
-  isMyPortfolio: boolean;
   /** Session id from /sessions/:sessionId (user-scope inbox view). */
   userSessionId: string | null;
   /** Blueprint slug from /economy/blueprints/:slug — null on the catalog
@@ -46,18 +42,13 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isUserSession = !!userSessionId;
 
     // /me/* family. The user-scope namespace splits into:
+    //   - my-inbox: /me/inbox (the global action queue)
     //   - settings: /me, /me/profile, /me/billing, /me/security, …
-    //   - my-inbox: /me/inbox (the action queue)
-    //   - my-quests: /me/quests (stub)
-    //   - my-portfolio: /me/portfolio (stub)
     // Settings owns the catch-all so any unrecognised /me/<x> falls
     // back to the existing ProfilePage rather than 404.
     const isMyInbox = path === "/me/inbox";
-    const isMyQuests = path === "/me/quests";
-    const isMyPortfolio = path === "/me/portfolio";
-    const isMyCustom = isMyInbox || isMyQuests || isMyPortfolio;
     const isSettings =
-      !isMyCustom && (path === "/me" || path.startsWith("/me/") || tab === "profile");
+      !isMyInbox && (path === "/me" || path.startsWith("/me/") || tab === "profile");
     const isBlueprints = path === "/economy/blueprints" || path.startsWith("/economy/blueprints/");
     const blueprintMatch = path.match(/^\/economy\/blueprints\/([^/]+)\/?$/);
     const blueprintSlug = blueprintMatch ? decodeURIComponent(blueprintMatch[1]) : null;
@@ -80,7 +71,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isHome =
       path === "/" &&
       !isSettings &&
-      !isMyCustom &&
+      !isMyInbox &&
       !isBlueprints &&
       !isEconomy &&
       !isStart &&
@@ -97,8 +88,6 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
       isUserSession,
       isNotFound,
       isMyInbox,
-      isMyQuests,
-      isMyPortfolio,
       userSessionId,
       blueprintSlug,
     };

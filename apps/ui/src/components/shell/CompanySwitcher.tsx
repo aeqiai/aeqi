@@ -66,7 +66,11 @@ export default function CompanySwitcher() {
   const select = useCallback(
     (entity: Entity) => {
       setActiveEntity(entity.id);
-      navigate(`/c/${encodeURIComponent(entity.id)}`);
+      // Selecting a company lands on its Overview — the canonical
+      // company dashboard. The bare `/c/<id>` URL redirects there
+      // anyway, but going straight is faster + avoids a redirect
+      // round-trip.
+      navigate(`/c/${encodeURIComponent(entity.id)}/overview`);
       setOpen(false);
     },
     [navigate, setActiveEntity],
