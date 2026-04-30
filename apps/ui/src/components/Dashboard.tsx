@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEntitiesQuery } from "@/queries/entities";
 import { useDaemonStore } from "@/store/daemon";
-import { useInboxStore, selectInboxCount, selectVisibleItems } from "@/store/inbox";
+import { useInboxStore, selectInboxCount } from "@/store/inbox";
 import { useAuthStore } from "@/store/auth";
 import { BlueprintLaunchPicker } from "@/components/blueprints/BlueprintLaunchPicker";
 import BlockAvatar from "@/components/BlockAvatar";
@@ -35,7 +35,17 @@ export default function Dashboard() {
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests);
   const inboxCount = useInboxStore(selectInboxCount);
-  const inboxItems = useInboxStore(selectVisibleItems);
+  // Subscribe to the raw store fields and derive the visible items
+  // here. Selectors that build new arrays (`.filter()`) on every
+  // call break `useSyncExternalStore`'s identity check and trigger
+  // React error #185 (max update depth) — must memoize at the
+  // consumer.
+  const inboxAllItems = useInboxStore((s) => s.items);
+  const inboxPending = useInboxStore((s) => s.pendingDismissal);
+  const inboxItems = useMemo(
+    () => inboxAllItems.filter((i) => !inboxPending.has(i.session_id)),
+    [inboxAllItems, inboxPending],
+  );
 
   useEffect(() => {
     document.title = "home · æqi";

@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
-import { useInboxStore, selectInboxCount, selectVisibleItems } from "@/store/inbox";
+import { useInboxStore, selectInboxCount } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 
 /**
@@ -18,7 +18,16 @@ export default function MeInboxPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const inboxCount = useInboxStore(selectInboxCount);
-  const items = useInboxStore(selectVisibleItems);
+  // Subscribe to raw fields + derive the visible items via useMemo.
+  // Avoiding selectVisibleItems (which builds a new array each call)
+  // is what keeps useSyncExternalStore from looping; see Dashboard
+  // for the same pattern.
+  const allItems = useInboxStore((s) => s.items);
+  const pending = useInboxStore((s) => s.pendingDismissal);
+  const items = useMemo(
+    () => allItems.filter((i) => !pending.has(i.session_id)),
+    [allItems, pending],
+  );
   const agents = useDaemonStore((s) => s.agents);
 
   useEffect(() => {
