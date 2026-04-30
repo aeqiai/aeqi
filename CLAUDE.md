@@ -20,6 +20,14 @@ cd apps/ui && npx tsc --noEmit && npx prettier --check "src/**/*.{ts,tsx,css}"
 All must pass before merge. The pre-commit hook only enforces the UI subset
 when `apps/ui` files are staged; Rust checks remain a manual/CI responsibility.
 
+`cargo test --workspace` is non-negotiable — `cargo check --workspace` does
+NOT compile test code. A required-field added to a public struct (e.g. `Template`
+gaining `seed_roles` in `35113194`) can leave test fixtures uncompilable while
+`cargo check --workspace` stays green; the break only surfaces when somebody
+runs `cargo test -p <crate> --lib`. Caught one such drift on 2026-04-30
+(`crates/aeqi-orchestrator/src/ipc/templates.rs` literal-init blocks at lines
+767 + 1075). Run `cargo test --workspace` — or at minimum `cargo build --workspace --tests` — before declaring a Rust change green.
+
 ### Code quality
 
 - Zero warnings, zero clippy lints, zero unused variables
@@ -89,8 +97,8 @@ proposals surface for review.
 
 **`/design-system-wave` for primitive cluster work.** The 7-wave campaign
 that canonized the apps/ui design system is packaged. To run another wave
-(e.g., on a new cluster), invoke `/design-system-wave` with cluster name
-+ primitives. Skill handles parallel audits → synthesis → parallel
+(e.g., on a new cluster), invoke `/design-system-wave` with cluster name +
+primitives. Skill handles parallel audits → synthesis → parallel
 implementation → verify → ship.
 
 ## Platform-level friction (out of our hands)

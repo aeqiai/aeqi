@@ -173,16 +173,16 @@ The UI is built around four primitives:
 
 ## Pages
 
-| Page         | Path                              | What it does                                                      |
-| ------------ | --------------------------------- | ----------------------------------------------------------------- |
-| Company Home | `/:companyId`                     | Company-scoped inbox and execution surface                        |
-| Quests       | `/:companyId/quests`              | Quest list, filter by status/agent                                |
+| Page         | Path                                              | What it does                                                                                                                                       |
+| ------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Company Home | `/:companyId`                                     | Company-scoped inbox and execution surface                                                                                                         |
+| Quests       | `/:companyId/quests`                              | Quest list, filter by status/agent                                                                                                                 |
 | Sessions     | `/:companyId/agents/:agentId/sessions/:sessionId` | Split pane: session list + transcript. WebSocket chat with one agent. Legacy `/sessions/:sessionId` redirects to this shape via `SessionRedirect`. |
-| Events       | `/:companyId/events`              | Event stream (audit trail)                                        |
-| Ideas        | `/:companyId/ideas`               | Company knowledge/idea search                                     |
-| Agents       | `/:companyId/agents`              | Company org chart and agent hierarchy                             |
-| Account      | `/account`                        | User profile and account settings                                 |
-| Login        | `/login`                          | JWT authentication                                                |
+| Events       | `/:companyId/events`                              | Event stream (audit trail)                                                                                                                         |
+| Ideas        | `/:companyId/ideas`                               | Company knowledge/idea search                                                                                                                      |
+| Agents       | `/:companyId/agents`                              | Company org chart and agent hierarchy                                                                                                              |
+| Account      | `/account`                                        | User profile and account settings                                                                                                                  |
+| Login        | `/login`                                          | JWT authentication                                                                                                                                 |
 
 Legacy paths redirect to their current equivalents.
 
@@ -392,3 +392,25 @@ PATH="/home/claudedev/aeqi/apps/ui/node_modules/.bin:$PATH" npm run verify
 
 Option B is preferred for `npm run verify` since the script chains many
 binaries and `npx` per-call would be slow.
+
+## Phantom TS errors in a worktree → clear `.tsbuildinfo`
+
+`tsc --noEmit` is incremental: it caches a per-checkout
+`apps/ui/.tsbuildinfo` with hashes of every file it has compiled. When
+the same `node_modules` (parent's, via the symlink) gets reinstalled
+mid-session, the cache desyncs and tsc reports errors that don't
+reproduce on a fresh clone — recently `error TS2590: Expression
+produces a union type that is too complex` on `Inline.tsx` even though
+the file was unchanged.
+
+Recovery:
+
+```bash
+rm /home/claudedev/aeqi-<topic>/apps/ui/.tsbuildinfo
+rm /home/claudedev/aeqi/apps/ui/.tsbuildinfo  # parent too if it exists
+```
+
+Then re-run verify. Don't chase the reported error — it's stale state,
+not a real type problem. The cost of guessing wrong (~2 min on
+2026-04-30): re-reading polymorphic-`as` ref typing trying to find a
+bug that wasn't there.
