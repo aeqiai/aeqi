@@ -125,6 +125,22 @@ not a default. If the deployed shape is itself wrong, hard-refreshing
 just shows them the same wrong shape faster — which is the opposite of
 helpful.
 
+### User-facing copy & pricing — single source of truth
+
+Before quoting any plan name, price, token allowance, or feature bullet
+in UI code, READ `apps/ui/src/lib/pricing.ts`. Don't fabricate
+"Solo / Studio / Agency" / "Pro / Team" / etc. — the canonical PLANS
+are `Free` / `Launch ($39 · 8M tokens)` / `Scale ($119 · 32M tokens)`,
+exported as `FREE` / `PLANS` / `BACKEND_PLAN_ID`. The same file is
+mirrored at `aeqi-landing/src/pricing.ts` (file header notes the
+mirror). When prices change, both files update together.
+
+Cost of guessing wrong (2026-04-30): an entire setup page got built
+with hallucinated tiers, deployed to prod, and had to be rewritten in
+a follow-up commit. Same rule applies to user-visible vocabulary
+(blueprint vs template, role vs position, company vs root agent) —
+grep before introducing a new term.
+
 ### Network / socket / proxy regressions — run the audit
 
 `npm run verify` cannot catch a query-param mismatch on a WebSocket URL,

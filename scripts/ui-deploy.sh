@@ -31,7 +31,11 @@ if ! ./node_modules/.bin/vite --version >/dev/null 2>&1; then
 fi
 if ! ./node_modules/.bin/vite --version >/dev/null 2>&1; then
   echo "still broken — full nuke"
-  rm -rf node_modules
+  # rm -rf can race against a concurrent finalizer (sibling worktree
+  # symlink teardown, npm install partial state) and exit ENOTEMPTY on
+  # deeply nested viem / walletconnect / appkit dirs. Retry once after
+  # a brief pause — by the second attempt the kernel has settled.
+  rm -rf node_modules || (sleep 2 && rm -rf node_modules)
   npm install
 fi
 
