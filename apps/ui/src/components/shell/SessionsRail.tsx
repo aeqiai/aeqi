@@ -1,12 +1,11 @@
 import { memo, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
-import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
-import { useNav } from "@/hooks/useNav";
 import { ThinkingDot } from "@/components/ui";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 import { recencyBucket, timeShort, type RecencyBucket } from "@/lib/format";
+import { sessionDeepUrl } from "@/lib/sessionUrl";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
@@ -54,25 +53,13 @@ export default function SessionsRail() {
 }
 
 function AgentRail() {
-  const {
-    entityId,
-    agentId: drilledAgentId,
-    itemId,
-  } = useParams<{
+  // Mounted only under `/c/<entity>/agents/<agent>/sessions[/...]` per
+  // AppLayout's `showSessionsRail` gate, so both params are populated.
+  const { entityId, agentId, itemId } = useParams<{
     entityId?: string;
     agentId?: string;
     itemId?: string;
   }>();
-  const { goEntity } = useNav();
-  // Per-agent drill (`/c/<entity>/agents/<agent>/sessions`) reads the
-  // chat store under the drilled agent id; the company surface
-  // (`/c/<entity>/sessions`) reads under the entity's root agent.
-  const agents = useDaemonStore((s) => s.agents);
-  const agentId = useMemo(() => {
-    if (drilledAgentId) return drilledAgentId;
-    if (!entityId) return null;
-    return agents.find((a) => a.entity_id === entityId)?.id ?? null;
-  }, [agents, entityId, drilledAgentId]);
 
   const sessions = useChatStore((s) =>
     agentId ? s.sessionsByAgent[agentId] || NO_SESSIONS : NO_SESSIONS,
@@ -114,20 +101,13 @@ function AgentRail() {
       .sort((a, b) => b.sortKey - a.sortKey);
   }, [sessions, awaitingSessionIds]);
 
-  const navigateLocal = useNavigate();
+  const navigate = useNavigate();
   const handleSelect = useCallback(
     (id: string) => {
-      if (!entityId) return;
-      if (drilledAgentId) {
-        navigateLocal(
-          `/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(drilledAgentId)}/sessions/${encodeURIComponent(id)}`,
-          { replace: true },
-        );
-        return;
-      }
-      goEntity(entityId, "sessions", id, { replace: true });
+      if (!entityId || !agentId) return;
+      navigate(sessionDeepUrl(entityId, agentId, id), { replace: true });
     },
-    [entityId, drilledAgentId, navigateLocal, goEntity],
+    [entityId, agentId, navigate],
   );
 
   return (
