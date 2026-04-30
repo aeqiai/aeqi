@@ -213,13 +213,11 @@ export default function AppLayout() {
     return <Navigate to="/" replace />;
   }
 
-  // Bare `/c/<entity>` redirects to `/c/<entity>/overview` — the
-  // company dashboard is the canonical company landing per the IA
-  // spec. The bare URL never renders independently; clicking the
-  // company in the switcher lands you here.
-  if (routeEntityId && !drilledAgent && !tab && !isUserSession && encodedEntityId) {
-    return <Navigate to={`/c/${encodedEntityId}/overview`} replace />;
-  }
+  // Bare `/c/<entity>` doesn't render independently — `effectiveTab`
+  // defaults to "overview" so CompanyPage handles the bare URL with
+  // tab="overview". (An earlier JSX-level <Navigate> caused a render
+  // loop; the dispatch path below is the canonical answer instead.)
+  // The Overview sidebar item also lights at `/c/<entity>` to match.
 
   // Defensive: route should be unreachable if `agents/<agent>` resolves
   // to nothing — bounce up to the company shell.

@@ -170,6 +170,10 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
     if (!base) return false;
+    // Overview is the canonical company landing — its sidebar item
+    // also lights at the bare `/c/<id>` URL (which renders Overview
+    // through CompanyPage's effectiveTab default).
+    if (id === "overview" && path === base) return true;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
   // Personal items — Home (the global director cockpit) and Inbox
