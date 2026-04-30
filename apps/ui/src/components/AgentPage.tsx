@@ -33,7 +33,13 @@ const SETTINGS_SUB_TABS = [
 // agent's home landing (canonical no-tab destination). Settings
 // collapses the existing nested sub-rail (Settings / Tools /
 // Integrations / Plan) under one entry so the rail stays narrow.
-const AGENT_RAIL_TABS = [
+//
+// Exported so AppLayout can mount the rail at the outer
+// `.content-body-row` level — it sits as a sibling of the
+// SessionsRail and the chat content column, not inside `body`. This
+// keeps the rail / sessions-list / chat order correct: rail on the
+// far left, sessions list to its right, chat to the right of that.
+export const AGENT_RAIL_TABS = [
   { id: "sessions", label: "Sessions" },
   { id: "quests", label: "Quests" },
   { id: "events", label: "Events" },
@@ -45,7 +51,7 @@ const AGENT_RAIL_TABS = [
 // Tabs that light the rail's "Settings" entry (the nested sub-rail
 // inside Settings handles finer selection). Channels is excluded —
 // it has its own top-level rail entry.
-const SETTINGS_TAB_IDS = new Set(["settings", "tools", "integrations", "plan"]);
+export const AGENT_RAIL_SETTINGS_TABS = new Set(["settings", "tools", "integrations", "plan"]);
 
 // Routes that AgentPage knows how to render. No-tab resolves to the Sessions
 // surface — the agent's home landing. ContentTopBar is the primary nav and
@@ -69,16 +75,10 @@ export default function AgentPage({
   agentId,
   tab: tabProp,
   itemId: itemIdProp,
-  isDrilled = false,
 }: {
   agentId: string;
   tab?: string;
   itemId?: string | null;
-  /** True when rendered for a drilled agent (`/c/<entity>/agents/<id>/...`).
-   *  Wraps the surface in the agent's PageRail so the user can switch
-   *  between this agent's Sessions / Quests / Events / Ideas /
-   *  Channels / Settings without leaving the surface. */
-  isDrilled?: boolean;
 }) {
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
@@ -167,25 +167,11 @@ export default function AgentPage({
     </div>
   );
 
-  if (!isDrilled) return body;
-
-  // The rail's "Settings" entry stays lit when the user is on any of
-  // its nested sub-tabs (settings/tools/integrations/plan). Channels
-  // is its own rail entry, so it doesn't fall into Settings.
-  const railCurrent = SETTINGS_TAB_IDS.has(activeTab) ? "settings" : activeTab;
-
-  return (
-    <div className="page-rail-shell">
-      <PageRail
-        tabs={AGENT_RAIL_TABS}
-        defaultTab="sessions"
-        title={agent?.name || "Agent"}
-        basePath={`/c/${encodeURIComponent(resolvedEntityId)}/agents/${encodeURIComponent(resolvedAgentId)}`}
-        currentValue={railCurrent}
-      />
-      <div className="page-rail-content page-rail-content--full">{body}</div>
-    </div>
-  );
+  // The agent's PageRail is mounted at the AppLayout level so it sits
+  // as a sibling of the SessionsRail (rail | sessions-list | chat),
+  // not inside the chat column. Drilled and non-drilled agents return
+  // the same body — only the outer chrome differs.
+  return body;
 }
 
 /**

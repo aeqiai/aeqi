@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react
 import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
-import AgentPage from "./AgentPage";
+import AgentPage, { AGENT_RAIL_TABS, AGENT_RAIL_SETTINGS_TABS } from "./AgentPage";
 import LeftSidebar from "./shell/LeftSidebar";
 import SessionsRail from "./shell/SessionsRail";
+import PageRail from "./PageRail";
 import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
 import ShortcutsOverlay from "./ShortcutsOverlay";
@@ -250,14 +251,7 @@ export default function AppLayout() {
         />
       );
     }
-    return (
-      <AgentPage
-        agentId={activeAgentId}
-        tab={effectiveTab}
-        itemId={itemId}
-        isDrilled={!!drilledAgent}
-      />
-    );
+    return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
   // Composer + sessions rail mount only on the chat surface
@@ -293,6 +287,19 @@ export default function AppLayout() {
       !isNotFound);
   const railMode: "inbox" | "agent" = isUserSession ? "inbox" : "agent";
 
+  // Drilled-agent PageRail. Mounted at the body-row level so it sits
+  // as a sibling of the SessionsRail and the chat content column —
+  // the order reads `[ rail | sessions list | chat ]` matching the
+  // user's mental model. Active state collapses settings / tools /
+  // integrations / plan onto the "settings" rail entry; the inner
+  // SettingsShell renders the finer sub-rail itself.
+  const showAgentRail = !!drilledAgent;
+  const agentRailCurrent = AGENT_RAIL_SETTINGS_TABS.has(effectiveTab) ? "settings" : effectiveTab;
+  const agentRailBase =
+    drilledAgent && encodedEntityId
+      ? `/c/${encodedEntityId}/agents/${encodeURIComponent(drilledAgent.id)}`
+      : "";
+
   return (
     <>
       <div className="shell">
@@ -302,6 +309,15 @@ export default function AppLayout() {
           <div className="content-card">
             <div className="content-paper">
               <div className="content-body-row">
+                {showAgentRail && (
+                  <PageRail
+                    tabs={AGENT_RAIL_TABS}
+                    defaultTab="sessions"
+                    title={drilledAgent?.name || "Agent"}
+                    basePath={agentRailBase}
+                    currentValue={agentRailCurrent}
+                  />
+                )}
                 {showSessionsRail && (
                   <aside className="sessions-rail-col">
                     <SessionsRail mode={railMode} selectedSessionId={userSessionId} />
