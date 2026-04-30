@@ -1,38 +1,111 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { useInboxStore } from "@/store/inbox";
 import type { Position, Quest } from "@/lib/types";
 
+/**
+ * `/c/<entity>/overview` — the company cockpit. Lands on every visit
+ * to a company; this is where direction, execution, decisions,
+ * momentum, and ownership read at a glance.
+ *
+ * Modules surface state and decisions, never chronological scroll:
+ *   - Header: company name + agent / open-quest cadence subtitle
+ *   - In flight: in-progress quests scoped to the company subtree
+ *   - Awaiting you: inbox slice filtered to entity_id
+ *   - Momentum: last 24h events grouped by agent
+ *   - Org: top positions (link to full /positions tab)
+ *
+ * Reuses `.dashboard-*` classes from the global cockpit at `/`. Same
+ * visual language across both surfaces — they're both "grid of
+ * surface cards." If the visual diverges later, fork the classes
+ * with a less location-coupled prefix.
+ */
 export default function EntityOverviewTab({ entityId }: { entityId: string }) {
+  const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const events = useDaemonStore((s) => s.events);
 
-  // Every agent owned by this entity belongs to the subtree by definition —
-  // entity_id is the canonical scoping anchor.
-  const entityAgents = useMemo(
+  // Inbox: subscribe to raw fields and useMemo the entity-filtered
+  // slice. A selector that filters inline returns a fresh array
+  // every call and breaks `useSyncExternalStore`'s identity check
+  // (React error #185).
+  const inboxAllItems = useInboxStore((s) => s.items);
+  const inboxPending = useInboxStore((s) => s.pendingDismissal);
+  const entityInbox = useMemo(
+    () => inboxAllItems.filter((i) => i.entity_id === entityId && !inboxPending.has(i.session_id)),
+    [inboxAllItems, inboxPending, entityId],
+  );
+
+  const subtreeAgents = useMemo(
     () => agents.filter((a) => a.entity_id === entityId || a.id === entityId),
     [agents, entityId],
   );
-
-  const entity = entityAgents[0] ?? agents.find((a) => a.id === entityId);
-
-  const subtreeIds = useMemo(() => new Set<string>(entityAgents.map((a) => a.id)), [entityAgents]);
-
+  const entity = subtreeAgents[0] ?? agents.find((a) => a.id === entityId);
+  const subtreeIds = useMemo(
+    () => new Set<string>(subtreeAgents.map((a) => a.id)),
+    [subtreeAgents],
+  );
   const subtreeNames = useMemo(
-    () => new Set<string>(entityAgents.map((a) => a.name)),
-    [entityAgents],
+    () => new Set<string>(subtreeAgents.map((a) => a.name)),
+    [subtreeAgents],
   );
 
-  const agentCount = subtreeIds.size;
+  const inFlightQuests = useMemo(
+    () =>
+      quests
+        .filter(
+          (q) =>
+            q.status === "in_progress" &&
+            ((q.agent_id && subtreeIds.has(q.agent_id)) || q.agent_id === entityId),
+        )
+        .sort(
+          (a, b) => parseTs(b.updated_at ?? b.created_at) - parseTs(a.updated_at ?? a.created_at),
+        )
+        .slice(0, 5),
+    [quests, subtreeIds, entityId],
+  );
 
   const openQuestCount = useMemo(
     () =>
       quests.filter(
-        (q) => q.agent_id === entityId && (q.status === "todo" || q.status === "in_progress"),
+        (q) =>
+          (q.status === "todo" || q.status === "in_progress") &&
+          ((q.agent_id && subtreeIds.has(q.agent_id)) || q.agent_id === entityId),
       ).length,
-    [quests, entityId],
+    [quests, subtreeIds, entityId],
   );
+
+  // Momentum: last-24h events whose `agent` field matches a name in
+  // the subtree, grouped by agent so the user sees "who did what"
+  // not a flat chronology. Top 5 agents by event count.
+  const momentum = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const recent = events.filter(
+      (ev) => ev.agent && subtreeNames.has(ev.agent) && parseTs(ev.timestamp) >= cutoff,
+    );
+    const byAgent = new Map<string, { count: number; latest: string; sample: string }>();
+    for (const ev of recent) {
+      const k = ev.agent!;
+      const cur = byAgent.get(k);
+      const decision = ev.decision_type.replace(/_/g, " ");
+      if (!cur) {
+        byAgent.set(k, { count: 1, latest: ev.timestamp, sample: decision });
+      } else {
+        cur.count += 1;
+        if (parseTs(ev.timestamp) > parseTs(cur.latest)) {
+          cur.latest = ev.timestamp;
+          cur.sample = decision;
+        }
+      }
+    }
+    return [...byAgent.entries()]
+      .map(([agent, v]) => ({ agent, ...v }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [events, subtreeNames]);
 
   const [positions, setPositions] = useState<Position[]>([]);
   useEffect(() => {
@@ -52,106 +125,166 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
     };
   }, [entityId]);
 
-  const recentActivity = useMemo(
-    () => events.filter((ev) => ev.agent && subtreeNames.has(ev.agent)).slice(0, 5),
-    [events, subtreeNames],
-  );
+  const subtitle = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(`${subtreeAgents.length} ${subtreeAgents.length === 1 ? "agent" : "agents"}`);
+    parts.push(`${openQuestCount} open ${openQuestCount === 1 ? "quest" : "quests"}`);
+    if (entityInbox.length > 0) parts.push(`${entityInbox.length} awaiting you`);
+    return parts.join(" · ");
+  }, [subtreeAgents.length, openQuestCount, entityInbox.length]);
+
+  const basePath = `/c/${encodeURIComponent(entityId)}`;
 
   return (
-    <div className="page-content">
-      <h1
-        style={{
-          fontSize: "var(--text-2xl)",
-          fontWeight: 500,
-          margin: "0 0 24px",
-        }}
-      >
-        {entity?.name || entityId}.
-      </h1>
+    <div className="dashboard">
+      <header className="dashboard-header">
+        <h1 className="dashboard-heading">{entity?.name || entityId}.</h1>
+        <p className="dashboard-sub">{subtitle}</p>
+      </header>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 16,
-          marginBottom: 32,
-        }}
-      >
-        <KpiTile label="Agents" value={agentCount} />
-        <KpiTile label="Positions" value={positions.length} />
-        <KpiTile label="Open quests" value={openQuestCount} />
+      <div className="dashboard-grid">
+        <section className="dashboard-card" aria-labelledby="cockpit-flight">
+          <div className="dashboard-card-head">
+            <h2 id="cockpit-flight" className="dashboard-card-title">
+              In flight
+            </h2>
+            {openQuestCount > 0 && (
+              <Link to={`${basePath}/quests`} className="dashboard-card-link">
+                Open quests →
+              </Link>
+            )}
+          </div>
+          {inFlightQuests.length === 0 ? (
+            <p className="dashboard-quiet">Nothing in progress right now.</p>
+          ) : (
+            <ul className="dashboard-list" role="list">
+              {inFlightQuests.map((q) => {
+                const agent = q.agent_id ? agents.find((a) => a.id === q.agent_id) : null;
+                return (
+                  <li key={q.id} className="dashboard-list-row">
+                    <button
+                      type="button"
+                      className="dashboard-list-btn"
+                      onClick={() => navigate(`${basePath}/quests/${encodeURIComponent(q.id)}`)}
+                    >
+                      <span className="dashboard-list-from">{agent?.name ?? "Agent"}</span>
+                      <span className="dashboard-list-text">
+                        {q.idea?.name ?? "untitled quest"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="cockpit-attention">
+          <div className="dashboard-card-head">
+            <h2 id="cockpit-attention" className="dashboard-card-title">
+              Awaiting you
+            </h2>
+            {entityInbox.length > 0 && (
+              <Link to="/me/inbox" className="dashboard-card-link">
+                Open inbox →
+              </Link>
+            )}
+          </div>
+          {entityInbox.length === 0 ? (
+            <p className="dashboard-quiet">Nothing waiting from this company.</p>
+          ) : (
+            <ul className="dashboard-list" role="list">
+              {entityInbox.slice(0, 5).map((item) => {
+                const fromName = item.agent_name || "Agent";
+                const preview =
+                  item.awaiting_subject || item.last_agent_message || item.session_name;
+                return (
+                  <li key={item.session_id} className="dashboard-list-row">
+                    <button
+                      type="button"
+                      className="dashboard-list-btn"
+                      onClick={() => navigate(`/sessions/${encodeURIComponent(item.session_id)}`)}
+                    >
+                      <span className="dashboard-list-from">{fromName}</span>
+                      <span className="dashboard-list-text">{preview}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="cockpit-momentum">
+          <div className="dashboard-card-head">
+            <h2 id="cockpit-momentum" className="dashboard-card-title">
+              Momentum
+            </h2>
+            <span className="dashboard-card-meta">last 24h</span>
+          </div>
+          {momentum.length === 0 ? (
+            <p className="dashboard-quiet">Quiet day. No agent activity in the last 24h.</p>
+          ) : (
+            <ul className="dashboard-list" role="list">
+              {momentum.map((m) => (
+                <li key={m.agent} className="dashboard-list-row">
+                  <button
+                    type="button"
+                    className="dashboard-list-btn"
+                    onClick={() => navigate(`${basePath}/events`)}
+                  >
+                    <span className="dashboard-list-from">
+                      {m.agent} · {m.count}
+                    </span>
+                    <span className="dashboard-list-text">{m.sample}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="dashboard-card" aria-labelledby="cockpit-org">
+          <div className="dashboard-card-head">
+            <h2 id="cockpit-org" className="dashboard-card-title">
+              Org
+            </h2>
+            <Link to={`${basePath}/positions`} className="dashboard-card-link">
+              {positions.length} {positions.length === 1 ? "position" : "positions"} →
+            </Link>
+          </div>
+          {positions.length === 0 ? (
+            <p className="dashboard-quiet">No positions defined yet.</p>
+          ) : (
+            <ul className="dashboard-list" role="list">
+              {positions.slice(0, 5).map((p) => (
+                <li key={p.id} className="dashboard-list-row">
+                  <button
+                    type="button"
+                    className="dashboard-list-btn"
+                    onClick={() => navigate(`${basePath}/positions`)}
+                  >
+                    <span className="dashboard-list-from">{p.title}</span>
+                    <span className="dashboard-list-text">
+                      {p.occupant_kind === "vacant"
+                        ? "vacant"
+                        : p.occupant_kind === "human"
+                          ? "human"
+                          : "agent"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-
-      <h2
-        style={{
-          fontSize: "var(--text-sm)",
-          fontWeight: 500,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          margin: "0 0 12px",
-        }}
-      >
-        Recent activity
-      </h2>
-      {recentActivity.length === 0 ? (
-        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No activity yet.</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {recentActivity.map((ev) => (
-            <li
-              key={ev.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "120px 1fr 160px",
-                gap: 12,
-                padding: "10px 0",
-                fontSize: 13,
-                alignItems: "baseline",
-              }}
-            >
-              <span style={{ color: "var(--text-muted)" }}>{formatTimestamp(ev.timestamp)}</span>
-              <span>{ev.decision_type.replace(/_/g, " ")}</span>
-              <span style={{ color: "var(--text-secondary)" }}>{ev.agent || ""}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
 
-function KpiTile({ label, value }: { label: string; value: number }) {
-  return (
-    <div
-      style={{
-        background: "var(--color-card)",
-        padding: "20px 24px",
-        borderRadius: 8,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 28, fontWeight: 500 }}>{value}</div>
-    </div>
-  );
-}
-
-function formatTimestamp(ts: string): string {
-  const date = new Date(ts);
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function parseTs(value: string | undefined): number {
+  if (!value) return 0;
+  const d = Date.parse(value);
+  return Number.isFinite(d) ? d : 0;
 }
