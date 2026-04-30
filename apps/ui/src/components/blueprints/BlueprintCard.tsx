@@ -8,7 +8,12 @@ interface BlueprintCardProps {
   template: CompanyTemplate;
 }
 
-/** Compact human meta — "2 agents · 1 idea · 1 event", zeros skipped. */
+/** Compact human meta — "2 agents · 1 idea · 1 event", zeros skipped.
+ *  Catalog cards lead with workforce size (agents) rather than
+ *  structure size (roles) — a card communicates "what you get,"
+ *  and what a buyer reads in a blueprint is the AI workforce. The
+ *  detail page surfaces both lenses (Roles tab + Agents tab); the
+ *  card has room for one. */
 function formatSeedMeta(t: CompanyTemplate): string {
   const parts: string[] = [];
   const a = t.seed_agents?.length ?? 0;

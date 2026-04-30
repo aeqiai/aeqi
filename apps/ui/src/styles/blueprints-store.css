@@ -292,62 +292,84 @@
   gap: 16px;
 }
 
-/* ── Tree preview (animated) ──────────────────────── */
+/* ── Org-chart preview ──────────────────────────────
+ * Layered card-DAG that mirrors the post-spawn shape rendered by
+ * EntityRolesTab's chart view. Each card is a ROLE (title primary)
+ * with the default-occupant agent named below. Edges connect role to
+ * sub-role. v1 = single layer deep (everyone reports to root); when
+ * the JSON shape gains explicit `seed_role_edges`, this renders a
+ * proper multi-level chart.
+ */
 
-.bp-tree {
+.bp-orgchart {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 22px 0 18px;
+  padding: 24px 16px 22px;
   background: var(--bg-paper);
-  border: 1px solid var(--border-faint);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  border-radius: var(--radius-lg);
 }
-.bp-tree-root {
-  display: flex;
-  justify-content: center;
-}
-.bp-tree-edges {
-  width: 100%;
-  height: 22px;
-  margin-top: 8px;
-  margin-bottom: 6px;
-  display: block;
-}
-.bp-tree-children {
-  list-style: none;
-  margin: 0;
-  padding: 0 16px;
+.bp-orgchart-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px 8px;
+  gap: 12px;
+  width: 100%;
 }
-.bp-tree-node {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--text-primary);
-  white-space: nowrap;
+.bp-orgchart-row--root {
+  margin-bottom: 0;
 }
-.bp-tree-node-root {
+.bp-orgchart-edges {
+  width: 100%;
+  height: 28px;
+  margin: 4px 0;
+  display: block;
+  color: var(--text-tertiary);
+}
+.bp-role-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  padding: 12px 16px;
+  background: var(--color-card);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  opacity: 0;
+  animation: bp-role-card-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.bp-role-card--root {
   background: var(--text-primary);
   color: var(--bg-paper);
   border-color: var(--text-primary);
+  animation-delay: 0ms;
+}
+.bp-role-title {
+  font-family: var(--font-sans);
+  font-size: 13px;
   font-weight: 500;
+  color: inherit;
 }
-.bp-tree-node-child {
-  opacity: 0;
-  animation: bp-tree-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.bp-role-occupant {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: lowercase;
 }
-@keyframes bp-tree-in {
+.bp-role-card--root .bp-role-occupant {
+  color: color-mix(in oklab, var(--bg-paper) 70%, transparent);
+}
+.bp-role-occupant-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+@keyframes bp-role-card-in {
   from {
     opacity: 0;
     transform: translateY(-4px);
@@ -356,25 +378,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-.bp-tree-node-name {
-  font-family: var(--font-sans);
-}
-.bp-tree-node-swatch {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.bp-tree-node-tag {
-  font-family: var(--font-sans);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-.bp-tree-node-root .bp-tree-node-tag {
-  color: color-mix(in oklab, var(--bg-paper) 80%, transparent);
 }
 
 /* ── Detail seed counts + samples + spawn form ────── */

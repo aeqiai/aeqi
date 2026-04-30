@@ -17,10 +17,11 @@ import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 
-type Section = "overview" | "agents" | "events" | "quests" | "ideas";
+type Section = "overview" | "roles" | "agents" | "events" | "quests" | "ideas";
 
 const SECTION_TABS: { id: Section; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "roles", label: "Roles" },
   { id: "agents", label: "Agents" },
   { id: "events", label: "Events" },
   { id: "quests", label: "Quests" },
@@ -201,6 +202,7 @@ export default function BlueprintDetailPage() {
           )}
 
           {activeSection === "overview" && <OverviewSection template={template} />}
+          {activeSection === "roles" && <RolesSection seeds={template.seed_agents} />}
           {activeSection === "agents" && <AgentsSection seeds={template.seed_agents} />}
           {activeSection === "events" && <EventsSection seeds={template.seed_events} />}
           {activeSection === "quests" && <QuestsSection seeds={template.seed_quests} />}
@@ -295,6 +297,60 @@ function NoMatch({ query }: { query: string }) {
   return <EmptyState title={`No match for "${query}".`} />;
 }
 
+/**
+ * Roles section. Lens onto the seed_agents list that emphasizes the
+ * STRUCTURE — title primary, default occupant in the meta. The Agents
+ * section below shows the identity lens (name + tagline + identity)
+ * for the same data. Today the underlying source is one list because
+ * the JSON conflates role+occupant; once the schema gains explicit
+ * `seed_roles` + `seed_role_edges`, this lens reads from there.
+ */
+function RolesSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
+  const [query, setQuery] = useState("");
+  const all = seeds ?? EMPTY_SEED_AGENTS;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        (a.tagline ?? "").toLowerCase().includes(q) ||
+        (a.role ?? "").toLowerCase().includes(q),
+    );
+  }, [all, query]);
+
+  if (all.length === 0) return <EmptyKind label="roles" />;
+  return (
+    <>
+      <SeedSearch query={query} onChange={setQuery} placeholder="Search roles" />
+      {filtered.length === 0 ? (
+        <NoMatch query={query} />
+      ) : (
+        <ul className="bp-seed-list" role="list">
+          {filtered.map((a) => {
+            const roleTitle = a.role || a.name;
+            return (
+              <li key={a.name} className="bp-seed-row">
+                <div className="bp-seed-row-head">
+                  <span className="bp-seed-row-name">{roleTitle}</span>
+                  <span className="bp-seed-row-meta">default occupant · {a.name}</span>
+                </div>
+                {a.tagline && <p className="bp-seed-row-sub">{a.tagline}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
+  );
+}
+
+/**
+ * Agents section. Lens onto the seed_agents list that emphasizes the
+ * IDENTITY — agent name primary, the role they fill in the meta. Roles
+ * are the WHERE; agents are the WHO. Both ship in every blueprint;
+ * each role's default_occupant points at one of these agents.
+ */
 function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
   const [query, setQuery] = useState("");
   const all = seeds ?? EMPTY_SEED_AGENTS;
@@ -321,7 +377,7 @@ function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
             <li key={a.name} className="bp-seed-row">
               <div className="bp-seed-row-head">
                 <span className="bp-seed-row-name">{a.name}</span>
-                {a.role && <span className="bp-seed-row-meta">{a.role}</span>}
+                <span className="bp-seed-row-meta">{a.role ? `fills · ${a.role}` : "bench"}</span>
               </div>
               {a.tagline && <p className="bp-seed-row-sub">{a.tagline}</p>}
             </li>
