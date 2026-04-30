@@ -1,8 +1,21 @@
-/** Mirrored from aeqi-landing/src/pricing.ts. Single source of truth for the public pricing. Update both files when prices change. */
+/** Mirrored from aeqi-landing/src/pricing.ts. Single source of truth for pricing.
+ *  Update both files when prices change.
+ *
+ *  One offer. Day 0: $19 founder fee. Day 15+: $49 / month. Stripe runs this
+ *  as a single subscription with a one-time line item + 14-day trial on the
+ *  recurring price. No tier picker, no free trial, no annual.
+ */
 
-export const FREE = {
-  tokens: "500k",
-};
+export const FOUNDER_FEE = 19;
+export const COMPANY_MONTHLY = 49;
+export const TRIAL_DAYS = 14;
+
+export const RESOURCE_PACK = {
+  tokens: "16M",
+  cpu: "4 vCPU",
+  ram: "8 GB",
+  storage: "80 GB",
+} as const;
 
 export interface Feature {
   text: string;
@@ -10,65 +23,24 @@ export interface Feature {
   soon?: boolean;
 }
 
-export const PLANS = [
+export const FEATURES: Feature[] = [
+  { text: "Run your own autonomous company" },
+  { text: "Unlimited agents" },
+  { text: "Managed hosting + custom domain" },
+  { text: "Built-in ownership & governance" },
+  { text: "On-demand token top-ups" },
+  { text: `${RESOURCE_PACK.tokens} tokens / month`, highlight: true },
   {
-    id: "launch" as const,
-    name: "Launch",
-    price: 39,
-    annualPrice: 33,
-    popular: false,
-    desc: "Everything to run a company from day one.",
-    features: [
-      { text: "Unlimited agents" },
-      { text: "Managed hosting + custom domain" },
-      { text: "Built-in ownership & governance" },
-      { text: "On-demand token top-ups" },
-      { text: "8M tokens / month", highlight: true },
-      { text: "2 vCPU · 4 GB RAM · 40 GB storage", highlight: true },
-    ] as Feature[],
+    text: `${RESOURCE_PACK.cpu} · ${RESOURCE_PACK.ram} RAM · ${RESOURCE_PACK.storage} storage`,
+    highlight: true,
   },
-  {
-    id: "scale" as const,
-    name: "Scale",
-    price: 119,
-    annualPrice: 99,
-    popular: true,
-    desc: "4× the resources. Premium features.",
-    features: [
-      { text: "Unlimited agents" },
-      { text: "Managed hosting + custom domain" },
-      { text: "Built-in ownership & governance" },
-      { text: "On-demand token top-ups" },
-      { text: "32M tokens / month", highlight: true },
-      { text: "8 vCPU · 16 GB RAM · 160 GB storage", highlight: true },
-      { text: "Priority support", highlight: true },
-      { text: "API + MCP access", highlight: true },
-      { text: "Mobile app", highlight: true, soon: true },
-    ] as Feature[],
-  },
-] as const;
+  { text: "API + MCP access" },
+  { text: "Mobile app", soon: true },
+];
 
-export type PlanId = (typeof PLANS)[number]["id"];
-export type BillingInterval = "monthly" | "annual";
-
-/**
- * Maps the public-facing plan IDs (launch / scale) to the backend's internal
- * Stripe-route IDs (starter / growth). The frontend always speaks public IDs;
- * helpers in `lib/api.ts` translate to backend IDs at the request boundary.
- */
-export const BACKEND_PLAN_ID: Record<PlanId, string> = {
-  launch: "starter",
-  scale: "growth",
-};
-
-/** Look up a plan by its public ID. TS-strict: returns the precise tuple element. */
-export function findPlan(id: PlanId): (typeof PLANS)[number] {
-  const plan = PLANS.find((p) => p.id === id);
-  if (!plan) {
-    throw new Error(`Unknown plan id: ${id}`);
-  }
-  return plan;
-}
+/** Single plan identifier used everywhere — DB, Stripe metadata, API. */
+export const PLAN_ID = "company" as const;
+export type PlanId = typeof PLAN_ID;
 
 /** Format integer cents as a localized currency string. */
 export function formatCents(cents: number, currency: string = "usd"): string {

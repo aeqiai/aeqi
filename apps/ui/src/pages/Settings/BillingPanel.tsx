@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { formatCents, type BillingInterval, type PlanId } from "@/lib/pricing";
+import { formatCents } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { Banner, Button, Card, Spinner } from "@/components/ui";
@@ -62,16 +62,15 @@ export default function BillingPanel() {
   }, [reload]);
 
   // Stripe Checkout success handler: when the URL carries
-  // ?spawn=:slug&plan=:id&blueprint=:bp, finish the spawn here (Stripe
-  // can only redirect to one URL, and the per-Company billing surface
-  // is the natural landing). Fires once per mount, then strips the
-  // params so a refresh doesn't re-trigger.
+  // ?spawn=:slug&blueprint=:bp, finish the spawn here (Stripe can only
+  // redirect to one URL, and the per-Company billing surface is the
+  // natural landing). Fires once per mount, then strips the params so
+  // a refresh doesn't re-trigger.
   useEffect(() => {
     if (spawnHandled.current) return;
     const slug = searchParams.get("spawn");
-    const planParam = searchParams.get("plan");
     const blueprint = searchParams.get("blueprint");
-    if (!slug || !planParam || !blueprint) return;
+    if (!slug || !blueprint) return;
     spawnHandled.current = true;
     setSpawn({ kind: "running" });
     api
@@ -113,24 +112,19 @@ export default function BillingPanel() {
     }
   }, []);
 
-  const handleSubscribe = useCallback(
-    async (rootSlug: string, plan: PlanId, interval: BillingInterval) => {
-      const key = `subscribe:${rootSlug}:${plan}`;
-      setActionPending(key);
-      try {
-        const { url } = await api.createCheckoutSession({
-          plan,
-          interval,
-          display_name: rootSlug,
-        });
-        window.location.href = url;
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Could not start Checkout.");
-        setActionPending(null);
-      }
-    },
-    [],
-  );
+  const handleSubscribe = useCallback(async (rootSlug: string) => {
+    const key = `subscribe:${rootSlug}`;
+    setActionPending(key);
+    try {
+      const { url } = await api.createCheckoutSession({
+        display_name: rootSlug,
+      });
+      window.location.href = url;
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not start Checkout.");
+      setActionPending(null);
+    }
+  }, []);
 
   if (spawn.kind === "running") {
     return (

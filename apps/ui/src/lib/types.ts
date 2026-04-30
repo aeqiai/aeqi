@@ -183,13 +183,11 @@ export interface User {
   roots?: string[];
   phone?: string;
   phishing_code?: string;
-  /** Subscription state from the accounts table — `"none"` means
-   *  free-tier (must spend trial slot to launch a company). */
+  /** Subscription state from the accounts table. `"none"` means no
+   *  active Company subscription; `"trialing"` is the 14-day Founder
+   *  window; `"active"` is post-trial monthly billing. */
   subscription_status?: string;
   subscription_plan?: string;
-  /** ISO-8601 timestamp the lifetime free-trial company slot was
-   *  consumed. Absent until the user spawns their first company. */
-  free_company_used_at?: string;
 }
 
 export interface SessionInfo {

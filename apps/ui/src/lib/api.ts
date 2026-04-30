@@ -564,17 +564,6 @@ export const api = {
       created_quests: number;
     }>("/blueprints/spawn-into", { method: "POST", body: JSON.stringify(data) }),
 
-  // Platform-side launch — mints the canonical entity_id (UUID)
-  // synchronously and kicks off the sandbox provisioner async. The
-  // frontend can navigate to `/c/<entity_id>/...` immediately; the
-  // placement's `status` field flips from `pending` to `ready` once
-  // provisioning completes.
-  startLaunch: (data: { template: string; display_name: string }) =>
-    request<{ ok: boolean; entity_id: string; display_name: string }>("/start/launch", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
   spawnAgent: (data: {
     name: string;
     template?: string;
@@ -799,24 +788,21 @@ export const api = {
       method: "DELETE",
     }),
 
-  // Stripe billing — per-Company subscriptions. Plans use public IDs
-  // (launch / scale / free) which map to backend IDs (starter / growth / free)
-  // via lib/pricing.ts BACKEND_PLAN_ID. Frontend always speaks public IDs;
-  // the helper does the mapping.
+  // Stripe billing — single Company offer. $19 today (Founder fee, one-time)
+  // + $49/mo from day 15 (Company subscription, 14-day trial). Stripe handles
+  // both as one subscription. No plan / interval params — see lib/pricing.ts.
   createCheckoutSession: (data: {
-    plan: "launch" | "scale";
-    interval: "monthly" | "annual";
     blueprint?: string;
     // not entity_id — entity is minted post-checkout when user lands on /start.
     display_name?: string;
+    role_overrides?: unknown[];
   }) =>
     request<{ url: string }>("/billing/checkout", {
       method: "POST",
       body: JSON.stringify({
-        plan: data.plan === "launch" ? "starter" : "growth",
-        interval: data.interval,
         blueprint: data.blueprint,
         display_name: data.display_name,
+        role_overrides: data.role_overrides,
       }),
     }),
 
@@ -832,9 +818,9 @@ export const api = {
       companies: Array<{
         name: string;
         agent_id: string | null;
-        plan: "launch" | "scale" | "free";
+        plan: "company";
         stripe_subscription_id: string | null;
-        status: "active" | "trialing" | "past_due" | "canceled" | "free";
+        status: "active" | "trialing" | "past_due" | "canceled";
         next_charge_at: string | null;
       }>;
     }>("/billing/overview"),
@@ -843,7 +829,7 @@ export const api = {
   getCompanySubscription: (rootName: string) =>
     request<{
       name: string;
-      plan: "launch" | "scale" | "free";
+      plan: "company";
       status: string;
       stripe_subscription_id: string | null;
     }>(`/billing/companies/${encodeURIComponent(rootName)}`),

@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
-import { Badge, Banner, Button, Card, Spinner } from "@/components/ui";
+import { Banner, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import type { Agent } from "@/lib/types";
-import type { BillingInterval, PlanId } from "@/lib/pricing";
 import "@/styles/billing.css";
 
 interface PlanTabProps {
@@ -22,17 +21,6 @@ type Overview = {
   currency: string;
   payment_method_last4: string | null;
   companies: Company[];
-};
-
-const PLAN_LABEL: Record<Company["plan"], string> = {
-  free: "Free",
-  launch: "Launch",
-  scale: "Scale",
-};
-const PLAN_BADGE_VARIANT: Record<Company["plan"], "neutral" | "info" | "success"> = {
-  free: "neutral",
-  launch: "info",
-  scale: "success",
 };
 
 /** Resolve the entity-owning root agent for a given agent id. Agents are
@@ -93,24 +81,19 @@ export default function PlanTab({ agentId }: PlanTabProps) {
     return overview.companies.find((c) => c.agent_id === root.id || c.name === root.name) ?? null;
   }, [overview, root]);
 
-  const handleSubscribe = useCallback(
-    async (rootSlug: string, plan: PlanId, interval: BillingInterval) => {
-      setActionPending(`subscribe:${rootSlug}:${plan}`);
-      try {
-        const { url } = await api.createCheckoutSession({
-          plan,
-          interval,
-          display_name: rootSlug,
-        });
-        if (!url) throw new Error("Checkout returned no URL.");
-        window.location.href = url;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not start checkout.");
-        setActionPending(null);
-      }
-    },
-    [],
-  );
+  const handleSubscribe = useCallback(async (rootSlug: string) => {
+    setActionPending(`subscribe:${rootSlug}`);
+    try {
+      const { url } = await api.createCheckoutSession({
+        display_name: rootSlug,
+      });
+      if (!url) throw new Error("Checkout returned no URL.");
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start checkout.");
+      setActionPending(null);
+    }
+  }, []);
 
   const handlePortal = useCallback(async () => {
     setActionPending("portal");
@@ -186,12 +169,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
       <Card padding="lg" className="billing-summary">
         <div className="billing-summary-main">
           <p className="billing-eyebrow">Plan</p>
-          <div className="billing-summary-name-row">
-            <h2 className="billing-summary-name">{company.name}</h2>
-            <Badge variant={PLAN_BADGE_VARIANT[company.plan]} size="md">
-              {PLAN_LABEL[company.plan]}
-            </Badge>
-          </div>
+          <h2 className="billing-summary-name">{company.name}</h2>
           <p className="billing-summary-sub">
             Per-Company subscription. Every agent in this tree shares this plan. See all your
             Companies + payment methods in the{" "}
@@ -227,19 +205,8 @@ export default function PlanTab({ agentId }: PlanTabProps) {
             Open Stripe portal →
           </button>
         </p>
-        <p className="billing-footer-fineprint">
-          Plan changes take effect at the next renewal. Cancellations are processed in Stripe.
-          {company.plan === "free" && " Free Companies don't bill — no payment method needed."}
-        </p>
+        <p className="billing-footer-fineprint">Cancellations are processed in Stripe.</p>
       </div>
-
-      {company.plan === "free" && (
-        <div className="billing-footer billing-footer-secondary">
-          <Button variant="ghost" size="sm" onClick={() => (window.location.href = "/start")}>
-            ← Spawn another Company
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
