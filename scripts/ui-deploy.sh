@@ -35,6 +35,14 @@ if ! ./node_modules/.bin/vite --version >/dev/null 2>&1; then
   npm install
 fi
 
+# Bin-link insurance. After an interrupted install or a worktree-symlink
+# race, npm sometimes leaves packages installed but `.bin/<tool>`
+# symlinks missing — `vite --version` may pass while `tsc` / `prettier`
+# / `eslint` are absent, which breaks worktree verifies later. `npm
+# rebuild` is fast (~5s) and idempotent; force-recreates every bin
+# symlink without touching the package tree.
+npm rebuild >/dev/null 2>&1 || true
+
 ./node_modules/.bin/vite build
 rsync -a --delete dist/ "$TARGET/"
 
