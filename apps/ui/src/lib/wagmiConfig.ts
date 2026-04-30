@@ -30,9 +30,14 @@ const wallets = projectId ? [...baseWallets, walletConnectWallet] : baseWallets;
 
 const connectors = connectorsForWallets([{ groupName: "Wallets", wallets }], {
   appName: "aeqi",
-  // RainbowKit requires a string here. When WalletConnect isn't in the list
-  // it's never read; pass an empty string in that case.
-  projectId: projectId ?? "",
+  // RainbowKit's WalletConnect path validates this even when WC isn't in
+  // the wallet list — a falsy value (undefined or empty string) throws
+  // "No projectId found" at module init and crashes the React tree
+  // before mount. Pass a non-empty placeholder when the operator hasn't
+  // set VITE_WALLETCONNECT_PROJECT_ID; the value is never read unless
+  // walletConnectWallet is in `wallets`, which only happens when the
+  // operator has provided a real projectId.
+  projectId: projectId || "self-hosted-no-walletconnect",
 });
 
 export const wagmiConfig = createConfig({
