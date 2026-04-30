@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type {
-  CompanyTemplate,
+  Blueprint,
   RoleOverrideOccupant,
-  TemplateSeedAgent,
-  TemplateSeedEvent,
-  TemplateSeedIdea,
-  TemplateSeedQuest,
+  BlueprintSeedAgent,
+  BlueprintSeedEvent,
+  BlueprintSeedIdea,
+  BlueprintSeedQuest,
 } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
@@ -34,10 +34,10 @@ const SECTION_TABS: { id: Section; label: string }[] = [
   { id: "ideas", label: "Ideas" },
 ];
 const SECTION_IDS = SECTION_TABS.map((t) => t.id);
-const EMPTY_SEED_AGENTS: TemplateSeedAgent[] = [];
-const EMPTY_SEED_EVENTS: TemplateSeedEvent[] = [];
-const EMPTY_SEED_QUESTS: TemplateSeedQuest[] = [];
-const EMPTY_SEED_IDEAS: TemplateSeedIdea[] = [];
+const EMPTY_SEED_AGENTS: BlueprintSeedAgent[] = [];
+const EMPTY_SEED_EVENTS: BlueprintSeedEvent[] = [];
+const EMPTY_SEED_QUESTS: BlueprintSeedQuest[] = [];
+const EMPTY_SEED_IDEAS: BlueprintSeedIdea[] = [];
 
 /**
  * `/economy/blueprints/:slug[/:section]` — inspect a Blueprint and
@@ -73,7 +73,7 @@ export default function BlueprintDetailPage() {
     return SECTION_IDS.includes(section as Section) ? (section as Section) : "overview";
   }, [section]);
 
-  const [template, setTemplate] = useState<CompanyTemplate | null>(null);
+  const [template, setTemplate] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -282,7 +282,7 @@ export default function BlueprintDetailPage() {
 
 /* ── Overview ──────────────────────────────────────── */
 
-function OverviewSection({ template }: { template: CompanyTemplate }) {
+function OverviewSection({ template }: { template: Blueprint }) {
   return (
     <>
       {(template.tagline || template.description) && (
@@ -372,7 +372,7 @@ function NoMatch({ query }: { query: string }) {
  * the JSON conflates role+occupant; once the schema gains explicit
  * `seed_roles` + `seed_role_edges`, this lens reads from there.
  */
-function RolesSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
+function RolesSection({ seeds }: { seeds?: BlueprintSeedAgent[] }) {
   const [query, setQuery] = useState("");
   const all = seeds ?? EMPTY_SEED_AGENTS;
   const filtered = useMemo(() => {
@@ -418,7 +418,7 @@ function RolesSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
  * are the WHERE; agents are the WHO. Both ship in every blueprint;
  * each role's default_occupant points at one of these agents.
  */
-function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
+function AgentsSection({ seeds }: { seeds?: BlueprintSeedAgent[] }) {
   const [query, setQuery] = useState("");
   const all = seeds ?? EMPTY_SEED_AGENTS;
   const filtered = useMemo(() => {
@@ -455,7 +455,7 @@ function AgentsSection({ seeds }: { seeds?: TemplateSeedAgent[] }) {
   );
 }
 
-function EventsSection({ seeds }: { seeds?: TemplateSeedEvent[] }) {
+function EventsSection({ seeds }: { seeds?: BlueprintSeedEvent[] }) {
   const [query, setQuery] = useState("");
   const all = seeds ?? EMPTY_SEED_EVENTS;
   const filtered = useMemo(() => {
@@ -492,7 +492,7 @@ function EventsSection({ seeds }: { seeds?: TemplateSeedEvent[] }) {
   );
 }
 
-function QuestsSection({ seeds }: { seeds?: TemplateSeedQuest[] }) {
+function QuestsSection({ seeds }: { seeds?: BlueprintSeedQuest[] }) {
   const [query, setQuery] = useState("");
   const all = seeds ?? EMPTY_SEED_QUESTS;
   const filtered = useMemo(() => {
@@ -527,7 +527,7 @@ function QuestsSection({ seeds }: { seeds?: TemplateSeedQuest[] }) {
   );
 }
 
-function IdeasSection({ seeds }: { seeds?: TemplateSeedIdea[] }) {
+function IdeasSection({ seeds }: { seeds?: BlueprintSeedIdea[] }) {
   const [query, setQuery] = useState("");
   const all = seeds ?? EMPTY_SEED_IDEAS;
   const filtered = useMemo(() => {

@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import type { CompanyTemplate, RoleOverride, RoleOverrideOccupant } from "@/lib/types";
+import type { Blueprint, RoleOverride, RoleOverrideOccupant } from "@/lib/types";
 import { Select } from "@/components/ui";
 
 interface BlueprintRolePickerProps {
-  template: CompanyTemplate;
+  template: Blueprint;
   /** Current operator's user_id, surfaced as the "Me" occupant option.
    *  When null, the human variant is hidden. */
   userId: string | null;
@@ -78,7 +78,7 @@ export function BlueprintRolePicker({
  *  (the wire stays lean — server falls back to the template default
  *  when no override is supplied for a role). */
 export function buildRoleOverridesPayload(
-  template: CompanyTemplate,
+  template: Blueprint,
   overrides: Record<string, RoleOverrideOccupant>,
 ): RoleOverride[] {
   const roles = template.seed_roles ?? [];

@@ -6,9 +6,9 @@ import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import BlueprintsPage from "@/pages/BlueprintsPage";
 import BlueprintDetailPage from "@/pages/BlueprintDetailPage";
 import { api } from "@/lib/api";
-import type { CompanyTemplate } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 
-const SOLO: CompanyTemplate = {
+const SOLO: Blueprint = {
   slug: "solo-founder",
   name: "Solo Founder",
   tagline: "Ship product. Talk to users. Stay shipping.",

@@ -1691,19 +1691,19 @@ impl Daemon {
                 }
 
                 "list_blueprints" => {
-                    crate::ipc::templates::handle_list_blueprints(&ctx, &request, &allowed_roots)
+                    crate::ipc::blueprints::handle_list_blueprints(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "blueprint_detail" => {
-                    crate::ipc::templates::handle_blueprint_detail(&ctx, &request, &allowed_roots)
+                    crate::ipc::blueprints::handle_blueprint_detail(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "spawn_blueprint" => {
-                    crate::ipc::templates::handle_spawn_blueprint(&ctx, &request, &allowed_roots)
+                    crate::ipc::blueprints::handle_spawn_blueprint(&ctx, &request, &allowed_roots)
                         .await
                 }
                 "spawn_blueprint_into_entity" => {
-                    crate::ipc::templates::handle_spawn_blueprint_into_entity(
+                    crate::ipc::blueprints::handle_spawn_blueprint_into_entity(
                         &ctx,
                         &request,
                         &allowed_roots,

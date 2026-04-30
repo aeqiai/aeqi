@@ -2,12 +2,12 @@
 //!
 //! A template is a pre-threaded starter kit: one root agent plus seed agents,
 //! events, ideas, and quests. Shipped catalog lives under
-//! `presets/templates/*.json` and is `include_str!`'d so the runtime is
+//! `presets/blueprints/*.json` and is `include_str!`'d so the runtime is
 //! self-contained regardless of where it launches from.
 //!
-//! `Template` (the deserialized shape) lives in [`crate::ipc::templates`].
+//! `Template` (the deserialized shape) lives in [`crate::ipc::blueprints`].
 
-use crate::ipc::templates::Template;
+use crate::ipc::blueprints::Blueprint;
 
 /// Slug of the canonical fallback default Blueprint shipped with the
 /// runtime. Operators can override which Blueprint is the catalog
@@ -16,20 +16,20 @@ use crate::ipc::templates::Template;
 /// a slug that no longer exists in the catalog.
 pub const DEFAULT_BLUEPRINT_SLUG: &str = "aeqi";
 
-const AEQI_DEFAULT_JSON: &str = include_str!("../../../../presets/templates/aeqi.json");
-const BLANK_JSON: &str = include_str!("../../../../presets/templates/blank.json");
-const SOLO_FOUNDER_JSON: &str = include_str!("../../../../presets/templates/solo-founder.json");
-const STUDIO_JSON: &str = include_str!("../../../../presets/templates/studio.json");
-const SMALL_BUSINESS_JSON: &str = include_str!("../../../../presets/templates/small-business.json");
+const AEQI_DEFAULT_JSON: &str = include_str!("../../../../presets/blueprints/aeqi.json");
+const BLANK_JSON: &str = include_str!("../../../../presets/blueprints/blank.json");
+const SOLO_FOUNDER_JSON: &str = include_str!("../../../../presets/blueprints/solo-founder.json");
+const STUDIO_JSON: &str = include_str!("../../../../presets/blueprints/studio.json");
+const SMALL_BUSINESS_JSON: &str = include_str!("../../../../presets/blueprints/small-business.json");
 const INDIE_CONSULTANCY_JSON: &str =
-    include_str!("../../../../presets/templates/indie-consultancy.json");
-const TECH_STUDIO_JSON: &str = include_str!("../../../../presets/templates/tech-studio.json");
-const SOLO_CREATOR_JSON: &str = include_str!("../../../../presets/templates/solo-creator.json");
-const AGENCY_JSON: &str = include_str!("../../../../presets/templates/agency.json");
-const PERSONAL_OS_JSON: &str = include_str!("../../../../presets/templates/personal-os.json");
-const COMMUNITY_JSON: &str = include_str!("../../../../presets/templates/community.json");
+    include_str!("../../../../presets/blueprints/indie-consultancy.json");
+const TECH_STUDIO_JSON: &str = include_str!("../../../../presets/blueprints/tech-studio.json");
+const SOLO_CREATOR_JSON: &str = include_str!("../../../../presets/blueprints/solo-creator.json");
+const AGENCY_JSON: &str = include_str!("../../../../presets/blueprints/agency.json");
+const PERSONAL_OS_JSON: &str = include_str!("../../../../presets/blueprints/personal-os.json");
+const COMMUNITY_JSON: &str = include_str!("../../../../presets/blueprints/community.json");
 
-const COMPANY_TEMPLATE_JSON: &[&str] = &[
+const COMPANY_BLUEPRINT_JSON: &[&str] = &[
     AEQI_DEFAULT_JSON,
     BLANK_JSON,
     SOLO_FOUNDER_JSON,
@@ -46,11 +46,11 @@ const COMPANY_TEMPLATE_JSON: &[&str] = &[
 /// All shipped company templates, sorted by slug so the catalog is stable.
 /// Parses the embedded JSON on every call — cheap (a handful of small docs)
 /// and avoids carrying a `once_cell` dependency just for this.
-pub fn company_templates() -> Vec<Template> {
-    let mut out: Vec<Template> = COMPANY_TEMPLATE_JSON
+pub fn company_blueprints() -> Vec<Blueprint> {
+    let mut out: Vec<Blueprint> = COMPANY_BLUEPRINT_JSON
         .iter()
         .map(|raw| {
-            serde_json::from_str::<Template>(raw).expect("shipped company template failed to parse")
+            serde_json::from_str::<Blueprint>(raw).expect("shipped company template failed to parse")
         })
         .collect();
     out.sort_by(|a, b| a.slug.cmp(&b.slug));
@@ -58,8 +58,8 @@ pub fn company_templates() -> Vec<Template> {
 }
 
 /// Company template lookup by slug.
-pub fn company_template(slug: &str) -> Option<Template> {
-    company_templates().into_iter().find(|t| t.slug == slug)
+pub fn company_blueprint(slug: &str) -> Option<Blueprint> {
+    company_blueprints().into_iter().find(|t| t.slug == slug)
 }
 
 #[cfg(test)]
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn company_catalog_has_canonical_slugs() {
-        let slugs: Vec<String> = company_templates().into_iter().map(|t| t.slug).collect();
+        let slugs: Vec<String> = company_blueprints().into_iter().map(|t| t.slug).collect();
         for expected in [
             DEFAULT_BLUEPRINT_SLUG,
             "small-business",
@@ -85,14 +85,14 @@ mod tests {
     #[test]
     fn default_blueprint_resolves() {
         assert!(
-            company_template(DEFAULT_BLUEPRINT_SLUG).is_some(),
+            company_blueprint(DEFAULT_BLUEPRINT_SLUG).is_some(),
             "DEFAULT_BLUEPRINT_SLUG '{DEFAULT_BLUEPRINT_SLUG}' must point at a shipped template",
         );
     }
 
     #[test]
-    fn company_template_lookup_returns_full_spec() {
-        let studio = company_template("studio").expect("studio template present");
+    fn company_blueprint_lookup_returns_full_spec() {
+        let studio = company_blueprint("studio").expect("studio template present");
         assert_eq!(studio.name, "Content Studio");
         assert_eq!(studio.seed_agents.len(), 2);
     }

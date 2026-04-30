@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { CompanyTemplate } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 import { Card, Spinner } from "@/components/ui";
 import { RECOMMENDED_BLUEPRINTS } from "@/lib/recommendedBlueprints";
 import "@/styles/blueprints-store.css";
@@ -48,7 +48,7 @@ export function BlueprintLaunchPicker({
   onSpawnedCompany,
   onSpawnedAgent,
 }: BlueprintLaunchPickerProps) {
-  const [blueprints, setBlueprints] = useState<CompanyTemplate[]>([]);
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submittingSlug, setSubmittingSlug] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export function BlueprintLaunchPicker({
   }, []);
 
   const bySlug = useMemo(() => {
-    const m = new Map<string, CompanyTemplate>();
+    const m = new Map<string, Blueprint>();
     for (const b of blueprints) m.set(b.slug, b);
     return m;
   }, [blueprints]);
@@ -85,10 +85,7 @@ export function BlueprintLaunchPicker({
   // Drop unknown slugs silently — the catalog is the source of truth, so a
   // typo or a retired blueprint shouldn't render a broken card.
   const recommended = useMemo(
-    () =>
-      RECOMMENDED_BLUEPRINTS.map((slug) => bySlug.get(slug)).filter(
-        (t): t is CompanyTemplate => !!t,
-      ),
+    () => RECOMMENDED_BLUEPRINTS.map((slug) => bySlug.get(slug)).filter((t): t is Blueprint => !!t),
     [bySlug],
   );
 
@@ -231,7 +228,7 @@ export function BlueprintLaunchPicker({
  *  `formatSeedMeta` lives in `BlueprintCard.tsx` as a private helper too —
  *  duplicating one tiny pure function is cheaper than introducing a util
  *  module both files have to import. */
-function formatSeedMeta(t: CompanyTemplate): string {
+function formatSeedMeta(t: Blueprint): string {
   const parts: string[] = [];
   const a = t.seed_agents?.length ?? 0;
   const i = t.seed_ideas?.length ?? 0;

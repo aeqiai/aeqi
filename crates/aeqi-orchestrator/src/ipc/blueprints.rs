@@ -1,10 +1,10 @@
-//! Company template IPC handlers.
+//! Company blueprint IPC handlers.
 //!
-//! A "template" here is a pre-threaded starter kit for a company: one root
+//! A "blueprint" here is a pre-threaded starter kit for a company: one root
 //! agent plus seed agents, events, ideas, and quests. The shipped catalog
-//! is embedded at compile time (see [`crate::templates`]) so the runtime is
+//! is embedded at compile time (see [`crate::blueprints`]) so the runtime is
 //! self-contained regardless of the cwd it launches from. The on-disk
-//! `presets/templates/*.json` files remain the source of truth for editing
+//! `presets/blueprints/*.json` files remain the source of truth for editing
 //! — rebuilding the binary re-embeds them.
 //!
 //! The schema is intentionally flat JSON (not TOML) so Stream D's landing /
@@ -39,7 +39,7 @@ pub struct RootAgentSpec {
 }
 
 /// Child agent. `owner` is always "root" for seed_agents — they sit directly
-/// under the template's root agent. Nested hierarchies are deferred to v2.
+/// under the blueprint's root agent. Nested hierarchies are deferred to v2.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SeedAgentSpec {
     /// Currently must be "root". Reserved for future nested templates.
@@ -159,9 +159,9 @@ pub enum OverrideOccupant {
     Vacant,
 }
 
-/// Full template manifest.
+/// Full blueprint manifest.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Template {
+pub struct Blueprint {
     pub slug: String,
     pub name: String,
     #[serde(default)]
@@ -283,7 +283,7 @@ fn parse_role_overrides(request: &serde_json::Value) -> Vec<RoleOverride> {
     out
 }
 
-/// Spawn a company from a template. Pure logic: everything external is
+/// Spawn a company from a blueprint. Pure logic: everything external is
 /// injected so tests can drive this without the full daemon context.
 ///
 /// When `parent_agent_id` is `Some`, the blueprint's root attaches as a
@@ -301,7 +301,7 @@ fn parse_role_overrides(request: &serde_json::Value) -> Vec<RoleOverride> {
 /// pass `[Ideas]` or `[Quests]` to scope a spawn to one primitive.
 #[allow(clippy::too_many_arguments)]
 pub async fn spawn_blueprint(
-    template: &Template,
+    blueprint: &Blueprint,
     override_name: Option<&str>,
     parent_agent_id: Option<&str>,
     entity_id_override: Option<&str>,
@@ -317,23 +317,23 @@ pub async fn spawn_blueprint(
     // ---- root agent ----
     let root = agent_registry
         .spawn_with_entity_id(
-            override_name.unwrap_or(&template.root.name),
+            override_name.unwrap_or(&blueprint.root.name),
             parent_agent_id,
-            template.root.model.as_deref(),
+            blueprint.root.model.as_deref(),
             entity_id_override,
         )
         .await?;
     apply_visual_identity(
         agent_registry,
         &root.id,
-        template.root.color.as_deref(),
-        template.root.avatar.as_deref(),
+        blueprint.root.color.as_deref(),
+        blueprint.root.avatar.as_deref(),
     )
     .await;
 
     // Persist persona as an identity idea so assemble_ideas picks it up on
     // session:start. No separate persona table needed.
-    if let (Some(store), Some(prompt)) = (idea_store, template.root.system_prompt.as_ref()) {
+    if let (Some(store), Some(prompt)) = (idea_store, blueprint.root.system_prompt.as_ref()) {
         store_identity_idea(store.as_ref(), &root.id, &root.name, prompt, &mut warnings).await;
     }
 
@@ -341,7 +341,7 @@ pub async fn spawn_blueprint(
     let mut owner_to_agent_id: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
     owner_to_agent_id.insert("root".to_string(), root.id.clone());
-    owner_to_agent_id.insert(template.root.name.clone(), root.id.clone());
+    owner_to_agent_id.insert(blueprint.root.name.clone(), root.id.clone());
 
     let mut spawned_agents = vec![SpawnedAgent {
         id: root.id.clone(),
@@ -354,8 +354,8 @@ pub async fn spawn_blueprint(
     let want_quests = parts.contains(&BlueprintPart::Quests);
 
     if want_agents {
-        for seed in &template.seed_agents {
-            if seed.owner != "root" && seed.owner != template.root.name {
+        for seed in &blueprint.seed_agents {
+            if seed.owner != "root" && seed.owner != blueprint.root.name {
                 warnings.push(format!(
                     "seed_agent '{}' owner '{}' not supported; attaching under root",
                     seed.name, seed.owner,
@@ -392,12 +392,12 @@ pub async fn spawn_blueprint(
 
     // ---- seed ideas ----
     // Seed ideas before events/quests so events referencing them by name
-    // could, in principle, be resolved later. Current template shape doesn't
+    // could, in principle, be resolved later. Current blueprint shape doesn't
     // require it but this preserves the invariant for v2.
     let mut created_ideas = 0usize;
     if want_ideas {
         if let Some(store) = idea_store {
-            for idea in &template.seed_ideas {
+            for idea in &blueprint.seed_ideas {
                 let owner_id = match resolve_owner(&owner_to_agent_id, &idea.owner) {
                     Some(id) => id,
                     None => {
@@ -423,10 +423,10 @@ pub async fn spawn_blueprint(
                     }
                 }
             }
-        } else if !template.seed_ideas.is_empty() {
+        } else if !blueprint.seed_ideas.is_empty() {
             warnings.push(format!(
                 "idea store unavailable; skipped {} seed_ideas",
-                template.seed_ideas.len(),
+                blueprint.seed_ideas.len(),
             ));
         }
     }
@@ -434,7 +434,7 @@ pub async fn spawn_blueprint(
     // ---- seed events ----
     let mut created_events = 0usize;
     if want_events {
-        for ev in &template.seed_events {
+        for ev in &blueprint.seed_events {
             let owner_id = match resolve_owner(&owner_to_agent_id, &ev.owner) {
                 Some(id) => id,
                 None => {
@@ -476,7 +476,7 @@ pub async fn spawn_blueprint(
     // ---- seed quests ----
     let mut created_quests = 0usize;
     if want_quests {
-        for q in &template.seed_quests {
+        for q in &blueprint.seed_quests {
             let owner_id = match resolve_owner(&owner_to_agent_id, &q.owner) {
                 Some(id) => id,
                 None => {
@@ -511,18 +511,18 @@ pub async fn spawn_blueprint(
         anyhow::anyhow!("spawned root agent has no entity_id (post-Phase-4 invariant)")
     })?;
 
-    // Install declared roles when the template provides them. The
+    // Install declared roles when the blueprint provides them. The
     // agent_registry has already auto-created one position per spawned
     // agent (the legacy fallback path that keeps un-declared blueprints
     // working). When `seed_roles` is non-empty, we wipe those auto
     // positions and install the declared structure fresh — that's how
     // vacancies and role-overrides land on the spawned company.
-    if !template.seed_roles.is_empty() {
+    if !blueprint.seed_roles.is_empty() {
         if let Err(err) = install_declared_roles(
             position_registry,
             &entity_id,
-            &template.seed_roles,
-            &template.seed_role_edges,
+            &blueprint.seed_roles,
+            &blueprint.seed_role_edges,
             &owner_to_agent_id,
             role_overrides,
             &mut warnings,
@@ -547,7 +547,7 @@ pub async fn spawn_blueprint(
 
 /// Replace every auto-created position for `entity_id` with the
 /// declared role structure. Operator overrides take precedence over
-/// the template's `default_occupant_agent`. Unknown role keys in
+/// the blueprint's `default_occupant_agent`. Unknown role keys in
 /// overrides become warnings (the spawn still proceeds).
 #[allow(clippy::too_many_arguments)]
 async fn install_declared_roles(
@@ -624,7 +624,7 @@ async fn install_declared_roles(
         key_to_position_id.insert(role.key.clone(), position.id);
     }
 
-    // Wire edges. Unknown keys here are template-author bugs — warn
+    // Wire edges. Unknown keys here are blueprint-author bugs — warn
     // but don't fail the spawn.
     for edge in seed_role_edges {
         let parent_id = match key_to_position_id.get(&edge.parent) {
@@ -703,7 +703,7 @@ pub async fn handle_list_blueprints(
     _request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let templates = crate::templates::company_templates();
+    let templates = crate::blueprints::company_blueprints();
     let items: Vec<serde_json::Value> = templates
         .iter()
         .map(|t| {
@@ -736,11 +736,11 @@ pub async fn handle_blueprint_detail(
     if slug.is_empty() {
         return serde_json::json!({"ok": false, "error": "slug is required"});
     }
-    match crate::templates::company_template(slug) {
+    match crate::blueprints::company_blueprint(slug) {
         Some(t) => serde_json::json!({"ok": true, "blueprint": t}),
         None => serde_json::json!({
             "ok": false,
-            "error": format!("template not found: {slug}"),
+            "error": format!("blueprint not found: {slug}"),
             "code": "not_found",
         }),
     }
@@ -763,20 +763,20 @@ pub async fn handle_spawn_blueprint(
     // `/start/launch` path.
     let entity_id_override = super::request_field(request, "entity_id").map(str::to_string);
 
-    let template = match crate::templates::company_template(slug) {
+    let blueprint = match crate::blueprints::company_blueprint(slug) {
         Some(t) => t,
         None => {
             return serde_json::json!({
                 "ok": false,
-                "error": format!("template not found: {slug}"),
+                "error": format!("blueprint not found: {slug}"),
                 "code": "not_found",
             });
         }
     };
 
-    let requested_display_name = display_name.as_deref().unwrap_or(&template.root.name);
+    let requested_display_name = display_name.as_deref().unwrap_or(&blueprint.root.name);
 
-    // Reject if a root agent with this name already exists — template spawns
+    // Reject if a root agent with this name already exists — blueprint spawns
     // are meant to be the beginning of a fresh company, not a silent merge
     // into an existing one.
     match ctx
@@ -805,7 +805,7 @@ pub async fn handle_spawn_blueprint(
     let role_overrides = parse_role_overrides(request);
 
     match spawn_blueprint(
-        &template,
+        &blueprint,
         display_name.as_deref(),
         None,
         entity_id_override.as_deref(),
@@ -829,8 +829,8 @@ pub async fn handle_spawn_blueprint(
             "created_quests": outcome.created_quests,
             "warnings": outcome.warnings,
             "blueprint": {
-                "slug": template.slug,
-                "name": template.name,
+                "slug": blueprint.slug,
+                "name": blueprint.name,
             },
         }),
         Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}),
@@ -859,12 +859,12 @@ pub async fn handle_spawn_blueprint_into_entity(
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
-    let template = match crate::templates::company_template(slug) {
+    let blueprint = match crate::blueprints::company_blueprint(slug) {
         Some(t) => t,
         None => {
             return serde_json::json!({
                 "ok": false,
-                "error": format!("template not found: {slug}"),
+                "error": format!("blueprint not found: {slug}"),
                 "code": "not_found",
             });
         }
@@ -899,7 +899,7 @@ pub async fn handle_spawn_blueprint_into_entity(
     let parts = parse_parts(request);
 
     match spawn_blueprint(
-        &template,
+        &blueprint,
         None,
         Some(&parent.id),
         None,
@@ -927,8 +927,8 @@ pub async fn handle_spawn_blueprint_into_entity(
             "created_quests": outcome.created_quests,
             "warnings": outcome.warnings,
             "blueprint": {
-                "slug": template.slug,
-                "name": template.name,
+                "slug": blueprint.slug,
+                "name": blueprint.name,
             },
         }),
         Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}),
@@ -944,12 +944,12 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    fn fixture_template() -> Template {
-        Template {
+    fn fixture_blueprint() -> Blueprint {
+        Blueprint {
             slug: "test-studio".to_string(),
             name: "Test Studio".to_string(),
             tagline: "fixture".to_string(),
-            description: "fixture template".to_string(),
+            description: "fixture blueprint".to_string(),
             root: RootAgentSpec {
                 name: "Director".to_string(),
                 model: Some("anthropic/claude-sonnet-4.6".to_string()),
@@ -1052,9 +1052,9 @@ mod tests {
         let position_registry = crate::position_registry::PositionRegistry::open(registry.db());
         let idea_store = test_idea_store();
 
-        let template = fixture_template();
+        let blueprint = fixture_blueprint();
         let outcome = spawn_blueprint(
-            &template,
+            &blueprint,
             None,
             None,
             None,
@@ -1135,9 +1135,9 @@ mod tests {
         let event_store = EventHandlerStore::new(registry.db());
         let position_registry = crate::position_registry::PositionRegistry::open(registry.db());
 
-        let template = fixture_template();
+        let blueprint = fixture_blueprint();
         let outcome = spawn_blueprint(
-            &template,
+            &blueprint,
             None,
             None,
             None,
@@ -1145,6 +1145,8 @@ mod tests {
             &registry,
             &event_store,
             None,
+            &position_registry,
+            &[],
         )
         .await
         .expect("spawn should succeed without idea store");
@@ -1171,8 +1173,8 @@ mod tests {
         let position_registry = crate::position_registry::PositionRegistry::open(registry.db());
         let idea_store = test_idea_store();
 
-        let mut template = fixture_template();
-        template.seed_events.push(SeedEventSpec {
+        let mut blueprint = fixture_blueprint();
+        blueprint.seed_events.push(SeedEventSpec {
             owner: "ghost".to_string(),
             name: "orphan".to_string(),
             pattern: "session:start".to_string(),
@@ -1184,7 +1186,7 @@ mod tests {
         });
 
         let outcome = spawn_blueprint(
-            &template,
+            &blueprint,
             None,
             None,
             None,
@@ -1216,9 +1218,9 @@ mod tests {
         let position_registry = crate::position_registry::PositionRegistry::open(registry.db());
         let idea_store = test_idea_store();
 
-        let template = fixture_template();
+        let blueprint = fixture_blueprint();
         let outcome = spawn_blueprint(
-            &template,
+            &blueprint,
             Some("My Cool Studio"),
             None,
             None,
@@ -1249,7 +1251,7 @@ mod tests {
         let idea_store = test_idea_store();
 
         // Stand up a host entity first.
-        let host_template = fixture_template();
+        let host_template = fixture_blueprint();
         let host = spawn_blueprint(
             &host_template,
             Some("Host Co"),
@@ -1268,7 +1270,7 @@ mod tests {
         let host_entity_id = host.entity_id.clone();
 
         // Now import a second blueprint into that entity.
-        let imported_template = Template {
+        let imported_blueprint = Blueprint {
             slug: "imported-bp".to_string(),
             name: "Imported BP".to_string(),
             tagline: String::new(),
@@ -1295,7 +1297,7 @@ mod tests {
             seed_role_edges: Vec::new(),
         };
         let imported = spawn_blueprint(
-            &imported_template,
+            &imported_blueprint,
             None,
             Some(&host_root_id),
             None,
@@ -1340,9 +1342,9 @@ mod tests {
         let position_registry = crate::position_registry::PositionRegistry::open(registry.db());
         let idea_store = test_idea_store();
 
-        let template = fixture_template();
+        let blueprint = fixture_blueprint();
         let outcome = spawn_blueprint(
-            &template,
+            &blueprint,
             None,
             None,
             None,
@@ -1381,9 +1383,9 @@ mod tests {
         let position_registry = crate::position_registry::PositionRegistry::open(registry.db());
         let idea_store = test_idea_store();
 
-        let template = fixture_template();
+        let blueprint = fixture_blueprint();
         let outcome = spawn_blueprint(
-            &template,
+            &blueprint,
             None,
             None,
             None,
@@ -1430,13 +1432,13 @@ mod tests {
     async fn embedded_canonical_templates_parse_cleanly() {
         // Guard against accidental JSON breakage in the shipped presets —
         // the embed helper panics on parse failure, so reaching here proves
-        // each shipped template deserializes into a full `Template`.
-        let loaded = crate::templates::company_templates();
+        // each shipped blueprint deserializes into a full `Template`.
+        let loaded = crate::blueprints::company_blueprints();
         let slugs: Vec<&str> = loaded.iter().map(|t| t.slug.as_str()).collect();
         for expected in ["solo-founder", "studio", "small-business"] {
             assert!(
                 slugs.contains(&expected),
-                "canonical template '{expected}' missing; loaded: {slugs:?}",
+                "canonical blueprint '{expected}' missing; loaded: {slugs:?}",
             );
         }
     }

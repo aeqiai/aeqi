@@ -2,7 +2,7 @@ import { API_BASE_URL, ApiError, apiRequest as request, RateLimitedError } from 
 import type { AppMode } from "@/lib/appMode";
 import type {
   AgentEvent,
-  CompanyTemplate,
+  Blueprint,
   EventInvocationRow,
   Idea,
   InvocationStepRow,
@@ -524,19 +524,18 @@ export const api = {
 
   // Blueprints — pre-threaded company bundles. Spawn creates an entity
   // backed by a root agent today and returns the canonical entity id.
-  getBlueprints: () => request<{ ok: boolean; blueprints: CompanyTemplate[] }>("/blueprints"),
+  getBlueprints: () => request<{ ok: boolean; blueprints: Blueprint[] }>("/blueprints"),
 
   // Full Template including seed_agents/events/ideas/quests arrays. The
   // list endpoint returns counts only to keep the catalog payload small;
   // the detail endpoint is what the store calls when a card is selected.
   getBlueprint: (slug: string) =>
-    request<{ ok: boolean; blueprint: CompanyTemplate }>(`/blueprints/${encodeURIComponent(slug)}`),
+    request<{ ok: boolean; blueprint: Blueprint }>(`/blueprints/${encodeURIComponent(slug)}`),
 
   // Resolves the operator-configured default Blueprint
   // (`[blueprints] default` in aeqi.toml). Used by `/start` when the
   // user lands there without a `?blueprint=:slug` query param.
-  getDefaultBlueprint: () =>
-    request<{ ok: boolean; blueprint: CompanyTemplate }>("/blueprints/default"),
+  getDefaultBlueprint: () => request<{ ok: boolean; blueprint: Blueprint }>("/blueprints/default"),
 
   /** `role_overrides` lets the operator stage occupants before the spawn
    *  commits — swap a default agent for themselves (human), or leave a

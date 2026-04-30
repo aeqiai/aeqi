@@ -272,7 +272,7 @@ export interface WorkerEvent {
 // quests that spawns a ready-to-go company. Optional fields stay loose
 // so a sparse Blueprint (no seed quests, no seed events) still renders
 // cleanly.
-export interface TemplateSeedAgent {
+export interface BlueprintSeedAgent {
   name: string;
   tagline?: string;
   role?: string;
@@ -282,19 +282,19 @@ export interface TemplateSeedAgent {
   color?: string;
 }
 
-export interface TemplateSeedEvent {
+export interface BlueprintSeedEvent {
   pattern: string;
   name?: string;
   description?: string;
 }
 
-export interface TemplateSeedIdea {
+export interface BlueprintSeedIdea {
   name: string;
   tags?: string[];
   summary?: string;
 }
 
-export interface TemplateSeedQuest {
+export interface BlueprintSeedQuest {
   subject: string;
   description?: string;
   priority?: string;
@@ -308,7 +308,7 @@ export interface RootAgentSpec {
   system_prompt?: string;
 }
 
-export interface TemplateSeedRole {
+export interface BlueprintSeedRole {
   key: string;
   title: string;
   /** seed_agent name (or "root") that fills this role at spawn time;
@@ -316,7 +316,7 @@ export interface TemplateSeedRole {
   default_occupant_agent?: string | null;
 }
 
-export interface TemplateSeedRoleEdge {
+export interface BlueprintSeedRoleEdge {
   parent: string;
   child: string;
 }
@@ -336,17 +336,17 @@ export interface RoleOverride {
   occupant: RoleOverrideOccupant;
 }
 
-export interface CompanyTemplate {
+export interface Blueprint {
   slug: string;
   name: string;
   tagline?: string;
   description?: string;
   tags?: string[];
   root?: RootAgentSpec;
-  seed_agents?: TemplateSeedAgent[];
-  seed_events?: TemplateSeedEvent[];
-  seed_ideas?: TemplateSeedIdea[];
-  seed_quests?: TemplateSeedQuest[];
+  seed_agents?: BlueprintSeedAgent[];
+  seed_events?: BlueprintSeedEvent[];
+  seed_ideas?: BlueprintSeedIdea[];
+  seed_quests?: BlueprintSeedQuest[];
   /** Declared role structure. When present, the org-chart preview
    *  reads from here; when absent, falls back to the implicit
    *  root → flat seed_agents shape. The orchestrator currently
@@ -354,8 +354,8 @@ export interface CompanyTemplate {
    *  roles are a wire-level POC until that spawn refactor lands.
    *  Until then, declared roles must mirror the agent tree 1:1
    *  to keep the preview honest with what spawns. */
-  seed_roles?: TemplateSeedRole[];
-  seed_role_edges?: TemplateSeedRoleEdge[];
+  seed_roles?: BlueprintSeedRole[];
+  seed_role_edges?: BlueprintSeedRoleEdge[];
 }
 
 export type OccupantKind = "human" | "agent" | "vacant";

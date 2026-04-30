@@ -1,7 +1,7 @@
-import type { CompanyTemplate, TemplateSeedAgent, TemplateSeedRole } from "@/lib/types";
+import type { Blueprint, BlueprintSeedAgent, BlueprintSeedRole } from "@/lib/types";
 
 interface BlueprintTreePreviewProps {
-  template: CompanyTemplate;
+  template: Blueprint;
 }
 
 /**
@@ -51,14 +51,14 @@ function DeclaredRoleChart({
   rootName,
   rootColor,
 }: {
-  template: CompanyTemplate;
+  template: Blueprint;
   rootName: string;
   rootColor?: string;
 }) {
   const roles = template.seed_roles ?? [];
   const edges = template.seed_role_edges ?? [];
   const seedAgents = template.seed_agents ?? [];
-  const agentByName = new Map<string, TemplateSeedAgent>();
+  const agentByName = new Map<string, BlueprintSeedAgent>();
   for (const a of seedAgents) agentByName.set(a.name, a);
 
   // Compute longest-path depth from any root (a role with no incoming
@@ -86,7 +86,7 @@ function DeclaredRoleChart({
   };
   for (const r of roles) visit(r.key, new Set());
   const maxDepth = Math.max(0, ...Array.from(depth.values()));
-  const layers: TemplateSeedRole[][] = Array.from({ length: maxDepth + 1 }, () => []);
+  const layers: BlueprintSeedRole[][] = Array.from({ length: maxDepth + 1 }, () => []);
   for (const r of roles) layers[depth.get(r.key) ?? 0].push(r);
 
   return (
@@ -138,7 +138,7 @@ function ImplicitFlatChart({
   rootName,
   rootColor,
 }: {
-  seeds: TemplateSeedAgent[];
+  seeds: BlueprintSeedAgent[];
   rootName: string;
   rootColor?: string;
 }) {

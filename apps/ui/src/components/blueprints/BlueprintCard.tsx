@@ -2,10 +2,10 @@ import { memo } from "react";
 import { Link } from "react-router-dom";
 import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
 import { Card } from "@/components/ui";
-import type { CompanyTemplate } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 
 interface BlueprintCardProps {
-  template: CompanyTemplate;
+  template: Blueprint;
 }
 
 /** Compact human meta — "2 agents · 1 idea · 1 event", zeros skipped.
@@ -14,7 +14,7 @@ interface BlueprintCardProps {
  *  and what a buyer reads in a blueprint is the AI workforce. The
  *  detail page surfaces both lenses (Roles tab + Agents tab); the
  *  card has room for one. */
-function formatSeedMeta(t: CompanyTemplate): string {
+function formatSeedMeta(t: Blueprint): string {
   const parts: string[] = [];
   const a = t.seed_agents?.length ?? 0;
   const i = t.seed_ideas?.length ?? 0;

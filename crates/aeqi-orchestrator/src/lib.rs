@@ -57,7 +57,7 @@ pub mod session_store;
 pub mod skill_loader;
 pub mod stream_registry;
 pub mod template;
-pub mod templates;
+pub mod blueprints;
 pub mod tools;
 pub mod vfs;
 pub mod wallet_ctx;

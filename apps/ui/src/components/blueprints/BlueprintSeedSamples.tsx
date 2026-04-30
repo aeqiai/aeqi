@@ -1,7 +1,7 @@
-import type { CompanyTemplate } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 
 interface BlueprintSeedSamplesProps {
-  template: CompanyTemplate;
+  template: Blueprint;
   /** How many of each kind to show. Defaults match the previous side-pane density. */
   eventLimit?: number;
   ideaLimit?: number;

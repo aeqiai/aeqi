@@ -1,7 +1,7 @@
-import type { CompanyTemplate } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 
 interface BlueprintSeedCountsProps {
-  template: CompanyTemplate;
+  template: Blueprint;
 }
 
 const LABELS = {

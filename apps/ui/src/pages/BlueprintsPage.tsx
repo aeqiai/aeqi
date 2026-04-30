@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { CompanyTemplate } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 import { Button, Popover, Spinner, Tooltip } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
@@ -68,7 +68,7 @@ export default function BlueprintsPage() {
     return KIND_IDS.includes(last as Kind) ? (last as Kind) : "companies";
   }, [location.pathname]);
 
-  const [blueprints, setBlueprints] = useState<CompanyTemplate[]>([]);
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -173,7 +173,7 @@ export default function BlueprintsPage() {
   }, [blueprints, activeKind]);
 
   const complexity = useCallback(
-    (t: CompanyTemplate) =>
+    (t: Blueprint) =>
       (t.seed_agents?.length ?? 0) +
       (t.seed_events?.length ?? 0) +
       (t.seed_ideas?.length ?? 0) +
@@ -182,7 +182,7 @@ export default function BlueprintsPage() {
   );
 
   const filtered = useMemo(() => {
-    if (activeKind !== "companies") return [] as CompanyTemplate[];
+    if (activeKind !== "companies") return [] as Blueprint[];
     let out = blueprints.filter(
       (t) => matches(t.name) || matches(t.tagline) || matchesTagText(t.tags),
     );

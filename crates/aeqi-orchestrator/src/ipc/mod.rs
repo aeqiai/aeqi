@@ -18,7 +18,7 @@ pub mod seed;
 pub mod session_stream;
 pub mod sessions;
 pub mod status;
-pub mod templates;
+pub mod blueprints;
 pub mod tenancy;
 pub mod vfs;
 
