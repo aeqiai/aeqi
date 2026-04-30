@@ -58,7 +58,6 @@ export default function CompanySwitcher() {
   // Entity scope = `/c/<entity_id>/...`. Everything else (`/`, `/me/...`,
   // `/economy/...`, `/start`, `/sessions/<id>`) is user scope.
   const isEntityScope = pathname.startsWith("/c/");
-  const isUserScope = !isEntityScope;
 
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
@@ -117,27 +116,14 @@ export default function CompanySwitcher() {
     ? [displayEntity, ...entities.filter((e) => e.id !== displayEntity.id)]
     : entities;
 
-  const goToUserScope = useCallback(() => {
-    navigate("/");
-    setOpen(false);
-  }, [navigate]);
-
   return (
     <Popover trigger={trigger} open={open} onOpenChange={setOpen} placement="bottom-start" portal>
       <div className="company-switcher-menu" role="menu">
-        {/* "You" — the user's own scope. Their inbox lives at `/`,
-             personal economy / settings at `/me`, and the active
-             company is just a filter applied inside those views. From
-             this entry the user pivots out of any company context back
-             to their own. */}
-        <SelectOption
-          selected={isUserScope}
-          noIndicator
-          onClick={goToUserScope}
-          leadingIcon={<UserAvatar name={userName} size={16} src={user?.avatar_url} />}
-        >
-          {userName}
-        </SelectOption>
+        {/* The switcher is a workspace picker — companies + create.
+            Personal-scope navigation (Home, Inbox) lives in the
+            sidebar above the switcher; clicking those is how the
+            user leaves company context. Adding a "you" entry here
+            would be a redundant third path with confused semantics. */}
         {ordered.map((entity) => {
           const isCurrent = isEntityScope && entity.id === activeEntityId;
           return (

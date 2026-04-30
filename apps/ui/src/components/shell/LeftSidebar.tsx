@@ -340,7 +340,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
         {isEntityScope && (
           <>
             <SidebarGroup title="Company" groupKey="company">
-              {navItem("overview", "Overview", <CompanyIcon />)}
+              {navItem("overview", "Company", <CompanyIcon />)}
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("quests", "Quests", <QuestsIcon />)}
               {navItem("ideas", "Ideas", <IdeasIcon />)}
