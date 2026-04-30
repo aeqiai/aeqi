@@ -7,8 +7,8 @@ import type {
   Idea,
   InvocationStepRow,
   OccupantKind,
-  Position,
-  PositionEdge,
+  Role,
+  RoleEdge,
   Quest,
   ScopeValue,
 } from "@/lib/types";
@@ -216,23 +216,44 @@ export const api = {
       }),
     }),
 
-  // Positions — the org-chart primitive. Returns the full set of positions +
-  // edges for the entity so the caller can render either a flat list or a DAG.
-  getPositions: (entityId: string) =>
-    request<{ ok: boolean; positions: Position[]; edges: PositionEdge[] }>(
-      `/positions?entity_id=${encodeURIComponent(entityId)}`,
-    ),
-  createPosition: (data: {
+  // Roles — the org-chart primitive. Returns the full set of roles +
+  // edges for the entity so the caller can render either a flat list or
+  // a DAG. The wire (Rust + SQL) still calls these "positions"; the
+  // wrapper renames the response so internal callers use "roles" only.
+  getRoles: async (entityId: string) => {
+    const r = await request<{
+      ok: boolean;
+      positions: Role[];
+      edges: { parent_position_id: string; child_position_id: string }[];
+    }>(`/positions?entity_id=${encodeURIComponent(entityId)}`);
+    return {
+      ok: r.ok,
+      roles: r.positions,
+      edges: r.edges.map<RoleEdge>((e) => ({
+        parent_role_id: e.parent_position_id,
+        child_role_id: e.child_position_id,
+      })),
+    };
+  },
+  createRole: (data: {
     entity_id: string;
     title: string;
     occupant_kind: OccupantKind;
     occupant_id?: string;
-    parent_position_id?: string;
-  }) =>
-    request<{ ok: boolean; position: Position }>("/positions", {
+    parent_role_id?: string;
+  }) => {
+    const wire = {
+      entity_id: data.entity_id,
+      title: data.title,
+      occupant_kind: data.occupant_kind,
+      ...(data.occupant_id ? { occupant_id: data.occupant_id } : {}),
+      ...(data.parent_role_id ? { parent_position_id: data.parent_role_id } : {}),
+    };
+    return request<{ ok: boolean; position: Role }>("/positions", {
       method: "POST",
-      body: JSON.stringify(data),
-    }),
+      body: JSON.stringify(wire),
+    });
+  },
 
   getQuests: (params?: { status?: string; root?: string }) => {
     const query = new URLSearchParams();

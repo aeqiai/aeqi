@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { Agent, Position, PositionEdge } from "@/lib/types";
+import type { Agent, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, EmptyState, Popover, Tooltip } from "./ui";
 import AgentAvatar from "./AgentAvatar";
@@ -80,8 +80,8 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
 
   // Positions + edges drive the chart view. Loaded lazily so the list
   // view doesn't pay the round-trip when chart isn't requested.
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [edges, setEdges] = useState<PositionEdge[]>([]);
+  const [positions, setPositions] = useState<Role[]>([]);
+  const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -92,10 +92,10 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
     setChartLoading(true);
     setChartError(null);
     api
-      .getPositions(entityId)
+      .getRoles(entityId)
       .then((resp) => {
         if (cancelled) return;
-        setPositions(resp.positions ?? []);
+        setPositions(resp.roles ?? []);
         setEdges(resp.edges ?? []);
       })
       .catch((e: Error) => {
@@ -426,8 +426,8 @@ function AgentsChart({
   error,
   onSelect,
 }: {
-  positions: Position[];
-  edges: PositionEdge[];
+  positions: Role[];
+  edges: RoleEdge[];
   entityAgents: Agent[];
   loading: boolean;
   error: string | null;
@@ -453,13 +453,13 @@ function AgentsChart({
       </div>
     );
   }
-  const layers = layoutPositions(positions, edges);
+  const layers = layoutRoles(positions, edges);
   if (layers.length === 0) {
     return (
       <div className="ideas-list-body">
         <EmptyState
           title="No org chart yet."
-          description="Positions appear once a Blueprint finishes seeding."
+          description="Roles appear once a Blueprint finishes seeding."
         />
       </div>
     );
@@ -540,14 +540,14 @@ function AgentsChart({
   );
 }
 
-function layoutPositions(positions: Position[], edges: PositionEdge[]): Position[][] {
+function layoutRoles(positions: Role[], edges: RoleEdge[]): Role[][] {
   if (positions.length === 0) return [];
   const byId = new Map(positions.map((p) => [p.id, p]));
   const incoming = new Map<string, string[]>();
   for (const p of positions) incoming.set(p.id, []);
   for (const e of edges) {
-    if (!byId.has(e.parent_position_id) || !byId.has(e.child_position_id)) continue;
-    incoming.get(e.child_position_id)!.push(e.parent_position_id);
+    if (!byId.has(e.parent_role_id) || !byId.has(e.child_role_id)) continue;
+    incoming.get(e.child_role_id)!.push(e.parent_role_id);
   }
   const depth = new Map<string, number>();
   const visit = (id: string, seen: Set<string>): number => {
@@ -568,7 +568,7 @@ function layoutPositions(positions: Position[], edges: PositionEdge[]): Position
   };
   for (const p of positions) visit(p.id, new Set());
   const maxDepth = Math.max(...Array.from(depth.values()));
-  const layers: Position[][] = Array.from({ length: maxDepth + 1 }, () => []);
+  const layers: Role[][] = Array.from({ length: maxDepth + 1 }, () => []);
   for (const p of positions) layers[depth.get(p.id) ?? 0].push(p);
   for (const layer of layers) layer.sort((a, b) => a.title.localeCompare(b.title));
   return layers;

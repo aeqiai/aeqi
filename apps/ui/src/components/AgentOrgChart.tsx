@@ -6,7 +6,7 @@ import { CardTrigger } from "./ui";
 import BlockAvatar from "./BlockAvatar";
 import BrandMark from "./BrandMark";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
-import type { Agent, Position, PositionEdge } from "@/lib/types";
+import type { Agent, Role, RoleEdge } from "@/lib/types";
 import "@/styles/org-chart.css";
 
 interface OrgNode {
@@ -24,24 +24,21 @@ interface OrgNode {
  */
 function buildOrgFromPositions(
   agents: Agent[],
-  positions: Position[],
-  edges: PositionEdge[],
+  positions: Role[],
+  edges: RoleEdge[],
   rootAgentId: string,
 ): OrgNode | null {
   const agentById = new Map<string, Agent>(agents.map((a) => [a.id, a]));
-  const positionById = new Map<string, Position>(positions.map((p) => [p.id, p]));
+  const positionById = new Map<string, Role>(positions.map((p) => [p.id, p]));
 
   const childrenByPosition = new Map<string, string[]>();
   const incomingByPosition = new Map<string, number>();
   for (const p of positions) incomingByPosition.set(p.id, 0);
   for (const e of edges) {
-    const list = childrenByPosition.get(e.parent_position_id) || [];
-    list.push(e.child_position_id);
-    childrenByPosition.set(e.parent_position_id, list);
-    incomingByPosition.set(
-      e.child_position_id,
-      (incomingByPosition.get(e.child_position_id) || 0) + 1,
-    );
+    const list = childrenByPosition.get(e.parent_role_id) || [];
+    list.push(e.child_role_id);
+    childrenByPosition.set(e.parent_role_id, list);
+    incomingByPosition.set(e.child_role_id, (incomingByPosition.get(e.child_role_id) || 0) + 1);
   }
 
   const rootPosition = positions.find(
@@ -110,8 +107,8 @@ export default function AgentOrgChart({
   }, [agents, parentAgentId]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [edges, setEdges] = useState<PositionEdge[]>([]);
+  const [positions, setPositions] = useState<Role[]>([]);
+  const [edges, setEdges] = useState<RoleEdge[]>([]);
   useEffect(() => {
     if (!entityId) {
       setPositions([]);
@@ -120,10 +117,10 @@ export default function AgentOrgChart({
     }
     let cancelled = false;
     api
-      .getPositions(entityId)
+      .getRoles(entityId)
       .then((resp) => {
         if (cancelled) return;
-        setPositions(resp.positions ?? []);
+        setPositions(resp.roles ?? []);
         setEdges(resp.edges ?? []);
       })
       .catch(() => {

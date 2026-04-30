@@ -28,7 +28,7 @@ import BudgetMeter from "./BudgetMeter";
 // below; repeating them here is just noise.
 const PRIMITIVE_WORDS: Record<string, string> = {
   overview: "Overview",
-  positions: "Positions",
+  roles: "Roles",
   agents: "Agents",
   events: "Events",
   quests: "Quests",

@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import type { Agent, OccupantKind, Position } from "@/lib/types";
+import type { Agent, OccupantKind, Role } from "@/lib/types";
 import { Button, Input, Modal, Select } from "@/components/ui";
 
-interface NewPositionModalProps {
+interface NewRoleModalProps {
   open: boolean;
   onClose: () => void;
   entityId: string;
-  positions: Position[];
+  roles: Role[];
   agents: Agent[];
-  onCreated: (position: Position) => void;
+  onCreated: (role: Role) => void;
 }
 
 const KIND_OPTIONS = [
@@ -19,23 +19,23 @@ const KIND_OPTIONS = [
 ];
 
 /**
- * Modal form for creating a new position inside an entity. Title + kind
+ * Modal form for creating a new role inside an entity. Title + kind
  * are always present; occupant is conditional on kind; parent is
  * optional. On success, the parent component appends the row to its list.
  */
-export default function NewPositionModal({
+export default function NewRoleModal({
   open,
   onClose,
   entityId,
-  positions,
+  roles,
   agents,
   onCreated,
-}: NewPositionModalProps) {
+}: NewRoleModalProps) {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<OccupantKind>("vacant");
   const [agentId, setAgentId] = useState("");
   const [humanId, setHumanId] = useState("");
-  const [parentPositionId, setParentPositionId] = useState("");
+  const [parentRoleId, setParentRoleId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,9 +52,9 @@ export default function NewPositionModal({
   const parentOptions = useMemo(
     () => [
       { value: "", label: "None" },
-      ...positions.map((p) => ({ value: p.id, label: p.title || "(untitled)" })),
+      ...roles.map((p) => ({ value: p.id, label: p.title || "(untitled)" })),
     ],
-    [positions],
+    [roles],
   );
 
   const reset = () => {
@@ -62,7 +62,7 @@ export default function NewPositionModal({
     setKind("vacant");
     setAgentId("");
     setHumanId("");
-    setParentPositionId("");
+    setParentRoleId("");
     setSubmitting(false);
     setError(null);
   };
@@ -86,14 +86,14 @@ export default function NewPositionModal({
     let occupantId: string | undefined;
     if (kind === "agent") {
       if (!agentId) {
-        setError("Select an agent for this position.");
+        setError("Select an agent for this role.");
         return;
       }
       occupantId = agentId;
     } else if (kind === "human") {
       const trimmedHuman = humanId.trim();
       if (!trimmedHuman) {
-        setError("Enter a user id or email for this position.");
+        setError("Enter a user id or email for this role.");
         return;
       }
       occupantId = trimmedHuman;
@@ -101,23 +101,23 @@ export default function NewPositionModal({
 
     setSubmitting(true);
     try {
-      const resp = await api.createPosition({
+      const resp = await api.createRole({
         entity_id: entityId,
         title: trimmedTitle,
         occupant_kind: kind,
         ...(occupantId ? { occupant_id: occupantId } : {}),
-        ...(parentPositionId ? { parent_position_id: parentPositionId } : {}),
+        ...(parentRoleId ? { parent_role_id: parentRoleId } : {}),
       });
       onCreated(resp.position);
       reset();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create position.");
+      setError(err instanceof Error ? err.message : "Could not create role.");
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="New position">
+    <Modal open={open} onClose={handleClose} title="New role">
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
@@ -212,12 +212,12 @@ export default function NewPositionModal({
               letterSpacing: "0.06em",
             }}
           >
-            Parent position
+            Parent role
           </span>
           <Select
             options={parentOptions}
-            value={parentPositionId}
-            onChange={setParentPositionId}
+            value={parentRoleId}
+            onChange={setParentRoleId}
             fullWidth
           />
         </label>
@@ -246,7 +246,7 @@ export default function NewPositionModal({
             Cancel
           </Button>
           <Button variant="primary" size="sm" type="submit" loading={submitting}>
-            Create position
+            Create role
           </Button>
         </div>
       </form>

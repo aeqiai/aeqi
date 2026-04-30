@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
-import type { Position, Quest } from "@/lib/types";
+import type { Role, Quest } from "@/lib/types";
 
 /**
  * `/c/<entity>/overview` — the company cockpit. Lands on every visit
@@ -15,7 +15,7 @@ import type { Position, Quest } from "@/lib/types";
  *   - In flight: in-progress quests scoped to the company subtree
  *   - Awaiting you: inbox slice filtered to entity_id
  *   - Momentum: last 24h events grouped by agent
- *   - Org: top positions (link to full /positions tab)
+ *   - Org: top roles (link to full /roles tab)
  *
  * Reuses `.dashboard-*` classes from the global cockpit at `/`. Same
  * visual language across both surfaces — they're both "grid of
@@ -107,18 +107,18 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
       .slice(0, 5);
   }, [events, subtreeNames]);
 
-  const [positions, setPositions] = useState<Position[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   useEffect(() => {
     let cancelled = false;
     api
-      .getPositions(entityId)
+      .getRoles(entityId)
       .then((resp) => {
         if (cancelled) return;
-        setPositions(resp.positions ?? []);
+        setRoles(resp.roles ?? []);
       })
       .catch(() => {
         if (cancelled) return;
-        setPositions([]);
+        setRoles([]);
       });
     return () => {
       cancelled = true;
@@ -249,20 +249,20 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
             <h2 id="cockpit-org" className="dashboard-card-title">
               Org
             </h2>
-            <Link to={`${basePath}/positions`} className="dashboard-card-link">
-              {positions.length} {positions.length === 1 ? "position" : "positions"} →
+            <Link to={`${basePath}/roles`} className="dashboard-card-link">
+              {roles.length} {roles.length === 1 ? "role" : "roles"} →
             </Link>
           </div>
-          {positions.length === 0 ? (
-            <p className="dashboard-quiet">No positions defined yet.</p>
+          {roles.length === 0 ? (
+            <p className="dashboard-quiet">No roles defined yet.</p>
           ) : (
             <ul className="dashboard-list" role="list">
-              {positions.slice(0, 5).map((p) => (
+              {roles.slice(0, 5).map((p) => (
                 <li key={p.id} className="dashboard-list-row">
                   <button
                     type="button"
                     className="dashboard-list-btn"
-                    onClick={() => navigate(`${basePath}/positions`)}
+                    onClick={() => navigate(`${basePath}/roles`)}
                   >
                     <span className="dashboard-list-from">{p.title}</span>
                     <span className="dashboard-list-text">

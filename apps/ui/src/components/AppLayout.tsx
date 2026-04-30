@@ -37,9 +37,9 @@ const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const UserInboxSessionView = lazy(() => import("./inbox/UserInboxSessionView"));
 
 // Tabs that route through CompanyPage. Overview is the canonical
-// company landing (the dashboard for this specific company); Positions
-// is the org-chart deeper view.
-const COMPANY_PAGERAIL_TABS = new Set(["overview", "positions"]);
+// company landing (the dashboard for this specific company); Roles is
+// the org-chart deeper view.
+const COMPANY_PAGERAIL_TABS = new Set(["overview", "roles"]);
 
 export default function AppLayout() {
   const queryClient = useQueryClient();
@@ -242,7 +242,14 @@ export default function AppLayout() {
     if (tab === "treasury") return <TreasuryPage />;
     if (tab === "governance") return <GovernancePage />;
     if (routeEntityId && !drilledAgent && COMPANY_PAGERAIL_TABS.has(effectiveTab)) {
-      return <CompanyPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
+      return (
+        <CompanyPage
+          agentId={activeAgentId}
+          entityId={routeEntityId}
+          tab={effectiveTab}
+          itemId={itemId}
+        />
+      );
     }
     return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();

@@ -325,8 +325,14 @@ export type OccupantKind = "human" | "agent" | "vacant";
 
 /** A single org-chart slot inside an entity. Occupant is a human, an
  *  agent, or vacant ("we're hiring"). Authority is resolved by transitive
- *  closure over `PositionEdge` (DAG, not tree). */
-export interface Position {
+ *  closure over `RoleEdge` (DAG, not tree).
+ *
+ *  Wire shape note: the Rust side and the SQL schema still use
+ *  "position" (table name, struct, columns). Rename is staged — UI flips
+ *  to "Role" first, runtime follows in a separate cycle. The API
+ *  wrapper (`api.getRoles`) maps the wire's `positions` field to
+ *  `roles` so internal callers don't see the legacy term. */
+export interface Role {
   id: string;
   entity_id: string;
   title: string;
@@ -336,7 +342,7 @@ export interface Position {
   updated_at?: string | null;
 }
 
-export interface PositionEdge {
-  parent_position_id: string;
-  child_position_id: string;
+export interface RoleEdge {
+  parent_role_id: string;
+  child_role_id: string;
 }

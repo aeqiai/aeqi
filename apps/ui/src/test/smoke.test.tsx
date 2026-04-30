@@ -272,7 +272,7 @@ describe("shell components smoke", () => {
 
 describe("AgentOrgChart smoke", () => {
   beforeEach(() => {
-    vi.spyOn(api, "getPositions").mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(api, "getRoles").mockImplementation(() => new Promise(() => {}));
     useDaemonStore.setState({
       entities: [],
       agents: [],

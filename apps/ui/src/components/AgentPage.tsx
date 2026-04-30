@@ -9,7 +9,7 @@ import AgentChannelsTab from "./AgentChannelsTab";
 import AgentIdeasTab from "./AgentIdeasTab";
 import AgentQuestsTab from "./AgentQuestsTab";
 import EntityAgentsTab from "./EntityAgentsTab";
-import EntityPositionsTab from "./EntityPositionsTab";
+import EntityRolesTab from "./EntityRolesTab";
 import EntityOverviewTab from "./EntityOverviewTab";
 import AgentOverviewTab from "./AgentOverviewTab";
 import AgentIntegrationsTab from "@/pages/Agent/Integrations";
@@ -62,7 +62,7 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "sessions", label: "Sessions" },
   { id: "settings", label: "Settings" },
-  { id: "positions", label: "Positions" },
+  { id: "roles", label: "Roles" },
   { id: "agents", label: "Agents" },
   { id: "events", label: "Events" },
   { id: "channels", label: "Channels" },
@@ -92,7 +92,7 @@ export default function AgentPage({
   const agent = agents.find((a) => a.id === agentId);
 
   const resolvedAgentId = agent?.id || agentId;
-  // Entity-scoped tabs (Agents, Positions, Overview) read the agent's
+  // Entity-scoped tabs (Agents, Roles, Overview) read the agent's
   // entity_id directly — every agent the URL points at is owned by
   // exactly one entity (foreign-key relation, no fuzzy matching).
   const resolvedEntityId = agent?.entity_id || resolvedAgentId;
@@ -151,7 +151,7 @@ export default function AgentPage({
 
       {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 
-      {activeTab === "positions" && <EntityPositionsTab entityId={resolvedEntityId} />}
+      {activeTab === "roles" && <EntityRolesTab entityId={resolvedEntityId} />}
 
       {(activeTab === "settings" ||
         activeTab === "channels" ||
