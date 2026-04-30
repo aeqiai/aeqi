@@ -1025,6 +1025,8 @@ mod tests {
                     labels: Vec::new(),
                 },
             ],
+            seed_roles: Vec::new(),
+            seed_role_edges: Vec::new(),
         }
     }
 
@@ -1289,6 +1291,8 @@ mod tests {
             seed_events: Vec::new(),
             seed_ideas: Vec::new(),
             seed_quests: Vec::new(),
+            seed_roles: Vec::new(),
+            seed_role_edges: Vec::new(),
         };
         let imported = spawn_blueprint(
             &imported_template,
