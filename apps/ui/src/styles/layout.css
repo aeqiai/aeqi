@@ -6470,3 +6470,18 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   flex-direction: column;
   gap: 2px;
 }
+
+/* Switcher empty state — no active workspace yet. The trigger reads
+   "Select a company" with a placeholder avatar block; the dropdown
+   contains the companies + create entry. */
+.company-switcher-trigger--empty .company-switcher-name {
+  color: var(--text-secondary);
+  font-style: normal;
+}
+.company-switcher-avatar-empty {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}

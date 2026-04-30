@@ -61,7 +61,8 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // segments (`/foo`) that would otherwise fall through to a stale
     // active-entity render.
     const isCompanyRoute = path === "/" || /^\/c\/[^/]+(\/|$)/.test(path);
-    const isKnownShellRoute = isCompanyRoute || isSettings || isEconomy || isStart || isUserSession;
+    const isKnownShellRoute =
+      isCompanyRoute || isSettings || isEconomy || isStart || isUserSession || isMyInbox;
     const isNotFound = !isKnownShellRoute;
 
     // isHome is now path-based: it fires only at literal `/`, the user

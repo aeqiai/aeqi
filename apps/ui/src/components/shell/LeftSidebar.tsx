@@ -332,20 +332,19 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </Tooltip>
         </div>
 
-        {/* Company group — only shown when the URL puts the user
-            inside a company. Overview is the canonical company
-            landing (its dashboard). Agents / Quests / Ideas / Events
-            are the four facets of company-scoped work, knowledge,
-            and automation. */}
+        {/* Company-scope items — only shown when the URL puts the
+            user inside a company. Flat: no "Company" group header.
+            Once you're in a company, the items are obviously
+            company-scoped — the label was repeating itself. ── */}
         {isEntityScope && (
           <>
-            <SidebarGroup title="Company" groupKey="company">
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
               {navItem("overview", "Company", <CompanyIcon />)}
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("quests", "Quests", <QuestsIcon />)}
               {navItem("ideas", "Ideas", <IdeasIcon />)}
               {navItem("events", "Events", <EventsIcon />)}
-            </SidebarGroup>
+            </nav>
 
             <SidebarGroup title="Operate" groupKey="operate" soon>
               {navItem("projects", "Projects", <ProjectsIcon />, { soon: true })}

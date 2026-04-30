@@ -2,10 +2,8 @@ import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Popover, SelectOption } from "@/components/ui";
 import BlockAvatar from "@/components/BlockAvatar";
-import UserAvatar from "@/components/UserAvatar";
 import { useEntities, useActiveEntity } from "@/queries/entities";
 import { useUIStore } from "@/store/ui";
-import { useAuthStore } from "@/store/auth";
 import type { Entity } from "@/lib/types";
 
 const iconProps = {
@@ -51,16 +49,11 @@ export default function CompanySwitcher() {
   const activeEntityId = useUIStore((s) => s.activeEntity);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const activeEntity = useActiveEntity(activeEntityId);
-  const user = useAuthStore((s) => s.user);
-  const authMode = useAuthStore((s) => s.authMode);
   const [open, setOpen] = useState(false);
 
   // Entity scope = `/c/<entity_id>/...`. Everything else (`/`, `/me/...`,
   // `/economy/...`, `/start`, `/sessions/<id>`) is user scope.
   const isEntityScope = pathname.startsWith("/c/");
-
-  const userName =
-    user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
 
   const select = useCallback(
     (entity: Entity) => {
@@ -80,25 +73,28 @@ export default function CompanySwitcher() {
     setOpen(false);
   }, [navigate]);
 
-  // Trigger label is sticky to the active workspace, NOT the URL
-  // scope. Going to `/me/inbox` from inside `/c/acme` shouldn't make
-  // the switcher flip to "You" — Acme is still the user's current
-  // workspace; the URL just put them in a personal lens temporarily.
-  // Only when there's no active entity at all (brand-new user) does
-  // the trigger fall back to user identity.
+  // Trigger label is sticky to the active workspace. Going to
+  // `/me/inbox` from inside `/c/acme` shouldn't make the switcher
+  // flip — Acme is still the user's current workspace; the URL just
+  // put them in a personal lens. When there's no active workspace
+  // (brand-new user, or it got cleared), the trigger reads as a
+  // clear placeholder — "Select a company" — so the user knows the
+  // dropdown is the next move.
   const triggerEntity = activeEntity ?? null;
-  const triggerLabel = triggerEntity?.name ?? userName;
+  const triggerLabel = triggerEntity?.name ?? "Select a company";
   const triggerAvatar = triggerEntity ? (
     <BlockAvatar name={triggerEntity.name} size={16} />
   ) : (
-    <UserAvatar name={userName} size={16} src={user?.avatar_url} />
+    <span className="company-switcher-avatar-empty" aria-hidden="true" />
   );
 
   const trigger = (
     <button
       type="button"
-      className="company-switcher-trigger"
-      aria-label={triggerEntity ? "Switch workspace" : "Open workspace switcher"}
+      className={`company-switcher-trigger${
+        triggerEntity ? "" : " company-switcher-trigger--empty"
+      }`}
+      aria-label={triggerEntity ? "Switch workspace" : "Select a company"}
     >
       <span className="company-switcher-avatar">{triggerAvatar}</span>
       <span className="company-switcher-name">{triggerLabel}</span>
