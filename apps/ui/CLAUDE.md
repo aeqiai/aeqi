@@ -165,6 +165,16 @@ The two recurring contract bugs the audit catches:
 - Daemon `fetchAll` ordering: `fetchEntities` is user-scoped (no
   X-Entity required); the rest are entity-scoped. Run entities first
   and gate the rest on `getScopedEntity()` returning non-empty.
+- `s.agents` is a directory union, not a per-entity list.
+  `listAgentDirectory` synthesises one root-agent row per company the
+  user owns (from `/api/entities`) and unions with the active scope's
+  `/api/agents` subtree. Any entity-scoped _list_ surface MUST filter
+  by `a.entity_id === entityId` (and usually `|| a.id === entityId` to
+  keep the entity's own root row), or it renders the sidebar entity
+  switcher. Map-style id→name lookups are safe; rendering the array
+  raw is not. Cost of guessing wrong (2026-04-30):
+  `/c/:entityId/agents` shipped without the filter and showed every
+  company on the page.
 
 ## Stack
 
