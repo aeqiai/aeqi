@@ -1,10 +1,8 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CompanySwitcher from "@/components/shell/CompanySwitcher";
 import AccountDropdown from "@/components/shell/AccountDropdown";
 import HelpMenu from "@/components/shell/HelpMenu";
 import Wordmark from "@/components/Wordmark";
-import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 
@@ -107,7 +105,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
@@ -325,12 +322,18 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           <>
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
               {navItem("overview", "Company", <CompanyIcon />)}
-              {/* Order spells the wordmark — Agents · Events · Quests · Ideas. */}
-              {navItem("agents", "Agents", <AgentsIcon />, {
-                action: rowAction("New agent", <PlusIcon />, () => setPickerOpen(true)),
-              })}
+              {/* Order spells the wordmark — Agents · Events · Quests · Ideas.
+                  "+" caps live on Quests and Ideas — the daily-driver primitives
+                  (a quest for every "do this", an idea for every note). Agents
+                  is set up once per role via the Blueprint flow at /start, so
+                  no sidebar cap. Events are emitted, not authored. */}
+              {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("events", "Events", <EventsIcon />)}
-              {navItem("quests", "Quests", <QuestsIcon />)}
+              {navItem("quests", "Quests", <QuestsIcon />, {
+                action: rowAction("New quest", <PlusIcon />, () => {
+                  navigate(`${base}/quests/new`);
+                }),
+              })}
               {navItem("ideas", "Ideas", <IdeasIcon />, {
                 action: rowAction("New idea", <PlusIcon />, () => {
                   navigate(`${base}/ideas?compose=1`);
@@ -366,14 +369,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </div>
         </div>
       </div>
-
-      {hasCompany && entityId && (
-        <BlueprintPickerModal
-          open={pickerOpen}
-          onClose={() => setPickerOpen(false)}
-          entityId={entityId}
-        />
-      )}
 
       {!sidebarCollapsed && (
         <div
