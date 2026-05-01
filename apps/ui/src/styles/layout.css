@@ -6464,6 +6464,12 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   flex-direction: column;
   gap: 2px;
 }
+/* Two stacked zones (e.g. Company-cockpit row + four primitives) get a
+   small breathing gap between them — separates "the company itself"
+   from "the things inside it" without needing a header label. */
+.sidebar-zone + .sidebar-zone {
+  margin-top: 8px;
+}
 
 /* Switcher empty state — no active workspace yet. The trigger reads
    "Select a company" with a placeholder avatar block; the dropdown

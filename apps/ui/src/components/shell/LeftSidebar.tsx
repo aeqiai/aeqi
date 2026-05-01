@@ -322,11 +322,14 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           <>
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
               {navItem("overview", "Company", <CompanyIcon />)}
-              {/* Order spells the wordmark — Agents · Events · Quests · Ideas.
-                  "+" caps live on Quests and Ideas — the daily-driver primitives
-                  (a quest for every "do this", an idea for every note). Agents
-                  is set up once per role via the Blueprint flow at /start, so
-                  no sidebar cap. Events are emitted, not authored. */}
+            </nav>
+            {/* Four-primitive zone — separated from the Company cockpit by a
+                small gap (see `.sidebar-zone + .sidebar-zone` rule in
+                layout.css). Order spells the wordmark Agents · Events ·
+                Quests · Ideas. "+" caps on Quests and Ideas (daily drivers);
+                Agents is set up once via the Blueprint flow at /start;
+                Events are emitted by agents, not authored. */}
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Primitives">
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("events", "Events", <EventsIcon />)}
               {navItem("quests", "Quests", <QuestsIcon />, {
