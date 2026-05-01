@@ -9,29 +9,30 @@ import { useMemo } from "react";
  * derivations it replaces.
  */
 export interface ShellSurface {
-  isHome: boolean;
   isSettings: boolean;
   isEconomy: boolean;
   isDrive: boolean;
   isStart: boolean;
   /** True when the path doesn't match any known shell surface — drives the
-   *  in-shell 404 dispatch. Stays false for `/`, `/me/...`, `/start`,
-   *  `/economy/...`, and `/c/:entityId/...`. */
+   *  in-shell 404 dispatch. Stays false for `/`, `/portfolio`, `/me/...`,
+   *  `/start`, `/economy/...`, and `/c/:entityId/...`. */
   isNotFound: boolean;
-  /** `/me/inbox` — the global human action queue. */
+  /** `/` — the global human action queue (Inbox is the canonical root). */
   isMyInbox: boolean;
+  /** `/portfolio` — personal cross-company view (holdings, performance). */
+  isPortfolio: boolean;
 }
 
 export function useShellSurface(path: string, tab: string | undefined): ShellSurface {
   return useMemo(() => {
-    // /me/* family. The user-scope namespace splits into:
-    //   - my-inbox: /me/inbox (the global action queue)
-    //   - settings: /me, /me/profile, /me/billing, /me/security, …
-    // Settings owns the catch-all so any unrecognised /me/<x> falls
-    // back to the existing ProfilePage rather than 404.
-    const isMyInbox = path === "/me/inbox";
-    const isSettings =
-      !isMyInbox && (path === "/me" || path.startsWith("/me/") || tab === "profile");
+    // Inbox lives at root. The user-scope namespace `/me/*` is settings:
+    // /me, /me/profile, /me/billing, /me/security, … Settings owns the
+    // catch-all so any unrecognised /me/<x> falls back to ProfilePage
+    // rather than 404. The legacy /me/inbox URL is redirected to `/`
+    // in AppLayout before this hook resolves it as settings.
+    const isMyInbox = path === "/";
+    const isPortfolio = path === "/portfolio";
+    const isSettings = path === "/me" || path.startsWith("/me/") || tab === "profile";
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
     const isStart = path === "/start" || path.startsWith("/start/");
     const isDrive = tab === "drive";
@@ -41,22 +42,18 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // segments (`/foo`) that would otherwise fall through to a stale
     // active-entity render.
     const isCompanyRoute = path === "/" || /^\/c\/[^/]+(\/|$)/.test(path);
-    const isKnownShellRoute = isCompanyRoute || isSettings || isEconomy || isStart || isMyInbox;
+    const isKnownShellRoute =
+      isCompanyRoute || isPortfolio || isSettings || isEconomy || isStart || isMyInbox;
     const isNotFound = !isKnownShellRoute;
 
-    // isHome fires only at literal `/`, the user feed surface.
-    // `/c/<entity>` is the company feed surface, dispatched directly in
-    // AppLayout from routeEntityId.
-    const isHome = path === "/" && !isNotFound;
-
     return {
-      isHome,
       isSettings,
       isEconomy,
       isDrive,
       isStart,
       isNotFound,
       isMyInbox,
+      isPortfolio,
     };
   }, [path, tab]);
 }

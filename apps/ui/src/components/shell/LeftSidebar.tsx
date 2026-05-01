@@ -21,17 +21,18 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const HomeIcon = () => (
-  <svg {...iconProps}>
-    <path d="M2.5 7.5L8 3l5.5 4.5" />
-    <path d="M3.5 7v6.5h9V7" />
-  </svg>
-);
-
 const InboxIcon = () => (
   <svg {...iconProps}>
     <rect x="2" y="3.5" width="12" height="9" rx="0.5" />
     <path d="M2 8h3.5l1 1.5h3l1-1.5H14" />
+  </svg>
+);
+
+const PortfolioIcon = () => (
+  <svg {...iconProps}>
+    <rect x="2" y="5" width="12" height="8" rx="0.5" />
+    <path d="M5.5 5V3.5h5V5" />
+    <path d="M2 8.5h12" />
   </svg>
 );
 
@@ -164,11 +165,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
   // Personal items — Home (the global director cockpit) and Inbox
-  // (the global human action queue). Both always live at user-scope
-  // URLs and don't filter by selected company. Active states are
-  // path-equality checks.
-  const homeActive = path === "/";
-  const inboxActive = path === "/me/inbox";
+  // (the global human action queue). Inbox is the canonical root.
+  // Portfolio is the cross-company personal view (holdings,
+  // performance) at `/portfolio`. Both invariant of the active
+  // company.
+  const inboxActive = path === "/";
+  const portfolioActive = path === "/portfolio";
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
 
   const navItem = (
@@ -265,39 +267,39 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* Home + Inbox — the two global personal destinations. Home
-            is the director cockpit (cross-company dashboard). Inbox
-            is the global human action queue. Both are invariant
-            regardless of selected company; both decline to silently
-            inherit company filter state. */}
+        {/* Personal zone — Inbox + Portfolio. Inbox (`/`) is the global
+            human action queue. Portfolio (`/portfolio`) is the
+            cross-company holdings/performance view. Both invariant of
+            the active company. Search lives as the Inbox row's
+            right-cap. */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="Personal">
           <div className="sidebar-nav-row">
             <a
-              className={`sidebar-nav-item ${homeActive ? "active" : ""}`}
+              className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
               href="/"
-              title="Home"
+              title="Inbox"
               onClick={(e) => {
                 e.preventDefault();
                 navigate("/");
               }}
             >
-              <HomeIcon />
-              <span className="sidebar-nav-label">Home</span>
+              <InboxIcon />
+              <span className="sidebar-nav-label">Inbox</span>
             </a>
             {rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`)}
           </div>
           <div className="sidebar-nav-row">
             <a
-              className={`sidebar-nav-item ${inboxActive ? "active" : ""}`}
-              href="/me/inbox"
-              title="Inbox"
+              className={`sidebar-nav-item ${portfolioActive ? "active" : ""}`}
+              href="/portfolio"
+              title="Portfolio"
               onClick={(e) => {
                 e.preventDefault();
-                navigate("/me/inbox");
+                navigate("/portfolio");
               }}
             >
-              <InboxIcon />
-              <span className="sidebar-nav-label">Inbox</span>
+              <PortfolioIcon />
+              <span className="sidebar-nav-label">Portfolio</span>
             </a>
           </div>
         </nav>

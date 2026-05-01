@@ -25,23 +25,20 @@ const StartPage = lazy(() => import("@/pages/StartPage"));
 const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
-const Dashboard = lazy(() => import("./Dashboard"));
 const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
+const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
 // Tabs that route through CompanyPage. Overview is the canonical
 // company landing; Roles is the org-chart; Cap Table / Treasury /
-// Budgets / Transactions / Governance are the company's financial and
-// decisions surfaces (equity, balance state, planned spend, flow,
-// proposals) — they live as company-scoped tabs because they describe
-// the company entity itself, not anything beneath it.
+// Governance / Settings are the company's financial, decisions, and
+// configuration surfaces. Treasury holds the full financial picture
+// (balance, budgets, transactions) as sub-views once wired.
 const COMPANY_PAGERAIL_TABS = new Set([
   "overview",
   "roles",
   "cap-table",
   "treasury",
-  "budgets",
-  "transactions",
   "governance",
   "settings",
 ]);
@@ -119,8 +116,6 @@ export default function AppLayout() {
       overview: "Overview",
       "cap-table": "Cap Table",
       treasury: "Treasury",
-      budgets: "Budgets",
-      transactions: "Transactions",
       governance: "Governance",
     };
     const section = tab || "sessions";
@@ -166,7 +161,7 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
 
-  const { isHome, isSettings, isEconomy, isDrive, isStart, isNotFound, isMyInbox } = surface;
+  const { isSettings, isEconomy, isDrive, isStart, isNotFound, isMyInbox, isPortfolio } = surface;
 
   if (!initialLoaded) return <BootLoader />;
 
@@ -190,10 +185,9 @@ export default function AppLayout() {
 
   const base = encodedEntityId ? `/c/${encodedEntityId}` : "/";
   // No-tab default at entity scope = "overview" (the company
-  // dashboard is the canonical landing). No-tab at user scope falls
-  // back to "sessions" but isHome short-circuits earlier so that
-  // value is rarely consulted. Drilled agents still default to
-  // "sessions" so the bare drilled URL opens the chat surface.
+  // dashboard is the canonical landing). At user scope `/`, isMyInbox
+  // dispatches before the tab default is consulted. Drilled agents
+  // default to "sessions" so the bare drilled URL opens chat.
   const effectiveTab = tab || (routeEntityId && !drilledAgent ? "overview" : "sessions");
 
   // Runtime mode has no account-level identity surface.
@@ -223,7 +217,7 @@ export default function AppLayout() {
       return <StartPage />;
     }
     if (isMyInbox) return <MeInboxPage />;
-    if (isHome) return <Dashboard />;
+    if (isPortfolio) return <PortfolioPage />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
@@ -241,16 +235,16 @@ export default function AppLayout() {
   })();
 
   // The chat composer + sessions rail only belong on the chat surface
-  // (drilled agent at /c/<entity>/agents/<id>/sessions[/<sid>]).
-  // Dashboard, inbox, company overview, list pages — none of these
-  // mount the composer. The legacy `/sessions/<id>` URL redirects to
-  // the deep shape outside this shell, so we don't special-case it.
+  // (drilled agent at /c/<entity>/agents/<id>/sessions[/<sid>]). Inbox,
+  // company overview, list pages — none of these mount the composer.
+  // The legacy `/sessions/<id>` URL redirects to the deep shape
+  // outside this shell, so we don't special-case it.
   const sessionsMounted =
     !isNotFound &&
     !isDrive &&
     !isSettings &&
-    !isHome &&
     !isMyInbox &&
+    !isPortfolio &&
     !isStart &&
     !isEconomy &&
     effectiveTab === "sessions";

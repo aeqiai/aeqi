@@ -1,20 +1,16 @@
 import { useEffect } from "react";
 import AgentPage from "@/components/AgentPage";
 import PageRail from "@/components/PageRail";
-import CapTablePage from "@/pages/CapTablePage";
+import OwnershipPage from "@/pages/OwnershipPage";
 import TreasuryPage from "@/pages/TreasuryPage";
-import BudgetsPage from "@/pages/BudgetsPage";
-import TransactionsPage from "@/pages/TransactionsPage";
 import GovernancePage from "@/pages/GovernancePage";
 import CompanySettingsPage from "@/pages/CompanySettingsPage";
 
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "roles", label: "Roles" },
-  { id: "cap-table", label: "Cap Table" },
+  { id: "ownership", label: "Ownership" },
   { id: "treasury", label: "Treasury" },
-  { id: "budgets", label: "Budgets" },
-  { id: "transactions", label: "Transactions" },
   { id: "governance", label: "Governance" },
   { id: "settings", label: "Settings" },
 ];
@@ -22,10 +18,8 @@ const TABS = [
 const TAB_TITLES: Record<string, string> = {
   overview: "overview",
   roles: "roles",
-  "cap-table": "cap table",
+  ownership: "ownership",
   treasury: "treasury",
-  budgets: "budgets",
-  transactions: "transactions",
   governance: "governance",
   settings: "settings",
 };
@@ -40,15 +34,16 @@ interface CompanyPageProps {
 }
 
 /**
- * `/c/:entityId/{overview,roles,cap-table,treasury,budgets,transactions,governance,settings}`
+ * `/c/:entityId/{overview,roles,ownership,treasury,governance,settings}`
  * — the company cockpit. The PageRail is the company's secondary nav,
  * sitting below the global LeftSidebar's company section (which owns the
  * four primitives + Overview). Overview / Roles delegate to AgentPage;
- * Cap Table / Treasury / Budgets / Transactions / Governance / Settings
- * are dedicated company-entity views (equity, balance state, planned
- * spend, financial flow, proposals, configuration) so they render their
- * own pages inside the same rail. Settings is company-scoped — distinct
- * from the user-account settings at `/me/*`.
+ * Ownership / Treasury / Governance / Settings are dedicated
+ * company-entity views (cap table, balance + budgets + transactions,
+ * proposals, configuration) so they render their own pages inside the
+ * same rail. Treasury holds the full financial picture (state, planned
+ * spend, realised flow) as sub-views once wired. Settings is
+ * company-scoped — distinct from user-account settings at `/me/*`.
  */
 export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyPageProps) {
   useEffect(() => {
@@ -66,14 +61,10 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
         currentValue={tab}
       />
       <div className="page-rail-content page-rail-content--full">
-        {tab === "cap-table" ? (
-          <CapTablePage />
+        {tab === "ownership" ? (
+          <OwnershipPage />
         ) : tab === "treasury" ? (
           <TreasuryPage />
-        ) : tab === "budgets" ? (
-          <BudgetsPage />
-        ) : tab === "transactions" ? (
-          <TransactionsPage />
         ) : tab === "governance" ? (
           <GovernancePage />
         ) : tab === "settings" ? (

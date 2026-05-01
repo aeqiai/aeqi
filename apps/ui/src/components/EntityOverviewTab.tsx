@@ -186,7 +186,7 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
               Awaiting you
             </h2>
             {entityInbox.length > 0 && (
-              <Link to="/me/inbox" className="dashboard-card-link">
+              <Link to="/" className="dashboard-card-link">
                 Open inbox →
               </Link>
             )}
