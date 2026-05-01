@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { getScopedEntity } from "@/lib/appMode";
 
-const SIDEBAR_WIDTH_DEFAULT = 224;
+// Default = the draggable floor, so the rail opens at its leanest by
+// default. Users who want more room drag the resizer; the value
+// persists in localStorage.
+const SIDEBAR_WIDTH_DEFAULT = 180;
 const SIDEBAR_WIDTH_MIN = 180;
 const SIDEBAR_WIDTH_MAX = 400;
 
