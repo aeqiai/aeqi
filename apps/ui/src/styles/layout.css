@@ -6130,39 +6130,48 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    Full-width trigger in the sidebar header. Shows the entity name,
    avatar, and a down-chevron. Row height matches --sidebar-row-h so
    the slot reads as a first-class nav row, not a floating header. */
+/* The switcher is the sidebar's pivot — clicking it changes the
+   entire app's context. Earns the ink treatment (near-black graphite
+   background, light text) so it reads as the structural anchor: rows
+   above and below sit on paper, the switcher itself is the one ink
+   block. Within the v5.1 ratio rule (~70% paper · 28% ink · 2%
+   accent), this is the right place to spend ink — the most
+   consequential single button gets the most consequential surface. */
 .company-switcher-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   min-height: var(--sidebar-row-h);
-  padding: 0 8px;
-  background: transparent;
+  padding: 0 10px;
+  background: var(--color-accent);
   border: 0;
   border-radius: var(--radius-md);
   font-family: inherit;
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--color-text-title);
+  color: var(--btn-primary-text, #fff);
   cursor: pointer;
   text-align: left;
   transition:
-    background 0.1s ease,
-    color 0.1s ease;
+    background 0.12s ease,
+    color 0.12s ease;
 }
 .company-switcher-trigger:hover {
-  background: var(--state-hover);
+  background: var(--color-accent-hover);
 }
 .company-switcher-trigger:focus-visible {
-  outline: 1px solid var(--border-hover);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-card),
+    0 0 0 3px var(--color-accent);
 }
 /* Single-company at entity scope: trigger downgrades to a static label. */
 .company-switcher-trigger--static {
   cursor: default;
 }
 .company-switcher-trigger--static:hover {
-  background: transparent;
+  background: var(--color-accent);
 }
 .company-switcher-avatar {
   width: 16px;
@@ -6180,7 +6189,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .company-switcher-chevron {
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.65);
   display: inline-flex;
   align-items: center;
 }
@@ -6472,10 +6481,10 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 
 /* Switcher empty state — no active workspace yet. The trigger reads
-   "Select a company" with a placeholder avatar block; the dropdown
-   contains the companies + create entry. */
+   "Select a company" on the ink surface; placeholder avatar block
+   stays muted but visible against the dark background. */
 .company-switcher-trigger--empty .company-switcher-name {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.7);
   font-style: normal;
 }
 .company-switcher-avatar-empty {
@@ -6483,5 +6492,5 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   width: 16px;
   height: 16px;
   border-radius: var(--radius-sm);
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.12);
 }
