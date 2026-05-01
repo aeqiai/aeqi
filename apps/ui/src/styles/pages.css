@@ -727,7 +727,9 @@
 
 .page-rail {
   flex-shrink: 0;
-  width: 200px;
+  /* Matches the LeftSidebar's draggable floor (180px) so both rails
+     share one width register at rest. */
+  width: 180px;
   display: flex;
   flex-direction: column;
   gap: 2px;
