@@ -71,12 +71,14 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
     ? (statusRaw as StatusFilter)
     : "all";
 
-  // Show ALL agents — no entity filter. Agents are global assets; an
-  // agent may be owned by entity X and hold a position in entity Y, or
-  // hold no position at all. The Agents tab lists every agent the user
-  // has visibility on; sort / filter / search narrow from there.
+  // `s.agents` is a directory union (every company-root from
+  // /api/entities + the active scope's /api/agents subtree); without
+  // this filter the tab renders the sidebar entity switcher.
   const allAgents = useDaemonStore((s) => s.agents);
-  const entityAgents = allAgents;
+  const entityAgents = useMemo(
+    () => allAgents.filter((a) => a.entity_id === entityId),
+    [allAgents, entityId],
+  );
 
   // Positions + edges drive the chart view. Loaded lazily so the list
   // view doesn't pay the round-trip when chart isn't requested.
