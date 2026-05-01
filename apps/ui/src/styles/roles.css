@@ -1,0 +1,238 @@
+/* Roles surface — the company org chart.
+ *
+ * Three views on one DAG: chart (default, hero), cards, list. They share
+ * one `.role-node` tile so flipping views never feels like flipping
+ * apps. The chart canvas is absolutely positioned; everything else
+ * flows.
+ *
+ * Toolbar reuses `.ideas-list-head` + `.ideas-toolbar` + the popover
+ * primitives — see `ideas/Ideas*Popover.tsx`. Per `feedback_no_hairlines`,
+ * grouping comes from value contrast (paper → card → elevated), not
+ * from 1px borders. The exception is the role tile itself, which needs
+ * a perceivable shell to read as a discrete artifact in the DAG; that
+ * border is the ladder's `--border-faint` and is the only one allowed
+ * on this surface.
+ */
+
+/* ------------------------------------------------------------------
+   Role tile — shared between chart and cards.
+   ------------------------------------------------------------------ */
+.role-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--color-card-elevated, #ffffff);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  text-align: left;
+  font-family: var(--font-sans);
+  cursor: default;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.role-node.is-clickable {
+  cursor: pointer;
+}
+.role-node.is-clickable:hover {
+  background: var(--color-card-elevated, #ffffff);
+  border-color: var(--border-strong, var(--border-hover));
+}
+.role-node.is-clickable:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-muted);
+  border-color: var(--accent-dim);
+}
+.role-node.is-selected {
+  border-color: var(--accent);
+}
+
+.role-node-monogram {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--btn-primary-text, #fff);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
+}
+
+.role-node--human .role-node-monogram {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong, var(--border));
+}
+
+.role-node--vacant {
+  background: var(--color-card);
+  border-style: dashed;
+  border-color: var(--border-strong, var(--border));
+  color: var(--text-secondary);
+}
+.role-node--vacant .role-node-monogram {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-strong, var(--border));
+}
+
+.role-node-body {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+  flex: 1;
+}
+.role-node-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.role-node-occupant {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.role-node--vacant .role-node-title {
+  color: var(--text-secondary);
+}
+
+/* Cards-grid variant — same tile, taller breathing room. */
+.role-node--card {
+  width: 100%;
+  min-height: 76px;
+}
+
+/* ------------------------------------------------------------------
+   Chart view — DAG canvas + connectors.
+   ------------------------------------------------------------------ */
+.roles-chart-scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12px;
+}
+.roles-chart-canvas {
+  position: relative;
+  flex-shrink: 0;
+}
+.roles-chart-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.roles-chart-edge-path {
+  fill: none;
+  stroke: var(--border-strong, var(--border));
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+.roles-chart-canvas .role-node {
+  position: absolute;
+}
+
+/* ------------------------------------------------------------------
+   Cards view — responsive grid.
+   ------------------------------------------------------------------ */
+.roles-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  padding: 16px 24px 32px;
+}
+
+/* ------------------------------------------------------------------
+   List view — dense table with reports-to column.
+   ------------------------------------------------------------------ */
+.roles-list {
+  padding: 0 24px 24px;
+}
+.roles-list-head,
+.roles-list-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(160px, 1.4fr) minmax(140px, 1fr) 120px;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 8px;
+  text-align: left;
+}
+.roles-list-head {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-faint);
+  font-weight: 500;
+}
+.roles-list-row {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-faint);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.12s ease;
+}
+.roles-list-row:hover {
+  background: var(--color-card-elevated, var(--bg-row));
+}
+.roles-list-row:focus-visible {
+  outline: none;
+  background: var(--color-card-elevated, var(--bg-row));
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+.roles-list-cell-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roles-list-cell-occupant {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roles-list-cell-occupant strong {
+  font-weight: 500;
+}
+.roles-list-cell-kind {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.roles-list-cell-parents {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roles-list-cell-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.roles-list-cell-muted {
+  color: var(--text-muted);
+}

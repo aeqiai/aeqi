@@ -1,38 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
-import type { Role, RoleEdge } from "@/lib/types";
+import type { OccupantKind, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, EmptyState, Input } from "./ui";
+import "@/styles/roles.css";
+import { Button, EmptyState, Tooltip } from "./ui";
 import NewRoleModal from "./roles/NewRoleModal";
+import RolesChart from "./roles/RolesChart";
+import RolesCards from "./roles/RolesCards";
+import RolesList from "./roles/RolesList";
+import RolesSortPopover from "./roles/RolesSortPopover";
+import RolesFilterPopover from "./roles/RolesFilterPopover";
+import RolesViewPopover from "./roles/RolesViewPopover";
+import {
+  type OccupantFilter,
+  type RolesFilterState,
+  parseOccupantFilter,
+  parseSort,
+  parseView,
+} from "./roles/types";
 
-type ViewMode = "list" | "chart";
-type SortMode = "title" | "kind" | "created";
-
-const VIEW_VALUES: ViewMode[] = ["list", "chart"];
-const SORT_VALUES: SortMode[] = ["title", "kind", "created"];
-
-const parseView = (raw: string | null): ViewMode =>
-  raw && (VIEW_VALUES as string[]).includes(raw) ? (raw as ViewMode) : "list";
-
-const parseSort = (raw: string | null): SortMode =>
-  raw && (SORT_VALUES as string[]).includes(raw) ? (raw as SortMode) : "title";
+const KIND_RANK: Record<OccupantKind, number> = { agent: 0, human: 1, vacant: 2 };
 
 /**
- * Roles tab. The org-chart of an entity. Two views: a flat list and a
- * layered DAG chart. Filter + sort + view live in the URL so switching
- * tabs and back preserves state.
+ * Roles — the company org-chart surface.
+ *
+ * Hero is the layered DAG (`view=chart`, default). `view=cards` and
+ * `view=list` are alternates for dense overviews. Toolbar grammar
+ * mirrors Ideas: search · sort · filter · view · + new. State persists
+ * in URL search params so a tab switch round-trip preserves the frame.
  *
  * Roles are seeded automatically when an entity is spawned from a
  * Blueprint — every seeded agent gets a fresh role, and every
  * delegation edge becomes a role edge. The "+ New role" affordance
- * creates additional slots (vacant or occupied) inside the entity's
+ * appends additional slots (vacant or occupied) inside the entity's
  * DAG.
  */
 export default function EntityRolesTab({ entityId }: { entityId: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { goEntity } = useNav();
   const view = parseView(searchParams.get("view"));
   const sort = parseSort(searchParams.get("sort"));
+  const occupantFilter = parseOccupantFilter(searchParams.get("occupant"));
   const search = searchParams.get("q") ?? "";
 
   const [roles, setRoles] = useState<Role[]>([]);
@@ -42,9 +52,9 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
   const [composing, setComposing] = useState(false);
 
   const agents = useDaemonStore((s) => s.agents);
-  const agentById = useMemo(() => {
-    const m = new Map<string, { id: string; name: string }>();
-    for (const a of agents) m.set(a.id, { id: a.id, name: a.name });
+  const agentNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of agents) m.set(a.id, a.name);
     return m;
   }, [agents]);
 
@@ -80,15 +90,61 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
     [searchParams, setSearchParams],
   );
 
+  const filter: RolesFilterState = useMemo(
+    () => ({ search, sort, occupant: occupantFilter }),
+    [search, sort, occupantFilter],
+  );
+
+  const setFilter = useCallback(
+    (patch: Partial<RolesFilterState>) =>
+      patchParams((p) => {
+        if ("search" in patch) {
+          if (patch.search) p.set("q", patch.search);
+          else p.delete("q");
+        }
+        if ("sort" in patch) {
+          if (patch.sort && patch.sort !== "title") p.set("sort", patch.sort);
+          else p.delete("sort");
+        }
+        if ("occupant" in patch) {
+          if (patch.occupant && patch.occupant !== "all") p.set("occupant", patch.occupant);
+          else p.delete("occupant");
+        }
+      }),
+    [patchParams],
+  );
+
+  const setView = useCallback(
+    (next: typeof view) =>
+      patchParams((p) => {
+        if (next === "chart") p.delete("view");
+        else p.set("view", next);
+      }),
+    [patchParams],
+  );
+
+  const occupantCounts = useMemo(() => {
+    const counts: Record<OccupantFilter, number> = { all: 0, agent: 0, human: 0, vacant: 0 };
+    for (const r of roles) {
+      counts.all += 1;
+      counts[r.occupant_kind] += 1;
+    }
+    return counts;
+  }, [roles]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = roles.slice();
+    if (occupantFilter !== "all") {
+      rows = rows.filter((r) => r.occupant_kind === occupantFilter);
+    }
     if (q) {
-      rows = rows.filter((p) => {
-        if (p.title.toLowerCase().includes(q)) return true;
-        if (p.occupant_id) {
-          const occ = agentById.get(p.occupant_id);
-          if (occ && occ.name.toLowerCase().includes(q)) return true;
+      rows = rows.filter((r) => {
+        if (r.title.toLowerCase().includes(q)) return true;
+        if (r.occupant_id) {
+          const name = agentNames.get(r.occupant_id);
+          if (name && name.toLowerCase().includes(q)) return true;
+          if (r.occupant_id.toLowerCase().includes(q)) return true;
         }
         return false;
       });
@@ -96,89 +152,136 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
     rows.sort((a, b) => {
       switch (sort) {
         case "kind":
-          return a.occupant_kind.localeCompare(b.occupant_kind) || a.title.localeCompare(b.title);
-        case "created":
-          return a.created_at.localeCompare(b.created_at);
+          return (
+            KIND_RANK[a.occupant_kind] - KIND_RANK[b.occupant_kind] ||
+            a.title.localeCompare(b.title)
+          );
+        case "recent":
+          return b.created_at.localeCompare(a.created_at);
         case "title":
         default:
           return a.title.localeCompare(b.title);
       }
     });
     return rows;
-  }, [roles, search, sort, agentById]);
+  }, [roles, search, sort, occupantFilter, agentNames]);
+
+  const filteredIds = useMemo(() => new Set(filtered.map((r) => r.id)), [filtered]);
+  const filteredEdges = useMemo(
+    () =>
+      edges.filter((e) => filteredIds.has(e.parent_role_id) && filteredIds.has(e.child_role_id)),
+    [edges, filteredIds],
+  );
+
+  const handleSelectRole = useCallback(
+    (role: Role) => {
+      if (role.occupant_kind === "agent" && role.occupant_id) {
+        goEntity(entityId, "agents", role.occupant_id);
+      }
+    },
+    [goEntity, entityId],
+  );
+
+  const showEmpty = !loading && !error && roles.length === 0;
+  const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      <div className="ideas-list-head ideas-toolbar">
-        <Input
-          placeholder="Search roles"
-          value={search}
-          onChange={(e) =>
-            patchParams((p) => {
-              if (e.target.value) p.set("q", e.target.value);
-              else p.delete("q");
-            })
-          }
-          className="ideas-list-search-field"
-        />
-        <div className="ideas-toolbar-meta">
-          <button
-            type="button"
-            className={`ideas-toolbar-btn ${sort !== "title" ? "active" : ""}`}
-            onClick={() => {
-              const next: Record<SortMode, SortMode> = {
-                title: "kind",
-                kind: "created",
-                created: "title",
-              };
-              patchParams((p) => {
-                const ns = next[sort];
-                if (ns === "title") p.delete("sort");
-                else p.set("sort", ns);
-              });
-            }}
-            title={`Sort: ${sort}`}
-          >
-            sort · {sort}
-          </button>
-          <div role="tablist" aria-label="View" style={{ display: "inline-flex", gap: 0 }}>
-            {VIEW_VALUES.map((v) => (
+      <div className="ideas-list-head">
+        <div className="ideas-toolbar">
+          <span className="ideas-list-search-field">
+            <svg
+              className="ideas-list-search-glyph"
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <circle cx="5.2" cy="5.2" r="3.2" />
+              <path d="M7.6 7.6 L10 10" />
+            </svg>
+            <input
+              className="ideas-list-search"
+              type="text"
+              placeholder="Search roles"
+              value={search}
+              onChange={(e) => setFilter({ search: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && search) setFilter({ search: "" });
+              }}
+            />
+            {search && (
               <button
-                key={v}
-                role="tab"
-                aria-selected={view === v}
                 type="button"
-                className={`ideas-toolbar-btn ${view === v ? "active" : ""}`}
-                onClick={() =>
-                  patchParams((p) => {
-                    if (v === "list") p.delete("view");
-                    else p.set("view", v);
-                  })
-                }
+                className="ideas-list-search-clear"
+                onClick={() => setFilter({ search: "" })}
+                aria-label="Clear search"
               >
-                {v}
+                ×
               </button>
-            ))}
-          </div>
-        </div>
-        <div className="primitive-head-actions">
-          <Button variant="primary" onClick={() => setComposing(true)}>
-            + New role
-          </Button>
+            )}
+          </span>
+          <RolesSortPopover sort={sort} onChange={(next) => setFilter({ sort: next })} />
+          <RolesFilterPopover
+            filter={filter}
+            occupantCounts={occupantCounts}
+            onChange={setFilter}
+          />
+          <RolesViewPopover view={view} onChange={setView} />
+          <Tooltip content="New role">
+            <Button variant="primary" size="sm" onClick={() => setComposing(true)}>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+              New
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         {loading && <RolesLoading />}
         {error && <RolesError message={error} />}
-        {!loading && !error && roles.length === 0 && <RolesEmptyState />}
-        {!loading && !error && roles.length > 0 && view === "list" && (
-          <RolesList roles={filtered} agentById={agentById} />
+        {showEmpty && <RolesEmptyState />}
+        {showNoMatch && <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />}
+        {!loading && !error && filtered.length > 0 && view === "chart" && (
+          <RolesChart
+            roles={filtered}
+            edges={filteredEdges}
+            agentNames={agentNames}
+            onSelectRole={handleSelectRole}
+          />
         )}
-        {!loading && !error && roles.length > 0 && view === "chart" && (
-          <RolesChart roles={filtered} edges={edges} agentById={agentById} />
+        {!loading && !error && filtered.length > 0 && view === "cards" && (
+          <div style={{ flex: 1, overflow: "auto" }}>
+            <RolesCards roles={filtered} agentNames={agentNames} onSelectRole={handleSelectRole} />
+          </div>
+        )}
+        {!loading && !error && filtered.length > 0 && view === "list" && (
+          <div style={{ flex: 1, overflow: "auto" }}>
+            <RolesList
+              roles={filtered}
+              edges={filteredEdges}
+              agentNames={agentNames}
+              onSelectRole={handleSelectRole}
+            />
+          </div>
         )}
       </div>
+
       <NewRoleModal
         open={composing}
         onClose={() => setComposing(false)}
@@ -215,176 +318,18 @@ function RolesEmptyState() {
   );
 }
 
-function OccupantLabel({
-  role,
-  agentById,
-}: {
-  role: Role;
-  agentById: Map<string, { id: string; name: string }>;
-}) {
-  if (role.occupant_kind === "vacant") {
-    return <span style={{ color: "var(--text-muted)" }}>vacant</span>;
-  }
-  if (role.occupant_kind === "agent" && role.occupant_id) {
-    const a = agentById.get(role.occupant_id);
-    return (
-      <span>
-        agent · <strong>{a?.name ?? role.occupant_id.slice(0, 8)}</strong>
-      </span>
-    );
-  }
-  if (role.occupant_kind === "human" && role.occupant_id) {
-    return (
-      <span>
-        human · <strong>{role.occupant_id.slice(0, 12)}</strong>
-      </span>
-    );
-  }
-  return <span style={{ color: "var(--text-muted)" }}>{role.occupant_kind}</span>;
-}
-
-function RolesList({
-  roles,
-  agentById,
-}: {
-  roles: Role[];
-  agentById: Map<string, { id: string; name: string }>;
-}) {
+function RolesNoMatch({ onReset }: { onReset: () => void }) {
   return (
-    <div style={{ padding: "0 28px 32px" }}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 160px",
-          padding: "10px 0",
-          borderBottom: "1px solid var(--border-faint)",
-          fontSize: 11,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          color: "var(--text-muted)",
-        }}
-      >
-        <div>Title</div>
-        <div>Occupant</div>
-        <div>Created</div>
-      </div>
-      {roles.map((p) => (
-        <div
-          key={p.id}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 160px",
-            padding: "12px 0",
-            borderBottom: "1px solid var(--border-faint)",
-            alignItems: "baseline",
-          }}
-        >
-          <div style={{ fontWeight: 500 }}>{p.title || <em>(untitled)</em>}</div>
-          <div>
-            <OccupantLabel role={p} agentById={agentById} />
-          </div>
-          <div style={{ color: "var(--text-muted)", fontSize: 12 }}>
-            {p.created_at.slice(0, 10)}
-          </div>
-        </div>
-      ))}
+    <div style={{ padding: "48px 28px" }}>
+      <EmptyState
+        title="No roles match these filters."
+        description="Widen the search or clear the occupant filter to bring rows back."
+        action={
+          <Button variant="ghost" size="sm" onClick={onReset}>
+            Reset filters
+          </Button>
+        }
+      />
     </div>
   );
-}
-
-/**
- * Layered DAG render. Compute each role's depth as the longest path
- * from any root (a role with no incoming edges), then bucket roles
- * by depth and render rows top-to-bottom. Edges become SVG lines
- * connecting card centres. Sufficient for v1 — replace with a proper
- * layout engine (dagre / elk) when the chart grows past a few dozen
- * nodes.
- */
-function RolesChart({
-  roles,
-  edges,
-  agentById,
-}: {
-  roles: Role[];
-  edges: RoleEdge[];
-  agentById: Map<string, { id: string; name: string }>;
-}) {
-  const layers = useMemo(() => layoutRoles(roles, edges), [roles, edges]);
-  if (layers.length === 0) {
-    return <RolesEmptyState />;
-  }
-  return (
-    <div style={{ padding: "24px 28px 48px" }}>
-      {layers.map((layer, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 16,
-            marginBottom: i === layers.length - 1 ? 0 : 32,
-            position: "relative",
-            flexWrap: "wrap",
-          }}
-        >
-          {layer.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                minWidth: 180,
-                padding: "12px 16px",
-                background: "var(--color-card)",
-                border: "1px solid var(--border-faint)",
-                borderRadius: 8,
-              }}
-            >
-              <div style={{ fontWeight: 500, marginBottom: 4 }}>{p.title || "(untitled)"}</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                <OccupantLabel role={p} agentById={agentById} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function layoutRoles(roles: Role[], edges: RoleEdge[]): Role[][] {
-  if (roles.length === 0) return [];
-  const byId = new Map(roles.map((p) => [p.id, p]));
-  const incoming = new Map<string, string[]>();
-  const outgoing = new Map<string, string[]>();
-  for (const p of roles) {
-    incoming.set(p.id, []);
-    outgoing.set(p.id, []);
-  }
-  for (const e of edges) {
-    if (!byId.has(e.parent_role_id) || !byId.has(e.child_role_id)) continue;
-    incoming.get(e.child_role_id)!.push(e.parent_role_id);
-    outgoing.get(e.parent_role_id)!.push(e.child_role_id);
-  }
-  const depth = new Map<string, number>();
-  const visit = (id: string, seen: Set<string>): number => {
-    if (depth.has(id)) return depth.get(id)!;
-    if (seen.has(id)) return 0;
-    seen.add(id);
-    const parents = incoming.get(id) ?? [];
-    if (parents.length === 0) {
-      depth.set(id, 0);
-      return 0;
-    }
-    let d = 0;
-    for (const parent of parents) {
-      d = Math.max(d, visit(parent, seen) + 1);
-    }
-    depth.set(id, d);
-    return d;
-  };
-  for (const p of roles) visit(p.id, new Set());
-  const maxDepth = Math.max(...Array.from(depth.values()));
-  const layers: Role[][] = Array.from({ length: maxDepth + 1 }, () => []);
-  for (const p of roles) layers[depth.get(p.id) ?? 0].push(p);
-  for (const layer of layers) layer.sort((a, b) => a.title.localeCompare(b.title));
-  return layers;
 }
