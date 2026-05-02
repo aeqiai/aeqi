@@ -4,6 +4,7 @@
 //! and a `serde_json::Value` request, returning a `serde_json::Value` response.
 
 pub mod agents;
+pub mod blueprints;
 pub mod channels;
 pub mod chat;
 pub mod entities;
@@ -11,6 +12,7 @@ pub mod events;
 pub mod files;
 pub mod ideas;
 pub mod inbox;
+pub mod messages;
 pub mod positions;
 pub mod quests;
 pub mod roots;
@@ -18,7 +20,6 @@ pub mod seed;
 pub mod session_stream;
 pub mod sessions;
 pub mod status;
-pub mod blueprints;
 pub mod tenancy;
 pub mod vfs;
 

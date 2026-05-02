@@ -517,8 +517,8 @@ pub async fn spawn_blueprint(
     // working). When `seed_roles` is non-empty, we wipe those auto
     // positions and install the declared structure fresh — that's how
     // vacancies and role-overrides land on the spawned company.
-    if !blueprint.seed_roles.is_empty() {
-        if let Err(err) = install_declared_roles(
+    if !blueprint.seed_roles.is_empty()
+        && let Err(err) = install_declared_roles(
             position_registry,
             &entity_id,
             &blueprint.seed_roles,
@@ -528,9 +528,8 @@ pub async fn spawn_blueprint(
             &mut warnings,
         )
         .await
-        {
-            warnings.push(format!("declared roles install failed: {err}"));
-        }
+    {
+        warnings.push(format!("declared roles install failed: {err}"));
     }
 
     Ok(SpawnOutcome {
@@ -587,36 +586,37 @@ async fn install_declared_roles(
     let mut key_to_position_id: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
     for role in seed_roles {
-        let (kind, occupant_id): (OccupantKind, Option<String>) =
-            match overrides_by_key.get(role.key.as_str()) {
-                Some(OverrideOccupant::Agent { agent }) => match owner_to_agent_id.get(agent) {
+        let (kind, occupant_id): (OccupantKind, Option<String>) = match overrides_by_key
+            .get(role.key.as_str())
+        {
+            Some(OverrideOccupant::Agent { agent }) => match owner_to_agent_id.get(agent) {
+                Some(id) => (OccupantKind::Agent, Some(id.clone())),
+                None => {
+                    warnings.push(format!(
+                            "override for role '{}' names agent '{}' which wasn't seeded; leaving vacant",
+                            role.key, agent,
+                        ));
+                    (OccupantKind::Vacant, None)
+                }
+            },
+            Some(OverrideOccupant::Human { user_id }) => {
+                (OccupantKind::Human, Some(user_id.clone()))
+            }
+            Some(OverrideOccupant::Vacant) => (OccupantKind::Vacant, None),
+            None => match role.default_occupant_agent.as_deref() {
+                Some(agent_name) => match owner_to_agent_id.get(agent_name) {
                     Some(id) => (OccupantKind::Agent, Some(id.clone())),
                     None => {
                         warnings.push(format!(
-                            "override for role '{}' names agent '{}' which wasn't seeded; leaving vacant",
-                            role.key, agent,
+                            "default occupant '{}' for role '{}' wasn't seeded; leaving vacant",
+                            agent_name, role.key,
                         ));
                         (OccupantKind::Vacant, None)
                     }
                 },
-                Some(OverrideOccupant::Human { user_id }) => {
-                    (OccupantKind::Human, Some(user_id.clone()))
-                }
-                Some(OverrideOccupant::Vacant) => (OccupantKind::Vacant, None),
-                None => match role.default_occupant_agent.as_deref() {
-                    Some(agent_name) => match owner_to_agent_id.get(agent_name) {
-                        Some(id) => (OccupantKind::Agent, Some(id.clone())),
-                        None => {
-                            warnings.push(format!(
-                                "default occupant '{}' for role '{}' wasn't seeded; leaving vacant",
-                                agent_name, role.key,
-                            ));
-                            (OccupantKind::Vacant, None)
-                        }
-                    },
-                    None => (OccupantKind::Vacant, None),
-                },
-            };
+                None => (OccupantKind::Vacant, None),
+            },
+        };
 
         let position = position_registry
             .create(entity_id, &role.title, kind, occupant_id.as_deref())

@@ -1837,6 +1837,15 @@ impl Daemon {
                     }
                 }
 
+                "message_to" => {
+                    crate::ipc::messages::handle_message_to(&ctx, &request, &allowed_roots).await
+                }
+
+                "add_participant" => {
+                    crate::ipc::messages::handle_add_participant(&ctx, &request, &allowed_roots)
+                        .await
+                }
+
                 "session_fork" => {
                     let session_id = request_field(&request, "session_id").unwrap_or("");
                     let message_id = request

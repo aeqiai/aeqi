@@ -281,6 +281,136 @@ fn ensure_session_awaiting_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Idempotent migration that creates the `session_participants` table (if absent)
+/// and backfills one row per existing session for the agent occupant.
+///
+/// The table is the multi-participant roster for a session. The backfill writes
+/// `(session_id, 'agent', sessions.agent_id)` for every session whose `agent_id`
+/// is non-null. User-side participants are not backfilled here — that requires
+/// a platform-level join that session_store doesn't have at boot time.
+fn ensure_session_participants(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS session_participants (
+             session_id TEXT NOT NULL,
+             identity_kind TEXT NOT NULL CHECK (identity_kind IN ('user','agent','position','external')),
+             identity_id TEXT NOT NULL,
+             joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+             joined_by TEXT,
+             history_visibility TEXT NOT NULL DEFAULT 'full',
+             PRIMARY KEY (session_id, identity_kind, identity_id),
+             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS idx_sp_identity
+             ON session_participants(identity_kind, identity_id);",
+    )?;
+    // Backfill: for every session with a non-null agent_id, upsert an agent participant row.
+    // INSERT OR IGNORE is idempotent — re-runs are safe.
+    conn.execute(
+        "INSERT OR IGNORE INTO session_participants (session_id, identity_kind, identity_id, joined_at)
+         SELECT id, 'agent', agent_id, COALESCE(created_at, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+         FROM sessions
+         WHERE agent_id IS NOT NULL",
+        [],
+    )?;
+    Ok(())
+}
+
+/// Idempotent migration that adds `from_kind TEXT` and `from_id TEXT` (both
+/// nullable) to `session_messages`, then backfills from `role` + `sender_id`
+/// + `sessions.agent_id`.
+///
+/// Backfill rules (applied once, gated on both columns being NULL on a row):
+///   role='user'      → from_kind='user',   from_id=COALESCE(sender_id, '')
+///   role='assistant' → from_kind='agent',  from_id=(SELECT agent_id FROM sessions WHERE id=session_id)
+///   role='system'    → from_kind='system', from_id=NULL
+fn ensure_session_messages_from_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: std::collections::HashSet<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(session_messages)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.contains("from_kind") {
+        conn.execute("ALTER TABLE session_messages ADD COLUMN from_kind TEXT", [])?;
+    }
+    if !cols.contains("from_id") {
+        conn.execute("ALTER TABLE session_messages ADD COLUMN from_id TEXT", [])?;
+    }
+    // Backfill rows whose from_kind is still NULL.
+    conn.execute_batch(
+        "UPDATE session_messages
+             SET from_kind = 'user',
+                 from_id   = COALESCE(sender_id, '')
+         WHERE role = 'user' AND from_kind IS NULL;
+
+         UPDATE session_messages
+             SET from_kind = 'agent',
+                 from_id   = (SELECT agent_id FROM sessions WHERE id = session_messages.session_id)
+         WHERE role = 'assistant' AND from_kind IS NULL;
+
+         UPDATE session_messages
+             SET from_kind = 'system',
+                 from_id   = NULL
+         WHERE role = 'system' AND from_kind IS NULL;",
+    )?;
+    Ok(())
+}
+
+/// Idempotent migration that adds a nullable `gateway_channel_id TEXT` column to
+/// `sessions`, then backfills from the `channel_sessions` × `channels` join.
+///
+/// channel_key format: `<kind>:<agent_id>:<chat_id>`. We extract `(kind, agent_id)`
+/// and look up `channels.id` where `channels.kind = <kind> AND channels.agent_id = <agent_id>`.
+fn ensure_sessions_gateway_channel_id(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: std::collections::HashSet<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(sessions)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.contains("gateway_channel_id") {
+        conn.execute(
+            "ALTER TABLE sessions ADD COLUMN gateway_channel_id TEXT",
+            [],
+        )?;
+    }
+    // Backfill: join channel_sessions on session_id, parse the channel_key to
+    // extract kind + agent_id, and look up the matching channels.id.
+    // The channel_key format is "<kind>:<agent_id>:<chat_id>"; we use
+    // SUBSTR/INSTR to extract the first two colon-delimited segments.
+    //
+    // Only runs when gateway_channel_id IS NULL (idempotent) and only when
+    // both channel_sessions and channels tables exist (guarded by the
+    // sqlite_master check below).
+    let tables: std::collections::HashSet<String> = {
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table'")?;
+        stmt.query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if tables.contains("channel_sessions") && tables.contains("channels") {
+        conn.execute_batch(
+            "UPDATE sessions
+             SET gateway_channel_id = (
+                 SELECT ch.id
+                 FROM channel_sessions cs
+                 JOIN channels ch
+                   ON ch.agent_id = SUBSTR(
+                          cs.channel_key,
+                          INSTR(cs.channel_key, ':') + 1,
+                          INSTR(SUBSTR(cs.channel_key, INSTR(cs.channel_key, ':') + 1), ':') - 1
+                      )
+                  AND ch.kind = SUBSTR(cs.channel_key, 1, INSTR(cs.channel_key, ':') - 1)
+                 WHERE cs.session_id = sessions.id
+                 LIMIT 1
+             )
+             WHERE gateway_channel_id IS NULL
+               AND id IN (SELECT session_id FROM channel_sessions);",
+        )?;
+    }
+    Ok(())
+}
+
 impl SessionStore {
     /// Create a SessionStore sharing a connection pool (from AgentRegistry).
     pub fn new(db: Arc<crate::agent_registry::ConnectionPool>) -> Self {
@@ -448,6 +578,11 @@ impl SessionStore {
             .context("failed to ensure outcome columns on event_invocations")?;
         ensure_session_awaiting_columns(conn)
             .context("failed to ensure awaiting columns on sessions")?;
+        ensure_session_participants(conn).context("failed to ensure session_participants table")?;
+        ensure_session_messages_from_columns(conn)
+            .context("failed to ensure from_kind/from_id columns on session_messages")?;
+        ensure_sessions_gateway_channel_id(conn)
+            .context("failed to ensure gateway_channel_id column on sessions")?;
         Ok(())
     }
 
@@ -1852,6 +1987,84 @@ impl SessionStore {
             );
         }
 
+        Ok(id)
+    }
+
+    /// Append a session message with explicit `from_kind` and `from_id`.
+    ///
+    /// Used by the `message_to` and `add_participant` IPC handlers where the
+    /// caller identity is already resolved. `payload_kind` is the structured-
+    /// payload discriminator (null = comment; callers may pass "activity",
+    /// "system", etc.).
+    pub async fn append_message_from(
+        &self,
+        session_id: &str,
+        role: &str,
+        content: &str,
+        from_kind: &str,
+        from_id: Option<&str>,
+        payload_kind: Option<&str>,
+    ) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let event_type = payload_kind.unwrap_or("message");
+        db.execute(
+            "INSERT INTO session_messages \
+             (session_id, role, content, timestamp, event_type, from_kind, from_id) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                session_id, role, content, now, event_type, from_kind, from_id
+            ],
+        )
+        .context("failed to insert message with from_kind/from_id")?;
+        let row_id = db.last_insert_rowid();
+        // Populate first_message when this is the first participant message.
+        if role == "user" && !content.is_empty() {
+            let _ = db.execute(
+                "UPDATE sessions SET first_message = ?1 \
+                 WHERE id = ?2 AND first_message IS NULL",
+                params![&content[..content.len().min(200)], session_id],
+            );
+        }
+        Ok(row_id)
+    }
+
+    /// Insert a participant into `session_participants` (idempotent via INSERT OR IGNORE).
+    ///
+    /// Returns `true` if a new row was inserted, `false` if the participant
+    /// was already present (primary key conflict).
+    pub async fn add_session_participant(
+        &self,
+        session_id: &str,
+        identity_kind: &str,
+        identity_id: &str,
+        joined_by: Option<&str>,
+    ) -> Result<bool> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let rows = db.execute(
+            "INSERT OR IGNORE INTO session_participants \
+             (session_id, identity_kind, identity_id, joined_at, joined_by) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![session_id, identity_kind, identity_id, now, joined_by],
+        )?;
+        Ok(rows > 0)
+    }
+
+    /// Create a new session without an owning agent (standalone / idea-scoped).
+    /// Returns the new session UUID.
+    pub async fn create_standalone_session(
+        &self,
+        name: &str,
+        session_type: &str,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let db = self.db.lock().await;
+        db.execute(
+            "INSERT INTO sessions (id, session_type, name, status) \
+             VALUES (?1, ?2, ?3, 'active')",
+            params![id, session_type, name],
+        )?;
         Ok(id)
     }
 
