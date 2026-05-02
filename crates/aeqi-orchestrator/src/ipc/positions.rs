@@ -145,7 +145,7 @@ pub async fn handle_change_occupant(
     // Fetch the current (old) occupant before the update.
     let position = match ctx.position_registry.get(&position_id).await {
         Ok(Some(p)) => p,
-        Ok(None) => return serde_json::json!({"ok": false, "error": "position not found"}),
+        Ok(None) => return serde_json::json!({"ok": false, "error": "role not found"}),
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
 

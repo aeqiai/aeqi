@@ -13,6 +13,8 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/positions", get(list_positions).post(create_position))
         .route("/positions/{id}/occupant", post(change_occupant))
+        // /api/roles/:id/occupant is the user-facing alias — same handler.
+        .route("/roles/{id}/occupant", post(change_occupant))
 }
 
 #[derive(serde::Deserialize)]

@@ -1,6 +1,6 @@
 // `message_to` — universal outbound-message agent tool.
 //
-// Any LLM-spawned agent can target a session, idea, agent, or user through
+// Any LLM-spawned agent can target a session, idea, agent, user, or role through
 // this single verb. The closure pattern mirrors `question.ask`: the calling
 // agent's identity and the session store are captured at registry-build time
 // so the LLM cannot influence routing via args.
@@ -14,7 +14,8 @@
 // "idea"      | lazy-create the idea's session (same as IPC wave-1).
 // "agent"     | find-or-create a 1:1 agent↔agent DM session; append.
 // "user"      | find-or-create a 1:1 agent↔user DM session; append.
-// "position"  | deferred to Wave-3b (position primitive scope).
+// "role"      | resolve role's occupant; find-or-create position-anchored session; append.
+// "position"  | back-compat alias for "role".
 
 use std::future::Future;
 use std::pin::Pin;
@@ -53,7 +54,7 @@ pub struct MessageToRequest {
 
 const MAX_BODY_LEN: usize = 8192;
 
-/// Send a message to a target — session, idea, agent, user, or position.
+/// Send a message to a target — session, idea, agent, user, or role.
 /// The universal outbound-communication verb for agents.
 pub struct MessageToTool {
     message_to_fn: Option<MessageToFn>,
@@ -86,7 +87,7 @@ impl Tool for MessageToTool {
         ToolSpec {
             name: "message_to".into(),
             description: "Send a message to a target — a session, an idea (lazy-creates its \
-                          session), an agent, a user, or a position. Use this for any \
+                          session), an agent, a user, or a role. Use this for any \
                           communication with another participant in the company."
                 .into(),
             input_schema: serde_json::json!({
@@ -98,8 +99,8 @@ impl Tool for MessageToTool {
                         "properties": {
                             "kind": {
                                 "type": "string",
-                                "enum": ["session", "idea", "agent", "user", "position"],
-                                "description": "Target type. 'position' is reserved for a future wave."
+                                "enum": ["session", "idea", "agent", "user", "role", "position"],
+                                "description": "Target type. Use 'role' to address a named role in the org chart (e.g. CEO, CFO). 'position' is accepted as a back-compat alias for 'role'."
                             },
                             "id": {
                                 "type": "string",
@@ -146,12 +147,7 @@ impl Tool for MessageToTool {
             }
         };
 
-        // "position" target is deferred.
-        if target_kind == "position" {
-            return Ok(ToolResult::error(
-                "message_to: target.kind='position' is not yet implemented (Wave-3b)",
-            ));
-        }
+        // "role" and "position" (back-compat alias) are wired through position routing.
 
         let body = match args.get("body").and_then(|v| v.as_str()) {
             Some(b) if !b.trim().is_empty() => b.to_string(),
@@ -274,22 +270,37 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn position_target_deferred_error() {
-        let (f, _) = ok_fn();
+    async fn role_target_routes_through_fn() {
+        let (f, captured) = ok_fn();
         let tool = MessageToTool::new(f);
         let result = tool
             .execute(serde_json::json!({
-                "target": {"kind": "position", "id": "pos-1"},
-                "body": "hi"
+                "target": {"kind": "role", "id": "pos-ceo"},
+                "body": "executive decision needed"
             }))
             .await
             .unwrap();
-        assert!(result.is_error);
-        assert!(
-            result.output.contains("not yet implemented"),
-            "{}",
-            result.output
-        );
+        assert!(!result.is_error, "unexpected error: {}", result.output);
+        let req = captured.lock().unwrap().clone().expect("fn called");
+        assert_eq!(req.target_kind, "role");
+        assert_eq!(req.target_id, "pos-ceo");
+    }
+
+    #[tokio::test]
+    async fn position_back_compat_alias_routes_through_fn() {
+        let (f, captured) = ok_fn();
+        let tool = MessageToTool::new(f);
+        let result = tool
+            .execute(serde_json::json!({
+                "target": {"kind": "position", "id": "pos-cfo"},
+                "body": "budget approval"
+            }))
+            .await
+            .unwrap();
+        assert!(!result.is_error, "unexpected error: {}", result.output);
+        let req = captured.lock().unwrap().clone().expect("fn called");
+        assert_eq!(req.target_kind, "position");
+        assert_eq!(req.target_id, "pos-cfo");
     }
 
     #[tokio::test]
