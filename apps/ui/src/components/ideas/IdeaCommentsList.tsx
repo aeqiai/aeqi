@@ -1,15 +1,20 @@
 /**
- * IdeaCommentsList — chat-bubble rows for user / agent / position messages.
+ * IdeaCommentsList — chat-bubble rows for user / agent / role messages.
  *
  * Sources:
  *   • GET /ideas/:id/comments  (session_messages where role != 'system')
  *
  * Grouped by date bucket: Today / Yesterday / This week / Earlier.
- * Shows avatar initials, author name, body, and relative timestamp.
+ * Avatar uses the canonical wrappers (UserAvatar / BlockAvatar) keyed
+ * off the resolved display name + (for users) the platform-side
+ * `avatar_url`, so a comment bubble renders the same image as the
+ * author's profile / sidebar / topbar.
  */
 
 import type { CommentRow } from "@/api/sessions";
 import MentionText from "@/components/MentionText";
+import UserAvatar from "@/components/UserAvatar";
+import BlockAvatar from "@/components/BlockAvatar";
 
 // ─── Time grouping (same logic as IdeaActivityFeed) ──────────────────────────
 
@@ -44,19 +49,6 @@ function groupByBucket(rows: CommentRow[]): Map<TimeBucket, CommentRow[]> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Deterministic hue for an author string (for avatar bg) */
-function authorHue(author: string): number {
-  let h = 0;
-  for (let i = 0; i < author.length; i++) h = (h * 31 + author.charCodeAt(i)) & 0xffff;
-  return h % 360;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
 function RelativeTime({ iso }: { iso: string }) {
   const d = new Date(iso);
   const now = Date.now();
@@ -79,22 +71,25 @@ function RelativeTime({ iso }: { iso: string }) {
 
 // ─── Comment bubble ───────────────────────────────────────────────────────────
 
-function CommentBubble({ row, entityId }: { row: CommentRow; entityId?: string }) {
-  const hue = authorHue(row.author);
-  const avatarStyle = {
-    background: `hsl(${hue} 30% 82%)`,
-    color: `hsl(${hue} 40% 28%)`,
-  };
+function CommentAvatar({ row }: { row: CommentRow }) {
+  // Agents render as block avatars (aeqi convention: round=human, block=agent).
+  // User and role both render as round — a role's current occupant is a human
+  // and we want their visual identity to read consistently with the rest of
+  // the app. System messages don't render comments (they live in the activity
+  // section), so this branch is never hit.
+  if (row.author_kind === "agent") {
+    return <BlockAvatar name={row.author} size={28} />;
+  }
+  return <UserAvatar name={row.author} size={28} src={row.avatar_url} />;
+}
 
+function CommentBubble({ row, entityId }: { row: CommentRow; entityId?: string }) {
   return (
     <div className={`idea-convo-comment${row.pending ? " idea-convo-comment--pending" : ""}`}>
-      <div className="idea-convo-comment-avatar" style={avatarStyle} aria-hidden>
-        {initials(row.author)}
-      </div>
+      <CommentAvatar row={row} />
       <div className="idea-convo-comment-main">
         <div className="idea-convo-comment-header">
           <span className="idea-convo-comment-author">{row.author}</span>
-          <span className="idea-convo-comment-kind">{row.author_kind}</span>
           <RelativeTime iso={row.timestamp} />
         </div>
         <p className="idea-convo-comment-body">

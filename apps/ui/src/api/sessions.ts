@@ -46,6 +46,10 @@ export interface CommentRow {
   author_id?: string;
   /** Author kind: user / agent / role / system */
   author_kind: "user" | "agent" | "role" | "system" | string;
+  /** Optional uploaded avatar image URL — populated by the platform proxy
+   *  for `author_kind="user"` rows so the comment bubble can render the
+   *  same image as the user's profile / sidebar / topbar. */
+  avatar_url?: string | null;
   /** Message body */
   body: string;
   /** Optimistic flag — true while the write is in-flight */
@@ -76,6 +80,8 @@ interface CommentsResponse {
     from_id: string | null;
     /** Backend-resolved display name (agent.name / role.title / "User <prefix>"). */
     author?: string;
+    /** Platform proxy patches in `users.avatar_url` for from_kind=user. */
+    avatar_url?: string | null;
     body: string;
     at: string;
   }>;
@@ -148,6 +154,7 @@ export async function getIdeaComments(ideaId: string): Promise<CommentsPayload> 
       author: item.author ?? item.from_id ?? item.from_kind ?? "unknown",
       author_id: item.from_id ?? undefined,
       author_kind: item.from_kind ?? "unknown",
+      avatar_url: item.avatar_url ?? null,
       body: item.body ?? "",
     }));
     return {

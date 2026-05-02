@@ -6831,24 +6831,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   opacity: 0.55;
 }
 
-.idea-convo-comment-avatar {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  /* fallback — overridden inline per-author */
-  background: var(--color-card-muted);
-  color: var(--text-secondary);
-  position: relative;
-  top: 2px;
-}
-
 .idea-convo-comment-main {
   flex: 1;
   min-width: 0;
@@ -6867,12 +6849,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
-}
-
-.idea-convo-comment-kind {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .idea-convo-comment-body {
