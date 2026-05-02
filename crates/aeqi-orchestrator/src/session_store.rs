@@ -163,6 +163,16 @@ pub struct SessionMessageRow {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// A row from `session_participants`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Participant {
+    pub session_id: String,
+    pub identity_kind: String,
+    pub identity_id: String,
+    pub joined_at: String,
+    pub joined_by: Option<String>,
+}
+
 /// A claimed pending message — returned by `claim_next_pending`.
 /// While this row exists in 'running' state it is the per-session
 /// execution lease. Deletion (via `delete_pending`) releases the lease.
@@ -2247,6 +2257,30 @@ impl SessionStore {
             params![sid, kind_b, id_b, now],
         )?;
         Ok((sid, true))
+    }
+
+    /// List all participants for a session.
+    pub async fn list_participants(&self, session_id: &str) -> Result<Vec<Participant>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT session_id, identity_kind, identity_id, joined_at, joined_by \
+             FROM session_participants \
+             WHERE session_id = ?1 \
+             ORDER BY joined_at ASC",
+        )?;
+        let rows = stmt
+            .query_map(params![session_id], |row| {
+                Ok(Participant {
+                    session_id: row.get(0)?,
+                    identity_kind: row.get(1)?,
+                    identity_id: row.get(2)?,
+                    joined_at: row.get(3)?,
+                    joined_by: row.get(4)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
     }
 
     /// Create a new session without an owning agent (standalone / idea-scoped).

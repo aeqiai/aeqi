@@ -71,6 +71,9 @@ pub async fn handle_message_to(
                 .await
             {
                 Ok(msg_id) => {
+                    // Auto-subscribe any @-mentioned identities. The message
+                    // itself is the notification; no separate system message.
+                    wire_at_mentions_in_message(ctx, ss, &target_id, &body).await;
                     serde_json::json!({"ok": true, "session_id": target_id, "message_id": msg_id})
                 }
                 Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -133,6 +136,8 @@ pub async fn handle_message_to(
                 .await
             {
                 Ok(msg_id) => {
+                    // Auto-subscribe @-mentioned identities.
+                    wire_at_mentions_in_message(ctx, ss, &session_id, &body).await;
                     serde_json::json!({
                         "ok": true,
                         "session_id": session_id,
@@ -268,11 +273,15 @@ pub async fn handle_message_to(
                         )
                         .await
                     {
-                        Ok(msg_id) => serde_json::json!({
-                            "ok": true,
-                            "session_id": session_id,
-                            "message_id": msg_id,
-                        }),
+                        Ok(msg_id) => {
+                            // Auto-subscribe @-mentioned identities.
+                            wire_at_mentions_in_message(ctx, ss, &session_id, &body).await;
+                            serde_json::json!({
+                                "ok": true,
+                                "session_id": session_id,
+                                "message_id": msg_id,
+                            })
+                        }
                         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                     }
                 }
@@ -310,11 +319,15 @@ pub async fn handle_message_to(
                         )
                         .await
                     {
-                        Ok(msg_id) => serde_json::json!({
-                            "ok": true,
-                            "session_id": session_id,
-                            "message_id": msg_id,
-                        }),
+                        Ok(msg_id) => {
+                            // Auto-subscribe @-mentioned identities.
+                            wire_at_mentions_in_message(ctx, ss, &session_id, &body).await;
+                            serde_json::json!({
+                                "ok": true,
+                                "session_id": session_id,
+                                "message_id": msg_id,
+                            })
+                        }
                         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
                     }
                 }
@@ -405,6 +418,51 @@ fn role_for_from_kind(from_kind: &str) -> &'static str {
         "user" => "user",
         "agent" | "position" => "assistant",
         _ => "system",
+    }
+}
+
+// ── @-mention wiring for messages ────────────────────────────────────────────
+
+/// Parse `@<token>` mentions from a message body and auto-subscribe each
+/// resolved identity as a `session_participant` (`joined_by = "mention"`).
+///
+/// No separate system message is emitted — the message itself is the
+/// notification (Linear / Notion behaviour).
+///
+/// Fuzzy mentions (bare `@name`) resolve via agent-name lookup only.
+/// Unresolved mentions are skipped silently.
+async fn wire_at_mentions_in_message(
+    ctx: &super::CommandContext,
+    ss: &crate::session_store::SessionStore,
+    session_id: &str,
+    body: &str,
+) {
+    let mentions = crate::mentions::parse_mentions(body);
+    if mentions.is_empty() {
+        return;
+    }
+
+    for m in &mentions {
+        let (resolved_kind, resolved_id): (&str, String) = match m.kind.as_str() {
+            crate::mentions::KIND_AGENT => (crate::mentions::KIND_AGENT, m.id.clone()),
+            crate::mentions::KIND_USER => (crate::mentions::KIND_USER, m.id.clone()),
+            crate::mentions::KIND_POSITION => (crate::mentions::KIND_POSITION, m.id.clone()),
+            crate::mentions::KIND_FUZZY => {
+                match ctx.agent_registry.get_active_by_name(&m.id).await {
+                    Ok(Some(agent)) => (crate::mentions::KIND_AGENT, agent.id),
+                    _ => {
+                        tracing::debug!(name = %m.id, "wire_at_mentions_in_message: unresolved fuzzy mention");
+                        continue;
+                    }
+                }
+            }
+            _ => continue,
+        };
+
+        // Idempotent subscribe — no system message (the message itself notifies).
+        let _ = ss
+            .add_session_participant(session_id, resolved_kind, &resolved_id, Some("mention"))
+            .await;
     }
 }
 
@@ -878,6 +936,96 @@ mod tests {
         assert_eq!(
             resp_reverse["session_id"], session_id,
             "reverse message must land in the same DM session"
+        );
+    }
+
+    // ── @-mention in message body ────────────────────────────────────────
+
+    #[tokio::test]
+    async fn message_with_agent_mention_subscribes_participant() {
+        let (ctx, ss, _, _dir) = test_ctx_with_ideas().await;
+
+        // Create an agent that can be @-mentioned.
+        let agent_id = ctx
+            .agent_registry
+            .spawn("mention-bot", None, Some("test"))
+            .await
+            .unwrap()
+            .id;
+
+        let session_id = ss
+            .create_standalone_session("mention-test-session", "thread")
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "target_kind": "session",
+            "target_id": session_id,
+            "body": format!("hey @agent:{agent_id} can you help?"),
+            "from_kind": "user",
+            "from_id": "user-99",
+        });
+
+        let resp = handle_message_to(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+
+        // The mentioned agent must now be a participant.
+        let participants = ss.list_participants(&session_id).await.unwrap();
+        let found = participants
+            .iter()
+            .any(|p| p.identity_kind == "agent" && p.identity_id == agent_id);
+        assert!(
+            found,
+            "mentioned agent should be subscribed; participants: {participants:?}"
+        );
+
+        // No extra system message for message-path mentions.
+        let timeline = ss.timeline_by_session(&session_id, 20).await.unwrap();
+        let system_msgs: Vec<_> = timeline.iter().filter(|m| m.role == "system").collect();
+        assert!(
+            system_msgs.is_empty(),
+            "message-path mention must not emit a system notification; got: {system_msgs:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn message_mention_is_idempotent_no_double_subscribe() {
+        let (ctx, ss, _, _dir) = test_ctx_with_ideas().await;
+
+        let agent_id = ctx
+            .agent_registry
+            .spawn("idempotent-bot", None, Some("test"))
+            .await
+            .unwrap()
+            .id;
+
+        let session_id = ss
+            .create_standalone_session("idempotent-mention-session", "thread")
+            .await
+            .unwrap();
+
+        let body = format!("@agent:{agent_id} once");
+        let req = serde_json::json!({
+            "target_kind": "session",
+            "target_id": session_id,
+            "body": body,
+            "from_kind": "user",
+            "from_id": "user-1",
+        });
+
+        // Send twice.
+        handle_message_to(&ctx, &req, &None).await;
+        handle_message_to(&ctx, &req, &None).await;
+
+        // Only one participant row.
+        let participants = ss.list_participants(&session_id).await.unwrap();
+        let count = participants
+            .iter()
+            .filter(|p| p.identity_kind == "agent" && p.identity_id == agent_id)
+            .count();
+        assert_eq!(
+            count, 1,
+            "duplicate mention must not create duplicate participant"
         );
     }
 }

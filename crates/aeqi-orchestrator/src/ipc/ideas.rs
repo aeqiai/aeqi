@@ -533,6 +533,9 @@ async fn dispatch_merge(
     )
     .await;
 
+    // @-mention parsing on the merged body.
+    wire_at_mentions_on_idea(ctx, idea_store.as_ref(), existing_id, &merged_content).await;
+
     // Consolidation threshold check runs on every write.
     check_consolidation_threshold(ctx, idea_store.as_ref(), &tag_union, effective, existing_id)
         .await;
@@ -633,6 +636,10 @@ async fn finalize_write(
         input.agent_id.as_deref(),
     )
     .await;
+
+    // @-mention parsing: insert entity_edges + auto-subscribe mentioned
+    // identities as session participants.
+    wire_at_mentions_on_idea(ctx, idea_store.as_ref(), id, redacted_content).await;
 
     // Hand off the embedding — the worker flips `embedding_pending`.
     ctx.embed_queue
@@ -1837,6 +1844,94 @@ pub async fn handle_idea_prefix(
     }
 }
 
+// ── @-mention wiring ─────────────────────────────────────────────────────────
+
+/// Parse `@<token>` mentions from an idea body and:
+///
+/// 1. Insert `entity_edges(source_kind="idea", source_id=idea_id,
+///    target_kind=<kind>, target_id=<resolved_id>, relation="mention_of")`
+///    via `INSERT OR IGNORE` (idempotent).
+/// 2. If the idea has a session, auto-subscribe each resolved identity as a
+///    `session_participant` with `joined_by = "mention"`.
+/// 3. Emit a `"<kind>:<id> mentioned"` system message in the idea's session
+///    (only when the participant row was new — prevents duplicate noise).
+///
+/// Fuzzy mentions (bare `@name`) attempt resolution in this order:
+///   agent by name → (position lookup not yet implemented, treated as fuzzy
+///   no-op when unresolved). Unresolved fuzzy mentions are skipped silently.
+///
+/// All errors are swallowed — mention wiring is best-effort enrichment,
+/// never a store precondition.
+async fn wire_at_mentions_on_idea(
+    ctx: &super::CommandContext,
+    idea_store: &dyn IdeaStore,
+    idea_id: &str,
+    body: &str,
+) {
+    let mentions = crate::mentions::parse_mentions(body);
+    if mentions.is_empty() {
+        return;
+    }
+
+    // Look up the idea's session_id so we can subscribe mentioned identities.
+    let session_id: Option<String> = idea_store
+        .get_by_ids(&[idea_id.to_string()])
+        .await
+        .ok()
+        .and_then(|mut v| v.pop())
+        .and_then(|i| i.session_id);
+
+    let ss = ctx.session_store.as_ref();
+
+    for m in &mentions {
+        // Resolve fuzzy mentions via agent-name lookup.
+        let (resolved_kind, resolved_id): (&str, String) = match m.kind.as_str() {
+            crate::mentions::KIND_AGENT => (crate::mentions::KIND_AGENT, m.id.clone()),
+            crate::mentions::KIND_USER => (crate::mentions::KIND_USER, m.id.clone()),
+            crate::mentions::KIND_POSITION => (crate::mentions::KIND_POSITION, m.id.clone()),
+            crate::mentions::KIND_FUZZY => {
+                // Try agent by name first.
+                match ctx.agent_registry.get_active_by_name(&m.id).await {
+                    Ok(Some(agent)) => (crate::mentions::KIND_AGENT, agent.id),
+                    _ => {
+                        // Unresolved — skip gracefully.
+                        tracing::debug!(name = %m.id, "wire_at_mentions: unresolved fuzzy mention");
+                        continue;
+                    }
+                }
+            }
+            _ => continue,
+        };
+
+        // 1. Insert entity edge (idempotent).
+        let _ = idea_store
+            .store_entity_edge(
+                "idea",
+                idea_id,
+                resolved_kind,
+                &resolved_id,
+                "mention_of",
+                1.0,
+            )
+            .await;
+
+        // 2 + 3. Auto-subscribe in session when one exists.
+        if let (Some(sid), Some(ss)) = (session_id.as_deref(), ss) {
+            let inserted = ss
+                .add_session_participant(sid, resolved_kind, &resolved_id, Some("mention"))
+                .await
+                .unwrap_or(false);
+
+            if inserted {
+                let body = format!("{resolved_kind}:{resolved_id} mentioned");
+                let _ = ss
+                    .append_message_from(sid, "system", &body, "system", None, None)
+                    .await;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2370,7 +2465,10 @@ mod wave2_tests {
         let session_id = msg_resp["session_id"].as_str().unwrap().to_string();
 
         // Verify the session got a system message.
-        let sys_msgs = ss.system_messages_by_session(&session_id, 10).await.unwrap();
+        let sys_msgs = ss
+            .system_messages_by_session(&session_id, 10)
+            .await
+            .unwrap();
         assert_eq!(sys_msgs.len(), 1);
         assert_eq!(sys_msgs[0].content, "system event text");
 
@@ -2442,5 +2540,122 @@ mod wave2_tests {
         let resp = handle_idea_activity(&ctx, &serde_json::json!({}), &None).await;
         assert_eq!(resp["ok"], false);
         assert!(resp["error"].as_str().unwrap().contains("idea_id"));
+    }
+
+    // ── @-mention on idea save ────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn idea_store_with_agent_mention_inserts_entity_edge_and_subscribes() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        // Create a target agent.
+        let target_agent = ctx
+            .agent_registry
+            .spawn("the-agent", None, Some("test"))
+            .await
+            .unwrap();
+
+        // Store an idea that @-mentions the agent by id.
+        let body = format!("see @agent:{} for details", target_agent.id);
+        let req = serde_json::json!({
+            "name": "mention-idea",
+            "content": body,
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        let idea_id = resp["id"].as_str().unwrap().to_string();
+
+        // Entity edge should exist (check the `links` side of IdeaEdges).
+        let edges = idea_store.idea_edges(&idea_id).await.unwrap_or_default();
+        let has_edge = edges
+            .links
+            .iter()
+            .any(|e| e.relation == "mention_of" && e.other_id == target_agent.id);
+        assert!(
+            has_edge,
+            "mention_of edge must be present; links: {:?}",
+            edges.links
+        );
+
+        // The idea has no session_id yet at store time (lazy-create is only
+        // triggered on first message_to). So auto-subscribe fires only when
+        // the idea has a session. Send a comment to create the session,
+        // then store a new version with a mention to trigger subscribe.
+        let msg_req = serde_json::json!({
+            "target_kind": "idea",
+            "target_id": idea_id,
+            "body": "open this discussion",
+            "from_kind": "user",
+            "from_id": "user-1",
+        });
+        let _ = crate::ipc::messages::handle_message_to(&ctx, &msg_req, &None).await;
+
+        // Re-fetch the idea to get its session_id.
+        let idea_row = idea_store
+            .get_by_ids(&[idea_id.clone()])
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        let session_id = idea_row
+            .session_id
+            .expect("session_id must exist after message_to");
+
+        // Now call wire_at_mentions_on_idea directly to test the subscribe path.
+        wire_at_mentions_on_idea(&ctx, idea_store.as_ref(), &idea_id, &body).await;
+
+        let participants = ss.list_participants(&session_id).await.unwrap();
+        let found = participants
+            .iter()
+            .any(|p| p.identity_kind == "agent" && p.identity_id == target_agent.id);
+        assert!(
+            found,
+            "mentioned agent must be subscribed; participants: {participants:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn idea_mention_emits_system_message_in_session() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let target_agent = ctx
+            .agent_registry
+            .spawn("notif-agent", None, Some("test"))
+            .await
+            .unwrap();
+
+        // Store the idea, create a session via message_to, then wire mentions.
+        let idea_id = idea_store
+            .store("notif-idea", "plain body", &[], None)
+            .await
+            .unwrap();
+
+        // Create session.
+        let msg_req = serde_json::json!({
+            "target_kind": "idea",
+            "target_id": idea_id,
+            "body": "first",
+            "from_kind": "user",
+            "from_id": "u1",
+        });
+        let msg_resp = crate::ipc::messages::handle_message_to(&ctx, &msg_req, &None).await;
+        let session_id = msg_resp["session_id"].as_str().unwrap().to_string();
+
+        // Wire mentions manually (simulates what finalize_write would do).
+        let body = format!("@agent:{} please review", target_agent.id);
+        wire_at_mentions_on_idea(&ctx, idea_store.as_ref(), &idea_id, &body).await;
+
+        // One system message ("agent:<id> mentioned") should be in the timeline.
+        let timeline = ss.timeline_by_session(&session_id, 20).await.unwrap();
+        let mention_msgs: Vec<_> = timeline
+            .iter()
+            .filter(|m| m.role == "system" && m.content.contains("mentioned"))
+            .collect();
+        assert_eq!(
+            mention_msgs.len(),
+            1,
+            "one 'mentioned' system message expected; timeline: {timeline:?}"
+        );
     }
 }

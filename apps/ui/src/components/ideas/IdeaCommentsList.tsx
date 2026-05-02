@@ -9,6 +9,7 @@
  */
 
 import type { CommentRow } from "@/api/sessions";
+import MentionText from "@/components/MentionText";
 
 // ─── Time grouping (same logic as IdeaActivityFeed) ──────────────────────────
 
@@ -78,7 +79,7 @@ function RelativeTime({ iso }: { iso: string }) {
 
 // ─── Comment bubble ───────────────────────────────────────────────────────────
 
-function CommentBubble({ row }: { row: CommentRow }) {
+function CommentBubble({ row, entityId }: { row: CommentRow; entityId?: string }) {
   const hue = authorHue(row.author);
   const avatarStyle = {
     background: `hsl(${hue} 30% 82%)`,
@@ -96,7 +97,9 @@ function CommentBubble({ row }: { row: CommentRow }) {
           <span className="idea-convo-comment-kind">{row.author_kind}</span>
           <RelativeTime iso={row.timestamp} />
         </div>
-        <p className="idea-convo-comment-body">{row.body}</p>
+        <p className="idea-convo-comment-body">
+          <MentionText body={row.body} entityId={entityId} />
+        </p>
       </div>
     </div>
   );
@@ -106,9 +109,10 @@ function CommentBubble({ row }: { row: CommentRow }) {
 
 interface IdeaCommentsListProps {
   rows: CommentRow[];
+  entityId?: string;
 }
 
-export default function IdeaCommentsList({ rows }: IdeaCommentsListProps) {
+export default function IdeaCommentsList({ rows, entityId }: IdeaCommentsListProps) {
   if (rows.length === 0) {
     return (
       <div className="idea-convo-empty">
@@ -130,7 +134,7 @@ export default function IdeaCommentsList({ rows }: IdeaCommentsListProps) {
           <div className="idea-convo-group-label">{bucket}</div>
           <div className="idea-convo-group-rows">
             {grouped.get(bucket)!.map((row) => (
-              <CommentBubble key={String(row.id)} row={row} />
+              <CommentBubble key={String(row.id)} row={row} entityId={entityId} />
             ))}
           </div>
         </div>

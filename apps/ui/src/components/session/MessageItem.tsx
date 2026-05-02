@@ -6,6 +6,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { RichMarkdown, buildIdeasByName } from "@/components/markdown/RichMarkdown";
 import BlockAvatar from "@/components/BlockAvatar";
+import MentionText from "@/components/MentionText";
 import {
   type Message,
   type MessageSegment,
@@ -554,7 +555,11 @@ const MessageItem = memo(function MessageItem({
           <SegmentRenderer segments={msg.segments} />
         ) : (
           <div className="asv-msg-content">
-            {isAssistantRole ? <SessionMarkdown body={msg.content} /> : <span>{msg.content}</span>}
+            {isAssistantRole ? (
+              <SessionMarkdown body={msg.content} />
+            ) : (
+              <MentionText body={msg.content} entityId={entityId ?? ""} />
+            )}
           </div>
         )}
         {(metaParts.length > 0 ||
