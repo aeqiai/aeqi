@@ -15,6 +15,12 @@ use crate::server::AppState;
 #[derive(Debug, Clone)]
 pub struct UserScope {
     pub roots: Vec<String>,
+    /// JWT-resolved user id. `None` when the request authenticated without a
+    /// user identity (operator secret mode, system calls). IPC handlers that
+    /// need to attribute work to the calling user (e.g. subscribe state for
+    /// the idea conversation panel) read this; tenancy gating already runs
+    /// off `roots`.
+    pub user_id: Option<String>,
 }
 
 const PROXY_SCOPE_ROOTS_HEADER: &str = "x-aeqi-allowed-roots";
@@ -112,7 +118,10 @@ pub fn proxy_scope_from_headers(state: &AppState, headers: &HeaderMap) -> Option
         return None;
     }
 
-    Some(UserScope { roots })
+    Some(UserScope {
+        roots,
+        user_id: None,
+    })
 }
 
 /// Axum middleware — dispatches by auth mode.
@@ -155,7 +164,10 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
                         let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
                         if let Ok(Some(user)) = accounts.get_user_by_id(user_id) {
                             let roots = user.roots.unwrap_or_default();
-                            req.extensions_mut().insert(UserScope { roots });
+                            req.extensions_mut().insert(UserScope {
+                                roots,
+                                user_id: Some(user_id.to_string()),
+                            });
                         }
                     }
                     req.extensions_mut().insert(claims);

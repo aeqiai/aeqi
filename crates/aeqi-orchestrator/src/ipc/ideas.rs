@@ -2298,7 +2298,24 @@ pub async fn handle_idea_activity(
 /// `from_kind IS NULL` with a non-system `role`). Each item carries
 /// `{ id, from_kind, from_id, body, at }`.
 ///
-/// When the idea has no `session_id`, returns an empty items array.
+/// Response shape:
+///
+/// ```json
+/// {
+///   "ok": true,
+///   "session_id": "<idea.session_id or null>",
+///   "subscribed": true|false,
+///   "items": [...]
+/// }
+/// ```
+///
+/// `session_id` is the idea's backing session — the value the conversation
+/// panel needs when calling `add_participant`. `subscribed` is whether the
+/// calling user (resolved from the request's `caller_user_id`, set by the
+/// web layer from JWT claims) currently has a `session_participants` row
+/// with `identity_kind="user"` and a matching `identity_id`. `subscribed`
+/// is `false` when the caller has no user identity (operator / system call)
+/// or when the idea has no session yet.
 pub async fn handle_idea_comments(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -2308,6 +2325,10 @@ pub async fn handle_idea_comments(
         Some(id) => id.to_string(),
         None => return serde_json::json!({"ok": false, "error": "idea_id required"}),
     };
+
+    // Caller identity comes from the web layer's `ipc_proxy`, which copies
+    // the JWT-resolved user id off `UserScope` into the request payload.
+    let caller_user_id = super::request_field(request, "caller_user_id").map(str::to_string);
 
     // Resolve the idea.
     let Some(ref idea_store) = ctx.idea_store else {
@@ -2327,11 +2348,28 @@ pub async fn handle_idea_comments(
     }
 
     let Some(ref session_id) = idea.session_id else {
-        return serde_json::json!({"ok": true, "items": []});
+        return serde_json::json!({
+            "ok": true,
+            "session_id": serde_json::Value::Null,
+            "subscribed": false,
+            "items": [],
+        });
     };
 
     let Some(ref ss) = ctx.session_store else {
         return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+
+    // Resolve subscribe state by probing participants. Cheap single SQL.
+    let subscribed = if let Some(ref uid) = caller_user_id {
+        match ss.list_participants(session_id).await {
+            Ok(rows) => rows
+                .iter()
+                .any(|p| p.identity_kind == "user" && &p.identity_id == uid),
+            Err(_) => false,
+        }
+    } else {
+        false
     };
 
     match ss.conversation_messages_by_session(session_id, 200).await {
@@ -2348,7 +2386,12 @@ pub async fn handle_idea_comments(
                     })
                 })
                 .collect();
-            serde_json::json!({"ok": true, "items": items})
+            serde_json::json!({
+                "ok": true,
+                "session_id": session_id,
+                "subscribed": subscribed,
+                "items": items,
+            })
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -2493,6 +2536,14 @@ mod wave2_tests {
         let resp = handle_idea_comments(&ctx, &req, &None).await;
         assert_eq!(resp["ok"], true, "response: {resp}");
         assert_eq!(resp["items"].as_array().unwrap().len(), 0);
+        assert!(
+            resp["session_id"].is_null(),
+            "no session yet — session_id must be null"
+        );
+        assert_eq!(
+            resp["subscribed"], false,
+            "no session — caller cannot be subscribed"
+        );
     }
 
     #[tokio::test]
@@ -2530,6 +2581,59 @@ mod wave2_tests {
         assert_eq!(items[0]["body"], "user comment");
         assert_eq!(items[0]["from_kind"], "user");
         assert_eq!(items[0]["from_id"], "user-xyz");
+        // Wave-3 envelope fields.
+        assert_eq!(
+            resp["session_id"].as_str(),
+            Some(session_id.as_str()),
+            "session_id should match the lazily-created session"
+        );
+        assert_eq!(
+            resp["subscribed"], false,
+            "no caller_user_id supplied — must report not-subscribed"
+        );
+    }
+
+    #[tokio::test]
+    async fn idea_comments_reports_subscribed_when_caller_is_participant() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("cmt-sub", "sub body", &[], None)
+            .await
+            .unwrap();
+
+        // Create the session.
+        let user_req = serde_json::json!({
+            "target_kind": "idea",
+            "target_id": idea_id,
+            "body": "open",
+            "from_kind": "user",
+            "from_id": "user-sub",
+        });
+        let r = crate::ipc::messages::handle_message_to(&ctx, &user_req, &None).await;
+        assert_eq!(r["ok"], true);
+        let session_id = r["session_id"].as_str().unwrap().to_string();
+
+        // Subscribe the caller.
+        ss.add_session_participant(&session_id, "user", "user-sub", None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "idea_id": idea_id,
+            "caller_user_id": "user-sub",
+        });
+        let resp = handle_idea_comments(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        assert_eq!(resp["subscribed"], true);
+
+        // A different caller is not subscribed.
+        let req_other = serde_json::json!({
+            "idea_id": idea_id,
+            "caller_user_id": "user-other",
+        });
+        let resp_other = handle_idea_comments(&ctx, &req_other, &None).await;
+        assert_eq!(resp_other["subscribed"], false);
     }
 
     #[tokio::test]

@@ -103,6 +103,7 @@ mod tests {
     fn scope_as_ref_returns_some_when_present() {
         let scope = Scope(Some(UserScope {
             roots: vec!["acme".to_string()],
+            user_id: None,
         }));
         let inner = scope.as_ref().unwrap();
         assert_eq!(inner.roots, vec!["acme"]);
@@ -114,6 +115,7 @@ mod tests {
         let mut req = axum::http::Request::builder().body(()).unwrap();
         req.extensions_mut().insert(UserScope {
             roots: vec!["co-a".to_string(), "co-b".to_string()],
+            user_id: None,
         });
         let (mut parts, _body) = req.into_parts();
 

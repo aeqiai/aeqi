@@ -86,9 +86,12 @@ function ActivityItem({ row }: { row: ActivityRow }) {
 
 interface IdeaActivityFeedProps {
   ideaId: string;
+  /** Optional callback fired with the row count after each load — lets the
+   *  parent section header render an item-count badge without re-fetching. */
+  onCount?: (count: number) => void;
 }
 
-export default function IdeaActivityFeed({ ideaId }: IdeaActivityFeedProps) {
+export default function IdeaActivityFeed({ ideaId, onCount }: IdeaActivityFeedProps) {
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,23 +102,24 @@ export default function IdeaActivityFeed({ ideaId }: IdeaActivityFeedProps) {
     setError(null);
     getIdeaActivity(ideaId)
       .then((r) => {
-        if (!cancelled) {
-          setRows(
-            r.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-          );
-          setLoading(false);
-        }
+        if (cancelled) return;
+        const sorted = r.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+        );
+        setRows(sorted);
+        setLoading(false);
+        onCount?.(sorted.length);
       })
       .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load activity");
-          setLoading(false);
-        }
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Failed to load activity");
+        setLoading(false);
+        onCount?.(0);
       });
     return () => {
       cancelled = true;
     };
-  }, [ideaId]);
+  }, [ideaId, onCount]);
 
   if (loading) {
     return (
@@ -130,11 +134,8 @@ export default function IdeaActivityFeed({ ideaId }: IdeaActivityFeedProps) {
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="idea-convo-empty">
-        <span className="idea-convo-empty-text">No activity recorded yet.</span>
-      </div>
-    );
+    // Quiet inline empty state — this is a section, not a full surface.
+    return <div className="idea-convo-section-empty">No activity yet</div>;
   }
 
   const grouped = groupByBucket(rows);

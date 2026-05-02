@@ -1,147 +1,104 @@
 /**
- * IdeaConversationPanel — unified Activity + Comments surface for an Idea.
+ * IdeaConversationPanel — vertical Activity + Comments surface for an Idea.
  *
- * Three lenses via the canonical Tabs primitive:
- *   All      — activity rows and comment bubbles interleaved chronologically
- *   Comments — only user/agent/position messages; composer at bottom
- *   Activity — only system-emitted events (structured, no avatar)
+ * Linear-style stacked sections, both visible in one scroll:
+ *   • Subscribe pill — top-right of the panel; flips on click via add_participant
+ *   • Activity     — system-emitted events (no avatars, structured rows)
+ *   • Comments     — user / agent / position messages, composer at bottom
  *
- * The Quest surface passes its quest.idea_id here — "Quest IS its idea"
- * insight is visible in the UI: the conversation belongs to the idea.
+ * The conversation belongs to the idea's backing session — the Quest surface
+ * passes its `quest.idea_id` here so "Quest IS its idea" is visible in the UI.
  *
- * API stubs return empty arrays while the Senior Architect's backend
- * endpoints are in flight. The panel renders empty states + a gated composer
- * (disabled with "Coming soon" tooltip) until wired.
+ * Subscribe is one-way today: clicking adds the caller as a `user`-kind
+ * participant on the session. Unsubscribe has no backend verb yet — when the
+ * caller is already subscribed the pill is disabled with a "Coming soon"
+ * tooltip rather than removed.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Spinner, Tabs } from "@/components/ui";
-import { getIdeaComments, type ActivityRow, type CommentRow } from "@/api/sessions";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button, Spinner, Tooltip } from "@/components/ui";
+import { addSessionParticipant, getIdeaComments, type CommentRow } from "@/api/sessions";
+import { useAuthStore } from "@/store/auth";
+import { useNav } from "@/hooks/useNav";
 import IdeaActivityFeed from "./IdeaActivityFeed";
 import IdeaCommentsList from "./IdeaCommentsList";
 import IdeaCommentComposer from "./IdeaCommentComposer";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface IdeaConversationPanelProps {
   ideaId: string;
 }
 
-// ─── All-view: interleave activity + comment rows chronologically ─────────────
+// ─── SubscribeBar ─────────────────────────────────────────────────────────────
 
-type FeedRow = ActivityRow | CommentRow;
+interface SubscribeBarProps {
+  subscribed: boolean;
+  onSubscribe: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+}
 
-function AllFeed({
-  activityRows,
-  commentRows,
-}: {
-  activityRows: ActivityRow[];
-  commentRows: CommentRow[];
-}) {
-  const all: FeedRow[] = [...activityRows, ...commentRows].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
-
-  if (all.length === 0) {
+function SubscribeBar({ subscribed, onSubscribe, disabled, busy }: SubscribeBarProps) {
+  if (subscribed) {
     return (
-      <div className="idea-convo-empty">
-        <span className="idea-convo-empty-text">No activity or comments yet.</span>
+      <div className="idea-convo-subscribe-bar">
+        <Tooltip content="Unsubscribe coming soon">
+          <Button variant="secondary" size="sm" disabled aria-pressed="true">
+            <CheckIcon />
+            Subscribed
+          </Button>
+        </Tooltip>
       </div>
     );
   }
-
   return (
-    <div className="idea-convo-all-feed">
-      {all.map((row) => {
-        if (row.kind === "activity") {
-          const r = row as ActivityRow;
-          const label = r.event_type
-            ? r.event_type.replace(/_/g, " ").replace(/^(\w)/, (c) => c.toUpperCase())
-            : null;
-          return (
-            <div key={`a-${String(r.id)}`} className="idea-convo-activity-row">
-              <span className="idea-convo-activity-dot" aria-hidden />
-              <div className="idea-convo-activity-body">
-                {label && <span className="idea-convo-activity-type">{label}</span>}
-                <span className="idea-convo-activity-summary">{r.summary}</span>
-              </div>
-              <time
-                className="idea-convo-ts"
-                dateTime={r.timestamp}
-                title={new Date(r.timestamp).toLocaleString()}
-              >
-                {fmtRelative(r.timestamp)}
-              </time>
-            </div>
-          );
-        }
-        // comment
-        const r = row as CommentRow;
-        const hue = authorHue(r.author);
-        const avatarStyle = {
-          background: `hsl(${hue} 30% 82%)`,
-          color: `hsl(${hue} 40% 28%)`,
-        };
-        return (
-          <div
-            key={`c-${String(r.id)}`}
-            className={`idea-convo-comment${r.pending ? " idea-convo-comment--pending" : ""}`}
-          >
-            <div className="idea-convo-comment-avatar" style={avatarStyle} aria-hidden>
-              {initials(r.author)}
-            </div>
-            <div className="idea-convo-comment-main">
-              <div className="idea-convo-comment-header">
-                <span className="idea-convo-comment-author">{r.author}</span>
-                <span className="idea-convo-comment-kind">{r.author_kind}</span>
-                <time
-                  className="idea-convo-ts"
-                  dateTime={r.timestamp}
-                  title={new Date(r.timestamp).toLocaleString()}
-                >
-                  {fmtRelative(r.timestamp)}
-                </time>
-              </div>
-              <p className="idea-convo-comment-body">{r.body}</p>
-            </div>
-          </div>
-        );
-      })}
+    <div className="idea-convo-subscribe-bar">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onSubscribe}
+        disabled={disabled || busy}
+        aria-pressed="false"
+      >
+        {busy ? <Spinner size="sm" /> : null}
+        Subscribe
+      </Button>
     </div>
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  const hours = Math.floor(diff / 3_600_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function authorHue(author: string): number {
-  let h = 0;
-  for (let i = 0; i < author.length; i++) h = (h * 31 + author.charCodeAt(i)) & 0xffff;
-  return h % 360;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+function CheckIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 8.5l3 3 7-7" />
+    </svg>
+  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelProps) {
+  const user = useAuthStore((s) => s.user);
+  const { entityId } = useNav();
+
   const [comments, setComments] = useState<CommentRow[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
   const [commentError, setCommentError] = useState<string | null>(null);
-  // Toast for comment errors (cleared after 4 s)
+  const [subscribeBusy, setSubscribeBusy] = useState(false);
+  const [activityCount, setActivityCount] = useState(0);
+
+  // Toast for comment / subscribe errors (cleared after 4 s)
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -157,23 +114,23 @@ export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelP
     };
   }, []);
 
-  // Load comments
+  // Load comments + envelope (sessionId, subscribed)
   useEffect(() => {
     let cancelled = false;
     setLoadingComments(true);
     setCommentError(null);
     getIdeaComments(ideaId)
-      .then((rows) => {
-        if (!cancelled) {
-          setComments(rows);
-          setLoadingComments(false);
-        }
+      .then((payload) => {
+        if (cancelled) return;
+        setComments(payload.rows);
+        setSessionId(payload.sessionId);
+        setSubscribed(payload.subscribed);
+        setLoadingComments(false);
       })
       .catch((e) => {
-        if (!cancelled) {
-          setCommentError(e instanceof Error ? e.message : "Failed to load comments");
-          setLoadingComments(false);
-        }
+        if (cancelled) return;
+        setCommentError(e instanceof Error ? e.message : "Failed to load comments");
+        setLoadingComments(false);
       });
     return () => {
       cancelled = true;
@@ -197,49 +154,31 @@ export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelP
     [showToast],
   );
 
-  const commentsPanel = (
-    <div className="idea-convo-panel-scroll">
-      {loadingComments ? (
-        <div className="idea-convo-loading">
-          <Spinner size="sm" />
-        </div>
-      ) : commentError ? (
-        <div className="idea-convo-error">{commentError}</div>
-      ) : (
-        <IdeaCommentsList rows={comments} />
-      )}
-      <IdeaCommentComposer
-        ideaId={ideaId}
-        onOptimistic={handleOptimistic}
-        onConfirm={handleConfirm}
-        onError={handleError}
-      />
-    </div>
-  );
+  const handleSubscribe = useCallback(async () => {
+    if (subscribeBusy || subscribed) return;
+    if (!sessionId) {
+      showToast("Add a comment first to open the conversation.");
+      return;
+    }
+    if (!user?.id) {
+      showToast("Sign in to subscribe.");
+      return;
+    }
+    setSubscribeBusy(true);
+    const res = await addSessionParticipant({
+      sessionId,
+      kind: "user",
+      id: user.id,
+    });
+    setSubscribeBusy(false);
+    if (res.ok) {
+      setSubscribed(true);
+    } else {
+      showToast(res.error ?? "Could not subscribe.");
+    }
+  }, [sessionId, subscribed, subscribeBusy, user, showToast]);
 
-  const activityPanel = (
-    <div className="idea-convo-panel-scroll">
-      <IdeaActivityFeed ideaId={ideaId} />
-    </div>
-  );
-
-  const allPanel = (
-    <div className="idea-convo-panel-scroll">
-      {loadingComments ? (
-        <div className="idea-convo-loading">
-          <Spinner size="sm" />
-        </div>
-      ) : (
-        // Activity rows are fetched inside IdeaActivityFeed; the All tab needs
-        // both. Simpler: re-fetch activity here too and interleave. But that
-        // doubles the request. Instead we lift only the comment rows from state
-        // and pass an empty activityRows placeholder — the All view shows
-        // comments interleaved with nothing until activity endpoint lands.
-        // When the architect ships /activity, swap in a proper shared fetch.
-        <AllFeed activityRows={[]} commentRows={comments} />
-      )}
-    </div>
-  );
+  const commentCount = useMemo(() => comments.filter((r) => !r.pending).length, [comments]);
 
   return (
     <div className="idea-convo-root">
@@ -248,27 +187,43 @@ export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelP
           {toastMsg}
         </div>
       )}
-      <Tabs
-        defaultTab="comments"
-        tabs={[
-          {
-            id: "comments",
-            label: "Comments",
-            count: comments.filter((r) => !r.pending).length || undefined,
-            content: commentsPanel,
-          },
-          {
-            id: "activity",
-            label: "Activity",
-            content: activityPanel,
-          },
-          {
-            id: "all",
-            label: "All",
-            content: allPanel,
-          },
-        ]}
+
+      <SubscribeBar
+        subscribed={subscribed}
+        onSubscribe={handleSubscribe}
+        disabled={!sessionId || !user?.id}
+        busy={subscribeBusy}
       />
+
+      <section className="idea-convo-section" aria-labelledby={`idea-convo-${ideaId}-activity`}>
+        <h3 className="idea-convo-section-title" id={`idea-convo-${ideaId}-activity`}>
+          Activity
+          {activityCount > 0 && <span className="idea-convo-section-count">{activityCount}</span>}
+        </h3>
+        <IdeaActivityFeed ideaId={ideaId} onCount={setActivityCount} />
+      </section>
+
+      <section className="idea-convo-section" aria-labelledby={`idea-convo-${ideaId}-comments`}>
+        <h3 className="idea-convo-section-title" id={`idea-convo-${ideaId}-comments`}>
+          Comments
+          {commentCount > 0 && <span className="idea-convo-section-count">{commentCount}</span>}
+        </h3>
+        {loadingComments ? (
+          <div className="idea-convo-loading">
+            <Spinner size="sm" />
+          </div>
+        ) : commentError ? (
+          <div className="idea-convo-error">{commentError}</div>
+        ) : (
+          <IdeaCommentsList rows={comments} entityId={entityId} />
+        )}
+        <IdeaCommentComposer
+          ideaId={ideaId}
+          onOptimistic={handleOptimistic}
+          onConfirm={handleConfirm}
+          onError={handleError}
+        />
+      </section>
     </div>
   );
 }
