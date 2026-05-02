@@ -210,6 +210,17 @@ pub async fn handle_store_idea(
         ctx.tag_policy_cache.invalidate().await;
     }
 
+    // Emit a "created" activity row when this store actually created a new
+    // idea. Skip / Merge / Supersede have their own semantics — only the
+    // Create branch produces a fresh idea worth surfacing in the feed.
+    if response.get("ok").and_then(|v| v.as_bool()) == Some(true)
+        && response.get("action").and_then(|v| v.as_str()) == Some("create")
+        && let Some(new_id) = response.get("id").and_then(|v| v.as_str())
+    {
+        let caller_user_id = request_field(request, "caller_user_id");
+        emit_idea_activity(ctx, idea_store.as_ref(), new_id, "created", caller_user_id).await;
+    }
+
     response
 }
 
@@ -1055,9 +1066,37 @@ pub async fn handle_delete_idea(
         }
     }
 
+    let caller_user_id = request_field(request, "caller_user_id").map(str::to_string);
+
+    // Capture the idea's session_id before the delete so we can still emit
+    // a "deleted" activity row into the orphan session afterwards. The row
+    // outlives the idea so the activity feed (read directly off the session)
+    // still has a record after the idea row vanishes.
+    let pre_delete_session_id: Option<String> = idea_store
+        .get_by_ids(&[id.to_string()])
+        .await
+        .ok()
+        .and_then(|mut v| v.pop())
+        .and_then(|i| i.session_id);
+
     match idea_store.delete(id).await {
         Ok(()) => {
             ctx.recall_cache.invalidate();
+            if let (Some(sid), Some(ss)) = (pre_delete_session_id, ctx.session_store.as_ref()) {
+                let actor_kind = if caller_user_id.is_some() {
+                    "user"
+                } else {
+                    "system"
+                };
+                let metadata = serde_json::json!({
+                    "kind": "idea_deleted",
+                    "actor_user_id": caller_user_id,
+                    "actor_kind": actor_kind,
+                });
+                if let Err(e) = ss.append_system_activity(&sid, "deleted", &metadata).await {
+                    tracing::warn!(idea = %id, error = %e, "delete_idea: append_system_activity failed");
+                }
+            }
             serde_json::json!({"ok": true})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -1093,6 +1132,8 @@ pub async fn handle_update_idea(
         });
     }
 
+    let caller_user_id = request_field(request, "caller_user_id").map(str::to_string);
+
     match idea_store.update(id, name, content, tags.as_deref()).await {
         Ok(()) => {
             // Reconcile inline edges when the body changed. We need to know
@@ -1109,6 +1150,14 @@ pub async fn handle_update_idea(
                 .await;
             }
             ctx.recall_cache.invalidate();
+            emit_idea_activity(
+                ctx,
+                idea_store.as_ref(),
+                id,
+                "edited",
+                caller_user_id.as_deref(),
+            )
+            .await;
             serde_json::json!({"ok": true})
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -1844,6 +1893,105 @@ pub async fn handle_idea_prefix(
     }
 }
 
+// ── activity / session helpers ───────────────────────────────────────────────
+
+/// Resolve an idea's session id, creating one lazily if needed.
+///
+/// Mirrors the lazy-create block in `handle_message_to` for `target_kind="idea"`:
+/// when `ideas.session_id` is null, mint a standalone session and backfill the
+/// idea row. The result is the canonical session id for emitting comments,
+/// activity, or subscribing participants.
+async fn ensure_idea_session(
+    ctx: &super::CommandContext,
+    idea_store: &dyn IdeaStore,
+    idea_id: &str,
+) -> std::result::Result<String, String> {
+    let idea = idea_store
+        .get_by_ids(&[idea_id.to_string()])
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "idea not found".to_string())?;
+
+    if let Some(sid) = idea.session_id {
+        return Ok(sid);
+    }
+
+    let Some(ref ss) = ctx.session_store else {
+        return Err("session store not available".to_string());
+    };
+
+    let sid = ss
+        .create_standalone_session(&format!("idea:{}", idea.name), "idea")
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let pool = ctx.agent_registry.db();
+    let conn = pool.lock().await;
+    conn.execute(
+        "UPDATE ideas SET session_id = ?1 WHERE id = ?2",
+        rusqlite::params![sid.as_str(), idea_id],
+    )
+    .map_err(|e| e.to_string())?;
+    drop(conn);
+
+    Ok(sid)
+}
+
+/// Emit an "idea_<verb>" activity row into the idea's backing session.
+///
+/// Lazy-creates the session if one doesn't exist yet. `verb` is the short
+/// summary the comment row stores ("created" / "edited" / "deleted") and the
+/// metadata records the actor identity for the activity feed's chrome.
+///
+/// All failures are logged at WARN and swallowed — the source mutation has
+/// already succeeded; an activity-emit failure must not propagate as a
+/// caller-facing error.
+async fn emit_idea_activity(
+    ctx: &super::CommandContext,
+    idea_store: &dyn IdeaStore,
+    idea_id: &str,
+    verb: &'static str,
+    actor_user_id: Option<&str>,
+) {
+    let session_id = match ensure_idea_session(ctx, idea_store, idea_id).await {
+        Ok(sid) => sid,
+        Err(e) => {
+            tracing::warn!(idea = %idea_id, error = %e, "emit_idea_activity: ensure_session failed");
+            return;
+        }
+    };
+
+    let Some(ref ss) = ctx.session_store else {
+        return;
+    };
+
+    let kind_tag = format!("idea_{verb}");
+    let actor_kind = if actor_user_id.is_some() {
+        "user"
+    } else {
+        "system"
+    };
+    let metadata = serde_json::json!({
+        "kind": kind_tag,
+        "actor_user_id": actor_user_id,
+        "actor_kind": actor_kind,
+    });
+
+    if let Err(e) = ss
+        .append_system_activity(&session_id, verb, &metadata)
+        .await
+    {
+        tracing::warn!(
+            idea = %idea_id,
+            verb = verb,
+            error = %e,
+            "emit_idea_activity: append_system_activity failed"
+        );
+    }
+}
+
 // ── @-mention wiring ─────────────────────────────────────────────────────────
 
 /// Parse `@<token>` mentions from an idea body and:
@@ -2374,18 +2522,25 @@ pub async fn handle_idea_comments(
 
     match ss.conversation_messages_by_session(session_id, 200).await {
         Ok(msgs) => {
-            let items: Vec<serde_json::Value> = msgs
-                .iter()
-                .map(|m| {
-                    serde_json::json!({
-                        "id": m.id,
-                        "from_kind": m.from_kind,
-                        "from_id": m.from_id,
-                        "body": m.content,
-                        "at": m.timestamp.to_rfc3339(),
-                    })
-                })
-                .collect();
+            // Resolve display names for each (from_kind, from_id) pair so the
+            // frontend renders avatar hue + initials off a stable string that
+            // matches the rest of the app (where avatars are computed from
+            // display name, not raw UUID). Authors with no resolvable record
+            // fall back to a "User <prefix>" placeholder so hue still beats
+            // the all-zero UUID-prefix collision.
+            let mut items: Vec<serde_json::Value> = Vec::with_capacity(msgs.len());
+            for m in &msgs {
+                let author =
+                    resolve_author_name(ctx, m.from_kind.as_deref(), m.from_id.as_deref()).await;
+                items.push(serde_json::json!({
+                    "id": m.id,
+                    "from_kind": m.from_kind,
+                    "from_id": m.from_id,
+                    "author": author,
+                    "body": m.content,
+                    "at": m.timestamp.to_rfc3339(),
+                }));
+            }
             serde_json::json!({
                 "ok": true,
                 "session_id": session_id,
@@ -2395,6 +2550,121 @@ pub async fn handle_idea_comments(
         }
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
+}
+
+/// Resolve a `(from_kind, from_id)` pair to the display name the frontend
+/// should use for avatar hue + initials.
+///
+/// - `agent` → `agent_registry.get(id)?.name`
+/// - `role`  → `role_registry.get(id)?.title`
+/// - `system` → `"System"` (system rows render via the activity feed, not
+///   the comments list, but resolve them anyway for completeness)
+/// - `user` → no cross-DB user lookup yet; returns a stable
+///   `"User <first6>"` placeholder. The frontend can override for the caller
+///   from `useAuthStore` since every message authored by the caller IS the
+///   caller.
+/// - Anything unresolved or missing → falls back to the raw `from_id` (or the
+///   `from_kind` when even that is missing).
+async fn resolve_author_name(
+    ctx: &super::CommandContext,
+    from_kind: Option<&str>,
+    from_id: Option<&str>,
+) -> String {
+    match (from_kind, from_id) {
+        (Some("agent"), Some(id)) => match ctx.agent_registry.get(id).await {
+            Ok(Some(a)) => a.name,
+            _ => id.to_string(),
+        },
+        (Some("role"), Some(id)) => match ctx.role_registry.get(id).await {
+            Ok(Some(r)) => r.title,
+            _ => id.to_string(),
+        },
+        (Some("system"), _) => "System".to_string(),
+        (Some("user"), Some(id)) => {
+            let prefix: String = id.chars().take(6).collect();
+            format!("User {prefix}")
+        }
+        (_, Some(id)) => id.to_string(),
+        (Some(k), None) => k.to_string(),
+        (None, None) => "unknown".to_string(),
+    }
+}
+
+/// `subscribe_to_idea` IPC handler.
+///
+/// Lazy-creates the idea's session if one doesn't exist yet, then inserts
+/// the calling user into `session_participants`. Returns the session id so
+/// downstream operations (composer, polling) can use it.
+///
+/// Request shape:
+/// ```json
+/// { "idea_id": "<id>", "caller_user_id": "<uid>" }
+/// ```
+///
+/// `caller_user_id` is supplied by the web layer's `ipc_proxy` from the
+/// JWT-resolved scope. Operator / system callers (no user identity) get a
+/// `no_user_identity` error rather than a silent no-op so the UI can show
+/// a sign-in prompt.
+pub async fn handle_subscribe_to_idea(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let idea_id = match super::request_field(request, "idea_id") {
+        Some(id) => id.to_string(),
+        None => return serde_json::json!({"ok": false, "error": "idea_id required"}),
+    };
+    let caller_user_id = match super::request_field(request, "caller_user_id") {
+        Some(id) if !id.is_empty() => id.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "no_user_identity"}),
+    };
+
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+
+    // Tenancy check.
+    let idea = match idea_store.get_by_ids(std::slice::from_ref(&idea_id)).await {
+        Ok(ideas) if !ideas.is_empty() => ideas.into_iter().next().unwrap(),
+        Ok(_) => return serde_json::json!({"ok": false, "error": "idea not found"}),
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+    if let Some(ref aid) = idea.agent_id
+        && !super::tenancy::check_agent_access(&ctx.agent_registry, allowed, aid).await
+    {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+
+    let session_id = match ensure_idea_session(ctx, idea_store.as_ref(), &idea_id).await {
+        Ok(sid) => sid,
+        Err(e) => return serde_json::json!({"ok": false, "error": e}),
+    };
+
+    let Some(ref ss) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+
+    let inserted = match ss
+        .add_session_participant(&session_id, "user", &caller_user_id, Some("subscribe"))
+        .await
+    {
+        Ok(b) => b,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    if inserted {
+        let join_body = format!("user:{caller_user_id} joined");
+        let _ = ss
+            .append_message_from(&session_id, "system", &join_body, "system", None, None)
+            .await;
+    }
+
+    serde_json::json!({
+        "ok": true,
+        "session_id": session_id,
+        "subscribed": true,
+        "inserted": inserted,
+    })
 }
 
 #[cfg(test)]
@@ -2581,6 +2851,10 @@ mod wave2_tests {
         assert_eq!(items[0]["body"], "user comment");
         assert_eq!(items[0]["from_kind"], "user");
         assert_eq!(items[0]["from_id"], "user-xyz");
+        // Display name resolution: user kinds with no cross-DB lookup get a
+        // "User <prefix>" placeholder so avatar hue is keyed off a stable
+        // human-readable string instead of the raw UUID.
+        assert_eq!(items[0]["author"], "User user-x");
         // Wave-3 envelope fields.
         assert_eq!(
             resp["session_id"].as_str(),
@@ -2590,6 +2864,44 @@ mod wave2_tests {
         assert_eq!(
             resp["subscribed"], false,
             "no caller_user_id supplied — must report not-subscribed"
+        );
+    }
+
+    #[tokio::test]
+    async fn idea_comments_resolves_agent_author_name() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("cmt-author", "body", &[], None)
+            .await
+            .unwrap();
+
+        let agent = ctx
+            .agent_registry
+            .spawn("acme-bot", None, Some("test"))
+            .await
+            .unwrap();
+
+        // Post a comment from an agent. message_to lazy-creates the session.
+        let req = serde_json::json!({
+            "target_kind": "idea",
+            "target_id": idea_id,
+            "body": "agent thinking out loud",
+            "from_kind": "agent",
+            "from_id": agent.id.clone(),
+        });
+        let r = crate::ipc::messages::handle_message_to(&ctx, &req, &None).await;
+        assert_eq!(r["ok"], true);
+
+        let req = serde_json::json!({"idea_id": idea_id});
+        let resp = handle_idea_comments(&ctx, &req, &None).await;
+        let items = resp["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["from_kind"], "agent");
+        assert_eq!(items[0]["from_id"], agent.id);
+        assert_eq!(
+            items[0]["author"], "acme-bot",
+            "agent author must resolve to agent_registry.name"
         );
     }
 
@@ -2679,10 +2991,10 @@ mod wave2_tests {
             edges.links
         );
 
-        // The idea has no session_id yet at store time (lazy-create is only
-        // triggered on first message_to). So auto-subscribe fires only when
-        // the idea has a session. Send a comment to create the session,
-        // then store a new version with a mention to trigger subscribe.
+        // After Wave-3+: handle_store_idea now lazy-creates the idea's
+        // session at store time so the "created" activity row has somewhere
+        // to land. Send a comment anyway to exercise the message_to path
+        // and then re-run wire_at_mentions to verify the subscribe wiring.
         let msg_req = serde_json::json!({
             "target_kind": "idea",
             "target_id": idea_id,
@@ -2759,5 +3071,130 @@ mod wave2_tests {
             1,
             "one 'mentioned' system message expected; timeline: {timeline:?}"
         );
+    }
+
+    // ── activity-emission on idea CRUD ───────────────────────────────────
+
+    #[tokio::test]
+    async fn handle_update_idea_emits_edited_activity_row() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("edit-test", "first body", &[], None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "id": idea_id,
+            "content": "second body",
+            "caller_user_id": "user-editor",
+        });
+        let resp = handle_update_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "update: {resp}");
+
+        // The update should have lazy-created the session and dropped a
+        // system "edited" row into it.
+        let idea = idea_store
+            .get_by_ids(&[idea_id.clone()])
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        let session_id = idea
+            .session_id
+            .expect("update_idea must lazy-create session for activity emission");
+
+        let sys_msgs = ss
+            .system_messages_by_session(&session_id, 10)
+            .await
+            .unwrap();
+        let edited = sys_msgs
+            .iter()
+            .find(|m| m.content == "edited")
+            .expect("an 'edited' system row must exist");
+        let metadata = edited.metadata.as_ref().expect("metadata must be set");
+        assert_eq!(metadata["kind"], "idea_edited");
+        assert_eq!(metadata["actor_user_id"], "user-editor");
+        assert_eq!(metadata["actor_kind"], "user");
+    }
+
+    #[tokio::test]
+    async fn handle_store_idea_emits_created_activity_row() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let req = serde_json::json!({
+            "name": "create-test",
+            "content": "fresh idea body",
+            "caller_user_id": "user-creator",
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        assert_eq!(resp["action"], "create");
+        let idea_id = resp["id"].as_str().unwrap().to_string();
+
+        let idea = idea_store
+            .get_by_ids(&[idea_id])
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        let session_id = idea
+            .session_id
+            .expect("store_idea must lazy-create session");
+
+        let sys_msgs = ss
+            .system_messages_by_session(&session_id, 10)
+            .await
+            .unwrap();
+        let created = sys_msgs
+            .iter()
+            .find(|m| m.content == "created")
+            .expect("a 'created' system row must exist");
+        assert_eq!(created.metadata.as_ref().unwrap()["kind"], "idea_created");
+    }
+
+    #[tokio::test]
+    async fn subscribe_to_idea_lazy_creates_and_joins() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("sub-fresh", "no comments yet", &[], None)
+            .await
+            .unwrap();
+
+        // Idea has no session yet — Subscribe must still work.
+        let req = serde_json::json!({
+            "idea_id": idea_id,
+            "caller_user_id": "user-eager",
+        });
+        let resp = handle_subscribe_to_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "subscribe: {resp}");
+        assert_eq!(resp["subscribed"], true);
+        let session_id = resp["session_id"].as_str().unwrap().to_string();
+
+        let participants = ss.list_participants(&session_id).await.unwrap();
+        assert!(
+            participants
+                .iter()
+                .any(|p| p.identity_kind == "user" && p.identity_id == "user-eager"),
+            "subscriber must be in participants: {participants:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_to_idea_rejects_callers_with_no_user_identity() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("sub-anon", "body", &[], None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({"idea_id": idea_id});
+        let resp = handle_subscribe_to_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], false);
+        assert_eq!(resp["error"], "no_user_identity");
     }
 }

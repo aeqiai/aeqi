@@ -39,10 +39,13 @@ export interface CommentRow {
   kind: "comment";
   /** ISO-8601 */
   timestamp: string;
-  /** Sender display name */
+  /** Sender display name (resolved on the backend) */
   author: string;
-  /** Author kind: user / agent / position */
-  author_kind: "user" | "agent" | "position" | string;
+  /** Raw `from_id` (UUID). Reserved for system mention/lookup; the bubble's
+   * hue + initials key off `author` so the avatar matches the rest of the app. */
+  author_id?: string;
+  /** Author kind: user / agent / role / system */
+  author_kind: "user" | "agent" | "role" | "system" | string;
   /** Message body */
   body: string;
   /** Optimistic flag — true while the write is in-flight */
@@ -70,7 +73,9 @@ interface CommentsResponse {
   items?: Array<{
     id: string | number;
     from_kind: string;
-    from_id: string;
+    from_id: string | null;
+    /** Backend-resolved display name (agent.name / role.title / "User <prefix>"). */
+    author?: string;
     body: string;
     at: string;
   }>;
@@ -137,12 +142,11 @@ export async function getIdeaComments(ideaId: string): Promise<CommentsPayload> 
       id: item.id,
       kind: "comment",
       timestamp: item.at,
-      // Backend will resolve display names later — for now the raw id is the
-      // best stable string we have. Coalesce nullable fields so render-path
-      // helpers (mention parser, hue/initials calculators, body renderer) can
-      // assume strings — pre-migration messages can have null `from_id`/
-      // `body` and the panel was crashing on the first `.length` access.
-      author: item.from_id ?? item.from_kind ?? "unknown",
+      // Backend resolves agent.name / role.title / "User <prefix>" so avatar
+      // hue + initials match the rest of the app. Coalesce on the way down
+      // for legacy / pre-migration rows that still lack `author`.
+      author: item.author ?? item.from_id ?? item.from_kind ?? "unknown",
+      author_id: item.from_id ?? undefined,
       author_kind: item.from_kind ?? "unknown",
       body: item.body ?? "",
     }));
@@ -199,6 +203,40 @@ export async function addSessionParticipant(params: {
       },
     );
     return { ok: Boolean(res?.ok), error: res?.error };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Subscribe the calling user to an idea's conversation.
+ *
+ * Lazy-creates the idea's backing session if one doesn't exist yet and adds
+ * the caller as a `user`-kind participant. The caller identity is resolved
+ * from the request's JWT scope on the backend — no body needed.
+ *
+ * Returns the canonical session id so the panel can store it locally for
+ * subsequent operations (composer, polling).
+ */
+export async function subscribeToIdea(
+  ideaId: string,
+): Promise<{ ok: boolean; sessionId?: string; subscribed?: boolean; error?: string }> {
+  try {
+    const res = await apiRequest<{
+      ok: boolean;
+      session_id?: string;
+      subscribed?: boolean;
+      error?: string;
+    }>(`/ideas/${encodeURIComponent(ideaId)}/subscribe`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    return {
+      ok: Boolean(res?.ok),
+      sessionId: res?.session_id,
+      subscribed: Boolean(res?.subscribed),
+      error: res?.error,
+    };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

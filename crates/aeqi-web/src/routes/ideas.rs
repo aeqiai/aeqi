@@ -31,6 +31,7 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/ideas/{id}/activity", get(idea_activity))
         .route("/ideas/{id}/comments", get(idea_comments))
+        .route("/ideas/{id}/subscribe", post(idea_subscribe))
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -245,6 +246,26 @@ async fn idea_comments(
         state,
         scope.as_ref(),
         "idea_comments",
+        serde_json::json!({"idea_id": id}),
+    )
+    .await
+}
+
+/// `POST /api/ideas/:id/subscribe`
+///
+/// Lazy-creates the idea's backing session if needed, then adds the calling
+/// user (resolved from JWT scope) as a `session_participants` row. Returns
+/// `{ ok, session_id, subscribed }`. Used by the conversation panel's
+/// Subscribe button so a fresh idea with no comments yet is still subscribable.
+async fn idea_subscribe(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "subscribe_to_idea",
         serde_json::json!({"idea_id": id}),
     )
     .await

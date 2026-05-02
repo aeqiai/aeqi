@@ -9,15 +9,16 @@
  * The conversation belongs to the idea's backing session — the Quest surface
  * passes its `quest.idea_id` here so "Quest IS its idea" is visible in the UI.
  *
- * Subscribe is one-way today: clicking adds the caller as a `user`-kind
- * participant on the session. Unsubscribe has no backend verb yet — when the
- * caller is already subscribed the pill is disabled with a "Coming soon"
- * tooltip rather than removed.
+ * Subscribe is one-way today: clicking POSTs `/api/ideas/:id/subscribe`,
+ * which lazy-creates the idea's backing session if one doesn't exist yet
+ * and adds the caller as a `user`-kind participant. Unsubscribe has no
+ * backend verb yet — when the caller is already subscribed the pill is
+ * disabled with a "Coming soon" tooltip rather than removed.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Spinner, Tooltip } from "@/components/ui";
-import { addSessionParticipant, getIdeaComments, type CommentRow } from "@/api/sessions";
+import { getIdeaComments, subscribeToIdea, type CommentRow } from "@/api/sessions";
 import { useAuthStore } from "@/store/auth";
 import { useNav } from "@/hooks/useNav";
 import IdeaActivityFeed from "./IdeaActivityFeed";
@@ -91,7 +92,10 @@ export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelP
   const { entityId } = useNav();
 
   const [comments, setComments] = useState<CommentRow[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // sessionId is tracked so subsequent operations (e.g. unsubscribe, polling)
+  // have a stable handle once the backend lazy-creates it. Currently only
+  // written; future surfaces will read it.
+  const [, setSessionId] = useState<string | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -156,27 +160,22 @@ export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelP
 
   const handleSubscribe = useCallback(async () => {
     if (subscribeBusy || subscribed) return;
-    if (!sessionId) {
-      showToast("Add a comment first to open the conversation.");
-      return;
-    }
     if (!user?.id) {
       showToast("Sign in to subscribe.");
       return;
     }
     setSubscribeBusy(true);
-    const res = await addSessionParticipant({
-      sessionId,
-      kind: "user",
-      id: user.id,
-    });
+    // The backend lazy-creates the session if needed, so a fresh idea with
+    // no comments is still subscribable.
+    const res = await subscribeToIdea(ideaId);
     setSubscribeBusy(false);
     if (res.ok) {
       setSubscribed(true);
+      if (res.sessionId) setSessionId(res.sessionId);
     } else {
       showToast(res.error ?? "Could not subscribe.");
     }
-  }, [sessionId, subscribed, subscribeBusy, user, showToast]);
+  }, [ideaId, subscribed, subscribeBusy, user, showToast]);
 
   const commentCount = useMemo(() => comments.filter((r) => !r.pending).length, [comments]);
 
@@ -191,7 +190,7 @@ export default function IdeaConversationPanel({ ideaId }: IdeaConversationPanelP
       <SubscribeBar
         subscribed={subscribed}
         onSubscribe={handleSubscribe}
-        disabled={!sessionId || !user?.id}
+        disabled={!user?.id}
         busy={subscribeBusy}
       />
 

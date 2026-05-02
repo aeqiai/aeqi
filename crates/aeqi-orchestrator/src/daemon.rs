@@ -1858,6 +1858,11 @@ impl Daemon {
                     crate::ipc::ideas::handle_idea_comments(&ctx, &request, &allowed_roots).await
                 }
 
+                "subscribe_to_idea" => {
+                    crate::ipc::ideas::handle_subscribe_to_idea(&ctx, &request, &allowed_roots)
+                        .await
+                }
+
                 "session_fork" => {
                     let session_id = request_field(&request, "session_id").unwrap_or("");
                     let message_id = request

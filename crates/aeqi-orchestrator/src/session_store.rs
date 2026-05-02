@@ -2181,6 +2181,32 @@ impl SessionStore {
         Ok(row_id)
     }
 
+    /// Append a `from_kind="system"` activity row with structured metadata.
+    ///
+    /// Used by surfaces that emit "X edited / created / deleted Y" rows into
+    /// a target's session — the activity feed reads them via
+    /// [`Self::system_messages_by_session`] and renders the metadata as the
+    /// row's chrome (actor, kind, etc.). `from_id` is `NULL` because the
+    /// authoring identity lives in `metadata.actor_user_id` / `actor_kind`.
+    pub async fn append_system_activity(
+        &self,
+        session_id: &str,
+        content: &str,
+        metadata: &serde_json::Value,
+    ) -> Result<i64> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let metadata_text = metadata.to_string();
+        db.execute(
+            "INSERT INTO session_messages \
+             (session_id, role, content, timestamp, event_type, from_kind, from_id, metadata) \
+             VALUES (?1, 'system', ?2, ?3, 'activity', 'system', NULL, ?4)",
+            params![session_id, content, now, metadata_text],
+        )
+        .context("failed to insert system activity row")?;
+        Ok(db.last_insert_rowid())
+    }
+
     /// Insert a participant into `session_participants` (idempotent via INSERT OR IGNORE).
     ///
     /// Returns `true` if a new row was inserted, `false` if the participant
