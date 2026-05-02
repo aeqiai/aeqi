@@ -4,7 +4,7 @@
 //!
 //! Wave 1 implements the `session` and `idea` targets for `message_to`.
 //! Wave 3 (position routing) implements `target_kind="position"`.
-//! The `agent` and `user` targets are wired by the sibling Wave 3 architect.
+//! Wave 3 (agent tool) implements `target_kind="agent"` and `target_kind="user"`.
 
 use super::request_field;
 
@@ -14,7 +14,7 @@ use super::request_field;
 ///
 /// ```json
 /// {
-///   "target_kind":  "session" | "idea" | "agent" | "user" | "position",
+///   "target_kind":  "session" | "idea" | "agent" | "user" | "position" | "role",
 ///   "target_id":    "<id>",
 ///   "body":         "<message text>",
 ///   "from_kind":    "user" | "agent" | "position" | "system",
@@ -27,7 +27,7 @@ use super::request_field;
 /// session is created and the idea row is updated to point at it before
 /// appending the message.
 ///
-/// For `target_kind="position"`: the position's current occupant is resolved;
+/// For `target_kind="position"` or `"role"`: the position's current occupant is resolved;
 /// a vacant position returns an error. A position-anchored session is
 /// created on first use and reused on subsequent calls. The occupant is
 /// added as a participant automatically.
@@ -143,14 +143,15 @@ pub async fn handle_message_to(
             }
         }
 
-        "position" => {
+        // "role" is the user-facing alias for "position".
+        "position" | "role" => {
             // 1. Look up the position.
             let position = match ctx.position_registry.get(&target_id).await {
                 Ok(Some(p)) => p,
                 Ok(None) => {
                     return serde_json::json!({
                         "ok": false,
-                        "error": "position not found",
+                        "error": "role not found",
                     });
                 }
                 Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -164,7 +165,7 @@ pub async fn handle_message_to(
             {
                 return serde_json::json!({
                     "ok": false,
-                    "error": "position has no occupant",
+                    "error": "role has no occupant",
                 });
             }
             let occupant_kind = position.occupant_kind;
@@ -237,11 +238,88 @@ pub async fn handle_message_to(
             }
         }
 
-        "agent" | "user" => {
-            serde_json::json!({
-                "ok": false,
-                "error": format!("target_kind={target_kind} is not yet wired in Wave 3"),
-            })
+        "agent" => {
+            // Find or create a 1:1 agent↔agent DM session.
+            let dm_name = format!(
+                "dm:agent:{}:agent:{}",
+                from_id.as_deref().unwrap_or("unknown"),
+                target_id
+            );
+            match ss
+                .find_or_create_dm_session(
+                    "agent_agent_dm",
+                    &dm_name,
+                    "agent",
+                    from_id.as_deref().unwrap_or(""),
+                    "agent",
+                    &target_id,
+                )
+                .await
+            {
+                Ok((session_id, _created)) => {
+                    match ss
+                        .append_message_from(
+                            &session_id,
+                            role_for_from_kind(from_kind),
+                            &body,
+                            from_kind,
+                            from_id.as_deref(),
+                            payload_kind.as_deref(),
+                        )
+                        .await
+                    {
+                        Ok(msg_id) => serde_json::json!({
+                            "ok": true,
+                            "session_id": session_id,
+                            "message_id": msg_id,
+                        }),
+                        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                    }
+                }
+                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+            }
+        }
+
+        "user" => {
+            // Find or create a 1:1 agent↔user DM session.
+            let dm_name = format!(
+                "dm:agent:{}:user:{}",
+                from_id.as_deref().unwrap_or("unknown"),
+                target_id
+            );
+            match ss
+                .find_or_create_dm_session(
+                    "agent_user_dm",
+                    &dm_name,
+                    "agent",
+                    from_id.as_deref().unwrap_or(""),
+                    "user",
+                    &target_id,
+                )
+                .await
+            {
+                Ok((session_id, _created)) => {
+                    match ss
+                        .append_message_from(
+                            &session_id,
+                            role_for_from_kind(from_kind),
+                            &body,
+                            from_kind,
+                            from_id.as_deref(),
+                            payload_kind.as_deref(),
+                        )
+                        .await
+                    {
+                        Ok(msg_id) => serde_json::json!({
+                            "ok": true,
+                            "session_id": session_id,
+                            "message_id": msg_id,
+                        }),
+                        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+                    }
+                }
+                Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+            }
         }
 
         other => {
@@ -704,6 +782,102 @@ mod tests {
         assert_eq!(
             session_id_1, session_id_2,
             "second message_to same position must reuse the same session"
+        );
+    }
+
+    // ── Wave 3: agent/user DM target tests ───────────────────────────────────
+
+    /// message_to(target=user) creates a 1:1 agent↔user DM session and appends
+    /// the message with from_kind=agent, from_id=<calling agent>.
+    #[tokio::test]
+    async fn message_to_user_target_creates_dm_and_appends() {
+        let (ctx, ss, _, _dir) = test_ctx_with_ideas().await;
+
+        let req = serde_json::json!({
+            "target_kind": "user",
+            "target_id": "user-owner-1",
+            "body": "please approve this budget",
+            "from_kind": "agent",
+            "from_id": "agent-abc",
+            "payload_kind": "decision_request",
+        });
+
+        let resp = handle_message_to(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        let session_id = resp["session_id"].as_str().unwrap().to_string();
+        assert!(!session_id.is_empty());
+        assert!(resp["message_id"].is_number());
+
+        // Session is a DM of type agent_user_dm.
+        let session = ss.get_session(&session_id).await.unwrap().unwrap();
+        assert_eq!(session.session_type, "agent_user_dm");
+
+        // Message is recorded with correct content.
+        // Use timeline (not history) because payload_kind sets event_type and
+        // history_by_session filters for event_type='message' only.
+        let msgs = ss.timeline_by_session(&session_id, 10).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].content, "please approve this budget");
+
+        // Second call reuses the same session (idempotent DM creation).
+        let req2 = serde_json::json!({
+            "target_kind": "user",
+            "target_id": "user-owner-1",
+            "body": "second message",
+            "from_kind": "agent",
+            "from_id": "agent-abc",
+        });
+        let resp2 = handle_message_to(&ctx, &req2, &None).await;
+        assert_eq!(resp2["ok"], true, "second call response: {resp2}");
+        assert_eq!(
+            resp2["session_id"], session_id,
+            "second message must land in the same DM session"
+        );
+    }
+
+    /// message_to(target=agent) creates a 1:1 agent↔agent DM session and appends
+    /// the message with from_kind=agent.
+    #[tokio::test]
+    async fn message_to_agent_target_creates_dm_and_appends() {
+        let (ctx, ss, _, _dir) = test_ctx_with_ideas().await;
+
+        let req = serde_json::json!({
+            "target_kind": "agent",
+            "target_id": "agent-target-1",
+            "body": "here is the status update",
+            "from_kind": "agent",
+            "from_id": "agent-sender-1",
+            "payload_kind": "status_update",
+        });
+
+        let resp = handle_message_to(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        let session_id = resp["session_id"].as_str().unwrap().to_string();
+        assert!(!session_id.is_empty());
+
+        // Session is a DM of type agent_agent_dm.
+        let session = ss.get_session(&session_id).await.unwrap().unwrap();
+        assert_eq!(session.session_type, "agent_agent_dm");
+
+        // Message is recorded. Use timeline (not history) — payload_kind sets
+        // event_type and history_by_session only returns event_type='message' rows.
+        let msgs = ss.timeline_by_session(&session_id, 10).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].content, "here is the status update");
+
+        // Symmetry check: a reverse message also lands in the SAME session.
+        let req_reverse = serde_json::json!({
+            "target_kind": "agent",
+            "target_id": "agent-sender-1",
+            "body": "acknowledged",
+            "from_kind": "agent",
+            "from_id": "agent-target-1",
+        });
+        let resp_reverse = handle_message_to(&ctx, &req_reverse, &None).await;
+        assert_eq!(resp_reverse["ok"], true, "reverse: {resp_reverse}");
+        assert_eq!(
+            resp_reverse["session_id"], session_id,
+            "reverse message must land in the same DM session"
         );
     }
 }

@@ -2186,6 +2186,69 @@ impl SessionStore {
         Ok(rows > 0)
     }
 
+    /// Find or create a 1:1 DM session between two participants.
+    ///
+    /// Looks for an existing `session_type=session_type_key` session that already
+    /// has both `(kind_a, id_a)` and `(kind_b, id_b)` as participants. If none
+    /// exists, creates one and inserts both participant rows.
+    ///
+    /// Returns `(session_id, created)` — `created=true` when a new session was minted.
+    pub async fn find_or_create_dm_session(
+        &self,
+        session_type_key: &str,
+        name: &str,
+        kind_a: &str,
+        id_a: &str,
+        kind_b: &str,
+        id_b: &str,
+    ) -> Result<(String, bool)> {
+        let db = self.db.lock().await;
+
+        // Search for an existing session of this type that has both participants.
+        let existing: Option<String> = db
+            .query_row(
+                "SELECT sp1.session_id \
+                 FROM session_participants sp1 \
+                 JOIN session_participants sp2 \
+                   ON sp1.session_id = sp2.session_id \
+                 JOIN sessions s ON s.id = sp1.session_id \
+                 WHERE sp1.identity_kind = ?1 AND sp1.identity_id = ?2 \
+                   AND sp2.identity_kind = ?3 AND sp2.identity_id = ?4 \
+                   AND s.session_type = ?5 \
+                   AND s.status = 'active' \
+                 LIMIT 1",
+                params![kind_a, id_a, kind_b, id_b, session_type_key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(sid) = existing {
+            return Ok((sid, false));
+        }
+
+        // No existing session — create one and add both participants.
+        let sid = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        db.execute(
+            "INSERT INTO sessions (id, session_type, name, status) \
+             VALUES (?1, ?2, ?3, 'active')",
+            params![sid, session_type_key, name],
+        )?;
+        db.execute(
+            "INSERT OR IGNORE INTO session_participants \
+             (session_id, identity_kind, identity_id, joined_at) \
+             VALUES (?1, ?2, ?3, ?4)",
+            params![sid, kind_a, id_a, now],
+        )?;
+        db.execute(
+            "INSERT OR IGNORE INTO session_participants \
+             (session_id, identity_kind, identity_id, joined_at) \
+             VALUES (?1, ?2, ?3, ?4)",
+            params![sid, kind_b, id_b, now],
+        )?;
+        Ok((sid, true))
+    }
+
     /// Create a new session without an owning agent (standalone / idea-scoped).
     /// Returns the new session UUID.
     pub async fn create_standalone_session(

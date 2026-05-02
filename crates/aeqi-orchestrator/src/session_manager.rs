@@ -883,19 +883,25 @@ impl SessionManager {
         }
 
         // `question.ask` — director-inbox tool. Capability-gated; off-by-default.
+        //
+        // Wave-3 delegation: ask_fn now routes through message_to internally.
+        // It calls message_to(target=user, payload_kind=decision_request), then
+        // stamps awaiting_at on the resulting DM session so the legacy inbox
+        // query continues to surface it (until Wave-4 unifies the inbox query).
+        //
         // The closure captures the SessionStore, ActivityLog, optional pattern
         // dispatcher, plus the session_id and agent_id at registry-build time
-        // so the LLM cannot influence inbox routing through args. The tool is
-        // LLM-only by virtue of NOT being added to the runtime registry that
-        // events dispatch through — events firing this would let an operator-
-        // configured pattern manufacture questions the agent never asked,
-        // which is the wrong primitive boundary.
+        // so the LLM cannot influence inbox routing through args.
         if let (Some(ss), Some(agent_id)) = (self.session_store.clone(), agent_uuid.clone()) {
             let session_id_for_ask = pregenerated_session_id.clone();
             let activity_log_for_ask = activity_log.clone();
             let dispatcher_for_ask = pattern_dispatcher.clone();
             let agent_id_for_ask = agent_id.clone();
             let agent_name_for_ask = agent_name.clone();
+            // Capture entity_id + agent_registry so the closure can resolve
+            // the owning user at execution time.
+            let entity_id_for_ask = agent_opt.as_ref().and_then(|a| a.entity_id.clone());
+            let agent_registry_for_ask = agent_registry.clone();
             let ask_fn: crate::runtime_tools::AskFn =
                 Arc::new(move |req: crate::runtime_tools::AskRequest| {
                     let ss = ss.clone();
@@ -904,41 +910,101 @@ impl SessionManager {
                     let session_id = session_id_for_ask.clone();
                     let agent_id = agent_id_for_ask.clone();
                     let agent_name = agent_name_for_ask.clone();
+                    let entity_id = entity_id_for_ask.clone();
+                    let agent_registry = agent_registry_for_ask.clone();
                     Box::pin(async move {
-                        // 1. Append the question to the transcript as an
-                        //    `assistant` message so the inbox + the session
-                        //    view both surface it as the agent's last word.
-                        ss.record_event_by_session(
-                            &session_id,
-                            "message",
-                            "assistant",
-                            &req.prompt,
-                            Some("question.ask"),
-                            Some(&serde_json::json!({"subject": req.subject})),
-                        )
-                        .await
-                        .map_err(|e| {
-                            anyhow::anyhow!("question.ask: failed to record message: {e}")
-                        })?;
-                        // 2. Stamp the awaiting bit so the inbox query picks
-                        //    this session up.
-                        ss.set_awaiting(&session_id, &req.subject)
+                        // 1. Resolve the owning user for this agent's entity.
+                        //    Fall back to a plain transcript record on the current
+                        //    session when the entity or owner is not set (bare-CLI,
+                        //    test, legacy runs).
+                        let owner_user_id: Option<String> = if let Some(ref eid) = entity_id {
+                            let db = agent_registry.db();
+                            let conn = db.lock().await;
+                            let eid_clone = eid.clone();
+                            tokio::task::block_in_place(|| {
+                                use rusqlite::OptionalExtension;
+                                conn.query_row(
+                                    "SELECT owner_user_id FROM entities WHERE id = ?1",
+                                    rusqlite::params![eid_clone],
+                                    |row| row.get::<_, Option<String>>(0),
+                                )
+                                .optional()
+                                .ok()
+                                .flatten()
+                                .flatten()
+                            })
+                        } else {
+                            None
+                        };
+
+                        // 2. Route via message_to: if we have a user target, create
+                        //    the DM session and append there. Otherwise fall back to
+                        //    recording on the current session (legacy path).
+                        let inbox_session_id = if let Some(user_id) = owner_user_id {
+                            let dm_name = format!("dm:agent:{}:user:{}", agent_id, user_id);
+                            let (sid, _created) = ss
+                                .find_or_create_dm_session(
+                                    "agent_user_dm",
+                                    &dm_name,
+                                    "agent",
+                                    &agent_id,
+                                    "user",
+                                    &user_id,
+                                )
+                                .await
+                                .map_err(|e| {
+                                    anyhow::anyhow!("question.ask: find_or_create_dm: {e}")
+                                })?;
+                            ss.append_message_from(
+                                &sid,
+                                "assistant",
+                                &req.prompt,
+                                "agent",
+                                Some(&agent_id),
+                                Some("decision_request"),
+                            )
+                            .await
+                            .map_err(|e| {
+                                anyhow::anyhow!("question.ask: failed to record DM message: {e}")
+                            })?;
+                            sid
+                        } else {
+                            // Legacy: append to the current session directly.
+                            ss.record_event_by_session(
+                                &session_id,
+                                "message",
+                                "assistant",
+                                &req.prompt,
+                                Some("question.ask"),
+                                Some(&serde_json::json!({"subject": req.subject})),
+                            )
+                            .await
+                            .map_err(|e| {
+                                anyhow::anyhow!("question.ask: failed to record message: {e}")
+                            })?;
+                            session_id.clone()
+                        };
+
+                        // 3. Stamp awaiting_at on the inbox session (DM or current).
+                        ss.set_awaiting(&inbox_session_id, &req.subject)
                             .await
                             .map_err(|e| {
                                 anyhow::anyhow!("question.ask: failed to set awaiting: {e}")
                             })?;
-                        // 3. Activity-log emit so downstream observers (UI
+
+                        // 4. Activity-log emit so downstream observers (UI
                         //    timeline, audit log) see the ask.
                         let _ = activity_log
                             .emit(
                                 "question_awaiting",
                                 Some(&agent_id),
-                                Some(&session_id),
+                                Some(&inbox_session_id),
                                 None,
                                 &serde_json::json!({"subject": req.subject}),
                             )
                             .await;
-                        // 4. Best-effort pattern dispatch. Operators can wire
+
+                        // 5. Best-effort pattern dispatch. Operators can wire
                         //    `question:awaiting` events to fire side effects
                         //    (telegram ping, consolidation, …).
                         //    Fire-and-forget — intentional asymmetry with
@@ -953,14 +1019,14 @@ impl SessionManager {
                         if let Some(dispatcher) = dispatcher {
                             let prompt_preview: String = req.prompt.chars().take(200).collect();
                             let trigger_args = serde_json::json!({
-                                "session_id": session_id,
+                                "session_id": inbox_session_id,
                                 "agent_id": agent_id,
                                 "agent_name": agent_name,
                                 "subject": req.subject,
                                 "prompt_preview": prompt_preview,
                             });
                             let ctx = aeqi_core::tool_registry::ExecutionContext {
-                                session_id: session_id.clone(),
+                                session_id: inbox_session_id.clone(),
                                 agent_id: agent_id.clone(),
                                 ..Default::default()
                             };
@@ -976,6 +1042,115 @@ impl SessionManager {
             tools.push(Arc::new(crate::runtime_tools::QuestionAskTool::new(
                 ask_fn,
                 agent_can_ask_director,
+            )));
+        }
+
+        // `message_to` — universal outbound-message tool. LLM-only.
+        // The closure captures the SessionStore + calling agent_id so the LLM
+        // cannot influence routing via args. No capability gate: every agent
+        // can send messages to other participants.
+        if let (Some(ss), Some(agent_id)) = (self.session_store.clone(), agent_uuid.clone()) {
+            let message_to_fn: crate::runtime_tools::MessageToFn =
+                Arc::new(move |req: crate::runtime_tools::MessageToRequest| {
+                    let ss = ss.clone();
+                    let from_agent_id = agent_id.clone();
+                    Box::pin(async move {
+                        use crate::runtime_tools::MessageToResult;
+
+                        let (session_id, msg_id) = match req.target_kind.as_str() {
+                            "session" => {
+                                let mid = ss
+                                    .append_message_from(
+                                        &req.target_id,
+                                        "assistant",
+                                        &req.body,
+                                        "agent",
+                                        Some(&from_agent_id),
+                                        req.payload_kind.as_deref(),
+                                    )
+                                    .await
+                                    .map_err(|e| anyhow::anyhow!("message_to(session): {e}"))?;
+                                (req.target_id.clone(), mid)
+                            }
+                            "agent" => {
+                                let dm_name =
+                                    format!("dm:agent:{}:agent:{}", from_agent_id, req.target_id);
+                                let (sid, _created) = ss
+                                    .find_or_create_dm_session(
+                                        "agent_agent_dm",
+                                        &dm_name,
+                                        "agent",
+                                        &from_agent_id,
+                                        "agent",
+                                        &req.target_id,
+                                    )
+                                    .await
+                                    .map_err(|e| {
+                                        anyhow::anyhow!("message_to(agent) find_or_create: {e}")
+                                    })?;
+                                let mid = ss
+                                    .append_message_from(
+                                        &sid,
+                                        "assistant",
+                                        &req.body,
+                                        "agent",
+                                        Some(&from_agent_id),
+                                        req.payload_kind.as_deref(),
+                                    )
+                                    .await
+                                    .map_err(|e| {
+                                        anyhow::anyhow!("message_to(agent) append: {e}")
+                                    })?;
+                                (sid, mid)
+                            }
+                            "user" => {
+                                let dm_name =
+                                    format!("dm:agent:{}:user:{}", from_agent_id, req.target_id);
+                                let (sid, _created) = ss
+                                    .find_or_create_dm_session(
+                                        "agent_user_dm",
+                                        &dm_name,
+                                        "agent",
+                                        &from_agent_id,
+                                        "user",
+                                        &req.target_id,
+                                    )
+                                    .await
+                                    .map_err(|e| {
+                                        anyhow::anyhow!("message_to(user) find_or_create: {e}")
+                                    })?;
+                                let mid = ss
+                                    .append_message_from(
+                                        &sid,
+                                        "assistant",
+                                        &req.body,
+                                        "agent",
+                                        Some(&from_agent_id),
+                                        req.payload_kind.as_deref(),
+                                    )
+                                    .await
+                                    .map_err(|e| anyhow::anyhow!("message_to(user) append: {e}"))?;
+                                (sid, mid)
+                            }
+                            other => {
+                                return Err(anyhow::anyhow!(
+                                    "message_to: unsupported target_kind '{other}' in this context"
+                                ));
+                            }
+                        };
+
+                        Ok(MessageToResult {
+                            session_id,
+                            message_id: msg_id,
+                        })
+                    })
+                });
+            // Replace the stub with the wired tool (the stub was registered in
+            // build_runtime_registry_full for spec-only contexts; push the real
+            // one now so session_manager's registry wins).
+            tools.retain(|t| t.name() != "message_to");
+            tools.push(Arc::new(crate::runtime_tools::MessageToTool::new(
+                message_to_fn,
             )));
         }
 
