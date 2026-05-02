@@ -647,48 +647,6 @@
 .sidebar-nav-item.active > svg {
   color: var(--color-accent);
 }
-
-/* Ink-zone inversion — when nav items live inside `.sidebar-ink-zone`,
-   the paper-tinted hover/active treatments don't read against the
-   accent background. Switch to white-at-alpha overlays. The ::before
-   accent stripe is dropped because the bg IS the accent — the brighter
-   overlay carries the "you are here" signal on its own. */
-.sidebar-ink-zone .sidebar-nav-item {
-  color: rgba(255, 255, 255, 0.78);
-}
-.sidebar-ink-zone .sidebar-nav-item > svg {
-  color: rgba(255, 255, 255, 0.6);
-}
-.sidebar-ink-zone .sidebar-nav-item:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
-}
-.sidebar-ink-zone .sidebar-nav-item:hover > svg {
-  color: rgba(255, 255, 255, 0.92);
-}
-.sidebar-ink-zone .sidebar-nav-item.active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.12);
-  font-weight: 600;
-}
-.sidebar-ink-zone .sidebar-nav-item.active > svg {
-  color: #fff;
-}
-.sidebar-ink-zone .sidebar-nav-item.active::before {
-  display: none;
-}
-/* Row-action cap (the "+" on Quests/Ideas) reads on dark too. */
-.sidebar-ink-zone .sidebar-row-action-btn {
-  color: rgba(255, 255, 255, 0.6);
-  border-color: transparent;
-}
-.sidebar-ink-zone .sidebar-row-action-btn:hover,
-.sidebar-ink-zone .sidebar-row-action-btn:focus-visible {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
 /* Primitive placeholder — rendered on /`` and /profile where there's no
    agent in scope yet. Keeps the sidebar silhouette stable so that clicking
    into a root doesn't shift the layout; visually muted so it reads as a
@@ -6172,24 +6130,13 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    Full-width trigger in the sidebar header. Shows the entity name,
    avatar, and a down-chevron. Row height matches --sidebar-row-h so
    the slot reads as a first-class nav row, not a floating header. */
-/* Ink scope — the company workspace zone. One continuous ink panel
-   that holds the CompanySwitcher (head) + Overview + the four
-   primitives (body). Encodes scope visually: paper rows above
-   (personal) and below (Economy/Account) bracket this ink mass that
-   says "you are inside the company." Linear / Notion sidebar pattern. */
-.sidebar-ink-zone {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 4px 0;
-  padding: 6px;
-  background: var(--color-accent);
-  border-radius: var(--radius-md);
-}
-
-/* Switcher trigger blends into the ink container so the zone reads
-   as one volumetric panel. Hover lifts via white-low-alpha overlay,
-   not a darker shade (which would be invisible on the ink bg). */
+/* The switcher is the sidebar's pivot — clicking it changes the
+   entire app's context. Earns the ink treatment (near-black graphite
+   background, light text) so it reads as the structural anchor: rows
+   above and below sit on paper, the switcher itself is the one ink
+   block. Within the v5.1 ratio rule (~70% paper · 28% ink · 2%
+   accent), this is the right place to spend ink — the most
+   consequential single button gets the most consequential surface. */
 .company-switcher-trigger {
   display: flex;
   align-items: center;
@@ -6197,7 +6144,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   width: 100%;
   min-height: var(--sidebar-row-h);
   padding: 0 10px;
-  background: transparent;
+  background: var(--color-accent);
   border: 0;
   border-radius: var(--radius-md);
   font-family: inherit;
@@ -6211,7 +6158,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
     color 0.12s ease;
 }
 .company-switcher-trigger:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-accent-hover);
 }
 .company-switcher-trigger:focus-visible {
   outline: none;
