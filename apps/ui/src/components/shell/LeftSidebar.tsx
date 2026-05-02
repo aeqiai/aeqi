@@ -36,6 +36,15 @@ const PortfolioIcon = () => (
   </svg>
 );
 
+const CompanyIcon = () => (
+  <svg {...iconProps}>
+    <rect x="3" y="2" width="10" height="12" rx="0.5" />
+    <path d="M5.75 5h1M9.25 5h1" />
+    <path d="M5.75 8h1M9.25 8h1" />
+    <path d="M7 14v-3h2v3" />
+  </svg>
+);
+
 const AgentsIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="5.5" r="2.5" />
@@ -149,6 +158,10 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const navHref = (id: string) => `${base}/${id}`;
   const isActive = (id: string) => {
     if (!base) return false;
+    // Overview is the canonical company landing — its sidebar item
+    // also lights at the bare `/c/<id>` URL (which renders Overview
+    // through CompanyPage's effectiveTab default).
+    if (id === "overview" && path === base) return true;
     return path === `${base}/${id}` || path.startsWith(`${base}/${id}/`);
   };
   // Personal items — Inbox (canonical root, `/`) and Portfolio
@@ -307,16 +320,15 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
             emitted by agents, not authored. ── */}
         {hasCompany && (
           <>
-            {/* Four-primitive zone. Order spells the wordmark Agents ·
-                Events · Quests · Ideas. "+" caps on Quests and Ideas
-                (daily drivers); Agents is set up once via the Blueprint
-                flow at /start; Events are emitted by agents, not
-                authored. Overview lives in the Company PageRail (with
-                Roles / Ownership / Treasury / Governance / Settings) —
-                it is not a sidebar destination, it's a tab in the
-                company's secondary nav, reached via the CompanySwitcher
-                (which lands on the company's bare URL, defaulting to
-                Overview). */}
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
+              {navItem("overview", "Company", <CompanyIcon />)}
+            </nav>
+            {/* Four-primitive zone — separated from the Company cockpit by a
+                small gap (see `.sidebar-zone + .sidebar-zone` rule in
+                layout.css). Order spells the wordmark Agents · Events ·
+                Quests · Ideas. "+" caps on Quests and Ideas (daily drivers);
+                Agents is set up once via the Blueprint flow at /start;
+                Events are emitted by agents, not authored. */}
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Primitives">
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("events", "Events", <EventsIcon />)}

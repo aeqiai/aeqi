@@ -30,14 +30,14 @@ const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
 // Tabs that route through CompanyPage. Overview is the canonical
-// company landing; Roles is the org-chart; Cap Table / Treasury /
+// company landing; Roles is the org-chart; Ownership / Treasury /
 // Governance / Settings are the company's financial, decisions, and
 // configuration surfaces. Treasury holds the full financial picture
 // (balance, budgets, transactions) as sub-views once wired.
 const COMPANY_PAGERAIL_TABS = new Set([
   "overview",
   "roles",
-  "cap-table",
+  "ownership",
   "treasury",
   "governance",
   "settings",
