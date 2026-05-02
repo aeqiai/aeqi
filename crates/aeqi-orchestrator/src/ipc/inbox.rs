@@ -178,3 +178,180 @@ pub async fn handle_answer_inbox(
 
     json!({"ok": true, "session_id": session_id})
 }
+
+/// `dismiss_inbox` command: archive a pending question without queueing a reply.
+///
+/// Request shape: `{ session_id: String }`.
+///
+/// Clears `awaiting_at` and `awaiting_subject` atomically. Returns
+/// `{ ok: true, dismissed: bool }` where `dismissed` is `true` only when the
+/// row was actually awaiting (i.e. the caller won the race). Does NOT insert
+/// a pending message — the agent stays silent until something else triggers it.
+pub async fn handle_dismiss_inbox(
+    ctx: &super::CommandContext,
+    request: &Value,
+    allowed: &Option<Vec<String>>,
+) -> Value {
+    let session_id = match request.get("session_id").and_then(|v| v.as_str()) {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return json!({"ok": false, "error": "missing or empty session_id"}),
+    };
+
+    let Some(ss) = ctx.session_store.clone() else {
+        return json!({"ok": false, "error": "session store unavailable"});
+    };
+
+    // Tenancy: look up the session's agent and verify scope access.
+    let session = match ss.get_session(&session_id).await {
+        Ok(Some(s)) => s,
+        Ok(None) => return json!({"ok": false, "error": "session not found"}),
+        Err(e) => return json!({"ok": false, "error": format!("session lookup failed: {e}")}),
+    };
+    let Some(agent_id) = session.agent_id.clone() else {
+        return json!({"ok": false, "error": "session has no agent binding"});
+    };
+    if !tenancy::check_agent_access(&ctx.agent_registry, allowed, &agent_id).await {
+        return json!({"ok": false, "error": "access denied"});
+    }
+
+    let dismissed = match ss.dismiss_awaiting(&session_id).await {
+        Ok(b) => b,
+        Err(e) => return json!({"ok": false, "error": format!("dismiss failed: {e}")}),
+    };
+
+    json!({"ok": true, "session_id": session_id, "dismissed": dismissed})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipc::CommandContext;
+    use std::sync::Arc;
+
+    async fn test_ctx() -> (
+        CommandContext,
+        Arc<crate::session_store::SessionStore>,
+        tempfile::TempDir,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = Arc::new(crate::agent_registry::AgentRegistry::open(dir.path()).unwrap());
+        let sessions_pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = sessions_pool.lock().await;
+            crate::session_store::SessionStore::create_tables(&conn).unwrap();
+        }
+        let ss = Arc::new(crate::session_store::SessionStore::new(Arc::new(
+            sessions_pool,
+        )));
+        let ideas: Arc<dyn aeqi_core::traits::IdeaStore> =
+            Arc::new(aeqi_ideas::SqliteIdeas::open(&dir.path().join("aeqi.db"), 30.0).unwrap());
+        let ctx = build_test_ctx(Arc::clone(&registry), Arc::clone(&ss), ideas);
+        (ctx, ss, dir)
+    }
+
+    fn build_test_ctx(
+        registry: Arc<crate::agent_registry::AgentRegistry>,
+        ss: Arc<crate::session_store::SessionStore>,
+        idea_store: Arc<dyn aeqi_core::traits::IdeaStore>,
+    ) -> CommandContext {
+        use crate::dispatch::{DispatchConfig, Dispatcher};
+        use crate::ipc::ActivityBuffer;
+        use tokio::sync::Mutex;
+
+        let (embed_queue, _rx) = aeqi_ideas::embed_worker::EmbedQueue::channel(8);
+
+        CommandContext {
+            metrics: Arc::new(crate::metrics::AEQIMetrics::new()),
+            activity_log: Arc::new(crate::activity_log::ActivityLog::new(registry.db())),
+            session_store: Some(ss),
+            event_handler_store: None,
+            agent_registry: registry.clone(),
+            entity_registry: Arc::new(crate::entity_registry::EntityRegistry::open(registry.db())),
+            position_registry: Arc::new(crate::position_registry::PositionRegistry::open(
+                registry.db(),
+            )),
+            idea_store: Some(idea_store),
+            message_router: None,
+            activity_buffer: Arc::new(Mutex::new(ActivityBuffer::default())),
+            default_provider: None,
+            default_model: "test".to_string(),
+            session_manager: Arc::new(crate::session_manager::SessionManager::new()),
+            dispatcher: Arc::new(Dispatcher::new(DispatchConfig::default())),
+            daily_budget_usd: 0.0,
+            skill_loader: None,
+            execution_registry: Arc::new(crate::execution_registry::ExecutionRegistry::new()),
+            stream_registry: Arc::new(crate::stream_registry::StreamRegistry::new()),
+            channel_spawner: None,
+            tag_policy_cache: Arc::new(aeqi_ideas::tag_policy::TagPolicyCache::new(60)),
+            embed_queue: Arc::new(embed_queue),
+            embedder: None,
+            recall_cache: Arc::new(aeqi_ideas::RecallCache::default()),
+            pattern_dispatcher: None,
+            credentials: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn dismiss_inbox_clears_awaiting_and_returns_dismissed_true() {
+        let (ctx, ss, _dir) = test_ctx().await;
+
+        // Spawn an agent so tenancy resolves.
+        let agent = ctx
+            .agent_registry
+            .spawn("test-agent", None, None)
+            .await
+            .unwrap();
+
+        let session_id = ss
+            .create_session(&agent.id, "thread", "test-session", None, None)
+            .await
+            .unwrap();
+
+        // Mark the session as awaiting.
+        ss.set_awaiting(&session_id, "test question")
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({"session_id": session_id});
+        let resp = handle_dismiss_inbox(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        assert_eq!(resp["dismissed"], true);
+
+        // Verify awaiting_at is cleared (session should no longer appear in inbox).
+        let awaiting = ss.list_awaiting(None).await.unwrap();
+        assert!(
+            awaiting.iter().all(|r| r.session_id != session_id),
+            "session must not appear in inbox after dismiss"
+        );
+    }
+
+    #[tokio::test]
+    async fn dismiss_inbox_returns_dismissed_false_when_not_awaiting() {
+        let (ctx, ss, _dir) = test_ctx().await;
+
+        let agent = ctx
+            .agent_registry
+            .spawn("test-agent-b", None, None)
+            .await
+            .unwrap();
+
+        let session_id = ss
+            .create_session(&agent.id, "thread", "test-session-2", None, None)
+            .await
+            .unwrap();
+
+        // Session is not awaiting — dismiss should return dismissed=false.
+        let req = serde_json::json!({"session_id": session_id});
+        let resp = handle_dismiss_inbox(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        assert_eq!(resp["dismissed"], false);
+    }
+
+    #[tokio::test]
+    async fn dismiss_inbox_missing_session_id_returns_error() {
+        let (ctx, _ss, _dir) = test_ctx().await;
+        let resp = handle_dismiss_inbox(&ctx, &serde_json::json!({}), &None).await;
+        assert_eq!(resp["ok"], false);
+        assert!(resp["error"].as_str().unwrap().contains("session_id"));
+    }
+}

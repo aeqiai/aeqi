@@ -2,7 +2,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     response::Response,
-    routing::get,
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,10 +15,10 @@ pub fn routes() -> Router<AppState> {
         .route("/ideas", get(list_ideas).post(store_idea))
         .route("/ideas/search", get(search_ideas))
         .route("/ideas/prefix", get(ideas_by_prefix))
-        .route("/ideas/by-ids", axum::routing::post(ideas_by_ids))
+        .route("/ideas/by-ids", post(ideas_by_ids))
         .route("/ideas/profile", get(idea_profile))
         .route("/ideas/graph", get(idea_graph))
-        .route("/ideas/seed", axum::routing::post(seed_ideas))
+        .route("/ideas/seed", post(seed_ideas))
         .route(
             "/ideas/{id}",
             axum::routing::put(update_idea).delete(delete_idea),
@@ -29,6 +29,8 @@ pub fn routes() -> Router<AppState> {
                 .post(add_idea_edge)
                 .delete(remove_idea_edge),
         )
+        .route("/ideas/{id}/activity", get(idea_activity))
+        .route("/ideas/{id}/comments", get(idea_comments))
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -208,4 +210,42 @@ async fn seed_ideas(
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     ipc_proxy(state, scope.as_ref(), "seed_ideas", body).await
+}
+
+/// `GET /api/ideas/:id/activity`
+///
+/// Returns the merged chronological activity feed for an idea — activity-log
+/// entries and system messages from the idea's backing session, sorted oldest
+/// first. Returns `{ ok: true, items: [] }` when the idea has no session yet.
+async fn idea_activity(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "idea_activity",
+        serde_json::json!({"idea_id": id}),
+    )
+    .await
+}
+
+/// `GET /api/ideas/:id/comments`
+///
+/// Returns conversation messages (non-system) from the idea's backing
+/// session, oldest first. Returns `{ ok: true, items: [] }` when the idea
+/// has no session yet.
+async fn idea_comments(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "idea_comments",
+        serde_json::json!({"idea_id": id}),
+    )
+    .await
 }

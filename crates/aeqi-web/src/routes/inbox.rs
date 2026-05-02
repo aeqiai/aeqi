@@ -10,7 +10,11 @@
 //! they saw in the list, and putting it in the path produces clean
 //! per-session URLs for sharing / debugging.
 //!
-//! Both routes proxy through `ipc_proxy` so tenancy enforcement, error
+//! `POST /api/inbox/{session_id}/dismiss` archives the item — clears
+//! `awaiting_at` without queueing a reply. The agent stays silent until
+//! something else triggers it.
+//!
+//! All routes proxy through `ipc_proxy` so tenancy enforcement, error
 //! shapes, and JSON encoding match every other API surface.
 
 use axum::{
@@ -28,6 +32,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/inbox", get(inbox))
         .route("/inbox/{session_id}/answer", post(answer))
+        .route("/inbox/{session_id}/dismiss", post(dismiss))
 }
 
 async fn inbox(State(state): State<AppState>, scope: Scope) -> Response {
@@ -50,4 +55,22 @@ async fn answer(
     };
     payload["session_id"] = serde_json::Value::String(session_id);
     ipc_proxy(state, scope.as_ref(), "answer_inbox", payload).await
+}
+
+/// `POST /api/inbox/{session_id}/dismiss`
+///
+/// Clears `awaiting_at` without queueing a reply. The agent stays silent.
+/// Returns `{ ok: true, dismissed: bool }`.
+async fn dismiss(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(session_id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "dismiss_inbox",
+        serde_json::json!({"session_id": session_id}),
+    )
+    .await
 }

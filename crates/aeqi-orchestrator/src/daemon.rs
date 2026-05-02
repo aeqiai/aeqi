@@ -1685,6 +1685,9 @@ impl Daemon {
                 "answer_inbox" => {
                     crate::ipc::inbox::handle_answer_inbox(&ctx, &request, &allowed_roots).await
                 }
+                "dismiss_inbox" => {
+                    crate::ipc::inbox::handle_dismiss_inbox(&ctx, &request, &allowed_roots).await
+                }
 
                 "seed_ideas" => {
                     crate::ipc::seed::handle_seed_ideas(&ctx, &request, &allowed_roots).await
@@ -1844,6 +1847,14 @@ impl Daemon {
                 "add_participant" => {
                     crate::ipc::messages::handle_add_participant(&ctx, &request, &allowed_roots)
                         .await
+                }
+
+                "idea_activity" => {
+                    crate::ipc::ideas::handle_idea_activity(&ctx, &request, &allowed_roots).await
+                }
+
+                "idea_comments" => {
+                    crate::ipc::ideas::handle_idea_comments(&ctx, &request, &allowed_roots).await
                 }
 
                 "session_fork" => {

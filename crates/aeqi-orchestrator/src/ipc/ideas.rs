@@ -2102,3 +2102,345 @@ mod tests {
         );
     }
 }
+
+// ── Wave-2 session-unified idea handlers ─────────────────────────────────────
+
+/// `idea_activity` command: merged chronological activity feed for an idea.
+///
+/// Returns rows from two sources, merged by timestamp ascending:
+///   - `activity` table rows whose `session_id` matches the idea's session
+///     (emitted as `kind: "log"`)
+///   - `session_messages` rows where `from_kind = 'system'` in the same
+///     session (emitted as `kind: "system_message"`)
+///
+/// When the idea has no `session_id` yet, both sources are empty and the
+/// handler returns an empty items array.
+///
+/// Tenancy: the caller's `allowed_roots` must include the root entity that
+/// owns the idea's anchor agent.
+pub async fn handle_idea_activity(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let idea_id = match super::request_field(request, "idea_id") {
+        Some(id) => id.to_string(),
+        None => return serde_json::json!({"ok": false, "error": "idea_id required"}),
+    };
+
+    // Resolve the idea.
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+    let idea = match idea_store.get_by_ids(std::slice::from_ref(&idea_id)).await {
+        Ok(ideas) if !ideas.is_empty() => ideas.into_iter().next().unwrap(),
+        Ok(_) => return serde_json::json!({"ok": false, "error": "idea not found"}),
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    // Tenancy check: the idea must belong to an agent in the allowed scope.
+    if let Some(ref aid) = idea.agent_id {
+        if !super::tenancy::check_agent_access(&ctx.agent_registry, allowed, aid).await {
+            return serde_json::json!({"ok": false, "error": "access denied"});
+        }
+    } else if allowed.is_some() {
+        // Global ideas are readable by everyone when running in platform mode
+        // (operator sees all), but we don't gate on entity here.
+    }
+
+    let Some(ref session_id) = idea.session_id else {
+        return serde_json::json!({"ok": true, "items": []});
+    };
+
+    // Collect activity-log rows whose session_id matches the idea's session.
+    let mut items: Vec<serde_json::Value> = Vec::new();
+
+    let activity_filter = crate::activity_log::EventFilter {
+        session_id: Some(session_id.clone()),
+        ..Default::default()
+    };
+    if let Ok(events) = ctx.activity_log.query(&activity_filter, 200, 0).await {
+        for ev in events {
+            items.push(serde_json::json!({
+                "kind": "log",
+                "at": ev.created_at.to_rfc3339(),
+                "payload": ev.content,
+            }));
+        }
+    }
+
+    // Collect system messages from session_messages.
+    let Some(ref ss) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+    match ss.system_messages_by_session(session_id, 200).await {
+        Ok(msgs) => {
+            for m in msgs {
+                items.push(serde_json::json!({
+                    "kind": "system_message",
+                    "at": m.timestamp.to_rfc3339(),
+                    "body": m.content,
+                    "payload": m.metadata,
+                }));
+            }
+        }
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+
+    // Sort by "at" string — ISO 8601 sorts lexicographically.
+    items.sort_by(|a, b| {
+        let ta = a.get("at").and_then(|v| v.as_str()).unwrap_or("");
+        let tb = b.get("at").and_then(|v| v.as_str()).unwrap_or("");
+        ta.cmp(tb)
+    });
+
+    serde_json::json!({"ok": true, "items": items})
+}
+
+/// `idea_comments` command: conversation messages on an idea's session.
+///
+/// Returns `session_messages` rows where `from_kind != 'system'` (or
+/// `from_kind IS NULL` with a non-system `role`). Each item carries
+/// `{ id, from_kind, from_id, body, at }`.
+///
+/// When the idea has no `session_id`, returns an empty items array.
+pub async fn handle_idea_comments(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let idea_id = match super::request_field(request, "idea_id") {
+        Some(id) => id.to_string(),
+        None => return serde_json::json!({"ok": false, "error": "idea_id required"}),
+    };
+
+    // Resolve the idea.
+    let Some(ref idea_store) = ctx.idea_store else {
+        return serde_json::json!({"ok": false, "error": "idea store not available"});
+    };
+    let idea = match idea_store.get_by_ids(std::slice::from_ref(&idea_id)).await {
+        Ok(ideas) if !ideas.is_empty() => ideas.into_iter().next().unwrap(),
+        Ok(_) => return serde_json::json!({"ok": false, "error": "idea not found"}),
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    // Tenancy check: same as activity.
+    if let Some(ref aid) = idea.agent_id
+        && !super::tenancy::check_agent_access(&ctx.agent_registry, allowed, aid).await
+    {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+
+    let Some(ref session_id) = idea.session_id else {
+        return serde_json::json!({"ok": true, "items": []});
+    };
+
+    let Some(ref ss) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+
+    match ss.conversation_messages_by_session(session_id, 200).await {
+        Ok(msgs) => {
+            let items: Vec<serde_json::Value> = msgs
+                .iter()
+                .map(|m| {
+                    serde_json::json!({
+                        "id": m.id,
+                        "from_kind": m.from_kind,
+                        "from_id": m.from_id,
+                        "body": m.content,
+                        "at": m.timestamp.to_rfc3339(),
+                    })
+                })
+                .collect();
+            serde_json::json!({"ok": true, "items": items})
+        }
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+#[cfg(test)]
+mod wave2_tests {
+    use super::*;
+    use crate::ipc::CommandContext;
+    use std::sync::Arc;
+
+    async fn wave2_ctx() -> (
+        CommandContext,
+        Arc<crate::session_store::SessionStore>,
+        Arc<dyn aeqi_core::traits::IdeaStore>,
+        tempfile::TempDir,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let registry = Arc::new(crate::agent_registry::AgentRegistry::open(dir.path()).unwrap());
+        let sessions_pool = crate::agent_registry::ConnectionPool::in_memory().unwrap();
+        {
+            let conn = sessions_pool.lock().await;
+            crate::session_store::SessionStore::create_tables(&conn).unwrap();
+        }
+        let ss = Arc::new(crate::session_store::SessionStore::new(Arc::new(
+            sessions_pool,
+        )));
+        let ideas: Arc<dyn aeqi_core::traits::IdeaStore> =
+            Arc::new(aeqi_ideas::SqliteIdeas::open(&dir.path().join("aeqi.db"), 30.0).unwrap());
+        let ctx = build_ctx(Arc::clone(&registry), Arc::clone(&ss), Arc::clone(&ideas));
+        (ctx, ss, ideas, dir)
+    }
+
+    fn build_ctx(
+        registry: Arc<crate::agent_registry::AgentRegistry>,
+        ss: Arc<crate::session_store::SessionStore>,
+        idea_store: Arc<dyn aeqi_core::traits::IdeaStore>,
+    ) -> CommandContext {
+        use crate::dispatch::{DispatchConfig, Dispatcher};
+        use crate::ipc::ActivityBuffer;
+        use tokio::sync::Mutex;
+
+        let (embed_queue, _rx) = aeqi_ideas::embed_worker::EmbedQueue::channel(8);
+
+        CommandContext {
+            metrics: Arc::new(crate::metrics::AEQIMetrics::new()),
+            activity_log: Arc::new(crate::activity_log::ActivityLog::new(registry.db())),
+            session_store: Some(ss),
+            event_handler_store: None,
+            agent_registry: registry.clone(),
+            entity_registry: Arc::new(crate::entity_registry::EntityRegistry::open(registry.db())),
+            position_registry: Arc::new(crate::position_registry::PositionRegistry::open(
+                registry.db(),
+            )),
+            idea_store: Some(idea_store),
+            message_router: None,
+            activity_buffer: Arc::new(Mutex::new(ActivityBuffer::default())),
+            default_provider: None,
+            default_model: "test".to_string(),
+            session_manager: Arc::new(crate::session_manager::SessionManager::new()),
+            dispatcher: Arc::new(Dispatcher::new(DispatchConfig::default())),
+            daily_budget_usd: 0.0,
+            skill_loader: None,
+            execution_registry: Arc::new(crate::execution_registry::ExecutionRegistry::new()),
+            stream_registry: Arc::new(crate::stream_registry::StreamRegistry::new()),
+            channel_spawner: None,
+            tag_policy_cache: Arc::new(aeqi_ideas::tag_policy::TagPolicyCache::new(60)),
+            embed_queue: Arc::new(embed_queue),
+            embedder: None,
+            recall_cache: Arc::new(aeqi_ideas::RecallCache::default()),
+            pattern_dispatcher: None,
+            credentials: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn idea_activity_returns_empty_when_no_session() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("act-test", "activity test body", &[], None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({"idea_id": idea_id});
+        let resp = handle_idea_activity(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        assert_eq!(
+            resp["items"].as_array().unwrap().len(),
+            0,
+            "no session yet — items must be empty"
+        );
+    }
+
+    #[tokio::test]
+    async fn idea_activity_returns_system_messages_after_session_created() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("act-test-2", "body", &[], None)
+            .await
+            .unwrap();
+
+        // First message_to creates the session lazily.
+        let msg_req = serde_json::json!({
+            "target_kind": "idea",
+            "target_id": idea_id,
+            "body": "system event text",
+            "from_kind": "system",
+        });
+        let msg_resp = crate::ipc::messages::handle_message_to(&ctx, &msg_req, &None).await;
+        assert_eq!(msg_resp["ok"], true, "setup: {msg_resp}");
+
+        let session_id = msg_resp["session_id"].as_str().unwrap().to_string();
+
+        // Verify the session got a system message.
+        let sys_msgs = ss.system_messages_by_session(&session_id, 10).await.unwrap();
+        assert_eq!(sys_msgs.len(), 1);
+        assert_eq!(sys_msgs[0].content, "system event text");
+
+        // idea_activity should surface it.
+        let req = serde_json::json!({"idea_id": idea_id});
+        let resp = handle_idea_activity(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        let items = resp["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["kind"], "system_message");
+        assert_eq!(items[0]["body"], "system event text");
+    }
+
+    #[tokio::test]
+    async fn idea_comments_returns_empty_when_no_session() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("cmt-test", "comments test body", &[], None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({"idea_id": idea_id});
+        let resp = handle_idea_comments(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        assert_eq!(resp["items"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn idea_comments_returns_user_messages_only() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store("cmt-test-2", "body", &[], None)
+            .await
+            .unwrap();
+
+        // Post a user comment (creates session lazily).
+        let user_req = serde_json::json!({
+            "target_kind": "idea",
+            "target_id": idea_id,
+            "body": "user comment",
+            "from_kind": "user",
+            "from_id": "user-xyz",
+        });
+        let r = crate::ipc::messages::handle_message_to(&ctx, &user_req, &None).await;
+        assert_eq!(r["ok"], true);
+
+        let session_id = r["session_id"].as_str().unwrap().to_string();
+
+        // Post a system message directly so it must not appear in comments.
+        ss.append_message_from(&session_id, "system", "sys note", "system", None, None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({"idea_id": idea_id});
+        let resp = handle_idea_comments(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "response: {resp}");
+        let items = resp["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1, "only the user comment should appear");
+        assert_eq!(items[0]["body"], "user comment");
+        assert_eq!(items[0]["from_kind"], "user");
+        assert_eq!(items[0]["from_id"], "user-xyz");
+    }
+
+    #[tokio::test]
+    async fn idea_activity_requires_idea_id() {
+        let (ctx, _ss, _idea_store, _dir) = wave2_ctx().await;
+        let resp = handle_idea_activity(&ctx, &serde_json::json!({}), &None).await;
+        assert_eq!(resp["ok"], false);
+        assert!(resp["error"].as_str().unwrap().contains("idea_id"));
+    }
+}

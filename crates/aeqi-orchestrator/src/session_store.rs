@@ -149,6 +149,20 @@ pub struct SessionTrace {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// A session message with Wave-2 identity columns (`from_kind`, `from_id`).
+/// Used by the activity and comments feeds on idea/session surfaces.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionMessageRow {
+    pub id: i64,
+    pub session_id: String,
+    pub role: String,
+    pub content: String,
+    pub timestamp: DateTime<Utc>,
+    pub from_kind: Option<String>,
+    pub from_id: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+}
+
 /// A claimed pending message — returned by `claim_next_pending`.
 /// While this row exists in 'running' state it is the per-session
 /// execution lease. Deletion (via `delete_pending`) releases the lease.
@@ -1703,6 +1717,98 @@ impl SessionStore {
         )?;
         tx.commit()?;
         Ok(true)
+    }
+
+    /// Archive an awaiting session without queuing a reply. Clears
+    /// `awaiting_at` and `awaiting_subject` in a single `BEGIN IMMEDIATE`
+    /// transaction. Returns `true` when the row was awaiting and was cleared,
+    /// `false` when the session was already answered (race-safe).
+    pub async fn dismiss_awaiting(&self, session_id: &str) -> Result<bool> {
+        let mut db = self.db.lock().await;
+        let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let cleared = tx.execute(
+            "UPDATE sessions SET awaiting_at = NULL, awaiting_subject = NULL \
+             WHERE id = ?1 AND awaiting_at IS NOT NULL",
+            params![session_id],
+        )?;
+        tx.commit()?;
+        Ok(cleared > 0)
+    }
+
+    /// Return `session_messages` rows for a session where `from_kind = 'system'`
+    /// (or `role = 'system'` for backfilled rows whose `from_kind` is NULL),
+    /// ordered chronologically. Used by the idea-activity feed (Wave 2).
+    pub async fn system_messages_by_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionMessageRow>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, session_id, role, content, timestamp, from_kind, from_id, metadata \
+             FROM session_messages \
+             WHERE session_id = ?1 \
+               AND (from_kind = 'system' OR (from_kind IS NULL AND role = 'system')) \
+             ORDER BY id ASC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![session_id, limit as i64], |row| {
+                let metadata_text: Option<String> = row.get(7)?;
+                let ts: String = row.get(4)?;
+                Ok(SessionMessageRow {
+                    id: row.get(0)?,
+                    session_id: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                    role: row.get(2)?,
+                    content: row.get(3)?,
+                    timestamp: DateTime::parse_from_rfc3339(&ts)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .unwrap_or_else(|_| Utc::now()),
+                    from_kind: row.get(5)?,
+                    from_id: row.get(6)?,
+                    metadata: metadata_text
+                        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok()),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Return `session_messages` rows for a session where `from_kind != 'system'`
+    /// (or `from_kind IS NULL` with a non-system `role`), ordered
+    /// chronologically. Used by the idea-comments feed (Wave 2).
+    pub async fn conversation_messages_by_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionMessageRow>> {
+        let db = self.db.lock().await;
+        let mut stmt = db.prepare(
+            "SELECT id, session_id, role, content, timestamp, from_kind, from_id, metadata \
+             FROM session_messages \
+             WHERE session_id = ?1 \
+               AND (from_kind != 'system' OR (from_kind IS NULL AND role != 'system')) \
+             ORDER BY id ASC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![session_id, limit as i64], |row| {
+                let metadata_text: Option<String> = row.get(7)?;
+                let ts: String = row.get(4)?;
+                Ok(SessionMessageRow {
+                    id: row.get(0)?,
+                    session_id: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                    role: row.get(2)?,
+                    content: row.get(3)?,
+                    timestamp: DateTime::parse_from_rfc3339(&ts)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .unwrap_or_else(|_| Utc::now()),
+                    from_kind: row.get(5)?,
+                    from_id: row.get(6)?,
+                    metadata: metadata_text
+                        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok()),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     /// Get a single session by ID.
