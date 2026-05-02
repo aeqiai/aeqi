@@ -164,7 +164,7 @@ export async function messageTo(params: {
   kind?: string;
 }): Promise<MessageToResult> {
   try {
-    await apiRequest<{ ok: boolean }>("/ipc/message_to", {
+    await apiRequest<{ ok: boolean }>("/messages/to", {
       method: "POST",
       body: JSON.stringify(params),
     });
