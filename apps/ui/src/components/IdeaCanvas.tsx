@@ -20,6 +20,7 @@ import IdeaLinksPanel from "./IdeaLinksPanel";
 import RefsRow, { type RefRecord } from "./RefsRow";
 import TagsEditor from "./TagsEditor";
 import IdeasScopePopover from "./ideas/IdeasScopePopover";
+import IdeaConversationPanel from "./ideas/IdeaConversationPanel";
 
 /**
  * Imperative handle for callers that supply their own toolbar (the
@@ -838,6 +839,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
           </div>
         )}
       </div>
+      {/* Conversation panel — only shown when viewing an existing idea */}
+      {isEdit && idea && <IdeaConversationPanel ideaId={idea.id} />}
     </div>
   );
 });
