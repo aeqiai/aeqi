@@ -302,49 +302,44 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           </div>
         </nav>
 
-        {/* Workspace switcher sits at the *junction* — between the
-            invariant personal items above and the scope-conditional
-            workspace items below. It's the pivot, so it lives between
-            the two scopes it pivots between. */}
-        <div className="sidebar-user-zone">
+        {/* Ink scope — the company workspace zone. Switcher sits at the
+            head; Overview + the four primitives sit beneath it, all on
+            one continuous ink surface. Encodes scope visually: paper
+            rows above (personal) and below (Economy/Account) bracket
+            one ink mass that says "you are inside the company." Linear
+            / Notion sidebar pattern. The switcher's individual ink
+            button blends into the container so the zone reads as one
+            volumetric panel rather than a button + list. */}
+        <div className="sidebar-ink-zone">
           <CompanySwitcher />
+          {hasCompany && (
+            <>
+              <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
+                {navItem("overview", "Company", <CompanyIcon />)}
+              </nav>
+              {/* Four-primitive zone — separated from the Company cockpit by
+                  a small gap (see `.sidebar-zone + .sidebar-zone` in
+                  layout.css). Order spells the wordmark Agents · Events ·
+                  Quests · Ideas. "+" caps on Quests and Ideas (daily
+                  drivers); Agents is set up once via the Blueprint flow at
+                  /start; Events are emitted by agents, not authored. */}
+              <nav className="sidebar-surface-nav sidebar-zone" aria-label="Primitives">
+                {navItem("agents", "Agents", <AgentsIcon />)}
+                {navItem("events", "Events", <EventsIcon />)}
+                {navItem("quests", "Quests", <QuestsIcon />, {
+                  action: rowAction("New quest", <PlusIcon />, () => {
+                    navigate(`${base}/quests/new`);
+                  }),
+                })}
+                {navItem("ideas", "Ideas", <IdeasIcon />, {
+                  action: rowAction("New idea", <PlusIcon />, () => {
+                    navigate(`${base}/ideas?compose=1`);
+                  }),
+                })}
+              </nav>
+            </>
+          )}
         </div>
-
-        {/* Company-scope items — visible whenever a company is
-            selected in the switcher, regardless of what URL the user
-            is on. Home / Inbox keep the section visible so it's one
-            click into the workspace. Flat: no "Company" group header.
-            Row-end hover-actions create the row's primitive: Agents → +
-            opens the blueprint picker; Ideas → + navigates to the
-            ideas page in compose mode. Events have no +; events are
-            emitted by agents, not authored. ── */}
-        {hasCompany && (
-          <>
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
-              {navItem("overview", "Company", <CompanyIcon />)}
-            </nav>
-            {/* Four-primitive zone — separated from the Company cockpit by a
-                small gap (see `.sidebar-zone + .sidebar-zone` rule in
-                layout.css). Order spells the wordmark Agents · Events ·
-                Quests · Ideas. "+" caps on Quests and Ideas (daily drivers);
-                Agents is set up once via the Blueprint flow at /start;
-                Events are emitted by agents, not authored. */}
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Primitives">
-              {navItem("agents", "Agents", <AgentsIcon />)}
-              {navItem("events", "Events", <EventsIcon />)}
-              {navItem("quests", "Quests", <QuestsIcon />, {
-                action: rowAction("New quest", <PlusIcon />, () => {
-                  navigate(`${base}/quests/new`);
-                }),
-              })}
-              {navItem("ideas", "Ideas", <IdeasIcon />, {
-                action: rowAction("New idea", <PlusIcon />, () => {
-                  navigate(`${base}/ideas?compose=1`);
-                }),
-              })}
-            </nav>
-          </>
-        )}
 
         {/* ── Bottom group — Economy + Account, pinned to the rail's foot
             via mt:auto so the user dropdown always sits at the very
