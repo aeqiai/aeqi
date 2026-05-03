@@ -27,9 +27,9 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 10 (PHASE 1 ✓ COMPLETE — POLL LOOP LIVE)
-PHASE: 1 ✓ COMPLETE | 12/12 tests green | live poll loop indexed 766 Anvil blocks
-        | next: Phase 2 (more entity schemas + write a minimal MockFactory.sol to test event decoding)
+TICK: 11 (PHASE 1.5 ✓ END-TO-END VERIFIED — REAL EVENT INDEXED)
+PHASE: 1.5 ✓ FULL STACK PROOF | live event flowed through: chain → decode → SQLite → GraphQL
+       | next: Phase 2 (more entity schemas, more module handlers, OR apps/ui glue)
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -92,33 +92,58 @@ TICK 10 — PHASE 1 COMPLETE (poll loop LIVE):
     - When killed: 766 committed_blocks total — proves continuous indexing from cold start
 
 12/12 tests green. Phase 1 done (real chain integration).
+
+TICK 11 — PHASE 1.5 END-TO-END VERIFIED (THE PROOF POINT):
+  Wrote test-contracts/MockFactory.sol — emits Factory_TRUSTCreatedEvent
+  forge build → standalone compile (no node_modules)
+  cast send --create → deployed at 0x5FbDB2315678afecb367f032d93F642f64180aa3
+  Restarted indexer with AEQI_INDEXER_FACTORY=<address>, fresh DB
+  Indexer caught up from cold start to safe head (~843 of 855)
+  cast send emitTrustCreated(creator, trustId, trustAddress) → block 857
+  Indexer log: "indexed Factory_TRUSTCreatedEvent: trust=0x9131... block=857"
+  SQLite trusts: 1 row, all fields correct (address, trust_id, creator, block, tx)
+  SQLite accounts: 2 rows (creator + trust addresses, both upserted)
+  GraphQL POST /graphql returned the indexed row:
+    {"data":{"trustsCount":1,
+             "trust":{"address":"0x9131b1...", "trustId":"0x...0042",
+                      "creatorAddress":"0xf39fd...", "createdBlock":857,
+                      "createdTx":"0x90ab..."}}}
+
+This is the pivotal milestone: full stack working with REAL on-chain event.
+Anvil → alloy poll → topic0 filter → sol! decode → SQLite insert → GraphQL.
+
+12 commits on indexer-build branch. 12/12 tests green.
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 2 — schema for more entities + first real event decoded):
-  Two parallel paths (next ticks can pick either or both):
+NEXT ACTION (Phase 2 — schema expansion):
+  PATH A done ✓ (end-to-end proof shipped TICK 11)
 
-  PATH A — write a MockFactory contract + verify end-to-end log decode:
-    1. Write contracts/MockFactory.sol (in worktree, ~30 lines):
-       - Single function emitTrustCreated(creator, trustId, trustAddress)
-       - Emits Factory_TRUSTCreatedEvent with same signature as real Factory
-    2. Compile via forge (no node_modules needed for a self-contained contract)
-    3. Deploy to Anvil via forge create
-    4. Set AEQI_INDEXER_FACTORY=<address> + restart indexer
-    5. cast send to call emitTrustCreated() — observe indexer log decode + insert
-    6. GraphQL query: trust(address: "0x...") returns the row
+  PATH B — Phase 2 schema expansion (next leverage):
+    1. Add sol! definitions for more contract events:
+       - TRUST.sol: TRUST_ModuleAdded, TRUST_ModuleRemoved, TRUST_RoleGranted, TRUST_RoleRevoked
+       - Role.module: Role_RoleCreated, Role_RoleAssigned, Role_RoleRevoked
+       - Governance.module: Governance_ProposalCreated, Governance_ProposalExecuted, Governance_VoteCast
+       - Token.module: Token_TokenCreated, Token_Transfer
+    2. Add migrations: 006_modules, 007_role_assignments, 008_proposals, 009_votes, 010_token_balances
+    3. Add insert_*/get_* functions in store.rs
+    4. Add GraphQL types + queries for each
+    5. Add poll loop handlers for each event type
+    6. Test: deploy mock contracts emitting each event, verify all decode + insert + query
 
-  PATH B — Phase 2 schema expansion (more entities):
-    1. Add migrations: 006_modules, 007_role_assignments, 008_proposals, 009_proposal_votes, 010_token_balances, 011_vesting_positions, 012_funding_states
-    2. Add corresponding Rust structs in store.rs
-    3. Add GraphQL types + queries
-    4. Generate sol! types for TRUST + Role.module + Governance.module + Token.module + Vesting.module + Budget.module
-    5. Add handler functions per (module × event)
+  PATH C — apps/ui glue (good for handoff):
+    1. Read aeqi/apps/ui Treasury / Ownership / Roles tabs to see what queries they need
+    2. Add corresponding GraphQL resolvers (matching the apps/ui field expectations)
+    3. Document the indexer→apps/ui integration path in a HANDOFF.md
+    4. (Apps/ui actual integration code best done by user when awake)
 
-  PATH C — bridge integration to apps/ui:
-    1. Read aeqi/apps/ui Treasury / Ownership tabs to see what queries they need
-    2. Add corresponding GraphQL resolvers
-    3. Wire client to indexer GraphQL endpoint
+  LEVERAGE PRIORITY: B (broader entity coverage = more demo value), then C documentation.
 
-  LEVERAGE PRIORITY: A first (fastest proof of full stack working), then B (broader entity coverage), then C (apps/ui glue can be done by user when awake).
+  EVEN BIGGER STRETCH GOAL (achievable if many ticks remain):
+    - Write a "FullCompanyMock.sol" that simulates the full Blueprint flow
+      (deploy TRUST + grant Founder role + add modules + create initial proposal)
+    - Indexer watches it all, all entities populate end-to-end
+    - GraphQL exposes complete /c/{slug} data — Treasury, Ownership, Roles,
+      Governance proposals, all from one mock event-emission session
+    - This proves the FULL v2 architecture is correct, not just one event type
 BLOCKER: none
 ANVIL: RUNNING, PID 1274467, log /tmp/anvil.log
 WORKTREE: /home/claudedev/aeqi-indexer-build (branch indexer-build, off origin/main 7553a083)
