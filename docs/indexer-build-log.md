@@ -27,12 +27,12 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 16 (PHASE 4-C ✓ GOVERNANCE MODULE — FULL PROPOSAL LIFECYCLE)
-PHASE: 4-C ✓ DAO IN MOTION | one tx fires Proposal+2Votes+Succeeded+Executed;
-       all 5 events indexed, status updates correctly applied,
-       audit log of votes preserved with For/Against + weight + reason.
-       23/23 tests green; clippy clean.
-       | next: more modules (Token, Vesting) OR apps/ui handoff doc
+TICK: 17 (PHASE 5 ✓ HANDOFF.md — TOMORROW-USER CAN PICK THIS UP COLD)
+PHASE: 5 ✓ DELIVERABLE COMPLETE | docs/HANDOFF.md covers boot, schema,
+       architecture, test contracts, apps/ui wire-up, open work,
+       per-event recipe. 23/23 tests green; 21 commits.
+       | next: pick a module (Token most demo-relevant) OR wire apps/ui
+               OR fix aeqi-core deploy script to test against real contracts
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -366,13 +366,64 @@ TICK 16 — PHASE 4-C GOVERNANCE MODULE:
 
 23/23 tests green. 19 commits on indexer-build branch.
 
-PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 5 — handoff doc + apps/ui glue):
-  Phase 4-C (Governance) is DONE. The indexer covers the full v2 demo
-  surface (Trust+Module+Role+Governance+Permissions). 19 commits in,
-  23/23 tests green. Time to make this real for tomorrow's user.
+TICK 17 — PHASE 5 HANDOFF DOC:
+  Wrote docs/HANDOFF.md (~340 lines) covering:
+    - Why this exists (replaces TheGraph subgraph + collapses an external dep)
+    - Boot recipe (env vars, anvil, build, healthz)
+    - Architecture diagram + 3-level dynamic subscription explanation
+    - Schema (12 migrations) + GraphQL surface (12 queries)
+    - Test contracts inventory + redeploy commands
+    - apps/ui integration sketch (per-tab query mapping)
+    - Open work split into:
+        - Already-known gaps (Token/Vesting modules; eth_call backfill;
+          WSS subscription; chain_id; Bravo support)
+        - Original blockers (aeqi-core deploy script drift)
+        - Production-readiness checklist for Anvil → Base graduation
+    - Repository layout
+    - "How to add a new event type" — locked 10-step recipe
+      so adding the remaining ~125 subgraph events is mechanical
 
-  PATH A — apps/ui HANDOFF.md (highest leverage for tomorrow):
+  This is the artifact that lets tomorrow's user pick up the indexer
+  cold, boot it, see what queries exist, and either port more modules
+  or wire it to apps/ui — without reading the per-tick build log
+  or decoding 21 commit messages.
+
+23/23 tests green. 21 commits on indexer-build branch.
+
+PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
+NEXT ACTION (Phase 6 — extend or integrate):
+  Phase 5 (HANDOFF.md) is DONE. The deliverable is complete.
+
+  Three high-leverage next moves remain. Pick one per tick:
+
+  PATH A — Token module (financial demo surface):
+    Highest demo value next module. Token.module ABI has Token_TokenCreated
+    + Token_Transfer. Token_Transfer is high-frequency — for v1 indexer
+    just persist all of them; sampling can come later. Add cap_table query
+    that aggregates current balances per holder.
+
+  PATH B — apps/ui glue (real integration, biggest user-visible win):
+    Add a feature flag `VITE_INDEXER_URL` to apps/ui. Pick ONE tab
+    (Ownership is simplest — rolesForModule + roleAssignments) and
+    rewrite its data layer to query our indexer instead of the subgraph.
+    See HANDOFF.md "apps/ui integration sketch" for per-tab mapping.
+    NB: this requires editing aeqi/apps/ui in a SEPARATE worktree.
+
+  PATH C — fix aeqi-core deploy script drift (unblocks real-contract test):
+    The 3-arg Beacon.setImplementation signature was the original blocker.
+    Fix scripts/foundry/Deploy.s.sol so deploy works against current
+    aeqi-core contracts. Then re-test the indexer against the real
+    Factory + TRUST + module deployments instead of mocks. Mocks emit
+    byte-identical signatures so this is a deploy-side fix, not an
+    indexer-side fix — but it would close the original loop.
+
+  LEVERAGE PRIORITY:
+    Path A = breadth (more demo content)
+    Path B = depth (real user-visible win)
+    Path C = correctness (proves the indexer against real contracts)
+    Pick based on what's most valuable to the user when they wake up.
+    My read: PATH A first (more visible), PATH C second (validation),
+    PATH B in tomorrow's session (needs more user input on UI design).
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:
