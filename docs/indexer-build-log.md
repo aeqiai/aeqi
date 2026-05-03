@@ -27,9 +27,10 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 11 (PHASE 1.5 ✓ END-TO-END VERIFIED — REAL EVENT INDEXED)
-PHASE: 1.5 ✓ FULL STACK PROOF | live event flowed through: chain → decode → SQLite → GraphQL
-       | next: Phase 2 (more entity schemas, more module handlers, OR apps/ui glue)
+TICK: 12 (PHASE 2 ✓ FULL FACTORY COVERAGE — 3 EVENTS, 1 TX, ALL QUERYABLE)
+PHASE: 2 ✓ TOPIC0 DISPATCH WORKING | one tx emits Created+Registered+SignerAdded;
+       all 3 indexed + queryable via single GraphQL call. 15/15 tests green.
+       | next: Phase 3 (multi-address dispatch — watched_addresses + per-TRUST sub)
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -113,37 +114,87 @@ This is the pivotal milestone: full stack working with REAL on-chain event.
 Anvil → alloy poll → topic0 filter → sol! decode → SQLite insert → GraphQL.
 
 12 commits on indexer-build branch. 12/12 tests green.
+
+TICK 12 — PHASE 2 FULL FACTORY EVENT COVERAGE:
+  Extended store.rs:
+    - update_trust_registered(trust_id, template_id, ipfs_cid, signers_count, value_configs_count)
+    - insert_trust_signer(trust_id, address_key, signer, has_signed, block, tx)
+      Resolves trust_address from trust_id; skips silently if trust not yet indexed
+    - get_trust_signers(trust_address) -> Vec<SignerRow>
+  Extended chain::poll: topic0 dispatch across all 3 Factory events
+    - sig vec includes Created + Registered + SignerAdded
+    - each branch decodes via own sol! type, writes to store
+  Extended api: Signer SimpleObject + trustSigners(trustAddress) query
+  Extended test-contracts/MockFactory.sol:
+    - emitTrustRegistered + emitTrustSignerAdded
+    - emitFullCompanyCreation: ALL 3 events in one tx (realistic flow)
+
+  LIVE-TESTED end-to-end:
+    - Recompiled mock, redeployed to Anvil at 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+    - Fresh indexer DB, started polling from block 1160
+    - Sent emitFullCompanyCreation tx → block 1180, 3 logs in tx
+    - Mined 15 blocks past tx for confirmation depth
+    - Indexer log:
+        indexed Factory_TRUSTCreatedEvent: trust=0xa0ee... block=1180
+        indexed Factory_TRUSTRegisteredEvent: trust_id=0x...0099 template=0x...007e block=1180
+        indexed Factory_TRUSTSignerAdded: trust_id=0x...0099 signer=0xf39f... block=1180
+    - GraphQL returned full enriched TRUST + signer list:
+        trust { templateId, ipfsCid, signersCount: 1, valueConfigsCount: 0 }
+        trustSigners [ { signerAddress, addressKey, hasSigned: true, addedBlock: 1180 } ]
+
+  This proves the dispatch architecture: arbitrary number of event types
+  can be added via (sig in filter) + (topic0 match in dispatch loop).
+  Same pattern will scale to 135 event signatures across the full subgraph.
+
+15/15 tests green. 14 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 2 — schema expansion):
-  PATH A done ✓ (end-to-end proof shipped TICK 11)
+NEXT ACTION (Phase 3 — multi-address dispatch):
+  Phase 2 (Factory completeness) is DONE.
 
-  PATH B — Phase 2 schema expansion (next leverage):
-    1. Add sol! definitions for more contract events:
-       - TRUST.sol: TRUST_ModuleAdded, TRUST_ModuleRemoved, TRUST_RoleGranted, TRUST_RoleRevoked
-       - Role.module: Role_RoleCreated, Role_RoleAssigned, Role_RoleRevoked
-       - Governance.module: Governance_ProposalCreated, Governance_ProposalExecuted, Governance_VoteCast
-       - Token.module: Token_TokenCreated, Token_Transfer
-    2. Add migrations: 006_modules, 007_role_assignments, 008_proposals, 009_votes, 010_token_balances
-    3. Add insert_*/get_* functions in store.rs
-    4. Add GraphQL types + queries for each
-    5. Add poll loop handlers for each event type
-    6. Test: deploy mock contracts emitting each event, verify all decode + insert + query
+  The architectural cliff: TRUST + module events come from CONTRACT ADDRESSES
+  THAT DON'T EXIST until Factory emits TrustCreated. The poll loop currently
+  hard-codes a single factory_address. To watch n+1 contracts dynamically,
+  the design needs:
 
-  PATH C — apps/ui glue (good for handoff):
-    1. Read aeqi/apps/ui Treasury / Ownership / Roles tabs to see what queries they need
-    2. Add corresponding GraphQL resolvers (matching the apps/ui field expectations)
-    3. Document the indexer→apps/ui integration path in a HANDOFF.md
-    4. (Apps/ui actual integration code best done by user when awake)
+  1. Add migration 006_watched_addresses:
+       CREATE TABLE watched_addresses (
+         address TEXT PRIMARY KEY,
+         kind TEXT NOT NULL,            -- 'factory' | 'trust' | 'module'
+         registered_block INTEGER NOT NULL
+       );
+     Seed factory address on indexer boot.
 
-  LEVERAGE PRIORITY: B (broader entity coverage = more demo value), then C documentation.
+  2. Refactor poll loop:
+     - Each round: SELECT addresses FROM watched_addresses
+     - Build a single Filter with .address(addresses) (alloy supports Vec<Address>)
+     - All registered events flow through the same topic0 dispatch
+     - Inside TrustCreated handler: also insert trust address into watched_addresses
+       (so the next round picks it up for its events)
 
-  EVEN BIGGER STRETCH GOAL (achievable if many ticks remain):
-    - Write a "FullCompanyMock.sol" that simulates the full Blueprint flow
-      (deploy TRUST + grant Founder role + add modules + create initial proposal)
-    - Indexer watches it all, all entities populate end-to-end
-    - GraphQL exposes complete /c/{slug} data — Treasury, Ownership, Roles,
-      Governance proposals, all from one mock event-emission session
-    - This proves the FULL v2 architecture is correct, not just one event type
+  3. Add sol! definitions for TRUST events:
+     - TRUST_ModuleAdded(bytes32 indexed moduleId, address indexed implementation)
+     - TRUST_RoleGranted(bytes32 indexed roleId, address indexed account)
+     - TRUST_RoleRevoked(bytes32 indexed roleId, address indexed account)
+     - TRUST_ProposalCreated(uint256 indexed proposalId, ...)
+
+  4. Add migrations + handlers for the resulting entities:
+     - 007_modules (module_id, trust_address, implementation, attached_block)
+     - 008_role_assignments (role_id, trust_address, account, granted_block)
+     - 009_proposals (proposal_id, trust_address, status, created_block)
+
+  5. Live test: deploy MockTRUST that emits ModuleAdded + RoleGranted, set
+     factory address, send TrustCreated → indexer should auto-subscribe to
+     that TRUST address → next round catches its module/role events.
+
+  STRETCH (Phase 4): Module-level events (Role.module, Governance.module).
+  Module addresses come from TRUST_ModuleAdded — same dispatch chain extends:
+  module added → insert into watched_addresses (kind='module') → next round
+  catches Role_RoleCreated etc.
+
+  Once Phase 3 is shipped, the indexer is structurally complete.
+  Adding the remaining 130+ event types is then mechanical: sol! decl +
+  migration + insert/update fn + dispatch arm. No new architecture.
 BLOCKER: none
 ANVIL: RUNNING, PID 1274467, log /tmp/anvil.log
 WORKTREE: /home/claudedev/aeqi-indexer-build (branch indexer-build, off origin/main 7553a083)
