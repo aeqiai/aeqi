@@ -14,8 +14,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crate::helpers::{
-    build_provider_for_runtime, find_agent_dir, find_project_dir, load_config_with_agents,
-    provider_secret_store_path,
+    build_provider_for_runtime, find_agent_dir_for_config, find_project_dir_for_config,
+    load_config_with_agents, provider_secret_store_path,
 };
 
 pub(crate) async fn cmd_doctor(
@@ -149,7 +149,7 @@ pub(crate) async fn cmd_doctor(
                     issues_found += 1;
                 }
 
-                match find_project_dir(&pcfg.name) {
+                match find_project_dir_for_config(&pcfg.name, &path, &config.data_dir()) {
                     Ok(d) => {
                         let agents_md = d.join("AGENTS.md").exists();
                         let knowledge_md = d.join("KNOWLEDGE.md").exists();
@@ -213,27 +213,31 @@ pub(crate) async fn cmd_doctor(
                 }
             }
 
-            // Check agent identity files.
+            // Check agent seed files. `aeqi setup` writes
+            // `agents/<name>/agent.md`; older repos may still carry the
+            // legacy split (PERSONA.md + IDENTITY.md). Either layout passes.
             for agent_cfg in &config.agents {
                 let runtime = config.runtime_for_agent(&agent_cfg.name);
                 let mode = config.execution_mode_for_agent(&agent_cfg.name);
-                match find_agent_dir(&agent_cfg.name) {
+                match find_agent_dir_for_config(&agent_cfg.name, &path, &config.data_dir()) {
                     Ok(d) => {
+                        let has_agent_md = d.join("agent.md").exists();
                         let has_persona = d.join("PERSONA.md").exists();
                         let has_identity = d.join("IDENTITY.md").exists();
-                        if !has_persona {
+                        let ok = has_agent_md || (has_persona && has_identity);
+                        if !ok {
                             issues_found += 1;
                         }
-                        if !has_identity {
-                            issues_found += 1;
-                        }
+                        let layout = if has_agent_md {
+                            "agent.md"
+                        } else if has_persona && has_identity {
+                            "PERSONA.md+IDENTITY.md (legacy)"
+                        } else {
+                            "missing"
+                        };
                         println!(
-                            "[{}] Agent '{}': PERSONA={has_persona} IDENTITY={has_identity} | runtime={} | mode={:?} | model={}",
-                            if has_persona && has_identity {
-                                "OK"
-                            } else {
-                                "WARN"
-                            },
+                            "[{}] Agent '{}': {layout} | runtime={} | mode={:?} | model={}",
+                            if ok { "OK" } else { "WARN" },
                             agent_cfg.name,
                             runtime.provider,
                             mode,

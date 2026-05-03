@@ -24,18 +24,27 @@ The binary is at `target/release/aeqi`.
 
 ## Setup
 
-Run the setup wizard. It auto-detects your environment: if you're inside a git repo it configures the current workspace, otherwise it writes config to `~/.aeqi/`.
+Run setup. It is non-interactive: it detects your environment (workspace if you're inside a git repo, otherwise `~/.aeqi/`), writes a starter `aeqi.toml`, generates a stable dashboard secret in `[web].auth_secret`, and seeds three starter agents (`leader`, `researcher`, `reviewer`) under `agents/`.
 
 ```bash
 aeqi setup
 ```
 
-You'll be prompted for provider keys and basic settings. SQLite databases are created automatically in `~/.aeqi/` -- no external database required.
+Setup prints the dashboard URL and the generated secret — copy the secret; you'll paste it on the dashboard sign-in screen. SQLite databases are created in `~/.aeqi/` on first daemon boot. No external database required.
 
-Set the dashboard auth secret:
+Set your provider key (one of):
 
 ```bash
-export AEQI_WEB_SECRET=change-me
+aeqi secrets set OPENROUTER_API_KEY <key>
+# or
+aeqi secrets set ANTHROPIC_API_KEY <key>
+# or run an Ollama server locally and re-run `aeqi setup --runtime ollama_agent`
+```
+
+Verify before launching:
+
+```bash
+aeqi doctor --strict
 ```
 
 ## Start
@@ -46,11 +55,11 @@ A single command runs the daemon, web server, and embedded dashboard:
 aeqi start
 ```
 
-The UI is embedded in the binary via rust-embed. No Node.js or npm needed.
+`start` prints a readiness summary: dashboard URL, daemon status, provider readiness, and ideas DB path. The UI is embedded in the binary via rust-embed — no Node.js or npm needed.
 
 ## Open Dashboard
 
-Navigate to `http://127.0.0.1:8400` and authenticate with your `AEQI_WEB_SECRET`.
+Navigate to `http://127.0.0.1:8400` and paste the secret printed by `aeqi setup` (also stored in `~/.aeqi/aeqi.toml` under `[web].auth_secret`). To rotate it later, edit that field directly and restart `aeqi start`.
 
 ## Development
 

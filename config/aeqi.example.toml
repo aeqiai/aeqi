@@ -69,8 +69,11 @@ max_background_cost_usd = 0.50
 # infer_deps_threshold = 0.0    # confidence threshold for auto-inferred deps (0=disabled)
 # notes_claim_ttl_hours = 2     # notes claim TTL
 
-# Companies (repos, quests, knowledge)
-[[companies]]
+# Agent spawn slots — each entry binds a repo to a worker pool the
+# orchestrator can dispatch quests to. The TOML key MUST be
+# `[[agent_spawns]]`; older configs that used `[[companies]]` or
+# `[[projects]]` are no longer recognised by the parser.
+[[agent_spawns]]
 name = "my-project"
 prefix = "mp"
 repo = "/path/to/your/project"
@@ -78,8 +81,9 @@ model = "xiaomi/mimo-v2-pro"
 max_workers = 2
 execution_mode = "agent"
 worker_timeout_secs = 1800
-# max_turns = 25
-# primer = "Project description for agent context"
+# max_steps = 25
+# max_budget_usd = 5.0
+# worktree_root = "~/worktrees/my-project"
 
 # [web]
 # enabled = true

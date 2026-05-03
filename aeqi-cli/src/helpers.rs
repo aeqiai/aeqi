@@ -59,36 +59,63 @@ fn resolve_web_paths(config: &mut AEQIConfig, config_path: &Path) {
 }
 
 pub(crate) fn find_project_dir(name: &str) -> Result<PathBuf> {
-    let candidates = [
-        PathBuf::from(format!("projects/{name}")),
-        PathBuf::from(format!("../projects/{name}")),
-    ];
-    for c in &candidates {
-        if c.exists() {
-            return Ok(c.clone());
-        }
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        let mut dir = cwd.as_path();
-        loop {
-            let candidate = dir.join("projects").join(name);
-            if candidate.exists() {
-                return Ok(candidate);
-            }
-            match dir.parent() {
-                Some(p) => dir = p,
-                None => break,
-            }
-        }
-    }
-    anyhow::bail!("project directory not found: {name}")
+    find_named_dir("projects", name, None, None)
 }
 
 pub(crate) fn find_agent_dir(name: &str) -> Result<PathBuf> {
-    let candidates = [
-        PathBuf::from(format!("agents/{name}")),
-        PathBuf::from(format!("../agents/{name}")),
-    ];
+    find_named_dir("agents", name, None, None)
+}
+
+/// Like `find_agent_dir`, but anchors lookup at the discovered config
+/// file and resolved data dir as well as walking parents of cwd. Use
+/// this from `aeqi doctor` and similar commands so a clean
+/// `aeqi setup -> aeqi doctor` from any cwd resolves agents written to
+/// `~/.aeqi/agents/<name>`.
+pub(crate) fn find_agent_dir_for_config(
+    name: &str,
+    config_path: &Path,
+    data_dir: &Path,
+) -> Result<PathBuf> {
+    find_named_dir("agents", name, Some(config_path), Some(data_dir))
+}
+
+pub(crate) fn find_project_dir_for_config(
+    name: &str,
+    config_path: &Path,
+    data_dir: &Path,
+) -> Result<PathBuf> {
+    find_named_dir("projects", name, Some(config_path), Some(data_dir))
+}
+
+fn find_named_dir(
+    kind: &str,
+    name: &str,
+    config_path: Option<&Path>,
+    data_dir: Option<&Path>,
+) -> Result<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::with_capacity(8);
+
+    // Anchored lookups: config file's parent (covers `~/.aeqi/aeqi.toml` →
+    // `~/.aeqi/agents/<name>`) and the parent's parent (covers
+    // `<workspace>/config/aeqi.toml` → `<workspace>/agents/<name>`).
+    if let Some(cfg) = config_path
+        && let Some(parent) = cfg.parent()
+    {
+        candidates.push(parent.join(kind).join(name));
+        if let Some(grand) = parent.parent() {
+            candidates.push(grand.join(kind).join(name));
+        }
+    }
+
+    // Anchored at the resolved data_dir (typically ~/.aeqi).
+    if let Some(d) = data_dir {
+        candidates.push(d.join(kind).join(name));
+    }
+
+    // Cwd-relative shortcuts retained for back-compat.
+    candidates.push(PathBuf::from(format!("{kind}/{name}")));
+    candidates.push(PathBuf::from(format!("../{kind}/{name}")));
+
     for c in &candidates {
         if c.exists() {
             return Ok(c.clone());
@@ -97,7 +124,7 @@ pub(crate) fn find_agent_dir(name: &str) -> Result<PathBuf> {
     if let Ok(cwd) = std::env::current_dir() {
         let mut dir = cwd.as_path();
         loop {
-            let candidate = dir.join("agents").join(name);
+            let candidate = dir.join(kind).join(name);
             if candidate.exists() {
                 return Ok(candidate);
             }
@@ -107,7 +134,7 @@ pub(crate) fn find_agent_dir(name: &str) -> Result<PathBuf> {
             }
         }
     }
-    anyhow::bail!("agent directory not found: {name}")
+    anyhow::bail!("{kind} directory not found: {name}")
 }
 
 pub(crate) fn get_api_key(config: &AEQIConfig) -> Result<String> {

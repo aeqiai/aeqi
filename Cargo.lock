@@ -43,6 +43,7 @@ dependencies = [
  "crossterm 0.28.1",
  "dirs",
  "pulldown-cmark 0.12.2",
+ "rand 0.9.4",
  "ratatui",
  "reqwest",
  "rusqlite",

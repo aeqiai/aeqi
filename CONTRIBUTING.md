@@ -31,12 +31,13 @@ npm run ui:install
 cargo build
 ```
 
-First-run init:
+First-run init (non-interactive — writes config, seeds three starter agents, and generates a stable dashboard secret):
 
 ```bash
-aeqi setup                                # generates config, creates root agent
-aeqi secrets set OPENROUTER_API_KEY <key>
-aeqi start                                # daemon + dashboard on :8400
+aeqi setup
+aeqi secrets set OPENROUTER_API_KEY <key>   # or ANTHROPIC_API_KEY
+aeqi doctor --strict                        # verify before launching
+aeqi start                                  # daemon + dashboard on :8400
 ```
 
 ## Project Layout

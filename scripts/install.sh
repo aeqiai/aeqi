@@ -64,6 +64,23 @@ esac
 
 ARTIFACT="aeqi-${PLATFORM}-${ARCH}"
 
+# Targets the release workflow currently publishes. Keep in sync with
+# .github/workflows/release.yml. Detected platforms outside this list
+# fall through to a build-from-source instruction instead of a 404.
+PUBLISHED_TARGETS="linux-amd64 darwin-arm64"
+case " ${PUBLISHED_TARGETS} " in
+    *" ${PLATFORM}-${ARCH} "*) ;;
+    *)
+        echo "error: aeqi does not currently publish a pre-built binary for ${PLATFORM}/${ARCH}." >&2
+        echo "       Published targets: ${PUBLISHED_TARGETS}" >&2
+        echo "       Build from source:" >&2
+        echo "         git clone https://github.com/${REPO} && cd aeqi" >&2
+        echo "         cargo build --release -p aeqi" >&2
+        echo "         install -m 755 target/release/aeqi ${INSTALL_DIR}/aeqi" >&2
+        exit 1
+        ;;
+esac
+
 # ── version resolution ───────────────────────────────────────────────────
 
 if [ -z "${AEQI_VERSION:-}" ]; then

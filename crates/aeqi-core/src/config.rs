@@ -1591,6 +1591,34 @@ fn expand_tilde(s: &str) -> String {
 mod tests {
     use super::*;
 
+    /// Guards against the `config/aeqi.example.toml` drifting out of
+    /// sync with the parser. The example file is what every new
+    /// contributor copies — if a key is renamed (e.g. `companies` →
+    /// `agent_spawns`) and the example isn't updated, that entry is
+    /// silently ignored at parse time and the contributor lands in a
+    /// half-configured workspace.
+    #[test]
+    fn test_parse_shipped_example_config() {
+        let example_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("config")
+            .join("aeqi.example.toml");
+        let toml = std::fs::read_to_string(&example_path).unwrap_or_else(|e| {
+            panic!(
+                "failed to read shipped example at {}: {e}",
+                example_path.display()
+            )
+        });
+        let config = AEQIConfig::parse(&toml).expect("example config must parse");
+        assert!(
+            !config.agent_spawns.is_empty(),
+            "example config defines no agent_spawns — schema may have drifted"
+        );
+        assert_eq!(config.agent_spawns[0].name, "my-project");
+        assert_eq!(config.agent_spawns[0].prefix, "mp");
+    }
+
     #[test]
     fn test_parse_minimal_config() {
         let toml = r#"

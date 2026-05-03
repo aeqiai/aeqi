@@ -28,7 +28,7 @@ Agent tree (root agent = workspace)
 
 An agent is a node with a name, a model, and a position in a parent-child hierarchy (`parent_id`). Agents inherit configuration from ancestors: model, budget, workdir, timeout, ideas. Set once on a parent, inherited by every descendant. Override at any node.
 
-Agents are stored in the database. There are no agent definition files on disk -- the DB is the source of truth. Agents spawn children at runtime through the delegate tool.
+Agents live in the agent registry (`~/.aeqi/aeqi.db`) — the DB is the runtime source of truth. New workspaces are seeded from `agents/<name>/agent.md` files and `[[agents]]` entries in `aeqi.toml`; once loaded, agents spawn children at runtime through the delegate tool.
 
 ### Idea -- unified knowledge store
 
@@ -183,23 +183,27 @@ cargo build --release
 ### Run
 
 ```bash
-aeqi setup                         # generates config, creates agents
-aeqi secrets set OPENROUTER_API_KEY <key>
-aeqi start                         # daemon + dashboard on localhost:8400
+aeqi setup                                  # writes config, seed agents, and a dashboard secret
+aeqi secrets set OPENROUTER_API_KEY <key>   # or ANTHROPIC_API_KEY / use --runtime ollama_agent
+aeqi doctor --strict                        # verify everything is wired up
+aeqi start                                  # daemon + dashboard on localhost:8400
 ```
 
-The dashboard, API, and daemon all run from a single binary. SQLite databases are created automatically in `~/.aeqi/`. No external dependencies.
+`aeqi setup` is non-interactive. It detects whether you're inside a workspace (any of `config/`, `agents/`, `Cargo.toml`, `.git`) and otherwise lays everything down under `~/.aeqi/`. It also generates a stable `[web].auth_secret` and prints it — paste that secret on the dashboard sign-in screen. The dashboard, API, and daemon all run from a single binary; SQLite databases are created automatically in `~/.aeqi/`. No external dependencies.
 
 ### CLI
 
 ```bash
-aeqi start                     # daemon + web server + embedded dashboard
-aeqi chat                      # interactive TUI chat (auto-selects root agent)
-aeqi agent list                # list all registered agents
-aeqi event create ...          # schedule, pattern, or webhook event
-aeqi assign "quest description"
-aeqi monitor                   # live terminal dashboard
+aeqi start                              # daemon + web server + embedded dashboard
+aeqi chat                               # interactive TUI chat (auto-selects root agent)
+aeqi agent list                         # list all registered agents
+aeqi assign "subject" --root <ROOT>     # assign a quest to a root agent
+aeqi events install-defaults            # seed daily-digest + weekly-consolidate on every agent
+aeqi monitor                            # live terminal dashboard
+aeqi doctor                             # diagnostics; --fix to repair, --strict to fail-on-warn
 ```
+
+All other event types (schedule, pattern, webhook) are created via the API or the `events_manage` tool from inside a session; there is no `aeqi event create` subcommand today.
 
 ---
 
@@ -207,7 +211,7 @@ aeqi monitor                   # live terminal dashboard
 
 **Add an idea** -- store via the API or MCP tools. Reference the idea from an event (e.g. `session:start`) to make it part of the agent's permanent context.
 
-**Add an event** -- via CLI (`aeqi event create`), API, or at runtime through the `events_manage` tool.
+**Add an event** -- via the API or at runtime through the `events_manage` tool. The CLI ships `aeqi events install-defaults` for the standard digest/consolidate schedules; ad-hoc events are managed through the dashboard or programmatically.
 
 **Add a tool** -- implement the `Tool` trait, wire into the builder.
 
@@ -237,17 +241,37 @@ Pre-push hook runs all three automatically.
 
 ## Docs
 
-- [Architecture](docs/architecture.md) -- system map, crates, primitives, agent loop
-- [Context Injection](docs/context-injection.md) -- how agent input context is assembled
-- [Deployment](docs/deployment.md) -- production topology, systemd, reverse proxy
+Start at [docs/README.md](docs/README.md) for the full index. Highlights:
+
 - [Quick Start](docs/quickstart.md) -- local setup for daemon, API, and UI
-- [Runtime / Platform Separation](docs/runtime-platform-separation.md) -- multi-tenant platform and the open-source runtime kernel
-- [Agent Loop Parity](docs/agent-loop-parity.md) -- comparison with Claude Code's agent loop
-- [UI Design](docs/ui-design.md) -- operator UI principles
+- [Architecture](docs/architecture.md) -- system map, crates, primitives, agent loop
 - [Vision](docs/vision.md) -- product north star and design principles
-- [Product Contract](docs/product-contract.md) -- shared runtime vocabulary and UX rules
+- [Deployment](docs/deployment.md) -- production topology, systemd, reverse proxy
 - [Roadmap](docs/roadmap.md) -- phases from current state to long-term product
+
+Historical audits and internal migration plans live under [docs/internal/](docs/internal/).
+
+## Vocabulary
+
+aeqi has four runtime primitives — **agents**, **ideas**, **quests**, **events**. Two further nouns appear in code and docs and are worth disambiguating:
+
+| You'll see | Means | Where it lives |
+|---|---|---|
+| `agent` | A persistent identity in the agent tree | `[[agents]]` in `aeqi.toml`, `agents/<name>/agent.md` on disk, `aeqi.db` at runtime |
+| `agent_spawn` | A repo-bound worker pool the orchestrator can dispatch quests to | `[[agent_spawns]]` in `aeqi.toml` |
+| `company` | User-facing label for a root agent (in dashboard copy and CTAs) | UI only; under the hood it's a root agent + its `agent_spawn` |
+| `project` | Legacy alias for `agent_spawn` in some method names (`runtime_for_project`) | Rust API; not a separate noun |
+
+Configuration uses `[[agent_spawns]]`; older configs that used `[[companies]]` or `[[projects]]` are no longer recognised by the parser.
 
 ## License
 
 [Business Source License 1.1](LICENSE) -- source-available, self-hostable, and free for production use as long as you are not offering aeqi to third parties as a hosted or embedded service that competes with our paid offerings. Converts to Apache 2.0 on April 5, 2030. See [aeqi.ai/pricing](https://aeqi.ai/pricing) for managed plans.
+
+**In plain English:**
+
+- **Allowed:** clone, modify, self-host, and run aeqi inside your team or company. Internal productivity use is fine. Forks for your own deployment are fine.
+- **Not allowed without a commercial license:** offering aeqi to third parties as a hosted or embedded service that competes with our paid offerings (e.g. running a public "aeqi cloud").
+- **Automatic:** on April 5, 2030 the license converts to Apache 2.0 and the above restriction lifts.
+
+The license text in `LICENSE` is authoritative — this summary is for orientation, not legal advice.

@@ -58,6 +58,25 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
         .as_deref()
         .unwrap_or_else(|| default_model_for_provider(starter.provider));
 
+    // Reuse the existing web secret if a config is already on disk so
+    // re-running `aeqi setup` doesn't invalidate dashboard sessions.
+    let existing_web_secret = if config_path.exists() {
+        std::fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|content| {
+                content.parse::<toml::Value>().ok().and_then(|v| {
+                    v.get("web")
+                        .and_then(|w| w.get("auth_secret"))
+                        .and_then(|s| s.as_str())
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.to_string())
+                })
+            })
+    } else {
+        None
+    };
+    let web_secret = existing_web_secret.unwrap_or_else(generate_web_secret);
+
     write_file(
         &config_path,
         &render_config(
@@ -66,6 +85,7 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
             worker_runtime,
             default_model,
             starter.provider,
+            &web_secret,
         ),
         force,
     )?;
@@ -132,6 +152,9 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
     println!("Workspace: {}", root.display());
     println!("Config: {}", config_path.display());
     println!();
+    println!("Dashboard URL: http://localhost:8400");
+    println!("Dashboard secret (sign in with this): {web_secret}");
+    println!();
     println!("Next steps:");
     match starter.provider {
         ProviderKind::OpenRouter => {
@@ -190,18 +213,31 @@ max_workers: 1\n\
     )
 }
 
+fn generate_web_secret() -> String {
+    use rand::Rng;
+    rand::rng()
+        .sample_iter(&rand::distr::Alphanumeric)
+        .take(48)
+        .map(char::from)
+        .collect()
+}
+
 fn render_config(
     system_name: &str,
     runtime: &str,
     worker_runtime: &str,
     default_model: &str,
     provider: ProviderKind,
+    web_secret: &str,
 ) -> String {
     format!(
         "[aeqi]\n\
 name = \"{system_name}\"\n\
 data_dir = \"~/.aeqi\"\n\
 default_runtime = \"{runtime}\"\n\
+\n\
+[web]\n\
+auth_secret = \"{web_secret}\"\n\
 \n\
 {}\n\
 [security]\n\
