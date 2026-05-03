@@ -6,9 +6,9 @@ This is the prompt that fires every 5 minutes during the autonomous indexer buil
 
 ## Your task this tick
 
-1. **READ STATE FIRST.** Read `/home/claudedev/aeqi/docs/indexer-build-log.md` end-to-end before doing anything. The "Current state" block tells you where we are. The "Per-tick log" tells you what's been tried. The "Decisions made" block tells you what's locked.
+1. **READ STATE FIRST.** Read `/home/claudedev/aeqi-indexer-build/docs/indexer-build-log.md` end-to-end before doing anything. The "Current state" block tells you where we are. The "Per-tick log" tells you what's been tried. The "Decisions made" block tells you what's locked.
 
-2. **READ THE SPEC if uncertain.** `/home/claudedev/aeqi/docs/aeqi-indexer-spec.md` is the architectural contract. Don't deviate without writing the deviation in "Decisions made".
+2. **READ THE SPEC if uncertain.** `/home/claudedev/aeqi-indexer-build/docs/aeqi-indexer-spec.md` is the architectural contract. Don't deviate without writing the deviation in "Decisions made".
 
 3. **IDENTIFY THE HIGHEST-LEVERAGE NEXT ACTION** from the "Plan" section. Honest assessment: what gets us closest to the north-star (working end-to-end TRUST creation flow indexed into SQLite + queryable via GraphQL) per unit time?
 
