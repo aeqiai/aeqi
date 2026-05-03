@@ -1483,6 +1483,18 @@ impl Daemon {
                 "create_role" => {
                     crate::ipc::roles::handle_create_role(&ctx, &request, &allowed_roots).await
                 }
+                "update_role" => {
+                    crate::ipc::roles::handle_update_role(&ctx, &request, &allowed_roots).await
+                }
+                "archive_role" => {
+                    crate::ipc::roles::handle_archive_role(&ctx, &request, &allowed_roots).await
+                }
+                "get_role" => {
+                    crate::ipc::roles::handle_get_role(&ctx, &request, &allowed_roots).await
+                }
+                "user_grants" => {
+                    crate::ipc::roles::handle_user_grants(&ctx, &request, &allowed_roots).await
+                }
                 "change_occupant" => {
                     crate::ipc::roles::handle_change_occupant(&ctx, &request, &allowed_roots).await
                 }

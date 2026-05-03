@@ -1,6 +1,7 @@
 //! Role IPC handlers.
 //!
-//! Three commands: `list_roles`, `create_role`, and `change_occupant`.
+//! Commands: `list_roles`, `create_role`, `change_occupant`,
+//!           `update_role`, `archive_role`, `get_role`, `user_grants`.
 //!
 //! `change_occupant` swaps the role's occupant and rotates the participant
 //! set on every session anchored to that role, then appends a system
@@ -8,10 +9,47 @@
 //! Tenancy is enforced against the active scope — roles live inside an
 //! entity, so the caller's `allowed` list filters reads and rejects writes
 //! outside their scope.
+//!
+//! Mutation commands gate on the caller holding `roles.manage` at the
+//! relevant entity. The grant check uses `caller_user_id` injected by
+//! the HTTP layer via `ipc_proxy`.
 
-use crate::role_registry::OccupantKind;
+use crate::role_registry::{OccupantKind, RoleType};
 
 use super::tenancy::is_allowed;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Extract `caller_user_id` from the request.
+fn caller_user_id(request: &serde_json::Value) -> &str {
+    request
+        .get("caller_user_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+}
+
+/// Check that the caller holds `roles.manage` at `entity_id`.
+/// Returns `Some(error_json)` when the check fails, `None` when it passes.
+async fn require_roles_manage(
+    ctx: &super::CommandContext,
+    entity_id: &str,
+    caller_id: &str,
+) -> Option<serde_json::Value> {
+    if caller_id.is_empty() {
+        return Some(serde_json::json!({"ok": false, "error": "authentication required"}));
+    }
+    match ctx
+        .role_registry
+        .user_has_grant(entity_id, caller_id, crate::role_registry::GRANT_ROLES_MANAGE)
+        .await
+    {
+        Ok(true) => None,
+        Ok(false) => Some(serde_json::json!({"ok": false, "error": "forbidden: roles.manage required", "code": "forbidden"})),
+        Err(e) => Some(serde_json::json!({"ok": false, "error": e.to_string()})),
+    }
+}
+
+// ── Read handlers ─────────────────────────────────────────────────────────────
 
 pub async fn handle_list_roles(
     ctx: &super::CommandContext,
@@ -27,11 +65,11 @@ pub async fn handle_list_roles(
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
-    let roles = match ctx.role_registry.list_for_entity(&entity_id).await {
-        Ok(v) => v,
-        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
-    };
-    let edges = match ctx.role_registry.list_edges_for_entity(&entity_id).await {
+    let (roles, edges) = match ctx
+        .role_registry
+        .list_for_entity_with_grants(&entity_id)
+        .await
+    {
         Ok(v) => v,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
@@ -42,6 +80,81 @@ pub async fn handle_list_roles(
         "edges": edges,
     })
 }
+
+pub async fn handle_get_role(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let role_id = match super::request_field(request, "role_id") {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "role_id is required"}),
+    };
+
+    // Fetch role (includes grants).
+    let role = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return serde_json::json!({"ok": false, "error": "role not found", "code": "not_found"})
+        }
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    // Fetch parent and child role ids.
+    let entity_id = role.entity_id.clone();
+    let edges = match ctx.role_registry.list_edges_for_entity(&entity_id).await {
+        Ok(v) => v,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let parent_ids: Vec<&str> = edges
+        .iter()
+        .filter(|e| e.child_role_id == role_id)
+        .map(|e| e.parent_role_id.as_str())
+        .collect();
+    let child_ids: Vec<&str> = edges
+        .iter()
+        .filter(|e| e.parent_role_id == role_id)
+        .map(|e| e.child_role_id.as_str())
+        .collect();
+
+    serde_json::json!({
+        "ok": true,
+        "role": role,
+        "parent_ids": parent_ids,
+        "child_ids": child_ids,
+    })
+}
+
+pub async fn handle_user_grants(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let entity_id = match super::request_field(request, "entity_id") {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "entity_id is required"}),
+    };
+    let user_id = match super::request_field(request, "user_id") {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "user_id is required"}),
+    };
+
+    if allowed.is_some() && !is_allowed(allowed, &entity_id) {
+        return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+
+    match ctx
+        .role_registry
+        .user_grants_for_entity(&entity_id, &user_id)
+        .await
+    {
+        Ok(grants) => serde_json::json!({"ok": true, "grants": grants}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+// ── Mutation handlers ─────────────────────────────────────────────────────────
 
 pub async fn handle_create_role(
     ctx: &super::CommandContext,
@@ -54,6 +167,12 @@ pub async fn handle_create_role(
     };
     if allowed.is_some() && !is_allowed(allowed, &entity_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
+    }
+
+    // Gate on roles.manage.
+    let caller_id = caller_user_id(request).to_string();
+    if let Some(err) = require_roles_manage(ctx, &entity_id, &caller_id).await {
+        return err;
     }
 
     let title = super::request_field(request, "title")
@@ -72,11 +191,39 @@ pub async fn handle_create_role(
         });
     }
 
+    let role_type_str = super::request_field(request, "role_type").unwrap_or("operational");
+    let role_type = match role_type_str.parse::<RoleType>() {
+        Ok(rt) => rt,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let founder = request
+        .get("founder")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let grants: Option<Vec<String>> = request
+        .get("grants")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        });
+
     let parent_role_id = super::request_field(request, "parent_role_id").map(str::to_string);
 
     let role = match ctx
         .role_registry
-        .create(&entity_id, &title, kind, occupant_id.as_deref())
+        .create_with_type(
+            &entity_id,
+            &title,
+            kind,
+            occupant_id.as_deref(),
+            role_type,
+            founder,
+            grants,
+        )
         .await
     {
         Ok(r) => r,
@@ -90,6 +237,115 @@ pub async fn handle_create_role(
     }
 
     serde_json::json!({"ok": true, "role": role})
+}
+
+/// Handle an `update_role` IPC command.
+///
+/// # Request shape
+///
+/// ```json
+/// {
+///   "role_id":         "<uuid>",
+///   "title":           "new title",       // optional
+///   "role_type":       "director",        // optional
+///   "grants":          ["roles.manage"],  // optional — replaces full set
+///   "caller_user_id":  "<user-id>"        // injected by ipc_proxy
+/// }
+/// ```
+pub async fn handle_update_role(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let role_id = match super::request_field(request, "role_id") {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "role_id is required"}),
+    };
+
+    // We need the entity_id to do the grant check.
+    let entity_id = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(r)) => r.entity_id,
+        Ok(None) => {
+            return serde_json::json!({"ok": false, "error": "role not found", "code": "not_found"})
+        }
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let caller_id = caller_user_id(request).to_string();
+    if let Some(err) = require_roles_manage(ctx, &entity_id, &caller_id).await {
+        return err;
+    }
+
+    let title = super::request_field(request, "title").map(str::to_string);
+    let role_type = super::request_field(request, "role_type")
+        .map(|s| s.parse::<RoleType>())
+        .transpose();
+    let role_type = match role_type {
+        Ok(v) => v,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let grants: Option<Vec<String>> = request
+        .get("grants")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        });
+
+    if let Err(e) = ctx
+        .role_registry
+        .update_role(&role_id, title.as_deref(), role_type, grants)
+        .await
+    {
+        return serde_json::json!({"ok": false, "error": e.to_string()});
+    }
+
+    match ctx.role_registry.get(&role_id).await {
+        Ok(Some(updated)) => serde_json::json!({"ok": true, "role": updated}),
+        Ok(None) => serde_json::json!({"ok": false, "error": "role not found after update"}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+/// Handle an `archive_role` IPC command.
+///
+/// # Request shape
+///
+/// ```json
+/// {
+///   "role_id":        "<uuid>",
+///   "caller_user_id": "<user-id>"   // injected by ipc_proxy
+/// }
+/// ```
+pub async fn handle_archive_role(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let role_id = match super::request_field(request, "role_id") {
+        Some(s) if !s.is_empty() => s.to_string(),
+        _ => return serde_json::json!({"ok": false, "error": "role_id is required"}),
+    };
+
+    let entity_id = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(r)) => r.entity_id,
+        Ok(None) => {
+            return serde_json::json!({"ok": false, "error": "role not found", "code": "not_found"})
+        }
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    let caller_id = caller_user_id(request).to_string();
+    if let Some(err) = require_roles_manage(ctx, &entity_id, &caller_id).await {
+        return err;
+    }
+
+    match ctx.role_registry.archive_role(&role_id).await {
+        Ok(()) => serde_json::json!({"ok": true, "role_id": role_id}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
 }
 
 /// Handle a `change_occupant` IPC command.
@@ -134,12 +390,18 @@ pub async fn handle_change_occupant(
         });
     }
 
-    // Fetch the current (old) occupant before the update.
+    // Fetch the current (old) occupant before the update; also get entity_id for grant check.
     let role = match ctx.role_registry.get(&role_id).await {
         Ok(Some(r)) => r,
         Ok(None) => return serde_json::json!({"ok": false, "error": "role not found"}),
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
+
+    // Gate on roles.manage.
+    let caller_id = caller_user_id(request).to_string();
+    if let Some(err) = require_roles_manage(ctx, &role.entity_id, &caller_id).await {
+        return err;
+    }
 
     let old_kind_str = match role.occupant_kind {
         OccupantKind::Human => "user",
@@ -272,25 +534,52 @@ mod tests {
         (ctx, ss)
     }
 
-    /// Create an entity + agent-occupied role in the given ctx.
-    async fn make_occupied_role(ctx: &CommandContext, agent_id: &str) -> String {
+    /// Create an entity with a Director-occupied role for the given user, then
+    /// return the entity_id so tests can create additional roles.
+    async fn make_entity_with_director(ctx: &CommandContext, user_id: &str) -> String {
         let entity = ctx
             .entity_registry
             .create_new(
                 "Test Co",
-                "testco",
+                &format!("testco-{}", uuid::Uuid::new_v4()),
                 crate::entity_registry::EntityType::Company,
                 None,
                 None,
             )
             .await
             .unwrap();
-        let role = ctx
-            .role_registry
-            .create(&entity.id, "CEO", OccupantKind::Agent, Some(agent_id))
+        ctx.role_registry
+            .create_with_type(
+                &entity.id,
+                "Founder",
+                OccupantKind::Human,
+                Some(user_id),
+                crate::role_registry::RoleType::Director,
+                true,
+                None,
+            )
             .await
             .unwrap();
-        role.id
+        entity.id
+    }
+
+    /// Create an entity + agent-occupied role in the given ctx.
+    async fn make_occupied_role(ctx: &CommandContext, agent_id: &str) -> (String, String) {
+        let entity_id = make_entity_with_director(ctx, "owner-user").await;
+        let role = ctx
+            .role_registry
+            .create_with_type(
+                &entity_id,
+                "CEO",
+                OccupantKind::Agent,
+                Some(agent_id),
+                crate::role_registry::RoleType::Director,
+                false,
+                None,
+            )
+            .await
+            .unwrap();
+        (role.id, entity_id)
     }
 
     #[tokio::test]
@@ -301,7 +590,7 @@ mod tests {
         let old_agent = "agent-old";
         let new_agent = "agent-new";
 
-        let role_id = make_occupied_role(&ctx, old_agent).await;
+        let (role_id, _entity_id) = make_occupied_role(&ctx, old_agent).await;
 
         // Anchor a session on the role and add the old occupant as a
         // participant so change_occupant has something to rotate.
@@ -313,10 +602,12 @@ mod tests {
             .await
             .unwrap();
 
+        // owner-user has Director role → passes roles.manage check.
         let req = serde_json::json!({
             "role_id": role_id,
             "occupant_kind": "agent",
             "occupant_id": new_agent,
+            "caller_user_id": "owner-user",
         });
 
         let resp = handle_change_occupant(&ctx, &req, &None).await;
@@ -364,33 +655,149 @@ mod tests {
 
     #[tokio::test]
     async fn change_occupant_session_continuity() {
-        // A session created before the change must be the same session after.
         let dir = tempfile::tempdir().unwrap();
         let (ctx, ss) = build_test_ctx(dir.path()).await;
 
-        let role_id = make_occupied_role(&ctx, "agent-alpha").await;
+        let (role_id, _entity_id) = make_occupied_role(&ctx, "agent-alpha").await;
 
-        // First message anchors the session.
         let session_id_before = ss
             .create_role_session(&role_id, &format!("role:{role_id}"))
             .await
             .unwrap();
 
-        // Change occupant.
         let req = serde_json::json!({
             "role_id": role_id,
             "occupant_kind": "agent",
             "occupant_id": "agent-beta",
+            "caller_user_id": "owner-user",
         });
         let resp = handle_change_occupant(&ctx, &req, &None).await;
         assert_eq!(resp["ok"], true);
 
-        // The session id must be unchanged.
         let still_active = ss.get_session(&session_id_before).await.unwrap().unwrap();
         assert_eq!(
             still_active.id, session_id_before,
             "session id must not change after occupant swap"
         );
         assert_eq!(still_active.status, "active");
+    }
+
+    #[tokio::test]
+    async fn change_occupant_forbidden_without_grant() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _ss) = build_test_ctx(dir.path()).await;
+
+        let entity_id = make_entity_with_director(&ctx, "owner-user").await;
+        let role = ctx
+            .role_registry
+            .create_with_type(
+                &entity_id,
+                "Ops",
+                OccupantKind::Agent,
+                Some("agent-z"),
+                crate::role_registry::RoleType::Operational,
+                false,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "role_id": role.id,
+            "occupant_kind": "agent",
+            "occupant_id": "agent-new",
+            "caller_user_id": "stranger",
+        });
+        let resp = handle_change_occupant(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], false);
+        assert_eq!(resp["code"], "forbidden");
+    }
+
+    #[tokio::test]
+    async fn create_role_with_type_and_grants() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _ss) = build_test_ctx(dir.path()).await;
+
+        let entity_id = make_entity_with_director(&ctx, "owner").await;
+
+        let req = serde_json::json!({
+            "entity_id": entity_id,
+            "title": "Advisor",
+            "occupant_kind": "vacant",
+            "role_type": "advisor",
+            "founder": false,
+            "caller_user_id": "owner",
+        });
+        let resp = handle_create_role(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "{resp}");
+        assert_eq!(resp["role"]["role_type"], "advisor");
+    }
+
+    #[tokio::test]
+    async fn update_role_changes_title() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _ss) = build_test_ctx(dir.path()).await;
+
+        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let role = ctx
+            .role_registry
+            .create(&entity_id, "Old Title", OccupantKind::Vacant, None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "role_id": role.id,
+            "title": "New Title",
+            "caller_user_id": "owner",
+        });
+        let resp = handle_update_role(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "{resp}");
+        assert_eq!(resp["role"]["title"], "New Title");
+    }
+
+    #[tokio::test]
+    async fn archive_role_removes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _ss) = build_test_ctx(dir.path()).await;
+
+        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let role = ctx
+            .role_registry
+            .create(&entity_id, "Temp", OccupantKind::Vacant, None)
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "role_id": role.id,
+            "caller_user_id": "owner",
+        });
+        let resp = handle_archive_role(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "{resp}");
+
+        let get_resp = handle_get_role(
+            &ctx,
+            &serde_json::json!({"role_id": role.id}),
+            &None,
+        )
+        .await;
+        assert_eq!(get_resp["ok"], false);
+        assert_eq!(get_resp["code"], "not_found");
+    }
+
+    #[tokio::test]
+    async fn user_grants_handler_returns_grants() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _ss) = build_test_ctx(dir.path()).await;
+
+        let entity_id = make_entity_with_director(&ctx, "owner").await;
+
+        let req = serde_json::json!({"entity_id": entity_id, "user_id": "owner"});
+        let resp = handle_user_grants(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "{resp}");
+        let grants = resp["grants"].as_array().unwrap();
+        assert!(
+            grants.iter().any(|g| g == crate::role_registry::GRANT_ROLES_MANAGE),
+            "director must have roles.manage"
+        );
     }
 }

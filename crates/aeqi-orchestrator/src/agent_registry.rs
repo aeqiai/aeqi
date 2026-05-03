@@ -632,6 +632,37 @@ fn bootstrap_role_tables(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Add role_type + founder columns to `roles` and create the `role_grants` table.
+/// Idempotent: each ALTER TABLE is guarded by a PRAGMA table_info check; the
+/// table creation uses CREATE TABLE IF NOT EXISTS.
+fn migrate_role_types_and_grants(conn: &Connection) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(roles)")?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if !cols.iter().any(|c| c == "role_type") {
+        conn.execute_batch(
+            "ALTER TABLE roles ADD COLUMN role_type TEXT NOT NULL DEFAULT 'operational' \
+             CHECK (role_type IN ('director','advisor','operational'));",
+        )?;
+    }
+    if !cols.iter().any(|c| c == "founder") {
+        conn.execute_batch("ALTER TABLE roles ADD COLUMN founder INTEGER NOT NULL DEFAULT 0;")?;
+    }
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS role_grants (
+             role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+             grant   TEXT NOT NULL,
+             created_at TEXT NOT NULL,
+             PRIMARY KEY (role_id, grant)
+         );
+         CREATE INDEX IF NOT EXISTS idx_role_grants_grant ON role_grants(grant);",
+    )?;
+    Ok(())
+}
+
 /// Idempotent rename migration: positions → roles, position_edges → role_edges.
 ///
 /// Detects state via sqlite_master:
@@ -1253,6 +1284,9 @@ impl AgentRegistry {
 
         // 3b. Role primitive tables (roles + role_edges) — only creates if absent.
         bootstrap_role_tables(&conn)?;
+
+        // 3c. role_type, founder, and role_grants — added in roles-grants wave.
+        migrate_role_types_and_grants(&conn)?;
 
         // 4. Legacy carryover — only fires while `agents.parent_id` still
         //    exists on disk. Backfills entities, agents.entity_id,
