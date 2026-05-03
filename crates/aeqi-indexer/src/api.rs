@@ -24,6 +24,30 @@ pub type SharedDb = Arc<Mutex<Connection>>;
 /// Top-level GraphQL Query type.
 pub struct Query;
 
+/// GraphQL projection of a signer authorization row.
+#[derive(SimpleObject, Clone)]
+pub struct Signer {
+    pub trust_address: String,
+    pub signer_address: String,
+    pub address_key: String,
+    pub has_signed: bool,
+    pub added_block: u64,
+    pub added_tx: String,
+}
+
+impl From<store::SignerRow> for Signer {
+    fn from(r: store::SignerRow) -> Self {
+        Signer {
+            trust_address: r.trust_address,
+            signer_address: r.signer_address,
+            address_key: r.address_key,
+            has_signed: r.has_signed,
+            added_block: r.added_block,
+            added_tx: r.added_tx,
+        }
+    }
+}
+
 /// GraphQL projection of a TRUST contract row.
 #[derive(SimpleObject, Clone)]
 pub struct Trust {
@@ -86,6 +110,19 @@ impl Query {
             .query_row("SELECT COUNT(*) FROM trusts", [], |r| r.get(0))
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(n)
+    }
+
+    /// All signers authorized on a TRUST, ordered by the block they were added.
+    async fn trust_signers(
+        &self,
+        ctx: &Context<'_>,
+        trust_address: String,
+    ) -> async_graphql::Result<Vec<Signer>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_trust_signers(&conn, &trust_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 }
 

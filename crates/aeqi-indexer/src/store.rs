@@ -161,6 +161,115 @@ pub fn insert_trust_created(
     Ok(())
 }
 
+/// Enrich an existing TRUST row with registration metadata
+/// (template_id, ipfs_cid, signers_count, value_configs_count).
+/// Created via Factory.Factory_TRUSTRegisteredEvent which fires
+/// AFTER Factory_TRUSTCreatedEvent in the same transaction.
+/// Idempotent: updating with the same values is a no-op.
+pub fn update_trust_registered(
+    conn: &Connection,
+    trust_id: &str,
+    template_id: &str,
+    ipfs_cid: &str,
+    signers_count: u64,
+    value_configs_count: u64,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE trusts SET template_id = ?1, ipfs_cid = ?2,
+                signers_count = ?3, value_configs_count = ?4
+         WHERE trust_id = ?5",
+        params![
+            template_id,
+            ipfs_cid,
+            signers_count as i64,
+            value_configs_count as i64,
+            trust_id
+        ],
+    )?;
+    Ok(())
+}
+
+/// Insert a signer authorization for a TRUST.
+/// Resolves trust_address from trust_id; no-op if the trust isn't yet known
+/// (the corresponding TrustCreated event must already be indexed).
+pub fn insert_trust_signer(
+    conn: &Connection,
+    trust_id: &str,
+    address_key: &str,
+    signer_address: &str,
+    has_signed: bool,
+    block_number: u64,
+    tx_hash: &str,
+) -> Result<()> {
+    let trust_address: Option<String> = conn
+        .query_row(
+            "SELECT address FROM trusts WHERE trust_id = ?1",
+            params![trust_id],
+            |r| r.get(0),
+        )
+        .ok();
+    let Some(trust_address) = trust_address else {
+        tracing::warn!(
+            "TRUSTSignerAdded for unknown trust_id {} — skipping (TrustCreated not yet indexed)",
+            trust_id
+        );
+        return Ok(());
+    };
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "INSERT OR IGNORE INTO accounts (address, first_seen_block, first_seen_tx) VALUES (?1, ?2, ?3)",
+        params![signer_address, block_number as i64, tx_hash],
+    )?;
+    tx.execute(
+        "INSERT OR REPLACE INTO trust_signers
+            (trust_address, signer_address, address_key, has_signed, added_block, added_tx)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            trust_address,
+            signer_address,
+            address_key,
+            has_signed as i64,
+            block_number as i64,
+            tx_hash
+        ],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct SignerRow {
+    pub trust_address: String,
+    pub signer_address: String,
+    pub address_key: String,
+    pub has_signed: bool,
+    pub added_block: u64,
+    pub added_tx: String,
+}
+
+/// Fetch all signers authorized on a TRUST.
+pub fn get_trust_signers(conn: &Connection, trust_address: &str) -> Result<Vec<SignerRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT trust_address, signer_address, address_key, has_signed, added_block, added_tx
+         FROM trust_signers WHERE trust_address = ?1
+         ORDER BY added_block ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![trust_address], |r| {
+            Ok(SignerRow {
+                trust_address: r.get(0)?,
+                signer_address: r.get(1)?,
+                address_key: r.get(2)?,
+                has_signed: r.get::<_, i64>(3)? != 0,
+                added_block: r.get::<_, i64>(4)? as u64,
+                added_tx: r.get(5)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// Look up a TRUST by its on-chain address.
 pub fn get_trust(conn: &Connection, address: &str) -> Result<Option<TrustRow>> {
     let row = conn
@@ -224,6 +333,75 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count2, MIGRATIONS.len() as i64);
+    }
+
+    #[test]
+    fn update_trust_registered_enriches_existing_row() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let trust_addr = "0x9131b1DEC7d1fE791C599E9D0b94D6414cae0747";
+        let trust_id = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        let creator = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+        insert_trust_created(&conn, trust_addr, trust_id, creator, 42, "0xabc")
+            .expect("create");
+        update_trust_registered(
+            &conn,
+            trust_id,
+            "0xtemplate0001",
+            "QmIPFSCID",
+            3,
+            5,
+        )
+        .expect("register");
+
+        let row = get_trust(&conn, trust_addr).expect("query").expect("row");
+        assert_eq!(row.template_id.as_deref(), Some("0xtemplate0001"));
+        assert_eq!(row.ipfs_cid.as_deref(), Some("QmIPFSCID"));
+        assert_eq!(row.signers_count, Some(3));
+        assert_eq!(row.value_configs_count, Some(5));
+    }
+
+    #[test]
+    fn insert_trust_signer_round_trip() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let trust_addr = "0x9131b1DEC7d1fE791C599E9D0b94D6414cae0747";
+        let trust_id = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        let creator = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+        let signer = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
+        let address_key = "0x000000000000000000000000a0ee7a142d267c1f36714e4a8f75612f20a79720";
+
+        insert_trust_created(&conn, trust_addr, trust_id, creator, 42, "0xtx1")
+            .expect("create");
+        insert_trust_signer(&conn, trust_id, address_key, signer, true, 43, "0xtx2")
+            .expect("signer");
+
+        let signers = get_trust_signers(&conn, trust_addr).expect("query");
+        assert_eq!(signers.len(), 1);
+        assert_eq!(signers[0].signer_address, signer);
+        assert_eq!(signers[0].address_key, address_key);
+        assert!(signers[0].has_signed);
+    }
+
+    #[test]
+    fn insert_trust_signer_for_unknown_trust_skips_silently() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let unknown_trust_id =
+            "0x0000000000000000000000000000000000000000000000000000000000000099";
+        let signer = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
+
+        insert_trust_signer(&conn, unknown_trust_id, "0xkey", signer, true, 43, "0xtx")
+            .expect("should not error");
+
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM trust_signers", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
     }
 
     #[test]

@@ -181,14 +181,18 @@ pub mod poll {
 
                 // Fetch logs scoped to this block + factory (if configured).
                 if let Some(factory) = cfg.factory_address {
-                    let mut filter = Filter::new()
+                    // Watch all Factory events we have handlers for.
+                    // event_signature() with a slice means "topic0 IN (...)".
+                    let sigs = vec![
+                        decode::Factory::Factory_TRUSTCreatedEvent::SIGNATURE_HASH,
+                        decode::Factory::Factory_TRUSTRegisteredEvent::SIGNATURE_HASH,
+                        decode::Factory::Factory_TRUSTSignerAdded::SIGNATURE_HASH,
+                    ];
+                    let filter = Filter::new()
                         .from_block(block_num)
                         .to_block(block_num)
-                        .address(factory);
-                    // Only decode the events we currently know how to handle.
-                    filter = filter.event_signature(
-                        decode::Factory::Factory_TRUSTCreatedEvent::SIGNATURE_HASH,
-                    );
+                        .address(factory)
+                        .event_signature(sigs);
 
                     let logs = provider
                         .get_logs(&filter)
@@ -200,29 +204,84 @@ pub mod poll {
                             .transaction_hash
                             .map(|h| format!("{:#x}", h))
                             .unwrap_or_default();
-                        match decode::Factory::Factory_TRUSTCreatedEvent::decode_log(&log.inner) {
-                            Ok(ev) => {
-                                let conn = db.lock().await;
-                                store::insert_trust_created(
-                                    &conn,
-                                    &format!("{:#x}", ev.trustAddress),
-                                    &format!("{:#x}", ev.trustId),
-                                    &format!("{:#x}", ev.creatorAddress),
-                                    block_num,
-                                    &tx_hash,
-                                )?;
-                                tracing::info!(
-                                    "indexed Factory_TRUSTCreatedEvent: trust={:#x} creator={:#x} block={}",
-                                    ev.trustAddress,
-                                    ev.creatorAddress,
-                                    block_num
-                                );
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "decode failed for block {} tx {}: {}",
+                        let topic0 = log.topic0().copied();
+
+                        // Dispatch on topic0. Each branch decodes via its own
+                        // sol! type, then writes to the store. Decode failures
+                        // log a warning and continue (we still commit the block).
+                        if topic0
+                            == Some(decode::Factory::Factory_TRUSTCreatedEvent::SIGNATURE_HASH)
+                        {
+                            match decode::Factory::Factory_TRUSTCreatedEvent::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_trust_created(
+                                        &conn,
+                                        &format!("{:#x}", ev.trustAddress),
+                                        &format!("{:#x}", ev.trustId),
+                                        &format!("{:#x}", ev.creatorAddress),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Factory_TRUSTCreatedEvent: trust={:#x} creator={:#x} block={}",
+                                        ev.trustAddress, ev.creatorAddress, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode TrustCreated failed at block {} tx {}: {}",
                                     block_num, tx_hash, e
-                                );
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Factory::Factory_TRUSTRegisteredEvent::SIGNATURE_HASH)
+                        {
+                            match decode::Factory::Factory_TRUSTRegisteredEvent::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    let cid = String::from_utf8_lossy(&ev.ipfsCid).to_string();
+                                    store::update_trust_registered(
+                                        &conn,
+                                        &format!("{:#x}", ev.trustId),
+                                        &format!("{:#x}", ev.templateId),
+                                        &cid,
+                                        ev.signersCount.try_into().unwrap_or(0),
+                                        ev.valueConfigsCount.try_into().unwrap_or(0),
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Factory_TRUSTRegisteredEvent: trust_id={:#x} template={:#x} block={}",
+                                        ev.trustId, ev.templateId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode TrustRegistered failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Factory::Factory_TRUSTSignerAdded::SIGNATURE_HASH)
+                        {
+                            match decode::Factory::Factory_TRUSTSignerAdded::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_trust_signer(
+                                        &conn,
+                                        &format!("{:#x}", ev.trustId),
+                                        &format!("{:#x}", ev.addressKey),
+                                        &format!("{:#x}", ev.signerAddress),
+                                        ev.hasSigned,
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Factory_TRUSTSignerAdded: trust_id={:#x} signer={:#x} block={}",
+                                        ev.trustId, ev.signerAddress, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode TrustSignerAdded failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
                             }
                         }
                     }
