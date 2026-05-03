@@ -36,10 +36,15 @@ export default function CompanySetupPage() {
   const { slug = "" } = useParams<{ slug: string }>();
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const subscriptionStatus = useAuthStore((s) => s.user?.subscription_status ?? null);
+  const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const isInvited = subscriptionStatus === "invited";
+  // Admins skip Stripe entirely — they need free dev/test Companies for
+  // dogfooding. Backend `/api/start/launch` already accepts them via the
+  // existing `paid` gate (admin's first Company is on an active sub).
+  const skipsStripe = isInvited || isAdmin;
 
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,12 +98,12 @@ export default function CompanySetupPage() {
     setLaunching(true);
     setLaunchError(null);
     try {
-      // Invited users (sandbox tier from waitlist redemption) skip
-      // Stripe entirely and spawn directly via the platform's
-      // /api/start/launch endpoint. Paid users hit Stripe Checkout.
-      // role_overrides flow only through the direct path for now —
-      // post-checkout webhook spawn doesn't thread them yet.
-      if (isInvited) {
+      // Direct-launch path: invited users (sandbox tier) and admins
+      // (free dev/test Companies). Everyone else hits Stripe Checkout
+      // for the per-Company subscription. role_overrides only flow
+      // through the direct path for now — post-checkout webhook spawn
+      // doesn't thread them yet.
+      if (skipsStripe) {
         const resp = await api.startLaunch({
           template: blueprint.slug,
           display_name: trimmed,
@@ -134,7 +139,7 @@ export default function CompanySetupPage() {
     blueprint,
     name,
     overrides,
-    isInvited,
+    skipsStripe,
     navigate,
     setActiveEntity,
     fetchEntities,
@@ -228,9 +233,11 @@ export default function CompanySetupPage() {
             What you get
           </h2>
           <p className="company-setup-section-sub">
-            {isInvited
-              ? "You're on the invite-only sandbox tier — no payment required. Your company runs on shared infrastructure with free models."
-              : `$${FOUNDER_FEE} first month, then $${COMPANY_MONTHLY} / month. Cancel anytime — your card won't be charged again.`}
+            {isAdmin
+              ? "Admin account — Companies you create are free for dev/test. No billing."
+              : isInvited
+                ? "You're on the invite-only sandbox tier — no payment required. Your company runs on shared infrastructure with free models."
+                : `$${FOUNDER_FEE} first month, then $${COMPANY_MONTHLY} / month. Cancel anytime — your card won't be charged again.`}
           </p>
         </header>
 
@@ -259,7 +266,7 @@ export default function CompanySetupPage() {
           ← Back to Blueprint
         </Button>
         <Button variant="primary" onClick={launch} loading={launching} disabled={!name.trim()}>
-          {isInvited ? "Launch your company →" : `Continue to checkout — $${FOUNDER_FEE} today →`}
+          {skipsStripe ? "Launch your company →" : `Continue to checkout — $${FOUNDER_FEE} today →`}
         </Button>
       </div>
     </div>
