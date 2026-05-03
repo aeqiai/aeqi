@@ -85,6 +85,48 @@ const MIGRATIONS: &[(&str, &str)] = &[
         );
         "#,
     ),
+    (
+        "006_watched_addresses",
+        r#"
+        -- The dispatch source-of-truth for the poll loop. Each round selects
+        -- every address here, builds a single Filter spanning all of them, and
+        -- runs the topic0 handler on every returned log.
+        -- Seeded by main with the factory address; handlers self-register
+        -- new addresses (e.g. TrustCreated → register trust as 'trust',
+        -- ModuleAdded → register module as 'module') so the next round picks
+        -- them up automatically. This is how the indexer scales from 1 contract
+        -- to N without recompile.
+        CREATE TABLE IF NOT EXISTS watched_addresses (
+            address TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,           -- 'factory' | 'trust' | 'module'
+            registered_block INTEGER NOT NULL
+        );
+        "#,
+    ),
+    (
+        "007_modules",
+        r#"
+        -- A module attached to a TRUST. Created via TRUST_ModuleAdded
+        -- (bytes32 moduleId, address moduleAddress, uint256 moduleAcl) emitted
+        -- by the TRUST contract itself (not Factory). The TRUST is the proxy
+        -- and modules are pluggable behavior contracts attached to it.
+        --
+        -- module_acl is a uint256 bit-flag set; stored as hex (TEXT) since
+        -- u256 doesn't fit in SQLite's 64-bit INTEGER reliably.
+        CREATE TABLE IF NOT EXISTS modules (
+            trust_address TEXT NOT NULL,
+            module_id TEXT NOT NULL,
+            module_address TEXT NOT NULL,
+            module_acl TEXT NOT NULL,
+            attached_block INTEGER NOT NULL,
+            attached_tx TEXT NOT NULL,
+            PRIMARY KEY (trust_address, module_id),
+            FOREIGN KEY (trust_address) REFERENCES trusts(address)
+        );
+        CREATE INDEX IF NOT EXISTS idx_modules_module_address
+          ON modules(module_address);
+        "#,
+    ),
 ];
 
 /// Open the SQLite database, applying any pending migrations.
@@ -155,6 +197,14 @@ pub fn insert_trust_created(
     tx.execute(
         "INSERT OR IGNORE INTO trusts (address, trust_id, creator_address, created_block, created_tx) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![trust_address, trust_id, creator_address, block_number as i64, tx_hash],
+    )?;
+
+    // Auto-subscribe: every newly indexed TRUST is added to watched_addresses,
+    // so the next poll round catches its module/role/governance events.
+    tx.execute(
+        "INSERT OR IGNORE INTO watched_addresses (address, kind, registered_block)
+         VALUES (?1, 'trust', ?2)",
+        params![trust_address, block_number as i64],
     )?;
 
     tx.commit()?;
@@ -264,6 +314,124 @@ pub fn get_trust_signers(conn: &Connection, trust_address: &str) -> Result<Vec<S
                 has_signed: r.get::<_, i64>(3)? != 0,
                 added_block: r.get::<_, i64>(4)? as u64,
                 added_tx: r.get(5)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Register a contract address to be watched on subsequent poll rounds.
+/// Idempotent: re-registering the same address is a no-op (kind is preserved
+/// from the first registration, since the first-seen provenance is what
+/// matters for the dispatch routing).
+pub fn register_watched_address(
+    conn: &Connection,
+    address: &str,
+    kind: &str,
+    registered_block: u64,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO watched_addresses (address, kind, registered_block)
+         VALUES (?1, ?2, ?3)",
+        params![address, kind, registered_block as i64],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct WatchedAddress {
+    pub address: String,
+    pub kind: String,
+    pub registered_block: u64,
+}
+
+/// Fetch all watched addresses. Used by the poll loop each round to build
+/// the multi-address log filter.
+pub fn list_watched_addresses(conn: &Connection) -> Result<Vec<WatchedAddress>> {
+    let mut stmt = conn.prepare(
+        "SELECT address, kind, registered_block FROM watched_addresses
+         ORDER BY registered_block ASC",
+    )?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(WatchedAddress {
+                address: r.get(0)?,
+                kind: r.get(1)?,
+                registered_block: r.get::<_, i64>(2)? as u64,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Insert a module attached to a TRUST. Created via TRUST_ModuleAdded.
+/// Idempotent on (trust_address, module_id). module_acl is the uint256 bit
+/// flags formatted as hex string (e.g. "0x...").
+pub fn insert_module(
+    conn: &Connection,
+    trust_address: &str,
+    module_id: &str,
+    module_address: &str,
+    module_acl: &str,
+    attached_block: u64,
+    attached_tx: &str,
+) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "INSERT OR IGNORE INTO accounts (address, first_seen_block, first_seen_tx)
+         VALUES (?1, ?2, ?3)",
+        params![module_address, attached_block as i64, attached_tx],
+    )?;
+    tx.execute(
+        "INSERT OR REPLACE INTO modules
+            (trust_address, module_id, module_address, module_acl, attached_block, attached_tx)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            trust_address,
+            module_id,
+            module_address,
+            module_acl,
+            attached_block as i64,
+            attached_tx
+        ],
+    )?;
+    // Auto-subscribe the module address so its own events get caught.
+    tx.execute(
+        "INSERT OR IGNORE INTO watched_addresses (address, kind, registered_block)
+         VALUES (?1, 'module', ?2)",
+        params![module_address, attached_block as i64],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleRow {
+    pub trust_address: String,
+    pub module_id: String,
+    pub module_address: String,
+    pub module_acl: String,
+    pub attached_block: u64,
+    pub attached_tx: String,
+}
+
+/// Fetch all modules attached to a TRUST.
+pub fn get_modules_for_trust(conn: &Connection, trust_address: &str) -> Result<Vec<ModuleRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT trust_address, module_id, module_address, module_acl,
+                attached_block, attached_tx
+         FROM modules WHERE trust_address = ?1
+         ORDER BY attached_block ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![trust_address], |r| {
+            Ok(ModuleRow {
+                trust_address: r.get(0)?,
+                module_id: r.get(1)?,
+                module_address: r.get(2)?,
+                module_acl: r.get(3)?,
+                attached_block: r.get::<_, i64>(4)? as u64,
+                attached_tx: r.get(5)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -402,6 +570,85 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM trust_signers", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn watched_addresses_register_and_list() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        register_watched_address(&conn, "0xfactory", "factory", 10).unwrap();
+        register_watched_address(&conn, "0xtrust1", "trust", 20).unwrap();
+        // Idempotent: re-register same address is a no-op
+        register_watched_address(&conn, "0xtrust1", "trust", 20).unwrap();
+
+        let watched = list_watched_addresses(&conn).unwrap();
+        assert_eq!(watched.len(), 2);
+        assert_eq!(watched[0].address, "0xfactory");
+        assert_eq!(watched[0].kind, "factory");
+        assert_eq!(watched[1].address, "0xtrust1");
+        assert_eq!(watched[1].kind, "trust");
+    }
+
+    #[test]
+    fn insert_trust_created_auto_subscribes() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let trust_addr = "0x9131b1DEC7d1fE791C599E9D0b94D6414cae0747";
+        let trust_id = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        let creator = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+        insert_trust_created(&conn, trust_addr, trust_id, creator, 42, "0xabc").unwrap();
+
+        // The TRUST should now be in watched_addresses with kind='trust'
+        let watched = list_watched_addresses(&conn).unwrap();
+        let trust_watch = watched
+            .iter()
+            .find(|w| w.address == trust_addr)
+            .expect("trust auto-registered");
+        assert_eq!(trust_watch.kind, "trust");
+        assert_eq!(trust_watch.registered_block, 42);
+    }
+
+    #[test]
+    fn module_round_trip() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let trust_addr = "0x9131b1DEC7d1fE791C599E9D0b94D6414cae0747";
+        let trust_id = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        let creator = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+        let module_id = "0x000000000000000000000000000000000000000000000000000000000000abcd";
+        let module_addr = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+        let module_acl = "0x000000000000000000000000000000000000000000000000000000000000000f";
+
+        insert_trust_created(&conn, trust_addr, trust_id, creator, 42, "0xtx1").unwrap();
+        insert_module(&conn, trust_addr, module_id, module_addr, module_acl, 43, "0xtx2")
+            .unwrap();
+
+        let modules = get_modules_for_trust(&conn, trust_addr).unwrap();
+        assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0].module_id, module_id);
+        assert_eq!(modules[0].module_address, module_addr);
+        assert_eq!(modules[0].module_acl, module_acl);
+        assert_eq!(modules[0].attached_block, 43);
+
+        // The module address is also auto-subscribed
+        let watched = list_watched_addresses(&conn).unwrap();
+        let module_watch = watched
+            .iter()
+            .find(|w| w.address == module_addr)
+            .expect("module auto-watched");
+        assert_eq!(module_watch.kind, "module");
+
+        // Idempotent: re-insert same module is a no-op (still 1 row)
+        insert_module(&conn, trust_addr, module_id, module_addr, module_acl, 43, "0xtx2")
+            .unwrap();
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM modules", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
     }
 
     #[test]

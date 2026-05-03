@@ -105,13 +105,16 @@ pub mod poll {
     use tokio::sync::Mutex;
 
     /// Configuration for the poll loop.
+    ///
+    /// The set of contract addresses to watch is NOT in this struct — it lives
+    /// in the `watched_addresses` SQLite table and is re-read every round. To
+    /// bootstrap the indexer with a factory address, write to
+    /// `watched_addresses` before calling `run()`. Handlers self-register
+    /// new addresses (TRUSTs, modules) as events flow.
     #[derive(Debug, Clone)]
     pub struct PollConfig {
         /// JSON-RPC endpoint (HTTP).
         pub rpc_url: String,
-        /// Factory contract address to filter logs to.
-        /// If `None`, the loop fetches blocks but skips log decoding (smoke mode).
-        pub factory_address: Option<Address>,
         /// First block to start indexing from (inclusive).
         pub start_block: u64,
         /// Confirmation depth — only commit blocks once `head - depth` ≥ block_number.
@@ -124,7 +127,6 @@ pub mod poll {
         fn default() -> Self {
             Self {
                 rpc_url: "http://127.0.0.1:8545".into(),
-                factory_address: None,
                 start_block: 0,
                 confirmation_depth: 12,
                 poll_interval: Duration::from_secs(2),
@@ -137,10 +139,14 @@ pub mod poll {
     pub async fn run(cfg: PollConfig, db: Arc<Mutex<Connection>>) -> Result<()> {
         let provider = chain::provider::http_provider(&cfg.rpc_url)
             .context("connect provider")?;
+        let initial_watched = {
+            let conn = db.lock().await;
+            store::list_watched_addresses(&conn)?
+        };
         tracing::info!(
-            "poll loop starting: rpc={} factory={:?} start_block={} depth={}",
+            "poll loop starting: rpc={} watched={} start_block={} depth={}",
             cfg.rpc_url,
-            cfg.factory_address,
+            initial_watched.len(),
             cfg.start_block,
             cfg.confirmation_depth
         );
@@ -179,19 +185,32 @@ pub mod poll {
                 let block_hash = format!("{:#x}", blk.header.hash);
                 let parent_hash = format!("{:#x}", blk.header.parent_hash);
 
-                // Fetch logs scoped to this block + factory (if configured).
-                if let Some(factory) = cfg.factory_address {
-                    // Watch all Factory events we have handlers for.
-                    // event_signature() with a slice means "topic0 IN (...)".
+                // Fetch logs from EVERY watched address. Factory + TRUSTs +
+                // modules all flow through one filter. Topic0 dispatches to
+                // the right handler — handlers may register more addresses
+                // (TrustCreated → trust, ModuleAdded → module) and the next
+                // round picks them up.
+                let watched: Vec<Address> = {
+                    let conn = db.lock().await;
+                    store::list_watched_addresses(&conn)?
+                        .into_iter()
+                        .filter_map(|w| w.address.parse().ok())
+                        .collect()
+                };
+
+                if !watched.is_empty() {
                     let sigs = vec![
+                        // Factory events
                         decode::Factory::Factory_TRUSTCreatedEvent::SIGNATURE_HASH,
                         decode::Factory::Factory_TRUSTRegisteredEvent::SIGNATURE_HASH,
                         decode::Factory::Factory_TRUSTSignerAdded::SIGNATURE_HASH,
+                        // TRUST events (per-trust)
+                        decode::TRUST::TRUST_ModuleAdded::SIGNATURE_HASH,
                     ];
                     let filter = Filter::new()
                         .from_block(block_num)
                         .to_block(block_num)
-                        .address(factory)
+                        .address(watched)
                         .event_signature(sigs);
 
                     let logs = provider
@@ -280,6 +299,34 @@ pub mod poll {
                                 }
                                 Err(e) => tracing::warn!(
                                     "decode TrustSignerAdded failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::TRUST::TRUST_ModuleAdded::SIGNATURE_HASH)
+                        {
+                            // TRUST events come from the TRUST contract address
+                            // itself — log.address() is the trust_address.
+                            let trust_address = format!("{:#x}", log.address());
+                            match decode::TRUST::TRUST_ModuleAdded::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_module(
+                                        &conn,
+                                        &trust_address,
+                                        &format!("{:#x}", ev.moduleId),
+                                        &format!("{:#x}", ev.moduleAddress),
+                                        &format!("{:#x}", ev.moduleAcl),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed TRUST_ModuleAdded: trust={} module={:#x} module_id={:#x} block={}",
+                                        trust_address, ev.moduleAddress, ev.moduleId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode TRUST_ModuleAdded failed at block {} tx {}: {}",
                                     block_num, tx_hash, e
                                 ),
                             }
@@ -387,6 +434,5 @@ mod tests {
         let cfg = poll::PollConfig::default();
         assert_eq!(cfg.confirmation_depth, 12);
         assert_eq!(cfg.start_block, 0);
-        assert!(cfg.factory_address.is_none());
     }
 }

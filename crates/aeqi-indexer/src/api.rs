@@ -24,6 +24,30 @@ pub type SharedDb = Arc<Mutex<Connection>>;
 /// Top-level GraphQL Query type.
 pub struct Query;
 
+/// GraphQL projection of a module attached to a TRUST.
+#[derive(SimpleObject, Clone)]
+pub struct Module {
+    pub trust_address: String,
+    pub module_id: String,
+    pub module_address: String,
+    pub module_acl: String,
+    pub attached_block: u64,
+    pub attached_tx: String,
+}
+
+impl From<store::ModuleRow> for Module {
+    fn from(r: store::ModuleRow) -> Self {
+        Module {
+            trust_address: r.trust_address,
+            module_id: r.module_id,
+            module_address: r.module_address,
+            module_acl: r.module_acl,
+            attached_block: r.attached_block,
+            attached_tx: r.attached_tx,
+        }
+    }
+}
+
 /// GraphQL projection of a signer authorization row.
 #[derive(SimpleObject, Clone)]
 pub struct Signer {
@@ -121,6 +145,19 @@ impl Query {
         let db = ctx.data::<SharedDb>()?;
         let conn = db.lock().await;
         let rows = store::get_trust_signers(&conn, &trust_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// All modules attached to a TRUST, ordered by attachment block.
+    async fn trust_modules(
+        &self,
+        ctx: &Context<'_>,
+        trust_address: String,
+    ) -> async_graphql::Result<Vec<Module>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_modules_for_trust(&conn, &trust_address)
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(rows.into_iter().map(Into::into).collect())
     }

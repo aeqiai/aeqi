@@ -47,6 +47,22 @@ sol! {
     }
 }
 
+// TRUST contract events — emitted by every deployed TRUST proxy.
+// Source: /home/claudedev/projects/aeqi-graph/abis/TRUST.json
+sol! {
+    #[sol(rpc)]
+    contract TRUST {
+        event TRUST_ModuleAdded(
+            bytes32 indexed moduleId,
+            address indexed moduleAddress,
+            uint256 moduleAcl
+        );
+        event PermissionsGranted(bytes32 indexed id, uint256 flags);
+        event PermissionsRevoked(bytes32 indexed id, uint256 flags);
+        event PermissionsSet(bytes32 indexed id, uint256 flags);
+    }
+}
+
 /// A normalized indexer event — what we actually persist after decoding raw logs.
 ///
 /// Cross-event uniformity: every variant carries the block + tx context so

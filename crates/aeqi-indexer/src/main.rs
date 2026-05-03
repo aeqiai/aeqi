@@ -47,12 +47,20 @@ async fn main() -> Result<()> {
     info!("db: {}", db_path);
 
     let conn = store::open(&db_path)?;
+
+    // Seed the factory address into watched_addresses if provided. Subsequent
+    // TRUST + module addresses register themselves via the handlers.
+    if let Some(factory) = factory_address {
+        let addr_hex = format!("{:#x}", factory);
+        store::register_watched_address(&conn, &addr_hex, "factory", start_block)?;
+        info!("seeded factory address into watched_addresses: {}", addr_hex);
+    }
+
     let db = Arc::new(Mutex::new(conn));
 
     // Build poll config
     let poll_cfg = poll::PollConfig {
         rpc_url: rpc_url.clone(),
-        factory_address,
         start_block,
         confirmation_depth: 12,
         poll_interval: Duration::from_secs(2),
