@@ -114,7 +114,7 @@ validator = { version = "0.20", features = ["derive"] }
 tempfile = "3"
 
 # EVM / blockchain
-alloy = { version = "1", features = ["full", "json-rpc", "rpc-types-eth", "providers", "transports-http", "transports-ws", "sol-types", "contract", "signer-local"] }
+alloy = { version = "1", features = ["full"] }
 
 # GraphQL
 async-graphql = { version = "7", features = ["chrono", "uuid"] }
