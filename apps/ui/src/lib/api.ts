@@ -97,6 +97,15 @@ export const api = {
   createInviteCode: () =>
     request<{ ok: boolean; code: string }>("/auth/invite-codes", { method: "POST" }),
 
+  getAdminOverview: () =>
+    request<{
+      ok: boolean;
+      users: Array<Record<string, unknown>>;
+      placements: Array<Record<string, unknown>>;
+      invite_codes: Array<Record<string, unknown>>;
+      waitlist: Array<Record<string, unknown>>;
+    }>("/admin/overview"),
+
   getMe: () => request<Record<string, unknown>>("/auth/me"),
 
   deleteAccount: () => request<{ ok: boolean }>("/auth/delete-account", { method: "DELETE" }),

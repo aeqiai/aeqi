@@ -25,6 +25,9 @@ export interface ShellSurface {
   isNotFound: boolean;
   /** `/me/portfolio` — personal cross-company view (holdings, performance). */
   isPortfolio: boolean;
+  /** `/admin` — operator dashboard. Backend gates on is_admin; the page
+   *  itself returns null + bounces non-admins. */
+  isAdmin: boolean;
 }
 
 export function useShellSurface(path: string, tab: string | undefined): ShellSurface {
@@ -36,6 +39,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // falls back to ProfilePage rather than 404. Portfolio carves
     // out one specific path before settings resolves it.
     const isPortfolio = path === "/me/portfolio";
+    const isAdmin = path === "/admin" || path.startsWith("/admin/");
     const isSettings =
       !isPortfolio && (path === "/me" || path.startsWith("/me/") || tab === "profile");
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
@@ -50,7 +54,13 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // outside the AppLayout shell as the public Discover page.
     const isCompanyRoute = /^\/c\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
-      isCompanyRoute || isPortfolio || isSettings || isEconomy || isBlueprints || isStart;
+      isCompanyRoute ||
+      isPortfolio ||
+      isSettings ||
+      isEconomy ||
+      isBlueprints ||
+      isStart ||
+      isAdmin;
     const isNotFound = !isKnownShellRoute;
 
     return {
@@ -61,6 +71,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
       isStart,
       isNotFound,
       isPortfolio,
+      isAdmin,
     };
   }, [path, tab]);
 }

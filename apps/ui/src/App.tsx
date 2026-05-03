@@ -168,6 +168,9 @@ export default function App() {
                         no index route here. */}
                     <Route path="me" element={null} />
                     <Route path="me/:tab" element={null} />
+                    {/* Admin dashboard — gated server-side on is_admin and
+                        client-side via redirect in AdminPage itself. */}
+                    <Route path="admin" element={null} />
                     {/* /start renders inside the shell — Company
                         creation is part of the app, not a separate
                         wizard. AppLayout dispatches StartPage when

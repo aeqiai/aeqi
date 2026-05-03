@@ -5,6 +5,7 @@ import HelpMenu from "@/components/shell/HelpMenu";
 import Wordmark from "@/components/Wordmark";
 import { Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
+import { useAuthStore } from "@/store/auth";
 
 interface LeftSidebarProps {
   /** Canonical entity (company) id. Sidebar tabs are company-scoped, not child-agent scoped. */
@@ -135,6 +136,13 @@ const AccountIcon = () => (
   </svg>
 );
 
+// Admin — shield silhouette.
+const AdminIcon = () => (
+  <svg {...iconProps}>
+    <path d="M8 1.5L13 4v4.5c0 3.2-2.2 5.4-5 6-2.8-.6-5-2.8-5-6V4l5-2.5z" />
+  </svg>
+);
+
 const SearchIcon = () => (
   <svg {...iconProps}>
     <circle cx="7" cy="7" r="4.5" />
@@ -214,6 +222,8 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const isDiscover = path === "/";
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isAccount = path === "/me" || path.startsWith("/me/");
+  const isAdmin = path === "/admin" || path.startsWith("/admin/");
+  const isAdminUser = useAuthStore((s) => s.user?.is_admin === true);
 
   const navItem = (
     id: string,
@@ -418,6 +428,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
         <div className="sidebar-bottom-group">
           <nav className="sidebar-surface-nav" aria-label="Platform">
             {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
+            {isAdminUser && topLevelItem("/admin", "Admin", <AdminIcon />, isAdmin)}
             {topLevelItem("/me", "Account", <AccountIcon />, isAccount)}
           </nav>
           <div className="sidebar-action-row sidebar-action-row--account">

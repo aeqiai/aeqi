@@ -22,6 +22,7 @@ import RateLimitBanner from "./shell/RateLimitBanner";
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
@@ -171,8 +172,16 @@ export default function AppLayout() {
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
   const appMode = useAuthStore((s) => s.appMode);
 
-  const { isSettings, isEconomy, isBlueprints, isDrive, isStart, isNotFound, isPortfolio } =
-    surface;
+  const {
+    isSettings,
+    isEconomy,
+    isBlueprints,
+    isDrive,
+    isStart,
+    isNotFound,
+    isPortfolio,
+    isAdmin,
+  } = surface;
 
   if (!initialLoaded) return <BootLoader />;
 
@@ -228,6 +237,7 @@ export default function AppLayout() {
       return <StartPage />;
     }
     if (isPortfolio) return <PortfolioPage />;
+    if (isAdmin) return <AdminPage />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
@@ -265,6 +275,7 @@ export default function AppLayout() {
     !isDrive &&
     !isSettings &&
     !isPortfolio &&
+    !isAdmin &&
     !isStart &&
     !isEconomy &&
     !isBlueprints &&

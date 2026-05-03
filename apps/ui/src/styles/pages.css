@@ -4043,3 +4043,120 @@
   font-size: 15px;
   color: var(--text-secondary);
 }
+
+.admin-page {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.admin-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.admin-page-title {
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+.admin-page-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.admin-page-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) 0;
+}
+
+.admin-page-error {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-card);
+  color: var(--color-error, var(--text-primary));
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.admin-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.admin-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 var(--space-1);
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.admin-section-body {
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.admin-section-empty {
+  padding: var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.admin-table thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--color-paper, var(--color-card));
+}
+
+.admin-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  vertical-align: top;
+  color: var(--text-primary);
+}
+
+.admin-table tbody tr:nth-child(even) td {
+  background: var(--color-paper, transparent);
+}
+
+.admin-cell-mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
