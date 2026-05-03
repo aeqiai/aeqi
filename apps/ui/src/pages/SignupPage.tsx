@@ -23,11 +23,16 @@ export default function SignupPage() {
     resendCode,
     googleOAuth,
     githubOAuth,
-    waitlist,
     fetchAuthMode,
   } = useAuthStore();
 
-  // When waitlist=true, default to waitlist mode. "Have an invite code?" switches to signup.
+  // Pre-launch is invite-only. Default mode = "signup", default step =
+  // "invite". Users without a code click "Join the waitlist" to switch
+  // into waitlist mode (email-only notification list). The earlier shape
+  // auto-flipped to waitlist mode whenever the auth-mode response set
+  // `waitlist=true`, which masked the invite-first form completely — that
+  // useEffect is gone, the auth-mode `waitlist` flag is no longer
+  // consulted here.
   const [mode, setMode] = useState<"waitlist" | "signup">("signup");
   // Pre-launch is invite-only: every signup starts on the "invite" step,
   // validates the code, then moves to email/password. The OAuth/Wallet/
@@ -54,9 +59,6 @@ export default function SignupPage() {
   useEffect(() => {
     fetchAuthMode();
   }, [fetchAuthMode]);
-  useEffect(() => {
-    if (waitlist) setMode("waitlist");
-  }, [waitlist]);
 
   useEffect(() => {
     document.title =
@@ -429,20 +431,6 @@ export default function SignupPage() {
                 </div>
               </div>
             </>
-          )}
-          {waitlist && (
-            <p className="auth-switch">
-              No invite code?{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToWaitlist();
-                }}
-              >
-                Join the waitlist
-              </a>
-            </p>
           )}
           <p className="auth-switch">
             Already have an account? <Link to="/login">Sign in</Link>
