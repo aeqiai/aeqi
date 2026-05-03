@@ -27,10 +27,12 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 12 (PHASE 2 ✓ FULL FACTORY COVERAGE — 3 EVENTS, 1 TX, ALL QUERYABLE)
-PHASE: 2 ✓ TOPIC0 DISPATCH WORKING | one tx emits Created+Registered+SignerAdded;
-       all 3 indexed + queryable via single GraphQL call. 15/15 tests green.
-       | next: Phase 3 (multi-address dispatch — watched_addresses + per-TRUST sub)
+TICK: 13 (PHASE 3 ✓ MULTI-ADDRESS DISPATCH — DYNAMIC SUBSCRIPTION WORKS)
+PHASE: 3 ✓ STRUCTURALLY COMPLETE | TrustCreated → trust auto-watches itself
+       → next round catches TRUST_ModuleAdded → module auto-watches itself
+       → ready for Role/Governance/Token module events. 18/18 tests green.
+       | next: Phase 4 (more event types: Permissions*, deeper TRUST events,
+                       OR pivot to apps/ui glue, OR docs handoff)
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -148,53 +150,99 @@ TICK 12 — PHASE 2 FULL FACTORY EVENT COVERAGE:
 
 15/15 tests green. 14 commits on indexer-build branch.
 
+TICK 13 — PHASE 3 MULTI-ADDRESS DISPATCH (THE ARCHITECTURAL CLIFF):
+  Schema:
+    - 006_watched_addresses(address PK, kind, registered_block) — dispatch
+      source-of-truth, kind ∈ {'factory','trust','module'}
+    - 007_modules(trust_address, module_id, module_address, module_acl,
+      attached_block, attached_tx) — TRUST_ModuleAdded landing point
+      module_acl is hex of uint256 bit-flag set
+  Store changes:
+    - register_watched_address + list_watched_addresses
+    - insert_module + get_modules_for_trust
+    - insert_trust_created NOW auto-registers trust as watched
+    - insert_module NOW auto-registers module address as watched
+  Decode:
+    - sol! TRUST contract block: TRUST_ModuleAdded + Permissions{Granted,Revoked,Set}
+    - Real ABI signatures sourced via Haiku Explore agent from
+      /home/claudedev/projects/aeqi-graph/abis/TRUST.json
+  Poll loop refactored:
+    - PollConfig.factory_address REMOVED — bootstrap is now in main.rs
+    - Each round SELECTs all watched addresses and builds ONE Filter
+    - Filter address() takes Vec<Address> (alloy supports multi-address)
+    - topic0 dispatch extended with TRUST_ModuleAdded handler
+    - log.address() identifies which TRUST emitted the module event
+  Main:
+    - Seeds AEQI_INDEXER_FACTORY into watched_addresses on boot
+  GraphQL: Module SimpleObject + trustModules(trustAddress) query
+
+  LIVE-TESTED end-to-end (the v2 architecture proof):
+    - Deployed MockTRUST.sol at 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
+      (test-contracts/MockTRUST.sol — emits TRUST_ModuleAdded)
+    - Started fresh indexer, factory seeded, watched=1
+    - tx 1 at block 1504: MockFactory.emitFullCompanyCreation pointing
+      trustAddress at MockTRUST address → 3 logs:
+        TrustCreated → handler inserts TRUST + watched++ (now 2)
+        TrustRegistered → enriches row
+        TrustSignerAdded → adds signer
+    - tx 2 at block 1530: MockTRUST.emitModuleAdded(moduleId, moduleAddr, acl=0xf)
+      Log emitted FROM TRUST address, NOT factory.
+    - Mined confirmations after each tx.
+    - Indexer log: "indexed TRUST_ModuleAdded: trust=0xdc64... module=0x7099...
+                    module_id=0x...abcd block=1530"
+    - GraphQL trustModules(trustAddress) returned the module:
+        { moduleId: 0x...abcd, moduleAddress: 0x7099...,
+          moduleAcl: "0xf", attachedBlock: 1530 }
+    - Result: 1 trust, 1 signer, 1 module — all from independent contracts
+      indexed via dynamic subscription chain.
+
+  THIS UNLOCKS THE WHOLE V2 ARCHITECTURE.
+  Adding the remaining ~130 event types is now mechanical:
+    1. sol! event declaration in decode.rs
+    2. SQLite migration for the entity table
+    3. insert_*/get_* functions in store.rs
+    4. dispatch arm in poll loop
+    5. GraphQL SimpleObject + resolver
+  No new architecture needed. The indexer is structurally complete.
+
+18/18 tests green. 15 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 3 — multi-address dispatch):
-  Phase 2 (Factory completeness) is DONE.
+NEXT ACTION (Phase 4 — breadth across remaining contracts):
+  Phase 3 architecture is DONE. The indexer can now follow the deploy
+  graph dynamically. Next leverage is BREADTH: cover more event types
+  to make the indexer's data surface useful for apps/ui.
 
-  The architectural cliff: TRUST + module events come from CONTRACT ADDRESSES
-  THAT DON'T EXIST until Factory emits TrustCreated. The poll loop currently
-  hard-codes a single factory_address. To watch n+1 contracts dynamically,
-  the design needs:
+  PATH A — high-impact event types (broader entity coverage):
+    The sol! TRUST block already has Permissions{Granted,Revoked,Set}
+    declared but NOT dispatched. Wire them up:
+      1. Migration 008_permissions(id, trust_address, flags, granted_block)
+         (id is bytes32 — could be agent id, role id, etc. — opaque to indexer)
+      2. insert_permissions_grant + insert_permissions_revoke +
+         set_permissions_set (full overwrite)
+      3. Dispatch arms in chain.rs (3 more topic0 branches)
+      4. GraphQL Permissions type + permissionsForId(id) query
+      5. Extend MockTRUST to emit Permissions* + live-test
 
-  1. Add migration 006_watched_addresses:
-       CREATE TABLE watched_addresses (
-         address TEXT PRIMARY KEY,
-         kind TEXT NOT NULL,            -- 'factory' | 'trust' | 'module'
-         registered_block INTEGER NOT NULL
-       );
-     Seed factory address on indexer boot.
+  PATH B — Module-level events (the Role/Governance module surface):
+    Module addresses are now in watched_addresses (kind='module'), so we
+    just need sol! decls + handlers for module events. Source:
+      ~/projects/aeqi-graph/abis/Role.json
+      ~/projects/aeqi-graph/abis/Governance.json
+      ~/projects/aeqi-graph/abis/Token.json
+      ~/projects/aeqi-graph/abis/Vesting.json
+    Spawn Haiku Explore to enumerate event signatures, then port mechanically.
 
-  2. Refactor poll loop:
-     - Each round: SELECT addresses FROM watched_addresses
-     - Build a single Filter with .address(addresses) (alloy supports Vec<Address>)
-     - All registered events flow through the same topic0 dispatch
-     - Inside TrustCreated handler: also insert trust address into watched_addresses
-       (so the next round picks it up for its events)
+  PATH C — apps/ui glue (handoff prep):
+    Stand up a HANDOFF.md describing:
+      - GraphQL endpoint, schema, available queries
+      - How to start the indexer with custom factory address
+      - How apps/ui hooks would consume it
+      - Open work (event types still to port, deploy script drift,
+        eth_call backfill for non-event state, etc.)
 
-  3. Add sol! definitions for TRUST events:
-     - TRUST_ModuleAdded(bytes32 indexed moduleId, address indexed implementation)
-     - TRUST_RoleGranted(bytes32 indexed roleId, address indexed account)
-     - TRUST_RoleRevoked(bytes32 indexed roleId, address indexed account)
-     - TRUST_ProposalCreated(uint256 indexed proposalId, ...)
-
-  4. Add migrations + handlers for the resulting entities:
-     - 007_modules (module_id, trust_address, implementation, attached_block)
-     - 008_role_assignments (role_id, trust_address, account, granted_block)
-     - 009_proposals (proposal_id, trust_address, status, created_block)
-
-  5. Live test: deploy MockTRUST that emits ModuleAdded + RoleGranted, set
-     factory address, send TrustCreated → indexer should auto-subscribe to
-     that TRUST address → next round catches its module/role events.
-
-  STRETCH (Phase 4): Module-level events (Role.module, Governance.module).
-  Module addresses come from TRUST_ModuleAdded — same dispatch chain extends:
-  module added → insert into watched_addresses (kind='module') → next round
-  catches Role_RoleCreated etc.
-
-  Once Phase 3 is shipped, the indexer is structurally complete.
-  Adding the remaining 130+ event types is then mechanical: sol! decl +
-  migration + insert/update fn + dispatch arm. No new architecture.
+  LEVERAGE PRIORITY: A (Permissions* completes the core TRUST surface) →
+  B (modules unlock per-module entities) → C (handoff so user can pick up).
 BLOCKER: none
 ANVIL: RUNNING, PID 1274467, log /tmp/anvil.log
 WORKTREE: /home/claudedev/aeqi-indexer-build (branch indexer-build, off origin/main 7553a083)
