@@ -17,7 +17,6 @@ import MagicLinkPage from "@/pages/MagicLinkPage";
 // App pages -- lazy-loaded for route-level code splitting
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
-const DiscoverPage = lazy(() => import("@/pages/DiscoverPage"));
 
 const LoadingSpinner = () => (
   <div
@@ -67,12 +66,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Wrapper for `/economy` and `/blueprints` — both top-level destinations
- * that mount the app shell. Authed visitors hit the full AppLayout,
- * which dispatches the matching page from the URL. Unauthed visitors
- * bounce to /login — the public-marketing variants of these surfaces
- * are paused until they're production-ready; PublicLayout stays in the
- * tree for when we revive them.
+ * Wrapper for `/` (Economy front door) and `/blueprints` — both top-level
+ * destinations that mount the app shell. Authed visitors hit the full
+ * AppLayout, which dispatches the matching page from the URL. Unauthed
+ * visitors bounce to /login — the public-marketing variants of these
+ * surfaces are paused until they're production-ready; PublicLayout stays
+ * in the tree for when we revive them.
  */
 function GatedAppShell() {
   const location = useLocation();
@@ -115,18 +114,20 @@ export default function App() {
           <Route path="/auth/magic" element={<MagicLinkPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Public Discover — the Economy front door at `/`. No auth
-              required; signed-in users hit it the same as visitors. The
+          {/* `/` is the Economy front door — rendered inside AppLayout
+              so the sidebar (with Economy lit) is always present. The
               previous shell-rendered Inbox at `/` shifted to
-              `/c/:entityId/inbox` (Phase-1 sidebar lock). */}
-          <Route path="/" element={<DiscoverPage />} />
+              `/c/:entityId/inbox` (Phase-1 sidebar lock); the previous
+              fullscreen DiscoverPage at `/` was retired in favor of the
+              in-shell Economy. `/economy` redirects to `/` to keep one
+              canonical URL. */}
+          <Route path="/" element={<GatedAppShell />} />
+          <Route path="/economy" element={<Navigate to="/" replace />} />
 
-          {/* Economy + Blueprints — both top-level destinations,
-              currently auth-gated end-to-end. GatedAppShell dispatches
-              AppLayout for authed visitors and redirects everyone else
-              to /login?next=<here>. Will revert to a public-marketing
-              variant once those surfaces ship. */}
-          <Route path="/economy" element={<GatedAppShell />} />
+          {/* Blueprints — top-level destination, auth-gated end-to-end.
+              GatedAppShell dispatches AppLayout for authed visitors and
+              redirects everyone else to /login?next=<here>. Will revert
+              to a public-marketing variant once that surface ships. */}
           <Route path="/blueprints" element={<GatedAppShell />} />
           <Route path="/blueprints/companies" element={<GatedAppShell />} />
           <Route path="/blueprints/agents" element={<GatedAppShell />} />
@@ -158,14 +159,14 @@ export default function App() {
 
                   {/* Home dashboard + profile + every company at
                       /c/:entityId/... share the same shell — AppLayout
-                      decides content from path + params. /economy and
-                      /blueprints are routed publicly above and never
-                      enter the protected branch. User-scoped routes
-                      are registered before the legacy redirect so
-                      react-router prefers the literal match. */}
+                      decides content from path + params. `/` and
+                      `/blueprints` are routed via GatedAppShell above
+                      and never enter the protected branch. User-scoped
+                      routes are registered before the legacy redirect
+                      so react-router prefers the literal match. */}
                   <Route element={<AppLayout />}>
-                    {/* `/` is registered publicly above as DiscoverPage;
-                        no index route here. */}
+                    {/* `/` is registered publicly above via
+                        GatedAppShell; no index route here. */}
                     <Route path="me" element={null} />
                     <Route path="me/:tab" element={null} />
                     {/* Admin dashboard — gated server-side on is_admin and

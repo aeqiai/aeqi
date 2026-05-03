@@ -8,8 +8,8 @@ import { useMemo } from "react";
  * inputs (path, tab), so a single `useMemo` is cheaper than the inline
  * derivations it replaces.
  *
- * Phase-1 sidebar lock: `/` is now the public Discover surface and is
- * routed outside this shell (App.tsx). Inbox moved to
+ * Phase-1 sidebar lock: `/` is now the Economy front door and renders
+ * inside this shell with the sidebar Economy row lit. Inbox moved to
  * `/c/<entity>/inbox` and routes through CompanyPage. The `isMyInbox`
  * flag is gone.
  */
@@ -42,7 +42,11 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isAdmin = path === "/admin" || path.startsWith("/admin/");
     const isSettings =
       !isPortfolio && (path === "/me" || path.startsWith("/me/") || tab === "profile");
-    const isEconomy = path === "/economy" || path.startsWith("/economy/");
+    // `/` is the canonical Economy URL — the front door of the app
+    // shell. `/economy` is kept as an alias and redirects to `/` in
+    // App.tsx, but the shell-side flag must match either path so the
+    // dispatch lands on EconomyPage in both cases.
+    const isEconomy = path === "/" || path === "/economy" || path.startsWith("/economy/");
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isStart = path === "/start" || path.startsWith("/start/");
     const isDrive = tab === "drive";
@@ -50,8 +54,8 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // A path is "known" when it matches one of the registered shell
     // surfaces. Anything else is a 404 — including bogus top-level
     // segments (`/foo`) that would otherwise fall through to a stale
-    // active-entity render. `/` is no longer in this set; it's served
-    // outside the AppLayout shell as the public Discover page.
+    // active-entity render. `/` IS in this set: it's the Economy front
+    // door (isEconomy === true at `/`).
     const isCompanyRoute = /^\/c\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
       isCompanyRoute ||
