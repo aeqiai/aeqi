@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useNav } from "@/hooks/useNav";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { OccupantKind, Role, RoleEdge } from "@/lib/types";
+import type { Role, RoleEdge, RoleType } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import "@/styles/roles.css";
 import { Button, EmptyState, Tooltip } from "./ui";
-import NewRoleModal from "./roles/NewRoleModal";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -21,7 +19,13 @@ import {
   parseView,
 } from "./roles/types";
 
-const KIND_RANK: Record<OccupantKind, number> = { agent: 0, human: 1, vacant: 2 };
+const ROLE_TYPE_ORDER: RoleType[] = ["director", "operational", "advisor"];
+const ROLE_TYPE_LABEL: Record<RoleType, string> = {
+  director: "Directors",
+  operational: "Operational",
+  advisor: "Advisors",
+};
+const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
 
 /**
  * Roles — the company org-chart surface.
@@ -39,7 +43,7 @@ const KIND_RANK: Record<OccupantKind, number> = { agent: 0, human: 1, vacant: 2 
  */
 export default function EntityRolesTab({ entityId }: { entityId: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { goEntity } = useNav();
+  const navigate = useNavigate();
   const view = parseView(searchParams.get("view"));
   const sort = parseSort(searchParams.get("sort"));
   const occupantFilter = parseOccupantFilter(searchParams.get("occupant"));
@@ -49,7 +53,6 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [composing, setComposing] = useState(false);
 
   const agents = useDaemonStore((s) => s.agents);
   const agentNames = useMemo(() => {
@@ -153,7 +156,7 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
       switch (sort) {
         case "kind":
           return (
-            KIND_RANK[a.occupant_kind] - KIND_RANK[b.occupant_kind] ||
+            (OCCUPANT_RANK[a.occupant_kind] ?? 9) - (OCCUPANT_RANK[b.occupant_kind] ?? 9) ||
             a.title.localeCompare(b.title)
           );
         case "recent":
@@ -175,11 +178,9 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
 
   const handleSelectRole = useCallback(
     (role: Role) => {
-      if (role.occupant_kind === "agent" && role.occupant_id) {
-        goEntity(entityId, "agents", role.occupant_id);
-      }
+      navigate(`/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(role.id)}`);
     },
-    [goEntity, entityId],
+    [navigate, entityId],
   );
 
   const showEmpty = !loading && !error && roles.length === 0;
@@ -233,7 +234,11 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
           />
           <RolesViewPopover view={view} onChange={setView} />
           <Tooltip content="New role">
-            <Button variant="primary" size="sm" onClick={() => setComposing(true)}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(`/c/${encodeURIComponent(entityId)}/roles/new`)}
+            >
               <svg
                 width="11"
                 height="11"
@@ -272,27 +277,40 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
         )}
         {!loading && !error && filtered.length > 0 && view === "list" && (
           <div style={{ flex: 1, overflow: "auto" }}>
-            <RolesList
-              roles={filtered}
-              edges={filteredEdges}
-              agentNames={agentNames}
-              onSelectRole={handleSelectRole}
-            />
+            {ROLE_TYPE_ORDER.map((rt) => {
+              const group = filtered.filter((r) => r.role_type === rt);
+              if (group.length === 0) return null;
+              const groupEdges = filteredEdges.filter(
+                (e) =>
+                  group.some((r) => r.id === e.parent_role_id) &&
+                  group.some((r) => r.id === e.child_role_id),
+              );
+              return (
+                <div key={rt}>
+                  <div
+                    style={{
+                      padding: "12px 24px 4px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {ROLE_TYPE_LABEL[rt]} ({group.length})
+                  </div>
+                  <RolesList
+                    roles={group}
+                    edges={groupEdges}
+                    agentNames={agentNames}
+                    onSelectRole={handleSelectRole}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
-
-      <NewRoleModal
-        open={composing}
-        onClose={() => setComposing(false)}
-        entityId={entityId}
-        roles={roles}
-        agents={agents}
-        onCreated={(p) => {
-          setComposing(false);
-          setRoles((prev) => [...prev, p]);
-        }}
-      />
     </div>
   );
 }

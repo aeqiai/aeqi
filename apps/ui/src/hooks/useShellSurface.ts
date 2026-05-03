@@ -28,6 +28,11 @@ export interface ShellSurface {
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
   isAdmin: boolean;
+  /** In-shell role pages — rendered inside AppLayout. */
+  isRolesNew: boolean;
+  isRoleDetail: boolean;
+  isRoleEdit: boolean;
+  isRoleInvite: boolean;
 }
 
 export function useShellSurface(path: string, tab: string | undefined): ShellSurface {
@@ -50,6 +55,15 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isStart = path === "/start" || path.startsWith("/start/");
     const isDrive = tab === "drive";
+
+    // In-shell role sub-pages. Pattern: /c/:entityId/roles/(new | :roleId | :roleId/edit | :roleId/invite)
+    const rolePathMatch = path.match(/^\/c\/[^/]+\/roles\/(.+)$/);
+    const roleSuffix = rolePathMatch ? rolePathMatch[1] : null;
+    const isRolesNew = roleSuffix === "new";
+    const isRoleInvite = !isRolesNew && !!roleSuffix && roleSuffix.endsWith("/invite");
+    const isRoleEdit = !isRolesNew && !!roleSuffix && roleSuffix.endsWith("/edit");
+    const isRoleDetail =
+      !isRolesNew && !isRoleInvite && !isRoleEdit && !!roleSuffix && !roleSuffix.includes("/");
 
     // A path is "known" when it matches one of the registered shell
     // surfaces. Anything else is a 404 — including bogus top-level
@@ -76,6 +90,10 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
       isNotFound,
       isPortfolio,
       isAdmin,
+      isRolesNew,
+      isRoleDetail,
+      isRoleEdit,
+      isRoleInvite,
     };
   }, [path, tab]);
 }

@@ -30,6 +30,10 @@ const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
 const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
+const RoleNewPage = lazy(() => import("@/pages/RoleNewPage"));
+const RoleDetailPage = lazy(() => import("@/pages/RoleDetailPage"));
+const RoleEditPage = lazy(() => import("@/pages/RoleEditPage"));
+const RoleInvitePage = lazy(() => import("@/pages/RoleInvitePage"));
 
 // Top-level segments under /blueprints that are catalog-kind tabs, not
 // blueprint slugs. Anything else after /blueprints/ is treated as a slug
@@ -181,6 +185,10 @@ export default function AppLayout() {
     isNotFound,
     isPortfolio,
     isAdmin,
+    isRolesNew,
+    isRoleDetail,
+    isRoleEdit,
+    isRoleInvite,
   } = surface;
 
   if (!initialLoaded) return <BootLoader />;
@@ -229,6 +237,10 @@ export default function AppLayout() {
 
   const mainContent = (() => {
     if (isNotFound) return <NotFoundPage />;
+    if (isRolesNew) return <RoleNewPage />;
+    if (isRoleInvite) return <RoleInvitePage />;
+    if (isRoleEdit) return <RoleEditPage />;
+    if (isRoleDetail) return <RoleDetailPage />;
     if (isStart) {
       // /start/<slug> → CompanySetupPage (the name + roles + plan
       // confirmation surface). Bare /start stays on the catalog

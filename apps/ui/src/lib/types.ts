@@ -358,6 +358,8 @@ export interface Blueprint {
 
 export type OccupantKind = "human" | "agent" | "vacant";
 
+export type RoleType = "director" | "operational" | "advisor";
+
 /** A single org-chart slot inside an entity. Occupant is a human, an
  *  agent, or vacant ("we're hiring"). Authority is resolved by transitive
  *  closure over `RoleEdge` (DAG, not tree). */
@@ -367,6 +369,9 @@ export interface Role {
   title: string;
   occupant_kind: OccupantKind;
   occupant_id: string | null;
+  role_type: RoleType;
+  founder: boolean;
+  grants: string[];
   created_at: string;
   updated_at?: string | null;
 }
@@ -374,4 +379,37 @@ export interface Role {
 export interface RoleEdge {
   parent_role_id: string;
   child_role_id: string;
+}
+
+export interface RoleInvitation {
+  token: string;
+  entity_id: string;
+  role_id: string;
+  inviter_user_id: string;
+  target_kind: "email" | "slug" | "open";
+  target_email: string | null;
+  target_entity_id: string | null;
+  welcome_note: string | null;
+  created_at: string;
+  expires_at: string;
+  redeemed_at: string | null;
+  redeemed_by_user_id: string | null;
+  declined_at: string | null;
+}
+
+/** Public invitation detail — returned by GET /api/invitations/:token.
+ *  Note: entity_id is NOT in the platform response; entity_display_name is.
+ *  role_id is included for cross-referencing. */
+export interface InvitationDetail {
+  token: string;
+  role_title?: string;
+  role_id: string;
+  entity_id?: string;
+  entity_display_name: string;
+  inviter_name: string;
+  target_kind?: "email" | "slug" | "open";
+  target_email: string | null;
+  welcome_note: string | null;
+  expires_at: string;
+  status: "pending" | "redeemed" | "declined" | "expired";
 }

@@ -13,6 +13,7 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import MagicLinkPage from "@/pages/MagicLinkPage";
+import InvitationAcceptPage from "@/pages/InvitationAcceptPage";
 
 // App pages -- lazy-loaded for route-level code splitting
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
@@ -114,6 +115,9 @@ export default function App() {
           <Route path="/auth/magic" element={<MagicLinkPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+          {/* Public invitation accept page — no auth required to view */}
+          <Route path="/invitations/:token" element={<InvitationAcceptPage />} />
+
           {/* `/` is the Economy front door — rendered inside AppLayout
               so the sidebar (with Economy lit) is always present. The
               previous shell-rendered Inbox at `/` shifted to
@@ -186,6 +190,14 @@ export default function App() {
                         <Route path=":tab" element={null} />
                         <Route path=":tab/:itemId" element={null} />
                       </Route>
+                      {/* Role sub-pages — must be listed before the
+                          generic :tab/:itemId catch-all so react-router
+                          prefers the specific match. AppLayout dispatches
+                          these via useShellSurface flags. */}
+                      <Route path="roles/new" element={null} />
+                      <Route path="roles/:roleId" element={null} />
+                      <Route path="roles/:roleId/edit" element={null} />
+                      <Route path="roles/:roleId/invite" element={null} />
                       <Route path=":tab" element={null} />
                       <Route path=":tab/:itemId" element={null} />
                     </Route>

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
+import type { InvitationDetail } from "@/lib/types";
 import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import Wordmark from "@/components/Wordmark";
 import PasswordInput from "@/components/PasswordInput";
@@ -56,9 +57,30 @@ export default function SignupPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Role invitation mode — when ?invitation={token} is present, skip the
+  // invite-code gate and pre-fill email from the invitation details.
+  const invitationToken = params.get("invitation") ?? undefined;
+  const [invitationDetail, setInvitationDetail] = useState<InvitationDetail | null>(null);
+
   useEffect(() => {
     fetchAuthMode();
   }, [fetchAuthMode]);
+
+  // When an invitation token is in the URL, fetch the invitation details,
+  // pre-fill email, and skip straight to the email step.
+  useEffect(() => {
+    if (!invitationToken) return;
+    api
+      .getInvitation(invitationToken)
+      .then((r) => {
+        setInvitationDetail(r.invitation);
+        if (r.invitation.target_email) setEmail(r.invitation.target_email);
+        setStep("email");
+      })
+      .catch(() => {
+        // If the invitation can't be loaded, fall through to normal invite-code flow
+      });
+  }, [invitationToken]);
 
   useEffect(() => {
     document.title =
@@ -121,13 +143,34 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !inviteCode.trim()) return;
-    const result = await signup(email, password, fullName, inviteCode);
+    // With an invitation token, inviteCode is not required (backend bypasses the gate)
+    if (!firstName.trim() || !lastName.trim() || (!invitationToken && !inviteCode.trim())) return;
+    const result = await signup(
+      email,
+      password,
+      fullName,
+      inviteCode || undefined,
+      invitationToken,
+    );
     if (result === "pending") {
       track(Events.AuthSignupVerifySent, { method: "email" });
       setStep("verify");
     } else if (result === "verified") {
       track(Events.AuthSignupComplete, { method: "email" });
+      if (invitationToken) {
+        navigate(`/invitations/${invitationToken}`, { replace: true });
+      } else {
+        navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
+      }
+    }
+  };
+
+  const afterVerify = (method: string) => {
+    track(Events.AuthSignupComplete, { method });
+    localStorage.removeItem("aeqi_pending_email");
+    if (invitationToken) {
+      navigate(`/invitations/${invitationToken}`, { replace: true });
+    } else {
       navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
     }
   };
@@ -145,9 +188,7 @@ export default function SignupPage() {
       verifyEmail(email, full).then((ok) => {
         setVerifyLoading(false);
         if (ok) {
-          track(Events.AuthSignupComplete, { method: "email_verified" });
-          localStorage.removeItem("aeqi_pending_email");
-          navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
+          afterVerify("email_verified");
         } else setVerifyError("Invalid or expired code");
       });
     }
@@ -168,9 +209,7 @@ export default function SignupPage() {
       verifyEmail(email, text).then((ok) => {
         setVerifyLoading(false);
         if (ok) {
-          track(Events.AuthSignupComplete, { method: "email_verified" });
-          localStorage.removeItem("aeqi_pending_email");
-          navigate(getRedirectAfterAuth(params, "/start"), { replace: true });
+          afterVerify("email_verified_paste");
         } else setVerifyError("Invalid or expired code");
       });
     }
@@ -352,6 +391,29 @@ export default function SignupPage() {
     if (step === "email") {
       return (
         <>
+          {invitationDetail && (
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "var(--color-card)",
+                borderRadius: "var(--radius-md)",
+                fontSize: 13,
+                color: "var(--text-secondary)",
+                marginBottom: "var(--space-2)",
+              }}
+            >
+              Joining{" "}
+              <strong style={{ color: "var(--text-primary)" }}>
+                {invitationDetail.entity_display_name}
+              </strong>
+              {invitationDetail.role_title ? (
+                <>
+                  {" "}
+                  as <em>{invitationDetail.role_title}</em>
+                </>
+              ) : null}
+            </div>
+          )}
           <h1 className="auth-heading">Create your account</h1>
           <p className="auth-subheading">Start a company in minutes.</p>
           <form className="auth-form" onSubmit={handleCredentialsContinue} autoComplete="on">
@@ -476,7 +538,12 @@ export default function SignupPage() {
               type="submit"
               fullWidth
               loading={loading}
-              disabled={loading || !firstName.trim() || !lastName.trim() || !inviteCode.trim()}
+              disabled={
+                loading ||
+                !firstName.trim() ||
+                !lastName.trim() ||
+                (!invitationToken && !inviteCode.trim())
+              }
             >
               Create account
             </Button>

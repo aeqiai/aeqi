@@ -65,6 +65,7 @@ interface AuthState {
     password: string,
     name: string,
     inviteCode?: string,
+    invitationToken?: string,
   ) => Promise<"verified" | "pending" | "error">;
   verifyEmail: (email: string, code: string) => Promise<boolean>;
   resendCode: (email: string) => Promise<boolean>;
@@ -183,11 +184,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signup: async (email: string, password: string, name: string, inviteCode?: string) => {
+  signup: async (
+    email: string,
+    password: string,
+    name: string,
+    inviteCode?: string,
+    invitationToken?: string,
+  ) => {
     set({ loading: true, error: null });
     try {
       clearSessionData();
-      const resp = await api.signup(email, password, name, inviteCode);
+      const resp = await api.signup(email, password, name, inviteCode, invitationToken);
       // Signup no longer auto-creates a root agent — the user spawns
       // their first company explicitly on `/start`. The active-root
       // assignment happens when that spawn returns.

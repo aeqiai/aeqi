@@ -5,10 +5,14 @@ import type {
   Blueprint,
   EventInvocationRow,
   Idea,
+  InvitationDetail,
   InvocationStepRow,
   OccupantKind,
   Role,
+  RoleEdge,
+  RoleInvitation,
   RoleOverride,
+  RoleType,
   Quest,
   ScopeValue,
 } from "@/lib/types";
@@ -68,15 +72,28 @@ export const api = {
       },
     ),
 
-  signup: (email: string, password: string, name: string, inviteCode?: string) =>
+  signup: (
+    email: string,
+    password: string,
+    name: string,
+    inviteCode?: string,
+    invitationToken?: string,
+  ) =>
     request<{
       ok: boolean;
       token: string;
       user?: Record<string, unknown>;
       pending_verification?: boolean;
+      invitation_token?: string;
     }>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
+      body: JSON.stringify({
+        email,
+        password,
+        name,
+        invite_code: inviteCode,
+        ...(invitationToken ? { invitation_token: invitationToken } : {}),
+      }),
     }),
 
   joinWaitlist: (email: string, honeypot: string = "") =>
@@ -223,7 +240,7 @@ export const api = {
     const r = await request<{
       ok: boolean;
       roles: Role[];
-      edges: { parent_role_id: string; child_role_id: string }[];
+      edges: RoleEdge[];
     }>(`/roles?entity_id=${encodeURIComponent(entityId)}`);
     return {
       ok: r.ok,
@@ -231,12 +248,18 @@ export const api = {
       edges: r.edges,
     };
   },
+
+  getRole: (roleId: string) =>
+    request<{ ok: boolean; role: Role }>(`/roles/${encodeURIComponent(roleId)}`),
+
   createRole: (data: {
     entity_id: string;
     title: string;
     occupant_kind: OccupantKind;
     occupant_id?: string;
     parent_role_id?: string;
+    role_type?: RoleType;
+    grants?: string[];
   }) => {
     const wire = {
       entity_id: data.entity_id,
@@ -244,12 +267,84 @@ export const api = {
       occupant_kind: data.occupant_kind,
       ...(data.occupant_id ? { occupant_id: data.occupant_id } : {}),
       ...(data.parent_role_id ? { parent_role_id: data.parent_role_id } : {}),
+      ...(data.role_type ? { role_type: data.role_type } : {}),
+      ...(data.grants ? { grants: data.grants } : {}),
     };
     return request<{ ok: boolean; role: Role }>("/roles", {
       method: "POST",
       body: JSON.stringify(wire),
     });
   },
+
+  updateRole: (roleId: string, patch: { title?: string; role_type?: string; grants?: string[] }) =>
+    request<{ ok: boolean }>(`/roles/${encodeURIComponent(roleId)}/update`, {
+      method: "POST",
+      body: JSON.stringify(patch),
+    }),
+
+  archiveRole: (roleId: string) =>
+    request<{ ok: boolean }>(`/roles/${encodeURIComponent(roleId)}/archive`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  assignRoleOccupant: (
+    roleId: string,
+    data: { occupant_kind: OccupantKind; occupant_id?: string },
+  ) =>
+    request<{ ok: boolean }>(`/roles/${encodeURIComponent(roleId)}/occupant`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getUserGrants: (entityId: string, userId: string) =>
+    request<{ ok: boolean; grants: string[] }>(
+      `/roles/grants?entity_id=${encodeURIComponent(entityId)}&user_id=${encodeURIComponent(userId)}`,
+    ),
+
+  // Invitation endpoints — platform-side, no entity scope in the path
+  // for the public-facing ones.
+  createRoleInvitation: (
+    entityId: string,
+    roleId: string,
+    data: {
+      target_kind: "email" | "slug" | "open";
+      target_email?: string;
+      target_entity_id?: string;
+      welcome_note?: string;
+    },
+  ) =>
+    request<{ ok: boolean; invitation: RoleInvitation }>(
+      `/entities/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(roleId)}/invitations`,
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+
+  listEntityInvitations: (entityId: string) =>
+    request<{ ok: boolean; invitations: RoleInvitation[] }>(
+      `/entities/${encodeURIComponent(entityId)}/invitations`,
+    ),
+
+  getInvitation: (token: string) =>
+    request<{ ok: boolean; invitation: InvitationDetail }>(
+      `/invitations/${encodeURIComponent(token)}`,
+    ),
+
+  acceptInvitation: (token: string, asEntityId: string) =>
+    request<{ ok: boolean }>(`/invitations/${encodeURIComponent(token)}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ as_entity_id: asEntityId }),
+    }),
+
+  declineInvitation: (token: string) =>
+    request<{ ok: boolean }>(`/invitations/${encodeURIComponent(token)}/decline`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  getDirectedEntities: () =>
+    request<{ ok: boolean; entities: Array<{ entity_id: string; display_name: string }> }>(
+      `/me/directed-entities`,
+    ),
 
   getQuests: (params?: { status?: string; root?: string }) => {
     const query = new URLSearchParams();
