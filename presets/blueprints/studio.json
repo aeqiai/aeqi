@@ -1,5 +1,6 @@
 {
   "slug": "studio",
+  "templateSlug": "entity",
   "name": "Content Studio",
   "tagline": "A three-person creative studio that actually ships.",
   "description": "A content-creator company with a Creative Director (root), an Editor, and a Distribution lead. Comes with a publishing cadence, content-calendar ideas, and three seed quests so the studio has real work on day one.",

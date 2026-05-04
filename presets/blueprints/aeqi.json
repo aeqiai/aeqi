@@ -1,5 +1,6 @@
 {
   "slug": "aeqi",
+  "templateSlug": "venture",
   "name": "aeqi",
   "tagline": "A flexible company that becomes whatever you need.",
   "description": "The general-purpose starter. One root agent who works with you directly, plus a Steward who keeps cadence and bookkeeping. No preset domain — you tell aeqi what this company is for and it shapes itself around the answer. Pick this when you want to start with structure but no opinions on the shape.",

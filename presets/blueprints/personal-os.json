@@ -1,5 +1,6 @@
 {
   "slug": "personal-os",
+  "templateSlug": "foundation",
   "name": "Personal OS",
   "tagline": "One agent that runs your life like a chief of staff who actually knows you.",
   "description": "A single-agent operating layer for one person. The Concierge holds your calendar, your inbox, your tasks, and your durable notes — and learns your taste over time. No team, no deputies. Comes with daily-brief and weekly-review cadences, foundational personal-management ideas, and seed quests so the Concierge starts running your week from day one.",
