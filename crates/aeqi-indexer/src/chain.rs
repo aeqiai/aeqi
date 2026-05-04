@@ -214,6 +214,62 @@ pub mod poll {
         Ok(())
     }
 
+    /// Persist a Factory AdminsAdded or AdminsRemoved event. Both share the
+    /// shape `(address[] admins)`; the array expands to one audit row per
+    /// admin. Decoder is per-arm (alloy decode_log validates topic0).
+    async fn persist_admin_event(
+        db: &Arc<Mutex<Connection>>,
+        log: &alloy::rpc::types::Log,
+        kind: &str,
+        block_num: u64,
+        tx_hash: &str,
+    ) -> Result<()> {
+        let factory_address = format!("{:#x}", log.address());
+        let log_index = log.log_index.unwrap_or(0);
+        let admins: Vec<alloy::primitives::Address> = match kind {
+            "added" => match decode::Factory::AdminsAdded::decode_log(&log.inner) {
+                Ok(ev) => ev.admins.clone(),
+                Err(e) => {
+                    tracing::warn!(
+                        "decode AdminsAdded failed at block {} tx {}: {}",
+                        block_num, tx_hash, e
+                    );
+                    return Ok(());
+                }
+            },
+            "removed" => match decode::Factory::AdminsRemoved::decode_log(&log.inner) {
+                Ok(ev) => ev.admins.clone(),
+                Err(e) => {
+                    tracing::warn!(
+                        "decode AdminsRemoved failed at block {} tx {}: {}",
+                        block_num, tx_hash, e
+                    );
+                    return Ok(());
+                }
+            },
+            _ => unreachable!("persist_admin_event called with kind={}", kind),
+        };
+
+        let conn = db.lock().await;
+        let coord = store::LogCoord {
+            block_number: block_num,
+            tx_hash,
+            log_index,
+        };
+        for admin in &admins {
+            let admin_hex = format!("{:#x}", admin);
+            store::insert_factory_admin_event(&conn, &factory_address, &admin_hex, kind, coord)?;
+        }
+        tracing::info!(
+            "indexed Factory Admins{}: factory={} admins={} block={}",
+            capitalize(kind),
+            factory_address,
+            admins.len(),
+            block_num
+        );
+        Ok(())
+    }
+
     /// Persist a proposal status update from any of the lifecycle events
     /// (Canceled, Succeeded, Executed). Each variant's decoder closure
     /// returns the proposal_id hex on success — the dispatcher passes it.
@@ -357,6 +413,8 @@ pub mod poll {
                         decode::Factory::Factory_TRUSTSignerAdded::SIGNATURE_HASH,
                         decode::Factory::Factory_TRUSTApprovedEvent::SIGNATURE_HASH,
                         decode::Factory::Factory_TemplateReplaced::SIGNATURE_HASH,
+                        decode::Factory::AdminsAdded::SIGNATURE_HASH,
+                        decode::Factory::AdminsRemoved::SIGNATURE_HASH,
                         // TRUST events (per-trust)
                         decode::TRUST::TRUST_ModuleAdded::SIGNATURE_HASH,
                         decode::TRUST::PermissionsGranted::SIGNATURE_HASH,
@@ -481,6 +539,12 @@ pub mod poll {
                                     block_num, tx_hash, e
                                 ),
                             }
+                        } else if topic0 == Some(decode::Factory::AdminsAdded::SIGNATURE_HASH) {
+                            persist_admin_event(&db, &log, "added", block_num, &tx_hash).await?;
+                        } else if topic0
+                            == Some(decode::Factory::AdminsRemoved::SIGNATURE_HASH)
+                        {
+                            persist_admin_event(&db, &log, "removed", block_num, &tx_hash).await?;
                         } else if topic0
                             == Some(decode::Factory::Factory_TemplateReplaced::SIGNATURE_HASH)
                         {

@@ -24,6 +24,31 @@ pub type SharedDb = Arc<Mutex<Connection>>;
 /// Top-level GraphQL Query type.
 pub struct Query;
 
+/// GraphQL projection of a Factory admin grant/revocation audit row.
+#[derive(SimpleObject, Clone)]
+pub struct FactoryAdminEvent {
+    pub factory_address: String,
+    pub admin_address: String,
+    /// 'added' | 'removed'
+    pub kind: String,
+    pub block_number: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+impl From<store::FactoryAdminEventRow> for FactoryAdminEvent {
+    fn from(r: store::FactoryAdminEventRow) -> Self {
+        FactoryAdminEvent {
+            factory_address: r.factory_address,
+            admin_address: r.admin_address,
+            kind: r.kind,
+            block_number: r.block_number,
+            tx_hash: r.tx_hash,
+            log_index: r.log_index,
+        }
+    }
+}
+
 /// GraphQL projection of a Factory-registered template.
 #[derive(SimpleObject, Clone)]
 pub struct Template {
@@ -472,6 +497,20 @@ impl Query {
         let db = ctx.data::<SharedDb>()?;
         let conn = db.lock().await;
         let rows = store::get_modules_for_trust(&conn, &trust_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// Audit log of admin grants/revocations on a Factory, oldest first.
+    /// Frontend computes the current admin set by replaying.
+    async fn factory_admin_events(
+        &self,
+        ctx: &Context<'_>,
+        factory_address: String,
+    ) -> async_graphql::Result<Vec<FactoryAdminEvent>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_factory_admin_events(&conn, &factory_address)
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(rows.into_iter().map(Into::into).collect())
     }

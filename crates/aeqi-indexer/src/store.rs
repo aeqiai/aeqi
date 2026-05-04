@@ -473,6 +473,42 @@ const MIGRATIONS: &[(&str, &str)] = &[
         CREATE INDEX IF NOT EXISTS idx_trusts_template ON trusts(template_id);
         "#,
     ),
+    (
+        "021_factory_admin_events",
+        r#"
+        -- Audit log of admin grants/revocations on a Factory.
+        -- AdminsAdded and AdminsRemoved each carry an array of addresses;
+        -- we expand to one row per (factory, admin, kind) per log occurrence.
+        --
+        -- "Current admins" view = SELECT admin_address FROM factory_admin_events
+        --   WHERE factory_address = ? AND admin_address NOT IN
+        --   (SELECT admin_address FROM factory_admin_events WHERE
+        --    factory_address = ? AND kind = 'removed' AND
+        --    block_number > (SELECT MAX(block_number) FROM factory_admin_events
+        --                    WHERE factory_address = ? AND admin_address = self.admin
+        --                    AND kind = 'added'))
+        -- — too gnarly for SQL; consumers replay the audit log instead.
+        --
+        -- UNIQUE (factory, block, tx, log_index, admin) — same log can grant
+        -- many admins; we expand to one row per address with a synthetic
+        -- (log_index, address-position-in-array) effective key. Storing the
+        -- array index is overkill; we just include admin_address in UNIQUE.
+        CREATE TABLE IF NOT EXISTS factory_admin_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            factory_address TEXT NOT NULL,
+            admin_address TEXT NOT NULL,
+            kind TEXT NOT NULL,         -- 'added' | 'removed'
+            block_number INTEGER NOT NULL,
+            tx_hash TEXT NOT NULL,
+            log_index INTEGER NOT NULL,
+            UNIQUE (factory_address, block_number, tx_hash, log_index, admin_address)
+        );
+        CREATE INDEX IF NOT EXISTS idx_factory_admin_events_factory
+          ON factory_admin_events(factory_address, block_number);
+        CREATE INDEX IF NOT EXISTS idx_factory_admin_events_admin
+          ON factory_admin_events(admin_address);
+        "#,
+    ),
 ];
 
 /// Open the SQLite database, applying any pending migrations.
@@ -1723,6 +1759,75 @@ pub fn get_templates_for_factory(
     Ok(rows)
 }
 
+/// Insert one factory admin event row. Caller invokes this once per address
+/// in the AdminsAdded/AdminsRemoved arrays. UNIQUE on (factory, log coord,
+/// admin) is replay-safe.
+pub fn insert_factory_admin_event(
+    conn: &Connection,
+    factory_address: &str,
+    admin_address: &str,
+    kind: &str,
+    coord: LogCoord<'_>,
+) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "INSERT OR IGNORE INTO accounts (address, first_seen_block, first_seen_tx)
+         VALUES (?1, ?2, ?3)",
+        params![admin_address, coord.block_number as i64, coord.tx_hash],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO factory_admin_events
+            (factory_address, admin_address, kind, block_number, tx_hash, log_index)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            factory_address,
+            admin_address,
+            kind,
+            coord.block_number as i64,
+            coord.tx_hash,
+            coord.log_index as i64
+        ],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FactoryAdminEventRow {
+    pub factory_address: String,
+    pub admin_address: String,
+    pub kind: String,
+    pub block_number: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+/// Audit log of admin events on a Factory, oldest first.
+pub fn get_factory_admin_events(
+    conn: &Connection,
+    factory_address: &str,
+) -> Result<Vec<FactoryAdminEventRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT factory_address, admin_address, kind, block_number, tx_hash, log_index
+         FROM factory_admin_events
+         WHERE factory_address = ?1
+         ORDER BY block_number ASC, log_index ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![factory_address], |r| {
+            Ok(FactoryAdminEventRow {
+                factory_address: r.get(0)?,
+                admin_address: r.get(1)?,
+                kind: r.get(2)?,
+                block_number: r.get::<_, i64>(3)? as u64,
+                tx_hash: r.get(4)?,
+                log_index: r.get::<_, i64>(5)? as u64,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// Look up a TRUST by its on-chain address. Schema v2: address may be NULL
 /// pre-create (multi-sig flow), so this returns None for trust_ids that
 /// only have Registered metadata so far. Use get_trust_by_id to fetch
@@ -2325,6 +2430,39 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM trusts", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n, 1);
+    }
+
+    #[test]
+    fn factory_admin_audit_log() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let factory = "0x67d269191c92Caf3cD7723F116c85e6E9bf55933";
+        let alice = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
+        let bob = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
+
+        // Mock an AdminsAdded log with 2 admins (one row per address)
+        let c1 = LogCoord { block_number: 100, tx_hash: "0xtx1", log_index: 0 };
+        insert_factory_admin_event(&conn, factory, alice, "added", c1).unwrap();
+        insert_factory_admin_event(&conn, factory, bob, "added", c1).unwrap();
+
+        // Then alice removed in a later block
+        let c2 = LogCoord { block_number: 200, tx_hash: "0xtx2", log_index: 0 };
+        insert_factory_admin_event(&conn, factory, alice, "removed", c2).unwrap();
+
+        let log = get_factory_admin_events(&conn, factory).unwrap();
+        assert_eq!(log.len(), 3);
+        assert_eq!(log[0].admin_address, alice);
+        assert_eq!(log[0].kind, "added");
+        assert_eq!(log[1].admin_address, bob);
+        assert_eq!(log[1].kind, "added");
+        assert_eq!(log[2].admin_address, alice);
+        assert_eq!(log[2].kind, "removed");
+
+        // Idempotent on (factory, log_coord, admin)
+        insert_factory_admin_event(&conn, factory, alice, "added", c1).unwrap();
+        let log = get_factory_admin_events(&conn, factory).unwrap();
+        assert_eq!(log.len(), 3);
     }
 
     #[test]

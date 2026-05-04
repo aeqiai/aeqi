@@ -27,15 +27,13 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 25 (PHASE 11 ✓ trusts SCHEMA V2 — MULTI-SIG STORY FULLY CLOSED)
-PHASE: 11 ✓ MULTI-SIG COMPLETE | trusts refactored to PK(trust_id) with
-       address/creator/created_* all NULLable. insert_trust_created and
-       update_trust_registered both UPSERT on trust_id — either order
-       lands a complete row. v1 multi-sig flow (registerTRUST in tx N,
-       approveTRUST in tx N+M) now indexes with FULL metadata.
-       28/28 tests green; 31 commits.
-       | next: apps/ui glue (real integration) OR Funding/Budget modules
-               OR remaining Factory admin events
+TICK: 26 (PHASE 12-C ✓ FACTORY ADMIN EVENTS WIRED)
+PHASE: 12-C ✓ ADMIN AUDIT LOG | AdminsAdded + AdminsRemoved indexed
+       per-address (array expanded into one audit row per admin).
+       Live-verified: deployer admin grant from factory.initialize()
+       at block 3547 visible via factoryAdminEvents query.
+       29/29 tests green; 32 commits.
+       | next: Funding module (Path A) OR apps/ui glue OR HANDOFF expansion
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -814,49 +812,70 @@ TICK 25 — PHASE 11 trusts SCHEMA V2:
 
 28/28 tests green. 31 commits on indexer-build branch.
 
+TICK 26 — PHASE 12-C FACTORY ADMIN EVENTS:
+  Schema: 021_factory_admin_events(id PK, factory_address, admin_address,
+    kind, block, tx, log_index)
+    UNIQUE on (factory, log coord, admin) — one audit row per admin per log.
+    Both AdminsAdded and AdminsRemoved expand the address[] array into
+    one row per admin so the audit log preserves array order.
+  Store: insert_factory_admin_event + get_factory_admin_events.
+  Decode: AdminsAdded + AdminsRemoved sol! decls already present.
+  Poll loop: 2 new dispatch arms; persist_admin_event helper decodes
+    per-arm (decode_log validates topic0), pulls admins[], writes one
+    row per admin in the same coord.
+  GraphQL: FactoryAdminEvent SimpleObject + factoryAdminEvents(factoryAddress).
+
+  LIVE-VERIFIED on real deployed Factory (no extra script needed —
+  factory.initialize() in Deploy.s.sol fires AdminsAdded for the deployer):
+    Indexer (start_block 3540) caught block 3547:
+      "indexed Factory AdminsAdded: factory=0x67d269... admins=1 block=3547"
+    GraphQL factoryAdminEvents returns:
+      [{ adminAddress: 0xf39f..., kind: 'added', blockNumber: 3547 }]
+
+  Indexer surface: 9 contracts (Factory + TRUST + Role + Governance +
+  Token + Vesting + accounts + templates + factory_admin_events).
+  ~30 dispatched event types across 4 levels of dynamic subscription.
+
+29/29 tests green. 32 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 12 — pure breadth or apps/ui pivot):
-  Phase 11 done. The v1 indexer is FULLY CORRECT against real aeqi-core
-  for both single-sig (single-tx) and multi-sig (multi-tx) flows.
+NEXT ACTION (Phase 13 — Funding/Budget breadth or HANDOFF expand):
+  Phase 12-C done (admin events). All Factory event types now wired
+  except Factory_FactoryConfigSet (single-event, informational) and
+  Factory_PartnerProfileSet (marketing, low value).
 
-  REMAINING WORK (in priority order):
+  PATH A — Funding module port (most demo-relevant remaining):
+    Source: ~/projects/aeqi-graph/abis/Funding.module.json
+    Probably: Funding_RoundCreated, Funding_ContributionMade,
+              Funding_RoundClosed, Funding_RefundIssued.
+    Same Haiku-Explore + sol!/migration/store/dispatch/GraphQL recipe.
+    ~30 min. Adds the "fundraising rounds" surface to the demo.
 
-  PATH A — Funding/Budget/Foundation/Fund module ports (breadth):
-    Pure mechanical work per the locked recipe. Each module:
-      Haiku Explore the ABI → sol! decl → migration → store fns →
-      dispatch arms → GraphQL fields → Mock contract → live test.
-    ~30 min per module. Pure additions, no architectural risk.
+  PATH B — Budget module port (cap-table extension):
+    Source: ~/projects/aeqi-graph/abis/Budget.module.json
+    Probably: Budget_AllocationSet, Budget_Spent, Budget_Reset.
+    ~30 min. Adds spending-cap visibility per role.
 
-  PATH B — apps/ui glue (real integration, biggest user-visible win):
-    Cut worktree off ~/aeqi. Add VITE_INDEXER_URL. Pick Ownership tab,
-    rewrite its data layer to query rolesForModule/roleAssignments.
-    Probably 1-2 ticks, but benefits from interactive design input.
-
-  PATH C — wire remaining Factory admin events (informational):
-    Factory_FactoryConfigSet, AdminsAdded/Removed, Factory_PartnerProfileSet.
-    sol! decls already present. Each is ~5 min. Low marginal value but
-    fast quick wins.
-
-  PATH D — extend HANDOFF.md with the multi-sig demo recipe:
-    Document the CreateMultiSigTrust.s.sol flow + cross-block ordering
-    semantics + the v2 schema design as a reference for Future-Self.
+  PATH C — HANDOFF.md expansion:
+    - Multi-sig demo recipe (extends the existing 5-step demo with
+      CreateMultiSigTrust.s.sol)
+    - Cross-block ordering semantics (the four ordering fixes
+      compose: TICKs 21+22+24+25)
+    - Schema v2 design rationale (trust_id vs address as identity)
+    - Updated query list (factoryAdminEvents, trustById)
     ~10 min.
 
-  PATH E — production hardening (Phase 13+ work, not for autonomous):
-    - WebSocket log subscription (replaces 2s HTTP polling)
-    - eth_call backfill for non-event state (treasury balances etc.)
-    - chain_id column for multi-chain
-    - Prometheus metrics on poll loop
-    - systemd unit
-    Defer to interactive session.
+  PATH D — apps/ui glue: defer to interactive session.
+
+  PATH E — production hardening: out of scope for autonomous session.
 
   LEVERAGE PRIORITY:
-    PATH C (wire remaining admin events, 5 min) →
-    PATH A (Funding module, the most demo-relevant remaining one, ~30 min) →
-    PATH D (HANDOFF.md update, 10 min) →
-    PATH B (interactive session for apps/ui).
+    PATH C (HANDOFF update — durable artifact for tomorrow's user) →
+    PATH A (Funding module — demo breadth) →
+    PATH B (Budget — incremental).
 
-  My read: PATH C next tick (quick wins, low risk), PATH A after.
+  My read: PATH C next tick (10-min update with high handoff value),
+  PATH A after if cron remains.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:
