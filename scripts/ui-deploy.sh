@@ -31,12 +31,18 @@ if ! ./node_modules/.bin/vite --version >/dev/null 2>&1; then
 fi
 if ! ./node_modules/.bin/vite --version >/dev/null 2>&1; then
   echo "still broken — full nuke"
-  # rm -rf can race against a concurrent finalizer (sibling worktree
-  # symlink teardown, npm install partial state) and exit ENOTEMPTY on
-  # deeply nested viem / walletconnect / appkit dirs. Retry once after
-  # a brief pause — by the second attempt the kernel has settled.
-  rm -rf node_modules || (sleep 2 && rm -rf node_modules)
-  npm install
+  # rm -rf can race against a concurrent sibling-worktree symlink that
+  # holds file handles open on viem / walletconnect / appkit nested dirs
+  # and exits ENOTEMPTY. When rm fails, skip to npm install directly —
+  # it repairs the partial tree in-place and restores .bin/ symlinks
+  # without requiring a clean slate. A full nuke is only strictly needed
+  # when npm install itself exits non-zero after the partial tree.
+  if rm -rf node_modules 2>/dev/null; then
+    npm install
+  else
+    echo "rm-rf ENOTEMPTY (sibling worktree active) — repairing in-place"
+    npm install
+  fi
 fi
 
 # Bin-link insurance. After an interrupted install or a worktree-symlink
@@ -72,4 +78,5 @@ test -f "$TARGET/index.html" || {
   exit 1
 }
 
+echo "rsync complete"
 echo "deployed: $(stat -c %y dist/index.html | cut -d. -f1)"

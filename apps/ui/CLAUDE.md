@@ -375,12 +375,15 @@ is the only reliable approach when `.bin/` is contested.
 **UI-only deploy (no Rust changed):**
 
 ```bash
-cd /home/claudedev/aeqi/apps/ui
-./node_modules/.bin/vite build
-rsync -a --delete dist/ /home/claudedev/aeqi-platform/ui-dist/
+/home/claudedev/aeqi/scripts/ui-deploy.sh
 ```
 
-Skip `./scripts/deploy.sh` — that's for full runtime+platform rebuilds.
+The script handles vite recovery + build + rsync + post-build assertions.
+Success marker: it emits `rsync complete` followed by `deployed: <timestamp>`
+on the last line. When monitoring the script in background mode, grep for
+`rsync complete` — NOT for `deployed:` (that line is for human reading only
+and the timestamp makes it non-constant). Skip `./scripts/deploy.sh` — that's
+for full runtime+platform rebuilds.
 
 ## /ship — automate the entire ritual
 
