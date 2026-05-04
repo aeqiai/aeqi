@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageRail from "@/components/PageRail";
 import ProfilePanel from "@/pages/Settings/ProfilePanel";
@@ -11,6 +11,9 @@ import InvitesPanel from "@/pages/Settings/InvitesPanel";
 import PreferencesPanel from "@/pages/Settings/PreferencesPanel";
 import WalletsPanel from "@/pages/Settings/WalletsPanel";
 import { useAuthStore } from "@/store/auth";
+import { Spinner } from "@/components/ui";
+
+const AAEnrollmentPage = lazy(() => import("@/pages/AAEnrollmentPage"));
 
 const BASE_TABS = [
   { id: "profile", label: "Profile" },
@@ -21,6 +24,7 @@ const BASE_TABS = [
   { id: "integrations", label: "Integrations" },
   { id: "api", label: "API keys" },
   { id: "preferences", label: "Preferences" },
+  { id: "aa-enroll", label: "Upgrade wallet" },
 ];
 const ADMIN_TAB = { id: "invites", label: "Invites" };
 
@@ -69,6 +73,11 @@ export default function ProfilePage() {
         {activeTab === "api" && <ApiKeyPanel />}
         {activeTab === "invites" && <InvitesPanel />}
         {activeTab === "preferences" && <PreferencesPanel />}
+        {activeTab === "aa-enroll" && (
+          <Suspense fallback={<Spinner size="sm" />}>
+            <AAEnrollmentPage />
+          </Suspense>
+        )}
       </div>
     </div>
   );
