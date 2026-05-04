@@ -67,7 +67,7 @@
 
 .wizard-submit-error {
   font-size: 13px;
-  color: var(--color-danger, #c0392b);
+  color: var(--color-error);
 }
 
 /* ── Configure toggle ────────────────────────────── */

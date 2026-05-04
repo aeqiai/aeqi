@@ -1022,12 +1022,12 @@
 .sidebar-nav-item--danger:hover,
 .sidebar-nav-item--danger:focus-visible {
   background: var(--state-hover);
-  color: var(--color-error, #c83838);
+  color: var(--color-error);
   outline: none;
 }
 .sidebar-nav-item--danger:hover > svg,
 .sidebar-nav-item--danger:focus-visible > svg {
-  color: var(--color-error, #c83838);
+  color: var(--color-error);
 }
 
 .sidebar-surface-nav .sidebar-section-label {

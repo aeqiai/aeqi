@@ -320,9 +320,7 @@ function RolesLoading() {
 }
 
 function RolesError({ message }: { message: string }) {
-  return (
-    <div style={{ padding: "24px 28px", color: "var(--color-error, #c2410c)" }}>{message}</div>
-  );
+  return <div style={{ padding: "24px 28px", color: "var(--color-error)" }}>{message}</div>;
 }
 
 function RolesEmptyState() {

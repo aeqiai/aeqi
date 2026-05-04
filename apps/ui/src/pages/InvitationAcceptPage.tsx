@@ -285,10 +285,7 @@ export default function InvitationAcceptPage() {
                   )}
 
                   {actionError && (
-                    <div
-                      style={{ fontSize: 13, color: "var(--color-error, #c2410c)" }}
-                      role="alert"
-                    >
+                    <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
                       {actionError}
                     </div>
                   )}

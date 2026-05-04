@@ -93,7 +93,7 @@ export default function RoleEditPage() {
   if (loadError || !role) {
     return (
       <div className="asv-main" style={{ padding: "28px 32px" }}>
-        <div style={{ color: "var(--color-error, #c2410c)", fontSize: 13 }}>
+        <div style={{ color: "var(--color-error)", fontSize: 13 }}>
           {loadError || "Role not found."}
         </div>
         <Link to={backHref} style={{ fontSize: 13, color: "var(--text-secondary)" }}>
@@ -134,7 +134,7 @@ export default function RoleEditPage() {
               letterSpacing: "0.06em",
             }}
           >
-            Title <span style={{ color: "var(--color-error, #c2410c)" }}>*</span>
+            Title <span style={{ color: "var(--color-error)" }}>*</span>
           </label>
           <Input
             id="edit-role-title"
@@ -243,7 +243,7 @@ export default function RoleEditPage() {
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: "var(--color-error, #c2410c)" }} role="alert">
+          <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
             {error}
           </div>
         )}

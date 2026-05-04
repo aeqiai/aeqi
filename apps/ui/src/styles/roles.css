@@ -22,7 +22,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: var(--color-card-elevated, #ffffff);
+  background: var(--color-card-elevated);
   border: 1px solid var(--border-faint);
   border-radius: var(--radius-md);
   color: var(--text-primary);
@@ -38,7 +38,7 @@
   cursor: pointer;
 }
 .role-node.is-clickable:hover {
-  background: var(--color-card-elevated, #ffffff);
+  background: var(--color-card-elevated);
   border-color: var(--border-strong, var(--border-hover));
 }
 .role-node.is-clickable:focus-visible {

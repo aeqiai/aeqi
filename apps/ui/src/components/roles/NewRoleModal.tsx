@@ -223,7 +223,7 @@ export default function NewRoleModal({
         </label>
 
         {error && (
-          <div style={{ fontSize: 13, color: "var(--color-error, #c2410c)" }} role="alert">
+          <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
             {error}
           </div>
         )}

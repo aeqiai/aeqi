@@ -450,7 +450,7 @@ function AgentsChart({
   }
   if (error) {
     return (
-      <div className="ideas-list-body" style={{ color: "var(--color-error, #c2410c)" }}>
+      <div className="ideas-list-body" style={{ color: "var(--color-error)" }}>
         {error}
       </div>
     );

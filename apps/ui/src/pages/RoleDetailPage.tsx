@@ -83,7 +83,7 @@ export default function RoleDetailPage() {
   if (error || !role) {
     return (
       <div className="asv-main" style={{ padding: "28px 32px" }}>
-        <div style={{ color: "var(--color-error, #c2410c)", fontSize: 13 }}>
+        <div style={{ color: "var(--color-error)", fontSize: 13 }}>
           {error || "Role not found."}
         </div>
         <Link to={backHref} style={{ fontSize: 13, color: "var(--text-secondary)" }}>
@@ -283,7 +283,7 @@ export default function RoleDetailPage() {
         <div
           style={{
             fontSize: 13,
-            color: "var(--color-error, #c2410c)",
+            color: "var(--color-error)",
             marginTop: "var(--space-4)",
           }}
           role="alert"

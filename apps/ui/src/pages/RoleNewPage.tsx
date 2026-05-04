@@ -140,7 +140,7 @@ export default function RoleNewPage() {
               letterSpacing: "0.06em",
             }}
           >
-            Title <span style={{ color: "var(--color-error, #c2410c)" }}>*</span>
+            Title <span style={{ color: "var(--color-error)" }}>*</span>
           </label>
           <Input
             id="role-title"
@@ -347,7 +347,7 @@ export default function RoleNewPage() {
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: "var(--color-error, #c2410c)" }} role="alert">
+          <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
             {error}
           </div>
         )}
