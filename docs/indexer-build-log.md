@@ -27,15 +27,12 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 39 (PHASE 20-C2 ✓ DEPLOY.md PRODUCTION-HARDENING THINKING AID)
-PHASE: 20-C2 ✓ FORWARD-LOOKING DOC | docs/DEPLOY.md (~190 lines)
-       sketches the path from local-Anvil v1 to Base-mainnet production.
-       8 sections (systemd, reverse proxy, WSS subscription, eth_call
-       backfill, multi-chain, Prometheus metrics, healthz lag, Transfer
-       filtering) + out-of-scope callouts. Nothing implemented; this is
-       design-space for whoever picks it up. 33/33 tests; 52 commits.
-       | next: genuine wrap. Autonomous session has produced 6 docs +
-               complete v1 indexer; next paths require user interaction.
+TICK: 40 (PHASE 21 ✓ WRAP HEARTBEAT — SESSION COMPLETE)
+PHASE: 21 ✓ AUTONOMOUS BUILD DONE | cargo test passes (33/33). No new
+       code. Cron 72929ac9 still firing every 5 min — user should
+       CronDelete to stop. Successive heartbeats will be no-ops.
+       33/33 tests; 53 commits.
+       | next: cron deletion (user action) OR continued heartbeats
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -1248,6 +1245,37 @@ TICK 39 — PHASE 20-C2 DEPLOY.md:
   with main aeqi project, untouched).
 
 33/33 tests green. 52 commits on indexer-build branch.
+
+TICK 40 — PHASE 21 WRAP HEARTBEAT:
+  cargo test -p aeqi-indexer --release → 33/33 passed in 0.21s.
+  cron 72929ac9 confirmed still scheduled (every 5 min).
+
+  Per the locked plan in TICK 39 + Phase 21 NEXT ACTION block:
+  the autonomous session is genuinely complete. No new code to add
+  without user-design input or moving outside scope.
+
+  ARTIFACTS AT HEAD (commit b305557f):
+    INDEXER.md            — worktree signpost
+    crates/aeqi-indexer/  — 33/33 tests, builds 42s clean, clippy clean
+    test-contracts/       — 9 mocks, byte-identical signatures
+    docs/HANDOFF.md       — pickup doc
+    docs/CHANGELOG.md     — phase summary
+    docs/DEPLOY.md        — production-hardening notes (sketch)
+    docs/indexer-build-log.md — per-tick reasoning (this file)
+    docs/indexer-loop-prompt.md — heartbeat metaprompt
+    + 2 inherited docs (spec + subgraph survey)
+  Sister worktree: /home/claudedev/projects/aeqi-core-deploy-fix
+    branch deploy-fix-2026-05-04, 2 commits
+
+  CALL FOR USER ACTION: invoke CronDelete on 72929ac9 to stop the
+  heartbeat. Subsequent ticks will land as no-op heartbeat entries
+  identical to this one until the cron is removed.
+
+  Did NOT delete the cron unilaterally — destructive action without
+  explicit re-authorization is the wrong move per the careful-action
+  protocol in CLAUDE.md.
+
+33/33 tests green. 53 commits on indexer-build branch.
 
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
 NEXT ACTION (Phase 21 — genuine wrap):
