@@ -248,6 +248,7 @@ Replays from reorg recovery don't double-insert.
 | `023_funding_exits` | `funding_exits` | Funding_ExitExecuted audit log |
 | `024_budgets` | `budgets` | Budget lifecycle (Created/Frozen/Active/Removed) |
 | `025_budget_movements` | `budget_movements` | Budget Deposit + Consume audit log (amount + counterparty + asset) |
+| `026_factory_config` | `factory_config` | Per-factory snapshot of beacon + partner IPFS CID (UPSERT pattern) |
 
 ---
 
@@ -295,6 +296,7 @@ type Query {
   # Factory admin
   templatesForFactory(factoryAddress: String!): [Template!]!
   factoryAdminEvents(factoryAddress: String!): [FactoryAdminEvent!]!
+  factoryConfig(factoryAddress: String!): FactoryConfig
 
   # Multi-sig pre-create lookup (TRUST exists by trust_id, address NULL)
   trustById(trustId: String!): Trust
