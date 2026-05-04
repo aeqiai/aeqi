@@ -193,6 +193,12 @@ that canonized the apps/ui design system is packaged. To run another wave
 primitives. Skill handles parallel audits → synthesis → parallel
 implementation → verify → ship.
 
+## aeqi-web server — `into_make_service_with_connect_info` is mandatory
+
+**`axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?`** — NOT `axum::serve(listener, app).await?`. Without `ConnectInfo`, `tower_governor`'s `SmartIpKeyExtractor` cannot extract the peer address from any request and throws `GovernorError::UnableToExtractKey` as HTTP 500 `Unable To Extract Key!`. This kills every rate-limited API route. `/api/health` is exempt (not rate-limited) so health checks pass while the rest 500 — making the server look healthy when it isn't.
+
+The fix is one word: `app` → `app.into_make_service_with_connect_info::<SocketAddr>()` in `crates/aeqi-web/src/server.rs`. Add `use std::net::SocketAddr;` if not already imported. Cost (2026-05-05): VPS dogfood run — health check passed at 54s, all /api/* calls 500'd, entire VPS provision marked failed.
+
 ## Platform-level friction (out of our hands)
 
 Tracked separately in `platform-friction.md`. These are paper cuts in the
