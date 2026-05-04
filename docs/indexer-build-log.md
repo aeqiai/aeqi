@@ -27,13 +27,13 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 31 (PHASE 15-E ✓ FACTORY EVENT COVERAGE 100% — CONFIG + PARTNER)
-PHASE: 15-E ✓ FACTORY COMPLETE | Factory_FactoryConfigSet +
-       Factory_PartnerProfileSet wired via factory_config snapshot table
-       (UPSERT pattern preserves the unset column).
-       Live-verified: deploy's setFactoryConfig at block 3548 returns
-       beaconAddress via factoryConfig query. 32/32 tests green; 39 commits.
-       | next: Foundation/Fund scout OR apps/ui glue (interactive)
+TICK: 32 (PHASE 16-A ✓ HANDOFF MICRO-REFRESH + FOUNDATION/FUND SCOUT)
+PHASE: 16-A ✓ DOC PARITY + RECON | HANDOFF.md gains factory_config row +
+       factoryConfig query. Haiku scout result: Foundation = skip
+       (scaffolding only, no domain events), Fund = HIGH VALUE (NAV
+       checkpoints, position lifecycle, carry distribution — distinct
+       from already-shipped modules). 32/32 tests green; 40 commits.
+       | next: Fund module port (PATH B — high-leverage demo addition)
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -1004,31 +1004,68 @@ TICK 31 — PHASE 15-E FACTORY EVENT COVERAGE 100%:
 
 32/32 tests green. 39 commits on indexer-build branch.
 
+TICK 32 — PHASE 16-A HANDOFF REFRESH + SCOUT:
+  HANDOFF.md mechanical update (2 lines):
+    - schema table: row 026_factory_config
+    - GraphQL surface: factoryConfig query line
+
+  Haiku Explore scout — Foundation.module.json + Fund.module.json:
+    Foundation: 1 domain event (Foundation_SetFoundationConfig — no params)
+      + InitializationStateChanged + 3 SlotArrays_*. Pure scaffolding.
+      VERDICT: SKIP. Not worth 30 min — no entity to index.
+    Fund: 14 domain events. NAV checkpoints (Fund_NavProcessed →
+      checkpointId, netNAV, tokenQuote, mgmtFeesCharged, carryCharged),
+      flow lifecycle (Requested/Claimed/Cancelled with flowType discriminator),
+      position lifecycle (Opened/Interacted/Closed),
+      carry distribution (Manager/Trust/MgmtFees claimed),
+      LP role claim, fund pause/unpause.
+      VERDICT: PORT. Distinct from existing modules — adds fund-vehicle
+      visualization (NAV time series, profit waterfalls, portfolio).
+      ~30 min via locked recipe (~8 events worth indexing, skip the
+      pause/unpause + SetConfig).
+
+32/32 tests green. 40 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 16 — Foundation/Fund scout OR HANDOFF re-refresh):
-  Phase 15-E (factory events 100%) done.
+NEXT ACTION (Phase 16-B — Fund module port):
+  Phase 16-A (HANDOFF refresh + scout) done. Foundation skipped, Fund
+  judged worth porting.
 
-  PATH B — Foundation + Fund scout in parallel (single Haiku call):
-    Read both ABIs, distill events into one compact table. Decide
-    per-module if the port is worth ~30 min or if events are too
-    niche / overlapping with already-shipped modules. If port worth it,
-    follow the locked recipe.
+  PATH B — Fund module port (~30 min, locked recipe):
+    Source: ~/projects/aeqi-graph/abis/Fund.module.json
+    Cherry-pick the 8 high-value events:
+      - Fund_NavProcessed(checkpointId, netNAV, tokenQuote, mgmtFees,
+        carry) — time-series fund valuation
+      - Fund_FlowRequested(requestId, roleId, flowType, amountIn) —
+        deposits + redemptions (flowType discriminator: 0/1/2)
+      - Fund_FlowClaimed(requestId, amountOut) — settle event
+      - Fund_FlowCancelled(requestId) — settle abort
+      - Fund_PositionOpened(positionId, positionManagerId)
+      - Fund_PositionClosed(positionId, quoteAssetReceived)
+      - Fund_PositionInteracted(positionId, roleId, action)
+      - Fund_BookProcessed(roleId) + Fund_LPRoleClaimed(roleId) — role binding
+      Skip: ManagerCarryClaimed, MgmtFeesClaimed, TrustCarryClaimed
+        (tracked indirectly via NavProcessed), Paused/Unpaused (state),
+        SetFundConfig (admin), InitializationStateChanged.
 
-  PATH A — HANDOFF re-refresh:
-    Add factory_config table + factoryConfig query to schema/GraphQL
-    sections. ~5 min mechanical update.
+    Schema (3 tables for clean separation):
+      027_fund_navs(module, checkpoint_id PK, net_nav, token_quote,
+        mgmt_fees_charged, carry_charged, block, tx)
+      028_fund_flows(module, request_id PK, role_id, flow_type, amount_in,
+        amount_out, status='requested'/'claimed'/'cancelled',
+        block, tx) — single row per request with status updates
+      029_fund_positions(module, position_id PK, status='open'/'closed',
+        position_manager_id, quote_asset_received, opened_block, ...) +
+        030_fund_position_interactions audit log
 
-  PATH D — Unifutures: defer indefinitely (derivative positions).
+    Total: ~50 lines of schema + ~150 lines of dispatch + ~80 lines of GraphQL.
+
   PATH F — apps/ui glue: interactive session.
   PATH G — production hardening: out of scope.
 
-  LEVERAGE PRIORITY:
-    PATH A — quick (5 min), preserves doc-code parity
-    PATH B — discovers next leverage; may end "no port worth it"
-    PATH F/G — interactive
-
-  My read: PATH A next tick (quick refresh after each addition is the
-  cheap habit), PATH B scout after.
+  My read: PATH B next tick. After Fund, the indexer covers everything
+  reasonable for a v2 cap-table demo. Then evaluate if any work remains
+  before a final HANDOFF freeze.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:
