@@ -364,10 +364,38 @@ pub mod poll {
                         .address(watched)
                         .event_signature(sigs);
 
-                    let logs = provider
+                    let mut logs = provider
                         .get_logs(&filter)
                         .await
                         .with_context(|| format!("get_logs block {}", block_num))?;
+
+                    // 2-pass ordering: handlers that CREATE entities must run
+                    // before handlers that REFERENCE them by their just-emitted
+                    // ID. In real registerTRUST flows, the same tx emits
+                    // SignerAdded → Registered → Created in that order — the
+                    // first two handlers look up the trust by trust_id and find
+                    // nothing because Created hasn't run yet. Sort logs so all
+                    // -Created topic0s come first, then Registered, then the
+                    // rest. Stable sort preserves natural log order within each
+                    // priority bucket so log_index ties still resolve correctly.
+                    fn topic0_priority(t: Option<alloy::primitives::B256>) -> u8 {
+                        match t {
+                            Some(h)
+                                if h == decode::Factory::Factory_TRUSTCreatedEvent::SIGNATURE_HASH =>
+                                0,
+                            Some(h)
+                                if h == decode::Factory::Factory_TRUSTRegisteredEvent::SIGNATURE_HASH =>
+                                1,
+                            // Module/Role/Token/Vesting/Governance "created" or
+                            // "added" events that other handlers reference can
+                            // be added here as we discover ordering bugs in
+                            // real-tx flows. Default priority is 2 so anything
+                            // not explicitly prioritized still runs after the
+                            // critical creators.
+                            _ => 2,
+                        }
+                    }
+                    logs.sort_by_key(|l| topic0_priority(l.topic0().copied()));
 
                     for log in logs {
                         let tx_hash = log

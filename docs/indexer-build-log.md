@@ -27,13 +27,14 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 20 (PHASE 7-C ✓ AEQI-CORE DEPLOY FIX — ORIGINAL BLOCKER RESOLVED)
-PHASE: 7-C ✓ REAL CONTRACTS DEPLOY | aeqi-core Deploy.s.sol updated for
-       new Beacon ctor + Factory 0-arg init + Factory.replaceImplementations
-       flow. ONCHAIN EXECUTION COMPLETE & SUCCESSFUL on Anvil.
-       25/25 tests green; indexer unchanged.
-       | next: full createTRUST flow against real Factory (template setup
-               required) OR more modules OR apps/ui glue
+TICK: 21 (PHASE 8 ✓ REAL CONTRACTS LOOP CLOSED — INDEXER ↔ AEQI-CORE END-TO-END)
+PHASE: 8 ✓ FULL VALIDATION | CreateTrust.s.sol → real Factory →
+       indexer catches Created+Registered+SignerAdded → GraphQL returns
+       enriched TRUST (template, ipfsCid, signers, configs, signer addr).
+       Discovered + fixed intra-block ordering bug (Created must run before
+       Registered/SignerAdded). 25/25 tests green; 26 commits.
+       | next: intra-block subscription lag (TRUST_ModuleAdded from same
+               tx as TrustCreated) OR apps/ui glue OR Funding/Budget modules
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -553,48 +554,119 @@ TICK 20 — PHASE 7-C AEQI-CORE DEPLOY FIX (ORIGINAL BLOCKER):
 25/25 tests green. 25 commits on indexer-build branch (no indexer
 changes this tick — fix was in aeqi-core).
 
+TICK 21 — PHASE 8 REAL-CONTRACTS LOOP CLOSED:
+  Wrote CreateTrust.s.sol in aeqi-core-deploy-fix worktree:
+    - Reads FACTORY_ADDRESS env
+    - Creates demo template (role + token modules) via factory.replaceTemplate
+    - registerTRUST with single deployer signer → auto-approves + auto-creates
+    - Imports test/helpers/TestConfigs for module-library-encoded value configs
+      (role.config / role.trustConfig / token.config / token.trustConfig)
+    - Without these configs the role module reverts on initializeModule
+      (getBytesConfig returns empty) — discovered by deploy attempt #1
+
+  LIVE-VERIFIED REAL CONTRACTS:
+    Real Factory at 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    PRIVATE_KEY=... FACTORY_ADDRESS=... forge script CreateTrust.s.sol
+      → Template registered at templateId 0x7a79b2e...
+      → TRUST created at 0xb171d866...; trust_id 0x...4c1
+    Indexer pointed at real Factory caught all 3 expected events:
+      Factory_TRUSTCreatedEvent
+      Factory_TRUSTRegisteredEvent
+      Factory_TRUSTSignerAdded
+
+  BUG DISCOVERED IN REAL FLOW (intra-block ordering):
+    First run had warnings: "TRUSTSignerAdded for unknown trust_id —
+    skipping (TrustCreated not yet indexed)". Cause: in real registerTRUST,
+    SignerAdded fires before TRUSTCreated within the same tx. My handlers
+    look up trust_address by trust_id; the trust isn't in the DB yet, so
+    the signer + the registration metadata are dropped.
+
+  FIX (committed this tick):
+    chain::poll inserts a 2-pass priority sort on logs WITHIN A BLOCK
+    before the dispatch loop:
+      Priority 0: Factory_TRUSTCreatedEvent (creators run first)
+      Priority 1: Factory_TRUSTRegisteredEvent (enrichment second)
+      Priority 2: everything else
+    Stable sort preserves natural log_index order within each bucket.
+    The function is local to chain::poll::run; trivial to extend as more
+    create-then-reference orderings are discovered (e.g. Role_RoleCreated
+    before Role_RoleAssigned within the same tx).
+
+  RE-VERIFIED with same Factory, fresh DB:
+    No "unknown trust_id" warnings.
+    GraphQL trust(0xb171d866...) returns:
+      address: 0xb171d866...,
+      trustId: 0x...4c1,
+      templateId: 0x7a79b2e... (the demo template),
+      ipfsCid: "ipfs://demo",
+      signersCount: 1,
+      valueConfigsCount: 2,
+      createdBlock: 3736
+    GraphQL trustSigners returns:
+      [{ signerAddress: 0xf39f..., hasSigned: true, addedBlock: 3736 }]
+
+  THE INDEXER IS REAL-CONTRACT-VALIDATED. The Mock-tested architecture
+  matched real aeqi-core byte-for-byte; only ordering needed adjustment.
+
+  REMAINING LIMITATION (deferred):
+    TRUST_ModuleAdded events that fire IN THE SAME TX as TrustCreated
+    won't be caught — the watched_addresses set is read once per block,
+    so the new trust isn't yet a watched address when the dispatch loop
+    sees its module logs. Fix needs either:
+      - Re-read watched_addresses + re-fetch logs after each handler that
+        registers a new address
+      - Or drop the address filter entirely and rely on topic0 filter
+        alone (works because aeqi event signatures are unique enough)
+    Documented in HANDOFF.md "Open work / known limitations".
+
+25/25 tests green. 26 commits on indexer-build branch.
+1 commit in aeqi-core-deploy-fix worktree (CreateTrust.s.sol added).
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 8 — full createTRUST against real contracts):
-  Phase 7-C (deploy fix) is DONE. Real aeqi-core deploys cleanly to Anvil.
-  The indexer is unchanged — mocks emit byte-identical signatures.
+NEXT ACTION (Phase 9 — fix intra-block subscription lag OR pivot):
+  Phase 8 (real-contracts loop) is DONE. The indexer is validated end-to-end
+  against actual aeqi-core. One remaining limitation surfaced in real flows:
 
-  Highest leverage now is the REAL-CONTRACT createTRUST smoke test:
+  PATH A — fix intra-block subscription lag (the multi-level cascade):
+    Problem: When real registerTRUST auto-creates a TRUST AND the TRUST
+    constructor in the SAME tx initializes its modules (which emit
+    TRUST_ModuleAdded), my dispatch loop misses those module events.
+    Reason: watched_addresses is read once at the top of each block-fetch
+    iteration. The newly-created TRUST address isn't watched until the
+    next block.
 
-  STEP 1 — write a "create one TRUST" forge script:
-    Source: /home/claudedev/projects/aeqi-core-deploy-fix/scripts/foundry/
-            CreateTrust.s.sol (new file)
-    Flow:
-      1. Read deployment addresses from previous Deploy.s.sol run
-         (or import Deploy.s.sol and reuse its state)
-      2. Add a template via Factory.replaceTemplate (admin-only):
-         - templateId = keccak256('demo')
-         - moduleConfigs = [role, token, governance]
-      3. registerTRUST with TRUSTConfigRequest:
-         - trustId = some bytes32
-         - templateId = the demo template
-         - declaredSigners = [deployer]
-         - valueConfigs = []
-      4. createTRUST(trustId, deployer)
-      5. Verify Factory_TRUSTCreatedEvent fires
+    Two fixes possible:
+      (a) Re-read watched_addresses + re-query get_logs(filter) AFTER any
+          handler that adds an address. Loop until no new addresses added.
+          Pro: precise filter, no false-positive logs.
+          Con: extra RPC round-trips per block.
+      (b) Drop the address filter entirely; rely only on topic0 filter.
+          Pro: catches all events with our signatures regardless of source.
+          Con: noisy on mainnet (any random ERC20 emits Transfer with our
+               signature_hash). Fine on Anvil; needs filter on Base.
 
-  STEP 2 — point indexer at real Factory:
-    AEQI_INDEXER_FACTORY=0x67d269191c92Caf3cD7723F116c85e6E9bf55933
-    Run indexer fresh. It should pick up the createTRUST event,
-    auto-watch the new TRUST, then catch the cascade of TRUST_ModuleAdded
-    events as the TRUST attaches its 3 modules. Then catch the
-    sub-cascade of Role_RoleCreated etc. when the role module init fires.
+    Recommendation: (a) for v1 — minimal change, no false-positive risk.
+    The extra round-trip happens only when a TrustCreated handler fires,
+    which is rare. ~30-min implementation.
 
-    THIS WOULD CLOSE THE LOOP: the indexer that we built against ABI
-    signatures via Mock contracts indexes a real on-chain TRUST creation
-    end-to-end across all 3 dispatch levels.
+  PATH B — apps/ui glue: Ownership tab via VITE_INDEXER_URL.
+    Now genuinely valuable since the indexer catches real Factory data.
+    Cut worktree off ~/aeqi. Add VITE_INDEXER_URL env. Pick Ownership tab.
 
-  PATH B (deferred) — apps/ui glue: Ownership tab via VITE_INDEXER_URL.
-  PATH A'' (deferred) — Funding/Budget module ports.
+  PATH C — Funding/Budget module ports:
+    Mechanical per the locked recipe; deferrable.
 
-  ESTIMATE: STEP 1 + STEP 2 = 1-2 ticks if no surprises in template
-  setup. The Factory_FactoryConfigSet + AdminsAdded events that the deploy
-  itself emits are easy to wire if useful (sol! decls already present in
-  decode::Factory; just need dispatch arms — 5-min adds).
+  PATH D — wire missing Factory event handlers:
+    Factory_FactoryConfigSet, AdminsAdded, Factory_TemplateReplaced —
+    sol! decls already present, just need dispatch arms + tables.
+    These would let the indexer track admin actions on the Factory itself
+    (template management, beacon reconfig). 5-min adds per event.
+
+  LEVERAGE PRIORITY:
+    PATH A (intra-block fix) — closes the LAST architectural gap.
+    PATH D (factory admin events) — quick wins, more surface for free.
+    PATH B (apps/ui) — biggest user-visible win but human design helpful.
+    PATH C — least urgent.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:
