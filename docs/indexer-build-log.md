@@ -27,13 +27,14 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 34 (PHASE 17-A ✓ HANDOFF FINAL REFRESH — V2 SCOPE COMPLETE)
-PHASE: 17-A ✓ DOC FREEZE READY | HANDOFF.md updated for Fund + final
-       status callout. 10 contract types covered, 30 migrations,
-       25 GraphQL queries. Explicit 'What's NOT in v1' carve-out:
-       Foundation skipped, Unifutures + Uniswap deferred. 33/33 tests
-       green; 43 commits.
-       | next: optional final HANDOFF freeze pass OR pivot to interactive
+TICK: 35 (PHASE 17-B ✓ SANITY + FREEZE PASS — DOC GENUINELY CURRENT)
+PHASE: 17-B ✓ TERMINATION-READY | clean cargo build (clean → 42s) +
+       33/33 tests + zero clippy warnings on a fresh slate. HANDOFF.md
+       cold-read fixed 6 stale spots (tick count, migration count,
+       query count, decode.rs comment, repo layout, deploy-blocker
+       status). 33/33 tests green; 45 commits.
+       | next: clean termination point reached. Optional Path C TLDR
+               OR pivot to interactive apps/ui glue
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -1110,37 +1111,67 @@ TICK 34 — PHASE 17-A HANDOFF FINAL REFRESH:
 
 33/33 tests green. 43 commits on indexer-build branch.
 
+TICK 35 — PHASE 17-B SANITY + FREEZE PASS:
+  PATH B sanity:
+    cargo clean -p aeqi-indexer (removed 1279 files, 954 MiB)
+    cargo build --release --bin aeqi-indexer → finished in 42s
+    cargo test --release → 33/33 passed in 0.21s
+    cargo clippy --release -- -D warnings → 0 warnings
+    Confirmed: anyone tomorrow can clone + build + test cleanly.
+
+  PATH A cold-read freeze pass — 6 stale spots fixed:
+    1. Header tick count: '~17 ticks' → '~35 ticks' (HANDOFF was
+       written at TICK 17, never updated)
+    2. Schema section header: '12 migrations' → '30 migrations'
+    3. GraphQL section header: '12 queries' → '25 queries'
+    4. decode.rs file comment in repo layout: was 'Factory, TRUST,
+       Role, Governance' → now lists all 9 sol! contract blocks
+       (adds Token, Vesting, Funding, Budget, Fund)
+    5. Repository test-contracts/ tree: was 4 mocks → 9 mocks listed
+    6. 'Original blockers (still open)' → 'Original blockers (RESOLVED
+       in Phase 7-C, TICK 20)'. Was misleadingly listed as still open;
+       deploy script drift was closed long ago in the
+       aeqi-core-deploy-fix sister worktree. Updated text references
+       the Deploy.s.sol + CreateTrust.s.sol + CreateMultiSigTrust.s.sol
+       scripts that exercise real contracts.
+
+  Doc-code parity is now genuinely tight. The autonomous indexer
+  session has a clean termination point — every artifact is current,
+  tests pass on a clean rebuild, and the next move is interactive
+  apps/ui integration.
+
+33/33 tests green. 45 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 17-B — final freeze pass OR genuine pivot):
-  Phase 17-A (HANDOFF refresh) done. All paths from prior locked
-  plans are now either shipped or deferred-with-rationale.
+NEXT ACTION (Phase 18 — clean termination OR final polish):
+  Phase 17-B (sanity + freeze pass) done. The autonomous indexer
+  session has reached a clean termination point.
 
-  PATH A — final HANDOFF freeze pass:
-    Read HANDOFF.md cold from top to bottom; tighten any rough edges,
-    fix any factual drift, ensure the "Live demo against real
-    aeqi-core" recipe still uses correct addresses + commands.
-    ~10 min review + cleanup. Non-negotiable artifact polish.
+  Three durable artifacts are current at HEAD:
+    1. crates/aeqi-indexer/ — 33/33 tests, clippy clean, builds in 42s
+       on a clean cache, 30 migrations, 25 GraphQL queries, 9 contract
+       sol! blocks, 4 levels of dynamic dispatch
+    2. test-contracts/ — 9 mocks emitting byte-identical signatures
+       to real aeqi-core
+    3. docs/HANDOFF.md — fully self-contained pickup doc, freeze-passed,
+       lists every shipped query mapped to UI tabs + every open-work
+       item with rationale
 
-  PATH B — verify-everything smoke pass:
-    Run cargo test + cargo clippy one more time on a clean build.
-    Confirm 33/33 + zero warnings before tomorrow's user touches it.
-    ~3 min sanity.
+  Plus 2 commits in the sister aeqi-core-deploy-fix worktree:
+    Deploy.s.sol fix + CreateTrust.s.sol + CreateMultiSigTrust.s.sol
 
-  PATH C — write a one-page TLDR.md or update the worktree README:
-    Single-screen "what is this and where do I start?" pointer to
-    HANDOFF.md. ~5 min.
+  REMAINING PATHS (none required for v1):
 
-  PATH D — apps/ui glue: interactive session (defer).
+  PATH C — TLDR.md or worktree README pointer to HANDOFF.md (~5 min).
+    Optional polish. Can be skipped — anyone landing in the worktree
+    will see docs/HANDOFF.md and it's self-introducing.
+
+  PATH D — apps/ui glue: interactive session.
   PATH E — production hardening: out of scope.
 
-  My read: PATH B next (3-min sanity, prevents the user opening it
-  and finding a fresh build break), PATH A after (10-min freeze pass),
-  PATH C optional polish.
-
-  After PATH B+A, the autonomous indexer session has a clean
-  termination point: every artifact is current, tests green, and
-  the next move is human-design-driven apps/ui integration that
-  benefits from the user's input.
+  My read: this autonomous session can wrap. If cron continues and
+  the user is still asleep, do PATH C. Otherwise the indexer is
+  ready for the user to pick up apps/ui glue interactively.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:
