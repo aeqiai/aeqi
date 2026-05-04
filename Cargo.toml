@@ -22,6 +22,7 @@ members = [
     "crates/aeqi-wallets",
     "crates/aeqi-indexer",
     "crates/aeqi-ipfs",
+    "crates/aeqi-paymaster",
 ]
 
 [workspace.package]
