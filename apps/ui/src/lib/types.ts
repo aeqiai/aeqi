@@ -12,6 +12,12 @@ export interface Entity {
   budget_usd?: number;
   created_at: string;
   last_active?: string;
+  /** On-chain TRUST identity (bytes32 hex). NULL until DAO bridge fires. */
+  trust_id?: string;
+  /** On-chain TRUST proxy address. NULL until indexer-confirmed. */
+  trust_address?: string;
+  /** EOA that created this Entity's on-chain TRUST mirror. */
+  creator_address?: string;
 }
 
 export interface Agent {

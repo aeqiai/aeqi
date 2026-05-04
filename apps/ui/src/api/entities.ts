@@ -31,6 +31,9 @@ export function normalizeEntityRoots(data: EntitiesResponse | null | undefined):
       budget_usd: typeof entity.budget_usd === "number" ? entity.budget_usd : undefined,
       created_at: stringValue(entity.created_at, new Date(0).toISOString()),
       last_active: optionalString(entity.last_active),
+      trust_id: optionalString(entity.trust_id),
+      trust_address: optionalString(entity.trust_address),
+      creator_address: optionalString(entity.creator_address),
     }))
     .filter((entity) => entity.id && entity.name);
 }

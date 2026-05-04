@@ -52,13 +52,12 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
   // for now (Phase-1 cross-company aggregation lives at top-level
   // /inbox in WS-57).
   if (tab === "inbox") return <MeInboxPage />;
-  if (tab === "ownership") return <OwnershipPage />;
-  if (tab === "treasury") return <TreasuryPage />;
-  if (tab === "governance") return <GovernancePage />;
+  if (tab === "ownership") return <OwnershipPage entityId={entityId} />;
+  if (tab === "treasury") return <TreasuryPage entityId={entityId} />;
+  if (tab === "governance") return <GovernancePage entityId={entityId} />;
   if (tab === "settings") return <CompanySettingsPage agentId={agentId} />;
 
   // Overview, Roles, and any other primitive tab (agents, events,
   // quests, ideas) render through AgentPage on the entity's root agent.
-  void entityId;
   return <AgentPage agentId={agentId} tab={tab} itemId={itemId} />;
 }
