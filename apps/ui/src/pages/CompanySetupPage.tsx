@@ -1,60 +1,202 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { Blueprint, RoleOverrideOccupant } from "@/lib/types";
+import type { Blueprint } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
-import { useDaemonStore } from "@/store/daemon";
-import { useUIStore } from "@/store/ui";
-import { Button, Input, Spinner } from "@/components/ui";
+import { Button, Spinner } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FOUNDER_FEE } from "@/lib/pricing";
 import {
-  BlueprintRolePicker,
-  buildRoleOverridesPayload,
-} from "@/components/blueprints/BlueprintRolePicker";
-import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
-import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
-import { COMPANY_MONTHLY, FEATURES, FOUNDER_FEE } from "@/lib/pricing";
+  WizardIdentityPanel,
+  WizardRolesPanel,
+  WizardTokenPanel,
+  WizardVestingPanel,
+  WizardGovernancePanel,
+  WizardReviewPanel,
+  slugify,
+} from "@/components/wizard";
+import type {
+  IdentityState,
+  RoleSeat,
+  InviteRow,
+  TokenState,
+  VestingState,
+  GovernanceState,
+  WizardState,
+} from "@/components/wizard";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
+import "@/styles/wizard.css";
 
 /**
- * `/start/:slug` — the company setup surface. Sits between picking a
- * Blueprint and the actual spawn so the operator confirms three things
- * in one flow:
+ * `/start/:slug` — company setup wizard.
  *
- *   1. Name — what the company is called (defaults to root.name)
- *   2. Team — role overrides via BlueprintRolePicker
- *   3. Confirm — single CTA that bounces to Stripe checkout
+ * Sits between picking a Blueprint and the actual spawn so the operator
+ * configures six panels in one scrollable flow:
  *
- * Pricing is a single offer: $19 first month, $49/mo after. Stripe handles
- * this as one $49/mo Product with an auto-applied first-month coupon
- * (-$30, duration: once). No trial, no annual, no tier picker — see
- * lib/pricing.ts.
+ *   Identity → Roles → Token → Vesting → Governance → Review
+ *
+ * Panels are collapsible sections, not modal steps. Default state is
+ * collapsed showing the auto-filled summary; "Configure" header toggle
+ * expands all at once. Panels only render when the blueprint has the
+ * relevant module (Token / Vesting / Governance hidden for personal-os).
+ *
+ * Submit logic is deferred — the Create company CTA in Review stays
+ * disabled until WS-1 (role encoder) + WS-9 (IPFS upload) land.
  */
+
+/** True when the blueprint is "personal-os" — stripped wizard variant. */
+function isPersonalOs(blueprint: Blueprint): boolean {
+  return blueprint.slug === "personal-os";
+}
+
+/**
+ * Derive initial role seats from the blueprint.
+ * - For personal-os: single Owner row with the user.
+ * - For everything else: seed_roles map to seats; founder role(s)
+ *   assigned to the user, agent seats assigned to their seed_agent.
+ */
+function deriveSeats(blueprint: Blueprint, userId: string | null): RoleSeat[] {
+  if (isPersonalOs(blueprint)) {
+    return [
+      {
+        key: "owner",
+        title: "Owner",
+        roleType: "founder",
+        occupant: userId ? `user:${userId}` : "user:me",
+        addressPlaceholder: "0x... — provisioned at create",
+      },
+    ];
+  }
+
+  if (!blueprint.seed_roles || blueprint.seed_roles.length === 0) {
+    // Fallback: create a single Founder seat for the user + agent seats for seed_agents
+    const seats: RoleSeat[] = [
+      {
+        key: "founder",
+        title: "Founder",
+        roleType: "founder",
+        occupant: userId ? `user:${userId}` : "user:me",
+        addressPlaceholder: "0x... — provisioned at create",
+      },
+    ];
+    for (const agent of blueprint.seed_agents ?? []) {
+      seats.push({
+        key: agent.name.toLowerCase().replace(/\s+/g, "-"),
+        title: agent.name,
+        roleType: "worker",
+        occupant: `agent:${agent.name}`,
+        addressPlaceholder: null,
+      });
+    }
+    return seats;
+  }
+
+  return blueprint.seed_roles.map((r) => {
+    const isFounder = r.key === "founder" || r.title.toLowerCase().includes("founder");
+    const isDirector = r.key === "director" || r.title.toLowerCase().includes("director");
+    const isHumanSlot = isFounder || isDirector;
+    const roleType = isFounder ? "founder" : isDirector ? "director" : "worker";
+
+    return {
+      key: r.key,
+      title: r.title,
+      roleType,
+      occupant: isHumanSlot
+        ? userId
+          ? `user:${userId}`
+          : "user:me"
+        : `agent:${r.default_occupant_agent ?? r.title}`,
+      addressPlaceholder: isHumanSlot ? "0x... — provisioned at create" : null,
+    };
+  });
+}
+
+/** True for blueprints that should show Token / Vesting / Governance panels. */
+function hasOnchainModules(blueprint: Blueprint): boolean {
+  return !isPersonalOs(blueprint);
+}
+
+function deriveDefaultToken(blueprint: Blueprint): TokenState {
+  const companyName = blueprint.root?.name ?? blueprint.name;
+  const symbol = companyName
+    .replace(/[^a-zA-Z]/g, "")
+    .slice(0, 4)
+    .toUpperCase();
+  return {
+    name: `${companyName} Token`,
+    symbol,
+    maxSupply: "100000000",
+  };
+}
+
+const DEFAULT_VESTING: VestingState = {
+  schedules: [
+    { roleType: "Founder", durationYears: "4", cliffMonths: "12" },
+    { roleType: "Director", durationYears: "4", cliffMonths: "12" },
+    { roleType: "Worker", durationYears: "2", cliffMonths: "6" },
+  ],
+};
+
+const DEFAULT_GOVERNANCE: GovernanceState = {
+  votingPeriodDays: "7",
+  quorumPct: "50",
+  proposalThresholdPct: "1",
+};
+
+type PanelId = "identity" | "roles" | "token" | "vesting" | "governance" | "review";
+
 export default function CompanySetupPage() {
   const navigate = useNavigate();
   const { slug = "" } = useParams<{ slug: string }>();
   const userId = useAuthStore((s) => s.user?.id ?? null);
+  const userName = useAuthStore((s) => s.user?.name ?? "You");
   const subscriptionStatus = useAuthStore((s) => s.user?.subscription_status ?? null);
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
-  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
-  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
-  const fetchAgents = useDaemonStore((s) => s.fetchAgents);
   const isInvited = subscriptionStatus === "invited";
-  // Admins skip Stripe entirely — they need free dev/test Companies for
-  // dogfooding. Backend `/api/start/launch` already accepts them via the
-  // existing `paid` gate (admin's first Company is on an active sub).
   const skipsStripe = isInvited || isAdmin;
 
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
-  const [overrides, setOverrides] = useState<Record<string, RoleOverrideOccupant>>({});
+  // ── Wizard state ─────────────────────────────────────────────────
+  const [identity, setIdentity] = useState<IdentityState>({
+    name: "",
+    tagline: "",
+    slug: "",
+  });
+  const [seats, setSeats] = useState<RoleSeat[]>([]);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [token, setToken] = useState<TokenState | null>(null);
+  const [vesting, setVesting] = useState<VestingState | null>(null);
+  const [governance, setGovernance] = useState<GovernanceState | null>(null);
 
-  const [launching, setLaunching] = useState(false);
-  const [launchError, setLaunchError] = useState<string | null>(null);
+  // ── Panel expand/collapse state ──────────────────────────────────
+  const [expandedPanels, setExpandedPanels] = useState<Set<PanelId>>(new Set());
+
+  function togglePanel(id: PanelId) {
+    setExpandedPanels((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function expandAll() {
+    const ids: PanelId[] = ["identity", "roles", "token", "vesting", "governance", "review"];
+    setExpandedPanels(new Set(ids));
+  }
+
+  function collapseAll() {
+    setExpandedPanels(new Set());
+  }
+
+  const allExpanded = expandedPanels.size >= (blueprint && hasOnchainModules(blueprint) ? 6 : 3);
 
   useEffect(() => {
     document.title = blueprint?.name ? `Set up ${blueprint.name} · aeqi` : "Set up · aeqi";
@@ -70,8 +212,24 @@ export default function CompanySetupPage() {
       .then((resp) => {
         if (cancelled) return;
         if (resp.blueprint) {
-          setBlueprint(resp.blueprint);
-          setName(resp.blueprint.root?.name ?? resp.blueprint.name);
+          const bp = resp.blueprint;
+          setBlueprint(bp);
+
+          // Seed wizard state from blueprint defaults
+          const name = bp.root?.name ?? bp.name;
+          const tagline = bp.tagline ?? "";
+          setIdentity({ name, tagline, slug: slugify(name) });
+          setSeats(deriveSeats(bp, userId));
+
+          if (hasOnchainModules(bp)) {
+            setToken(deriveDefaultToken(bp));
+            setVesting(DEFAULT_VESTING);
+            setGovernance(DEFAULT_GOVERNANCE);
+          } else {
+            setToken(null);
+            setVesting(null);
+            setGovernance(null);
+          }
         } else {
           setLoadError("Blueprint not found.");
         }
@@ -86,71 +244,13 @@ export default function CompanySetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
-
-  const launch = useCallback(async () => {
-    if (!blueprint) return;
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setLaunchError("Give your company a name.");
-      return;
-    }
-    setLaunching(true);
-    setLaunchError(null);
-    try {
-      // Direct-launch path: invited users (sandbox tier) and admins
-      // (free dev/test Companies). Everyone else hits Stripe Checkout
-      // for the per-Company subscription. role_overrides only flow
-      // through the direct path for now — post-checkout webhook spawn
-      // doesn't thread them yet.
-      if (skipsStripe) {
-        const resp = await api.startLaunch({
-          template: blueprint.slug,
-          display_name: trimmed,
-        });
-        if (!resp.ok || !resp.entity_id) {
-          setLaunchError("Spawn failed — please try again.");
-          setLaunching(false);
-          return;
-        }
-        setActiveEntity(resp.entity_id);
-        await Promise.all([fetchEntities(), fetchAgents()]).catch(() => {});
-        navigate(`/c/${encodeURIComponent(resp.entity_id)}/inbox`);
-        return;
-      }
-
-      const rolePayload = buildRoleOverridesPayload(blueprint, overrides);
-      const { url } = await api.createCheckoutSession({
-        blueprint: blueprint.slug,
-        display_name: trimmed,
-        ...(rolePayload.length > 0 ? { role_overrides: rolePayload } : {}),
-      });
-      if (!url) {
-        setLaunchError("Checkout failed — couldn't reach Stripe.");
-        setLaunching(false);
-        return;
-      }
-      window.location.href = url;
-    } catch (err) {
-      setLaunchError(err instanceof Error ? err.message : "Launch failed.");
-      setLaunching(false);
-    }
-  }, [
-    blueprint,
-    name,
-    overrides,
-    skipsStripe,
-    navigate,
-    setActiveEntity,
-    fetchEntities,
-    fetchAgents,
-  ]);
+  }, [slug, userId]);
 
   if (loading && !blueprint) {
     return (
-      <div className="company-setup">
+      <div className="wizard-page">
         <div className="bp-status">
-          <Spinner size="sm" /> Loading Blueprint…
+          <Spinner size="sm" /> Loading blueprint…
         </div>
       </div>
     );
@@ -158,13 +258,13 @@ export default function CompanySetupPage() {
 
   if (!blueprint) {
     return (
-      <div className="company-setup">
+      <div className="wizard-page">
         <EmptyState
           title="Blueprint not found."
-          description={loadError || "We couldn't find a Blueprint with that slug."}
+          description={loadError || "We couldn't find a blueprint with that slug."}
           action={
             <Button variant="secondary" onClick={() => navigate("/blueprints")}>
-              Back to the catalog
+              Back to catalog
             </Button>
           }
         />
@@ -172,101 +272,108 @@ export default function CompanySetupPage() {
     );
   }
 
+  const personal = isPersonalOs(blueprint);
+  const onchain = hasOnchainModules(blueprint);
+
+  const wizardState: WizardState = {
+    identity,
+    seats,
+    invites,
+    token: onchain ? token : null,
+    vesting: onchain ? vesting : null,
+    governance: onchain ? governance : null,
+  };
+
   return (
-    <div className="company-setup">
-      <header className="company-setup-head">
-        <p className="company-setup-eyebrow">Set up · {blueprint.name}</p>
-        <h1 className="company-setup-title">Launch your company.</h1>
-        <p className="company-setup-sub">
-          {blueprint.tagline || "Confirm a name, your team, and start."}
-        </p>
+    <div className="wizard-page">
+      {/* ── Page header ─────────────────────────────── */}
+      <header className="wizard-head">
+        <p className="wizard-eyebrow">Set up · {blueprint.name}</p>
+        <h1 className="wizard-title">Configure your company.</h1>
+        <p className="wizard-sub">{blueprint.tagline || "Review and configure, then create."}</p>
       </header>
 
-      {/* ── 1. Name ────────────────────────────────────── */}
-      <section className="company-setup-section" aria-labelledby="setup-name-heading">
-        <header className="company-setup-section-head">
-          <h2 id="setup-name-heading" className="company-setup-section-title">
-            <span className="company-setup-section-step">1</span>
-            Name your company
-          </h2>
-          <p className="company-setup-section-sub">
-            What it's called everywhere in aeqi. You can rename later.
-          </p>
-        </header>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Atlas Studio"
-          autoFocus
-        />
-      </section>
+      {/* ── Top CTA row ─────────────────────────────── */}
+      <div className="wizard-cta-row">
+        <Button
+          variant="primary"
+          disabled
+          title="WS-1 (role encoder) + WS-9 (IPFS) must land first"
+        >
+          {skipsStripe ? "Create company" : `Create company — $${FOUNDER_FEE} today`}
+        </Button>
+        <button
+          type="button"
+          className="wizard-configure-toggle"
+          onClick={allExpanded ? collapseAll : expandAll}
+        >
+          {allExpanded ? "Collapse all" : "Configure"}
+        </button>
+      </div>
 
-      {/* ── 2. Team ────────────────────────────────────── */}
-      <section className="company-setup-section" aria-labelledby="setup-team-heading">
-        <header className="company-setup-section-head">
-          <h2 id="setup-team-heading" className="company-setup-section-title">
-            <span className="company-setup-section-step">2</span>
-            Set up your team
-          </h2>
-          <p className="company-setup-section-sub">
-            Each role ships with a default agent. Swap any for yourself, or leave vacant to hire
-            later.
-          </p>
-        </header>
-        <BlueprintTreePreview template={blueprint} />
-        <div className="company-setup-counts">
-          <BlueprintSeedCounts template={blueprint} />
-        </div>
-        <BlueprintRolePicker
-          template={blueprint}
+      {/* ── Panel stack ─────────────────────────────── */}
+      <div className="wizard-panels">
+        <WizardIdentityPanel
+          state={identity}
+          onChange={setIdentity}
+          expanded={expandedPanels.has("identity")}
+          onToggle={() => togglePanel("identity")}
+        />
+
+        <WizardRolesPanel
+          blueprint={blueprint}
           userId={userId}
-          overrides={overrides}
-          onChange={setOverrides}
+          userName={userName}
+          seats={seats}
+          invites={invites}
+          onSeatsChange={setSeats}
+          onInvitesChange={setInvites}
+          expanded={expandedPanels.has("roles")}
+          onToggle={() => togglePanel("roles")}
+          personalOs={personal}
         />
-      </section>
 
-      {/* ── 3. Pricing summary ─────────────────────────── */}
-      <section className="company-setup-section" aria-labelledby="setup-pricing-heading">
-        <header className="company-setup-section-head">
-          <h2 id="setup-pricing-heading" className="company-setup-section-title">
-            <span className="company-setup-section-step">3</span>
-            What you get
-          </h2>
-          <p className="company-setup-section-sub">
-            {isAdmin
-              ? "Admin account — Companies you create are free for dev/test. No billing."
-              : isInvited
-                ? "You're on the invite-only sandbox tier — no payment required. Your company runs on shared infrastructure with free models."
-                : `$${FOUNDER_FEE} first month, then $${COMPANY_MONTHLY} / month. Cancel anytime — your card won't be charged again.`}
-          </p>
-        </header>
+        {onchain && token && (
+          <WizardTokenPanel
+            state={token}
+            onChange={setToken}
+            expanded={expandedPanels.has("token")}
+            onToggle={() => togglePanel("token")}
+          />
+        )}
 
-        <ul className="plan-summary-features" role="list">
-          {FEATURES.map((f) => (
-            <li key={f.text} className={f.highlight ? "is-highlight" : undefined}>
-              {f.text}
-              {f.soon && <span className="plan-summary-soon"> · soon</span>}
-            </li>
-          ))}
-        </ul>
-      </section>
+        {onchain && vesting && (
+          <WizardVestingPanel
+            state={vesting}
+            onChange={setVesting}
+            expanded={expandedPanels.has("vesting")}
+            onToggle={() => togglePanel("vesting")}
+          />
+        )}
 
-      {/* ── Launch ─────────────────────────────────────── */}
-      {launchError && (
-        <div className="bp-error" role="alert">
-          {launchError}
-        </div>
-      )}
-      <div className="company-setup-foot">
+        {onchain && governance && (
+          <WizardGovernancePanel
+            state={governance}
+            onChange={setGovernance}
+            expanded={expandedPanels.has("governance")}
+            onToggle={() => togglePanel("governance")}
+          />
+        )}
+
+        <WizardReviewPanel
+          state={wizardState}
+          expanded={expandedPanels.has("review")}
+          onToggle={() => togglePanel("review")}
+        />
+      </div>
+
+      {/* ── Footer nav ──────────────────────────────── */}
+      <div className="wizard-foot">
         <Button
           variant="secondary"
           onClick={() => navigate(`/blueprints/${encodeURIComponent(blueprint.slug)}`)}
-          disabled={launching}
         >
-          ← Back to Blueprint
-        </Button>
-        <Button variant="primary" onClick={launch} loading={launching} disabled={!name.trim()}>
-          {skipsStripe ? "Launch your company →" : `Continue to checkout — $${FOUNDER_FEE} today →`}
+          Back to blueprint
         </Button>
       </div>
     </div>

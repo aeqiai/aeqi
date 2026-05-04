@@ -1,0 +1,93 @@
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summaryHeading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.summaryGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reviewRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.reviewLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.reviewValue {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  text-align: right;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Calldata preview */
+
+.calldataSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calldataLabel {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.calldataNote {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 6px;
+  font-style: italic;
+}
+
+.calldataPre {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+/* CTA */
+
+.ctaSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.ctaNote {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}

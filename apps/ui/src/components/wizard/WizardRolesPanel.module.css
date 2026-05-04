@@ -1,0 +1,145 @@
+.seatList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seatRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+}
+
+.seatLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.seatTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.seatType {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+  background: var(--key-pill-bg);
+  border: 1px solid var(--key-pill-border);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+}
+
+.seatOccupant {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 0;
+}
+
+.occupantName {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.occupantAddr {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.occupantAgent {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.occupantVacant {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Invite rows */
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+}
+
+.inviteFields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.removeInvite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.removeInvite:hover {
+  background: var(--state-hover);
+  color: var(--color-text-primary);
+}
+
+/* Add row */
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.addRow:hover {
+  background: var(--state-hover);
+  color: var(--color-text-primary);
+}
+
+.addIcon {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.addLabel {
+  font-size: var(--font-size-sm);
+}

@@ -1,0 +1,35 @@
+.scheduleList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scheduleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+}
+
+.roleType {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.separator {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}

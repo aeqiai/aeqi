@@ -1,0 +1,103 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ *  /start/:slug wizard layout
+ *
+ *  Wraps all wizard panels in a centered single-column
+ *  flow. Panels are collapsible sections (WizardPanel).
+ *  No hairlines, no border-left stripes, no shadows.
+ *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Page scaffold — same geometry as .company-setup */
+.wizard-page {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Page header ─────────────────────────────────── */
+
+.wizard-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.wizard-eyebrow {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.wizard-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+
+.wizard-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 56ch;
+  line-height: 1.55;
+}
+
+/* ── Header CTA row ──────────────────────────────── */
+
+.wizard-cta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* ── Configure toggle ────────────────────────────── */
+
+.wizard-configure-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--input-h);
+  padding: 0 var(--input-px);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.wizard-configure-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* ── Panel stack ─────────────────────────────────── */
+
+.wizard-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ── Footer nav ──────────────────────────────────── */
+
+.wizard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: var(--space-2);
+}
