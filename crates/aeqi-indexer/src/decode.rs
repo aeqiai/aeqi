@@ -215,6 +215,47 @@ sol! {
     }
 }
 
+// Fund module events — emitted by Fund.module instances.
+// Source: /home/claudedev/projects/aeqi-graph/abis/Fund.module.json
+//
+// v1 covers NAV checkpoints + flow lifecycle + position lifecycle. Skipped:
+// {Manager,Trust}CarryClaimed + MgmtFeesClaimed (tracked indirectly via NAV
+// charged fields), Paused/Unpaused (transient state), SetFundConfig (admin),
+// LPRoleClaimed + BookProcessed (role-binding, overlaps with Role module).
+sol! {
+    #[sol(rpc)]
+    contract Fund {
+        event Fund_NavProcessed(
+            uint64 indexed checkpointId,
+            uint256 netNAV,
+            uint256 tokenQuote,
+            uint256 mgmtFeesCharged,
+            uint256 carryCharged
+        );
+        event Fund_FlowRequested(
+            bytes32 indexed requestId,
+            bytes32 indexed roleId,
+            uint8 flowType,
+            uint256 amountIn
+        );
+        event Fund_FlowClaimed(bytes32 indexed requestId, uint256 amountOut);
+        event Fund_FlowCancelled(bytes32 indexed requestId);
+        event Fund_PositionOpened(
+            bytes32 indexed positionId,
+            bytes32 indexed positionManagerId
+        );
+        event Fund_PositionClosed(
+            bytes32 indexed positionId,
+            uint256 quoteAssetReceived
+        );
+        event Fund_PositionInteracted(
+            bytes32 indexed positionId,
+            bytes32 indexed roleId,
+            uint8 action
+        );
+    }
+}
+
 /// A normalized indexer event — what we actually persist after decoding raw logs.
 ///
 /// Cross-event uniformity: every variant carries the block + tx context so

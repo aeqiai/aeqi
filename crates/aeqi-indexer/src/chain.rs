@@ -455,6 +455,14 @@ pub mod poll {
                         decode::Budget::Budget_BudgetRemoved::SIGNATURE_HASH,
                         decode::Budget::Budget_BudgetDeposited::SIGNATURE_HASH,
                         decode::Budget::Budget_BudgetConsumed::SIGNATURE_HASH,
+                        // Fund module events (per-module)
+                        decode::Fund::Fund_NavProcessed::SIGNATURE_HASH,
+                        decode::Fund::Fund_FlowRequested::SIGNATURE_HASH,
+                        decode::Fund::Fund_FlowClaimed::SIGNATURE_HASH,
+                        decode::Fund::Fund_FlowCancelled::SIGNATURE_HASH,
+                        decode::Fund::Fund_PositionOpened::SIGNATURE_HASH,
+                        decode::Fund::Fund_PositionClosed::SIGNATURE_HASH,
+                        decode::Fund::Fund_PositionInteracted::SIGNATURE_HASH,
                     ];
                     let filter = Filter::new()
                         .from_block(block_num)
@@ -1430,6 +1438,195 @@ pub mod poll {
                                 }
                                 Err(e) => tracing::warn!(
                                     "decode Budget_BudgetConsumed failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_NavProcessed::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Fund::Fund_NavProcessed::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_fund_nav(
+                                        &conn,
+                                        &module_address,
+                                        ev.checkpointId,
+                                        &format!("{:#x}", ev.netNAV),
+                                        &format!("{:#x}", ev.tokenQuote),
+                                        &format!("{:#x}", ev.mgmtFeesCharged),
+                                        &format!("{:#x}", ev.carryCharged),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_NavProcessed: module={} checkpoint={} netNAV={:#x} block={}",
+                                        module_address, ev.checkpointId, ev.netNAV, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_NavProcessed failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_FlowRequested::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Fund::Fund_FlowRequested::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_fund_flow(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.requestId),
+                                        &format!("{:#x}", ev.roleId),
+                                        ev.flowType,
+                                        &format!("{:#x}", ev.amountIn),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_FlowRequested: module={} request={:#x} flowType={} amountIn={:#x} block={}",
+                                        module_address, ev.requestId, ev.flowType, ev.amountIn, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_FlowRequested failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_FlowClaimed::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Fund::Fund_FlowClaimed::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    let amount_out_hex = format!("{:#x}", ev.amountOut);
+                                    store::update_fund_flow_status(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.requestId),
+                                        "claimed",
+                                        Some(&amount_out_hex),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_FlowClaimed: module={} request={:#x} amountOut={:#x} block={}",
+                                        module_address, ev.requestId, ev.amountOut, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_FlowClaimed failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_FlowCancelled::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Fund::Fund_FlowCancelled::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::update_fund_flow_status(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.requestId),
+                                        "cancelled",
+                                        None,
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_FlowCancelled: module={} request={:#x} block={}",
+                                        module_address, ev.requestId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_FlowCancelled failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_PositionOpened::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Fund::Fund_PositionOpened::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_fund_position(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.positionId),
+                                        &format!("{:#x}", ev.positionManagerId),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_PositionOpened: module={} position={:#x} pmId={:#x} block={}",
+                                        module_address, ev.positionId, ev.positionManagerId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_PositionOpened failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_PositionClosed::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Fund::Fund_PositionClosed::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::close_fund_position(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.positionId),
+                                        &format!("{:#x}", ev.quoteAssetReceived),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_PositionClosed: module={} position={:#x} proceeds={:#x} block={}",
+                                        module_address, ev.positionId, ev.quoteAssetReceived, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_PositionClosed failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Fund::Fund_PositionInteracted::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            let log_index = log.log_index.unwrap_or(0);
+                            match decode::Fund::Fund_PositionInteracted::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    let coord = store::LogCoord {
+                                        block_number: block_num,
+                                        tx_hash: &tx_hash,
+                                        log_index,
+                                    };
+                                    store::insert_fund_position_interaction(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.positionId),
+                                        &format!("{:#x}", ev.roleId),
+                                        ev.action,
+                                        coord,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Fund_PositionInteracted: module={} position={:#x} action={} block={}",
+                                        module_address, ev.positionId, ev.action, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Fund_PositionInteracted failed at block {} tx {}: {}",
                                     block_num, tx_hash, e
                                 ),
                             }

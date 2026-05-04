@@ -27,13 +27,13 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 32 (PHASE 16-A ✓ HANDOFF MICRO-REFRESH + FOUNDATION/FUND SCOUT)
-PHASE: 16-A ✓ DOC PARITY + RECON | HANDOFF.md gains factory_config row +
-       factoryConfig query. Haiku scout result: Foundation = skip
-       (scaffolding only, no domain events), Fund = HIGH VALUE (NAV
-       checkpoints, position lifecycle, carry distribution — distinct
-       from already-shipped modules). 32/32 tests green; 40 commits.
-       | next: Fund module port (PATH B — high-leverage demo addition)
+TICK: 33 (PHASE 16-B ✓ FUND MODULE — NAVS + FLOWS + POSITIONS)
+PHASE: 16-B ✓ FUND VEHICLE INDEXED | NAV time series + flow lifecycle
+       (requested → claimed | cancelled) + position lifecycle
+       (open → closed) + interactions audit. Live-verified: 6 events in
+       1 tx (NAV + flow + position cycle) → all entities populated.
+       33/33 tests green; 41 commits.
+       | next: HANDOFF micro-refresh OR apps/ui glue (interactive)
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -1026,46 +1026,89 @@ TICK 32 — PHASE 16-A HANDOFF REFRESH + SCOUT:
 
 32/32 tests green. 40 commits on indexer-build branch.
 
+TICK 33 — PHASE 16-B FUND MODULE PORT:
+  Cherry-picked 7 events from Fund.module ABI (skipped admin, transient
+  state, role-binding events that overlap with Role module):
+    Fund_NavProcessed (checkpoint_id, netNAV, tokenQuote, mgmtFees, carry)
+      — chart-friendly time series of fund valuation
+    Fund_FlowRequested (request_id, role_id, flow_type, amount_in)
+      — deposit/redemption/carry initiated; flow_type discriminator
+    Fund_FlowClaimed (request_id, amount_out)
+      — settle event; amount_out + status='claimed' written via UPDATE
+    Fund_FlowCancelled (request_id) — abort; status='cancelled'
+    Fund_PositionOpened (position_id, position_manager_id) — status='open'
+    Fund_PositionClosed (position_id, quote_asset_received) — status='closed'
+    Fund_PositionInteracted (position_id, role_id, action) — audit row
+
+  Schema (4 new migrations):
+    027_fund_navs(module, checkpoint_id PK, net_nav, token_quote,
+      mgmt_fees_charged, carry_charged, ...)
+    028_fund_flows(module, request_id PK, role_id, flow_type, amount_in,
+      amount_out, status, requested_*, settled_*) — single row per request
+      with status mutations
+    029_fund_positions(module, position_id PK, position_manager_id, status,
+      quote_asset_received, opened_*, closed_*) — single row per position
+      with lifecycle UPDATE on close
+    030_fund_position_interactions(id, module, position_id, role_id,
+      action, log coord) — append-only audit
+
+  Decode: sol! Fund contract block (7 events, mix of indexed types).
+  Poll loop: 7 dispatch arms following the locked recipe.
+  GraphQL: 4 SimpleObjects + 4 queries:
+    FundNav, FundFlow, FundPosition, FundPositionInteraction
+    fundNavs, fundFlows, fundPositions, fundPositionInteractions
+
+  MockFund with emitFundCycle (6 events in 1 tx for full smoke):
+    NavProcessed (checkpoint 1) + FlowRequested + FlowClaimed +
+    PositionOpened + PositionInteracted + PositionClosed.
+
+  LIVE-TESTED end-to-end:
+    block 6861: TrustCreated
+    block 6879: TRUST_ModuleAdded(MockFund) → fund module auto-watched
+    block 6897: emitFundCycle → all 6 events dispatched in one block
+    GraphQL fundNavs: [{ checkpoint 1, netNAV 0xf4240=1M, fees 0x64, carry 0xc8 }]
+    GraphQL fundFlows: [{ request 0xbeef, status='claimed', in=0xc350=50k,
+      out=0xc15c=49.5k }]
+    GraphQL fundPositions: [{ position 0xcafe, status='closed',
+      proceeds=0xcb20=52k }]
+
+  Indexer surface now spans 10 contract types (Factory + TRUST + Role +
+  Governance + Token + Vesting + Funding + Budget + Fund + accounts),
+  30 schema migrations, 25 GraphQL queries, ~50 dispatched event types.
+
+  Foundation skipped (scaffolding only). Unifutures still pending —
+  derivative-positions, niche, defer indefinitely.
+
+  This is the END of the meaningful module-port work. Remaining ABIs
+  in ~/projects/aeqi-graph/abis/: Beacon (no demo events), Module
+  (interface), Dao (legacy?), Uniswap/UniswapPositionManager (DEX
+  integration, niche). All can be added later via the locked recipe
+  if the apps/ui demo needs them.
+
+33/33 tests green. 41 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 16-B — Fund module port):
-  Phase 16-A (HANDOFF refresh + scout) done. Foundation skipped, Fund
-  judged worth porting.
+NEXT ACTION (Phase 17 — closing artifacts):
+  Phase 16-B (Fund) done. The meaningful module-port endgame is reached.
+  Indexer covers 10 contract types, 30 migrations, 25 GraphQL queries,
+  ~50 dispatched event types — every demo-critical surface for a v2
+  Company / Fund / cap-table flow.
 
-  PATH B — Fund module port (~30 min, locked recipe):
-    Source: ~/projects/aeqi-graph/abis/Fund.module.json
-    Cherry-pick the 8 high-value events:
-      - Fund_NavProcessed(checkpointId, netNAV, tokenQuote, mgmtFees,
-        carry) — time-series fund valuation
-      - Fund_FlowRequested(requestId, roleId, flowType, amountIn) —
-        deposits + redemptions (flowType discriminator: 0/1/2)
-      - Fund_FlowClaimed(requestId, amountOut) — settle event
-      - Fund_FlowCancelled(requestId) — settle abort
-      - Fund_PositionOpened(positionId, positionManagerId)
-      - Fund_PositionClosed(positionId, quoteAssetReceived)
-      - Fund_PositionInteracted(positionId, roleId, action)
-      - Fund_BookProcessed(roleId) + Fund_LPRoleClaimed(roleId) — role binding
-      Skip: ManagerCarryClaimed, MgmtFeesClaimed, TrustCarryClaimed
-        (tracked indirectly via NavProcessed), Paused/Unpaused (state),
-        SetFundConfig (admin), InitializationStateChanged.
+  PATH A — HANDOFF micro-refresh: add Fund schema rows + 4 GraphQL
+    queries + per-tab Fund mapping. ~5 min.
 
-    Schema (3 tables for clean separation):
-      027_fund_navs(module, checkpoint_id PK, net_nav, token_quote,
-        mgmt_fees_charged, carry_charged, block, tx)
-      028_fund_flows(module, request_id PK, role_id, flow_type, amount_in,
-        amount_out, status='requested'/'claimed'/'cancelled',
-        block, tx) — single row per request with status updates
-      029_fund_positions(module, position_id PK, status='open'/'closed',
-        position_manager_id, quote_asset_received, opened_block, ...) +
-        030_fund_position_interactions audit log
+  PATH B — final HANDOFF freeze + final commit summary:
+    Read HANDOFF cold; tighten any rough edges. Add an "Indexer is
+    complete for v2 demo scope" callout at the top with a cross-link
+    to the build log for the per-tick history.
 
-    Total: ~50 lines of schema + ~150 lines of dispatch + ~80 lines of GraphQL.
+  PATH C — apps/ui glue: interactive session.
+  PATH D — production hardening: out of scope.
 
-  PATH F — apps/ui glue: interactive session.
-  PATH G — production hardening: out of scope.
-
-  My read: PATH B next tick. After Fund, the indexer covers everything
-  reasonable for a v2 cap-table demo. Then evaluate if any work remains
-  before a final HANDOFF freeze.
+  My read: PATH A next tick (5-min refresh — keeps doc parity tight),
+  PATH B after if cron remains. The autonomous session can wrap on a
+  clean note: indexer feature-complete, doc current, ready for the
+  user to pick up apps/ui glue interactively.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:

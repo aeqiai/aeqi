@@ -619,6 +619,103 @@ const MIGRATIONS: &[(&str, &str)] = &[
         );
         "#,
     ),
+    (
+        "027_fund_navs",
+        r#"
+        -- Time-series NAV checkpoints emitted by Fund_NavProcessed.
+        -- checkpoint_id is monotonic per fund module; one row = one
+        -- valuation snapshot. Replaying gives a NAV chart over time.
+        -- All amount fields stored as u256 hex.
+        CREATE TABLE IF NOT EXISTS fund_navs (
+            module_address TEXT NOT NULL,
+            checkpoint_id INTEGER NOT NULL,
+            net_nav TEXT NOT NULL,
+            token_quote TEXT NOT NULL,
+            mgmt_fees_charged TEXT NOT NULL,
+            carry_charged TEXT NOT NULL,
+            block_number INTEGER NOT NULL,
+            tx_hash TEXT NOT NULL,
+            PRIMARY KEY (module_address, checkpoint_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_fund_navs_block
+          ON fund_navs(module_address, block_number);
+        "#,
+    ),
+    (
+        "028_fund_flows",
+        r#"
+        -- One-row-per-request. Lifecycle:
+        --   FlowRequested(requestId, roleId, flowType, amountIn) → status='requested'
+        --   FlowClaimed(requestId, amountOut)                    → status='claimed', amount_out set
+        --   FlowCancelled(requestId)                             → status='cancelled'
+        -- flow_type discriminator (uint8 from event): 0=deposit, 1=redemption,
+        -- 2=carry — frontend interprets.
+        CREATE TABLE IF NOT EXISTS fund_flows (
+            module_address TEXT NOT NULL,
+            request_id TEXT NOT NULL,
+            role_id TEXT NOT NULL,
+            flow_type INTEGER NOT NULL,
+            amount_in TEXT NOT NULL,
+            amount_out TEXT,
+            status TEXT NOT NULL DEFAULT 'requested',
+            requested_block INTEGER NOT NULL,
+            requested_tx TEXT NOT NULL,
+            settled_block INTEGER,
+            settled_tx TEXT,
+            PRIMARY KEY (module_address, request_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_fund_flows_role
+          ON fund_flows(module_address, role_id);
+        CREATE INDEX IF NOT EXISTS idx_fund_flows_status
+          ON fund_flows(module_address, status);
+        "#,
+    ),
+    (
+        "029_fund_positions",
+        r#"
+        -- Investment positions held by a fund. Lifecycle:
+        --   PositionOpened(positionId, positionManagerId)        → status='open'
+        --   PositionClosed(positionId, quoteAssetReceived)       → status='closed', proceeds set
+        --   PositionInteracted(positionId, roleId, action)       → audit-log row,
+        --     does NOT change status (managed in storage)
+        --
+        -- Interactions go to a separate fund_position_interactions table.
+        CREATE TABLE IF NOT EXISTS fund_positions (
+            module_address TEXT NOT NULL,
+            position_id TEXT NOT NULL,
+            position_manager_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            quote_asset_received TEXT,
+            opened_block INTEGER NOT NULL,
+            opened_tx TEXT NOT NULL,
+            closed_block INTEGER,
+            closed_tx TEXT,
+            PRIMARY KEY (module_address, position_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_fund_positions_status
+          ON fund_positions(module_address, status);
+        "#,
+    ),
+    (
+        "030_fund_position_interactions",
+        r#"
+        -- Audit log of position management actions. action is a uint8
+        -- from the event — frontend decodes to operation name.
+        CREATE TABLE IF NOT EXISTS fund_position_interactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_address TEXT NOT NULL,
+            position_id TEXT NOT NULL,
+            role_id TEXT NOT NULL,
+            action INTEGER NOT NULL,
+            block_number INTEGER NOT NULL,
+            tx_hash TEXT NOT NULL,
+            log_index INTEGER NOT NULL,
+            UNIQUE (module_address, block_number, tx_hash, log_index)
+        );
+        CREATE INDEX IF NOT EXISTS idx_fund_position_interactions_position
+          ON fund_position_interactions(module_address, position_id, block_number);
+        "#,
+    ),
 ];
 
 /// Open the SQLite database, applying any pending migrations.
@@ -2153,6 +2250,349 @@ pub fn get_funding_exits(
     Ok(rows)
 }
 
+/// Insert a Fund_NavProcessed checkpoint. Idempotent on (module, checkpoint_id).
+#[allow(clippy::too_many_arguments)]
+pub fn insert_fund_nav(
+    conn: &Connection,
+    module_address: &str,
+    checkpoint_id: u64,
+    net_nav: &str,
+    token_quote: &str,
+    mgmt_fees_charged: &str,
+    carry_charged: &str,
+    block_number: u64,
+    tx_hash: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO fund_navs
+            (module_address, checkpoint_id, net_nav, token_quote,
+             mgmt_fees_charged, carry_charged, block_number, tx_hash)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            module_address,
+            checkpoint_id as i64,
+            net_nav,
+            token_quote,
+            mgmt_fees_charged,
+            carry_charged,
+            block_number as i64,
+            tx_hash
+        ],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FundNavRow {
+    pub module_address: String,
+    pub checkpoint_id: u64,
+    pub net_nav: String,
+    pub token_quote: String,
+    pub mgmt_fees_charged: String,
+    pub carry_charged: String,
+    pub block_number: u64,
+    pub tx_hash: String,
+}
+
+/// All NAV checkpoints for a Fund module, oldest first (chart-friendly).
+pub fn get_fund_navs(conn: &Connection, module_address: &str) -> Result<Vec<FundNavRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT module_address, checkpoint_id, net_nav, token_quote,
+                mgmt_fees_charged, carry_charged, block_number, tx_hash
+         FROM fund_navs WHERE module_address = ?1
+         ORDER BY checkpoint_id ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![module_address], |r| {
+            Ok(FundNavRow {
+                module_address: r.get(0)?,
+                checkpoint_id: r.get::<_, i64>(1)? as u64,
+                net_nav: r.get(2)?,
+                token_quote: r.get(3)?,
+                mgmt_fees_charged: r.get(4)?,
+                carry_charged: r.get(5)?,
+                block_number: r.get::<_, i64>(6)? as u64,
+                tx_hash: r.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Insert a Fund_FlowRequested. Status starts 'requested'; later
+/// FlowClaimed/Cancelled transition the status via update_fund_flow_status.
+#[allow(clippy::too_many_arguments)]
+pub fn insert_fund_flow(
+    conn: &Connection,
+    module_address: &str,
+    request_id: &str,
+    role_id: &str,
+    flow_type: u8,
+    amount_in: &str,
+    requested_block: u64,
+    requested_tx: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO fund_flows
+            (module_address, request_id, role_id, flow_type, amount_in,
+             status, requested_block, requested_tx)
+         VALUES (?1, ?2, ?3, ?4, ?5, 'requested', ?6, ?7)",
+        params![
+            module_address,
+            request_id,
+            role_id,
+            flow_type as i64,
+            amount_in,
+            requested_block as i64,
+            requested_tx
+        ],
+    )?;
+    Ok(())
+}
+
+/// Update a fund flow on Claimed (status='claimed', amount_out set) or
+/// Cancelled (status='cancelled', amount_out left NULL). settled_block/tx
+/// captures the settlement event coords.
+pub fn update_fund_flow_status(
+    conn: &Connection,
+    module_address: &str,
+    request_id: &str,
+    status: &str,
+    amount_out: Option<&str>,
+    settled_block: u64,
+    settled_tx: &str,
+) -> Result<()> {
+    let n = conn.execute(
+        "UPDATE fund_flows
+         SET status = ?1, amount_out = ?2, settled_block = ?3, settled_tx = ?4
+         WHERE module_address = ?5 AND request_id = ?6",
+        params![
+            status,
+            amount_out,
+            settled_block as i64,
+            settled_tx,
+            module_address,
+            request_id
+        ],
+    )?;
+    if n == 0 {
+        tracing::warn!(
+            "fund flow status update for unknown request: module={} request_id={}",
+            module_address, request_id
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FundFlowRow {
+    pub module_address: String,
+    pub request_id: String,
+    pub role_id: String,
+    pub flow_type: u8,
+    pub amount_in: String,
+    pub amount_out: Option<String>,
+    pub status: String,
+    pub requested_block: u64,
+    pub requested_tx: String,
+    pub settled_block: Option<u64>,
+    pub settled_tx: Option<String>,
+}
+
+/// All flows for a Fund module, newest-requested first.
+pub fn get_fund_flows(conn: &Connection, module_address: &str) -> Result<Vec<FundFlowRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT module_address, request_id, role_id, flow_type, amount_in,
+                amount_out, status, requested_block, requested_tx,
+                settled_block, settled_tx
+         FROM fund_flows WHERE module_address = ?1
+         ORDER BY requested_block DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![module_address], |r| {
+            Ok(FundFlowRow {
+                module_address: r.get(0)?,
+                request_id: r.get(1)?,
+                role_id: r.get(2)?,
+                flow_type: r.get::<_, i64>(3)? as u8,
+                amount_in: r.get(4)?,
+                amount_out: r.get(5)?,
+                status: r.get(6)?,
+                requested_block: r.get::<_, i64>(7)? as u64,
+                requested_tx: r.get(8)?,
+                settled_block: r.get::<_, Option<i64>>(9)?.map(|n| n as u64),
+                settled_tx: r.get(10)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Insert a Fund_PositionOpened row. Status starts 'open'.
+pub fn insert_fund_position(
+    conn: &Connection,
+    module_address: &str,
+    position_id: &str,
+    position_manager_id: &str,
+    opened_block: u64,
+    opened_tx: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO fund_positions
+            (module_address, position_id, position_manager_id, status,
+             opened_block, opened_tx)
+         VALUES (?1, ?2, ?3, 'open', ?4, ?5)",
+        params![
+            module_address,
+            position_id,
+            position_manager_id,
+            opened_block as i64,
+            opened_tx
+        ],
+    )?;
+    Ok(())
+}
+
+/// Update a Fund position to 'closed' with the proceeds from PositionClosed.
+pub fn close_fund_position(
+    conn: &Connection,
+    module_address: &str,
+    position_id: &str,
+    quote_asset_received: &str,
+    closed_block: u64,
+    closed_tx: &str,
+) -> Result<()> {
+    let n = conn.execute(
+        "UPDATE fund_positions
+         SET status = 'closed', quote_asset_received = ?1,
+             closed_block = ?2, closed_tx = ?3
+         WHERE module_address = ?4 AND position_id = ?5",
+        params![
+            quote_asset_received,
+            closed_block as i64,
+            closed_tx,
+            module_address,
+            position_id
+        ],
+    )?;
+    if n == 0 {
+        tracing::warn!(
+            "fund position close for unknown position: module={} position_id={}",
+            module_address, position_id
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FundPositionRow {
+    pub module_address: String,
+    pub position_id: String,
+    pub position_manager_id: String,
+    pub status: String,
+    pub quote_asset_received: Option<String>,
+    pub opened_block: u64,
+    pub opened_tx: String,
+    pub closed_block: Option<u64>,
+    pub closed_tx: Option<String>,
+}
+
+/// All positions on a Fund module, oldest first.
+pub fn get_fund_positions(
+    conn: &Connection,
+    module_address: &str,
+) -> Result<Vec<FundPositionRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT module_address, position_id, position_manager_id, status,
+                quote_asset_received, opened_block, opened_tx, closed_block, closed_tx
+         FROM fund_positions WHERE module_address = ?1
+         ORDER BY opened_block ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![module_address], |r| {
+            Ok(FundPositionRow {
+                module_address: r.get(0)?,
+                position_id: r.get(1)?,
+                position_manager_id: r.get(2)?,
+                status: r.get(3)?,
+                quote_asset_received: r.get(4)?,
+                opened_block: r.get::<_, i64>(5)? as u64,
+                opened_tx: r.get(6)?,
+                closed_block: r.get::<_, Option<i64>>(7)?.map(|n| n as u64),
+                closed_tx: r.get(8)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Insert a Fund_PositionInteracted audit row. UNIQUE on log coord.
+pub fn insert_fund_position_interaction(
+    conn: &Connection,
+    module_address: &str,
+    position_id: &str,
+    role_id: &str,
+    action: u8,
+    coord: LogCoord<'_>,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO fund_position_interactions
+            (module_address, position_id, role_id, action,
+             block_number, tx_hash, log_index)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            module_address,
+            position_id,
+            role_id,
+            action as i64,
+            coord.block_number as i64,
+            coord.tx_hash,
+            coord.log_index as i64
+        ],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FundPositionInteractionRow {
+    pub module_address: String,
+    pub position_id: String,
+    pub role_id: String,
+    pub action: u8,
+    pub block_number: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+/// Audit log of interactions on a position, oldest first.
+pub fn get_fund_position_interactions(
+    conn: &Connection,
+    module_address: &str,
+    position_id: &str,
+) -> Result<Vec<FundPositionInteractionRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT module_address, position_id, role_id, action,
+                block_number, tx_hash, log_index
+         FROM fund_position_interactions
+         WHERE module_address = ?1 AND position_id = ?2
+         ORDER BY block_number ASC, log_index ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![module_address, position_id], |r| {
+            Ok(FundPositionInteractionRow {
+                module_address: r.get(0)?,
+                position_id: r.get(1)?,
+                role_id: r.get(2)?,
+                action: r.get::<_, i64>(3)? as u8,
+                block_number: r.get::<_, i64>(4)? as u64,
+                tx_hash: r.get(5)?,
+                log_index: r.get::<_, i64>(6)? as u64,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// UPSERT the beacon address for a factory (Factory_FactoryConfigSet).
 /// Other fields preserve their existing values.
 pub fn upsert_factory_beacon(
@@ -3051,6 +3491,68 @@ mod tests {
         assert_eq!(row.beacon_address.as_deref(), Some(new_beacon));
         assert_eq!(row.partner_ipfs_cid.as_deref(), Some("QmPartnerCID"), "partner preserved");
         assert_eq!(row.last_updated_block, 300);
+    }
+
+    #[test]
+    fn fund_flow_lifecycle_and_nav_round_trip() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let module = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+
+        // NAV checkpoints — chart-friendly time series
+        insert_fund_nav(&conn, module, 1, "0x3e8", "0x64", "0xa", "0x14", 100, "0xtxN1").unwrap();
+        insert_fund_nav(&conn, module, 2, "0x4b0", "0x6e", "0xc", "0x18", 200, "0xtxN2").unwrap();
+        let navs = get_fund_navs(&conn, module).unwrap();
+        assert_eq!(navs.len(), 2);
+        assert_eq!(navs[0].checkpoint_id, 1);
+        assert_eq!(navs[1].net_nav, "0x4b0");
+
+        // Idempotent on (module, checkpoint_id)
+        insert_fund_nav(&conn, module, 1, "0x3e8", "0x64", "0xa", "0x14", 100, "0xtxN1").unwrap();
+        let navs = get_fund_navs(&conn, module).unwrap();
+        assert_eq!(navs.len(), 2);
+
+        // Flow lifecycle: requested → claimed
+        let req_a = "0xa1";
+        insert_fund_flow(&conn, module, req_a, "0xrole1", 0, "0x100", 110, "0xtxFa1").unwrap();
+        let flows = get_fund_flows(&conn, module).unwrap();
+        assert_eq!(flows[0].status, "requested");
+        assert!(flows[0].amount_out.is_none());
+
+        update_fund_flow_status(&conn, module, req_a, "claimed", Some("0xfe"), 120, "0xtxFa2")
+            .unwrap();
+        let flows = get_fund_flows(&conn, module).unwrap();
+        assert_eq!(flows[0].status, "claimed");
+        assert_eq!(flows[0].amount_out.as_deref(), Some("0xfe"));
+        assert_eq!(flows[0].settled_block, Some(120));
+
+        // Cancelled path
+        let req_b = "0xb2";
+        insert_fund_flow(&conn, module, req_b, "0xrole2", 1, "0x200", 130, "0xtxFb1").unwrap();
+        update_fund_flow_status(&conn, module, req_b, "cancelled", None, 140, "0xtxFb2").unwrap();
+        let flows = get_fund_flows(&conn, module).unwrap();
+        let cancelled = flows.iter().find(|f| f.request_id == req_b).unwrap();
+        assert_eq!(cancelled.status, "cancelled");
+        assert!(cancelled.amount_out.is_none());
+
+        // Position lifecycle
+        let pos = "0xc3";
+        insert_fund_position(&conn, module, pos, "0xpm1", 150, "0xtxP1").unwrap();
+        let positions = get_fund_positions(&conn, module).unwrap();
+        assert_eq!(positions[0].status, "open");
+
+        // Interactions audit
+        let coord = LogCoord { block_number: 160, tx_hash: "0xtxPi", log_index: 0 };
+        insert_fund_position_interaction(&conn, module, pos, "0xrole1", 7, coord).unwrap();
+        let inter = get_fund_position_interactions(&conn, module, pos).unwrap();
+        assert_eq!(inter.len(), 1);
+        assert_eq!(inter[0].action, 7);
+
+        close_fund_position(&conn, module, pos, "0x250", 170, "0xtxP2").unwrap();
+        let positions = get_fund_positions(&conn, module).unwrap();
+        assert_eq!(positions[0].status, "closed");
+        assert_eq!(positions[0].quote_asset_received.as_deref(), Some("0x250"));
     }
 
     #[test]

@@ -95,6 +95,127 @@ impl From<store::TemplateRow> for Template {
     }
 }
 
+/// GraphQL projection of a Fund NAV checkpoint.
+#[derive(SimpleObject, Clone)]
+pub struct FundNav {
+    pub module_address: String,
+    pub checkpoint_id: u64,
+    pub net_nav: String,
+    pub token_quote: String,
+    pub mgmt_fees_charged: String,
+    pub carry_charged: String,
+    pub block_number: u64,
+    pub tx_hash: String,
+}
+
+impl From<store::FundNavRow> for FundNav {
+    fn from(r: store::FundNavRow) -> Self {
+        FundNav {
+            module_address: r.module_address,
+            checkpoint_id: r.checkpoint_id,
+            net_nav: r.net_nav,
+            token_quote: r.token_quote,
+            mgmt_fees_charged: r.mgmt_fees_charged,
+            carry_charged: r.carry_charged,
+            block_number: r.block_number,
+            tx_hash: r.tx_hash,
+        }
+    }
+}
+
+/// GraphQL projection of a Fund flow (deposit/redemption/carry request).
+#[derive(SimpleObject, Clone)]
+pub struct FundFlow {
+    pub module_address: String,
+    pub request_id: String,
+    pub role_id: String,
+    /// 0 = deposit, 1 = redemption, 2 = carry (consumer interprets)
+    pub flow_type: u32,
+    pub amount_in: String,
+    pub amount_out: Option<String>,
+    /// 'requested' | 'claimed' | 'cancelled'
+    pub status: String,
+    pub requested_block: u64,
+    pub requested_tx: String,
+    pub settled_block: Option<u64>,
+    pub settled_tx: Option<String>,
+}
+
+impl From<store::FundFlowRow> for FundFlow {
+    fn from(r: store::FundFlowRow) -> Self {
+        FundFlow {
+            module_address: r.module_address,
+            request_id: r.request_id,
+            role_id: r.role_id,
+            flow_type: r.flow_type as u32,
+            amount_in: r.amount_in,
+            amount_out: r.amount_out,
+            status: r.status,
+            requested_block: r.requested_block,
+            requested_tx: r.requested_tx,
+            settled_block: r.settled_block,
+            settled_tx: r.settled_tx,
+        }
+    }
+}
+
+/// GraphQL projection of a Fund investment position.
+#[derive(SimpleObject, Clone)]
+pub struct FundPosition {
+    pub module_address: String,
+    pub position_id: String,
+    pub position_manager_id: String,
+    /// 'open' | 'closed'
+    pub status: String,
+    pub quote_asset_received: Option<String>,
+    pub opened_block: u64,
+    pub opened_tx: String,
+    pub closed_block: Option<u64>,
+    pub closed_tx: Option<String>,
+}
+
+impl From<store::FundPositionRow> for FundPosition {
+    fn from(r: store::FundPositionRow) -> Self {
+        FundPosition {
+            module_address: r.module_address,
+            position_id: r.position_id,
+            position_manager_id: r.position_manager_id,
+            status: r.status,
+            quote_asset_received: r.quote_asset_received,
+            opened_block: r.opened_block,
+            opened_tx: r.opened_tx,
+            closed_block: r.closed_block,
+            closed_tx: r.closed_tx,
+        }
+    }
+}
+
+/// GraphQL projection of a Fund position interaction audit row.
+#[derive(SimpleObject, Clone)]
+pub struct FundPositionInteraction {
+    pub module_address: String,
+    pub position_id: String,
+    pub role_id: String,
+    pub action: u32,
+    pub block_number: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+impl From<store::FundPositionInteractionRow> for FundPositionInteraction {
+    fn from(r: store::FundPositionInteractionRow) -> Self {
+        FundPositionInteraction {
+            module_address: r.module_address,
+            position_id: r.position_id,
+            role_id: r.role_id,
+            action: r.action as u32,
+            block_number: r.block_number,
+            tx_hash: r.tx_hash,
+            log_index: r.log_index,
+        }
+    }
+}
+
 /// GraphQL projection of a budget on a Budget module.
 #[derive(SimpleObject, Clone)]
 pub struct Budget {
@@ -660,6 +781,59 @@ impl Query {
         let db = ctx.data::<SharedDb>()?;
         let conn = db.lock().await;
         let rows = store::get_templates_for_factory(&conn, &factory_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// All NAV checkpoints for a Fund module, oldest first (chart-friendly).
+    async fn fund_navs(
+        &self,
+        ctx: &Context<'_>,
+        module_address: String,
+    ) -> async_graphql::Result<Vec<FundNav>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_fund_navs(&conn, &module_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// All flows for a Fund module, newest-requested first.
+    async fn fund_flows(
+        &self,
+        ctx: &Context<'_>,
+        module_address: String,
+    ) -> async_graphql::Result<Vec<FundFlow>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_fund_flows(&conn, &module_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// All positions on a Fund module, oldest first.
+    async fn fund_positions(
+        &self,
+        ctx: &Context<'_>,
+        module_address: String,
+    ) -> async_graphql::Result<Vec<FundPosition>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_fund_positions(&conn, &module_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// Audit log of interactions on a Fund position, oldest first.
+    async fn fund_position_interactions(
+        &self,
+        ctx: &Context<'_>,
+        module_address: String,
+        position_id: String,
+    ) -> async_graphql::Result<Vec<FundPositionInteraction>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_fund_position_interactions(&conn, &module_address, &position_id)
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(rows.into_iter().map(Into::into).collect())
     }
