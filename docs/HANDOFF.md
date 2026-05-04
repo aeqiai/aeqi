@@ -65,6 +65,61 @@ Env vars:
 
 ---
 
+## Live demo against real aeqi-core (5 min, end-to-end)
+
+Reproducible smoke for the whole stack. Anvil + real aeqi-core + indexer + GraphQL.
+
+```bash
+# 0. Anvil up (separate terminal)
+anvil --block-time 2
+
+# 1. Deploy real aeqi-core via the fixed deploy script
+cd /home/claudedev/projects/aeqi-core-deploy-fix
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  forge script scripts/foundry/Deploy.s.sol \
+  --rpc-url http://127.0.0.1:8545 --broadcast --skip-simulation
+# Note the Factory address from stdout (e.g. 0x67d269191c92Caf3cD7723F116c85e6E9bf55933)
+
+# 2. Boot the indexer pointed at the real Factory
+cd /home/claudedev/aeqi-indexer-build
+AEQI_INDEXER_FACTORY=<factory-from-step-1> \
+AEQI_INDEXER_START_BLOCK=<deploy-block-from-step-1> \
+./target/release/aeqi-indexer
+
+# 3. Create a real TRUST against the deployed Factory (separate terminal)
+cd /home/claudedev/projects/aeqi-core-deploy-fix
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+FACTORY_ADDRESS=<factory-from-step-1> \
+  forge script scripts/foundry/CreateTrust.s.sol \
+  --rpc-url http://127.0.0.1:8545 --broadcast --skip-simulation
+# Note the TRUST address from stdout
+
+# 4. Mine 12+ confirmation blocks
+for i in {1..15}; do
+  curl -s -X POST http://127.0.0.1:8545 -H 'content-type: application/json' \
+    --data '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}' > /dev/null
+done
+
+# 5. Query the indexer to see the full TRUST + modules graph
+curl -s -X POST http://127.0.0.1:8500/graphql \
+  -H 'content-type: application/json' \
+  --data '{"query":"{ trust(address: \"<trust-from-step-3>\") { trustId templateId signersCount valueConfigsCount } trustModules(trustAddress: \"<trust-from-step-3>\") { moduleId moduleAddress } templatesForFactory(factoryAddress: \"<factory-from-step-1>\") { templateId replaceCount } }"}' | jq
+```
+
+What you should see:
+- Indexer log streams `Factory_TemplateReplaced` → `Factory_TRUSTCreatedEvent` →
+  `Factory_TRUSTRegisteredEvent` → `Factory_TRUSTSignerAdded` →
+  3 × `TRUST_ModuleAdded` (factory + role + token) — all in one block.
+- GraphQL returns the TRUST with `signersCount=1`, `valueConfigsCount=2`,
+  3 modules attached.
+
+This is the loop that was broken pre-Phase 7 (deploy script drift) and
+fully closed at Phase 9 (intra-block multi-level cascade). It exercises
+all 4 layers of dispatch (Factory → TRUST proxy → 3 module proxies)
+against actual aeqi-core contracts in one tx.
+
+---
+
 ## Architecture
 
 ```
@@ -122,6 +177,12 @@ Replays from reorg recovery don't double-insert.
 | `010_role_assignments` | `role_assignments` | Role assignment audit log |
 | `011_proposals` | `proposals` | Governance proposals + status |
 | `012_votes` | `votes` | Vote cast audit log |
+| `013_token_balances` | `token_balances` | ERC20 cap-table (atomic balance updates) |
+| `014_token_transfers` | `token_transfers` | Token Transfer audit log |
+| `015_vesting_positions` | `vesting_positions` | Vesting lifecycle |
+| `016_vesting_contributions` | `vesting_contributions` | Vesting funder deposits |
+| `017_vesting_claims` | `vesting_claims` | Vesting beneficiary withdrawals |
+| `018_templates` | `templates` | Factory templates (TemplateReplaced upserts) |
 
 ---
 
@@ -148,6 +209,18 @@ type Query {
   # Governance module
   proposalsForModule(moduleAddress: String!): [Proposal!]!
   votesForProposal(moduleAddress: String!, proposalId: String!): [Vote!]!
+
+  # Token module (ERC20)
+  tokenHolders(tokenAddress: String!): [TokenBalance!]!
+  tokenTransfers(tokenAddress: String!): [TokenTransfer!]!
+
+  # Vesting module
+  vestingPositions(moduleAddress: String!): [VestingPosition!]!
+  vestingContributions(moduleAddress: String!, positionId: String!): [VestingContribution!]!
+  vestingClaims(moduleAddress: String!, positionId: String!): [VestingClaim!]!
+
+  # Factory admin
+  templatesForFactory(factoryAddress: String!): [Template!]!
 }
 ```
 

@@ -355,6 +355,7 @@ pub mod poll {
                         decode::Factory::Factory_TRUSTCreatedEvent::SIGNATURE_HASH,
                         decode::Factory::Factory_TRUSTRegisteredEvent::SIGNATURE_HASH,
                         decode::Factory::Factory_TRUSTSignerAdded::SIGNATURE_HASH,
+                        decode::Factory::Factory_TemplateReplaced::SIGNATURE_HASH,
                         // TRUST events (per-trust)
                         decode::TRUST::TRUST_ModuleAdded::SIGNATURE_HASH,
                         decode::TRUST::PermissionsGranted::SIGNATURE_HASH,
@@ -476,6 +477,31 @@ pub mod poll {
                                 }
                                 Err(e) => tracing::warn!(
                                     "decode TrustRegistered failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Factory::Factory_TemplateReplaced::SIGNATURE_HASH)
+                        {
+                            // Template events come from the Factory address itself.
+                            let factory_address = format!("{:#x}", log.address());
+                            match decode::Factory::Factory_TemplateReplaced::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::upsert_template(
+                                        &conn,
+                                        &factory_address,
+                                        &format!("{:#x}", ev.templateId),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Factory_TemplateReplaced: factory={} template={:#x} block={}",
+                                        factory_address, ev.templateId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Factory_TemplateReplaced failed at block {} tx {}: {}",
                                     block_num, tx_hash, e
                                 ),
                             }

@@ -24,6 +24,30 @@ pub type SharedDb = Arc<Mutex<Connection>>;
 /// Top-level GraphQL Query type.
 pub struct Query;
 
+/// GraphQL projection of a Factory-registered template.
+#[derive(SimpleObject, Clone)]
+pub struct Template {
+    pub factory_address: String,
+    pub template_id: String,
+    pub replace_count: u64,
+    pub first_seen_block: u64,
+    pub last_replaced_block: u64,
+    pub last_replaced_tx: String,
+}
+
+impl From<store::TemplateRow> for Template {
+    fn from(r: store::TemplateRow) -> Self {
+        Template {
+            factory_address: r.factory_address,
+            template_id: r.template_id,
+            replace_count: r.replace_count,
+            first_seen_block: r.first_seen_block,
+            last_replaced_block: r.last_replaced_block,
+            last_replaced_tx: r.last_replaced_tx,
+        }
+    }
+}
+
 /// GraphQL projection of a vesting position.
 #[derive(SimpleObject, Clone)]
 pub struct VestingPosition {
@@ -427,6 +451,19 @@ impl Query {
         let db = ctx.data::<SharedDb>()?;
         let conn = db.lock().await;
         let rows = store::get_modules_for_trust(&conn, &trust_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// All templates registered on a Factory.
+    async fn templates_for_factory(
+        &self,
+        ctx: &Context<'_>,
+        factory_address: String,
+    ) -> async_graphql::Result<Vec<Template>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_templates_for_factory(&conn, &factory_address)
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(rows.into_iter().map(Into::into).collect())
     }

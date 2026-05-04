@@ -27,14 +27,12 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 22 (PHASE 9 ✓ INTRA-BLOCK SUBSCRIPTION LAG CLOSED — CASCADE WORKS)
-PHASE: 9 ✓ ARCHITECTURE COMPLETE | Real registerTRUST tx now indexed
-       fully in one block: TrustCreated + Registered + SignerAdded
-       + 3 TRUST_ModuleAdded events all caught. Per-block dispatch loops
-       with delta-fetch on newly-watched addresses.
-       25/25 tests green; 27 commits.
-       | next: apps/ui glue OR Funding/Budget modules OR Vesting wired
-               into the demo template
+TICK: 23 (PHASE 10-A ✓ FACTORY TEMPLATEREPLACED + DEMO RUNBOOK)
+PHASE: 10-A ✓ ADMIN SURFACE | Factory_TemplateReplaced indexed via
+       templates table with replace_count semantics. HANDOFF.md gains
+       a 5-min reproducible end-to-end demo recipe. 26/26 tests green;
+       28 commits.
+       | next: more Factory admin events OR apps/ui glue OR more modules
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -664,52 +662,72 @@ TICK 22 — PHASE 9 INTRA-BLOCK SUBSCRIPTION LAG CLOSED:
 
 25/25 tests green. 27 commits on indexer-build branch.
 
+TICK 23 — PHASE 10-A FACTORY TEMPLATEREPLACED + DEMO RUNBOOK:
+  Schema: 018_templates(factory_address, template_id PK, replace_count,
+    first_seen_block, last_replaced_block, last_replaced_tx)
+    Each Factory_TemplateReplaced event UPSERTs the row + bumps
+    replace_count via SQLite ON CONFLICT.
+  Store: upsert_template + get_templates_for_factory + TemplateRow.
+  Decode: Factory_TemplateReplaced sol! decl already present (TICK 6).
+  Poll loop: signature added to filter set; dispatch arm matches topic0.
+  GraphQL: Template SimpleObject + templatesForFactory(factoryAddress).
+
+  LIVE-VERIFIED against existing real Factory:
+    Indexer (fresh DB, start_block=3700) caught 3 TemplateReplaced events
+    (one per CreateTrust.s.sol invocation, all using the demo template).
+    GraphQL templatesForFactory returns:
+      [{ templateId 0x7a79b2e..., replaceCount: 3,
+         firstSeenBlock: 3730, lastReplacedBlock: 4060 }]
+    trustsCount: 3 corroborates (3 TRUSTs from 3 runs).
+
+  HANDOFF.md additions:
+    - 'Live demo against real aeqi-core' section: 5 commands, full E2E
+      demo with anvil + Deploy + indexer + CreateTrust + GraphQL.
+      Reproducible recipe for tomorrow's user.
+    - Schema table extended with migrations 013-018 (Token, Vesting,
+      Templates were missing from the schema overview).
+    - GraphQL query list extended with Token, Vesting, Templates queries.
+
+26/26 tests green. 28 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 10 — quick-wins or pivot to UI integration):
-  Phase 9 (intra-block dispatch) is DONE. The indexer is now
-  ARCHITECTURALLY COMPLETE — no known correctness gaps. Same-tx
-  multi-level cascades are caught. Real contracts validated.
+NEXT ACTION (Phase 11 — wider Factory/admin coverage OR Vesting in template):
+  Phase 10-A done (Templates indexed; demo runbook in HANDOFF.md).
 
-  PATH A — wire missing Factory event handlers (quick wins):
-    sol! decls already present, just need dispatch arms + tables:
-      Factory_FactoryConfigSet(beaconAddress) — track factory→beacon link
-      Factory_TRUSTApprovedEvent — multi-signer approval flow events
-      Factory_TemplateReplaced(templateId) — admin template ops
-      Factory_PartnerProfileSet(ipfsCid)
-      AdminsAdded(address[]) / AdminsRemoved(address[])
-    Maybe 1 tick, mechanical.
+  PATH A' — finish Factory admin events (extends current tick's work):
+    Still un-wired in dispatch (sol! decls already present):
+      Factory_TRUSTApprovedEvent — per-signer approval audit; populates
+        trust_signers.has_signed for non-creator co-signers
+      Factory_FactoryConfigSet(beaconAddress) — informational; could
+        feed a system-config GraphQL query
+      Factory_PartnerProfileSet(ipfsCid) — partner-specific
+      AdminsAdded / AdminsRemoved — admin lifecycle
+    Most useful: TRUSTApprovedEvent (it's the multi-sig flow). Others
+    are informational. ~10-15 min for TRUSTApprovedEvent alone.
 
-  PATH B — Funding/Budget/Foundation module ports:
-    Same Haiku-Explore-then-port pattern. Each module = 30-min port:
-      ~/projects/aeqi-graph/abis/Funding.module.json
-      ~/projects/aeqi-graph/abis/Budget.module.json
-      ~/projects/aeqi-graph/abis/Foundation.module.json
-      ~/projects/aeqi-graph/abis/Fund.module.json
-    Adding all 4 = ~2 ticks. Demos benefit by having more data on /c/{slug}.
+  PATH D — Vesting in demo template (real cap-table loop):
+    Update CreateTrust.s.sol to add vesting to the template's
+    moduleConfigs. Add getVestingConfig + getVestingTrustConfig to the
+    valueConfigs. After registerTRUST, the new TRUST will spawn a
+    real vesting module proxy that emits Vesting events (PositionCreated,
+    Activated, etc.) when exercised. The indexer already handles those.
+    But — CreateTrust would need to actually CALL the vesting module to
+    emit lifecycle events, which means understanding the vesting module's
+    public API. Non-trivial.
 
-  PATH C — apps/ui glue (real integration):
-    Now extremely valuable: the indexer has real Factory + TRUST + Module
-    data from actual aeqi-core deployments. Cut worktree off ~/aeqi.
-    Add VITE_INDEXER_URL env. Pick Ownership tab — replace its
-    TheGraph hook with rolesForModule/roleAssignments queries against
-    http://localhost:8500/graphql.
-    Caveat: needs human-design input on UI changes; defer if uncertain.
+  PATH B — Funding/Budget/Foundation/Fund module ports (breadth):
+    ~30 min each with the locked Haiku-Explore + sol! + migration +
+    handlers + GraphQL pattern.
 
-  PATH D — Vesting module wired into demo template:
-    The current CreateTrust template only has role + token. Add vesting
-    so a created TRUST also activates a Vesting module. Then exercise
-    emitFounderVestingLifecycle against the real vesting module instance.
-    Closes the cap-table demo loop on real contracts.
+  PATH C — apps/ui glue: defer to interactive session.
 
   LEVERAGE PRIORITY:
-    PATH A — fastest wins; covers admin lifecycle.
-    PATH D — closes vesting on real contracts; high demo value.
-    PATH B — breadth but no critical-path value yet.
-    PATH C — depends on user design preferences; defer to interactive session.
+    PATH A' (TRUSTApprovedEvent) — completes the multi-sig flow surface.
+    PATH B (one more module like Funding) — incremental breadth.
+    PATH D (vesting in template) — high value but research-heavy.
+    PATH C — interactive session.
 
-  My read: PATH A first (5-15 min for fast wins), PATH D second
-  (close cap-table loop on real contracts), PATH B + C in tomorrow's
-  session.
+  My read: PATH A' next tick (~10 min), then evaluate remaining cron.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:

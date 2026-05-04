@@ -379,6 +379,28 @@ const MIGRATIONS: &[(&str, &str)] = &[
           ON vesting_claims(to_address);
         "#,
     ),
+    (
+        "018_templates",
+        r#"
+        -- Templates registered on a Factory via Factory.replaceTemplate.
+        -- Each Factory_TemplateReplaced event UPSERTs the row + bumps
+        -- replace_count so the UI can tell "this template was edited 3
+        -- times since launch".
+        --
+        -- factory_address join is implicit: log.address() at indexing time.
+        -- Templates are scoped per-factory; the tuple (factory, template_id)
+        -- is the identity.
+        CREATE TABLE IF NOT EXISTS templates (
+            factory_address TEXT NOT NULL,
+            template_id TEXT NOT NULL,
+            replace_count INTEGER NOT NULL DEFAULT 1,
+            first_seen_block INTEGER NOT NULL,
+            last_replaced_block INTEGER NOT NULL,
+            last_replaced_tx TEXT NOT NULL,
+            PRIMARY KEY (factory_address, template_id)
+        );
+        "#,
+    ),
 ];
 
 /// Open the SQLite database, applying any pending migrations.
@@ -1505,6 +1527,66 @@ pub fn get_vesting_claims(
     Ok(rows)
 }
 
+/// Record a Factory_TemplateReplaced event. Idempotent on
+/// (factory_address, template_id); replace_count is incremented on
+/// subsequent calls.
+pub fn upsert_template(
+    conn: &Connection,
+    factory_address: &str,
+    template_id: &str,
+    block_number: u64,
+    tx_hash: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO templates
+            (factory_address, template_id, replace_count,
+             first_seen_block, last_replaced_block, last_replaced_tx)
+         VALUES (?1, ?2, 1, ?3, ?3, ?4)
+         ON CONFLICT(factory_address, template_id) DO UPDATE SET
+            replace_count = replace_count + 1,
+            last_replaced_block = excluded.last_replaced_block,
+            last_replaced_tx = excluded.last_replaced_tx",
+        params![factory_address, template_id, block_number as i64, tx_hash],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct TemplateRow {
+    pub factory_address: String,
+    pub template_id: String,
+    pub replace_count: u64,
+    pub first_seen_block: u64,
+    pub last_replaced_block: u64,
+    pub last_replaced_tx: String,
+}
+
+/// All templates registered on a Factory, oldest-first by first appearance.
+pub fn get_templates_for_factory(
+    conn: &Connection,
+    factory_address: &str,
+) -> Result<Vec<TemplateRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT factory_address, template_id, replace_count,
+                first_seen_block, last_replaced_block, last_replaced_tx
+         FROM templates WHERE factory_address = ?1
+         ORDER BY first_seen_block ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![factory_address], |r| {
+            Ok(TemplateRow {
+                factory_address: r.get(0)?,
+                template_id: r.get(1)?,
+                replace_count: r.get::<_, i64>(2)? as u64,
+                first_seen_block: r.get::<_, i64>(3)? as u64,
+                last_replaced_block: r.get::<_, i64>(4)? as u64,
+                last_replaced_tx: r.get(5)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// Look up a TRUST by its on-chain address.
 pub fn get_trust(conn: &Connection, address: &str) -> Result<Option<TrustRow>> {
     let row = conn
@@ -1977,6 +2059,31 @@ mod tests {
 
         // Updating an unknown position is a no-op
         update_vesting_position_status(&conn, module, "0xnonexistent", "removed").unwrap();
+    }
+
+    #[test]
+    fn template_upsert_increments_replace_count() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let factory = "0x67d269191c92Caf3cD7723F116c85e6E9bf55933";
+        let template_id = "0x7a79b2e3cb9e64062fccc5f9b9a9c1a92244d4cf027fc63be451cfc4b9d9f6d0";
+
+        upsert_template(&conn, factory, template_id, 100, "0xtx1").unwrap();
+        let templates = get_templates_for_factory(&conn, factory).unwrap();
+        assert_eq!(templates.len(), 1);
+        assert_eq!(templates[0].replace_count, 1);
+        assert_eq!(templates[0].first_seen_block, 100);
+        assert_eq!(templates[0].last_replaced_block, 100);
+
+        // Re-replace bumps count + updates last_*
+        upsert_template(&conn, factory, template_id, 200, "0xtx2").unwrap();
+        let templates = get_templates_for_factory(&conn, factory).unwrap();
+        assert_eq!(templates.len(), 1);
+        assert_eq!(templates[0].replace_count, 2);
+        assert_eq!(templates[0].first_seen_block, 100, "first_seen unchanged");
+        assert_eq!(templates[0].last_replaced_block, 200);
+        assert_eq!(templates[0].last_replaced_tx, "0xtx2");
     }
 
     #[test]
