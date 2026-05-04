@@ -347,6 +347,29 @@ node_modules && npm install` recipe — it's the only reliable cure
 once the tree is partial. Caveat above still applies: only fall through
 when no sibling worktrees hold a live symlink.
 
+**`.bin/` disappears mid-session during parallel autonomous pushes.**
+When two subagents run simultaneously and one triggers a deploy script
+that runs `npm install` (the `ui-deploy.sh` vite-recovery path), the
+install can wipe `.bin/` while the other agent's `npm run verify` is
+mid-flight — resulting in `tsc: not found` even though `.bin/tsc`
+existed seconds earlier. The fix: **run tools via `node` directly**
+rather than relying on `.bin/` symlinks, which are volatile:
+
+```bash
+node /home/claudedev/aeqi/apps/ui/node_modules/typescript/bin/tsc --noEmit
+node /home/claudedev/aeqi/apps/ui/node_modules/prettier/bin/prettier.cjs --check "src/**/*.{ts,tsx,css,mdx}"
+node /home/claudedev/aeqi/apps/ui/node_modules/eslint/bin/eslint.js src/
+node /home/claudedev/aeqi/apps/ui/node_modules/vitest/vitest.mjs run
+node /home/claudedev/aeqi/apps/ui/node_modules/vite/bin/vite.js build
+node scripts/hygiene-check.mjs
+```
+
+This is the parallel-subagent fallback for the full verify gauntlet.
+The `PATH=".../node_modules/.bin:$PATH" npm run verify` pattern does
+NOT work in this project — npm spawns a fresh shell that resets PATH,
+so the binary injections never reach the subprocess. The `node` form
+is the only reliable approach when `.bin/` is contested.
+
 **UI-only deploy (no Rust changed):**
 
 ```bash
