@@ -28,7 +28,6 @@ const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
-const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const RoleNewPage = lazy(() => import("@/pages/RoleNewPage"));
 const RoleDetailPage = lazy(() => import("@/pages/RoleDetailPage"));
@@ -183,7 +182,6 @@ export default function AppLayout() {
     isDrive,
     isStart,
     isNotFound,
-    isPortfolio,
     isAdmin,
     isRolesNew,
     isRoleDetail,
@@ -248,7 +246,6 @@ export default function AppLayout() {
       if (path.startsWith("/start/")) return <CompanySetupPage />;
       return <StartPage />;
     }
-    if (isPortfolio) return <PortfolioPage />;
     if (isAdmin) return <AdminPage />;
     if (isDrive) return <DrivePage />;
     if (isSettings) return <ProfilePage />;
@@ -286,7 +283,6 @@ export default function AppLayout() {
     !isNotFound &&
     !isDrive &&
     !isSettings &&
-    !isPortfolio &&
     !isAdmin &&
     !isStart &&
     !isEconomy &&

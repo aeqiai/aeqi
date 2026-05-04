@@ -23,8 +23,6 @@ export interface ShellSurface {
    *  in-shell 404 dispatch. Stays false for `/me/...`, `/start`,
    *  `/economy/...`, `/blueprints/...`, and `/c/:entityId/...`. */
   isNotFound: boolean;
-  /** `/me/portfolio` — personal cross-company view (holdings, performance). */
-  isPortfolio: boolean;
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
   isAdmin: boolean;
@@ -37,16 +35,10 @@ export interface ShellSurface {
 
 export function useShellSurface(path: string, tab: string | undefined): ShellSurface {
   return useMemo(() => {
-    // The user-scope namespace `/me/*` is split:
-    //   - portfolio: /me/portfolio (cross-company holdings/performance)
-    //   - settings:  /me, /me/profile, /me/billing, /me/security, …
-    // Settings owns the /me/* catch-all so unrecognised /me/<x> still
-    // falls back to ProfilePage rather than 404. Portfolio carves
-    // out one specific path before settings resolves it.
-    const isPortfolio = path === "/me/portfolio";
+    // The user-scope namespace `/me/*` is owned by settings so any
+    // unrecognised /me/<x> falls back to ProfilePage rather than 404.
     const isAdmin = path === "/admin" || path.startsWith("/admin/");
-    const isSettings =
-      !isPortfolio && (path === "/me" || path.startsWith("/me/") || tab === "profile");
+    const isSettings = path === "/me" || path.startsWith("/me/") || tab === "profile";
     // `/` is the canonical Economy URL — the front door of the app
     // shell. `/economy` is kept as an alias and redirects to `/` in
     // App.tsx, but the shell-side flag must match either path so the
@@ -72,13 +64,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // door (isEconomy === true at `/`).
     const isCompanyRoute = /^\/c\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
-      isCompanyRoute ||
-      isPortfolio ||
-      isSettings ||
-      isEconomy ||
-      isBlueprints ||
-      isStart ||
-      isAdmin;
+      isCompanyRoute || isSettings || isEconomy || isBlueprints || isStart || isAdmin;
     const isNotFound = !isKnownShellRoute;
 
     return {
@@ -88,7 +74,6 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
       isDrive,
       isStart,
       isNotFound,
-      isPortfolio,
       isAdmin,
       isRolesNew,
       isRoleDetail,
