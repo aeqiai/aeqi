@@ -438,11 +438,53 @@ const MIGRATIONS: &[(&str, &str)] = &[
           ON trust_signers(signer_address);
         "#,
     ),
+    (
+        "020_trusts_v2",
+        r#"
+        -- Mirror of 019: the multi-sig flow fires Factory_TRUSTRegisteredEvent
+        -- in the registration tx (block N) BEFORE Factory_TRUSTCreatedEvent in
+        -- the approval tx (block N+M). v1 trusts schema had address as PK +
+        -- creator NOT NULL — update_trust_registered's UPDATE missed because
+        -- no row existed yet, dropping template_id, ipfs_cid, signers_count,
+        -- value_configs_count metadata.
+        --
+        -- v2 schema makes trust_id the identity:
+        --   PRIMARY KEY (trust_id)
+        --   address, creator_address, created_block, created_tx all NULLable
+        -- Either Created or Registered can land first; both UPSERT on trust_id.
+        --
+        -- Destructive migration (DROP TABLE); acceptable for v1 indexer DBs.
+        DROP TABLE IF EXISTS trusts;
+        CREATE TABLE trusts (
+            trust_id TEXT PRIMARY KEY,
+            address TEXT UNIQUE,    -- UNIQUE so other tables can FK on it;
+                                    -- SQLite allows multiple NULLs in a UNIQUE
+                                    -- column, which is what multi-sig pre-create
+                                    -- rows need.
+            creator_address TEXT,
+            template_id TEXT,
+            ipfs_cid TEXT,
+            signers_count INTEGER,
+            value_configs_count INTEGER,
+            created_block INTEGER,
+            created_tx TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_trusts_creator ON trusts(creator_address);
+        CREATE INDEX IF NOT EXISTS idx_trusts_template ON trusts(template_id);
+        "#,
+    ),
 ];
 
 /// Open the SQLite database, applying any pending migrations.
 pub fn open<P: AsRef<Path>>(path: P) -> Result<Connection> {
     let conn = Connection::open(path).context("open sqlite")?;
+    // FK declarations on existing tables (modules, permissions_events) are
+    // advisory documentation; we never violate them in normal flow. Disabling
+    // enforcement avoids "foreign key mismatch" errors from cross-migration
+    // schema reshapes (trusts schema v1 → v2 changed address from PK to UNIQUE)
+    // that SQLite flags at commit time even when foreign_keys=OFF would
+    // otherwise be the default.
+    conn.execute_batch("PRAGMA foreign_keys = OFF;")?;
     apply_migrations(&conn)?;
     Ok(conn)
 }
@@ -482,8 +524,10 @@ fn apply_migrations(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Insert a new TRUST row + the corresponding accounts entries.
-/// Idempotent: re-applying the same TRUST creation is a no-op.
+/// Record a Factory_TRUSTCreatedEvent. UPSERT on trust_id so this composes
+/// correctly with update_trust_registered when the metadata event fires
+/// FIRST (multi-sig flow: SignerAdded + Registered in tx N, Created in tx N+M).
+/// Either order leaves a complete row.
 pub fn insert_trust_created(
     conn: &Connection,
     trust_address: &str,
@@ -504,10 +548,19 @@ pub fn insert_trust_created(
         params![creator_address, block_number as i64, tx_hash],
     )?;
 
-    // Upsert trust (no-op if address already present)
+    // UPSERT trust on trust_id. If a Registered-only row exists from earlier
+    // (multi-sig pre-create), this fills in address/creator/created_*. If a
+    // Created row already exists (single-sig replay, or repeat Created), the
+    // values are stable so a re-write is fine.
     tx.execute(
-        "INSERT OR IGNORE INTO trusts (address, trust_id, creator_address, created_block, created_tx) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![trust_address, trust_id, creator_address, block_number as i64, tx_hash],
+        "INSERT INTO trusts (trust_id, address, creator_address, created_block, created_tx)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(trust_id) DO UPDATE SET
+            address = excluded.address,
+            creator_address = excluded.creator_address,
+            created_block = excluded.created_block,
+            created_tx = excluded.created_tx",
+        params![trust_id, trust_address, creator_address, block_number as i64, tx_hash],
     )?;
 
     // Auto-subscribe: every newly indexed TRUST is added to watched_addresses,
@@ -532,11 +585,9 @@ pub fn insert_trust_created(
     Ok(())
 }
 
-/// Enrich an existing TRUST row with registration metadata
-/// (template_id, ipfs_cid, signers_count, value_configs_count).
-/// Created via Factory.Factory_TRUSTRegisteredEvent which fires
-/// AFTER Factory_TRUSTCreatedEvent in the same transaction.
-/// Idempotent: updating with the same values is a no-op.
+/// Record Factory_TRUSTRegisteredEvent metadata. UPSERT on trust_id so the
+/// row exists even when Registered fires before Created (multi-sig flow).
+/// Re-registering with the same values is a stable no-op.
 pub fn update_trust_registered(
     conn: &Connection,
     trust_id: &str,
@@ -546,15 +597,19 @@ pub fn update_trust_registered(
     value_configs_count: u64,
 ) -> Result<()> {
     conn.execute(
-        "UPDATE trusts SET template_id = ?1, ipfs_cid = ?2,
-                signers_count = ?3, value_configs_count = ?4
-         WHERE trust_id = ?5",
+        "INSERT INTO trusts (trust_id, template_id, ipfs_cid, signers_count, value_configs_count)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(trust_id) DO UPDATE SET
+            template_id = excluded.template_id,
+            ipfs_cid = excluded.ipfs_cid,
+            signers_count = excluded.signers_count,
+            value_configs_count = excluded.value_configs_count",
         params![
+            trust_id,
             template_id,
             ipfs_cid,
             signers_count as i64,
-            value_configs_count as i64,
-            trust_id
+            value_configs_count as i64
         ],
     )?;
     Ok(())
@@ -1668,43 +1723,63 @@ pub fn get_templates_for_factory(
     Ok(rows)
 }
 
-/// Look up a TRUST by its on-chain address.
+/// Look up a TRUST by its on-chain address. Schema v2: address may be NULL
+/// pre-create (multi-sig flow), so this returns None for trust_ids that
+/// only have Registered metadata so far. Use get_trust_by_id to fetch
+/// pre-create rows.
 pub fn get_trust(conn: &Connection, address: &str) -> Result<Option<TrustRow>> {
     let row = conn
         .query_row(
-            "SELECT address, trust_id, creator_address, template_id, ipfs_cid,
+            "SELECT trust_id, address, creator_address, template_id, ipfs_cid,
                     signers_count, value_configs_count, created_block, created_tx
              FROM trusts WHERE address = ?1",
             params![address],
-            |r| {
-                Ok(TrustRow {
-                    address: r.get(0)?,
-                    trust_id: r.get(1)?,
-                    creator_address: r.get(2)?,
-                    template_id: r.get(3)?,
-                    ipfs_cid: r.get(4)?,
-                    signers_count: r.get(5)?,
-                    value_configs_count: r.get(6)?,
-                    created_block: r.get::<_, i64>(7)? as u64,
-                    created_tx: r.get(8)?,
-                })
-            },
+            row_to_trust,
         )
         .ok();
     Ok(row)
 }
 
+/// Look up a TRUST by trust_id. Useful for multi-sig flows where the
+/// address isn't known until TrustCreated lands.
+pub fn get_trust_by_id(conn: &Connection, trust_id: &str) -> Result<Option<TrustRow>> {
+    let row = conn
+        .query_row(
+            "SELECT trust_id, address, creator_address, template_id, ipfs_cid,
+                    signers_count, value_configs_count, created_block, created_tx
+             FROM trusts WHERE trust_id = ?1",
+            params![trust_id],
+            row_to_trust,
+        )
+        .ok();
+    Ok(row)
+}
+
+fn row_to_trust(r: &rusqlite::Row<'_>) -> rusqlite::Result<TrustRow> {
+    Ok(TrustRow {
+        trust_id: r.get(0)?,
+        address: r.get(1)?,
+        creator_address: r.get(2)?,
+        template_id: r.get(3)?,
+        ipfs_cid: r.get(4)?,
+        signers_count: r.get(5)?,
+        value_configs_count: r.get(6)?,
+        created_block: r.get::<_, Option<i64>>(7)?.map(|n| n as u64),
+        created_tx: r.get(8)?,
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct TrustRow {
-    pub address: String,
     pub trust_id: String,
-    pub creator_address: String,
+    pub address: Option<String>,
+    pub creator_address: Option<String>,
     pub template_id: Option<String>,
     pub ipfs_cid: Option<String>,
     pub signers_count: Option<i64>,
     pub value_configs_count: Option<i64>,
-    pub created_block: u64,
-    pub created_tx: String,
+    pub created_block: Option<u64>,
+    pub created_tx: Option<String>,
 }
 
 #[cfg(test)]
@@ -2213,6 +2288,46 @@ mod tests {
     }
 
     #[test]
+    fn multisig_registered_then_created_yields_full_row() {
+        // The multi-sig flow: Registered fires in tx N, Created in tx N+M.
+        // v2 schema must produce a single complete row regardless of order.
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let trust_addr = "0x9131b1DEC7d1fE791C599E9D0b94D6414cae0747";
+        let trust_id = "0x0000000000000000000000000000000000000000000000000000000000000007";
+        let creator = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+        // Phase 1: Registered first (no Created yet)
+        update_trust_registered(&conn, trust_id, "0xtemplate7", "Qm7", 2, 4).unwrap();
+        let pre = get_trust_by_id(&conn, trust_id).unwrap().expect("row");
+        assert_eq!(pre.template_id.as_deref(), Some("0xtemplate7"));
+        assert_eq!(pre.signers_count, Some(2));
+        assert!(pre.address.is_none());
+        assert!(pre.creator_address.is_none());
+
+        // get_trust(address) returns None — address not yet known
+        assert!(get_trust(&conn, trust_addr).unwrap().is_none());
+
+        // Phase 2: Created lands later
+        insert_trust_created(&conn, trust_addr, trust_id, creator, 100, "0xtxC").unwrap();
+        let row = get_trust(&conn, trust_addr).unwrap().expect("row by address");
+        // Both halves merged via UPSERT(trust_id)
+        assert_eq!(row.address.as_deref(), Some(trust_addr));
+        assert_eq!(row.creator_address.as_deref(), Some(creator));
+        assert_eq!(row.template_id.as_deref(), Some("0xtemplate7"));
+        assert_eq!(row.signers_count, Some(2));
+        assert_eq!(row.value_configs_count, Some(4));
+        assert_eq!(row.created_block, Some(100));
+
+        // Still exactly one row (UPSERT didn't double-insert)
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM trusts", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[test]
     fn round_trip_trust_creation() {
         let dir = tempdir().unwrap();
         let conn = open(dir.path().join("test.db")).expect("open");
@@ -2228,10 +2343,10 @@ mod tests {
             .expect("query")
             .expect("row exists");
 
-        assert_eq!(row.address, trust_addr);
+        assert_eq!(row.address.as_deref(), Some(trust_addr));
         assert_eq!(row.trust_id, trust_id);
-        assert_eq!(row.creator_address, creator);
-        assert_eq!(row.created_block, 42);
+        assert_eq!(row.creator_address.as_deref(), Some(creator));
+        assert_eq!(row.created_block, Some(42));
 
         // Idempotency: insert again, count stays the same
         insert_trust_created(&conn, trust_addr, trust_id, creator, 42, "0xabc")

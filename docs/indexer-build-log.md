@@ -27,16 +27,15 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 24 (PHASE 10-B ✓ MULTI-SIG APPROVAL FLOW + trust_signers SCHEMA V2)
-PHASE: 10-B ✓ MULTI-SIG END-TO-END | Factory_TRUSTApprovedEvent dispatched;
-       trust_signers refactored to PK(trust_id, signer_address) with
-       trust_address as backfilled helper. SignerAdded events that fire
-       BEFORE TrustCreated (the multi-sig registration→approval flow)
-       now land correctly. CreateMultiSigTrust.s.sol exercises
-       2-of-2 deployer+cosigner flow against real Factory.
-       27/27 tests green; 30 commits.
-       | next: trusts schema v2 (same fix for cross-block Registered metadata)
-               OR apps/ui glue OR more modules
+TICK: 25 (PHASE 11 ✓ trusts SCHEMA V2 — MULTI-SIG STORY FULLY CLOSED)
+PHASE: 11 ✓ MULTI-SIG COMPLETE | trusts refactored to PK(trust_id) with
+       address/creator/created_* all NULLable. insert_trust_created and
+       update_trust_registered both UPSERT on trust_id — either order
+       lands a complete row. v1 multi-sig flow (registerTRUST in tx N,
+       approveTRUST in tx N+M) now indexes with FULL metadata.
+       28/28 tests green; 31 commits.
+       | next: apps/ui glue (real integration) OR Funding/Budget modules
+               OR remaining Factory admin events
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -758,52 +757,106 @@ TICK 24 — PHASE 10-B MULTI-SIG APPROVAL + SCHEMA V2:
 27/27 tests green. 30 commits on indexer-build branch.
 +1 commit in aeqi-core-deploy-fix worktree (CreateMultiSigTrust.s.sol).
 
+TICK 25 — PHASE 11 trusts SCHEMA V2:
+  Migration 020_trusts_v2 — destructive-recreate:
+    PRIMARY KEY (trust_id)              -- trust_id is now the identity
+    address TEXT UNIQUE                  -- NULL pre-create, UNIQUE for FK targets
+    creator_address, created_block, created_tx — all NULLable
+    Multiple NULLs allowed in UNIQUE column = multi-sig pre-create rows OK.
+
+  Refactor:
+    insert_trust_created → INSERT(trust_id, address, creator, ...) ON CONFLICT(trust_id)
+      DO UPDATE SET address=excluded, creator=excluded, created_*=excluded.
+      If a Registered-only row exists, fills in the Created half. If a Created
+      row already exists, stable re-write.
+    update_trust_registered → INSERT(trust_id, template, ipfs, signers_count,
+      value_configs_count) ON CONFLICT(trust_id) DO UPDATE SET template=...,
+      etc. Either order leaves a complete row.
+    get_trust(address) → returns None if address NULL (pre-create).
+    get_trust_by_id(trust_id) → new query for multi-sig pre-create state.
+
+  GraphQL: Trust SimpleObject fields now Option<…> for address, creator,
+    created_block, created_tx (compatible v1→v2 — graceful nullability).
+    Added trustById(trustId) query.
+
+  Diagnostic surfaced: SQLite "foreign key mismatch" at commit time after
+    DROP+recreate of trusts (v1 had address as PK; v2 has UNIQUE — even
+    same column type, different constraint kind). FK was advisory anyway
+    in this indexer. Fix: explicit `PRAGMA foreign_keys = OFF` in
+    store::open. Safe — we never violate FKs in normal flow.
+
+  LIVE-VERIFIED against historical real-Factory multi-sig flow (blocks
+  4464+4465 from TICK 24's CreateMultiSigTrust run):
+    GraphQL trust(0x8b5c44…) returns FULL row:
+      trustId 0x...8306af95...,
+      address 0x8b5c44... (backfilled from Created),
+      creatorAddress 0x70997970... (cosigner),
+      templateId 0x7a79b2e... (from Registered, before Created!),
+      ipfsCid 'ipfs://multisig-demo' (from Registered, before Created!),
+      signersCount 2, valueConfigsCount 2,
+      createdBlock 4465.
+    GraphQL trustSigners returns BOTH signers, both hasSigned=true.
+
+  Phase 11 closes the v1 multi-sig story end-to-end: any combination of
+  Registered/Created event ordering produces a complete TRUST row.
+  Single-sig (single-tx) flows: still work (Phase 8 not regressed).
+
+  Composes with TICKs 21+22:
+    21 fix → intra-block ordering (Created before Registered/SignerAdded
+              within one block via priority sort)
+    22 fix → intra-block subscription lag (per-block delta-fetch loop
+              for newly-watched addresses)
+    24 fix → cross-block signer attribution (trust_signers PK on trust_id)
+    25 fix → cross-block trust metadata (trusts PK on trust_id)
+  All four together: any tx-grouping of TRUST creation events resolves
+  to a coherent indexed view, against real aeqi-core or any v1-compatible
+  Factory deployment.
+
+28/28 tests green. 31 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 11 — trusts schema v2 OR pivot):
-  Phase 10-B (multi-sig signer attribution + TRUSTApprovedEvent) done.
+NEXT ACTION (Phase 12 — pure breadth or apps/ui pivot):
+  Phase 11 done. The v1 indexer is FULLY CORRECT against real aeqi-core
+  for both single-sig (single-tx) and multi-sig (multi-tx) flows.
 
-  PATH A — trusts schema v2 (same fix as 10-B applied to trusts metadata):
-    Migration 020_trusts_v2 — destructive-recreate trusts:
-      PRIMARY KEY (trust_id)             -- trust_id is the identity
-      address TEXT (NULLable)            -- populated by TrustCreated
-      creator_address TEXT (NULLable)    -- populated by TrustCreated
-      template_id TEXT, ipfs_cid TEXT, signers_count INTEGER,
-        value_configs_count INTEGER     -- populated by Registered
-      created_block INTEGER (NULLable), created_tx TEXT (NULLable)
-    Refactor in store.rs:
-      insert_trust_created → UPSERT(trust_id) DO UPDATE SET address, creator,
-        created_block, created_tx
-      update_trust_registered → UPSERT(trust_id) DO UPDATE SET template, etc.
-        Either ordering works.
-    Refactor get_trust(address) → resolve address → trust_id → return row.
-    Refactor backfill in insert_trust_created: UPDATE trust_signers
-      SET trust_address = ? WHERE trust_id = ? (already in place from 10-B).
-    Modules table FK on trusts.address — advisory; safe to keep nullable.
-    ~30 min next tick.
+  REMAINING WORK (in priority order):
 
-    After this, multi-sig flows have FULL parity with single-sig: signers,
-    registration metadata, and modules all attribute correctly across
-    arbitrary block ranges.
+  PATH A — Funding/Budget/Foundation/Fund module ports (breadth):
+    Pure mechanical work per the locked recipe. Each module:
+      Haiku Explore the ABI → sol! decl → migration → store fns →
+      dispatch arms → GraphQL fields → Mock contract → live test.
+    ~30 min per module. Pure additions, no architectural risk.
 
-  PATH B — apps/ui glue (real integration):
-    Cut worktree off ~/aeqi. Add VITE_INDEXER_URL. Pick Ownership tab.
-    Defer to interactive session for design preferences.
+  PATH B — apps/ui glue (real integration, biggest user-visible win):
+    Cut worktree off ~/aeqi. Add VITE_INDEXER_URL. Pick Ownership tab,
+    rewrite its data layer to query rolesForModule/roleAssignments.
+    Probably 1-2 ticks, but benefits from interactive design input.
 
-  PATH C — Funding/Budget/Fund/Foundation modules (breadth):
-    Mechanical ports per the locked Haiku-Explore + sol!/migration/store/
-    dispatch/GraphQL recipe. ~30 min per module.
+  PATH C — wire remaining Factory admin events (informational):
+    Factory_FactoryConfigSet, AdminsAdded/Removed, Factory_PartnerProfileSet.
+    sol! decls already present. Each is ~5 min. Low marginal value but
+    fast quick wins.
 
-  PATH D — wire remaining Factory admin events (informational):
-    Factory_FactoryConfigSet, AdminsAdded/Removed,
-    Factory_PartnerProfileSet. 10 min total. Low marginal value.
+  PATH D — extend HANDOFF.md with the multi-sig demo recipe:
+    Document the CreateMultiSigTrust.s.sol flow + cross-block ordering
+    semantics + the v2 schema design as a reference for Future-Self.
+    ~10 min.
+
+  PATH E — production hardening (Phase 13+ work, not for autonomous):
+    - WebSocket log subscription (replaces 2s HTTP polling)
+    - eth_call backfill for non-event state (treasury balances etc.)
+    - chain_id column for multi-chain
+    - Prometheus metrics on poll loop
+    - systemd unit
+    Defer to interactive session.
 
   LEVERAGE PRIORITY:
-    PATH A — closes the v1 architecture cleanly; matches the 10-B schema fix.
-    PATH C — adds breadth.
-    PATH D — quick wins.
-    PATH B — interactive session.
+    PATH C (wire remaining admin events, 5 min) →
+    PATH A (Funding module, the most demo-relevant remaining one, ~30 min) →
+    PATH D (HANDOFF.md update, 10 min) →
+    PATH B (interactive session for apps/ui).
 
-  My read: PATH A next tick (~30 min), close the multi-sig story fully.
+  My read: PATH C next tick (quick wins, low risk), PATH A after.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:

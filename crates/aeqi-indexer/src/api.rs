@@ -370,33 +370,35 @@ impl From<store::SignerRow> for Signer {
 }
 
 /// GraphQL projection of a TRUST contract row.
+/// Schema v2: address/creator/created_block/created_tx are nullable
+/// because Registered may land before Created in multi-sig flows.
 #[derive(SimpleObject, Clone)]
 pub struct Trust {
-    /// Contract address (hex string).
-    pub address: String,
-    /// On-chain trust ID (bytes32 as hex).
+    /// On-chain trust ID (bytes32 as hex). The stable identity.
     pub trust_id: String,
-    /// Address that called Factory to create this TRUST.
-    pub creator_address: String,
-    /// Template the TRUST was registered with (if any).
+    /// Contract address (hex string). NULL until Created lands.
+    pub address: Option<String>,
+    /// Address that called Factory to create this TRUST. NULL until Created lands.
+    pub creator_address: Option<String>,
+    /// Template the TRUST was registered with.
     pub template_id: Option<String>,
-    /// IPFS CID of off-chain metadata (if any).
+    /// IPFS CID of off-chain metadata.
     pub ipfs_cid: Option<String>,
     /// Number of authorized signers at registration time.
     pub signers_count: Option<i64>,
     /// Number of value-config slots at registration time.
     pub value_configs_count: Option<i64>,
     /// Block number where the TRUST was created.
-    pub created_block: u64,
+    pub created_block: Option<u64>,
     /// Transaction hash that created the TRUST.
-    pub created_tx: String,
+    pub created_tx: Option<String>,
 }
 
 impl From<store::TrustRow> for Trust {
     fn from(r: store::TrustRow) -> Self {
         Trust {
-            address: r.address,
             trust_id: r.trust_id,
+            address: r.address,
             creator_address: r.creator_address,
             template_id: r.template_id,
             ipfs_cid: r.ipfs_cid,
@@ -410,11 +412,26 @@ impl From<store::TrustRow> for Trust {
 
 #[Object]
 impl Query {
-    /// Look up a single TRUST by its on-chain address.
+    /// Look up a single TRUST by its on-chain address. Returns None if the
+    /// TRUST hasn't been Created yet (multi-sig: Registered without Created).
     async fn trust(&self, ctx: &Context<'_>, address: String) -> async_graphql::Result<Option<Trust>> {
         let db = ctx.data::<SharedDb>()?;
         let conn = db.lock().await;
         let row = store::get_trust(&conn, &address).map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(row.map(Into::into))
+    }
+
+    /// Look up a single TRUST by its trust_id. Useful for multi-sig pre-create
+    /// state where the address is not yet known.
+    async fn trust_by_id(
+        &self,
+        ctx: &Context<'_>,
+        trust_id: String,
+    ) -> async_graphql::Result<Option<Trust>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let row = store::get_trust_by_id(&conn, &trust_id)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(row.map(Into::into))
     }
 
