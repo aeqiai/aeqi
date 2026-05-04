@@ -33,6 +33,17 @@ subagents need to write to the state file, use the absolute path
 `/home/claudedev/aeqi/.observations/autonomous-push-state.md` — not a
 relative path from the worktree root.
 
+**UX rerun scripts — keyword checks must be verified against screenshots.** When
+writing P0 verification scripts (`scripts/ux-p0-rerun.mjs` pattern), content
+keyword lists produce misleading FAIL verdicts if the keywords don't match what
+the page actually renders. Specific traps hit 2026-05-05: (a) `æconomy`
+(special char) not in the rendered text even though the economy page was live;
+(b) `wallet` not present on `/me/treasury` which renders "balances" instead;
+(c) `Economic` (capitalised) not matching lowercase body copy. Rule: after a
+script reports FAIL, always inspect `bodyTextSample` from the JSON output AND
+the screenshot before writing a BROKEN verdict. The script's PASS/FAIL is a
+hint, not ground truth — screenshots are the source of record.
+
 `cargo test --workspace` is non-negotiable — `cargo check --workspace` does
 NOT compile test code. A required-field added to a public struct (e.g. `Template`
 gaining `seed_roles` in `35113194`) can leave test fixtures uncompilable while
