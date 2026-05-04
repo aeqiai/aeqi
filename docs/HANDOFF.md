@@ -4,8 +4,10 @@ Built autonomously on 2026-05-04 across ~17 ticks via /loop heartbeat. Replaces
 the TheGraph subgraph at `~/projects/aeqi-graph` with a self-hosted Rust
 indexer: SQLite + alloy + axum + async-graphql.
 
-**Status:** structurally complete, 5 contracts mocked + live-tested,
-23/23 unit tests green, 20 commits on `indexer-build` branch.
+**Status:** feature-complete for the v2 demo. 9 mock contracts + live-tested
+against real aeqi-core (Phases 7–11). 31/31 unit tests green, 36 commits on
+`indexer-build` branch (as of TICK 29). Full multi-sig flow indexed across
+arbitrary block ranges (Phase 11).
 
 ---
 
@@ -242,6 +244,10 @@ Replays from reorg recovery don't double-insert.
 | `019_trust_signers_v2` | `trust_signers` | **schema v2** — PK on `(trust_id, signer_address)` so signers can land before TrustCreated (multi-sig flow) |
 | `020_trusts_v2` | `trusts` | **schema v2** — PK on `trust_id`, address `UNIQUE` NULLable so Registered metadata can land before Created |
 | `021_factory_admin_events` | `factory_admin_events` | AdminsAdded/AdminsRemoved audit log (one row per address) |
+| `022_fundings` | `fundings` | Funding round lifecycle (Created → Active → Finalized/Removed) |
+| `023_funding_exits` | `funding_exits` | Funding_ExitExecuted audit log |
+| `024_budgets` | `budgets` | Budget lifecycle (Created/Frozen/Active/Removed) |
+| `025_budget_movements` | `budget_movements` | Budget Deposit + Consume audit log (amount + counterparty + asset) |
 
 ---
 
@@ -278,6 +284,14 @@ type Query {
   vestingContributions(moduleAddress: String!, positionId: String!): [VestingContribution!]!
   vestingClaims(moduleAddress: String!, positionId: String!): [VestingClaim!]!
 
+  # Funding module (fundraising rounds)
+  fundingsForModule(moduleAddress: String!): [Funding!]!
+  fundingExits(moduleAddress: String!): [FundingExit!]!
+
+  # Budget module (role-scoped treasury)
+  budgetsForModule(moduleAddress: String!): [Budget!]!
+  budgetMovements(moduleAddress: String!, budgetId: String!): [BudgetMovement!]!
+
   # Factory admin
   templatesForFactory(factoryAddress: String!): [Template!]!
   factoryAdminEvents(factoryAddress: String!): [FactoryAdminEvent!]!
@@ -304,6 +318,8 @@ GraphiQL playground is live at `GET /graphql` for interactive exploration.
 | `MockGovernance.sol` | Governance module 5 events incl. emitFullProposalLifecycle | TICK 16 |
 | `MockToken.sol` | ERC20 Transfer (mint/burn via zero address) | TICK 18 |
 | `MockVesting.sol` | Vesting lifecycle (Created→Activated→Contributed→Claimed→Removed) | TICK 19 |
+| `MockFunding.sol` | Funding round lifecycle + ExitExecuted | TICK 28 |
+| `MockBudget.sol` | Budget lifecycle + Deposit/Consume movements | TICK 29 |
 
 To rebuild + redeploy a mock:
 
@@ -337,11 +353,15 @@ Per-tab mapping:
 
 | Tab | Indexer queries |
 |---|---|
-| **Treasury** | `trust(address)` + `trustModules(trustAddress)` (Token modules' balances need eth_call backfill — not yet built) |
+| **Treasury** | `trust(address)` + `trustModules(trustAddress)` + `tokenHolders(tokenAddress)` per Token module (cap-table view) |
 | **Ownership** | `rolesForModule(moduleAddress)` + `roleAssignments(moduleAddress, roleId)` per Role module |
 | **Governance** | `proposalsForModule(moduleAddress)` + `votesForProposal(moduleAddress, proposalId)` |
 | **Roles tab** | `rolesForModule` returns all roles; replay `roleAssignments` for each to compute current occupant |
 | **Permissions tab** | `permissionsEvents(trustAddress, entityId)` audit log; frontend computes effective flags by replaying granted/revoked/set semantics |
+| **Vesting tab** | `vestingPositions(moduleAddress)` for the lifecycle list; `vestingContributions(moduleAddress, positionId)` + `vestingClaims(moduleAddress, positionId)` for per-position audit |
+| **Fundraising tab** | `fundingsForModule(moduleAddress)` for round list; `fundingExits(moduleAddress)` for the exit audit log |
+| **Budgets tab** | `budgetsForModule(moduleAddress)` for the role-scoped budgets; `budgetMovements(moduleAddress, budgetId)` for deposits + consumes per budget |
+| **Admin / Templates** | `templatesForFactory(factoryAddress)` + `factoryAdminEvents(factoryAddress)` for ops surface |
 
 Field naming uses snake_case in SQLite and store, but async-graphql converts
 to camelCase automatically — so apps/ui sees `trustAddress`, `voteStart`,
@@ -353,8 +373,10 @@ to camelCase automatically — so apps/ui sees `trustAddress`, `voteStart`,
 
 ### Already-known gaps (non-blocking for v1)
 
-- **Token + Vesting modules SHIPPED** (TICKs 18–19). Funding + Budget +
-  Foundation + Fund still pending; each is a ~30-min mechanical port.
+- **All demo-critical modules SHIPPED** as of TICK 29: Token + Vesting +
+  Funding + Budget. Foundation + Fund + Unifutures remain unported —
+  niche / specialized; each is a ~30-min mechanical port via the locked
+  recipe ("How to add a new event type" below).
 - **Token_Transfer high-frequency.** Will need filtering or sampling
   strategy on Base mainnet — straight per-transfer audit log will balloon.
   Fine on Anvil for v1 demo.
