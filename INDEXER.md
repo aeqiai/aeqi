@@ -20,7 +20,9 @@ test-contracts/         — 9 mock contracts emitting byte-identical signatures
 docs/
   HANDOFF.md            — read this first
   CHANGELOG.md          — per-phase summary (Keep a Changelog lite)
-  indexer-build-log.md  — full per-tick autonomous build log (~37 ticks)
+  DEPLOY.md             — production-hardening thinking aid (systemd, WSS,
+                          prometheus, multi-chain — none implemented)
+  indexer-build-log.md  — full per-tick autonomous build log (~39 ticks)
   indexer-loop-prompt.md — /loop heartbeat metaprompt
   aeqi-indexer-spec.md  — original architectural spec
   aeqi-graph-survey.md  — subgraph entity inventory (135 events catalogued)
