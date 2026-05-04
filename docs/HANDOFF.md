@@ -4,10 +4,17 @@ Built autonomously on 2026-05-04 across ~17 ticks via /loop heartbeat. Replaces
 the TheGraph subgraph at `~/projects/aeqi-graph` with a self-hosted Rust
 indexer: SQLite + alloy + axum + async-graphql.
 
-**Status:** feature-complete for the v2 demo. 9 mock contracts + live-tested
-against real aeqi-core (Phases 7–11). 31/31 unit tests green, 36 commits on
-`indexer-build` branch (as of TICK 29). Full multi-sig flow indexed across
-arbitrary block ranges (Phase 11).
+**Status:** feature-complete for the v2 demo. 10 contract types covered,
+10 mock contracts + live-tested against real aeqi-core (Phases 7–11).
+33/33 unit tests green, 42 commits on `indexer-build` branch (as of TICK 33).
+Full multi-sig flow indexed across arbitrary block ranges (Phase 11).
+Every demo-critical aeqi-core module is shipped: TRUST + Role + Governance
++ Token + Vesting + Funding + Budget + Fund + Factory admin.
+
+**What's NOT in v1:** Foundation module (pure scaffolding — no domain
+events). Unifutures + UnifuturesPositionManager + Uniswap modules
+(derivative + DEX integrations, niche). All can be added later via the
+"How to add a new event type" recipe at the bottom.
 
 ---
 
@@ -249,6 +256,10 @@ Replays from reorg recovery don't double-insert.
 | `024_budgets` | `budgets` | Budget lifecycle (Created/Frozen/Active/Removed) |
 | `025_budget_movements` | `budget_movements` | Budget Deposit + Consume audit log (amount + counterparty + asset) |
 | `026_factory_config` | `factory_config` | Per-factory snapshot of beacon + partner IPFS CID (UPSERT pattern) |
+| `027_fund_navs` | `fund_navs` | Fund NAV checkpoints (time-series valuation) |
+| `028_fund_flows` | `fund_flows` | Fund deposit/redemption/carry requests with lifecycle (requested/claimed/cancelled) |
+| `029_fund_positions` | `fund_positions` | Fund investment positions with open/closed lifecycle |
+| `030_fund_position_interactions` | `fund_position_interactions` | Audit log of Fund position management actions |
 
 ---
 
@@ -293,6 +304,12 @@ type Query {
   budgetsForModule(moduleAddress: String!): [Budget!]!
   budgetMovements(moduleAddress: String!, budgetId: String!): [BudgetMovement!]!
 
+  # Fund module (LP/GP fund vehicle)
+  fundNavs(moduleAddress: String!): [FundNav!]!
+  fundFlows(moduleAddress: String!): [FundFlow!]!
+  fundPositions(moduleAddress: String!): [FundPosition!]!
+  fundPositionInteractions(moduleAddress: String!, positionId: String!): [FundPositionInteraction!]!
+
   # Factory admin
   templatesForFactory(factoryAddress: String!): [Template!]!
   factoryAdminEvents(factoryAddress: String!): [FactoryAdminEvent!]!
@@ -322,6 +339,7 @@ GraphiQL playground is live at `GET /graphql` for interactive exploration.
 | `MockVesting.sol` | Vesting lifecycle (Created→Activated→Contributed→Claimed→Removed) | TICK 19 |
 | `MockFunding.sol` | Funding round lifecycle + ExitExecuted | TICK 28 |
 | `MockBudget.sol` | Budget lifecycle + Deposit/Consume movements | TICK 29 |
+| `MockFund.sol` | Fund NAV + flow lifecycle + position lifecycle + interactions | TICK 33 |
 
 To rebuild + redeploy a mock:
 
@@ -363,7 +381,8 @@ Per-tab mapping:
 | **Vesting tab** | `vestingPositions(moduleAddress)` for the lifecycle list; `vestingContributions(moduleAddress, positionId)` + `vestingClaims(moduleAddress, positionId)` for per-position audit |
 | **Fundraising tab** | `fundingsForModule(moduleAddress)` for round list; `fundingExits(moduleAddress)` for the exit audit log |
 | **Budgets tab** | `budgetsForModule(moduleAddress)` for the role-scoped budgets; `budgetMovements(moduleAddress, budgetId)` for deposits + consumes per budget |
-| **Admin / Templates** | `templatesForFactory(factoryAddress)` + `factoryAdminEvents(factoryAddress)` for ops surface |
+| **Fund / NAV tab** | `fundNavs(moduleAddress)` for valuation timeline; `fundFlows(moduleAddress)` for LP deposit/redemption/carry pipeline; `fundPositions(moduleAddress)` for portfolio composition |
+| **Admin / Templates** | `templatesForFactory(factoryAddress)` + `factoryAdminEvents(factoryAddress)` + `factoryConfig(factoryAddress)` for ops surface |
 
 Field naming uses snake_case in SQLite and store, but async-graphql converts
 to camelCase automatically — so apps/ui sees `trustAddress`, `voteStart`,
@@ -375,10 +394,11 @@ to camelCase automatically — so apps/ui sees `trustAddress`, `voteStart`,
 
 ### Already-known gaps (non-blocking for v1)
 
-- **All demo-critical modules SHIPPED** as of TICK 29: Token + Vesting +
-  Funding + Budget. Foundation + Fund + Unifutures remain unported —
-  niche / specialized; each is a ~30-min mechanical port via the locked
-  recipe ("How to add a new event type" below).
+- **All demo-critical modules SHIPPED** as of TICK 33: Token + Vesting +
+  Funding + Budget + Fund. Foundation skipped (pure scaffolding —
+  nothing to index). Unifutures + UnifuturesPositionManager + Uniswap
+  remain unported — derivative/DEX niche; each is a ~30-min mechanical
+  port via the recipe at the bottom of this doc.
 - **Token_Transfer high-frequency.** Will need filtering or sampling
   strategy on Base mainnet — straight per-transfer audit log will balloon.
   Fine on Anvil for v1 demo.
