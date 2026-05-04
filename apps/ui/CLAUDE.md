@@ -475,3 +475,44 @@ Then re-run verify. Don't chase the reported error — it's stale state,
 not a real type problem. The cost of guessing wrong (~2 min on
 2026-04-30): re-reading polymorphic-`as` ref typing trying to find a
 bug that wasn't there.
+
+## Banner uses `kind`, not `variant`
+
+The `Banner` component accepts a `kind` prop (`BannerKind =
+"success" | "error" | "warning" | "info"`), NOT `variant`. Passing
+`variant="success"` silently renders the wrong (or unstyled) banner
+in some build modes and fails tsc in strict mode with "Property
+'variant' does not exist on type 'BannerProps'". Always use `kind`:
+
+```tsx
+<Banner kind="success">...</Banner>
+<Banner kind="error">...</Banner>
+<Banner kind="info">...</Banner>
+```
+
+Cost (2026-05-04): two tsc edit passes when writing `AAEnrollmentPage`.
+
+## `api` is an object — use `apiRequest` for raw HTTP
+
+`api` from `@/lib/api.ts` is a plain object with named methods
+(`api.getAgents()`, `api.getIdeas()`, etc.) — it is NOT callable.
+Calling `api("/api/foo", { method: "POST", … })` fails at runtime and
+tsc with "This expression is not callable."
+
+For raw fetch-style calls (method + headers + body), use `apiRequest`
+from `@/api/client`:
+
+```tsx
+import { apiRequest } from "@/api/client";
+
+await apiRequest("/api/account/enroll-passkey", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+```
+
+`apiRequest` is the lower-level fetch wrapper that `api.*` methods
+build on. Use it when you need a one-off POST/PUT/DELETE that doesn't
+warrant a named method on the `api` object. Cost (2026-05-04): one
+tsc edit pass when writing `AAEnrollmentPage`.
