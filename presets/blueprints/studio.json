@@ -195,5 +195,10 @@
       "parent": "root",
       "child": "distribution"
     }
-  ]
+  ],
+  "seed_inbox_message": {
+    "from": "root",
+    "subject": "First piece to ship?",
+    "content": "Welcome — Creative Director here. Three of us on this Company: me, Editor (drafts + cuts), Distribution (packaging + scheduling). What's the first piece you want to ship? Give me the angle and the deadline; I'll draft it, Editor will tighten it, and Distribution will queue the rollout."
+  }
 }

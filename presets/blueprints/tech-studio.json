@@ -205,5 +205,10 @@
       "parent": "root",
       "child": "operator"
     }
-  ]
+  ],
+  "seed_inbox_message": {
+    "from": "root",
+    "subject": "First system to build?",
+    "content": "Tech Lead. Five of us standing by: backend, frontend, designer-engineer, operator, me. What's the first system you want us to build? Spec, language, target user — anything to start. I'll fan it out across the team and we'll have something running in a week."
+  }
 }

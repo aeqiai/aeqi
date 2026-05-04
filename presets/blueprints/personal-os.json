@@ -147,5 +147,10 @@
       "default_occupant_agent": "root"
     }
   ],
-  "seed_role_edges": []
+  "seed_role_edges": [],
+  "seed_inbox_message": {
+    "from": "root",
+    "subject": "Most annoying thing in your week?",
+    "content": "Hi — Concierge here. I run your life like a chief of staff who actually knows you. To start, tell me the most annoying recurring task in your week — the thing that eats time and shouldn't. We'll automate it, then move to the next one."
+  }
 }

@@ -103,5 +103,10 @@
     { "key": "founder", "title": "Founder", "default_occupant_agent": "root" },
     { "key": "scribe", "title": "Scribe", "default_occupant_agent": "Scribe" }
   ],
-  "seed_role_edges": [{ "parent": "founder", "child": "scribe" }]
+  "seed_role_edges": [{ "parent": "founder", "child": "scribe" }],
+  "seed_inbox_message": {
+    "from": "root",
+    "subject": "What are you building?",
+    "content": "Founder. What are you building this week? Give me the rough outline — what you're shipping, who it's for, what's blocking. I'll set up the first quests, and Scribe will keep the public build log clean. Let's ship something by Friday."
+  }
 }

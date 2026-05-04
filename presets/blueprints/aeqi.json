@@ -94,5 +94,10 @@
   ],
   "seed_role_edges": [
     { "parent": "root", "child": "steward" }
-  ]
+  ],
+  "seed_inbox_message": {
+    "from": "root",
+    "subject": "Welcome — what should this company do?",
+    "content": "Hey. I'm aeqi, your primary agent for this Company. We start with a blank slate — what do you want this Company to actually do? Tell me one sentence (e.g. 'help me ship a SaaS by Q3' or 'run my consulting practice end to end') and I'll break it into the first three quests. The Steward will keep our cadence; everything else is yours to shape."
+  }
 }

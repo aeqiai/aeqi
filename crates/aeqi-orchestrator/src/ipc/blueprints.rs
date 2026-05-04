@@ -144,6 +144,21 @@ pub struct SeedRoleEdgeSpec {
     pub child: String,
 }
 
+/// Spawn-time inbox greeting. When present, the root agent (or a named
+/// seed_agent) posts this message to a DM session with the creator user
+/// immediately after the Company spawns. The user lands on /inbox with
+/// an active conversation instead of an empty list.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SeedInboxMessageSpec {
+    /// Which agent posts the greeting. Use `"root"` for the blueprint's
+    /// root agent, or the `name` of an entry in `seed_agents`.
+    pub from: String,
+    /// Subject line shown in the inbox awaiting-row.
+    pub subject: String,
+    /// Body of the greeting message.
+    pub content: String,
+}
+
 /// Operator-time override of a declared role's default occupant.
 /// Sent in the spawn payload; applied during position installation.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -189,6 +204,11 @@ pub struct Blueprint {
     pub seed_roles: Vec<SeedRoleSpec>,
     #[serde(default)]
     pub seed_role_edges: Vec<SeedRoleEdgeSpec>,
+    /// Optional spawn-time inbox greeting. When present, the named agent
+    /// posts this to a DM session with the creator immediately after spawn.
+    /// Absent on older Blueprints — `#[serde(default)]` ensures they parse.
+    #[serde(default)]
+    pub seed_inbox_message: Option<SeedInboxMessageSpec>,
 }
 
 // ---------------------------------------------------------------------------
@@ -713,6 +733,86 @@ async fn store_identity_idea(
     }
 }
 
+/// Post the spawn-time inbox greeting declared in the Blueprint. Best-effort:
+/// every failure is warn-logged and the spawn proceeds regardless. Only called
+/// from `handle_spawn_blueprint` (fresh Company spawn); import/into-entity
+/// paths intentionally skip this.
+async fn seed_inbox_greeting(
+    session_store: &crate::session_store::SessionStore,
+    blueprint: &Blueprint,
+    outcome: &SpawnOutcome,
+    creator_user_id: &str,
+) {
+    let Some(ref greeting) = blueprint.seed_inbox_message else {
+        return;
+    };
+
+    // Resolve "from" to an agent_id. "root" → the just-spawned root agent.
+    // Anything else → look up by name in the spawned agents list.
+    let from_agent_id = if greeting.from == "root" {
+        Some(outcome.root_agent_id.clone())
+    } else {
+        outcome
+            .spawned_agents
+            .iter()
+            .find(|a| a.name == greeting.from)
+            .map(|a| a.id.clone())
+    };
+
+    let Some(agent_id) = from_agent_id else {
+        tracing::warn!(
+            from = %greeting.from,
+            "spawn-time inbox greeting: 'from' agent not found in spawned agents; skipping",
+        );
+        return;
+    };
+
+    // 1. Find or create the DM session between agent and creator.
+    let dm_name = format!("DM — {}", outcome.root_agent_name);
+    let (session_id, _created) = match session_store
+        .find_or_create_dm_session("dm", &dm_name, "agent", &agent_id, "user", creator_user_id)
+        .await
+    {
+        Ok(pair) => pair,
+        Err(e) => {
+            tracing::warn!(error = %e, agent_id, "spawn-time inbox greeting: failed to create DM session");
+            return;
+        }
+    };
+
+    // 2. Append the greeting message as an agent turn.
+    if let Err(e) = session_store
+        .append_message_from(
+            &session_id,
+            "assistant",
+            &greeting.content,
+            "agent",
+            Some(&agent_id),
+            None,
+        )
+        .await
+    {
+        tracing::warn!(error = %e, session_id, "spawn-time inbox greeting: failed to append message");
+        return;
+    }
+
+    // 3. Stamp awaiting so list_awaiting() picks it up in the inbox query.
+    if let Err(e) = session_store
+        .set_awaiting(&session_id, &greeting.subject)
+        .await
+    {
+        tracing::warn!(error = %e, session_id, "spawn-time inbox greeting: failed to set awaiting");
+        return;
+    }
+
+    tracing::info!(
+        session_id,
+        agent_id,
+        creator_user_id,
+        "spawn-time inbox greeting seeded",
+    );
+}
+
 // ---------------------------------------------------------------------------
 // IPC handlers
 // ---------------------------------------------------------------------------
@@ -865,6 +965,11 @@ pub async fn handle_spawn_blueprint(
                         user_id = %uid,
                         "failed to auto-create founding Director role",
                     ),
+                }
+
+                // Spawn-time inbox greeting — best-effort, never blocks spawn.
+                if let Some(ref ss) = ctx.session_store {
+                    seed_inbox_greeting(ss.as_ref(), &blueprint, &outcome, uid).await;
                 }
             }
             serde_json::json!({
@@ -1077,6 +1182,7 @@ mod tests {
             ],
             seed_roles: Vec::new(),
             seed_role_edges: Vec::new(),
+            seed_inbox_message: None,
         }
     }
 
@@ -1345,6 +1451,7 @@ mod tests {
             seed_quests: Vec::new(),
             seed_roles: Vec::new(),
             seed_role_edges: Vec::new(),
+            seed_inbox_message: None,
         };
         let imported = spawn_blueprint(
             &imported_blueprint,
