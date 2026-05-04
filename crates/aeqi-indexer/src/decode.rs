@@ -168,6 +168,24 @@ sol! {
     }
 }
 
+// Funding module events — emitted by Funding.module instances.
+// Source: /home/claudedev/projects/aeqi-graph/abis/Funding.module.json
+//
+// v1 covers the round lifecycle + exit audit. Round events only carry
+// fundingId; rich metadata (assetAmount, FDV multipliers, liquidity asset,
+// etc.) lives in contract storage. Contributions go through Unifutures
+// (separate module, deferred).
+sol! {
+    #[sol(rpc)]
+    contract Funding {
+        event Funding_FundingCreated(bytes32 indexed fundingId);
+        event Funding_FundingActivated(bytes32 indexed fundingId);
+        event Funding_FinalizedFunding(bytes32 indexed fundingId);
+        event Funding_FundingRemoved(bytes32 indexed fundingId);
+        event Funding_ExitExecuted(bytes32 indexed exitId);
+    }
+}
+
 /// A normalized indexer event — what we actually persist after decoding raw logs.
 ///
 /// Cross-event uniformity: every variant carries the block + tx context so

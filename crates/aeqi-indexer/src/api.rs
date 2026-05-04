@@ -73,6 +73,51 @@ impl From<store::TemplateRow> for Template {
     }
 }
 
+/// GraphQL projection of a fundraising round on a Funding module.
+#[derive(SimpleObject, Clone)]
+pub struct Funding {
+    pub module_address: String,
+    pub funding_id: String,
+    /// 'created' | 'active' | 'finalized' | 'removed'
+    pub status: String,
+    pub created_block: u64,
+    pub created_tx: String,
+}
+
+impl From<store::FundingRow> for Funding {
+    fn from(r: store::FundingRow) -> Self {
+        Funding {
+            module_address: r.module_address,
+            funding_id: r.funding_id,
+            status: r.status,
+            created_block: r.created_block,
+            created_tx: r.created_tx,
+        }
+    }
+}
+
+/// GraphQL projection of a Funding_ExitExecuted audit row.
+#[derive(SimpleObject, Clone)]
+pub struct FundingExit {
+    pub module_address: String,
+    pub exit_id: String,
+    pub block_number: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+impl From<store::FundingExitRow> for FundingExit {
+    fn from(r: store::FundingExitRow) -> Self {
+        FundingExit {
+            module_address: r.module_address,
+            exit_id: r.exit_id,
+            block_number: r.block_number,
+            tx_hash: r.tx_hash,
+            log_index: r.log_index,
+        }
+    }
+}
+
 /// GraphQL projection of a vesting position.
 #[derive(SimpleObject, Clone)]
 pub struct VestingPosition {
@@ -524,6 +569,32 @@ impl Query {
         let db = ctx.data::<SharedDb>()?;
         let conn = db.lock().await;
         let rows = store::get_templates_for_factory(&conn, &factory_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// All fundraising rounds on a Funding module, oldest first.
+    async fn fundings_for_module(
+        &self,
+        ctx: &Context<'_>,
+        module_address: String,
+    ) -> async_graphql::Result<Vec<Funding>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_fundings_for_module(&conn, &module_address)
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// Audit log of all funding exits on a Funding module, oldest first.
+    async fn funding_exits(
+        &self,
+        ctx: &Context<'_>,
+        module_address: String,
+    ) -> async_graphql::Result<Vec<FundingExit>> {
+        let db = ctx.data::<SharedDb>()?;
+        let conn = db.lock().await;
+        let rows = store::get_funding_exits(&conn, &module_address)
             .map_err(|e| async_graphql::Error::new(e.to_string()))?;
         Ok(rows.into_iter().map(Into::into).collect())
     }

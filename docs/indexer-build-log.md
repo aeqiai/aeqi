@@ -27,13 +27,13 @@ Every tick I move ONE link forward. I don't try to ship the whole chain at once.
 ## Current state (UPDATED EVERY TICK)
 
 ```
-TICK: 27 (PHASE 13-C ✓ HANDOFF.md EXPANDED FOR MULTI-SIG + ORDERING)
-PHASE: 13-C ✓ DOCS COMPLETE | HANDOFF.md gains the multi-sig demo
-       recipe, the 4-fix cross-block ordering table, schema v2 design
-       rationale, factoryAdminEvents + trustById queries, and updated
-       test-contracts + open-work tables. Tomorrow's user can read it
-       cold and reproduce both demo flows. 29/29 tests green; 33 commits.
-       | next: Funding module port OR apps/ui glue (interactive)
+TICK: 28 (PHASE 14-A ✓ FUNDING MODULE — ROUND LIFECYCLE + EXIT AUDIT)
+PHASE: 14-A ✓ FUNDRAISING SURFACE | Funding round lifecycle (Created →
+       Active → Finalized | Removed) + ExitExecuted audit log indexed.
+       Live-verified: full lifecycle in one tx (4 events) → fundingsForModule
+       returns round with status='finalized'; fundingExits returns the audit row.
+       30/30 tests green; 35 commits.
+       | next: Budget module OR apps/ui glue OR remaining minor Factory events
 LAST ACTION (TICK 7+8):
   TICK 7 — wrote crates/aeqi-indexer/src/api.rs (async-graphql Schema + axum router):
     - Trust GraphQL type with all fields from store::TrustRow
@@ -861,38 +861,80 @@ TICK 27 — PHASE 13-C HANDOFF EXPANSION:
 
 29/29 tests green. 33 commits on indexer-build branch.
 
+TICK 28 — PHASE 14-A FUNDING MODULE:
+  Subagent: Haiku Explore enumerated Funding.module ABI. 11 events; v1
+    cherry-picked the 5 demo-relevant ones:
+      Funding_FundingCreated(fundingId)         → status='created'
+      Funding_FundingActivated(fundingId)       → status='active'
+      Funding_FinalizedFunding(fundingId)       → status='finalized'
+      Funding_FundingRemoved(fundingId)         → status='removed'
+      Funding_ExitExecuted(exitId)              → exit audit row
+    Skipped: Reset, SetFundingConfig (admin), SlotArrays_* (internal),
+    InitializationStateChanged. Contributions go through Unifutures
+    (separate module, deferred).
+  Schema:
+    - 022_fundings(module_address, funding_id, status, created_block, ...)
+      PK (module, funding_id). Status lifecycle UPSERTs in handlers.
+    - 023_funding_exits(id, module_address, exit_id, log coord)
+      Append-only audit log with UNIQUE on coord.
+  Decode: sol! Funding contract block (5 events).
+  Poll loop: 5 dispatch arms.
+  GraphQL: Funding + FundingExit SimpleObjects;
+    fundingsForModule(moduleAddress) + fundingExits(moduleAddress).
+  MockFunding with emitRoundLifecycle — 4 events in one tx
+    (Created + Activated + ExitExecuted + Finalized).
+
+  LIVE-TESTED end-to-end (after a small detour — initial run had
+  invalid hex `0x...fund` for module_id which silently failed; re-run
+  with `0x...fff` worked):
+    block 5596: TrustCreated → trust auto-watched
+    block 5769: TRUST_ModuleAdded(MockFunding) → funding module auto-watched
+    block 5787: emitRoundLifecycle(fundingId 0x789, exitId 0xabc)
+      → 4 events all dispatched in one block
+    GraphQL fundingsForModule:
+      [{ fundingId 0x789, status: 'finalized', createdBlock: 5787 }]
+    GraphQL fundingExits:
+      [{ exitId 0xabc, blockNumber: 5787 }]
+
+  Indexer surface now spans 8 contract types (Factory + TRUST + Role +
+  Governance + Token + Vesting + Funding + accounts), 23 schema
+  migrations, 18 GraphQL queries, ~35 dispatched event types.
+
+30/30 tests green. 35 commits on indexer-build branch.
+
 PIVOT (locked TICK 5): Build indexer against ABIs first; live deploy is separate problem.
-NEXT ACTION (Phase 14 — Funding module OR Budget OR pivot):
-  Phase 13-C (HANDOFF expansion) done. The artifact is fully self-contained
-  for tomorrow's pickup.
+NEXT ACTION (Phase 14-B — Budget module OR pivot):
+  Phase 14-A (Funding) done.
 
-  PATH A — Funding module port (most demo-relevant remaining):
-    Source: ~/projects/aeqi-graph/abis/Funding.module.json
-    Probably: Funding_RoundCreated, Funding_ContributionMade,
-              Funding_RoundClosed, Funding_RefundIssued.
-    Same Haiku-Explore + sol!/migration/store/dispatch/GraphQL recipe.
-    ~30 min. Adds the "fundraising rounds" surface.
-
-  PATH B — Budget module port (cap-table extension):
+  PATH A — Budget module port (cap-table extension):
     Source: ~/projects/aeqi-graph/abis/Budget.module.json
-    Probably: Budget_AllocationSet, Budget_Spent, Budget_Reset.
-    ~30 min. Adds spending-cap visibility per role.
+    Likely events: Budget_AllocationSet (per role/owner), Budget_Spent,
+    Budget_Reset. ~30 min mechanical. Adds spending visibility per role.
 
-  PATH C — wire remaining Factory minor events:
-    Factory_FactoryConfigSet (1 event per factory) +
-    Factory_PartnerProfileSet (marketing). Each ~5 min, low value.
+  PATH B — Foundation module port (governance variant):
+    ~/projects/aeqi-graph/abis/Foundation.module.json
+    May overlap with Governance — needs Haiku scout first.
 
-  PATH D — apps/ui glue: defer to interactive session.
-  PATH E — production hardening (WSS, multi-chain, eth_call backfill,
-    Prometheus, systemd): out of scope for autonomous session.
+  PATH C — Fund module port (treasury vehicle):
+    ~/projects/aeqi-graph/abis/Fund.module.json
+    Different from Funding (Fund = treasury wallet, Funding = round flow).
+    Needs scouting.
+
+  PATH D — wire remaining minor Factory events:
+    Factory_FactoryConfigSet, Factory_PartnerProfileSet.
+    5 min each, informational only.
+
+  PATH E — apps/ui glue: defer to interactive session.
+  PATH F — production hardening: out of scope for autonomous.
 
   LEVERAGE PRIORITY:
-    PATH A — Funding adds the fundraising story to the demo
-    PATH B — Budget rounds out the role/treasury surface
-    PATH C — quick wins for completeness
+    PATH A (Budget) — most demo-relevant remaining module
+    PATH D (minor admin events) — quick completeness wins
+    PATH B/C — needs Haiku scout to know if worth the port effort
+    PATH E — interactive session
 
-  My read: PATH A next tick (~30 min), then evaluate cron. Funding is
-  the last high-demo-value module not yet in the indexer.
+  My read: PATH A next tick. Budget completes the role/treasury demo
+  surface; after that the indexer has covered every demo-critical module.
     Stand up /home/claudedev/aeqi-indexer-build/docs/HANDOFF.md with:
       1. What this is + why it exists (replaces TheGraph subgraph)
       2. Boot recipe:

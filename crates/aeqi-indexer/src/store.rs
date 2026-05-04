@@ -509,6 +509,46 @@ const MIGRATIONS: &[(&str, &str)] = &[
           ON factory_admin_events(admin_address);
         "#,
     ),
+    (
+        "022_fundings",
+        r#"
+        -- A fundraising round on a Funding module. Lifecycle:
+        --   'created' → 'active' (Activated) → 'finalized' (Finalized) | 'removed'
+        -- The events only carry fundingId; rich metadata (assetAmount,
+        -- startFdvMultiplier, endFdvMultiplier, liquidityAsset, etc.) lives
+        -- in contract storage and would need eth_call backfill — out of v1.
+        CREATE TABLE IF NOT EXISTS fundings (
+            module_address TEXT NOT NULL,
+            funding_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'created',
+            created_block INTEGER NOT NULL,
+            created_tx TEXT NOT NULL,
+            PRIMARY KEY (module_address, funding_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_fundings_status
+          ON fundings(module_address, status);
+        "#,
+    ),
+    (
+        "023_funding_exits",
+        r#"
+        -- Audit log of Funding_ExitExecuted events. exit_id is opaque to
+        -- the indexer — it's a bytes32 the module resolves internally to
+        -- a contributor's exit (refund or claim). Same idempotency pattern
+        -- as the other audit logs.
+        CREATE TABLE IF NOT EXISTS funding_exits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_address TEXT NOT NULL,
+            exit_id TEXT NOT NULL,
+            block_number INTEGER NOT NULL,
+            tx_hash TEXT NOT NULL,
+            log_index INTEGER NOT NULL,
+            UNIQUE (module_address, block_number, tx_hash, log_index)
+        );
+        CREATE INDEX IF NOT EXISTS idx_funding_exits_module
+          ON funding_exits(module_address, block_number);
+        "#,
+    ),
 ];
 
 /// Open the SQLite database, applying any pending migrations.
@@ -1759,6 +1799,134 @@ pub fn get_templates_for_factory(
     Ok(rows)
 }
 
+/// Insert a funding round (Funding_FundingCreated). Idempotent on
+/// (module_address, funding_id).
+pub fn insert_funding(
+    conn: &Connection,
+    module_address: &str,
+    funding_id: &str,
+    created_block: u64,
+    created_tx: &str,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO fundings
+            (module_address, funding_id, status, created_block, created_tx)
+         VALUES (?1, ?2, 'created', ?3, ?4)",
+        params![module_address, funding_id, created_block as i64, created_tx],
+    )?;
+    Ok(())
+}
+
+/// Update funding round status. Used by Activated/Finalized/Removed handlers.
+/// No-op + warn if the funding isn't yet indexed.
+pub fn update_funding_status(
+    conn: &Connection,
+    module_address: &str,
+    funding_id: &str,
+    status: &str,
+) -> Result<()> {
+    let n = conn.execute(
+        "UPDATE fundings SET status = ?1
+         WHERE module_address = ?2 AND funding_id = ?3",
+        params![status, module_address, funding_id],
+    )?;
+    if n == 0 {
+        tracing::warn!(
+            "funding status update for unknown funding: module={} funding_id={}",
+            module_address, funding_id
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FundingRow {
+    pub module_address: String,
+    pub funding_id: String,
+    pub status: String,
+    pub created_block: u64,
+    pub created_tx: String,
+}
+
+/// All funding rounds on a module, oldest first.
+pub fn get_fundings_for_module(
+    conn: &Connection,
+    module_address: &str,
+) -> Result<Vec<FundingRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT module_address, funding_id, status, created_block, created_tx
+         FROM fundings WHERE module_address = ?1
+         ORDER BY created_block ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![module_address], |r| {
+            Ok(FundingRow {
+                module_address: r.get(0)?,
+                funding_id: r.get(1)?,
+                status: r.get(2)?,
+                created_block: r.get::<_, i64>(3)? as u64,
+                created_tx: r.get(4)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Insert a Funding_ExitExecuted audit row.
+pub fn insert_funding_exit(
+    conn: &Connection,
+    module_address: &str,
+    exit_id: &str,
+    coord: LogCoord<'_>,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO funding_exits
+            (module_address, exit_id, block_number, tx_hash, log_index)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            module_address,
+            exit_id,
+            coord.block_number as i64,
+            coord.tx_hash,
+            coord.log_index as i64
+        ],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct FundingExitRow {
+    pub module_address: String,
+    pub exit_id: String,
+    pub block_number: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+}
+
+/// Audit log of all funding exits on a module, oldest first.
+pub fn get_funding_exits(
+    conn: &Connection,
+    module_address: &str,
+) -> Result<Vec<FundingExitRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT module_address, exit_id, block_number, tx_hash, log_index
+         FROM funding_exits WHERE module_address = ?1
+         ORDER BY block_number ASC, log_index ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![module_address], |r| {
+            Ok(FundingExitRow {
+                module_address: r.get(0)?,
+                exit_id: r.get(1)?,
+                block_number: r.get::<_, i64>(2)? as u64,
+                tx_hash: r.get(3)?,
+                log_index: r.get::<_, i64>(4)? as u64,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// Insert one factory admin event row. Caller invokes this once per address
 /// in the AdminsAdded/AdminsRemoved arrays. UNIQUE on (factory, log coord,
 /// admin) is replay-safe.
@@ -2463,6 +2631,44 @@ mod tests {
         insert_factory_admin_event(&conn, factory, alice, "added", c1).unwrap();
         let log = get_factory_admin_events(&conn, factory).unwrap();
         assert_eq!(log.len(), 3);
+    }
+
+    #[test]
+    fn funding_lifecycle_round_trip() {
+        let dir = tempdir().unwrap();
+        let conn = open(dir.path().join("test.db")).expect("open");
+
+        let module = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+        let funding_id = "0x0000000000000000000000000000000000000000000000000000000000000aaa";
+
+        insert_funding(&conn, module, funding_id, 100, "0xtx1").unwrap();
+        let rounds = get_fundings_for_module(&conn, module).unwrap();
+        assert_eq!(rounds.len(), 1);
+        assert_eq!(rounds[0].status, "created");
+
+        update_funding_status(&conn, module, funding_id, "active").unwrap();
+        let rounds = get_fundings_for_module(&conn, module).unwrap();
+        assert_eq!(rounds[0].status, "active");
+
+        update_funding_status(&conn, module, funding_id, "finalized").unwrap();
+        let rounds = get_fundings_for_module(&conn, module).unwrap();
+        assert_eq!(rounds[0].status, "finalized");
+
+        // Exit audit log
+        let coord = LogCoord { block_number: 200, tx_hash: "0xtxE", log_index: 0 };
+        let exit_id = "0x0000000000000000000000000000000000000000000000000000000000000bbb";
+        insert_funding_exit(&conn, module, exit_id, coord).unwrap();
+        let exits = get_funding_exits(&conn, module).unwrap();
+        assert_eq!(exits.len(), 1);
+        assert_eq!(exits[0].exit_id, exit_id);
+
+        // Idempotent
+        insert_funding_exit(&conn, module, exit_id, coord).unwrap();
+        let exits = get_funding_exits(&conn, module).unwrap();
+        assert_eq!(exits.len(), 1);
+
+        // Unknown funding update is a no-op + warn
+        update_funding_status(&conn, module, "0xnonexistent", "removed").unwrap();
     }
 
     #[test]

@@ -440,6 +440,12 @@ pub mod poll {
                         decode::Vesting::Vesting_VestingPositionContributed::SIGNATURE_HASH,
                         decode::Vesting::Vesting_VestingClaimed::SIGNATURE_HASH,
                         decode::Vesting::Vesting_PositionRemoved::SIGNATURE_HASH,
+                        // Funding module events (per-module)
+                        decode::Funding::Funding_FundingCreated::SIGNATURE_HASH,
+                        decode::Funding::Funding_FundingActivated::SIGNATURE_HASH,
+                        decode::Funding::Funding_FinalizedFunding::SIGNATURE_HASH,
+                        decode::Funding::Funding_FundingRemoved::SIGNATURE_HASH,
+                        decode::Funding::Funding_ExitExecuted::SIGNATURE_HASH,
                     ];
                     let filter = Filter::new()
                         .from_block(block_num)
@@ -1085,6 +1091,128 @@ pub mod poll {
                                 }
                                 Err(e) => tracing::warn!(
                                     "decode Vesting_PositionRemoved failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Funding::Funding_FundingCreated::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Funding::Funding_FundingCreated::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::insert_funding(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.fundingId),
+                                        block_num,
+                                        &tx_hash,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Funding_FundingCreated: module={} funding={:#x} block={}",
+                                        module_address, ev.fundingId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Funding_FundingCreated failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Funding::Funding_FundingActivated::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Funding::Funding_FundingActivated::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::update_funding_status(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.fundingId),
+                                        "active",
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Funding_FundingActivated: module={} funding={:#x} block={}",
+                                        module_address, ev.fundingId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Funding_FundingActivated failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Funding::Funding_FinalizedFunding::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Funding::Funding_FinalizedFunding::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::update_funding_status(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.fundingId),
+                                        "finalized",
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Funding_FinalizedFunding: module={} funding={:#x} block={}",
+                                        module_address, ev.fundingId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Funding_FinalizedFunding failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Funding::Funding_FundingRemoved::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            match decode::Funding::Funding_FundingRemoved::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    store::update_funding_status(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.fundingId),
+                                        "removed",
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Funding_FundingRemoved: module={} funding={:#x} block={}",
+                                        module_address, ev.fundingId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Funding_FundingRemoved failed at block {} tx {}: {}",
+                                    block_num, tx_hash, e
+                                ),
+                            }
+                        } else if topic0
+                            == Some(decode::Funding::Funding_ExitExecuted::SIGNATURE_HASH)
+                        {
+                            let module_address = format!("{:#x}", log.address());
+                            let log_index = log.log_index.unwrap_or(0);
+                            match decode::Funding::Funding_ExitExecuted::decode_log(&log.inner) {
+                                Ok(ev) => {
+                                    let conn = db.lock().await;
+                                    let coord = store::LogCoord {
+                                        block_number: block_num,
+                                        tx_hash: &tx_hash,
+                                        log_index,
+                                    };
+                                    store::insert_funding_exit(
+                                        &conn,
+                                        &module_address,
+                                        &format!("{:#x}", ev.exitId),
+                                        coord,
+                                    )?;
+                                    tracing::info!(
+                                        "indexed Funding_ExitExecuted: module={} exit={:#x} block={}",
+                                        module_address, ev.exitId, block_num
+                                    );
+                                }
+                                Err(e) => tracing::warn!(
+                                    "decode Funding_ExitExecuted failed at block {} tx {}: {}",
                                     block_num, tx_hash, e
                                 ),
                             }
