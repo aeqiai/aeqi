@@ -75,8 +75,7 @@ function OccupantInline({ role, agentName }: { role: Role; agentName?: string })
   const displayId = role.occupant_id ? `0x...${role.occupant_id.slice(-4)}` : "";
   return (
     <span>
-      <span className="roles-list-cell-kind">human</span>{" "}
-      <strong>{displayId}</strong>
+      <span className="roles-list-cell-kind">human</span> <strong>{displayId}</strong>
     </span>
   );
 }
