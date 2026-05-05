@@ -1,5 +1,17 @@
 # Release Notes
 
+## v0.21.0 — 2026-05-05
+
+**Headline:** AA stack proven end-to-end + wallet Phase 2 UI ready + design hygiene Wave 20.
+
+- End-to-end AA proof: deploy → fund Paymaster → submit UserOp via rundler bundler → 184k gas measured
+- Wallet Phase 2 UI: Settings now has "Upgrade to passkey" affordance (WebAuthn frontend)
+- Indexer vote tallies: forVotes/againstVotes on Proposal type
+- Hairlines sweep: 261 → 124 (-52%)
+- Governance copy fixes + Director "Unoccupied" fallback
+- aeqi/AEQI casing cleanup across templates + docs
+- aeqi-docs: wallet-migration guide
+
 ## v0.20.0 — 2026-05-05
 
 **Headline:** Wave 16-19 follow-through — Stripe redirect on company create, plan name binding, indexer governance reads, AA migration tool, design token sweeps.
