@@ -62,9 +62,31 @@ the full rail, so a title like "help me improve aeqi tiself" causes the detector
 to fire 7x on that route even though `AEQI_UPPERCASE_TOTAL` shows only 1. Fix in
 the next walk-script version: exclude elements matched by `[class*=session-rail],
 [class*=sessions-rail], [class*=sessions-sidebar]` from the structural query,
-or walk only elements whose `dataset.kind !== "user-content"`. Until fixed, treat
-`AEQI_UPPERCASE_STRUCTURAL` fires on agent-overview/sessions as false positives
-when `AEQI_UPPERCASE_TOTAL` ≤ 1 on those routes.
+or walk only elements whose `dataset.kind !== "user-content"`. Fixed in v8 script.
+Until fixed, treat `AEQI_UPPERCASE_STRUCTURAL` fires on agent-overview/sessions as
+false positives when `AEQI_UPPERCASE_TOTAL` ≤ 1 on those routes.
+
+**UX walk — role card detector: `innerText === "Director"` misses sibling UUID node.**
+A detector that finds the Director role card by matching an element with
+`innerText.trim() === "Director"` will capture only the label element, not its
+sibling UUID text node. The UUID appears as a separate text node in the card's
+parent — `card.innerText` includes it but only when you climb up to a sufficiently
+wide ancestor. Pattern: use `el.closest("[class]").innerText` (go to the nearest
+classed ancestor) AND cross-check against the page's raw `bodyTextSample` for UUID
+regex matches near the "Director" string. `bodyTextSample` is ground truth;
+`evaluate()` card-element text is narrow by default. Cost (2026-05-05): v8 detector
+reported `DIRECTOR_OCCUPANT_RESOLVED` (false positive) while body text confirmed
+`"Director\nbbbd909d-02ab-4ea6-9da2-98d10d4aeba8"` was still present.
+
+**UI fix scoping — list view vs detail view are different components.**
+When fixing a data-display bug (e.g. "UUID shown instead of display name"), always
+identify BOTH the list page component AND the detail page component. In the roles
+subsystem: list is `EntityRolesTab.tsx` → `RolesCards.tsx` + `RolesList.tsx`;
+detail is `RoleDetailPage.tsx`. A fix to `RoleDetailPage.tsx` does not affect what
+renders on the `/roles` list route. Rule: after any component-level fix, grep for
+all render sites of the affected field (`occupant_id`, etc.) across `src/components/`
+and `src/pages/` and confirm each site is addressed. Cost (2026-05-05): WS-22-C
+fixed `RoleDetailPage.tsx`; UUID persisted on the list view through v8 rating.
 
 `cargo test --workspace` is non-negotiable — `cargo check --workspace` does
 NOT compile test code. A required-field added to a public struct (e.g. `Template`
