@@ -48,7 +48,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with off-chain roles only
             CEO
           </div>
           <div
-            style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: 2px;"
+            style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-0);"
           >
             Human
           </div>
@@ -123,7 +123,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
             CEO
           </div>
           <div
-            style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: 2px;"
+            style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-0);"
           >
             Human
           </div>
@@ -176,7 +176,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
             0xdead…beef
           </div>
           <div
-            style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px;"
+            style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-0);"
           >
             slot 
             0
