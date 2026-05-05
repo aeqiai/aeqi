@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { api } from "@/lib/api";
@@ -171,23 +172,15 @@ function GrantRow({ grantLabel, grantDesc, holders, onOpenRole }: GrantRowProps)
           }}
         >
           {holders.map((r) => (
-            <button
+            <Button
               key={r.id}
-              type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => onOpenRole(r.id)}
-              style={{
-                background: "var(--color-bg-base)",
-                border: "none",
-                color: "inherit",
-                font: "inherit",
-                padding: "2px var(--space-sm)",
-                borderRadius: "999px",
-                cursor: "pointer",
-              }}
             >
               {r.title}
               {r.founder ? " · founder" : ""}
-            </button>
+            </Button>
           ))}
         </div>
       )}
