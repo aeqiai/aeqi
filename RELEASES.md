@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.28.0 — 2026-05-05
+
+**Headline:** Real hairlines fix — borders replaced with spacing and tint, not box-shadow swap.
+
+- Hairlines pass-3 (4d8808fd) was cosmetic swap caught by UX-V13
+- Real fix shipped (d3fc9745): drop decorative 1px borders, use --space-* spacing and tint shifts (--color-card vs --color-bg-base) per memory feedback_no_hairlines.md
+- Form input borders preserved (semantic, focus indicator)
+- UX-V13 walk script extended detector (border + box-shadow inset)
+
 ## v0.27.0 — 2026-05-05
 
 **Headline:** Trust routing complete (server + client + direct paths). Stale copy stripped.
