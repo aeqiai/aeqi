@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -55,9 +56,12 @@ const STATUS_LABEL: Record<CompanyBillingRow["status"], string> = {
  *   5. Resource pack — plan limits.
  */
 export default function TreasuryPage({ entityId }: TreasuryPageProps) {
+  const location = useLocation();
   const entity = useDaemonStore((s) => s.entities.find((e) => e.id === entityId));
   const trustAddress = entity?.trust_address;
-  const isPersonal = entity?.type === "human";
+  // URL-based detection: /me/* routes are always personal accounts (entity.type === 'human')
+  // This is reliable because /me/ is reserved for the personal entity (auto-created at signup)
+  const isPersonal = location.pathname.startsWith("/me/");
   const entityTerm = isPersonal ? "account" : "Company";
 
   const [billing, setBilling] = useState<CompanyBillingRow | null | undefined>(undefined);
