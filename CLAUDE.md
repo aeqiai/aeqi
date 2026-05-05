@@ -54,6 +54,16 @@ the merge brings them to main. Copying to main is always a redundant step
 that creates an untracked-collision footgun. Cost (2026-05-05): one manual
 `rm` + retry on the v10 walk script ship.
 
+**The reverse is also a footgun: don't edit on main then `cp` to the worktree.**
+Editing a file on main (e.g. `CLAUDE.md`) then copying it into the worktree
+(`cp aeqi/apps/ui/CLAUDE.md aeqi-topic/apps/ui/CLAUDE.md`) leaves the file
+dirty on main. When `git merge --ff-only` runs, Git aborts with "Your local
+changes to the following files would be overwritten by merge." Fix: `git
+checkout -- <file>` on main to revert (the worktree branch has the right
+version and will bring it in via ff-merge). Prevention: always edit files
+INSIDE the worktree path from the start. Cost (2026-05-05): one `git
+checkout --` + merge retry on the evolve doc ship.
+
 **UX rerun scripts — keyword checks must be verified against screenshots.** When
 writing P0 verification scripts (`scripts/ux-p0-rerun.mjs` pattern), content
 keyword lists produce misleading FAIL verdicts if the keywords don't match what
