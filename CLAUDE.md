@@ -77,6 +77,11 @@ regex matches near the "Director" string. `bodyTextSample` is ground truth;
 `evaluate()` card-element text is narrow by default. Cost (2026-05-05): v8 detector
 reported `DIRECTOR_OCCUPANT_RESOLVED` (false positive) while body text confirmed
 `"Director\nbbbd909d-02ab-4ea6-9da2-98d10d4aeba8"` was still present.
+Canonical fix (v9): skip DOM traversal entirely for presence checks; instead scan
+`bodyTextSample` directly — check if the known UUID appears within N characters
+of the role name. This is immune to shadow-DOM, text-node splitting, and React
+rendering order. See `scripts/ux-v9-walk.mjs` check `v9-B` for the reference
+implementation.
 
 **UI fix scoping — list view vs detail view are different components.**
 When fixing a data-display bug (e.g. "UUID shown instead of display name"), always
