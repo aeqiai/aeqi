@@ -7,14 +7,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
-import {
-  fetchProposalsForModule,
-  fetchTrustModules,
-  findModuleByType,
-  indexerEnabled,
-  type IndexedProposal,
-} from "@/lib/indexer";
+import type { IndexedProposal, IndexedVotingPower } from "@/lib/indexer";
 import type { Role } from "@/lib/types";
+import { useGovernance } from "@/hooks/useGovernance";
 import { useDaemonStore } from "@/store/daemon";
 
 interface GovernancePageProps {
@@ -22,11 +17,15 @@ interface GovernancePageProps {
 }
 
 /**
- * Phase 1 governance view: who can decide what. Authority is role-based
- * — each role carries a grant set, and grants determine which surfaces
- * (treasury, settings, agents, governance itself) the role's occupant
- * can act on. The on-chain proposal log — present once the Solana
- * bridge has indexed the entity — appears as a supplementary section.
+ * Governance tab — two panels:
+ *
+ * 1. Role-based authority map (who holds which grant).
+ * 2. On-chain proposals section: shown when the indexer is enabled and the
+ *    TRUST has a governance module attached. Degrades to an empty state when
+ *    either condition is absent.
+ *
+ * A small voting-power chip shows the connected account's weight in this
+ * Company when the indexer reports it.
  */
 export default function GovernancePage({ entityId }: GovernancePageProps) {
   const entity = useDaemonStore((s) => s.entities.find((e) => e.id === entityId));
@@ -34,18 +33,18 @@ export default function GovernancePage({ entityId }: GovernancePageProps) {
   const navigate = useNavigate();
 
   const [roles, setRoles] = useState<Role[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [rolesError, setRolesError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setRoles(null);
-    setError(null);
+    setRolesError(null);
     (async () => {
       try {
-        const { roles } = await api.getRoles(entityId);
-        if (!cancelled) setRoles(roles);
+        const { roles: fetched } = await api.getRoles(entityId);
+        if (!cancelled) setRoles(fetched);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setRolesError(err instanceof Error ? err.message : String(err));
       }
     })();
     return () => {
@@ -62,10 +61,14 @@ export default function GovernancePage({ entityId }: GovernancePageProps) {
     return out;
   }, [roles]);
 
-  if (error) {
+  // Voting power is only available when the user has a connected wallet —
+  // no wallet_address on the User type yet, so we degrade to undefined.
+  const { proposals, votingPower, error: govError } = useGovernance(trustAddress);
+
+  if (rolesError) {
     return (
       <div className="asv-main" style={{ padding: "var(--space-lg)" }}>
-        <EmptyState title="Governance" description={`Couldn't load roles: ${error}`} />
+        <EmptyState title="Governance" description={`Couldn't load roles: ${rolesError}`} />
       </div>
     );
   }
@@ -115,10 +118,14 @@ export default function GovernancePage({ entityId }: GovernancePageProps) {
         </ul>
       )}
 
-      {indexerEnabled() && trustAddress && <OnChainProposals trustAddress={trustAddress} />}
+      {trustAddress && (
+        <ProposalsSection proposals={proposals} votingPower={votingPower} error={govError} />
+      )}
     </div>
   );
 }
+
+// ── Grant authority map ────────────────────────────────────────────────────
 
 interface GrantRowProps {
   grantLabel: string;
@@ -188,60 +195,215 @@ function GrantRow({ grantLabel, grantDesc, holders, onOpenRole }: GrantRowProps)
   );
 }
 
-function OnChainProposals({ trustAddress }: { trustAddress: string }) {
-  const [proposals, setProposals] = useState<IndexedProposal[] | null>(null);
+// ── On-chain proposals ─────────────────────────────────────────────────────
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const mods = await fetchTrustModules(trustAddress);
-        const govModule = findModuleByType(mods, "governance");
-        if (!govModule) {
-          if (!cancelled) setProposals([]);
-          return;
-        }
-        const p = await fetchProposalsForModule(govModule.moduleAddress);
-        if (!cancelled) setProposals(p);
-      } catch {
-        if (!cancelled) setProposals([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [trustAddress]);
+interface ProposalsSectionProps {
+  proposals: IndexedProposal[] | null;
+  votingPower: IndexedVotingPower | null | undefined;
+  error: string | null;
+}
 
-  if (!proposals || proposals.length === 0) return null;
+const PROPOSAL_STATUS_VARIANT: Record<
+  string,
+  "success" | "info" | "warning" | "error" | "muted" | "neutral"
+> = {
+  active: "info",
+  passed: "success",
+  executed: "success",
+  failed: "error",
+  canceled: "muted",
+  pending: "neutral",
+};
 
+/** Format a raw 18-decimal token string as a compact human number (e.g. "12.5k"). */
+function formatVotes(raw: string): string {
+  const n = Number(raw) / 1e18;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return n.toFixed(2);
+}
+
+/** Relative time from a block-based unix timestamp (seconds). */
+function relativeTime(unixSec: number): string {
+  const nowSec = Date.now() / 1000;
+  const diff = unixSec - nowSec;
+  const abs = Math.abs(diff);
+  const isPast = diff < 0;
+
+  const fmt = (n: number, unit: string) => (isPast ? `${n} ${unit} ago` : `in ${n} ${unit}`);
+
+  if (abs < 60) return isPast ? "just now" : "in moments";
+  if (abs < 3600) return fmt(Math.round(abs / 60), "min");
+  if (abs < 86400) return fmt(Math.round(abs / 3600), "hr");
+  return fmt(Math.round(abs / 86400), "day");
+}
+
+function ProposalsSection({ proposals, votingPower, error }: ProposalsSectionProps) {
   return (
     <section style={{ marginTop: "var(--space-xl)" }}>
-      <h3
+      <div
         style={{
-          margin: "0 0 var(--space-sm) 0",
-          fontSize: "var(--text-sm)",
-          color: "var(--color-text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "var(--space-md)",
+          marginBottom: "var(--space-md)",
+          flexWrap: "wrap",
         }}
       >
-        On-chain proposals · {proposals.length}
-      </h3>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {proposals.map((p) => (
-          <li
-            key={p.proposalId}
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "var(--text-sm)",
+            color: "var(--color-text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          On-chain proposals
+        </h3>
+
+        {votingPower != null && <VotingPowerChip votingPower={votingPower} />}
+      </div>
+
+      {error && (
+        <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>
+          Couldn&apos;t load proposals: {error}
+        </p>
+      )}
+
+      {!error && proposals === null && <Spinner />}
+
+      {!error && proposals !== null && proposals.length === 0 && (
+        <EmptyState
+          title="No governance proposals yet."
+          description="Once Roles propose changes on-chain, they'll appear here."
+        />
+      )}
+
+      {!error && proposals !== null && proposals.length > 0 && (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {proposals.map((p) => (
+            <ProposalRow key={p.proposalId} proposal={p} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function VotingPowerChip({ votingPower }: { votingPower: IndexedVotingPower }) {
+  const formatted = formatVotes(votingPower.votingPower);
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-xs)",
+        background: "var(--color-card)",
+        borderRadius: "999px",
+        padding: "2px var(--space-sm)",
+      }}
+    >
+      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
+        Your voting power
+      </span>
+      <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{formatted}</span>
+    </div>
+  );
+}
+
+function ProposalRow({ proposal: p }: { proposal: IndexedProposal }) {
+  const statusVariant = PROPOSAL_STATUS_VARIANT[p.status.toLowerCase()] ?? "neutral";
+  const title = p.title ?? `${p.proposalId.slice(0, 16)}…`;
+  const endsAt = relativeTime(p.voteEnd);
+  const isPast = p.voteEnd * 1000 < Date.now();
+
+  return (
+    <li
+      style={{
+        background: "var(--color-card)",
+        borderRadius: "var(--radius-md)",
+        padding: "var(--space-md)",
+        marginBottom: "var(--space-sm)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "var(--space-md)",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontWeight: 500 }}>{title}</div>
+          <div
             style={{
-              padding: "var(--space-xs) var(--space-md)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "var(--text-sm)",
               color: "var(--color-text-muted)",
+              fontSize: "var(--text-sm)",
+              marginTop: 2,
             }}
           >
-            {p.proposalId.slice(0, 12)}… · {p.status} · block {p.createdBlock}
-          </li>
-        ))}
-      </ul>
-    </section>
+            {isPast ? "Ended" : "Ends"} {endsAt}
+          </div>
+        </div>
+        <Badge variant={statusVariant} size="sm">
+          {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+        </Badge>
+      </div>
+
+      {(p.forVotes != null || p.againstVotes != null) && (
+        <VoteBar forVotes={p.forVotes ?? "0"} againstVotes={p.againstVotes ?? "0"} />
+      )}
+    </li>
+  );
+}
+
+function VoteBar({ forVotes, againstVotes }: { forVotes: string; againstVotes: string }) {
+  const forN = Number(forVotes) / 1e18;
+  const againstN = Number(againstVotes) / 1e18;
+  const total = forN + againstN;
+  const forPct = total > 0 ? (forN / total) * 100 : 50;
+
+  return (
+    <div style={{ marginTop: "var(--space-sm)" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "var(--space-sm)",
+          fontSize: "var(--text-sm)",
+          color: "var(--color-text-muted)",
+          marginBottom: "var(--space-xs)",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>For {formatVotes(forVotes)}</span>
+        <span>Against {formatVotes(againstVotes)}</span>
+      </div>
+      <div
+        role="meter"
+        aria-label="Vote distribution"
+        aria-valuenow={Math.round(forPct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        style={{
+          height: 4,
+          borderRadius: "999px",
+          background: "var(--color-bg-base)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${forPct}%`,
+            background: "var(--color-text-primary)",
+            borderRadius: "999px",
+          }}
+        />
+      </div>
+    </div>
   );
 }

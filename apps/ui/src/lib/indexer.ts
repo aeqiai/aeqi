@@ -107,6 +107,19 @@ export interface IndexedProposal {
   ipfsCid: string;
   status: string;
   createdBlock: number;
+  /** Human-readable title decoded from ipfsCid metadata or calldata. May be absent. */
+  title?: string;
+  /** Votes cast in favour (raw token units as string). */
+  forVotes?: string;
+  /** Votes cast against (raw token units as string). */
+  againstVotes?: string;
+}
+
+export interface IndexedVotingPower {
+  moduleAddress: string;
+  accountAddress: string;
+  /** Raw voting power as a decimal string (token units, 18 decimals). */
+  votingPower: string;
 }
 
 // ── Query helpers ──────────────────────────────────────────────────────────
@@ -233,10 +246,31 @@ export async function fetchRoleAssignments(
 /** Governance proposals on a module. */
 export async function fetchProposalsForModule(moduleAddress: string): Promise<IndexedProposal[]> {
   const data = await indexerQuery<{ proposalsForModule: IndexedProposal[] }>(
-    `query($a: String!) { proposalsForModule(moduleAddress: $a) { moduleAddress proposalId proposerAddress voteStart voteEnd ipfsCid status createdBlock } }`,
+    `query($a: String!) { proposalsForModule(moduleAddress: $a) { moduleAddress proposalId proposerAddress voteStart voteEnd ipfsCid status createdBlock title forVotes againstVotes } }`,
     { a: moduleAddress.toLowerCase() },
   );
   return data?.proposalsForModule ?? [];
+}
+
+/**
+ * Voting power for a given account on a governance module.
+ * Optimistic — returns null when the field is absent from the indexer schema
+ * (the indexer may not yet expose this query; the UI degrades gracefully).
+ */
+export async function fetchVotingPower(
+  moduleAddress: string,
+  accountAddress: string,
+): Promise<IndexedVotingPower | null> {
+  try {
+    const data = await indexerQuery<{ votingPower: IndexedVotingPower | null }>(
+      `query($m: String!, $a: String!) { votingPower(moduleAddress: $m, accountAddress: $a) { moduleAddress accountAddress votingPower } }`,
+      { m: moduleAddress.toLowerCase(), a: accountAddress.toLowerCase() },
+    );
+    return data?.votingPower ?? null;
+  } catch {
+    // Schema missing-field → degrade to null.
+    return null;
+  }
 }
 
 // ── Module-id helpers ──────────────────────────────────────────────────────
