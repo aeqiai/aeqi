@@ -206,7 +206,7 @@ export default function RoleDetailPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  {role.occupant_id ?? "(unknown)"}
+                  {role.occupant_id ?? "Unoccupied"}
                 </span>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                   {role.occupant_kind}

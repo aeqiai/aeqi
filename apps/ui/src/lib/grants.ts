@@ -24,7 +24,7 @@ export const GRANT_CATALOG = [
   {
     id: "governance.read",
     label: "View governance",
-    desc: "See proposals (full tab in Phase 2)",
+    desc: "No proposals yet. Once a Role files one, it'll appear here.",
   },
   {
     id: "settings.modify",
