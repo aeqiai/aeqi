@@ -38,10 +38,17 @@ if ! ./node_modules/.bin/vite --version >/dev/null 2>&1; then
   # without requiring a clean slate. A full nuke is only strictly needed
   # when npm install itself exits non-zero after the partial tree.
   if rm -rf node_modules 2>/dev/null; then
-    npm install
+    # After a clean nuke, `npm install` may hit `spawn ELOOP` on native
+    # addon build scripts (keccak, bufferutil, utf-8-validate) when
+    # sibling-worktree symlinks still point at this node_modules and create
+    # a circular path that the spawn() syscall traverses. The ELOOP exits
+    # the install early but often after vite/tsc/.bin/ symlinks are placed.
+    # Fallback: --ignore-scripts skips the native addon builds entirely;
+    # they are WalletConnect internals and are NOT needed for vite build.
+    npm install || npm install --ignore-scripts
   else
     echo "rm-rf ENOTEMPTY (sibling worktree active) — repairing in-place"
-    npm install
+    npm install || npm install --ignore-scripts
   fi
 fi
 

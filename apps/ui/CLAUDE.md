@@ -349,6 +349,25 @@ ln -s /home/claudedev/aeqi/apps/ui/node_modules \
       /home/claudedev/aeqi-<topic>/apps/ui/node_modules
 ```
 
+**ELOOP when you can't remove the symlink (sibling worktrees are not yours).**
+When OTHER agents' worktrees symlink to the parent's `node_modules` and you
+can't remove their symlinks, `npm install` in the parent still hits ELOOP on
+native addon builds (keccak/bufferutil). In this case the existing recipe
+doesn't apply. Use `--ignore-scripts` instead:
+
+```bash
+cd /home/claudedev/aeqi/apps/ui
+rm -rf node_modules           # or skip if already absent
+npm install --ignore-scripts  # skips keccak/bufferutil native builds — OK for vite
+ls node_modules/.bin/vite     # should exist
+```
+
+`--ignore-scripts` skips ALL postinstall/build scripts. The native addons
+(keccak, bufferutil, utf-8-validate) are WalletConnect internals — they don't
+affect vite build, tsc, or prettier. The UI builds and ships correctly without
+them. Cost (2026-05-05): 3 deploy retries on governance ship cycle when 4
+sibling agents were running simultaneously.
+
 **Verify before merging:**
 
 ```bash
