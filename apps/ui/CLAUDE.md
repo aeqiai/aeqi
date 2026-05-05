@@ -93,6 +93,16 @@ isn't on that path, don't make it.
 - **Initial-letter brand accents** on tabs/nav (`a` `e` `q` `i` letters in
   Zen Dots — rejected twice).
 - **"AEQI" in prose.** "aeqi" is always lowercase outside code identifiers.
+- **`window.location.assign` / `window.location.href =` in SPA components.**
+  All navigation inside `apps/ui` goes through React Router `navigate` (from
+  `useNavigate()`). `window.location.*` bypasses the router, causes a full page
+  reload, drops Zustand store state, and breaks scroll restoration. In reusable
+  section components that need to trigger navigation (e.g., a catalog list-row
+  button inside `BlueprintCategorySection`), pass an `onNavigate: (path: string)
+  => void` prop and call it with the target path — the page component wires its
+  own `navigate` in. Cost (2026-05-05): caught during blueprint category-section
+  implementation; required adding `onNavigate` prop and re-threading `navigate`
+  down from `BlueprintsPage`.
 
 ### When in doubt
 
