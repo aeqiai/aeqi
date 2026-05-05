@@ -246,7 +246,7 @@ export default function AAEnrollmentPage() {
               borderRadius: "var(--radius-md)",
               padding: "var(--space-4)",
               fontFamily: "var(--font-mono)",
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               color: "var(--text-muted)",
               wordBreak: "break-all",
               lineHeight: 1.7,

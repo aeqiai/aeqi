@@ -133,7 +133,7 @@ export default function RoleNewPage() {
           <label
             htmlFor="role-title"
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -155,7 +155,7 @@ export default function RoleNewPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <span
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -191,11 +191,11 @@ export default function RoleNewPage() {
                 />
                 <span>
                   <span
-                    style={{ display: "block", fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}
+                    style={{ display: "block", fontSize: "var(--font-size-sm)", fontWeight: 500, lineHeight: 1.4 }}
                   >
                     {opt.label}
                   </span>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{opt.desc}</span>
+                  <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>{opt.desc}</span>
                 </span>
               </label>
             ))}
@@ -208,7 +208,7 @@ export default function RoleNewPage() {
             <label
               htmlFor="role-parent"
               style={{
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
                 color: "var(--text-muted)",
                 textTransform: "uppercase",
@@ -232,7 +232,7 @@ export default function RoleNewPage() {
           <label
             htmlFor="role-occupant"
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -255,7 +255,7 @@ export default function RoleNewPage() {
             <label
               htmlFor="role-agent"
               style={{
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
                 color: "var(--text-muted)",
                 textTransform: "uppercase",
@@ -281,7 +281,7 @@ export default function RoleNewPage() {
             <label
               htmlFor="role-human"
               style={{
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
                 color: "var(--text-muted)",
                 textTransform: "uppercase",
@@ -303,7 +303,7 @@ export default function RoleNewPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <span
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -334,11 +334,11 @@ export default function RoleNewPage() {
                   />
                   <span>
                     <span
-                      style={{ display: "block", fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}
+                      style={{ display: "block", fontSize: "var(--font-size-sm)", fontWeight: 500, lineHeight: 1.4 }}
                     >
                       {g.label}
                     </span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{g.desc}</span>
+                    <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>{g.desc}</span>
                   </span>
                 </label>
               );
@@ -347,7 +347,7 @@ export default function RoleNewPage() {
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-error)" }} role="alert">
             {error}
           </div>
         )}

@@ -72,7 +72,7 @@ export default function RoleDetailPage() {
           gap: 8,
           padding: "var(--space-6) var(--space-8)",
           color: "var(--text-muted)",
-          fontSize: 13,
+          fontSize: "var(--font-size-sm)",
         }}
       >
         <Spinner size="sm" /> Loading…
@@ -83,10 +83,10 @@ export default function RoleDetailPage() {
   if (error || !role) {
     return (
       <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)" }}>
-        <div style={{ color: "var(--color-error)", fontSize: 13 }}>
+        <div style={{ color: "var(--color-error)", fontSize: "var(--font-size-sm)" }}>
           {error || "Role not found."}
         </div>
-        <Link to={backHref} style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+        <Link to={backHref} style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
           Back to Roles
         </Link>
       </div>
@@ -157,7 +157,7 @@ export default function RoleDetailPage() {
               borderRadius: "var(--radius-md)",
             }}
           >
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
               Vacant — no one holds this role yet.
             </span>
             <Button variant="primary" size="sm" onClick={() => navigate(inviteHref)}>
@@ -186,7 +186,7 @@ export default function RoleDetailPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 13,
+                  fontSize: "var(--font-size-sm)",
                   fontWeight: 600,
                   flexShrink: 0,
                 }}
@@ -195,7 +195,7 @@ export default function RoleDetailPage() {
                 {(role.occupant_id ?? "?").slice(0, 1).toUpperCase()}
               </div>
               <span>
-                <span style={{ display: "block", fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}>
+                <span style={{ display: "block", fontSize: "var(--font-size-sm)", fontWeight: 500, lineHeight: 1.4 }}>
                   {role.occupant_id ?? "(unknown)"}
                 </span>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
@@ -225,7 +225,7 @@ export default function RoleDetailPage() {
           Authority
         </h2>
         {role.grants.length === 0 ? (
-          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No grants assigned.</span>
+          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)" }}>No grants assigned.</span>
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
             {role.grants.map((g) => (
@@ -237,7 +237,7 @@ export default function RoleDetailPage() {
                   padding: "var(--space-0) var(--space-2)",
                   borderRadius: 999,
                   background: "var(--color-card)",
-                  fontSize: 12,
+                  fontSize: "var(--font-size-xs)",
                   fontWeight: 500,
                   color: "var(--text-secondary)",
                   fontFamily: "var(--font-mono)",
@@ -282,7 +282,7 @@ export default function RoleDetailPage() {
       {error && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--font-size-sm)",
             color: "var(--color-error)",
             marginTop: "var(--space-4)",
           }}
@@ -335,7 +335,7 @@ function InvitationRow({
       }}
     >
       <div>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>{target}</span>
+        <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500 }}>{target}</span>
         <span
           style={{
             display: "block",

@@ -99,8 +99,8 @@ export default function RoleInvitePage() {
             gap: "var(--space-4)",
           }}
         >
-          <p style={{ fontSize: 13, fontWeight: 500, margin: 0 }}>Open invitation link created</p>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0 }}>
+          <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, margin: 0 }}>Open invitation link created</p>
+          <p style={{ fontSize: "var(--font-size-xs)", color: "var(--text-secondary)", margin: 0 }}>
             Anyone with this link can claim the role. It expires in 1 hour.
           </p>
           <div
@@ -112,7 +112,7 @@ export default function RoleInvitePage() {
               background: "var(--color-card)",
               borderRadius: "var(--radius-sm)",
               fontFamily: "var(--font-mono)",
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               wordBreak: "break-all",
             }}
           >
@@ -159,7 +159,7 @@ export default function RoleInvitePage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <span
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -183,7 +183,7 @@ export default function RoleInvitePage() {
                       ? "var(--color-card-elevated, #fff)"
                       : "var(--color-card)",
                   cursor: "pointer",
-                  fontSize: 13,
+                  fontSize: "var(--font-size-sm)",
                   fontWeight: 500,
                 }}
               >
@@ -206,7 +206,7 @@ export default function RoleInvitePage() {
             <label
               htmlFor="invite-email"
               style={{
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
                 color: "var(--text-muted)",
                 textTransform: "uppercase",
@@ -232,7 +232,7 @@ export default function RoleInvitePage() {
               padding: "var(--space-3) var(--space-4)",
               background: "var(--color-card)",
               borderRadius: "var(--radius-md)",
-              fontSize: 13,
+              fontSize: "var(--font-size-sm)",
               color: "var(--text-secondary)",
             }}
           >
@@ -245,7 +245,7 @@ export default function RoleInvitePage() {
           <label
             htmlFor="invite-note"
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -268,7 +268,7 @@ export default function RoleInvitePage() {
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-error)" }} role="alert">
             {error}
           </div>
         )}

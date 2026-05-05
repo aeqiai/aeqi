@@ -397,7 +397,7 @@ export default function SignupPage() {
                 padding: "10px 14px",
                 background: "var(--color-card)",
                 borderRadius: "var(--radius-md)",
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 color: "var(--text-secondary)",
                 marginBottom: "var(--space-2)",
               }}

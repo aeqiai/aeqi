@@ -49,7 +49,7 @@ export default function AuthCallbackPage() {
             alignItems: "center",
             gap: 8,
             color: "var(--text-muted)",
-            fontSize: 13,
+            fontSize: "var(--font-size-sm)",
           }}
         >
           <Spinner size="sm" />

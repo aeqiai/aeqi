@@ -164,7 +164,7 @@ export default function DrivePage() {
             background: "var(--bg-surface)",
             border: "1px solid var(--border)",
             color: "var(--text-secondary)",
-            fontSize: 13,
+            fontSize: "var(--font-size-sm)",
           }}
         >
           {error}
@@ -198,7 +198,7 @@ export default function DrivePage() {
                 padding: "var(--space-2) var(--space-4)",
                 borderBottom:
                   idx === files.length - 1 ? "none" : "1px solid var(--color-border-faint)",
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
               }}
             >
               <a

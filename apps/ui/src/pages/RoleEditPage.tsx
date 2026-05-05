@@ -82,7 +82,7 @@ export default function RoleEditPage() {
           gap: 8,
           padding: "var(--space-6) var(--space-8)",
           color: "var(--text-muted)",
-          fontSize: 13,
+          fontSize: "var(--font-size-sm)",
         }}
       >
         <Spinner size="sm" /> Loading…
@@ -93,10 +93,10 @@ export default function RoleEditPage() {
   if (loadError || !role) {
     return (
       <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)" }}>
-        <div style={{ color: "var(--color-error)", fontSize: 13 }}>
+        <div style={{ color: "var(--color-error)", fontSize: "var(--font-size-sm)" }}>
           {loadError || "Role not found."}
         </div>
-        <Link to={backHref} style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+        <Link to={backHref} style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
           Back
         </Link>
       </div>
@@ -127,7 +127,7 @@ export default function RoleEditPage() {
           <label
             htmlFor="edit-role-title"
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -148,7 +148,7 @@ export default function RoleEditPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <span
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -184,11 +184,11 @@ export default function RoleEditPage() {
                 />
                 <span>
                   <span
-                    style={{ display: "block", fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}
+                    style={{ display: "block", fontSize: "var(--font-size-sm)", fontWeight: 500, lineHeight: 1.4 }}
                   >
                     {opt.label}
                   </span>
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{opt.desc}</span>
+                  <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>{opt.desc}</span>
                 </span>
               </label>
             ))}
@@ -199,7 +199,7 @@ export default function RoleEditPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <span
             style={{
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 500,
               color: "var(--text-muted)",
               textTransform: "uppercase",
@@ -230,11 +230,11 @@ export default function RoleEditPage() {
                   />
                   <span>
                     <span
-                      style={{ display: "block", fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}
+                      style={{ display: "block", fontSize: "var(--font-size-sm)", fontWeight: 500, lineHeight: 1.4 }}
                     >
                       {g.label}
                     </span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{g.desc}</span>
+                    <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>{g.desc}</span>
                   </span>
                 </label>
               );
@@ -243,7 +243,7 @@ export default function RoleEditPage() {
         </div>
 
         {error && (
-          <div style={{ fontSize: 13, color: "var(--color-error)" }} role="alert">
+          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-error)" }} role="alert">
             {error}
           </div>
         )}
