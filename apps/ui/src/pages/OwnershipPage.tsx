@@ -341,7 +341,7 @@ function ChainRoleRow({ role, onClick }: { role: TrustRole; onClick: () => void 
           style={{
             fontSize: "var(--text-xs)",
             color: "var(--color-text-muted)",
-            marginTop: 2,
+            marginTop: "var(--space-0)",
           }}
         >
           slot {role.slotIndex}
@@ -397,7 +397,7 @@ function PendingRequestRow({ request }: { request: TrustRoleRequest }) {
           style={{
             fontSize: "var(--text-xs)",
             color: "var(--color-text-muted)",
-            marginTop: 2,
+            marginTop: "var(--space-0)",
           }}
         >
           proposed by {truncateAddress(request.proposer)}
