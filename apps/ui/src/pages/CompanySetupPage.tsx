@@ -263,12 +263,14 @@ export default function CompanySetupPage() {
       // Refresh the entity list so the company switcher shows the new company.
       await fetchEntities();
 
-      // Poll for trust_address for up to 30 s (registerTRUST lands async).
+      // Poll for trust_address for up to 10s (registerTRUST lands within 1-2s normally).
       // Once confirmed on-chain, navigate to the canonical /trust/ URL.
       // Timeout falls back to the /c/<id> URL (entity visible but not yet on-chain).
+      // The client-side CompanyPage useEffect will catch the redirect once
+      // trust_address arrives via daemon polling.
       const entityId = resp.entity_id;
-      const POLL_INTERVAL = 2000;
-      const POLL_TIMEOUT = 30000;
+      const POLL_INTERVAL = 1000;
+      const POLL_TIMEOUT = 10000;
       const deadline = Date.now() + POLL_TIMEOUT;
       let trustAddr: string | null = null;
       while (Date.now() < deadline) {

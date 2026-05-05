@@ -1,10 +1,12 @@
 import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import AgentPage from "@/components/AgentPage";
 import OwnershipPage from "@/pages/OwnershipPage";
 import TreasuryPage from "@/pages/TreasuryPage";
 import GovernancePage from "@/pages/GovernancePage";
 import CompanySettingsPage from "@/pages/CompanySettingsPage";
 import MeInboxPage from "@/pages/MeInboxPage";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 
 const TAB_TITLES: Record<string, string> = {
   overview: "overview",
@@ -43,10 +45,35 @@ interface CompanyPageProps {
  * falls through to AgentPage, which is the canonical primitive surface.
  */
 export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyPageProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { entity } = useCurrentCompany();
+
+  // Title effect
   useEffect(() => {
     const section = TAB_TITLES[tab] ?? "company";
     document.title = `${section} · æqi`;
   }, [tab]);
+
+  // Trust-address redirect: when entity gains a trust_address, redirect to
+  // the canonical /trust/<address>/tab URL (once registerTRUST lands).
+  // Idempotent: skips if already on /trust/ route.
+  useEffect(() => {
+    // Skip if we're already on the /trust/ canonical URL or if entity has no trust_address
+    if (!entity?.trust_address || location.pathname.startsWith("/trust/")) {
+      return;
+    }
+
+    // Construct the target path: /trust/<address>/<tab>[/itemId]
+    const trustAddr = entity.trust_address.toLowerCase();
+    let targetPath = `/trust/${encodeURIComponent(trustAddr)}/${tab}`;
+    if (itemId) {
+      targetPath += `/${encodeURIComponent(itemId)}`;
+    }
+
+    // Replace the history entry so the user doesn't pollute their back-button
+    navigate(targetPath, { replace: true });
+  }, [entity?.trust_address, tab, itemId, navigate, location.pathname]);
 
   // Inbox is the company-scoped action queue. Visually it's MeInbox
   // for now (Phase-1 cross-company aggregation lives at top-level
