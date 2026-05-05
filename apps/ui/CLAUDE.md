@@ -325,6 +325,13 @@ If the parent's node_modules is missing large package directories entirely
 symlink), skip npm rebuild and go straight to `npm install`. This is rare but
 surfaces after an aggressive `rm -rf node_modules` cleanup in a prior session.
 
+**TypeScript binary present but lib files missing.** A third failure mode: `.bin/tsc`
+exists and runs, but `lib/tsc.js` reports `Cannot find module '../lib/lib.dom.d.ts'`.
+This happens when an interrupted `npm install` completed the bin symlinks but left
+package internals partial. Run `npm install` again from the parent — a second pass
+fills in the missing package contents. Cost (2026-05-05): confused `tsc` invocation
+with missing bins when the real issue was incomplete TypeScript package innards.
+
 **`keccak` / native-addon `spawn ELOOP` during `npm install`.** When the
 parent's node_modules is absent and you run `npm install` while a worktree
 symlink points at the same target, `npm` hits `spawn ELOOP` on native
@@ -540,6 +547,17 @@ git stash pop
 ```
 
 Don't try to commit or revert the drift — it's in-flight work.
+
+**When a subagent edits main directly and /ship is invoked later:**
+If a subagent (e.g. autonomous audit) modifies main's working tree directly
+(not in a worktree), and a later task invokes `/ship` from a worktree branch,
+the ff-merge will abort because main has uncommitted changes. Recipe:
+(a) detect which files are modified on main (`git status --short`), (b) stash
+specifically those files (not blanket `git stash`), (c) attempt ff-merge, and
+(d) pop the stash by message (`git stash pop $(git stash list | grep -F 'ship-stash')`).
+The per-repo drift list in /ship tracks known files; add new ones there. Cost
+(2026-05-05): one stash-dance cycle when margin-normalize edits landed in main
+before worktree was cut.
 
 ## Cross-package code (`packages/web-shared`, `packages/tokens`)
 
