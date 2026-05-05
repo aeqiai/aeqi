@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { Blueprint } from "@/lib/types";
+import type { Blueprint, BlueprintCategory } from "@/lib/types";
 import { Button, Popover, Spinner, Tooltip } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
@@ -36,21 +36,37 @@ const VIEW_LABELS: Record<View, string> = { grid: "Grid", list: "List" };
 const VIEW_ORDER: View[] = ["grid", "list"];
 const VIEW_VALUES = new Set<View>(VIEW_ORDER);
 
+/** Display order for category sections. Foundation always shown (even empty). */
+const CATEGORY_ORDER: BlueprintCategory[] = ["company", "foundation", "fund"];
+
+const CATEGORY_LABELS: Record<BlueprintCategory, string> = {
+  company: "Company",
+  foundation: "Foundation",
+  fund: "Fund",
+};
+
+const CATEGORY_DESCRIPTIONS: Record<BlueprintCategory, string> = {
+  company: "Smart account with role-based governance",
+  foundation: "Public-good org with grant flows",
+  fund: "LP cap table for investment vehicles",
+};
+
+/** Set of valid category param values. */
+const CATEGORY_VALUES = new Set<BlueprintCategory>(CATEGORY_ORDER);
+
 /**
  * `/blueprints` — top-level catalog with a vertical PageRail (Companies /
  * Agents / Events / Quests / Ideas) on the left. Companies is the
  * canonical landing route at `/blueprints`; the other kinds live at
  * `/blueprints/:kind` and render empty-state placeholders until v2.
  *
- * Blueprints is its own root destination — it's the supply layer of the
- * system (the catalog of recipes that everything else gets instantiated
- * from), not a listing inside /economy. /economy stays as the umbrella
- * for future financial surfaces.
+ * Blueprints is its own root destination — the supply layer of the system
+ * (the catalog of recipes that everything else gets instantiated from).
  *
- * Toolbar grammar mirrors AgentIdeasTab — search · sort · filter · view ·
- * action — with chrome-zone (search + sort/filter/view popovers) and
- * action-zone (+ New company) tier rule. State is URL-persisted: q, sort,
- * tags (comma-separated), view.
+ * Layout: 3 stacked category sections (Company / Foundation / Fund).
+ * Foundation renders as a "coming soon" placeholder if empty.
+ * URL params: q, sort, tags, view, category.
+ * `?category=<x>` scrolls + filters to that section.
  */
 export default function BlueprintsPage() {
   const navigate = useNavigate();
@@ -61,14 +77,9 @@ export default function BlueprintsPage() {
   const importIntoId = searchParams.get("import_into") || null;
   const isImportMode = !!importIntoId;
 
-  // Resolve the active kind from the URL path. /blueprints → companies
-  // (default); /blueprints/agents → agents, etc. Anything that doesn't
-  // match a known kind falls back to companies — this also covers the
-  // detail page (which uses a different route, but defensively).
+  // Resolve the active kind from the URL path.
   const activeKind: Kind = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
-    // segments[0] === "blueprints"; segments[1] (if present) is either
-    // a catalog kind tab or a blueprint slug.
     const second = segments[1];
     return second && KIND_IDS.includes(second as Kind) ? (second as Kind) : "companies";
   }, [location.pathname]);
@@ -83,6 +94,11 @@ export default function BlueprintsPage() {
   const viewRaw = searchParams.get("view");
   const view: View = VIEW_VALUES.has(viewRaw as View) ? (viewRaw as View) : "grid";
   const selectedTags = useMemo(() => parseTags(searchParams.get("tags")), [searchParams]);
+  const categoryRaw = searchParams.get("category");
+  const activeCategory: BlueprintCategory | null =
+    categoryRaw && CATEGORY_VALUES.has(categoryRaw as BlueprintCategory)
+      ? (categoryRaw as BlueprintCategory)
+      : null;
 
   const patchParams = useCallback(
     (mut: (p: URLSearchParams) => void) => {
@@ -117,6 +133,7 @@ export default function BlueprintsPage() {
     patchParams((p) => {
       p.delete("q");
       p.delete("tags");
+      p.delete("category");
     });
   }, [patchParams]);
 
@@ -165,9 +182,7 @@ export default function BlueprintsPage() {
     [query],
   );
 
-  // Tag universe — all unique tags across the catalog, ordered by
-  // frequency so the most-shared tags surface first in the filter
-  // popover (mirrors `tagCounts` in IdeasListView).
+  // Tag universe — all unique tags ordered by frequency.
   const tagCounts = useMemo<[string, number][]>(() => {
     if (activeKind !== "companies") return [];
     const counts: Record<string, number> = {};
@@ -186,6 +201,7 @@ export default function BlueprintsPage() {
     [],
   );
 
+  // Global filtered list respecting search + tag + optional category filter.
   const filtered = useMemo(() => {
     if (activeKind !== "companies") return [] as Blueprint[];
     let out = blueprints.filter(
@@ -194,6 +210,9 @@ export default function BlueprintsPage() {
     if (selectedTags.length > 0) {
       const wanted = new Set(selectedTags);
       out = out.filter((t) => (t.tags ?? []).some((tag) => wanted.has(tag)));
+    }
+    if (activeCategory) {
+      out = out.filter((t) => t.category === activeCategory);
     }
     if (sort === "alpha-asc") {
       out = [...out].sort((a, b) =>
@@ -206,12 +225,35 @@ export default function BlueprintsPage() {
     } else if (sort === "complexity") {
       out = [...out].sort((a, b) => complexity(b) - complexity(a));
     }
-    // sort === "recent" — preserve catalog order from the API.
     return out;
-  }, [blueprints, activeKind, matches, matchesTagText, selectedTags, sort, complexity]);
+  }, [
+    blueprints,
+    activeKind,
+    matches,
+    matchesTagText,
+    selectedTags,
+    activeCategory,
+    sort,
+    complexity,
+  ]);
+
+  // Group the filtered list into category buckets in canonical order.
+  const grouped = useMemo(() => {
+    const map = new Map<BlueprintCategory, Blueprint[]>();
+    for (const cat of CATEGORY_ORDER) map.set(cat, []);
+    for (const bp of filtered) {
+      const cat = bp.category ?? "company";
+      const bucket = map.get(cat);
+      if (bucket) bucket.push(bp);
+      // Blueprints with unknown categories fall into company silently.
+      else map.get("company")!.push(bp);
+    }
+    return map;
+  }, [filtered]);
 
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
-  const filtersActive = query.trim() !== "" || selectedTags.length > 0;
+  const filtersActive = query.trim() !== "" || selectedTags.length > 0 || !!activeCategory;
+  const totalFiltered = filtered.length;
 
   // "/" focuses search; Esc clears or blurs.
   useEffect(() => {
@@ -295,7 +337,13 @@ export default function BlueprintsPage() {
               onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
             />
 
-            <FilterPopover tagCounts={tagCounts} selected={selectedTags} onChange={setTags} />
+            <FilterPopover
+              tagCounts={tagCounts}
+              selected={selectedTags}
+              onChange={setTags}
+              activeCategory={activeCategory}
+              onCategoryChange={(cat) => setSearchParam("category", cat)}
+            />
 
             <ToolbarRadioPopover
               label="View"
@@ -356,7 +404,7 @@ export default function BlueprintsPage() {
               description="v1 ships Companies — full org bundles with agents, ideas, events, and quests pre-threaded. Standalone primitive bundles land next."
               action={<Link to="/blueprints/companies">Open Companies →</Link>}
             />
-          ) : filtered.length === 0 && filtersActive ? (
+          ) : totalFiltered === 0 && filtersActive ? (
             <div className="ideas-list-filter-indicator">
               <span>
                 <strong>0</strong> of {blueprints.length} blueprints match.
@@ -365,42 +413,24 @@ export default function BlueprintsPage() {
                 Reset filters
               </button>
             </div>
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              title="No Blueprints match."
-              description="Try a shorter search."
-              action={
-                <button type="button" onClick={() => setSearchParam("q", "")}>
-                  Show everything
-                </button>
-              }
-            />
-          ) : view === "list" ? (
-            <ul className="bp-list" role="list">
-              {filtered.map((t) => (
-                <li key={t.slug} className="bp-list-row">
-                  <button
-                    type="button"
-                    className="bp-list-row-btn"
-                    onClick={() =>
-                      navigate(`/blueprints/${encodeURIComponent(t.slug)}${importTargetSuffix}`)
-                    }
-                  >
-                    <span className="bp-list-row-name">{t.name}</span>
-                    {t.tagline && <span className="bp-list-row-tagline">{t.tagline}</span>}
-                    <span className="bp-list-row-counts">
-                      a{t.seed_agents?.length ?? 0} · i{t.seed_ideas?.length ?? 0} · e
-                      {t.seed_events?.length ?? 0} · q{t.seed_quests?.length ?? 0}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
           ) : (
-            <div className="bp-grid" role="list">
-              {filtered.map((t) => (
-                <BlueprintCard key={t.slug} template={t} />
-              ))}
+            <div className="bp-catalog-sections">
+              {CATEGORY_ORDER.map((cat) => {
+                const bucket = grouped.get(cat) ?? [];
+                const isActiveFilter = activeCategory === cat;
+                return (
+                  <BlueprintCategorySection
+                    key={cat}
+                    category={cat}
+                    blueprints={bucket}
+                    view={view}
+                    importTargetSuffix={importTargetSuffix}
+                    isActiveFilter={isActiveFilter}
+                    onCategoryFilter={() => setSearchParam("category", isActiveFilter ? null : cat)}
+                    onNavigate={navigate}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
@@ -408,6 +438,86 @@ export default function BlueprintsPage() {
     </div>
   );
 }
+
+/* ── Category section ─────────────────────────────────── */
+
+interface BlueprintCategorySectionProps {
+  category: BlueprintCategory;
+  blueprints: Blueprint[];
+  view: View;
+  importTargetSuffix: string;
+  isActiveFilter: boolean;
+  onCategoryFilter: () => void;
+  onNavigate: (path: string) => void;
+}
+
+function BlueprintCategorySection({
+  category,
+  blueprints,
+  view,
+  importTargetSuffix,
+  isActiveFilter,
+  onCategoryFilter,
+  onNavigate,
+}: BlueprintCategorySectionProps) {
+  const label = CATEGORY_LABELS[category];
+  const description = CATEGORY_DESCRIPTIONS[category];
+  const count = blueprints.length;
+  const isEmpty = count === 0;
+
+  return (
+    <section
+      className={`bp-category-section${isActiveFilter ? " bp-category-section--active" : ""}`}
+    >
+      <header className="bp-category-header">
+        <div className="bp-category-header-main">
+          <button
+            type="button"
+            className={`bp-category-name${isActiveFilter ? " active" : ""}`}
+            onClick={onCategoryFilter}
+            title={isActiveFilter ? `Show all categories` : `Filter to ${label}`}
+          >
+            {label}
+          </button>
+          <span className="bp-category-count">{count}</span>
+          <span className="bp-category-desc">{description}</span>
+        </div>
+      </header>
+
+      {isEmpty ? (
+        <div className="bp-category-empty">More archetypes coming soon.</div>
+      ) : view === "list" ? (
+        <ul className="bp-list" role="list">
+          {blueprints.map((t) => (
+            <li key={t.slug} className="bp-list-row">
+              <button
+                type="button"
+                className="bp-list-row-btn"
+                onClick={() =>
+                  onNavigate(`/blueprints/${encodeURIComponent(t.slug)}${importTargetSuffix}`)
+                }
+              >
+                <span className="bp-list-row-name">{t.name}</span>
+                {t.tagline && <span className="bp-list-row-tagline">{t.tagline}</span>}
+                <span className="bp-list-row-counts">
+                  {t.template ?? "entity"} · {(t.seed_agents?.length ?? 0) + 1} agents
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="bp-grid" role="list">
+          {blueprints.map((t) => (
+            <BlueprintCard key={t.slug} template={t} importTargetSuffix={importTargetSuffix} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ── Toolbar popovers ─────────────────────────────────── */
 
 interface ToolbarRadioPopoverProps<T extends string> {
   label: string;
@@ -477,42 +587,50 @@ interface FilterPopoverProps {
   tagCounts: [string, number][];
   selected: string[];
   onChange: (next: string[]) => void;
+  activeCategory: BlueprintCategory | null;
+  onCategoryChange: (cat: BlueprintCategory | null) => void;
 }
 
 /**
- * Tag-chip filter popover. Multi-select with OR semantics — picking
- * #founder and #product shows blueprints tagged with EITHER, mirroring
- * the additive idiom from `IdeasListView` (more chips → more rows).
+ * Combined tag + category filter popover. Tags: multi-select OR. Category: single
+ * select (clicking again deselects). Both persist in URL.
  */
-function FilterPopover({ tagCounts, selected, onChange }: FilterPopoverProps) {
+function FilterPopover({
+  tagCounts,
+  selected,
+  onChange,
+  activeCategory,
+  onCategoryChange,
+}: FilterPopoverProps) {
   const [open, setOpen] = useState(false);
   const popoverId = useId();
-  const active = selected.length;
-  const hasTags = tagCounts.length > 0;
+  const activeTagCount = selected.length;
+  const hasFilters = tagCounts.length > 0 || true; // category filter always available
 
-  const toggle = (tag: string) => {
+  const toggleTag = (tag: string) => {
     if (selected.includes(tag)) onChange(selected.filter((t) => t !== tag));
     else onChange([...selected, tag]);
   };
 
+  const toggleCategory = (cat: BlueprintCategory) => {
+    onCategoryChange(activeCategory === cat ? null : cat);
+  };
+
+  const totalActive = activeTagCount + (activeCategory ? 1 : 0);
+
   return (
     <Popover
       open={open}
-      onOpenChange={(o) => hasTags && setOpen(o)}
+      onOpenChange={(o) => hasFilters && setOpen(o)}
       placement="bottom-end"
       trigger={
         <button
           type="button"
-          className={`ideas-toolbar-btn${active > 0 ? " active" : ""}${open ? " open" : ""}${
-            !hasTags ? " disabled" : ""
-          }`}
-          disabled={!hasTags}
+          className={`ideas-toolbar-btn${totalActive > 0 ? " active" : ""}${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          title={
-            !hasTags ? "No tags to filter on" : active > 0 ? `Filter — ${active} active` : "Filter"
-          }
+          title={totalActive > 0 ? `Filter — ${totalActive} active` : "Filter"}
         >
           <svg
             width="13"
@@ -526,7 +644,7 @@ function FilterPopover({ tagCounts, selected, onChange }: FilterPopoverProps) {
           >
             <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" />
           </svg>
-          {active > 0 && <span className="ideas-toolbar-btn-dot" aria-hidden />}
+          {totalActive > 0 && <span className="ideas-toolbar-btn-dot" aria-hidden />}
         </button>
       }
     >
@@ -536,37 +654,72 @@ function FilterPopover({ tagCounts, selected, onChange }: FilterPopoverProps) {
         role="dialog"
         aria-label="Filter blueprints"
       >
+        {/* Category filter */}
         <section className="ideas-filter-popover-section">
           <header className="ideas-filter-popover-head">
-            <span className="ideas-filter-popover-label">tags</span>
-            {active > 0 && (
+            <span className="ideas-filter-popover-label">category</span>
+            {activeCategory && (
               <button
                 type="button"
                 className="ideas-filter-popover-reset"
-                onClick={() => onChange([])}
+                onClick={() => onCategoryChange(null)}
               >
                 reset
               </button>
             )}
           </header>
-          <div className="ideas-list-tags" role="group" aria-label="Filter by tag">
-            {tagCounts.map(([tag, count]) => {
-              const isActive = selected.includes(tag);
+          <div className="ideas-filter-popover-list" role="group" aria-label="Filter by category">
+            {CATEGORY_ORDER.map((cat) => {
+              const isActive = activeCategory === cat;
               return (
                 <button
-                  key={tag}
+                  key={cat}
                   type="button"
                   aria-pressed={isActive}
-                  className={`ideas-tag-chip${isActive ? " active" : ""}`}
-                  onClick={() => toggle(tag)}
+                  className={`ideas-filter-row${isActive ? " active" : ""}`}
+                  onClick={() => toggleCategory(cat)}
                 >
-                  #{tag}
-                  <span className="ideas-tag-chip-count">{count}</span>
+                  <span className="ideas-filter-row-label">{CATEGORY_LABELS[cat]}</span>
                 </button>
               );
             })}
           </div>
         </section>
+
+        {/* Tag filter — only when tags exist */}
+        {tagCounts.length > 0 && (
+          <section className="ideas-filter-popover-section">
+            <header className="ideas-filter-popover-head">
+              <span className="ideas-filter-popover-label">tags</span>
+              {activeTagCount > 0 && (
+                <button
+                  type="button"
+                  className="ideas-filter-popover-reset"
+                  onClick={() => onChange([])}
+                >
+                  reset
+                </button>
+              )}
+            </header>
+            <div className="ideas-list-tags" role="group" aria-label="Filter by tag">
+              {tagCounts.map(([tag, count]) => {
+                const isActive = selected.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={isActive}
+                    className={`ideas-tag-chip${isActive ? " active" : ""}`}
+                    onClick={() => toggleTag(tag)}
+                  >
+                    #{tag}
+                    <span className="ideas-tag-chip-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </Popover>
   );

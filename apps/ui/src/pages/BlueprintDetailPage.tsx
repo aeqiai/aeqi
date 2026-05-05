@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { api } from "@/lib/api";
 import type {
   Blueprint,
+  BlueprintCategory,
   BlueprintSeedAgent,
   BlueprintSeedEvent,
   BlueprintSeedIdea,
@@ -18,6 +19,12 @@ import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
 
 type Section = "overview" | "roles" | "agents" | "events" | "quests" | "ideas";
+
+const CATEGORY_LABELS: Record<BlueprintCategory, string> = {
+  company: "Company",
+  foundation: "Foundation",
+  fund: "Fund",
+};
 
 const SECTION_TABS: { id: Section; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -150,9 +157,21 @@ export default function BlueprintDetailPage() {
             <button
               type="button"
               className="ideas-toolbar-btn"
-              onClick={() => navigate("/blueprints")}
-              title="Back to Blueprints"
-              aria-label="Back to Blueprints"
+              onClick={() =>
+                navigate(
+                  template.category ? `/blueprints?category=${template.category}` : "/blueprints",
+                )
+              }
+              title={
+                template.category
+                  ? `Back to ${CATEGORY_LABELS[template.category]} blueprints`
+                  : "Back to Blueprints"
+              }
+              aria-label={
+                template.category
+                  ? `Back to ${CATEGORY_LABELS[template.category]} blueprints`
+                  : "Back to Blueprints"
+              }
             >
               <svg
                 width="13"
@@ -168,7 +187,15 @@ export default function BlueprintDetailPage() {
                 <path d="M8 3 L4.5 6.5 L8 10" />
               </svg>
             </button>
+            {template.category && (
+              <span className="bp-detail-breadcrumb">{CATEGORY_LABELS[template.category]}</span>
+            )}
             <h1 className="bp-detail-toolbar-title">{template.name}</h1>
+            {template.template && (
+              <span className="bp-detail-template-badge" title="On-chain TRUST template">
+                {template.template}
+              </span>
+            )}
             <div className="ideas-toolbar-spacer" aria-hidden />
             <Link to={launchHref} className="bp-detail-launch-link" aria-disabled={isImportMode}>
               <Button

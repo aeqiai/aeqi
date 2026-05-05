@@ -2,57 +2,75 @@ import { memo } from "react";
 import { Link } from "react-router-dom";
 import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
 import { Card } from "@/components/ui";
-import type { Blueprint } from "@/lib/types";
+import type { Blueprint, BlueprintTemplate } from "@/lib/types";
 
 interface BlueprintCardProps {
   template: Blueprint;
+  importTargetSuffix?: string;
 }
 
-/** Compact human meta — "2 agents · 1 idea · 1 event", zeros skipped.
- *  Catalog cards lead with workforce size (agents) rather than
- *  structure size (roles) — a card communicates "what you get,"
- *  and what a buyer reads in a blueprint is the AI workforce. The
- *  detail page surfaces both lenses (Roles tab + Agents tab); the
- *  card has room for one. */
-function formatSeedMeta(t: Blueprint): string {
+/** On-chain TRUST modules included by template type. */
+const ONCHAIN_MODULES: Record<BlueprintTemplate, string> = {
+  entity: "Role · Budget · Token · Vesting · Funding",
+  venture: "Role · Budget · Token · Vesting · Funding · Uniswap · UniFutures",
+  foundation: "Role · Budget · Governance",
+  fund: "Role · Budget · Token · Fund · Governance",
+};
+
+/** Human-readable runtime summary: "N agents · M events · K ideas · J quests".
+ *  Always counts the implicit root agent so cards are never empty-looking. */
+function formatRuntimeLine(t: Blueprint): string {
   const parts: string[] = [];
-  const a = t.seed_agents?.length ?? 0;
-  const i = t.seed_ideas?.length ?? 0;
+  const a = (t.seed_agents?.length ?? 0) + 1; // +1 for root
   const e = t.seed_events?.length ?? 0;
+  const i = t.seed_ideas?.length ?? 0;
   const q = t.seed_quests?.length ?? 0;
-  // Always count the root agent so cards aren't ever empty-looking.
-  const totalAgents = 1 + a;
-  parts.push(`${totalAgents} ${totalAgents === 1 ? "agent" : "agents"}`);
-  if (i > 0) parts.push(`${i} ${i === 1 ? "idea" : "ideas"}`);
+  parts.push(`${a} ${a === 1 ? "agent" : "agents"}`);
   if (e > 0) parts.push(`${e} ${e === 1 ? "event" : "events"}`);
+  if (i > 0) parts.push(`${i} ${i === 1 ? "idea" : "ideas"}`);
   if (q > 0) parts.push(`${q} ${q === 1 ? "quest" : "quests"}`);
   return parts.join(" · ");
 }
 
 /**
- * Catalog card on `/blueprints`. Uses the shared `Card` primitive in
- * `interactive` mode so hover, border, radius, padding, and surface
- * tone come from the design system — no bespoke colors, no per-card
- * accents, no extra hover gestures. Pure typography hierarchy:
- * name → tagline → meta. The "Default" marker is a quiet text suffix
- * in the meta line, not a pill.
+ * Catalog card on `/blueprints`. Shows:
+ * - Name + tagline (unchanged)
+ * - On-chain (TRUST) inclusion list derived from `template`
+ * - Runtime counts (agents · events · ideas · quests)
+ *
+ * No bespoke colors. No accents. Pure typography hierarchy via design-
+ * system tokens. Card surface, hover, radius from the `Card` primitive.
  */
-function BlueprintCardImpl({ template }: BlueprintCardProps) {
+function BlueprintCardImpl({ template, importTargetSuffix = "" }: BlueprintCardProps) {
   const isDefault = template.slug === DEFAULT_BLUEPRINT_SLUG;
-  const meta = formatSeedMeta(template);
-  const fullMeta = isDefault ? `${meta} · Default` : meta;
+  const onchainModules = template.template ? ONCHAIN_MODULES[template.template] : null;
+  const runtimeLine = formatRuntimeLine(template);
 
   return (
     <Link
-      to={`/blueprints/${encodeURIComponent(template.slug)}`}
+      to={`/blueprints/${encodeURIComponent(template.slug)}${importTargetSuffix}`}
       className="bp-card-link"
       role="listitem"
       aria-label={`${template.name} blueprint${template.tagline ? ` — ${template.tagline}` : ""}`}
     >
       <Card variant="default" padding="md" interactive className="bp-card">
-        <h3 className="bp-card-name">{template.name}</h3>
+        <h3 className="bp-card-name">
+          {template.name}
+          {isDefault && <span className="bp-card-default-mark"> · Default</span>}
+        </h3>
         {template.tagline && <p className="bp-card-tagline">{template.tagline}</p>}
-        <p className="bp-card-meta">{fullMeta}</p>
+        <div className="bp-card-inclusions">
+          {onchainModules && (
+            <div className="bp-card-inclusion-row">
+              <span className="bp-card-inclusion-label">On-chain</span>
+              <span className="bp-card-inclusion-value">{onchainModules}</span>
+            </div>
+          )}
+          <div className="bp-card-inclusion-row">
+            <span className="bp-card-inclusion-label">Runtime</span>
+            <span className="bp-card-inclusion-value">{runtimeLine}</span>
+          </div>
+        </div>
       </Card>
     </Link>
   );

@@ -12,6 +12,148 @@
   padding: 24px 28px 56px;
 }
 
+/* ── Category sections ────────────────────────────────
+   Three stacked sections (Company / Foundation / Fund).
+   Each section has a muted header row + content below.
+   No hairlines — spacing and tint shifts define the boundary. */
+
+.bp-catalog-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 36px);
+}
+
+.bp-category-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 16px);
+}
+
+.bp-category-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bp-category-header-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bp-category-name {
+  appearance: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.bp-category-name:hover {
+  opacity: 0.7;
+}
+
+.bp-category-name.active {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bp-category-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 1.4em;
+}
+
+.bp-category-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.bp-category-empty {
+  padding: 20px 0 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Card inclusion lists ─────────────────────────────
+   Two-row inclusion panel at the bottom of each card.
+   On-chain (TRUST modules) + Runtime (seed counts). */
+
+.bp-card-inclusions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.bp-card-inclusion-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.bp-card-inclusion-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 52px;
+}
+
+.bp-card-inclusion-value {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.bp-card-default-mark {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ── Detail page breadcrumb + template badge ────────── */
+
+.bp-detail-breadcrumb {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+.bp-detail-template-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .bp-error {
   font-size: 12px;
   color: var(--color-warning);
