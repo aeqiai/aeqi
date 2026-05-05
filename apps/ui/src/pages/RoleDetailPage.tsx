@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
 import type { Role, RoleInvitation } from "@/lib/types";
+import { useDaemonStore } from "@/store/daemon";
 import { Badge, Button, Spinner } from "@/components/ui";
 
 const ROLE_TYPE_LABEL: Record<string, string> = {
@@ -24,6 +25,13 @@ export default function RoleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+
+  const agents = useDaemonStore((s) => s.agents);
+  const agentNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of agents) m.set(a.id, a.name);
+    return m;
+  }, [agents]);
 
   useEffect(() => {
     if (!roleId) return;
@@ -195,7 +203,7 @@ export default function RoleDetailPage() {
                 }}
                 aria-hidden
               >
-                {(role.occupant_id ?? "?").slice(0, 1).toUpperCase()}
+                {getOccupantDisplay(role.occupant_id, agentNames).slice(0, 1).toUpperCase()}
               </div>
               <span>
                 <span
@@ -206,7 +214,7 @@ export default function RoleDetailPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  {role.occupant_id ?? "Unoccupied"}
+                  {getOccupantDisplay(role.occupant_id, agentNames)}
                 </span>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                   {role.occupant_kind}
@@ -364,4 +372,12 @@ function InvitationRow({
       </Button>
     </div>
   );
+}
+
+function getOccupantDisplay(occupantId: string | null, agentNames: Map<string, string>): string {
+  if (!occupantId) return "Unoccupied";
+  const agentName = agentNames.get(occupantId);
+  if (agentName) return agentName;
+  // Fallback: show truncated UUID (first 4 + "..." + last 4 chars)
+  return `0x...${occupantId.slice(-4)}`;
 }
