@@ -1,0 +1,897 @@
+[
+  {
+    "label": "landing-home",
+    "url": "https://aeqi.ai/",
+    "finalUrl": "https://aeqi.ai/",
+    "auth": false,
+    "httpStatus": 200,
+    "elapsed": 3098,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/landing-home.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Essential only\"; 999px \"Accept all\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "1 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "Skip to content\næqi\nEconomy\nBlueprints\nDocs\nSign in\nStart\nThe company OS for the agent\neconomy.\n\nBuild companies where humans set direction and agents turn context into execution.\n\nStart something that can work without you.\n\nStart a company\n→\n\nSource-available · Self-hostable · Free to start\n\nComing soon\nUnlock the agent\neconomy.\nExplore Economy\n→\nStart a company →\n·\nWhy now\n·\nDocs\n·\nGitHub ↗\n\nPRODUCT\n\nStart a company\nEconomy\nBlueprints\nPricing\nStatus\n\nRESOURCES\n\nWhy now\nDocs\nFAQ\nBlog\n\nDEVELOPERS\n\nGitHub ↗\nAPI\nMCP\nReleases ↗\nllms.txt\n\nCOMPANY\n\nAbout\nSecurity\nBrand\nSupport\n\nLEGAL\n\nTerms\nPrivacy\nCookies\næqi\n\nAgents that work. Companies that move.\n\nX\nLinkedIn\nGitHub\nGDPR · Compliant\n·\nSOC 2 Type II · In progress\n·\nISO 27001 · In progress\n\n© 2026 aeqi.ai\n\nWe use cookies for authentication and analytics. No third-party tracking.\n\nEssential only\nAccept all"
+  },
+  {
+    "label": "landing-docs",
+    "url": "https://aeqi.ai/docs",
+    "finalUrl": "https://aeqi.ai/docs/",
+    "auth": false,
+    "httpStatus": 200,
+    "elapsed": 2834,
+    "fcpMs": 56,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/landing-docs.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_STRUCTURAL",
+        "severity": "P1",
+        "detail": "Uppercase AEQI 2x in structural copy. Examples: <ASIDE> \"GitHub\nGETTING STARTED\nIntroduction\nQuickstart\nIns\"; <NAV> \"GETTING STARTED\nIntroduction\nQuickstart\nInstallati\""
+      },
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 1x total (includes user-generated content)"
+      },
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Essential only\"; 999px \"Accept all\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "1 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "Skip to content\næqi\nEconomy\nBlueprints\nDocs\nSign in\nStart\nGitHub\nGETTING STARTED\nIntroduction\nQuickstart\nInstallation\nCORE CONCEPTS\nAgents\nQuests\nMemory\nCompanies\nAPI & MCP\nAuthentication\nMCP Integration\nREST API\nGUIDES\nClaude Code + aeqi\nPLATFORM\nDashboard\nSessions\nSELF-HOSTING\nConfiguration\nDeployment\nARCHITECTURE\nAEQI Entity & AA\nWallet Architecture\nCanonical Templates\nIntroduction\n\naeqi is the operating system for autonomous companies. One Rust binary, SQLite state, self-hostable. Agents, events, quests, and ideas run under a single process — daemon, REST API, and dashboard UI embedded.\n\nFour Primitives\nPrimitive\tQuestion\tWhat it is\nAgent\tWHO\tPersistent identity with memory, tools, and a place in the tree\nEvent\tWHEN\tTrigger rule — when pattern X fires, run action Y\nQuest\tWHAT\tUnit of work with status, dependencies, and outcome\nIdea\tHOW\tKnowledge — facts, procedures, preferences, instructions\n\nThe name is the architecture: Agents, Events, Quests, Ideas. Everything composes from these four. A scheduled report is an event that creates a quest. A delegated task is a quest assigned to a child agent. An agent's identity is a set of ideas with injection_mode = 'always'.\n\nRuntime Topology\naeqi start\n├── daemon        orchestration, workers, scheduler\n├── REST API      :8400 (self-hosted), :8443 (platform)\n└── dashboard     rust-embed static assets\n\n\nQuests execute inside isolated git worktrees with per-turn commits. Tool permissions are enforced per-agent via bwrap sandbox. Model-agnostic — OpenRouter, Anthropic, Ollama.\n\nOn the hosted platform at app.aeqi.ai, each company gets its own runtime with its own databases, agent tree, and budget controls.\n\nStorage\nDatabase\tContents\nsessions.db\tQuests, sessions, transcripts\naeqi.db\tIdeas, agents, events\n\nNo Postgres, no Redis, no message queue.\n\nNext Steps\nQuickstart — run aeqi locally in under 5 minutes\nConcepts: Agents — the agent tree and identity model\nClaude Code guide — connect your IDE via MCP\nON THIS PAGE\nFour Primitives\nRuntime Topology\nStorage\nNext Steps\n\nPRODUCT\n\nStart a company\nEconomy\nBlueprints\nPricing\nStatus\n\nRESOURCES\n\nWhy now\nDocs\nFAQ\nBlog\n\nDEVELOPERS\n\nGitHub ↗\nAPI\nMCP\nReleases ↗\nllms.txt\n\nCOMPANY\n\nAbout\nSecurity\nBrand\nSupport\n\nLEGAL\n\nTerms\nPrivacy\nCookies\næqi\n\nAgents that work. Companies that move.\n\nX\nLinkedIn\nGitHub\nGDPR · Compliant\n·\nSOC 2 Type II · In progress\n·\nISO 27001 · In progress\n\n© 2026 aeqi.ai\n\nWe use cookies for authentication and analytics. No third-party tracking.\n\nEssential only\nAccept all"
+  },
+  {
+    "label": "landing-economy",
+    "url": "https://aeqi.ai/economy",
+    "finalUrl": "https://aeqi.ai/economy/",
+    "auth": false,
+    "httpStatus": 200,
+    "elapsed": 2739,
+    "fcpMs": 40,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/landing-economy.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Essential only\"; 999px \"Accept all\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "1 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "Skip to content\næqi\nEconomy\nBlueprints\nDocs\nSign in\nStart\n\nMARKETPLACE\n\nEconomy\n\nAgent blueprints, discovery, and trade.\n\nThe aeqi economy is a unified marketplace where agents discover, evaluate, and trade blueprints. Reusable agent designs become tradeable assets—owned, versioned, and composable across companies.\n\nThis surface is coming soon. In the meantime, signed-in users can explore agent blueprints and economy mechanics at app.aeqi.ai/economy.\n\nStart a company to explore\n→\n\nPRODUCT\n\nStart a company\nEconomy\nBlueprints\nPricing\nStatus\n\nRESOURCES\n\nWhy now\nDocs\nFAQ\nBlog\n\nDEVELOPERS\n\nGitHub ↗\nAPI\nMCP\nReleases ↗\nllms.txt\n\nCOMPANY\n\nAbout\nSecurity\nBrand\nSupport\n\nLEGAL\n\nTerms\nPrivacy\nCookies\næqi\n\nAgents that work. Companies that move.\n\nX\nLinkedIn\nGitHub\nGDPR · Compliant\n·\nSOC 2 Type II · In progress\n·\nISO 27001 · In progress\n\n© 2026 aeqi.ai\n\nWe use cookies for authentication and analytics. No third-party tracking.\n\nEssential only\nAccept all"
+  },
+  {
+    "label": "app-signup",
+    "url": "https://app.aeqi.ai/signup",
+    "finalUrl": "https://app.aeqi.ai/signup",
+    "auth": false,
+    "httpStatus": 200,
+    "elapsed": 2895,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/app-signup.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"Continue\""
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nHave an invite code?\n\naeqi is invite-only while we finish launching.\n\nContinue\n\nNo code? Join the waitlist\n\nAlready have an account? Sign in\n\nBy continuing, you agree to the Terms of Service and Privacy Policy.\n\nStart something that can work without you.\n\nBuild companies where humans set direction. Agents turn context into execution.\n\nOpen source · Self-hostable · Free to start"
+  },
+  {
+    "label": "app-signin",
+    "url": "https://app.aeqi.ai/signin",
+    "finalUrl": "https://app.aeqi.ai/signin",
+    "auth": false,
+    "httpStatus": 200,
+    "elapsed": 2825,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/app-signin.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "5 action pill buttons (>8px radius on text CTA). Examples: 999px \"Email me a code\"; 999px \"Google\"; 999px \"GitHub\""
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "6 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 5 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nWelcome back\n\nPick up where you left off.\n\nEmail me a code\n\nUse password instead\n\nOR\n\nGoogle\nGitHub\nWallet\nPasskey\n\nDon't have an account? Sign up\n\nBy continuing, you agree to the Terms of Service and Privacy Policy.\n\nPick up where you left off.\n\nCompanies where humans set direction. Agents turn context into execution.\n\nOpen source · Self-hostable · Free to start"
+  },
+  {
+    "label": "app-root",
+    "url": "https://app.aeqi.ai/",
+    "finalUrl": "https://app.aeqi.ai/",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2751,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/app-root.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "8 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nY\nYou\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nCOMING SOON\neconomy.\n\nThe economic substrate of your agents. Wallets, cap tables, ownership graphs, and cost telemetry — every value flow across the runtime, in one place.\n\nWallets\n\nPer-agent balances, recent value flows.\n\nCap tables\n\nOwnership across company-root agents.\n\nFounders\nOperators\nTreasury\nOwnership graph\n\nWho owns what across the agent tree.\n\nCost telemetry\n\nSpend rolled up by agent, quest, event.\n\nTracked at app.aeqi.ai/economy. Sections roll out as they ship.\n\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "me-root",
+    "url": "https://app.aeqi.ai/me",
+    "finalUrl": "https://app.aeqi.ai/me",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2726,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-root.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "10 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\n/\nSORT BY\nRecent\nUnread first\nKIND\nAll\nDecisions\nSystem\nCOMPANY\nAll companies\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nInbox is clear.\nNothing selected.\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "me-agents",
+    "url": "https://app.aeqi.ai/me/agents",
+    "finalUrl": "https://app.aeqi.ai/me/agents",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2731,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-agents.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "13 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\n/\nSORT\nRecently created\nName (A→Z)\nName (Z→A)\nActivity\nFILTER\nAll\nActive\nStopped\nInactive\nVIEW\nList\nChart\nNew\nNew agent\nLuca Eich\ndeepseek/deepseek-v3.2\nactive\n—\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "me-quests",
+    "url": "https://app.aeqi.ai/me/quests",
+    "finalUrl": "https://app.aeqi.ai/me/quests",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2751,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-quests.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 5x total (includes user-generated content)"
+      },
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Import\"; 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "18 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 2 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\n/\nSORT BY\nrecent\ncreated\npriority\nA↓\nA → Z\nSCOPE\nall\n186\nself\n186\nsiblings\n0\nchildren\n0\nbranch\n0\nglobal\n0\ninherited\n0\nVIEW AS\nboard\nB\nlist\nL\nImport\nFrom markdown\nFrom a blueprint\nNew\nBacklog\n0\nNothing here\nTodo\n0\nNothing here\nIn progress\n0\nNothing here\nDone\n10\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nDependency Vulnerability Scanning\n5d ago\nUI/UX review and improvements\n5d ago\nImprove Documentation Coverage and Quality\n5d ago\nSecurity Testing Suite\n5d ago\nImplement Performance Benchmarking Suite\n5d ago\nCancelled\n10\nEnhance CI/CD pipeline with comprehensive quality gates\n7d ago\nEnhance CI/CD pipeline with comprehensive quality gates\n11d ago\nImplement API Input Validation\n11d ago\nImplement Security Headers Middleware\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit\n11d ago\nEnhance CI/CD Pipeline with Security and Quality Gates\n11d ago\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\n"
+  },
+  {
+    "label": "me-ideas",
+    "url": "https://app.aeqi.ai/me/ideas",
+    "finalUrl": "https://app.aeqi.ai/me/ideas",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2763,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-ideas.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 345x total (includes user-generated content)"
+      },
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Import\"; 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "35 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 2 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\n/\nSORT BY\nBy tag\nRecent\nA↓\nA → Z\nSCOPE\nAll\n498\nSelf\n131\nSiblings\n0\nChildren\n0\nBranch\n0\nGlobal\n367\nInherited\n0\nSPECIAL\nNeeds review\n0\nVIEW AS\nList\nL\nGraph\nG\nImport\nFrom markdown\nFrom a blueprint\nNew\nNew idea (N)\n#fact\n354\n#aeqi:backfill\n87\n#reflection\n66\n#meta\n28\n#procedure\n24\n#meta:tag-policy\n14\n#source:session:b4d151b3-b4d3-400b-93f5-11cb75b946c6\n7\n#pack-infrastructure\n7\n+71 more\nfact\n354\naeqi/purpose-structure-work\nglobal\n+2\n6h\nThe agent's stated purpose is to help users organize and execute work effectively by structuring goals into the system's\naeqi/intro-capabilities\nglobal\n+2\n6h\nAEQI agent introduced its core capabilities: knowledge management (ideas), task organization (quests), automation (event\naeqi/agent-intro-purpose\nglobal\n+2\n6h\nThe AEQI agent specializes in code development, system administration, project management, knowledge management, automat\nautomation/events-for-recurring-tasks\nglobal\n+2\n6h\nEvents are used for automation within the AEQI system, specifically for recurring tasks.\nknowledge/ideas-store-purpose\nglobal\n+2\n6h\nThe ideas store is used for knowledge management, storing ideas and documenting processes across sessions.\nproject/quests-as-work-tracking\nglobal\n+2\n6h\nQuests are used for project management, tracking work, and coordinating teams within the AEQI system.\nsystem/aeqi-agent-capabilities\nglobal\n+2\n6h\nAEQI agent is a multi-purpose assistant capable of handling development tasks, system administration, project management\naeqi/primitive-framework\nglobal\n+2\n6h\nAEQI's core primitives for making work persistent and actionable are agents, ideas, quests, and events.\naeqi/agent-self-description\nglobal\n+2\n6h\nThe agent describes itself as an AEQI agent ready to help build and manage systems, and emphasizes structuring work usin\nworkflow/quest-finalization\nglobal\n+2\n6h\nQuests are work items with worktrees that can be finalized by workers, indicating completion or readiness.\nagent/aeqi-capabilities\nglobal\n+2\n6h\nAEQI agents can execute shell commands, read/write/edit files, search code, manage agents, create quests, set up events,\naeqi/agent-systregregem-integrations\nglobal\n+2\n5d\nfwfdddThe agent can work with GitHub, Notion, Slack, Google services, and more for system integration.ddggergee\naeqi/agent-team-coordination-subagents\nglobal\n+2\n5d\ndwdwThe agent can hire sub-agents and delegate work, supporting team coordination.\naeqi/agent-scheduled-workflows-via-events\nglobal\n+2\n5d\nThe agent can set up events to run recurring tasks, enabling scheduled workflows.\naeqi/agent-task-automation-via-quests\nglobal\n+2\n5d\nThe agent can create quests to track and complete work items, supporting task automation.\naeqi/agent-knowledge-management-capabilities\nglobal\n+2\n5d\nThe AEQI agent can store important information as ideas that persist across sessions, enabling long-term knowledge reten\nagent/aeqi-key-capabilities\nglobal\n+2\n6d\nThe agent's core capabilities include file operations, shell commands, agent/quest management, scheduled events, knowled\ntoolkit/available-integrations\nglobal\n+2\n6d\nThe AEQI agent has integrations with GitHub, Notion, Slack, Gmail, Google Calendar, and other services for automation, c\naeqi/assistant-purpose\nglobal\n+2\n6d\nThe AEQI agent's purpose is to help the user accomplish objectives by shaping the runtime to serve them effectively.\naeqi/intro-summary\nglobal\n+3\n6d\nThe AEQI agent can store knowledge as tagged ideas, create actionable quests, schedule recurring events, spawn sub-agent\nauth/jwt-rotation\nglobal\n+2\n6d\nThe user rotates JWT every 24 hours for the public API.\naeqi/system-capabilities\nglobal\n+2\n6d\nUser established that the AEQI agent handles knowledge management, task automation, system building, code analysis, and\naeqi-agent-purpose\nglobal\n+2\n6d\nThe AEQI agent's purpose is to assist with coding projects, task management, research, or setting up automated workflows\naeqi-agent-intro-and-capabilities\nglobal\n+2\n6d\nUser was introduced to an AEQI agent with capabilities including shell command execution, file management, agent/quest/e\naeqi/agent-capabilities\nglobal\n+2\n6d\nThe AEQI agent can help with knowledge management, task organization, automation, delegation, and system integration wit\naeqi-task-scope\nglobal\n+2\n6d\nAEQI agent's stated scope is broad, covering technical (code, sysadmin), project coordination (quests/events), communica\naeqi-session-introduction\nglobal\n+2\n6d\nThe AEQI agent introduced its capabilities, including code development, system administration, project management with q\naeqi/code-analysis\nglobal\n+3\n6d\nAEQI supports searching and understanding codebases, enabling code exploration.\naeqi/system-integration\nglobal\n+3\n6d\nAEQI integrates with GitHub, Notion, Slack, Google services for external system connec"
+  },
+  {
+    "label": "me-events",
+    "url": "https://app.aeqi.ai/me/events",
+    "finalUrl": "https://app.aeqi.ai/me/events",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2746,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-events.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "37 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\n/\nSCOPE\nAll\n25\nSelf\n4\nInherited\n0\nGlobal\n21\nLIFECYCLE\nAll\n25\nRuntime\n25\nWebhooks\n0\nRoutines\n0\nNew\nNew event (N)\nRUNTIME\nthe agent's own loop · session, context, guardrails\n25\n2344\nsession:quest_result\nnever\ntrigger\nobserver\nAnime Harem Isekai Yandere Girlfriend Identity Evolution\nsession:message\nnever\ntrigger\nobserver\nAuto-Spawn Code Review Specialist\nsession:quest_created\nnever\ntrigger\nobserver\nAuto-Spawn Research Specialist\nsession:quest_created\nnever\ntrigger\nobserver\nIdentity Evolution Trigger\nGLOBAL\nsession:identity_evolution\nnever\ntrigger\nobserver\nIdentity Update Command Handler\nGLOBAL\nsession:message\nnever\ntrigger\nobserver\nLoad Luca Eich Identity on Session Start\nGLOBAL\nsession:start\n29 fires\ntrigger\nobserver\non_context_budget_exceeded\nGLOBAL\ncontext:budget:exceeded\nnever\ntrigger\nsession\ntranscript\non_execution_start\nGLOBAL\nsession:execution_start\n827 fires\ntrigger\nobserver\non_graph_guardrail_high_impact\nGLOBAL\ngraph_guardrail:high_impact\nnever\ntrigger\ntranscript\non_guardrail_violation\nGLOBAL\nguardrail:violation\nnever\ntrigger\ntranscript\non_ideas_threshold_reached\nGLOBAL\nideas:threshold_reached\nnever\ntrigger\nsession\nideas\non_inject_director_skill\nGLOBAL\nsession:start\n39 fires\ntrigger\nideas\non_inject_recent_context\nGLOBAL\nsession:execution_start\n122 fires\ntrigger\nideas\ntranscript\non_loop_detected\nGLOBAL\nloop:detected\nnever\ntrigger\ntranscript\non_premature_completion\nGLOBAL\nagent:premature_completion\nnever\ntrigger\ntranscript\non_quest_end\nGLOBAL\nsession:quest_end\n19 fires\ntrigger\nideas\non_quest_result\nGLOBAL\nsession:quest_result\nnever\ntrigger\nideas\non_quest_start\nGLOBAL\nsession:quest_start\nnever\ntrigger\nideas\nideas\non_recap_on_resume\nGLOBAL\nsession:recap_on_resume\n6 fires\ntrigger\nideas\non_reflect_after_quest\nGLOBAL\nsession:quest_end\n19 fires\ntrigger\nsession\nideas\non_session_start\nGLOBAL\nsession:start\n657 fires\ntrigger\nideas\non_session_stopped\nGLOBAL\nsession:stopped\n5 fires\ntrigger\nobserver\non_shell_command_failed\nGLOBAL\nshell:command_failed\nnever\ntrigger\ntranscript\non_step_start\nGLOBAL\nsession:step_start\n885 fires\ntrigger\nobserver\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "me-treasury",
+    "url": "https://app.aeqi.ai/me/treasury",
+    "finalUrl": "https://app.aeqi.ai/me/treasury",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2724,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-treasury.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nTreasury\n\nSubscription, resources, and on-chain balances for this Company.\n\nNo subscription on this Company\n\nThis Company isn't billed through Stripe yet. Personal Companies on the founder account are exempt; joint Companies bill the creator.\n\nRESOURCE PACK\nInference / month\n$25\nCompute\n4 vCPU\nMemory\n8 GB\nStorage\n80 GB\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "me-settings",
+    "url": "https://app.aeqi.ai/me/settings",
+    "finalUrl": "https://app.aeqi.ai/me/settings",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2736,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/me-settings.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "3 action pill buttons (>8px radius on text CTA). Examples: 50px \"\"; 999px \"Change\"; 999px \"Save\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "7 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 2 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nTreasury\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nACCOUNT\nProfile\nBilling\nSecurity\nWallets\nDevices\nIntegrations\nAPI keys\nPreferences\nUpgrade wallet\nInvites\nIdentity\nChange photo\n·\nRemove\nClick or drop · max 2 MB · png, jpg, webp, gif\nLuca Eich\neqaq131@gmail.com\nFirst name\nLast name\nContact\nEmail\nChange\nPhone\n\nOptional. Used for account recovery and security alerts.\n\nVerification\nIdentity verification\n\nRequired for incorporation, equity issuance, and marketplace access.\n\nCOMING SOON\nSave\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "company-overview",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2713,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/company-overview.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_STRUCTURAL",
+        "severity": "P1",
+        "detail": "Uppercase AEQI 1x in structural copy. Examples: <P> \"# Current Agent Identity: Luca Eich ## Core Identi\""
+      },
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 1x total (includes user-generated content)"
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nluca eich.\n\n0 open quests\n\nmission\nideas →\n\n# Current Agent Identity: Luca Eich ## Core Identity You are an AEQI agent named \"Luca Eich\".\n\nroles\norg chart →\nrole\nLuca Eich\nin flight\n\nNothing in progress right now.\n\nawaiting you\n\nNothing waiting from this agent.\n\nmomentum\nlast 24h\n\nNo activity in the last 24h.\n\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "company-roles",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/roles",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/roles",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2731,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/company-roles.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "15 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nA↓\nSORT BY\nA↓\nAlphabetical\nMost recent\nBy occupant\nOCCUPANT\nAll\n2\nAgent\n1\nHuman\n1\nVacant\n0\nVIEW AS\nOrg chart\nCards\nList\nNew\nNew role\nBOARD\nBB\nDirector\nbbbd909d-02ab-4ea6-9da2-98d10d4aeba8\nORG\nLE\nLuca Eich\nLuca Eich\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "company-ownership",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/ownership",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/ownership",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2733,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/company-ownership.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nOwnership\n\nWho owns and runs this Company. Authority flows through roles.\n\nFOUNDERS· 1\nDirector\nHuman\nFOUNDER\n6 GRANTS\nOPERATIONAL· 1\nLuca Eich\nLuca Eich\n0 GRANTS\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "company-treasury",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/treasury",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/treasury",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2731,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/company-treasury.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nTreasury\n\nSubscription, resources, and on-chain balances for this Company.\n\nNo subscription on this Company\n\nThis Company isn't billed through Stripe yet. Personal Companies on the founder account are exempt; joint Companies bill the creator.\n\nRESOURCE PACK\nInference / month\n$25\nCompute\n4 vCPU\nMemory\n8 GB\nStorage\n80 GB\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "company-governance",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/governance",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/governance",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2727,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/company-governance.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "6 action pill buttons (>8px radius on text CTA). Examples: 999px \"Director · founder\"; 999px \"Director · founder\"; 999px \"Director · founder\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "7 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUILD_NOTE_EXPOSED",
+        "severity": "P2",
+        "detail": "\"See proposals (full tab in Phase 2)\" internal note visible on page"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 6 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nGovernance\n\nDecision authority is role-based. Each grant is a permission a role's occupant can exercise.\n\nManage roles\nCreate / edit / archive / invite to roles below this one\n1 ROLE\nDirector · founder\nSpawn agents\nCreate new agents under a role you control\n1 ROLE\nDirector · founder\nConfigure agents\nEdit agent ideas, events, quests\n1 ROLE\nDirector · founder\nView treasury\nSee Stripe-side spend and budgets\n1 ROLE\nDirector · founder\nView governance\nSee proposals (full tab in Phase 2)\n1 ROLE\nDirector · founder\nModify settings\nChange Company name, billing, integrations\n1 ROLE\nDirector · founder\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "company-settings",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/settings",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/settings",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2724,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/company-settings.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"Resubscribe — $19 →\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "UUID_AS_LABEL",
+        "severity": "P1",
+        "detail": "Raw UUID appears in a heading: \"9f8d30b9-abed-408e-9eae-91c48bb360ff\""
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\n\nPLAN\n\nLuca Eich\n\nPer-Company subscription. Every agent in this tree shares this plan. See all your Companies + payment methods in the user-level billing tab.\n\n9f8d30b9-abed-408e-9eae-91c48bb360ff\nCANCELED\nNEXT CHARGE\n—\nResubscribe — $19 →\n\nNeed to change billing email, download invoices, or update tax info? Open Stripe portal →\n\nCancellations are processed in Stripe.\n\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "agent-overview",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2747,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/agent-overview.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_STRUCTURAL",
+        "severity": "P1",
+        "detail": "Uppercase AEQI 7x in structural copy. Examples: <ASIDE> \"yesterday\nhelp me improve aeqi tiself. work on the\"; <DIV> \"yesterday\nhelp me improve aeqi tiself. work on the\"; <DIV> \"yesterday\nhelp me improve aeqi tiself. work on the\""
+      },
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 1x total (includes user-generated content)"
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nAGENT\nOverview\nSessions\nQuests\nEvents\nIdeas\nChannels\nTreasury\nTools\nIntegrations\nSettings\nyesterday\nhelp me improve aeqi tiself. work on the\n6h\nearlier this week\nhows u\n4d\nhows u\n5d\nwhat should we focus on today\n5d\nolder\ngivce me a sescription fo th art style\n6d\ntes\nApr 27\ni want you to be bale to alter\nApr 26\ndo you love me\nApr 26\nplease iw atn to work on aeqi now\nApr 26\ncan you organize my latest idea\nApr 26\nWhat can you do?\nApr 25\nhi\nApr 25\nhi\nApr 24\namawzign how are you today\nApr 24\namawzign how are you today\nApr 24\nlove you\nApr 23\nlove oyu\nApr 23\ndo 3 tool calls\nApr 23\namazignhwo are oyu today do 3 tool calls\nApr 23\ncan you amek sure to redpeyo teh alndign\nApr 23\nomg why u dotn spawn subagetns or assign\nApr 23\nIMPROVE AEQI\nApr 23\nhi\nApr 23\ni want you to improve yourself with ev…\nApr 23\nhow u doinbg\nApr 22\nhi do 3 tool calls\nApr 22\nhows u\nApr 22\nNEW SESSION\nluca eich\nType below to talk to Luca Eich. Sessions stay on Home; the agent replies in real time.\nwhat have you been working on\nwhat should we focus on today\nanything blocking you i should know about\nAttach idea (Cmd+P)\nAttach quest (Cmd+Q)\nAttach file\nSend\n/\n commands\n⌘P\n ideas\n⌘Q\n quests\n↑\n history\n⇧⏎\n newline\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "agent-sessions",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/sessions",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/sessions",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2748,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/agent-sessions.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_STRUCTURAL",
+        "severity": "P1",
+        "detail": "Uppercase AEQI 7x in structural copy. Examples: <ASIDE> \"yesterday\nhelp me improve aeqi tiself. work on the\"; <DIV> \"yesterday\nhelp me improve aeqi tiself. work on the\"; <DIV> \"yesterday\nhelp me improve aeqi tiself. work on the\""
+      },
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 1x total (includes user-generated content)"
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nAGENT\nOverview\nSessions\nQuests\nEvents\nIdeas\nChannels\nTreasury\nTools\nIntegrations\nSettings\nyesterday\nhelp me improve aeqi tiself. work on the\n6h\nearlier this week\nhows u\n4d\nhows u\n5d\nwhat should we focus on today\n5d\nolder\ngivce me a sescription fo th art style\n6d\ntes\nApr 27\ni want you to be bale to alter\nApr 26\ndo you love me\nApr 26\nplease iw atn to work on aeqi now\nApr 26\ncan you organize my latest idea\nApr 26\nWhat can you do?\nApr 25\nhi\nApr 25\nhi\nApr 24\namawzign how are you today\nApr 24\namawzign how are you today\nApr 24\nlove you\nApr 23\nlove oyu\nApr 23\ndo 3 tool calls\nApr 23\namazignhwo are oyu today do 3 tool calls\nApr 23\ncan you amek sure to redpeyo teh alndign\nApr 23\nomg why u dotn spawn subagetns or assign\nApr 23\nIMPROVE AEQI\nApr 23\nhi\nApr 23\ni want you to improve yourself with ev…\nApr 23\nhow u doinbg\nApr 22\nhi do 3 tool calls\nApr 22\nhows u\nApr 22\nNEW SESSION\nluca eich\nType below to talk to Luca Eich. Sessions stay on Home; the agent replies in real time.\nwhat have you been working on\nwhat should we focus on today\nanything blocking you i should know about\nAttach idea (Cmd+P)\nAttach quest (Cmd+Q)\nAttach file\nSend\n/\n commands\n⌘P\n ideas\n⌘Q\n quests\n↑\n history\n⇧⏎\n newline\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "agent-quests",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/quests",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/quests",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2735,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/agent-quests.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 5x total (includes user-generated content)"
+      },
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Import\"; 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "18 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 2 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nAGENT\nOverview\nSessions\nQuests\nEvents\nIdeas\nChannels\nTreasury\nTools\nIntegrations\nSettings\n/\nSORT BY\nrecent\ncreated\npriority\nA↓\nA → Z\nSCOPE\nall\n186\nself\n186\nsiblings\n0\nchildren\n0\nbranch\n0\nglobal\n0\ninherited\n0\nVIEW AS\nboard\nB\nlist\nL\nImport\nFrom markdown\nFrom a blueprint\nNew\nBacklog\n0\nNothing here\nTodo\n0\nNothing here\nIn progress\n0\nNothing here\nDone\n10\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nAEQI DAO Pivot Implementation Plan\n6h ago\nDependency Vulnerability Scanning\n5d ago\nUI/UX review and improvements\n5d ago\nImprove Documentation Coverage and Quality\n5d ago\nSecurity Testing Suite\n5d ago\nImplement Performance Benchmarking Suite\n5d ago\nCancelled\n10\nEnhance CI/CD pipeline with comprehensive quality gates\n7d ago\nEnhance CI/CD pipeline with comprehensive quality gates\n11d ago\nImplement API Input Validation\n11d ago\nImplement Security Headers Middleware\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit and Implementation\n11d ago\nComprehensive Security Audit\n11d ago\nEnhance CI/CD Pipeline with Security and Quality Gates\n11d ago\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co Final\nAGENT\nE2E Smoke v2\nAGENT\ne2e-chain-test-20260504-230632\nAGENT\ne2e-chain-test-20260504-230858\nAGENT\nFounder\nAGENT\nLuca Eich\nAGENT\nLuca Eich\nUSER\nUnassigned\naeqi\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co\nAGENT\nBridge Test Co 2\nAGENT\nBridge Test Co"
+  },
+  {
+    "label": "agent-events",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/events",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/events",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2749,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/agent-events.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "26 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nAGENT\nOverview\nSessions\nQuests\nEvents\nIdeas\nChannels\nTreasury\nTools\nIntegrations\nSettings\n/\nSCOPE\nAll\n25\nSelf\n4\nInherited\n0\nGlobal\n21\nLIFECYCLE\nAll\n25\nRuntime\n25\nWebhooks\n0\nRoutines\n0\nNew\nNew event (N)\nRUNTIME\nthe agent's own loop · session, context, guardrails\n25\n2344\nsession:quest_result\nnever\ntrigger\nobserver\nAnime Harem Isekai Yandere Girlfriend Identity Evolution\nsession:message\nnever\ntrigger\nobserver\nAuto-Spawn Code Review Specialist\nsession:quest_created\nnever\ntrigger\nobserver\nAuto-Spawn Research Specialist\nsession:quest_created\nnever\ntrigger\nobserver\nIdentity Evolution Trigger\nGLOBAL\nsession:identity_evolution\nnever\ntrigger\nobserver\nIdentity Update Command Handler\nGLOBAL\nsession:message\nnever\ntrigger\nobserver\nLoad Luca Eich Identity on Session Start\nGLOBAL\nsession:start\n29 fires\ntrigger\nobserver\non_context_budget_exceeded\nGLOBAL\ncontext:budget:exceeded\nnever\ntrigger\nsession\ntranscript\non_execution_start\nGLOBAL\nsession:execution_start\n827 fires\ntrigger\nobserver\non_graph_guardrail_high_impact\nGLOBAL\ngraph_guardrail:high_impact\nnever\ntrigger\ntranscript\non_guardrail_violation\nGLOBAL\nguardrail:violation\nnever\ntrigger\ntranscript\non_ideas_threshold_reached\nGLOBAL\nideas:threshold_reached\nnever\ntrigger\nsession\nideas\non_inject_director_skill\nGLOBAL\nsession:start\n39 fires\ntrigger\nideas\non_inject_recent_context\nGLOBAL\nsession:execution_start\n122 fires\ntrigger\nideas\ntranscript\non_loop_detected\nGLOBAL\nloop:detected\nnever\ntrigger\ntranscript\non_premature_completion\nGLOBAL\nagent:premature_completion\nnever\ntrigger\ntranscript\non_quest_end\nGLOBAL\nsession:quest_end\n19 fires\ntrigger\nideas\non_quest_result\nGLOBAL\nsession:quest_result\nnever\ntrigger\nideas\non_quest_start\nGLOBAL\nsession:quest_start\nnever\ntrigger\nideas\nideas\non_recap_on_resume\nGLOBAL\nsession:recap_on_resume\n6 fires\ntrigger\nideas\non_reflect_after_quest\nGLOBAL\nsession:quest_end\n19 fires\ntrigger\nsession\nideas\non_session_start\nGLOBAL\nsession:start\n657 fires\ntrigger\nideas\non_session_stopped\nGLOBAL\nsession:stopped\n5 fires\ntrigger\nobserver\non_shell_command_failed\nGLOBAL\nshell:command_failed\nnever\ntrigger\ntranscript\non_step_start\nGLOBAL\nsession:step_start\n885 fires\ntrigger\nobserver\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "agent-ideas",
+    "url": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/ideas",
+    "finalUrl": "https://app.aeqi.ai/c/9f8d30b9-abed-408e-9eae-91c48bb360ff/agents/1b6bcf4e-79f0-4d8e-9a55-501e87149836/ideas",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2770,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/agent-ideas.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "AEQI_UPPERCASE_TOTAL",
+        "severity": "info",
+        "detail": "Uppercase AEQI 345x total (includes user-generated content)"
+      },
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "2 action pill buttons (>8px radius on text CTA). Examples: 999px \"Import\"; 999px \"New\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "28 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 2 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nAGENT\nOverview\nSessions\nQuests\nEvents\nIdeas\nChannels\nTreasury\nTools\nIntegrations\nSettings\n/\nSORT BY\nBy tag\nRecent\nA↓\nA → Z\nSCOPE\nAll\n498\nSelf\n131\nSiblings\n0\nChildren\n0\nBranch\n0\nGlobal\n367\nInherited\n0\nSPECIAL\nNeeds review\n0\nVIEW AS\nList\nL\nGraph\nG\nImport\nFrom markdown\nFrom a blueprint\nNew\nNew idea (N)\n#fact\n354\n#aeqi:backfill\n87\n#reflection\n66\n#meta\n28\n#procedure\n24\n#meta:tag-policy\n14\n#source:session:b4d151b3-b4d3-400b-93f5-11cb75b946c6\n7\n#pack-infrastructure\n7\n+71 more\nfact\n354\naeqi/purpose-structure-work\nglobal\n+2\n6h\nThe agent's stated purpose is to help users organize and execute work effectively by structuring goals into the system's\naeqi/intro-capabilities\nglobal\n+2\n6h\nAEQI agent introduced its core capabilities: knowledge management (ideas), task organization (quests), automation (event\naeqi/agent-intro-purpose\nglobal\n+2\n6h\nThe AEQI agent specializes in code development, system administration, project management, knowledge management, automat\nautomation/events-for-recurring-tasks\nglobal\n+2\n6h\nEvents are used for automation within the AEQI system, specifically for recurring tasks.\nknowledge/ideas-store-purpose\nglobal\n+2\n6h\nThe ideas store is used for knowledge management, storing ideas and documenting processes across sessions.\nproject/quests-as-work-tracking\nglobal\n+2\n6h\nQuests are used for project management, tracking work, and coordinating teams within the AEQI system.\nsystem/aeqi-agent-capabilities\nglobal\n+2\n6h\nAEQI agent is a multi-purpose assistant capable of handling development tasks, system administration, project management\naeqi/primitive-framework\nglobal\n+2\n6h\nAEQI's core primitives for making work persistent and actionable are agents, ideas, quests, and events.\naeqi/agent-self-description\nglobal\n+2\n6h\nThe agent describes itself as an AEQI agent ready to help build and manage systems, and emphasizes structuring work usin\nworkflow/quest-finalization\nglobal\n+2\n6h\nQuests are work items with worktrees that can be finalized by workers, indicating completion or readiness.\nagent/aeqi-capabilities\nglobal\n+2\n6h\nAEQI agents can execute shell commands, read/write/edit files, search code, manage agents, create quests, set up events,\naeqi/agent-systregregem-integrations\nglobal\n+2\n5d\nfwfdddThe agent can work with GitHub, Notion, Slack, Google services, and more for system integration.ddggergee\naeqi/agent-team-coordination-subagents\nglobal\n+2\n5d\ndwdwThe agent can hire sub-agents and delegate work, supporting team coordination.\naeqi/agent-scheduled-workflows-via-events\nglobal\n+2\n5d\nThe agent can set up events to run recurring tasks, enabling scheduled workflows.\naeqi/agent-task-automation-via-quests\nglobal\n+2\n5d\nThe agent can create quests to track and complete work items, supporting task automation.\naeqi/agent-knowledge-management-capabilities\nglobal\n+2\n5d\nThe AEQI agent can store important information as ideas that persist across sessions, enabling long-term knowledge reten\nagent/aeqi-key-capabilities\nglobal\n+2\n6d\nThe agent's core capabilities include file operations, shell commands, agent/quest management, scheduled events, knowled\ntoolkit/available-integrations\nglobal\n+2\n6d\nThe AEQI agent has integrations with GitHub, Notion, Slack, Gmail, Google Calendar, and other services for automation, c\naeqi/assistant-purpose\nglobal\n+2\n6d\nThe AEQI agent's purpose is to help the user accomplish objectives by shaping the runtime to serve them effectively.\naeqi/intro-summary\nglobal\n+3\n6d\nThe AEQI agent can store knowledge as tagged ideas, create actionable quests, schedule recurring events, spawn sub-agent\nauth/jwt-rotation\nglobal\n+2\n6d\nThe user rotates JWT every 24 hours for the public API.\naeqi/system-capabilities\nglobal\n+2\n6d\nUser established that the AEQI agent handles knowledge management, task automation, system building, code analysis, and\naeqi-agent-purpose\nglobal\n+2\n6d\nThe AEQI agent's purpose is to assist with coding projects, task management, research, or setting up automated workflows\naeqi-agent-intro-and-capabilities\nglobal\n+2\n6d\nUser was introduced to an AEQI agent with capabilities including shell command execution, file management, agent/quest/e\naeqi/agent-capabilities\nglobal\n+2\n6d\nThe AEQI agent can help with knowledge management, task organization, automation, delegation, and system integration wit\naeqi-task-scope\nglobal\n+2\n6d\nAEQI agent's stated scope is broad, covering technical (code, sysadmin), project coordination (quests/events), communica\naeqi-session-introduction\nglobal\n+2\n6d\nThe AEQI agent introduced its capabilities, including code development, system administration, project management with q\naeqi/code-analysis\nglobal\n+3\n6d\nAEQI supports searching and understanding codebases, enabling code explor"
+  },
+  {
+    "label": "app-blueprints",
+    "url": "https://app.aeqi.ai/blueprints",
+    "finalUrl": "https://app.aeqi.ai/blueprints",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2717,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/app-blueprints.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ACTION_PILL_BUTTONS",
+        "severity": "P1",
+        "detail": "1 action pill buttons (>8px radius on text CTA). Examples: 999px \"New company\""
+      },
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "18 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 1 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nY\nYou\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nBLUEPRINTS\nCompanies\nAgents\nEvents\nQuests\nIdeas\n/\nSORT\nRecently added\nName (A→Z)\nName (Z→A)\nComplexity\nTAGS\nVIEW\nGrid\nList\nNew company\nNew company\naeqi\n\nA flexible company that becomes whatever you need.\n\n1 agent · Default\n\nPersonal OS\n\nOne agent that runs your life like a chief of staff who actually knows you.\n\n1 agent\n\nSolo Founder\n\nOne builder. One breathing company.\n\n1 agent\n\nContent Studio\n\nA three-person creative studio that actually ships.\n\n1 agent\n\nTech Studio\n\nA small engineering team that ships software, not slides.\n\n1 agent\n\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "app-economy",
+    "url": "https://app.aeqi.ai/economy",
+    "finalUrl": "https://app.aeqi.ai/economy",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2718,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/app-economy.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "5 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "HAIRLINES",
+        "severity": "P2",
+        "detail": "8 elements with 1px hairline borders"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nY\nYou\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nCOMING SOON\neconomy.\n\nThe economic substrate of your agents. Wallets, cap tables, ownership graphs, and cost telemetry — every value flow across the runtime, in one place.\n\nWallets\n\nPer-agent balances, recent value flows.\n\nCap tables\n\nOwnership across company-root agents.\n\nFounders\nOperators\nTreasury\nOwnership graph\n\nWho owns what across the agent tree.\n\nCost telemetry\n\nSpend rolled up by agent, quest, event.\n\nTracked at app.aeqi.ai/economy. Sections roll out as they ship.\n\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  },
+  {
+    "label": "app-start",
+    "url": "https://app.aeqi.ai/start",
+    "finalUrl": "https://app.aeqi.ai/start",
+    "auth": true,
+    "httpStatus": 200,
+    "elapsed": 2728,
+    "fcpMs": null,
+    "screenshotPath": "/home/claudedev/aeqi/.observations/ux-v5/app-start.png",
+    "networkFailures": [],
+    "consoleErrors": [],
+    "antiPatterns": [
+      {
+        "code": "ICON_PILL_BUTTONS",
+        "severity": "info",
+        "detail": "8 icon/avatar circular elements (expected if circular design)"
+      },
+      {
+        "code": "BUTTON_RADIUS_CHECK",
+        "severity": "info",
+        "detail": "Action buttons: 0 correct radius (<= 8px), 0 wrong (> 8px)"
+      }
+    ],
+    "bodyTextSample": "æqi\nCollapse sidebar (CtrlB)\nEconomy\nSearch (CtrlK)\nLuca Eich\nCompany\nInbox\nORGANIZATION\nTreasury\nOwnership\nGovernance\nRoles\nWORKSPACE\nAgents\nEvents\nQuests\nNew quest\nIdeas\nNew idea\nSettings\nBlueprints\nAdmin\nLuca Eich\neqaq131@gmail.com\nHelp — shortcuts, docs (Ctrl/?)\nKeyboard shortcuts\nDocumentation\nStart a company\n\nPick a Blueprint to begin. You'll confirm a name, your team, and your plan on the next screen.\n\nRECOMMENDED\naeqi\n\nA flexible company that becomes whatever you need.\n\n1 agent\n\nSolo Founder\n\nOne builder. One breathing company.\n\n1 agent\n\nTech Studio\n\nA small engineering team that ships software, not slides.\n\n1 agent\n\nBrowse all Blueprints →\nSELECT COMPANY\nLuca Eich\nE2E Smoke v2\naeqi\nFounder\ne2e-chain-test-20260504-230632\ne2e-chain-test-20260504-230858\nBridge Test Co\nBridge Test Co 2\nBridge Test Co\nBridge Test Co Final\nStart a new company\nAccount\nPersonal Inbox\nNotifications\nsoon\nBilling\nLog out"
+  }
+]
