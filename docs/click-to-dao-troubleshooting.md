@@ -69,9 +69,10 @@ Expected: `0x6080...` (long hex bytecode, at least 100 chars). If you see `0x` o
 **Step 2 — verify templates registered:**
 
 ```bash
+# :8501 = aeqi-indexer-anvil.service (canonical). :8500 = retired aeqi-indexer.service.
 curl -sS -X POST -H 'Content-Type: application/json' \
   -d '{"query":"{ templatesForFactory(factoryAddress: \"<factory_lowercase>\") { templateId } }"}' \
-  http://127.0.0.1:8500/graphql | jq '.data.templatesForFactory | length'
+  http://127.0.0.1:8501/graphql | jq '.data.templatesForFactory | length'
 ```
 
 Expected: 4 or 5 (4 canonical: Foundation, Entity, Venture, Fund; plus 0-1 legacy if both registered). If 0, templates were never registered. Go to § 3.3.
@@ -128,7 +129,7 @@ Expected: The service should show `AEQI_FACTORY_ADDRESS=<factory>` matching your
 # Get indexer's latest block
 curl -sS -X POST -H 'Content-Type: application/json' \
   -d '{"query":"{ indexerStatus { latestBlock } }"}' \
-  http://127.0.0.1:8500/graphql | jq '.data.indexerStatus.latestBlock'
+  http://127.0.0.1:8501/graphql | jq '.data.indexerStatus.latestBlock'
 
 # Get chain's latest block
 curl -sS -X POST -H 'Content-Type: application/json' \
@@ -237,7 +238,7 @@ When a parallel autonomous worker or manual re-run restarts anvil mid-flight:
    # Poll indexer for templates
    curl -sS -X POST -H 'Content-Type: application/json' \
      -d '{"query":"{ templatesForFactory(factoryAddress: \"<new_factory_lowercase>\") { templateId } }"}' \
-     http://127.0.0.1:8500/graphql | jq '.data.templatesForFactory | length'
+     http://127.0.0.1:8501/graphql | jq '.data.templatesForFactory | length'
    # Expected: 4 or 5
    
    # Try the smoke test
@@ -335,7 +336,7 @@ When a parallel autonomous worker or manual re-run restarts anvil mid-flight:
    # Poll indexer until it reaches that block
    until [ "$(curl -sS -X POST -H 'Content-Type: application/json' \
      -d '{"query":"{ indexerStatus { latestBlock } }"}' \
-     http://127.0.0.1:8500/graphql | jq '.data.indexerStatus.latestBlock')" \
+     http://127.0.0.1:8501/graphql | jq '.data.indexerStatus.latestBlock')" \
      -ge "$(cat /tmp/chain_block.txt)" ]; do
      echo "Indexer catching up..."
      sleep 2
@@ -348,7 +349,7 @@ When a parallel autonomous worker or manual re-run restarts anvil mid-flight:
    ```bash
    curl -sS -X POST -H 'Content-Type: application/json' \
      -d '{"query":"{ templatesForFactory(factoryAddress: \"<factory_lowercase>\") { templateId } }"}' \
-     http://127.0.0.1:8500/graphql | jq '.data.templatesForFactory'
+     http://127.0.0.1:8501/graphql | jq '.data.templatesForFactory'
    ```
 
 ### 3.4 — Factory_BeaconIsNotInitialized (selector 0xfea9fc98)
@@ -478,6 +479,6 @@ After respawning the indexer service twice in quick succession, the log shows "A
 
 ---
 
-**Last updated:** 2026-05-04T23:48Z  
-**Session:** autonomous-push; Wave 7Y (Subagent Y)
+**Last updated:** 2026-05-05T08:30Z  
+**Session:** bridge-wizard-verify; fixed indexer port (:8500→:8501) throughout, confirmed live indexer port from service definition.
 

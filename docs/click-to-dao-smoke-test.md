@@ -160,30 +160,36 @@ Expected response: 402 Payment Required, with redirect URL or direct settlement 
 After any of the smoke tests, verify the indexer caught the new TRUST:
 
 ```bash
-# Get a count of TRUSTs
+# Get a count of TRUSTs (canonical field — verified against live indexer 2026-05-05)
+# Indexer-anvil service listens on :8501, NOT :8500 (8500 = legacy aeqi-indexer.service)
 curl -sS -X POST -H 'Content-Type: application/json' \
-  -d '{"query":"{ blueprintsCount }"}' \
-  http://127.0.0.1:8500/graphql | jq .data.blueprintsCount
+  -d '{"query":"{ trustsCount }"}' \
+  http://127.0.0.1:8501/graphql | jq .data.trustsCount
 
 # Query the specific TRUST by address (from logs or entity record)
 curl -sS -X POST -H 'Content-Type: application/json' \
-  -d '{"query":"{ blueprintByAddress(address: \"<trust_addr>\") { templateId ipfsCid rolesCount } }"}' \
-  http://127.0.0.1:8500/graphql | jq .data
+  -d '{"query":"{ trust(address: \"<trust_addr>\") { templateId ipfsCid } }"}' \
+  http://127.0.0.1:8501/graphql | jq .data
 ```
 
 Expected output:
 
 ```json
 {
-  "blueprintByAddress": {
+  "trust": {
     "templateId": "0x<hash>",
-    "ipfsCid": "Qm<hash>",
-    "rolesCount": 2
+    "ipfsCid": "Qm<hash>"
   }
 }
 ```
 
-The rolesCount (founder + workers from the blueprint) should match what's in the logs.
+If `trustsCount` did not increment after the company creation, the on-chain bridge is broken — see `click-to-dao-troubleshooting.md` § 1 for revert error decoding.
+
+**Wrong field names that do NOT exist (confirmed 2026-05-05):** `blueprintsCount`, `blueprintByAddress`, `trusts`. Use `trustsCount` and `trust(address: "...")` respectively.
+
+**Indexer port note:** `aeqi-indexer-anvil.service` uses `AEQI_INDEXER_PORT=8501`. The old `aeqi-indexer.service` (retired) used `:8500`. Use `:8501` for all indexer-anvil queries. If you're unsure: `systemctl --user cat aeqi-indexer-anvil.service | grep PORT`.
+
+The rolesCount field is not exposed on the `trust` query — use `rolesForTrust(trustAddress: "...")` for per-TRUST role listings.
 
 ## IPFS verification
 
