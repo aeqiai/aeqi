@@ -1072,9 +1072,11 @@ async function main() {
     const shadowCount = r.antiPatterns.find(a => a.code === "HAIRLINE_SHADOW_COUNT_V14");
     const combinedCount = r.antiPatterns.find(a => a.code === "HAIRLINE_COMBINED_COUNT_V14");
 
-    const b = borderCount ? parseInt(borderCount.detail.match(/\d+/)?.[0] || "0") : 0;
-    const s = shadowCount ? parseInt(shadowCount.detail.match(/\d+/)?.[0] || "0") : 0;
-    const c = combinedCount ? parseInt(combinedCount.detail.match(/\d+/)?.[0] || "0") : 0;
+    // Use /:\s*(\d+)/ to match the count after the last colon — NOT /\d+/ which
+    // picks the first digit run in the string (e.g. "14" from "V14" in the code name).
+    const b = borderCount ? parseInt(borderCount.detail.match(/:\s*(\d+)/)?.[1] || "0") : 0;
+    const s = shadowCount ? parseInt(shadowCount.detail.match(/:\s*(\d+)/)?.[1] || "0") : 0;
+    const c = combinedCount ? parseInt(combinedCount.detail.match(/:\s*(\d+)/)?.[1] || "0") : 0;
 
     totalBorder += b;
     totalShadow += s;

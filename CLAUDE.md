@@ -163,6 +163,16 @@ Cost (2026-05-05): v13 shadow detector wrote `bs.includes("inset") && bs.include
 but the inset check matched while the value order made the pattern miss — shadow count
 reported 0 on routes where 22 inset shadows existed. Required a debug probe to discover.
 
+**UX walk — summary table regex picks first `\d+` from the code name, not the count.**
+Walk scripts that extract counts from `antiPattern.detail` strings using `parseInt(detail.match(/\d+/)?.[0])`
+silently pick the wrong number when the code name contains digits. Example: code
+`HAIRLINE_BORDER_COUNT_V14` with detail `"v14 CSS-border hairlines: 4"` — `\d+` matches
+`14` from `V14`, not `4` from the count. All table cells show `14` regardless of actual
+values. Fix: anchor to the last number after the colon — use `parseInt(detail.match(/:\s*(\d+)/)?.[1])`.
+Applies to any walk script summary loop that parses counts from detail strings.
+Cost (2026-05-05): v14 walk summary table showed 14/14/14 for all routes; required Python
+post-processing against raw.json to get real counts. ~5 min.
+
 **UX walk — 2500ms wait after `domcontentloaded` undercounts hairlines on data-heavy routes.**
 The walk script waits 2500ms after `domcontentloaded` before running detectors. On
 data-heavy routes like `me-ideas` (40+ idea rows) or `me-quests` (kanban with multiple
