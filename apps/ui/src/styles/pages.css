@@ -403,7 +403,7 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   outline: none;
   color: var(--text-primary);
@@ -565,7 +565,7 @@
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
   background: var(--stat-card-bg, var(--bg-base));
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   border-top: 2px solid var(--border-hover);
   transition: border-top-color var(--transition-fast);
@@ -594,7 +594,7 @@
 .settings-tool-grid {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -606,7 +606,8 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
   transition: background 0.1s;
 }
 
@@ -789,7 +790,8 @@
 .page-rail-footer {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-faint);
+  border-top: none;
+  margin-top: var(--space-1);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -890,7 +892,9 @@
   font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
-  border-bottom: 1px solid var(--border-faint);
+  border-bottom: none;
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-1);
   transition:
     color 0.12s ease,
     border-color 0.12s ease;
@@ -1096,7 +1100,7 @@
   width: 100%;
   padding: 10px 12px;
   min-height: 56px;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
   color: var(--text-primary);
@@ -1241,7 +1245,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border-faint);
+  border-bottom: none;
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-1);
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -1496,7 +1502,8 @@
 /* -------- Custom slug footer -------- */
 
 .mp-custom {
-  border-top: 1px solid var(--border-faint);
+  border-top: none;
+  margin-top: var(--space-1);
   padding: 10px 12px 12px;
   background: var(--bg-base);
   flex-shrink: 0;
@@ -1713,7 +1720,7 @@
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   cursor: pointer;
@@ -1782,7 +1789,7 @@
 
 .agent-danger-confirm-input {
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-primary);
@@ -1826,7 +1833,7 @@
 }
 
 .account-activity-list {
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -1840,7 +1847,9 @@
 }
 
 .account-activity-item:not(:last-child) {
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .account-activity-dot {
@@ -1899,7 +1908,7 @@
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   background: var(--surface);
   transition: border-color 0.15s ease;
@@ -1974,7 +1983,8 @@
   gap: var(--space-3);
   margin-top: var(--space-4);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
 }
 
 .account-device-actions-hint {
@@ -2122,7 +2132,7 @@
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6);
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-6);
   overflow-x: auto;
@@ -2177,7 +2187,7 @@
 /* Panels */
 .dash-panel {
   background: var(--bg-base);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-lg);
   overflow: hidden;
   transition: border-color var(--transition-smooth);
@@ -2192,7 +2202,9 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .dash-panel-title {
@@ -2262,7 +2274,7 @@
 
 .idea-entry {
   background: var(--bg-base);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   margin-bottom: 2px;
@@ -2364,7 +2376,7 @@
 
 .tag-chip {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-full);
   background: transparent;
   font-size: var(--font-size-xs);
@@ -2454,7 +2466,8 @@
 }
 
 .detail-section {
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
   padding-top: var(--space-3);
 }
 
@@ -2507,7 +2520,8 @@
 }
 
 .detail-meta {
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
   padding-top: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -2553,7 +2567,7 @@
   display: flex;
   gap: var(--space-3);
   background: var(--bg-base);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-2xs);
@@ -2817,7 +2831,9 @@
   align-items: flex-start;
   gap: 8px;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
   font-size: var(--font-size-xs);
   width: 100%;
   background: transparent;
@@ -2940,7 +2956,8 @@
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
 }
 
 .key-new-code {
@@ -2961,7 +2978,7 @@
 
 .key-list {
   margin-top: var(--space-4);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -2985,7 +3002,8 @@
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
 }
 
 .key-list-name {
@@ -3141,14 +3159,16 @@
   width: 280px;
   max-height: 360px;
   background: var(--color-card);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 .quest-compose-picker-search {
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
   background: transparent;
   padding: 8px 10px;
   font-family: var(--font-sans);
@@ -3200,7 +3220,8 @@
 }
 .quest-compose-picker-foot {
   padding: 6px 10px;
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
   background: var(--color-bg-base);
 }
 .quest-compose-picker-foot-btn {
@@ -3616,7 +3637,7 @@
   letter-spacing: 0.06em;
   color: var(--text-secondary);
   padding: 2px 8px;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 3px;
   background: transparent;
 }
@@ -3641,11 +3662,14 @@
 .quest-detail-checkpoint {
   position: relative;
   padding: 10px 0 10px 28px;
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
   counter-increment: cp;
 }
 .quest-detail-checkpoint:last-child {
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 .quest-detail-checkpoint::before {
   content: counter(cp, decimal-leading-zero);
@@ -3683,7 +3707,7 @@
   text-transform: uppercase;
   color: var(--text-secondary);
   padding: 2px 8px;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 3px;
 }
 .quest-detail-outcome-summary {
@@ -3699,7 +3723,8 @@
   justify-content: flex-end;
   margin-top: 32px;
   padding-top: 18px;
-  border-top: 1px solid var(--border);
+  border-top: none;
+  margin-top: var(--space-2);
 }
 
 /* ── Drive page ──────────────────────────────────── */

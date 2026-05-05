@@ -147,7 +147,6 @@
 /* Agent card */
 .agent-card {
   background: var(--bg-base);
-  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   text-decoration: none;
@@ -156,7 +155,6 @@
 }
 
 .agent-card:hover {
-  border-color: var(--border-hover);
   color: inherit;
 }
 
@@ -258,7 +256,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  padding-bottom: calc(var(--space-3) + var(--space-2));
+  margin-bottom: var(--space-2);
   font-size: var(--font-size-sm);
   cursor: pointer;
   border: 1px solid transparent;
@@ -266,7 +265,8 @@
 }
 
 .quest-row:last-child {
-  border-bottom: none;
+  padding-bottom: var(--space-3);
+  margin-bottom: 0;
 }
 
 .quest-row.selected {
@@ -299,11 +299,13 @@
 /* Activity entry */
 .activity-entry {
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  padding-bottom: calc(var(--space-3) + var(--space-2));
+  margin-bottom: var(--space-2);
 }
 
 .activity-entry:last-child {
-  border-bottom: none;
+  padding-bottom: var(--space-3);
+  margin-bottom: 0;
 }
 
 .activity-entry-compact {
@@ -427,7 +429,6 @@
 /* Detail grid */
 .detail-panel {
   background: var(--bg-base);
-  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   min-width: 0;
@@ -439,8 +440,8 @@
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: var(--space-4);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3);
+  border-bottom: none;
 }
 
 .detail-field {
@@ -631,8 +632,8 @@
 .page-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid var(--border);
   padding: 0 16px;
+  border-bottom: none;
   /* Match .content-topbar height so the tab strip lines up with the
      comparable header on non-tabbed pages. */
   height: 40px;
@@ -652,7 +653,6 @@
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
   background: var(--bg-base);
-  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: var(--transition-fast);
@@ -661,7 +661,6 @@
   color: var(--text-muted);
 }
 .tool-card:hover {
-  border-color: var(--border-hover);
 }
 .tool-active {
   color: var(--text-primary);
@@ -711,7 +710,12 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: calc(var(--space-3) + var(--space-2));
+  margin-bottom: var(--space-2);
+}
+.scoped-quest-row:last-child {
+  padding-bottom: var(--space-3);
+  margin-bottom: 0;
 }
 .scoped-quest-status {
   font-size: var(--font-size-2xs);
@@ -868,7 +872,6 @@
 
 .integration-card {
   background: var(--bg-paper);
-  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px 18px;
   display: flex;
@@ -999,7 +1002,6 @@
 
 .integration-modal-card {
   background: var(--bg-paper);
-  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   width: 100%;
   max-width: 480px;
@@ -1013,7 +1015,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: calc(16px + 12px);
+  margin-bottom: 0;
+  border-bottom: none;
 }
 
 .integration-modal-title {
@@ -1092,7 +1096,9 @@
   display: flex;
   justify-content: flex-end;
   padding: 12px 20px;
-  border-top: 1px solid var(--border-faint);
+  padding-top: calc(12px + 8px);
+  margin-top: 0;
+  border-top: none;
 }
 
 /* ── Storybook example styles ───── */

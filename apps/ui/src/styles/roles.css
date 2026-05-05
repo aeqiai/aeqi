@@ -207,13 +207,17 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
-  border-bottom: 1px solid var(--border-faint);
+  border-bottom: none;
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-1);
   font-weight: 500;
 }
 .roles-list-row {
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border-faint);
+  border-bottom: none;
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-1);
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 13px;

@@ -303,7 +303,8 @@
   flex-direction: column;
   gap: var(--space-1);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--border-faint);
+  border-top: none;
+  margin-top: var(--space-1);
 }
 .billing-footer-line {
   margin: 0;
