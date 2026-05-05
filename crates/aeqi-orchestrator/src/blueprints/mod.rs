@@ -90,21 +90,26 @@ mod tests {
     }
 
     #[test]
-    fn blueprints_have_categories() {
+    fn blueprints_have_categories_and_templates() {
+        // (slug, display-category, on-chain-template)
         let expected = [
-            ("aeqi", "venture"),
-            ("index-fund", "fund"),
-            ("personal-os", "foundation"),
-            ("solo-founder", "entity"),
-            ("studio", "entity"),
-            ("tech-studio", "venture"),
+            ("aeqi", "company", "venture"),
+            ("index-fund", "fund", "fund"),
+            ("personal-os", "company", "entity"),
+            ("solo-founder", "company", "entity"),
+            ("studio", "company", "entity"),
+            ("tech-studio", "company", "venture"),
         ];
-        for (slug, category) in expected {
+        for (slug, category, template) in expected {
             let bp = company_blueprint(slug)
                 .unwrap_or_else(|| panic!("blueprint '{slug}' missing"));
             assert_eq!(
                 bp.category, category,
                 "blueprint '{slug}' has wrong category"
+            );
+            assert_eq!(
+                bp.template, template,
+                "blueprint '{slug}' has wrong template"
             );
         }
     }

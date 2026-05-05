@@ -191,10 +191,15 @@ pub struct Blueprint {
     pub tagline: String,
     #[serde(default)]
     pub description: String,
-    /// On-chain template category. One of `foundation | fund | venture | entity`.
+    /// User-facing display category. One of `company | foundation | fund`.
     /// Defaults to empty string on older Blueprints that predate the field.
     #[serde(default)]
     pub category: String,
+    /// On-chain template slug registered by `RegisterTemplates.s.sol`.
+    /// One of `entity | venture | foundation | fund`. The Factory expects
+    /// `templateId = keccak256(template)`. Defaults to empty string.
+    #[serde(default)]
+    pub template: String,
     pub root: RootAgentSpec,
     #[serde(default)]
     pub seed_agents: Vec<SeedAgentSpec>,
@@ -1110,6 +1115,7 @@ mod tests {
             tagline: "fixture".to_string(),
             description: "fixture blueprint".to_string(),
             category: String::new(),
+            template: String::new(),
             root: RootAgentSpec {
                 name: "Director".to_string(),
                 model: Some("anthropic/claude-sonnet-4.6".to_string()),
@@ -1437,6 +1443,7 @@ mod tests {
             tagline: String::new(),
             description: String::new(),
             category: String::new(),
+            template: String::new(),
             root: RootAgentSpec {
                 name: "Imported Root".to_string(),
                 model: None,

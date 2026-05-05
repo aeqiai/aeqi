@@ -1,7 +1,7 @@
 {
   "slug": "tech-studio",
-  "templateSlug": "venture",
-  "category": "venture",
+  "category": "company",
+  "template": "venture",
   "name": "Tech Studio",
   "tagline": "A small engineering team that ships software, not slides.",
   "description": "A software studio with a Tech Lead (root), two senior engineers, a designer-engineer, and an operator who keeps environments and releases steady. Ships with engineering principles, a weekly release cadence, and seed quests so the team has real product work on day one.",

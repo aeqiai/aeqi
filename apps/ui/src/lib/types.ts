@@ -343,17 +343,19 @@ export interface RoleOverride {
   occupant: RoleOverrideOccupant;
 }
 
-export type BlueprintCategory = "foundation" | "fund" | "venture" | "entity";
+export type BlueprintCategory = "company" | "foundation" | "fund";
+export type BlueprintTemplate = "entity" | "venture" | "foundation" | "fund";
 
 export interface Blueprint {
   slug: string;
   name: string;
   tagline?: string;
   description?: string;
-  /** On-chain template category. Mirrors `templateSlug` in the JSON manifest;
-   *  surfaced as a first-class field so the UI can group and filter without
-   *  importing templateSlug directly. */
+  /** User-facing display category. What the user picks: company | foundation | fund. */
   category?: BlueprintCategory;
+  /** On-chain template slug registered on the Factory. Immutable once deployed.
+   *  company blueprints map to entity or venture; foundation → foundation; fund → fund. */
+  template?: BlueprintTemplate;
   tags?: string[];
   root?: RootAgentSpec;
   seed_agents?: BlueprintSeedAgent[];
