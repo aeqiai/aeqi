@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.29.0 — 2026-05-05
+
+**Headline:** Polish wave — design token normalization + Quickstart Deploy TRUST guide.
+
+- aeqi: 11 hardcoded fontSize/padding values normalized to tokens (Wave 29 P2 fixes)
+- aeqi-docs: Quickstart "Deploy your first TRUST" guide
+- ROUTE-AUDIT-V5 confirmed clean — no regressions on color/border/button-variant; design system 85%/95%/95% compliance
+
 ## v0.28.0 — 2026-05-05
 
 **Headline:** Real hairlines fix — borders replaced with spacing and tint, not box-shadow swap.
