@@ -65,3 +65,56 @@
 - 21:35Z — major reconciliation: smoke_dao_bridge revealed Factory at 0x9fE467 returns BeaconProxy_ImplementationNotFound (selector 0x269dea0a) on registerTRUST — chain config incomplete from external reconciliation. Triggered fresh Deploy.s.sol (pid 1889936, mid-broadcast — racing with autonomous worker pid 1941290 on same anvil dev key, one will lose nonce race). **Founder strategic input received: 4 canonical templates (Foundation/Entity/Venture/Fund) on-chain, NOT 5 blueprint-named templates.** Blueprints sit ABOVE templates and select one. Wave 6T dispatched (Sonnet, 3-repo coordinated change): aeqi-core RegisterBlueprints rewrite to 4 canonicals using TestConfigs helpers, aeqi blueprints gain templateSlug field, aeqi-platform dao_provisioner reads blueprint.templateSlug not blueprint slug. Subagents shipped this cycle: K (38029f96 wizard submit), N (1176dde3 inference skeleton), R (ab63c19 verifiers all passing 303/303), M (6af8fa2 x402 middleware + endpoint), S (5c54b167 smoke recipe + 6553ddf1 evolve), N evolve (b45ab33a ui-deploy.sh monitor pattern fix). Active: T. **15 PRs shipped this push so far across 4 repos.**
 - 21:48Z — heartbeat #4 + bridge recovery saga: Both forge processes (mine pid 1889936 + autonomous pid 1941290) found stuck in futex_wait_queue at 0.4% CPU, broadcast file untouched 7+ min. Killed both. Fresh `forge script Deploy.s.sol --slow` ran clean: factory **0x84ea74d481ee0a5332c457a4d796187f6ba67feb** properly wired (Beacon, TRUST impl, 8 modules + replaceImplementations all green; TRUST contract at 25065 bytes WARNING — over EIP-170 24576 limit, will fail mainnet deploy but works on Anvil). Updated /etc/aeqi/secrets.env AEQI_CHAIN_ANVIL_FACTORY → 0x84ea74..., killed + respawned indexer at :8501 with new factory + fresh DB, restarted aeqi-platform.service, ran RegisterBlueprints against new factory ("ONCHAIN EXECUTION COMPLETE & SUCCESSFUL", 5 template txs). Indexer syncing — Monitor armed waiting for templatesForFactory to return 5. Active: T (4-canonical-templates restructure still in flight).
 - **~23:50Z — Wave 7Y (Haiku) COMPLETE**: Subagent Y delivered `docs/click-to-dao-troubleshooting.md` (470 lines, 9289f4fd) — diagnostic catalog of all chain-config failure modes from tonight. Covers 5 custom error selectors (BeaconProxy_ImplementationNotFound, Factory_ModuleInitializationFailed, etc.), step-by-step diagnostic walks for registerTRUST failures (factory bytecode check, template registration, module impl verification), 3 recovery recipes per error class, multi-process pitfalls (forge nonce races, concurrent indexers, parallel chain reconciliations). Companion to click-to-dao-smoke-test.md. Shipped docs-only, no deploy. Cross-links to click-to-dao-smoke-test.md, aeqi-entity-aa-design.md, aeqi-economy-plan.md. Known debt flagged (TRUST contract size 25065 > 24576, Role module init edge cases, indexer socket spurious-log issue).
+
+## Heartbeat 03:50Z 2026-05-05
+
+- HAIRLINES SWEEP SHIPPED `481ffccc` — 261→124, 52.5% reduction, 12 CSS files
+- P2 GOV-DIRECTOR SHIPPED `78c2532f` — copy + Unoccupied fallback
+- Active: 2 making progress (paymaster-funding-test 5fa98b02, wallet-phase2-ui ef50650e)
+
+## Heartbeat 03:59Z 2026-05-05
+
+- WALLET-PHASE-2-UI SHIPPED `341fd156` — passkey upgrade affordance in Settings
+- AA-PAYMASTER-FUNDING-TEST SHIPPED `5fa98b02` — end-to-end UserOp proof, 184k gas measured
+- RELEASE-v0.21.0 SHIPPED across aeqi + aeqi-docs (`1723571d` notes)
+- AEQI-DOCS-AA-USEROP-LIFECYCLE SHIPPED `39d9477`
+- Active: 2 (ux-v7, memory-refresh-v21 just dispatched)
+
+## Heartbeat 04:37Z 2026-05-05
+
+- WS-23-B Director list SHIPPED `32b96052`
+- WS-23-C Treasury URL detection SHIPPED `9db18db8`
+- UX-V8 SHIPPED `e8169b2b` — score 9.0 → 9.1
+- AEQI-DOCS-AGENT-RUNTIME SHIPPED `025681a`
+- RELEASE-v0.22.0 SHIPPED `c255ec03`
+- Active: 1 (UX-V9 verification)
+
+## Heartbeat 04:56Z 2026-05-05
+
+- v0.23.0 tagged `e80f6abe` — UX 9.3 walk cycle
+- AEQI-DOCS-X402-PAGE shipped (cycle complete, no new friction)
+- AEQI-DOCS-AGENT-RUNTIME shipped earlier (`025681a`)
+- MEMORY-REFRESH-V23 done — arc doc captured
+- Active: 1 (VPS-DOGFOOD-V3)
+
+## Heartbeat 07:15Z 2026-05-05
+
+- AUDIT-CANONICAL-CONFIGS shipped `fbce9dd8` — 6 P1 drift bugs found
+- Dispatched FIX-CANONICAL-CONFIG-DRIFT (Sonnet) — fix all 6 + re-register templates on live anvil
+- Active: 2 (TRUST-ADDRESS-ROUTING + FIX-CANONICAL-CONFIG-DRIFT)
+- trustsCount=11
+
+## Heartbeat 07:18Z 2026-05-05 — founder corrections
+
+- Founder corrected audit reading: B2/B5 (empty trustConfig) are INTENTIONAL not bugs (template-only test setup)
+- Real bugs: B3 (venture executionDelay 3600→0), B6 (fund governance template dropped), B1/B7 (Æ→ASCII brand drift)
+- Founder strategic call: pivot positioning to "Deploy a DAO" as Safe competitor; "company OS" stays as deeper framing but DAO deploy is the front door
+
+## Heartbeat 07:23Z 2026-05-05 — TRUST framing locked
+
+- Founder strategic call: **TRUST is the primitive**, not "DAO"
+- Positioning angle: smart account / AA / agent identity / agent wallet
+- Don't compete-with-Safe on "DAO" framing — Safe is multisig AA, we're role-graph AA with agent runtime
+- DO NOT update landing/H1 copy. Focus on product.
+- `/trust/<address>` URL routing aligns with naming (in flight)
+- Active: 2 (TRUST-ADDRESS-ROUTING + FIX-CANONICAL-CONFIG-DRIFT-V2)

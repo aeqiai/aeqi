@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.30.0 — 2026-05-05
+
+**Headline:** Blueprint taxonomy reformed (3 categories) + workspace billing pivot + stack blueprint foundation.
+
+- aeqi-platform: Blueprint Category enum (Company/Foundation/Fund) with separate template field; stack blueprint schema with topo-sort + provision_stack; workspace billing gate (10-Company cap)
+- aeqi: category-grouped BlueprintsPage with inclusion lists; pricing.ts pivots to $49/mo per workspace
+- aeqi-landing: FAQ updated to workspace billing
+- 2 example stacks shipped: founder-plus-spinout, vc-fund-with-3-portfolios
+- On-chain edge wiring stubbed (status="skipped"), real wiring in Wave 33
+
 ## v0.29.0 — 2026-05-05
 
 **Headline:** Polish wave — design token normalization + Quickstart Deploy TRUST guide.
