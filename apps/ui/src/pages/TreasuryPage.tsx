@@ -57,7 +57,7 @@ const STATUS_LABEL: Record<CompanyBillingRow["status"], string> = {
 export default function TreasuryPage({ entityId }: TreasuryPageProps) {
   const entity = useDaemonStore((s) => s.entities.find((e) => e.id === entityId));
   const trustAddress = entity?.trust_address;
-  const isPersonal = entity?.kind === "personal";
+  const isPersonal = entity?.type === "human";
   const entityTerm = isPersonal ? "account" : "Company";
 
   const [billing, setBilling] = useState<CompanyBillingRow | null | undefined>(undefined);
