@@ -415,7 +415,11 @@ this happened mid-rebase; the recovery pattern is now canonical to prevent repea
 ## Workflow — locked
 
 **Never work on main directly.** Every non-trivial change goes through a worktree.
-See `apps/ui/CLAUDE.md` "Worktree workflow" for the canonical ritual.
+See `apps/ui/CLAUDE.md` "Worktree workflow" for the canonical ritual. This includes
+docs-only changes (RELEASES.md, CLAUDE.md itself, docs/) — the worktree discipline
+keeps the workflow consistent and prevents the accidental "commit on main" footgun.
+Docs-only changes are still verified (prettier, no trailing whitespace) and still
+land via `/ship`.
 
 **Use `/ship` to merge + deploy.** The user has delegated the full ship cycle
 (verify → commit → push → ff-or-cherry-pick → push main → cleanup → UI-only
