@@ -43,6 +43,8 @@ fn setup_state_with_in_memory_db() -> (AppState, Connection, tempfile::TempDir) 
         signer,
         db_path: db_path_str,
         valid_for_secs: 900,
+        // Zero address in smoke tests — no real on-chain contract needed.
+        paymaster_contract_address: "0x0000000000000000000000000000000000000000".to_string(),
     };
     (state, conn, tmp_dir)
 }

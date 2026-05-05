@@ -59,6 +59,12 @@ pub struct AppState {
     pub db_path: String,
     /// Validity window in seconds from now (default: 15 minutes).
     pub valid_for_secs: u64,
+    /// Deployed Paymaster.sol contract address (hex, 0x-prefixed, 20 bytes).
+    ///
+    /// Committed into the signing digest so signatures are bound to this
+    /// specific on-chain contract. Set via `PAYMASTER_CONTRACT_ADDRESS` env var.
+    /// Required for real on-chain sponsorship; unused in Phase-1 stub mode.
+    pub paymaster_contract_address: String,
 }
 
 // ── JSON-RPC types ────────────────────────────────────────────────────────────
@@ -291,17 +297,25 @@ async fn approve_user_op(
 
     let signature = state
         .signer
-        .sign_paymaster_op(&user_op_hash, valid_until, valid_after)
+        .sign_paymaster_op(
+            &user_op_hash,
+            valid_until,
+            valid_after,
+            &state.paymaster_contract_address,
+        )
         .await
         .map_err(|e| {
             error!(error = %e, "signing failed");
             ApprovalError::Internal
         })?;
 
-    // Build paymasterAndData: address(20) ++ validUntil(6) ++ validAfter(6) ++ signature(65).
-    let paymaster_address = state.signer.address();
+    // Build paymasterAndData: paymaster_contract_address(20) ++ validUntil(6) ++ validAfter(6) ++ signature(65).
+    // The first 20 bytes MUST be the Paymaster.sol contract address (what the EntryPoint reads),
+    // NOT the signer hot-key address.
+    let contract_addr_bytes =
+        hex::decode(state.paymaster_contract_address.trim_start_matches("0x")).unwrap_or_default();
     let mut pad = Vec::with_capacity(97);
-    pad.extend_from_slice(paymaster_address.as_slice());
+    pad.extend_from_slice(&contract_addr_bytes);
     pad.extend_from_slice(&valid_until.to_be_bytes()[2..]); // uint48 = 6 bytes
     pad.extend_from_slice(&valid_after.to_be_bytes()[2..]);
     let sig_bytes = hex::decode(signature.trim_start_matches("0x")).unwrap_or_default();

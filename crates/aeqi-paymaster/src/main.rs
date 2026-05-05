@@ -30,6 +30,11 @@ async fn main() -> Result<()> {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(900); // 15 minutes
+    // PAYMASTER_CONTRACT_ADDRESS: deployed Paymaster.sol address on anvil.
+    // Required for correct on-chain signature verification. Defaults to zero address
+    // (Phase-1 stub mode — sponsorship approved but signature won't verify on-chain).
+    let paymaster_contract_address = std::env::var("PAYMASTER_CONTRACT_ADDRESS")
+        .unwrap_or_else(|_| "0x0000000000000000000000000000000000000000".to_string());
 
     // Ensure parent directory for DB exists.
     if let Some(parent) = std::path::Path::new(&db_path).parent() {
@@ -52,6 +57,7 @@ async fn main() -> Result<()> {
         signer,
         db_path,
         valid_for_secs,
+        paymaster_contract_address,
     };
     let app = router(state);
 
