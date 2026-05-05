@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.20.0 — 2026-05-05
+
+**Headline:** Wave 16-19 follow-through — Stripe redirect on company create, plan name binding, indexer governance reads, AA migration tool, design token sweeps.
+
+- Stripe checkout redirect on 402 (company create)
+- CompanyPlanCard displayName binding
+- Pill button cascade + inline 999px strip
+- Governance schema align (proposalsForTrust + votingPower live)
+- aeqi-paymaster migrate-to-passkey CLI
+- WS-1 marginTop + WS-2 fontSize token sweep
+- Schema.org pricing $49 single plan
+- Inference API public docs page
+
 ## v0.19.0 — 2026-05-05
 
 **Headline:** Full on-chain Company mirror (Treasury · Ownership · Governance) + AA stack online (rundler bundler + ERC-7677 paymaster).
