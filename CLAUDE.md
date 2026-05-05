@@ -117,6 +117,29 @@ the commit. Walk probe logic must handle all three cases explicitly. Cost
 to diagnose. Pattern: `stat <binary> | grep Modify` vs `git log -1 --format=%ci
 <commit>` tells you unambiguously whether a given commit is deployed.
 
+**UX walk — regex escaping trap inside `page.evaluate()` string templates.**
+Walk scripts pass detector logic as a string to `page.evaluate(new Function(...))`.
+Inside that string, regex literals must NOT be double-escaped — write `/\/roles\/[0-9a-f]/`
+not `/\\/roles\\/[0-9a-f]/`. Double-escaping produces invalid regex flags (the `\/`
+becomes a literal `\/` inside the string, which Node.js parses as an unknown flag),
+causing a `SyntaxError: Invalid regular expression flags` at module parse time before
+any test runs. Rule: copy regex literals from the string template into a JS REPL and
+verify they parse — `node -e "console.log(/\/roles\/[0-9a-f]/.test('/roles/ab'))"`.
+Cost (2026-05-05): v11 walk failed on first run due to `\\/roles\\/` in v11-H
+director-card check; required a second edit pass to un-escape. ~2 min.
+
+**UX walk — indexer GraphQL field shapes differ by query type.**
+Pre-walk probes and walk-script GraphQL queries must use the exact argument names the
+indexer schema exposes. Confirmed shapes as of v11 (2026-05-05):
+- `rolesForTrust(trustId: "0x...")` — works; arg is `trustId` (bytes32 hex)
+- `trustById(trustId: "0x...")` — works; arg is `trustId`
+- `treasuryBalances` — requires `trustId` arg (NOT `trustAddress`); field names differ from roles
+- `proposalsForTrust` — requires `trustId` arg (NOT `trustAddress`); status field is `status` not `state`
+Full schema: `curl -sS -X POST -H 'Content-Type: application/json' -d '{"query":"{ __schema { queryType { fields { name } } } }"}' http://localhost:8501/graphql`
+Cost (2026-05-05): v11 pre-walk probe used `trustAddress` on treasury+proposals queries
+and got GraphQL errors; the browser walk still passed (UI uses correct shapes internally)
+but the probe returned empty data and logged schema-mismatch errors. ~3 min to diagnose.
+
 **UI fix scoping — list view vs detail view are different components.**
 When fixing a data-display bug (e.g. "UUID shown instead of display name"), always
 identify BOTH the list page component AND the detail page component. In the roles
