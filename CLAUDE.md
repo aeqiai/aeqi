@@ -54,6 +54,18 @@ script reports FAIL, always inspect `bodyTextSample` from the JSON output AND
 the screenshot before writing a BROKEN verdict. The script's PASS/FAIL is a
 hint, not ground truth — screenshots are the source of record.
 
+**UX walk — `AEQI_UPPERCASE_STRUCTURAL` fires false positives on session sidebar.**
+The structural AEQI detector queries `nav, header, ASIDE, [class*=sidebar]` to
+catch uppercase "AEQI" in product copy. But the session-rail ASIDE on agent-overview
+and agent-sessions contains user-typed session titles — the selector scope spans
+the full rail, so a title like "help me improve aeqi tiself" causes the detector
+to fire 7x on that route even though `AEQI_UPPERCASE_TOTAL` shows only 1. Fix in
+the next walk-script version: exclude elements matched by `[class*=session-rail],
+[class*=sessions-rail], [class*=sessions-sidebar]` from the structural query,
+or walk only elements whose `dataset.kind !== "user-content"`. Until fixed, treat
+`AEQI_UPPERCASE_STRUCTURAL` fires on agent-overview/sessions as false positives
+when `AEQI_UPPERCASE_TOTAL` ≤ 1 on those routes.
+
 `cargo test --workspace` is non-negotiable — `cargo check --workspace` does
 NOT compile test code. A required-field added to a public struct (e.g. `Template`
 gaining `seed_roles` in `35113194`) can leave test fixtures uncompilable while
