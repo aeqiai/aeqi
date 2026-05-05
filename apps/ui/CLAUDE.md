@@ -288,11 +288,48 @@ subsequent edit at `/home/claudedev/aeqi-<topic>/apps/ui/src/foo.tsx`
 — it errors with "File has not been read yet." Always Read at the
 exact path you intend to Edit.
 
+**Pre-verify: ensure parent node_modules/.bin/ is healthy.** Before running
+verify in the worktree, check that the parent's `.bin/` has all required
+binaries (tsc, prettier, eslint, vite). If parallel sibling worktrees or a
+prior failed npm install left the parent tree partial:
+
+```bash
+if [ ! -f "/home/claudedev/aeqi/apps/ui/node_modules/.bin/tsc" ]; then
+  echo "Parent .bin/ is broken — rebuilding"
+  cd /home/claudedev/aeqi/apps/ui && npm rebuild
+  # If npm rebuild fails with "tshy: not found", fall through to npm install
+  if [ ! -f "/home/claudedev/aeqi/apps/ui/node_modules/.bin/tsc" ]; then
+    npm install --silent
+  fi
+fi
+```
+
+If the parent's node_modules is missing large package directories entirely
+(symptom: `Cannot find module 'typescript'` at the node level, not a .bin/
+symlink), skip npm rebuild and go straight to `npm install`. This is rare but
+surfaces after an aggressive `rm -rf node_modules` cleanup in a prior session.
+
 **Verify before merging:**
 
 ```bash
 cd /home/claudedev/aeqi-<topic>/apps/ui && npm run verify
 ```
+
+If `npm run verify` fails with ELOOP or other npm-environment errors (NOT code
+errors), but the changes are CSS-only, a manual audit is acceptable fallback:
+
+```bash
+# For CSS-only diffs: check brace balance, var(--radius-*) usage, etc.
+# Do NOT use this fallback for .ts/.tsx/.mdx changes — those need tsc + eslint
+for f in src/styles/*.css; do
+  OPEN=$(grep -o '{' "$f" | wc -l); CLOSE=$(grep -o '}' "$f" | wc -l)
+  [ $OPEN -eq $CLOSE ] && echo "✓ $f" || echo "✗ $f: braces unbalanced"
+done
+```
+
+This is a WORKAROUND only for environment issues (broken parent node_modules,
+symlink loops), NOT a substitute for failing tooling. If tsc/prettier/eslint
+fail due to code errors, fix the code — do not audit by hand.
 
 **Merge back to main (worktree-safe):**
 
