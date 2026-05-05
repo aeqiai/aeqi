@@ -99,7 +99,6 @@ export interface IndexedRoleAssignment {
 }
 
 export interface IndexedProposal {
-  // Canonical schema fields from indexer Proposal type
   moduleAddress: string;
   proposalId: string;
   governanceConfigId: string;
@@ -110,15 +109,12 @@ export interface IndexedProposal {
   status: string;
   createdBlock: number;
   createdTx: string;
-
-  // Derived fields for UI convenience (not from indexer yet)
-  // TODO: extend indexer schema to include vote tallies (forVotes, againstVotes)
+  /** Sum of token-weighted For votes (support=1). u256 hex string. "0x0" when no votes yet. */
+  forVotes: string;
+  /** Sum of token-weighted Against votes (support=0). u256 hex string. "0x0" when no votes yet. */
+  againstVotes: string;
   /** Human-readable title decoded from ipfsCid metadata or calldata. May be absent. */
   title?: string;
-  /** Votes cast in favour (raw token units as string). NOT YET IN SCHEMA. */
-  forVotes?: string;
-  /** Votes cast against (raw token units as string). NOT YET IN SCHEMA. */
-  againstVotes?: string;
 }
 
 export interface IndexedVotingPower {
@@ -249,16 +245,10 @@ export async function fetchRoleAssignments(
   return data?.roleAssignments ?? [];
 }
 
-/** Governance proposals on a module.
- *
- * Queries the canonical schema fields from the indexer.
- * forVotes/againstVotes are NOT YET available in the indexer schema
- * (TODO: extend indexer Proposal type with vote tallies in next pass).
- * The UI hides vote-tally sections with a TODO note until then.
- */
+/** Governance proposals on a module, with aggregated vote tallies. */
 export async function fetchProposalsForModule(moduleAddress: string): Promise<IndexedProposal[]> {
   const data = await indexerQuery<{ proposalsForModule: IndexedProposal[] }>(
-    `query($a: String!) { proposalsForModule(moduleAddress: $a) { moduleAddress proposalId governanceConfigId proposerAddress voteStart voteEnd ipfsCid status createdBlock createdTx } }`,
+    `query($a: String!) { proposalsForModule(moduleAddress: $a) { moduleAddress proposalId governanceConfigId proposerAddress voteStart voteEnd ipfsCid status createdBlock createdTx forVotes againstVotes } }`,
     { a: moduleAddress.toLowerCase() },
   );
   return data?.proposalsForModule ?? [];

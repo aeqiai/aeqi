@@ -349,12 +349,7 @@ function ProposalRow({ proposal: p }: { proposal: IndexedProposal }) {
         </Badge>
       </div>
 
-      {/* TODO: Show vote tally bar once indexer schema adds forVotes/againstVotes fields.
-           Currently unavailable; this conditional safely guards against rendering
-           undefined vote counts. See fetchProposalsForModule comment in indexer.ts. */}
-      {p.forVotes != null && p.againstVotes != null && (
-        <VoteBar forVotes={p.forVotes} againstVotes={p.againstVotes} />
-      )}
+      <VoteBar forVotes={p.forVotes} againstVotes={p.againstVotes} />
     </li>
   );
 }

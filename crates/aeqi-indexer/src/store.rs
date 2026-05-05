@@ -1539,6 +1539,70 @@ pub struct ProposalRow {
     pub status: String,
     pub created_block: u64,
     pub created_tx: String,
+    /// Sum of token-weighted For votes (support=1). u256 hex string.
+    pub for_votes: String,
+    /// Sum of token-weighted Against votes (support=0). u256 hex string.
+    pub against_votes: String,
+}
+
+/// Aggregate vote tallies for a set of proposals identified by their
+/// (module_address, proposal_id) pairs.  Returns a map keyed by
+/// `(module_address, proposal_id)` → `(for_votes_hex, against_votes_hex)`.
+///
+/// Hex summation is done in Rust (SQLite has no native u256 arithmetic).
+/// Votes with `support=1` accumulate into `for_votes`; `support=0` into
+/// `against_votes`; `support=2` (abstain) are ignored for display tallies.
+fn tally_votes(
+    conn: &Connection,
+    module_addresses: &[String],
+) -> Result<std::collections::HashMap<(String, String), (String, String)>> {
+    use std::collections::HashMap;
+    if module_addresses.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let placeholders = module_addresses
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT module_address, proposal_id, support, weight
+         FROM votes
+         WHERE module_address IN ({}) AND support IN (0, 1)",
+        placeholders
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows: Vec<(String, String, u8, String)> = stmt
+        .query_map(
+            rusqlite::params_from_iter(module_addresses.iter().map(|a| a.as_str())),
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)? as u8,
+                    r.get::<_, String>(3)?,
+                ))
+            },
+        )?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let mut tallies: HashMap<(String, String), (alloy::primitives::U256, alloy::primitives::U256)> =
+        HashMap::new();
+    for (mod_addr, prop_id, support, weight_hex) in rows {
+        let w = alloy::primitives::U256::from_str_radix(weight_hex.trim_start_matches("0x"), 16)
+            .unwrap_or(alloy::primitives::U256::ZERO);
+        let entry = tallies.entry((mod_addr, prop_id)).or_default();
+        if support == 1 {
+            entry.0 = entry.0.saturating_add(w);
+        } else {
+            entry.1 = entry.1.saturating_add(w);
+        }
+    }
+    Ok(tallies
+        .into_iter()
+        .map(|(k, (f, a))| (k, (format!("{:#x}", f), format!("{:#x}", a))))
+        .collect())
 }
 
 /// All proposals on a Governance module, newest first (most useful for UI).
@@ -1552,7 +1616,7 @@ pub fn get_proposals_for_module(
          FROM proposals WHERE module_address = ?1
          ORDER BY created_block DESC",
     )?;
-    let rows = stmt
+    let mut rows: Vec<ProposalRow> = stmt
         .query_map(params![module_address], |r| {
             Ok(ProposalRow {
                 module_address: r.get(0)?,
@@ -1565,9 +1629,19 @@ pub fn get_proposals_for_module(
                 status: r.get(7)?,
                 created_block: r.get::<_, i64>(8)? as u64,
                 created_tx: r.get(9)?,
+                for_votes: "0x0".to_string(),
+                against_votes: "0x0".to_string(),
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    let tallies = tally_votes(conn, &[module_address.to_string()])?;
+    for row in &mut rows {
+        if let Some((fv, av)) = tallies.get(&(row.module_address.clone(), row.proposal_id.clone()))
+        {
+            row.for_votes = fv.clone();
+            row.against_votes = av.clone();
+        }
+    }
     Ok(rows)
 }
 
@@ -3160,7 +3234,7 @@ pub fn get_proposals_for_trust(
         placeholders, limit_placeholder
     );
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt
+    let mut rows: Vec<ProposalRow> = stmt
         .query_map(rusqlite::params_from_iter(args.iter()), |r| {
             Ok(ProposalRow {
                 module_address: r.get(0)?,
@@ -3173,9 +3247,19 @@ pub fn get_proposals_for_trust(
                 status: r.get(7)?,
                 created_block: r.get::<_, i64>(8)? as u64,
                 created_tx: r.get(9)?,
+                for_votes: "0x0".to_string(),
+                against_votes: "0x0".to_string(),
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    let tallies = tally_votes(conn, &module_addresses)?;
+    for row in &mut rows {
+        if let Some((fv, av)) = tallies.get(&(row.module_address.clone(), row.proposal_id.clone()))
+        {
+            row.for_votes = fv.clone();
+            row.against_votes = av.clone();
+        }
+    }
     Ok(rows)
 }
 

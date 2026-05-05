@@ -457,6 +457,10 @@ pub struct Proposal {
     pub status: String,
     pub created_block: u64,
     pub created_tx: String,
+    /// Sum of token-weighted For votes (support=1). u256 hex string. "0x0" when no votes yet.
+    pub for_votes: String,
+    /// Sum of token-weighted Against votes (support=0). u256 hex string. "0x0" when no votes yet.
+    pub against_votes: String,
 }
 
 impl From<store::ProposalRow> for Proposal {
@@ -472,6 +476,8 @@ impl From<store::ProposalRow> for Proposal {
             status: r.status,
             created_block: r.created_block,
             created_tx: r.created_tx,
+            for_votes: r.for_votes,
+            against_votes: r.against_votes,
         }
     }
 }
