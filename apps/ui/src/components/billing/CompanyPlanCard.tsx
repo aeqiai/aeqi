@@ -19,6 +19,10 @@ interface CompanyPlanCardProps {
   /** Hide the "Open Company →" link — useful when the card already
    *  lives inside that Company's surface (e.g. agent plan tab). */
   hideOpenLink?: boolean;
+  /** Human-readable company name to display instead of company.name.
+   *  The billing API returns entity_id as company.name — callers that
+   *  have resolved the display name should pass it here. */
+  displayName?: string;
 }
 
 const STATUS_BADGE: Record<Company["status"], { variant: BadgeVariant; label: string }> = {
@@ -52,9 +56,11 @@ export function CompanyPlanCard({
   onSubscribe,
   onPortal,
   hideOpenLink = false,
+  displayName,
 }: CompanyPlanCardProps) {
   const statusBadge = STATUS_BADGE[company.status];
   const isCanceled = company.status === "canceled";
+  const label = displayName || company.name;
   const subscribeKey = `subscribe:${company.name}`;
   const subscribing = actionPending === subscribeKey;
 
@@ -62,7 +68,7 @@ export function CompanyPlanCard({
     <Card variant="surface" padding="md" className="billing-company" role="listitem">
       <div className="billing-company-row">
         <div className="billing-company-meta">
-          <h3 className="billing-company-name">{company.name}</h3>
+          <h3 className="billing-company-name">{label}</h3>
           <div className="billing-company-tags">
             <Badge variant={statusBadge.variant} size="sm" dot>
               {statusBadge.label}

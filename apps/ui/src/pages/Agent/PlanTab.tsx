@@ -194,6 +194,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
           onSubscribe={handleSubscribe}
           onPortal={handlePortal}
           hideOpenLink
+          displayName={entityName || root.name || undefined}
         />
       </div>
 
