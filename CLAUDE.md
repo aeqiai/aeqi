@@ -149,6 +149,47 @@ Cost (2026-05-05): v11 pre-walk probe used `trustAddress` on treasury+proposals 
 and got GraphQL errors; the browser walk still passed (UI uses correct shapes internally)
 but the probe returned empty data and logged schema-mismatch errors. ~3 min to diagnose.
 
+**UX walk — browser reorders `box-shadow` computed style: color first, `inset` last.**
+`window.getComputedStyle(el).boxShadow` returns the browser's canonical form, NOT the
+CSS source order. A CSS declaration `box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1)`
+becomes `rgba(0, 0, 0, 0.1) 0px 0px 0px 1px inset` in computed style (color promoted
+to front, `inset` moved to end). Walk script regex that checks for `inset` at the
+start of the value will silently find zero results. Correct match patterns:
+- All-side 1px inset: `/ 0px 0px 0px 1px inset/.test(boxShadow)`
+- Top/bottom edge inset: `/ 0px [±]1px 0px 0px inset/.test(boxShadow)`
+Rule: always test regex against `window.getComputedStyle(el).boxShadow` in a live
+browser (`node -e "..."` with Playwright) — never against the CSS source string.
+Cost (2026-05-05): v13 shadow detector wrote `bs.includes("inset") && bs.includes("1px")`
+but the inset check matched while the value order made the pattern miss — shadow count
+reported 0 on routes where 22 inset shadows existed. Required a debug probe to discover.
+
+**UX walk — 2500ms wait after `domcontentloaded` undercounts hairlines on data-heavy routes.**
+The walk script waits 2500ms after `domcontentloaded` before running detectors. On
+data-heavy routes like `me-ideas` (40+ idea rows) or `me-quests` (kanban with multiple
+columns), the full React render takes longer — element counts vary from ~74 (unauthenticated
+fallback, 2500ms) to ~3840 (full auth + data loaded, 3000ms with localStorage pre-seeded).
+v13 measured me-ideas at 46 border hairlines with script timing vs 380 with full render.
+This means per-route hairline comparisons across walk versions are only valid when render
+depth is consistent. Rule: for hairline-count comparisons, use the full-render probe
+pattern (localStorage pre-seeded + 3000ms wait) not the walk script's 2500ms path. The
+walk script counts are relative comparisons (route A vs route B), not absolute floor values.
+Cost (2026-05-05): v13 borderCount discrepancy (46 vs 380 on me-ideas) required a
+separate debug probe to understand — added ~5 min.
+
+**UX walk — hairline "fixed" verdict requires border count to drop, not swap to shadow.**
+When a hairline pass claims to fix borders, the walk script must confirm:
+  1. `HAIRLINE_BORDER_COUNT` drops toward zero on the targeted routes
+  2. `HAIRLINE_SHADOW_COUNT` is NOT compensating (i.e., shadow count did not rise by
+     the same amount the border count fell)
+The cosmetic-swap anti-pattern (`border: 1px solid` → `box-shadow: inset 0 0 0 1px`)
+passes the old single-detector walk, creates zero visual change, and inflates the commit
+diff with meaningless churn. The v13 extended detector (separate `HAIRLINE_BORDER_COUNT_V13`
+and `HAIRLINE_SHADOW_COUNT_V13` codes) catches this. Always require both codes in any
+future hairline-pass walk. If shadow count rises to match the border count drop → P1,
+revert, redo with spacing/tint/weight (`feedback_no_hairlines.md`).
+Cost (2026-05-05): 4d8808fd shipped as "hairline elimination", detected as swap-only by
+v13 walk. v12 score unchanged. Required P1 filing and WS-28-A remediation ticket.
+
 **UI fix scoping — list view vs detail view are different components.**
 When fixing a data-display bug (e.g. "UUID shown instead of display name"), always
 identify BOTH the list page component AND the detail page component. In the roles
