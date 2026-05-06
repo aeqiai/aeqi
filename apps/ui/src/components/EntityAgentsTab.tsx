@@ -7,6 +7,7 @@ import { Button, EmptyState, Popover, Tooltip } from "./ui";
 import AgentAvatar from "./AgentAvatar";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import { relativeTime } from "./ideas/types";
+import { layoutDepts, NODE_W, NODE_H } from "@/components/roles/layout";
 
 type ViewMode = "list" | "chart";
 type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active";
@@ -555,9 +556,15 @@ function AgentRow({ agent: a, onSelect }: { agent: Agent; onSelect: (id: string)
 }
 
 /**
- * Layered DAG over positions + edges, with each card resolving its
- * agent occupant to an avatar + status dot. Lifted from
- * EntityPositionsTab — same algorithm, different cell content.
+ * Department-clustered chart over agent-occupied roles.
+ *
+ * Uses the same `layoutDepts` algorithm as the Roles chart so both
+ * tabs share one mental model. CEO sits above a row of department
+ * cluster columns. Each cluster shows cards for every role in that
+ * subtree, resolved to their agent occupant where one exists.
+ *
+ * Unoccupied roles render as muted vacant placeholders so the shape
+ * of the org is visible even when agents haven't been assigned yet.
  */
 function AgentsChart({
   positions,
@@ -594,8 +601,15 @@ function AgentsChart({
       </div>
     );
   }
-  const layers = layoutRoles(positions, edges);
-  if (layers.length === 0) {
+
+  // Only operational roles feed the dept-cluster layout (directors/advisors
+  // are governance tiers, not org-chart nodes).
+  const opPositions = positions.filter((r) => r.role_type === "operational");
+  const opIds = new Set(opPositions.map((r) => r.id));
+  const opEdges = edges.filter((e) => opIds.has(e.parent_role_id) && opIds.has(e.child_role_id));
+  const deptLayout = layoutDepts(opPositions, opEdges);
+
+  if (opPositions.length === 0) {
     return (
       <div className="ideas-list-body">
         <EmptyState
@@ -605,114 +619,154 @@ function AgentsChart({
       </div>
     );
   }
+
   return (
-    <div className="ideas-list-body" style={{ padding: "24px 28px 48px" }}>
-      {layers.map((layer, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 16,
-            marginBottom: i === layers.length - 1 ? 0 : 32,
-            flexWrap: "wrap",
-          }}
-        >
-          {layer.map((p) => {
-            const occupant = p.occupant_id ? agentById.get(p.occupant_id) : undefined;
-            const clickable = !!occupant;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                disabled={!clickable}
-                onClick={() => occupant && onSelect(occupant.id)}
-                style={{
-                  minWidth: 200,
-                  padding: "12px 16px",
-                  background: "var(--color-card)",
-                  border: 0,
-                  borderRadius: "var(--radius-md)",
-                  textAlign: "left",
-                  font: "inherit",
-                  color: "inherit",
-                  cursor: clickable ? "pointer" : "default",
-                }}
+    <div className="ideas-list-body" style={{ padding: "24px 28px 48px", overflowX: "auto" }}>
+      <div className="roles-chart-dept-root" role="figure" aria-label="Agents org chart">
+        {deptLayout.ceo && (
+          <div className="roles-chart-ceo-row">
+            <AgentCard
+              role={deptLayout.ceo}
+              agent={
+                deptLayout.ceo.occupant_id ? agentById.get(deptLayout.ceo.occupant_id) : undefined
+              }
+              apex
+              onSelect={onSelect}
+              style={{ width: NODE_W, minHeight: NODE_H }}
+            />
+          </div>
+        )}
+        {deptLayout.clusters.length > 0 && (
+          <div className="roles-chart-dept-row">
+            {deptLayout.clusters.map((cluster) => (
+              <div
+                key={cluster.head.id}
+                className="roles-chart-dept-cluster"
+                aria-label={cluster.head.title}
               >
+                <div className="roles-chart-dept-label">{cluster.head.title}</div>
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
+                    flexDirection: "column",
                     gap: 8,
-                    marginBottom: 4,
+                    alignItems: "stretch",
                   }}
                 >
-                  {occupant && (
-                    <span aria-hidden style={{ display: "inline-flex" }}>
-                      <AgentAvatar name={occupant.name} />
-                    </span>
-                  )}
-                  <span style={{ fontWeight: 500 }}>{occupant?.name || p.title || "(vacant)"}</span>
-                </div>
-                <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{p.title}</div>
-                {occupant && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--color-text-muted)",
-                      marginTop: 4,
-                    }}
-                  >
-                    <span
-                      className={`agent-settings-status-dot${
-                        occupant.status === "active" ? " live" : ""
-                      }`}
-                      aria-hidden
+                  {cluster.layout.nodes.map((n) => (
+                    <AgentCard
+                      key={n.role.id}
+                      role={n.role}
+                      agent={n.role.occupant_id ? agentById.get(n.role.occupant_id) : undefined}
+                      onSelect={onSelect}
+                      style={{ width: NODE_W, minHeight: NODE_H }}
                     />
-                    {occupant.status || "unknown"}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      ))}
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function layoutRoles(positions: Role[], edges: RoleEdge[]): Role[][] {
-  if (positions.length === 0) return [];
-  const byId = new Map(positions.map((p) => [p.id, p]));
-  const incoming = new Map<string, string[]>();
-  for (const p of positions) incoming.set(p.id, []);
-  for (const e of edges) {
-    if (!byId.has(e.parent_role_id) || !byId.has(e.child_role_id)) continue;
-    incoming.get(e.child_role_id)!.push(e.parent_role_id);
-  }
-  const depth = new Map<string, number>();
-  const visit = (id: string, seen: Set<string>): number => {
-    if (depth.has(id)) return depth.get(id)!;
-    if (seen.has(id)) return 0;
-    seen.add(id);
-    const parents = incoming.get(id) ?? [];
-    if (parents.length === 0) {
-      depth.set(id, 0);
-      return 0;
-    }
-    let d = 0;
-    for (const parent of parents) {
-      d = Math.max(d, visit(parent, seen) + 1);
-    }
-    depth.set(id, d);
-    return d;
-  };
-  for (const p of positions) visit(p.id, new Set());
-  const maxDepth = Math.max(...Array.from(depth.values()));
-  const layers: Role[][] = Array.from({ length: maxDepth + 1 }, () => []);
-  for (const p of positions) layers[depth.get(p.id) ?? 0].push(p);
-  for (const layer of layers) layer.sort((a, b) => a.title.localeCompare(b.title));
-  return layers;
+function AgentCard({
+  role,
+  agent,
+  apex = false,
+  onSelect,
+  style,
+}: {
+  role: Role;
+  agent: Agent | undefined;
+  apex?: boolean;
+  onSelect: (id: string) => void;
+  style?: React.CSSProperties;
+}) {
+  const clickable = !!agent;
+  return (
+    <button
+      type="button"
+      disabled={!clickable}
+      onClick={() => agent && onSelect(agent.id)}
+      style={{
+        ...style,
+        padding: apex ? "12px 16px" : "10px 14px",
+        background: "var(--color-card-elevated)",
+        border: 0,
+        borderRadius: "var(--radius-md)",
+        textAlign: "left",
+        font: "inherit",
+        color: "inherit",
+        cursor: clickable ? "pointer" : "default",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      {agent ? (
+        <span aria-hidden style={{ display: "inline-flex", flexShrink: 0 }}>
+          <AgentAvatar name={agent.name} />
+        </span>
+      ) : (
+        <span
+          aria-hidden
+          style={{
+            display: "inline-flex",
+            flexShrink: 0,
+            width: 28,
+            height: 28,
+            borderRadius: "999px",
+            background: "var(--bg-row)",
+          }}
+        />
+      )}
+      <span style={{ display: "inline-flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: apex ? 600 : 500,
+            color: agent ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {agent?.name ?? "(vacant)"}
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--color-text-muted)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {role.title}
+        </span>
+        {agent && (
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--color-text-muted)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span
+              className={`agent-settings-status-dot${agent.status === "active" ? " live" : ""}`}
+              aria-hidden
+            />
+            {agent.status || "unknown"}
+          </span>
+        )}
+      </span>
+    </button>
+  );
 }
 
 interface ToolbarRadioPopoverProps<T extends string> {

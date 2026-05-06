@@ -79,6 +79,7 @@ export default function RolesChart({ roles, edges, agentNames, onSelectRole }: R
                         : undefined
                     }
                     onClick={() => onSelectRole(deptLayout.ceo!)}
+                    className="role-node--apex"
                     style={{ width: NODE_W, height: NODE_H }}
                   />
                 </div>
@@ -177,8 +178,12 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
     const inner = innerRef.current;
     if (!viewport || !inner) return;
     const vw = viewport.clientWidth;
-    const iw = inner.scrollWidth;
-    const ih = inner.scrollHeight;
+    // Use offsetWidth/offsetHeight rather than scrollWidth/scrollHeight.
+    // scrollWidth only reflects overflow in the scroll direction, and
+    // can be clamped by the parent container. offsetWidth is the
+    // natural laid-out width of the element regardless of clipping.
+    const iw = inner.offsetWidth;
+    const ih = inner.offsetHeight;
     if (iw === 0 || ih === 0) return;
     const scale = Math.min(1, (vw - 24) / iw);
     // Center horizontally; small top offset keeps eyebrow labels visible.

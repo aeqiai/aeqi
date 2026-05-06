@@ -113,6 +113,16 @@
   min-height: 76px;
 }
 
+/* Apex (CEO) — subtle distinction from peer nodes. Just enough to read
+   as the org spine without competing with cluster labels. No border,
+   no colour injection — weight + padding only. */
+.role-node--apex .role-node-title {
+  font-weight: 600;
+}
+.role-node--apex {
+  padding: 12px 16px;
+}
+
 /* ------------------------------------------------------------------
    Chart view — DAG canvas + connectors.
    ------------------------------------------------------------------ */
