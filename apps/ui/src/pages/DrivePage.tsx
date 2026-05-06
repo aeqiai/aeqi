@@ -161,8 +161,7 @@ export default function DrivePage() {
             padding: "var(--space-2) var(--space-3)",
             marginBottom: 16,
             borderRadius: "var(--radius-md)",
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border)",
+            background: "var(--color-error-bg)",
             color: "var(--text-secondary)",
             fontSize: "var(--font-size-sm)",
           }}
@@ -183,21 +182,19 @@ export default function DrivePage() {
       ) : (
         <div
           style={{
-            border: "1px solid var(--border)",
             borderRadius: "var(--radius-md)",
             overflow: "hidden",
+            background: "var(--color-card)",
           }}
         >
-          {files.map((f, idx) => (
+          {files.map((f) => (
             <div
               key={f.id}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                padding: "var(--space-2) var(--space-4)",
-                borderBottom:
-                  idx === files.length - 1 ? "none" : "1px solid var(--color-border-faint)",
+                padding: "var(--space-3) var(--space-4)",
                 fontSize: "var(--font-size-sm)",
               }}
             >
