@@ -43,6 +43,16 @@ subagents need to write to the state file, use the absolute path
 `/home/claudedev/aeqi/.observations/autonomous-push-state.md` — not a
 relative path from the worktree root.
 
+**Shippable obs docs must be written into the worktree, not main first.**
+`autonomous-push-state.md` is a runtime file — it writes to main directly
+(no commit, no worktree). New obs docs that need to be committed (cleanup
+reports, audit notes, etc.) are different: write them directly into the
+worktree path (`/home/claudedev/aeqi-<branch>/.observations/<file>.md`),
+not to `/home/claudedev/aeqi/.observations/` first. Writing to main then
+copying creates the untracked-collision footgun on merge. Cut the worktree
+BEFORE writing the obs doc, then write straight into it. Cost (2026-05-06):
+one `rm` + merge retry on cleanup-2026-05-06 obs doc ship.
+
 **Don't `cp` worktree files to main before the branch merges.** If a script
 or file is created inside a worktree and copied to the main checkout's
 working tree (e.g. `cp worktree/scripts/foo.mjs aeqi/scripts/foo.mjs`), it
