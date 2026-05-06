@@ -767,3 +767,49 @@ Pattern for the search:
 OLD="No treasury activity yet"
 grep -rn "$OLD" src/test/ src/pages/
 ```
+
+## wagmi + native chain balance — `/chain/rpc` proxy pattern
+
+**The browser cannot reach `127.0.0.1:8545` (anvil) directly.** Any wagmi hook that reads native ETH balance (`useBalance`) or calls RPC methods must go through the platform's `/chain/rpc` reverse-proxy, not directly to the node URL.
+
+**Three-piece setup required:**
+
+1. **Platform route** (`aeqi-platform/src/routes/rpc_proxy.rs` + `server.rs`): `axum::routing::any(rpc_handler)` on `/chain/rpc`. Mirrors the `/indexer/graphql` proxy pattern. Returns 503 when `AEQI_CHAIN_ACTIVE` is unset.
+
+2. **wagmiConfig** (`src/lib/wagmiConfig.ts`): Add `anvil` from `wagmi/chains` to the `chains` array and `transports` map. Transport URL is `VITE_CHAIN_RPC` env var (default `/chain/rpc`):
+
+```typescript
+import { anvil } from "wagmi/chains";
+const CHAIN_RPC_URL = (import.meta.env.VITE_CHAIN_RPC as string | undefined) || "/chain/rpc";
+
+export const wagmiConfig = createConfig({
+  chains: [mainnet, sepolia, anvil],
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+    [anvil.id]: http(CHAIN_RPC_URL),
+  },
+  ...
+});
+```
+
+3. **Usage** (`useBalance` or any wagmi RPC hook): Pass `chainId: anvil.id` to scope to the local chain:
+
+```typescript
+import { useBalance } from "wagmi";
+import { anvil } from "wagmi/chains";
+
+const { data: ethBalance } = useBalance({ address: trustAddress as `0x${string}`, chainId: anvil.id });
+// ethBalance?.formatted → "1.0000" (18-decimal ETH string)
+```
+
+**Chain label config** — use `VITE_CHAIN_NAME` (default `"anvil"`) and `VITE_CHAIN_EXPLORER` (default `""`) to drive human-readable labels and explorer links. Never hardcode chain names ("Base Sepolia", "Mainnet") in component copy. Cost (2026-05-06): `TreasuryPage.tsx` had "Base Sepolia" hardcoded on line 216; required env-var extraction.
+
+**`useBalance` vitest stub** — in tests, mock wagmi to stub `useBalance` since there's no real RPC in test scope:
+
+```typescript
+vi.mock("wagmi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("wagmi")>();
+  return { ...actual, useBalance: vi.fn(() => ({ data: undefined, isLoading: false })) };
+});
+```
