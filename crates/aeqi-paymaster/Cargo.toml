@@ -13,6 +13,10 @@ path = "src/main.rs"
 name = "migrate-to-passkey"
 path = "src/bin/migrate_to_passkey.rs"
 
+[[bin]]
+name = "aa-smoke"
+path = "src/bin/aa_smoke.rs"
+
 [dependencies]
 tokio = { workspace = true }
 axum = { workspace = true }
