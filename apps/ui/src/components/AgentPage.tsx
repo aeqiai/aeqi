@@ -1,22 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
-import AgentSessionView from "./AgentSessionView";
-import AgentEventsTab from "./AgentEventsTab";
-import AgentChannelsTab from "./AgentChannelsTab";
-import AgentIdeasTab from "./AgentIdeasTab";
-import AgentQuestsTab from "./AgentQuestsTab";
-import EntityAgentsTab from "./EntityAgentsTab";
-import EntityRolesTab from "./EntityRolesTab";
-import EntityOverviewTab from "./EntityOverviewTab";
-import AgentOverviewTab from "./AgentOverviewTab";
-import AgentIntegrationsTab from "@/pages/Agent/Integrations";
-import TreasuryPage from "@/pages/TreasuryPage";
 import { Button } from "./ui";
 import ModelPicker from "./ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
+
+// Tab components are lazy-loaded — only one tab is visible at a time.
+// This moves react-markdown (sessions/ideas), d3 (ideas graph), wagmi
+// useBalance (treasury), and other heavy deps out of the initial bundle.
+const AgentSessionView = lazy(() => import("./AgentSessionView"));
+const AgentEventsTab = lazy(() => import("./AgentEventsTab"));
+const AgentChannelsTab = lazy(() => import("./AgentChannelsTab"));
+const AgentIdeasTab = lazy(() => import("./AgentIdeasTab"));
+const AgentQuestsTab = lazy(() => import("./AgentQuestsTab"));
+const EntityAgentsTab = lazy(() => import("./EntityAgentsTab"));
+const EntityRolesTab = lazy(() => import("./EntityRolesTab"));
+const EntityOverviewTab = lazy(() => import("./EntityOverviewTab"));
+const AgentOverviewTab = lazy(() => import("./AgentOverviewTab"));
+const AgentIntegrationsTab = lazy(() => import("@/pages/Agent/Integrations"));
+const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
 
 // Agent-scoped page rail — shown only when drilled into a specific
 // agent (`/c/<entity>/agents/<agentId>/...`). Mirrors the Company /
@@ -119,48 +123,50 @@ export default function AgentPage({
         </div>
       )}
 
-      {/* Tab content */}
-      {activeTab === "overview" &&
-        (isDrilledAgent ? (
-          <AgentOverviewTab agentId={resolvedAgentId} entityId={resolvedEntityId} />
-        ) : (
-          <EntityOverviewTab entityId={resolvedEntityId} />
-        ))}
+      {/* Tab content — lazy components suspend while their chunk loads */}
+      <Suspense>
+        {activeTab === "overview" &&
+          (isDrilledAgent ? (
+            <AgentOverviewTab agentId={resolvedAgentId} entityId={resolvedEntityId} />
+          ) : (
+            <EntityOverviewTab entityId={resolvedEntityId} />
+          ))}
 
-      {activeTab === "sessions" && (
-        <div className="agent-page-chat">
-          <AgentSessionView agentId={agentId} sessionId={sessionId} />
-        </div>
-      )}
+        {activeTab === "sessions" && (
+          <div className="agent-page-chat">
+            <AgentSessionView agentId={agentId} sessionId={sessionId} />
+          </div>
+        )}
 
-      {activeTab === "agents" && <EntityAgentsTab entityId={resolvedEntityId} />}
+        {activeTab === "agents" && <EntityAgentsTab entityId={resolvedEntityId} />}
 
-      {activeTab === "quests" && <AgentQuestsTab agentId={resolvedAgentId} />}
+        {activeTab === "quests" && <AgentQuestsTab agentId={resolvedAgentId} />}
 
-      {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}
+        {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}
 
-      {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
+        {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
 
-      {activeTab === "roles" && <EntityRolesTab entityId={resolvedEntityId} />}
+        {activeTab === "roles" && <EntityRolesTab entityId={resolvedEntityId} />}
 
-      {activeTab === "settings" && (
-        <SettingsPanel
-          agent={agent}
-          agentId={agentId}
-          resolvedAgentId={resolvedAgentId}
-          showToast={showToast}
-        />
-      )}
+        {activeTab === "settings" && (
+          <SettingsPanel
+            agent={agent}
+            agentId={agentId}
+            resolvedAgentId={resolvedAgentId}
+            showToast={showToast}
+          />
+        )}
 
-      {activeTab === "channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
+        {activeTab === "channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
 
-      {activeTab === "treasury" && <TreasuryPage entityId={resolvedAgentId} />}
+        {activeTab === "treasury" && <TreasuryPage entityId={resolvedAgentId} />}
 
-      {activeTab === "tools" && (
-        <ToolsDetail agent={agent} resolvedAgentId={resolvedAgentId} showToast={showToast} />
-      )}
+        {activeTab === "tools" && (
+          <ToolsDetail agent={agent} resolvedAgentId={resolvedAgentId} showToast={showToast} />
+        )}
 
-      {activeTab === "integrations" && <AgentIntegrationsTab agentId={resolvedAgentId} />}
+        {activeTab === "integrations" && <AgentIntegrationsTab agentId={resolvedAgentId} />}
+      </Suspense>
     </div>
   );
 
