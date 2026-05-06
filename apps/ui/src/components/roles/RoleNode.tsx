@@ -86,7 +86,7 @@ export default function RoleNode({
             style={{
               width: "100%",
               height: "100%",
-              borderRadius: "999px",
+              borderRadius: isAgent ? 4 : "999px",
               objectFit: "cover",
               display: "block",
             }}

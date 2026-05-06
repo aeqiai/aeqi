@@ -46,7 +46,7 @@ export default function InvitationAcceptPage() {
   }, [fetchAuthMode]);
 
   useEffect(() => {
-    document.title = "Invitation · æqi";
+    document.title = "Invitation · æiq";
     if (!token) {
       setLoadError("Invalid invitation link.");
       setLoading(false);

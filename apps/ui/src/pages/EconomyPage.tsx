@@ -12,7 +12,7 @@ import "@/styles/economy.css";
  */
 export default function EconomyPage() {
   useEffect(() => {
-    document.title = "economy · æqi";
+    document.title = "economy · æiq";
   }, []);
 
   return (

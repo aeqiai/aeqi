@@ -148,7 +148,7 @@ export default function AppLayout() {
     const section = tab || "sessions";
     const sectionTitle = titles[section] || section;
     const label = drilledAgent?.name ?? rootAgent?.name;
-    document.title = label ? `${sectionTitle} — ${label} · æqi` : "æqi";
+    document.title = label ? `${sectionTitle} — ${label} · æiq` : "æiq";
   }, [tab, drilledAgent, rootAgent]);
 
   // Pause the periodic refresh while rate-limited — polling while blocked

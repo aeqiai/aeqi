@@ -15,7 +15,7 @@ export default function ChangePasswordPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    document.title = "change password · æqi";
+    document.title = "change password · æiq";
   }, []);
 
   useEffect(() => {

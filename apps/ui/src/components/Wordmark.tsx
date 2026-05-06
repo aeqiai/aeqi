@@ -1,5 +1,5 @@
 /**
- * Wordmark — the full æqi wordmark.
+ * Wordmark — the full æiq wordmark.
  *
  * Canonical brand spec:
  *   Typeface  Zen Dots (var(--font-brand)) — reserved for the wordmark only.
@@ -33,7 +33,7 @@ export default function Wordmark({
         lineHeight: 1,
       }}
     >
-      æqi
+      æiq
     </span>
   );
 }

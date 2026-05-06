@@ -187,7 +187,7 @@ export default function MeInboxPage() {
   }, [selectedRow]);
 
   useEffect(() => {
-    document.title = "inbox · æqi";
+    document.title = "inbox · æiq";
   }, []);
 
   // Active filter chips — kind and entity filters, mirroring IdeasListView pattern
