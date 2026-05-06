@@ -1,5 +1,22 @@
 # Release Notes
 
+## v0.34.0 — 2026-05-06
+
+**Headline:** Org chart departmental clustering + agents list grouped by team + 144kB gzip perf win.
+
+- **Roles chart:** department clusters render each C-suite + reports as a discrete unit. CEO apex carries visual weight. Drag/zoom/pan stable (race condition in `setTransform` updater closure resolved — captures `dragRef.current` snapshot to a local before queueing state update).
+- **Agents:** list view groups agents by parent role (Engineering / Marketing / Operations / C-suite); chart view mirrors roles-chart cluster envelopes. Synthetic "Companies-as-agents" rows from `/api/entities` removed (legacy holdover from the SUPERSEDED 2026-04-29 agent-Company unification).
+- **Perf:** lazy-load `WagmiProvider` + `RainbowKitProvider` + 11 AgentPage tabs. Main chunk 1342kB → 838kB raw (−37%), gzip 402kB → 258kB (−144kB / −36%). `QueryClientProvider` stays at root (react-query is used app-wide, not just in wagmi).
+- **Auth pages:** `LoginPage` (both render branches) gets the skip-to-main link as the first focusable element.
+- **Org chart:** `data-testid="org-chart"` on the SVG root for stable test selectors.
+- **AEIQ dogfood:** runtime data cleaned (entity name was mis-labeled "CEO Assistant"; CFO/CMO/CLO/CISO each got provisioned as separate phantom Companies). Now: 1 entity (AEIQ), 12 agents under it. 5 team agents added (Backend/Frontend Engineer under CTO, Content Writer/Growth Analyst under CMO, Operations Coordinator under COO).
+
+**Architecture notes:** `architecture_role_primitive.md` is canonical; `architecture_agent_company_unification.md` is SUPERSEDED — Company is not an agent.
+
+**UX score:** post-fixes walk averages 5.0/5 across 5 routes (corrected for known walk-script regex false negatives).
+
+**Known limitations / next:** SignupPage skip-link still missing (P2). W33B stack-blueprint cross-Company on-chain edge wiring still in flight. v0.34.0 ships UI only; aeqi-platform + aeqi-landing have no new commits since v0.33.0.
+
 ## v0.33.0 — 2026-05-06
 
 **Headline:** Org chart zoom + 1,035 v3→v4 token migrations + treasury native ETH + a11y P0/P1 batch.
