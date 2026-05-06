@@ -1805,6 +1805,26 @@ impl Daemon {
                     )
                     .await
                 }
+                "list_channels_for_entity" => {
+                    crate::ipc::sessions::handle_list_channels_for_entity(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+                "create_channel" => {
+                    crate::ipc::sessions::handle_create_channel(&ctx, &request, &allowed_roots)
+                        .await
+                }
+                "session_participants" => {
+                    crate::ipc::sessions::handle_session_participants(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
                 "sessions" => {
                     crate::ipc::sessions::handle_sessions(&ctx, &request, &allowed_roots).await
                 }

@@ -53,6 +53,7 @@ const COMPANY_PAGE_TABS = new Set([
   "ownership",
   "treasury",
   "governance",
+  "channels",
   "settings",
 ]);
 

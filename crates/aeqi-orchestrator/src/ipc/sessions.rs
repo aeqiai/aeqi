@@ -130,6 +130,116 @@ pub async fn handle_close_session(
     })
 }
 
+/// `list_channels_for_entity` — return all in-app, Slack-style channels owned
+/// by a Company. Phase-1 of the in-aeqi Channels surface.
+///
+/// Channels are sessions with `session_type='channel'` and `entity_id` set.
+/// They are distinct from the gateway-channel rows surfaced by
+/// `list_channel_sessions` (which are Telegram / WhatsApp / Slack-app
+/// transport bindings, not chat surfaces).
+pub async fn handle_list_channels_for_entity(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let entity_id = request_field(request, "entity_id").unwrap_or("");
+    if entity_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "entity_id is required"});
+    }
+    let Some(ref ss) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+    match ss.list_channels_for_entity(entity_id).await {
+        Ok(rows) => serde_json::json!({"ok": true, "channels": rows}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
+/// `create_channel` — create a new in-app, Slack-style channel for an entity.
+///
+/// Request shape:
+/// ```json
+/// {
+///   "entity_id":    "<uuid>",
+///   "name":         "<channel name>",
+///   "participants": [{ "kind": "user|agent|position", "id": "<id>" }]
+/// }
+/// ```
+///
+/// Returns `{ ok, session_id, name }`. The optional `participants` array
+/// seeds the initial roster via `add_session_participant` (idempotent —
+/// duplicate identities silently dropped). No system join messages are
+/// emitted for the initial roster (the channel itself is the notification).
+pub async fn handle_create_channel(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let entity_id = request_field(request, "entity_id").unwrap_or("");
+    if entity_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "entity_id is required"});
+    }
+    let name = request_field(request, "name").unwrap_or("").trim();
+    if name.is_empty() {
+        return serde_json::json!({"ok": false, "error": "name is required"});
+    }
+    let Some(ref ss) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+
+    let session_id = match ss.create_entity_channel(entity_id, name).await {
+        Ok(id) => id,
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    if let Some(arr) = request.get("participants").and_then(|v| v.as_array()) {
+        for entry in arr {
+            let kind = entry
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim();
+            let id = entry
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim();
+            if kind.is_empty() || id.is_empty() {
+                continue;
+            }
+            let _ = ss
+                .add_session_participant(&session_id, kind, id, None)
+                .await;
+        }
+    }
+
+    serde_json::json!({
+        "ok": true,
+        "session_id": session_id,
+        "name": name,
+    })
+}
+
+/// Read the participant roster for any session. Phase-1 channels surface
+/// uses this; idea/role surfaces have their own dedicated handlers.
+pub async fn handle_session_participants(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    _allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let session_id = request_field(request, "session_id").unwrap_or("");
+    if session_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "session_id required"});
+    }
+    let Some(ref ss) = ctx.session_store else {
+        return serde_json::json!({"ok": false, "error": "session store not available"});
+    };
+    match ss.list_participants(session_id).await {
+        Ok(rows) => serde_json::json!({"ok": true, "participants": rows}),
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    }
+}
+
 pub async fn handle_list_channel_sessions(
     ctx: &super::CommandContext,
     request: &serde_json::Value,

@@ -12,6 +12,13 @@ pub fn routes() -> Router<AppState> {
             "/entities/{name}",
             axum::routing::put(update_entity_handler),
         )
+        // In-app, Slack-style channels — Phase-1 of the Channels surface.
+        // Distinct from `/channels/*` which routes transport channels
+        // (Telegram / WhatsApp / Slack-app webhook bindings).
+        .route(
+            "/entities/{entity_id}/channels",
+            get(list_entity_channels).post(create_entity_channel),
+        )
         // Legacy alias — kept for one transition window so running clients
         // that still send /roots don't 404. Forwards to the legacy IPC commands
         // which now read from the same entity store underneath.
@@ -20,6 +27,31 @@ pub fn routes() -> Router<AppState> {
             "/roots/{name}",
             axum::routing::put(update_root_legacy_handler),
         )
+}
+
+async fn list_entity_channels(
+    State(state): State<AppState>,
+    scope: Scope,
+    axum::extract::Path(entity_id): axum::extract::Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "list_channels_for_entity",
+        serde_json::json!({"entity_id": entity_id}),
+    )
+    .await
+}
+
+async fn create_entity_channel(
+    State(state): State<AppState>,
+    scope: Scope,
+    axum::extract::Path(entity_id): axum::extract::Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let mut params = body;
+    params["entity_id"] = serde_json::Value::String(entity_id);
+    ipc_proxy(state, scope.as_ref(), "create_channel", params).await
 }
 
 async fn list_entities(State(state): State<AppState>, scope: Scope) -> Response {

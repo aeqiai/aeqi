@@ -15,6 +15,19 @@ export const channelKeys = {
   sessions: (agentId: string) => ["channels", "sessions", agentId] as const,
 };
 
+/**
+ * Query keys for in-app, Slack-style conversation channels —
+ * `session_type='channel'` sessions bound to a Company entity.
+ * Distinct from `channelKeys` (transport channels: Telegram / WhatsApp / Slack-app).
+ */
+export const conversationChannelKeys = {
+  all: ["conversation-channels"] as const,
+  byEntity: (entityId: string) => ["conversation-channels", "entity", entityId] as const,
+  messages: (sessionId: string) => ["conversation-channels", "messages", sessionId] as const,
+  participants: (sessionId: string) =>
+    ["conversation-channels", "participants", sessionId] as const,
+};
+
 export const entityKeys = {
   all: ["entities"] as const,
 };

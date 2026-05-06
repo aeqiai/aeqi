@@ -11,7 +11,7 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     response::Response,
-    routing::post,
+    routing::{get, post},
 };
 
 use super::helpers::ipc_proxy;
@@ -19,9 +19,10 @@ use crate::extractors::Scope;
 use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/messages/to", post(message_to))
-        .route("/sessions/{id}/participants", post(add_participant))
+    Router::new().route("/messages/to", post(message_to)).route(
+        "/sessions/{id}/participants",
+        get(list_participants).post(add_participant),
+    )
 }
 
 /// `POST /api/messages/to`
@@ -56,6 +57,21 @@ async fn message_to(
     }
 
     ipc_proxy(state, scope.as_ref(), "message_to", payload).await
+}
+
+/// `GET /api/sessions/:id/participants` — list all participants in a session.
+async fn list_participants(
+    State(state): State<AppState>,
+    scope: Scope,
+    Path(id): Path<String>,
+) -> Response {
+    ipc_proxy(
+        state,
+        scope.as_ref(),
+        "session_participants",
+        serde_json::json!({"session_id": id}),
+    )
+    .await
 }
 
 /// `POST /api/sessions/:id/participants`

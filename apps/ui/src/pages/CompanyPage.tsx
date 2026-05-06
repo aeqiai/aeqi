@@ -6,6 +6,8 @@ import TreasuryPage from "@/pages/TreasuryPage";
 import GovernancePage from "@/pages/GovernancePage";
 import CompanySettingsPage from "@/pages/CompanySettingsPage";
 import MeInboxPage from "@/pages/MeInboxPage";
+import ChannelsListPage from "@/pages/ChannelsListPage";
+import ChannelDetailPage from "@/pages/ChannelDetailPage";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 
 const TAB_TITLES: Record<string, string> = {
@@ -15,6 +17,7 @@ const TAB_TITLES: Record<string, string> = {
   ownership: "ownership",
   treasury: "treasury",
   governance: "governance",
+  channels: "channels",
   settings: "settings",
 };
 
@@ -82,6 +85,13 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
   if (tab === "ownership") return <OwnershipPage entityId={entityId} />;
   if (tab === "treasury") return <TreasuryPage entityId={entityId} />;
   if (tab === "governance") return <GovernancePage entityId={entityId} />;
+  if (tab === "channels") {
+    return itemId ? (
+      <ChannelDetailPage entityId={entityId} sessionId={itemId} />
+    ) : (
+      <ChannelsListPage entityId={entityId} />
+    );
+  }
   if (tab === "settings") return <CompanySettingsPage agentId={agentId} />;
 
   // Overview, Roles, and any other primitive tab (agents, events,

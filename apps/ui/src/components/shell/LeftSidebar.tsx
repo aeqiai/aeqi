@@ -112,6 +112,14 @@ const GovernanceIcon = () => (
   </svg>
 );
 
+// Channels — Slack-style hash rail. Two horizontal speech lines crossed
+// by two vertical strokes, evoking the `#` channel marker.
+const ChannelsIcon = () => (
+  <svg {...iconProps}>
+    <path d="M3.5 6h9M3.5 10h9M6.5 3.5l-1 9M10.5 3.5l-1 9" />
+  </svg>
+);
+
 // Roles — org chart; one node atop two children.
 const RolesIcon = () => (
   <svg {...iconProps}>
@@ -418,6 +426,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                   navigate(`${base}/ideas?compose=1`);
                 }),
               })}
+              {!isPersonal &&
+                navItem("channels", "Channels", <ChannelsIcon />, {
+                  action: rowAction("New channel", <PlusIcon />, () => {
+                    navigate(`${base}/channels?compose=1`);
+                  }),
+                })}
               {isPersonal && navItem("treasury", "Treasury", <TreasuryIcon />)}
             </nav>
 
