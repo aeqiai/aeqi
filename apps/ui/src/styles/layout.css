@@ -4596,22 +4596,6 @@
   padding: 6px 14px 14px;
 }
 
-/* Agents list — department group header. Uses the same section-label
-   tokens as inbox groups so the visual weight is consistent. Sticky
-   so the label remains readable during scroll. */
-.agents-group-label {
-  padding: var(--space-2, 6px) var(--space-4, 14px);
-  font-size: var(--font-size-micro);
-  font-weight: 500;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--section-label-color);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--color-card-subtle, var(--bg-subtle));
-}
-
 /* List-view groups — same four buckets as the board (Todo / In progress
    / Blocked / Done), stacked vertically with a collapsible header per
    group. Header sits at `--bg-row` (slab #ededf0) so it reads as a

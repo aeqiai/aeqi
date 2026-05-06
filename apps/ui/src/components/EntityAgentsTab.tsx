@@ -158,12 +158,11 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
     return rows;
   }, [entityAgents, search, sort, status]);
 
-  // Build agent → department label mapping from the role DAG.
-  // Department = the title of the direct child of the root role (C-suite head).
-  // Agents in the root role itself get their own role title as the label.
-  // Agents with no role → "Unassigned".
-  const agentDeptLabel = useMemo(
-    () => buildDeptMap(entityAgents, positions, edges),
+  // Build pre-order tree traversal + depth map for the indented list view.
+  // Each agent gets a depth (0 = root, 1 = direct report, 2 = grandchild, …).
+  // Agents with no role entry land at the end with depth 0.
+  const agentTreeData = useMemo(
+    () => buildAgentTreeData(entityAgents, positions, edges),
     [entityAgents, positions, edges],
   );
 
@@ -321,7 +320,7 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
           <AgentsEmptyState onNew={openPicker} />
         </div>
       ) : view === "list" ? (
-        <AgentsList agents={filtered} deptLabel={agentDeptLabel} onSelect={openAgent} />
+        <AgentsList agents={filtered} treeData={agentTreeData} onSelect={openAgent} />
       ) : (
         <AgentsChart
           positions={positions}
@@ -371,67 +370,54 @@ function compareAgents(a: Agent, b: Agent, mode: SortMode): number {
   }
 }
 
+export interface AgentTreeEntry {
+  agent: Agent;
+  depth: number;
+}
+
 /**
- * Build a map of agentId → department label.
+ * Build a pre-order traversal of agents keyed by their position in the role DAG.
  *
- * Department = the title of the role that is a direct child of the DAG
- * root (i.e. the C-suite head). For example:
- *   CEO → CTO → Backend Engineer  →  label "CTO"
- *   CEO → CMO → Content Writer    →  label "CMO"
- *   CEO (root) directly            →  label "C-suite" / root title
- *   No role found                  →  "Unassigned"
+ * Returns an ordered array where each entry carries the agent and its tree depth
+ * (0 = root / C-suite, 1 = direct report, 2 = grandchild, …). Agents with no
+ * role assignment are appended at the end with depth 0.
+ *
+ * Pre-order guarantees: parent always appears before its children; siblings are
+ * ordered alphabetically by role title (stable, deterministic).
  */
-function buildDeptMap(agents: Agent[], roles: Role[], edges: RoleEdge[]): Map<string, string> {
-  const result = new Map<string, string>();
-  if (roles.length === 0) return result;
+function buildAgentTreeData(agents: Agent[], roles: Role[], edges: RoleEdge[]): AgentTreeEntry[] {
+  if (roles.length === 0) {
+    return agents.map((a) => ({ agent: a, depth: 0 }));
+  }
 
   const roleById = new Map(roles.map((r) => [r.id, r]));
-  const incoming = new Map<string, string[]>();
-  const outgoing = new Map<string, string[]>();
+  const children = new Map<string, string[]>();
+  const parentCount = new Map<string, number>();
+
   for (const r of roles) {
-    incoming.set(r.id, []);
-    outgoing.set(r.id, []);
+    children.set(r.id, []);
+    parentCount.set(r.id, 0);
   }
   for (const e of edges) {
     if (!roleById.has(e.parent_role_id) || !roleById.has(e.child_role_id)) continue;
-    incoming.get(e.child_role_id)!.push(e.parent_role_id);
-    outgoing.get(e.parent_role_id)!.push(e.child_role_id);
+    children.get(e.parent_role_id)!.push(e.child_role_id);
+    parentCount.set(e.child_role_id, (parentCount.get(e.child_role_id) ?? 0) + 1);
   }
 
-  // Identify the root role(s) — no incoming edges in this entity.
-  const rootIds = new Set(
-    roles.filter((r) => (incoming.get(r.id) ?? []).length === 0).map((r) => r.id),
-  );
-
-  // Walk up from a role to find the department head (direct child of root).
-  // Returns the role id of the dept head, or null if the role IS the root.
-  function deptHead(roleId: string, visited: Set<string>): string | null {
-    if (visited.has(roleId)) return null;
-    visited.add(roleId);
-    const parents = incoming.get(roleId) ?? [];
-    if (parents.length === 0) return null; // this role is a root
-    for (const parentId of parents) {
-      if (rootIds.has(parentId)) return roleId; // direct child of root = dept head
-      const ancestor = deptHead(parentId, visited);
-      if (ancestor) return ancestor;
-    }
-    return null;
+  // Sort children alphabetically by role title for deterministic ordering.
+  for (const [, kids] of children) {
+    kids.sort((a, b) => {
+      const ra = roleById.get(a);
+      const rb = roleById.get(b);
+      if (!ra || !rb) return 0;
+      return ra.title.localeCompare(rb.title) || a.localeCompare(b);
+    });
   }
 
-  // Map: roleId → dept label
-  const roleDeptLabel = new Map<string, string>();
-  for (const role of roles) {
-    if (rootIds.has(role.id)) {
-      roleDeptLabel.set(role.id, role.title);
-      continue;
-    }
-    const head = deptHead(role.id, new Set());
-    if (head) {
-      roleDeptLabel.set(role.id, roleById.get(head)?.title ?? "Other");
-    } else {
-      roleDeptLabel.set(role.id, "Other");
-    }
-  }
+  // Roots = roles with no parents in the valid edge set.
+  const roots = roles
+    .filter((r) => (parentCount.get(r.id) ?? 0) === 0)
+    .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
 
   // Build occupant → role map.
   const occupantRole = new Map<string, Role>();
@@ -441,12 +427,36 @@ function buildDeptMap(agents: Agent[], roles: Role[], edges: RoleEdge[]): Map<st
     }
   }
 
+  // Build agent lookup for fast access.
+  const agentById = new Map(agents.map((a) => [a.id, a]));
+
+  // Pre-order DFS: emit agent for each role node (if occupied by an agent in our list).
+  const result: AgentTreeEntry[] = [];
+  const emitted = new Set<string>();
+
+  const visit = (roleId: string, depth: number): void => {
+    const role = roleById.get(roleId);
+    if (!role) return;
+    if (role.occupant_kind === "agent" && role.occupant_id) {
+      const agent = agentById.get(role.occupant_id);
+      if (agent && !emitted.has(agent.id)) {
+        result.push({ agent, depth });
+        emitted.add(agent.id);
+      }
+    }
+    for (const childId of children.get(roleId) ?? []) {
+      visit(childId, depth + 1);
+    }
+  };
+
+  for (const root of roots) {
+    visit(root.id, 0);
+  }
+
+  // Append any agents not reached via the role DAG (unassigned).
   for (const agent of agents) {
-    const role = occupantRole.get(agent.id);
-    if (!role) {
-      result.set(agent.id, "Unassigned");
-    } else {
-      result.set(agent.id, roleDeptLabel.get(role.id) ?? "Other");
+    if (!emitted.has(agent.id)) {
+      result.push({ agent, depth: 0 });
     }
   }
 
@@ -470,11 +480,11 @@ function AgentsEmptyState({ onNew }: { onNew: () => void }) {
 
 function AgentsList({
   agents,
-  deptLabel,
+  treeData,
   onSelect,
 }: {
   agents: Agent[];
-  deptLabel: Map<string, string>;
+  treeData: AgentTreeEntry[];
   onSelect: (id: string) => void;
 }) {
   if (agents.length === 0) {
@@ -488,29 +498,19 @@ function AgentsList({
     );
   }
 
-  // Group agents by department label, preserving relative sort order within
-  // each group. Department order: root title first, then alphabetical dept
-  // names, then "Unassigned" last.
-  const groups = new Map<string, Agent[]>();
-  for (const agent of agents) {
-    const label = deptLabel.get(agent.id) ?? "Unassigned";
-    const bucket = groups.get(label) ?? [];
-    bucket.push(agent);
-    groups.set(label, bucket);
-  }
+  // When a search/filter is active the `agents` array is a subset of the full
+  // tree. Build a set of visible agent IDs and filter treeData to match,
+  // preserving tree order (pre-order traversal) while honouring the filter.
+  const visibleIds = new Set(agents.map((a) => a.id));
+  const rows = treeData.filter((entry) => visibleIds.has(entry.agent.id));
 
-  const sortedLabels = Array.from(groups.keys()).sort((a, b) => {
-    if (a === "Unassigned") return 1;
-    if (b === "Unassigned") return -1;
-    return a.localeCompare(b);
-  });
-
-  // If every agent belongs to one label (no real grouping), render flat.
-  if (sortedLabels.length <= 1) {
+  // Fallback: if treeData is not yet populated (roles still loading) but agents
+  // are present, render them flat without indentation.
+  if (rows.length === 0) {
     return (
       <div className="ideas-list-body">
         {agents.map((a) => (
-          <AgentRow key={a.id} agent={a} onSelect={onSelect} />
+          <AgentRow key={a.id} agent={a} depth={0} onSelect={onSelect} />
         ))}
       </div>
     );
@@ -518,21 +518,31 @@ function AgentsList({
 
   return (
     <div className="ideas-list-body">
-      {sortedLabels.map((label) => (
-        <div key={label}>
-          <div className="agents-group-label">{label}</div>
-          {(groups.get(label) ?? []).map((a) => (
-            <AgentRow key={a.id} agent={a} onSelect={onSelect} />
-          ))}
-        </div>
+      {rows.map(({ agent, depth }) => (
+        <AgentRow key={agent.id} agent={agent} depth={depth} onSelect={onSelect} />
       ))}
     </div>
   );
 }
 
-function AgentRow({ agent: a, onSelect }: { agent: Agent; onSelect: (id: string) => void }) {
+const INDENT_PX = 24;
+
+function AgentRow({
+  agent: a,
+  depth,
+  onSelect,
+}: {
+  agent: Agent;
+  depth: number;
+  onSelect: (id: string) => void;
+}) {
   return (
-    <button type="button" className="ideas-list-row" onClick={() => onSelect(a.id)}>
+    <button
+      type="button"
+      className="ideas-list-row"
+      onClick={() => onSelect(a.id)}
+      style={depth > 0 ? { paddingLeft: depth * INDENT_PX + 16 } : undefined}
+    >
       <div className="ideas-list-row-head">
         <span aria-hidden style={{ display: "inline-flex", alignItems: "center" }}>
           <AgentAvatar name={a.name} />
