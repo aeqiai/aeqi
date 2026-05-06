@@ -178,10 +178,10 @@ export default function AAEnrollmentPage() {
     <div className="aa-enrollment-page" style={{ maxWidth: 560, padding: "var(--space-6)" }}>
       <h2
         style={{
-          fontSize: "var(--text-lg)",
+          fontSize: "var(--font-size-lg)",
           fontWeight: 600,
           marginBottom: "var(--space-3)",
-          color: "var(--text-primary)",
+          color: "var(--color-text-primary)",
         }}
       >
         Wallet upgrade
@@ -189,8 +189,8 @@ export default function AAEnrollmentPage() {
 
       <p
         style={{
-          fontSize: "var(--text-sm)",
-          color: "var(--text-muted)",
+          fontSize: "var(--font-size-sm)",
+          color: "var(--color-text-muted)",
           marginBottom: "var(--space-5)",
           lineHeight: 1.6,
         }}
@@ -205,12 +205,12 @@ export default function AAEnrollmentPage() {
           borderRadius: "var(--radius-md)",
           padding: "var(--space-4)",
           marginBottom: "var(--space-5)",
-          fontSize: "var(--text-sm)",
-          color: "var(--text-muted)",
+          fontSize: "var(--font-size-sm)",
+          color: "var(--color-text-muted)",
           lineHeight: 1.6,
         }}
       >
-        <strong style={{ color: "var(--text-primary)", display: "block", marginBottom: 6 }}>
+        <strong style={{ color: "var(--color-text-primary)", display: "block", marginBottom: 6 }}>
           What happens when you enroll
         </strong>
         <ol
@@ -247,23 +247,29 @@ export default function AAEnrollmentPage() {
               padding: "var(--space-4)",
               fontFamily: "var(--font-mono)",
               fontSize: "var(--font-size-xs)",
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               wordBreak: "break-all",
               lineHeight: 1.7,
             }}
           >
             <div>
-              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>credential_id</span>
+              <span style={{ color: "var(--color-text-primary)", fontWeight: 500 }}>
+                credential_id
+              </span>
               <br />
               {result.credentialId}
             </div>
             <div style={{ marginTop: "var(--space-3)" }}>
-              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>qx (P-256 X)</span>
+              <span style={{ color: "var(--color-text-primary)", fontWeight: 500 }}>
+                qx (P-256 X)
+              </span>
               <br />
               {result.qx}
             </div>
             <div style={{ marginTop: "var(--space-3)" }}>
-              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>qy (P-256 Y)</span>
+              <span style={{ color: "var(--color-text-primary)", fontWeight: 500 }}>
+                qy (P-256 Y)
+              </span>
               <br />
               {result.qy}
             </div>

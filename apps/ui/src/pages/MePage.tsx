@@ -90,7 +90,7 @@ function MePersonalRail({ tab }: { tab: string }) {
         <div
           style={{
             padding: "var(--space-6)",
-            color: "var(--text-muted)",
+            color: "var(--color-text-muted)",
             fontSize: "var(--font-size-base)",
           }}
         >
@@ -107,7 +107,7 @@ function MePersonalRail({ tab }: { tab: string }) {
         <div
           style={{
             padding: "var(--space-6)",
-            color: "var(--text-muted)",
+            color: "var(--color-text-muted)",
             fontSize: "var(--font-size-base)",
           }}
         >

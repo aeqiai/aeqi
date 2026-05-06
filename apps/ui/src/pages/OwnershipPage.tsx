@@ -175,7 +175,7 @@ function RoleSection({ title, roles, occupantLabel, onOpenRole }: RoleSectionPro
       <h3
         style={{
           margin: "0 0 var(--space-sm) 0",
-          fontSize: "var(--text-sm)",
+          fontSize: "var(--font-size-sm)",
           color: "var(--color-text-muted)",
           textTransform: "uppercase",
           letterSpacing: "0.04em",
@@ -204,7 +204,7 @@ function RoleSection({ title, roles, occupantLabel, onOpenRole }: RoleSectionPro
               <div style={{ fontWeight: 500 }}>{r.title}</div>
               <div
                 style={{
-                  fontSize: "var(--text-sm)",
+                  fontSize: "var(--font-size-sm)",
                   color: "var(--color-text-muted)",
                   marginTop: "var(--space-0)",
                 }}
@@ -257,7 +257,7 @@ function OnChainCapTable({ trustId }: { trustId: string }) {
         <p
           style={{
             color: "var(--color-text-muted)",
-            fontSize: "var(--text-sm)",
+            fontSize: "var(--font-size-sm)",
             margin: 0,
           }}
         >
@@ -303,7 +303,7 @@ function SectionLabel({ title, count }: { title: string; count: number | null })
     <h3
       style={{
         margin: "0 0 var(--space-sm) 0",
-        fontSize: "var(--text-sm)",
+        fontSize: "var(--font-size-sm)",
         color: "var(--color-text-muted)",
         textTransform: "uppercase",
         letterSpacing: "0.04em",
@@ -334,7 +334,7 @@ function ChainRoleRow({ role, onClick }: { role: TrustRole; onClick: () => void 
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: "var(--text-sm)",
+            fontSize: "var(--font-size-sm)",
             fontWeight: 500,
           }}
         >
@@ -342,7 +342,7 @@ function ChainRoleRow({ role, onClick }: { role: TrustRole; onClick: () => void 
         </div>
         <div
           style={{
-            fontSize: "var(--text-xs)",
+            fontSize: "var(--font-size-xs)",
             color: "var(--color-text-muted)",
             marginTop: "var(--space-0)",
           }}
@@ -361,7 +361,7 @@ function ChainRoleRow({ role, onClick }: { role: TrustRole; onClick: () => void 
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
             style={{
-              fontSize: "var(--text-xs)",
+              fontSize: "var(--font-size-xs)",
               color: "var(--color-text-muted)",
               fontFamily: "var(--font-mono)",
             }}
@@ -391,14 +391,14 @@ function PendingRequestRow({ request }: { request: TrustRoleRequest }) {
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: "var(--text-sm)",
+            fontSize: "var(--font-size-sm)",
           }}
         >
           {truncateAddress(request.account)}
         </div>
         <div
           style={{
-            fontSize: "var(--text-xs)",
+            fontSize: "var(--font-size-xs)",
             color: "var(--color-text-muted)",
             marginTop: "var(--space-0)",
           }}
@@ -446,12 +446,12 @@ function RoleDetailModal({ role, onClose }: { role: TrustRole; onClose: () => vo
         }}
       >
         <DetailRow label="Account">
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-sm)" }}>
             {role.account}
           </span>
         </DetailRow>
         <DetailRow label="Role type">
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--font-size-sm)" }}>
             {role.roleTypeId}
           </span>
         </DetailRow>
@@ -466,7 +466,7 @@ function RoleDetailModal({ role, onClose }: { role: TrustRole; onClose: () => vo
               rel="noreferrer"
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-sm)",
+                fontSize: "var(--font-size-sm)",
                 color: "var(--color-text-primary)",
               }}
             >
@@ -484,7 +484,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}>
       <span
         style={{
-          fontSize: "var(--text-xs)",
+          fontSize: "var(--font-size-xs)",
           color: "var(--color-text-muted)",
           textTransform: "uppercase",
           letterSpacing: "0.04em",

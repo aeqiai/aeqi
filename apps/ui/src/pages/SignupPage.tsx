@@ -397,12 +397,12 @@ export default function SignupPage() {
                 background: "var(--color-card)",
                 borderRadius: "var(--radius-md)",
                 fontSize: "var(--font-size-sm)",
-                color: "var(--text-secondary)",
+                color: "var(--color-text-secondary)",
                 marginBottom: "var(--space-2)",
               }}
             >
               Joining{" "}
-              <strong style={{ color: "var(--text-primary)" }}>
+              <strong style={{ color: "var(--color-text-primary)" }}>
                 {invitationDetail.entity_display_name}
               </strong>
               {invitationDetail.role_title ? (

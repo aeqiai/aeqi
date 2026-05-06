@@ -33,7 +33,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .wizard-title {
@@ -42,14 +42,14 @@
   font-size: 28px;
   font-weight: 500;
   letter-spacing: -0.015em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   line-height: 1.15;
 }
 
 .wizard-sub {
   margin: 0;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   max-width: 56ch;
   line-height: 1.55;
 }
@@ -83,13 +83,13 @@
   border-radius: var(--radius-md);
   font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: color var(--transition-fast);
 }
 
 .wizard-configure-toggle:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ── Panel stack ─────────────────────────────────── */

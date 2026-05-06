@@ -104,7 +104,7 @@
   background: var(--bg-surface, var(--bg-base));
   border: none;
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
   transition:
@@ -145,12 +145,12 @@
   align-self: center;
   border-style: dashed;
   border-radius: 999px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   background: transparent;
   justify-content: center;
 }
 .org-card.is-add:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   border-style: solid;
   background: var(--state-hover);
 }
@@ -176,14 +176,14 @@
 .org-card-name {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .org-card-sub {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-family: var(--font-sans);
   white-space: nowrap;
   overflow: hidden;

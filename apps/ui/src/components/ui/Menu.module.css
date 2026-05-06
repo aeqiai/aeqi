@@ -20,7 +20,7 @@
   padding: 6px 12px;
   background: transparent;
   border: none;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   text-align: left;
@@ -76,7 +76,7 @@
   display: flex;
   align-items: center;
   line-height: 0;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   width: 16px;
 }
 

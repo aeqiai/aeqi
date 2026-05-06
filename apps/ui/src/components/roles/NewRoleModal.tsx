@@ -126,7 +126,7 @@ export default function NewRoleModal({
           <span
             style={{
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -145,7 +145,7 @@ export default function NewRoleModal({
           <span
             style={{
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -165,7 +165,7 @@ export default function NewRoleModal({
             <span
               style={{
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}
@@ -188,7 +188,7 @@ export default function NewRoleModal({
             <span
               style={{
                 fontSize: 12,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}
@@ -207,7 +207,7 @@ export default function NewRoleModal({
           <span
             style={{
               fontSize: 12,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}

@@ -22,7 +22,7 @@
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--input-radius);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   text-align: left;
@@ -56,12 +56,12 @@
 }
 
 .triggerPlaceholder {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .chevron {
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
   line-height: 0;
@@ -106,7 +106,7 @@
 
 .searchIcon {
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
   line-height: 0;
@@ -118,14 +118,14 @@
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   padding: 0;
 }
 
 .searchInput::placeholder {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 /* ── Option list ── */
@@ -144,7 +144,7 @@
   padding: 5px 10px;
   background: transparent;
   border: none;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   text-align: left;
@@ -178,7 +178,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
 
@@ -196,7 +196,7 @@
 .empty {
   padding: 10px;
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-align: center;
 }
 

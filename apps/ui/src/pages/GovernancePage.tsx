@@ -158,7 +158,7 @@ function GrantRow({ grantLabel, grantDesc, holders, onOpenRole }: GrantRowProps)
           <div
             style={{
               color: "var(--color-text-muted)",
-              fontSize: "var(--text-sm)",
+              fontSize: "var(--font-size-sm)",
               marginTop: "var(--space-0)",
             }}
           >
@@ -249,7 +249,7 @@ function ProposalsSection({ proposals, votingPower, error }: ProposalsSectionPro
         <h3
           style={{
             margin: 0,
-            fontSize: "var(--text-sm)",
+            fontSize: "var(--font-size-sm)",
             color: "var(--color-text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.04em",
@@ -262,7 +262,7 @@ function ProposalsSection({ proposals, votingPower, error }: ProposalsSectionPro
       </div>
 
       {error && (
-        <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>
+        <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
           Couldn&apos;t load proposals: {error}
         </p>
       )}
@@ -300,10 +300,10 @@ function VotingPowerChip({ votingPower }: { votingPower: IndexedVotingPower }) {
         padding: "2px var(--space-sm)",
       }}
     >
-      <span style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
+      <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
         Your voting power
       </span>
-      <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>{formatted}</span>
+      <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500 }}>{formatted}</span>
     </div>
   );
 }
@@ -337,7 +337,7 @@ function ProposalRow({ proposal: p }: { proposal: IndexedProposal }) {
           <div
             style={{
               color: "var(--color-text-muted)",
-              fontSize: "var(--text-sm)",
+              fontSize: "var(--font-size-sm)",
               marginTop: "var(--space-0)",
             }}
           >
@@ -366,7 +366,7 @@ function VoteBar({ forVotes, againstVotes }: { forVotes: string; againstVotes: s
         style={{
           display: "flex",
           gap: "var(--space-sm)",
-          fontSize: "var(--text-sm)",
+          fontSize: "var(--font-size-sm)",
           color: "var(--color-text-muted)",
           marginBottom: "var(--space-xs)",
           justifyContent: "space-between",

@@ -41,7 +41,8 @@ export default function ActivityEntryComponent({ entry, compact = false }: Activ
           <span
             className="activity-type-dot"
             style={{
-              backgroundColor: DECISION_TYPE_COLORS[entry.decision_type] || "var(--text-secondary)",
+              backgroundColor:
+                DECISION_TYPE_COLORS[entry.decision_type] || "var(--color-text-secondary)",
             }}
           />
           <span className="activity-timestamp-compact">{formatTimestamp(entry.timestamp)}</span>
@@ -59,8 +60,8 @@ export default function ActivityEntryComponent({ entry, compact = false }: Activ
           <span
             className="activity-type-badge"
             style={{
-              color: DECISION_TYPE_COLORS[entry.decision_type] || "var(--text-secondary)",
-              backgroundColor: `color-mix(in srgb, ${DECISION_TYPE_COLORS[entry.decision_type] || "var(--text-secondary)"} 10%, transparent)`,
+              color: DECISION_TYPE_COLORS[entry.decision_type] || "var(--color-text-secondary)",
+              backgroundColor: `color-mix(in srgb, ${DECISION_TYPE_COLORS[entry.decision_type] || "var(--color-text-secondary)"} 10%, transparent)`,
             }}
           >
             {formatDecisionType(entry.decision_type)}

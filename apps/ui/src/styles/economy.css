@@ -36,7 +36,7 @@
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .economy-hero-title {
   margin: 0;
@@ -44,7 +44,7 @@
   font-size: 40px;
   font-weight: 600;
   letter-spacing: -0.015em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   line-height: 1.05;
 }
 .economy-hero-lede {
@@ -52,7 +52,7 @@
   max-width: 56ch;
   font-size: var(--font-size-md);
   line-height: 1.55;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* ── Skeleton grid ──
@@ -83,13 +83,13 @@
   margin: 0;
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   letter-spacing: -0.005em;
 }
 .economy-skel-card-sub {
   margin: 0;
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   line-height: 1.45;
 }
 
@@ -156,11 +156,11 @@
   fill: var(--state-hover);
 }
 .economy-skel-pie .slice-a {
-  fill: var(--text-secondary);
+  fill: var(--color-text-secondary);
   opacity: 0.55;
 }
 .economy-skel-pie .slice-b {
-  fill: var(--text-secondary);
+  fill: var(--color-text-secondary);
   opacity: 0.32;
 }
 .economy-skel-legend {
@@ -171,7 +171,7 @@
   flex-direction: column;
   gap: 6px;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .economy-skel-legend li {
   display: flex;
@@ -184,11 +184,11 @@
   border-radius: 50%;
 }
 .economy-skel-legend .dot-a {
-  background: var(--text-secondary);
+  background: var(--color-text-secondary);
   opacity: 0.55;
 }
 .economy-skel-legend .dot-b {
-  background: var(--text-secondary);
+  background: var(--color-text-secondary);
   opacity: 0.32;
 }
 .economy-skel-legend .dot-c {
@@ -214,7 +214,7 @@
 }
 .economy-skel-graph circle {
   fill: var(--bg-canvas);
-  stroke: var(--text-muted);
+  stroke: var(--color-text-muted);
   stroke-width: 1.5;
 }
 
@@ -228,7 +228,7 @@
 }
 .economy-skel-col {
   flex: 1;
-  background: linear-gradient(180deg, var(--text-secondary) 0%, var(--border) 100%);
+  background: linear-gradient(180deg, var(--color-text-secondary) 0%, var(--border) 100%);
   opacity: 0.45;
   border-radius: 3px 3px 0 0;
   min-height: 12px;
@@ -239,7 +239,7 @@
   padding-top: 16px;
   border-top: 1px dashed var(--border-faint);
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .economy-foot p {
   margin: 0;
@@ -250,5 +250,5 @@
   padding: 1px 6px;
   background: var(--bg-row);
   border-radius: 4px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }

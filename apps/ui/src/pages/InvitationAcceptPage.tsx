@@ -145,7 +145,7 @@ export default function InvitationAcceptPage() {
         {/* Card */}
         <div
           style={{
-            background: "var(--color-card-elevated, #fff)",
+            background: "var(--color-card-elevated)",
             borderRadius: "var(--radius-lg)",
             padding: "var(--space-6) var(--space-8)",
             display: "flex",
@@ -160,7 +160,7 @@ export default function InvitationAcceptPage() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 fontSize: "var(--font-size-sm)",
                 padding: "var(--space-4) 0",
               }}
@@ -177,7 +177,7 @@ export default function InvitationAcceptPage() {
               <p
                 style={{
                   fontSize: "var(--font-size-base)",
-                  color: "var(--text-secondary)",
+                  color: "var(--color-text-secondary)",
                   margin: 0,
                 }}
               >
@@ -185,7 +185,7 @@ export default function InvitationAcceptPage() {
               </p>
               <Link
                 to="/"
-                style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}
+                style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}
               >
                 Return home
               </Link>
@@ -200,7 +200,7 @@ export default function InvitationAcceptPage() {
               <p
                 style={{
                   fontSize: "var(--font-size-base)",
-                  color: "var(--text-secondary)",
+                  color: "var(--color-text-secondary)",
                   margin: 0,
                 }}
               >
@@ -214,7 +214,7 @@ export default function InvitationAcceptPage() {
               </p>
               <Link
                 to="/"
-                style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}
+                style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}
               >
                 Return home
               </Link>
@@ -228,7 +228,7 @@ export default function InvitationAcceptPage() {
                 <p
                   style={{
                     fontSize: "var(--font-size-sm)",
-                    color: "var(--text-muted)",
+                    color: "var(--color-text-muted)",
                     margin: "0 0 4px",
                   }}
                 >
@@ -262,7 +262,7 @@ export default function InvitationAcceptPage() {
                     background: "var(--color-card)",
                     borderRadius: "var(--radius-md)",
                     fontSize: "var(--font-size-sm)",
-                    color: "var(--text-secondary)",
+                    color: "var(--color-text-secondary)",
                     fontStyle: "italic",
                   }}
                 >
@@ -282,7 +282,7 @@ export default function InvitationAcceptPage() {
                         style={{
                           fontSize: "var(--font-size-xs)",
                           fontWeight: 500,
-                          color: "var(--text-muted)",
+                          color: "var(--color-text-muted)",
                           textTransform: "uppercase",
                           letterSpacing: "0.06em",
                         }}
@@ -299,7 +299,7 @@ export default function InvitationAcceptPage() {
                       <p
                         style={{
                           fontSize: "var(--font-size-xs)",
-                          color: "var(--text-muted)",
+                          color: "var(--color-text-muted)",
                           margin: 0,
                         }}
                       >
@@ -314,7 +314,7 @@ export default function InvitationAcceptPage() {
                         background: "var(--color-card)",
                         borderRadius: "var(--radius-md)",
                         fontSize: "var(--font-size-sm)",
-                        color: "var(--text-secondary)",
+                        color: "var(--color-text-secondary)",
                       }}
                     >
                       You have no companies to accept with. Create one first at{" "}
@@ -362,7 +362,7 @@ export default function InvitationAcceptPage() {
                     <p
                       style={{
                         fontSize: "var(--font-size-sm)",
-                        color: "var(--text-secondary)",
+                        color: "var(--color-text-secondary)",
                         margin: 0,
                       }}
                     >
@@ -373,7 +373,7 @@ export default function InvitationAcceptPage() {
                   <p
                     style={{
                       fontSize: "var(--font-size-sm)",
-                      color: "var(--text-secondary)",
+                      color: "var(--color-text-secondary)",
                       margin: 0,
                     }}
                   >

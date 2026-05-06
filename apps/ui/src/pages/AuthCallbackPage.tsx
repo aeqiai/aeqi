@@ -48,7 +48,7 @@ export default function AuthCallbackPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            color: "var(--text-muted)",
+            color: "var(--color-text-muted)",
             fontSize: "var(--font-size-sm)",
           }}
         >

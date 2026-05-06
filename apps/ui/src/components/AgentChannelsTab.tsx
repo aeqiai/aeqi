@@ -384,7 +384,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 alignItems: "center",
                 gap: 6,
                 fontSize: 11,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 cursor: "pointer",
               }}
             >
@@ -441,7 +441,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                 <div>
                   <span className="event-idea-key">{s.chat_id}</span>
                   {kindLabel && (
-                    <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 8 }}>
+                    <span style={{ fontSize: 10, color: "var(--color-text-muted)", marginLeft: 8 }}>
                       {kindLabel}
                     </span>
                   )}
@@ -466,7 +466,7 @@ export default function AgentChannelsTab({ agentId }: { agentId: string }) {
                     <option value="off">Off</option>
                   </select>
                 ) : (
-                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Allowed</span>
+                  <span style={{ fontSize: 10, color: "var(--color-text-muted)" }}>Allowed</span>
                 )}
               </div>
             );

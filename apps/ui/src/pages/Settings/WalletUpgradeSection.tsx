@@ -160,12 +160,14 @@ function UpgradeModal({ open, onClose }: UpgradeModalProps) {
                 background: "var(--bg-subtle)",
                 borderRadius: "var(--radius-md)",
                 padding: "var(--space-4)",
-                fontSize: "var(--text-sm)",
-                color: "var(--text-muted)",
+                fontSize: "var(--font-size-sm)",
+                color: "var(--color-text-muted)",
                 lineHeight: 1.6,
               }}
             >
-              <strong style={{ color: "var(--text-primary)", display: "block", marginBottom: 6 }}>
+              <strong
+                style={{ color: "var(--color-text-primary)", display: "block", marginBottom: 6 }}
+              >
                 What happens
               </strong>
               <ol

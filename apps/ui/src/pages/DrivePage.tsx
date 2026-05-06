@@ -162,7 +162,7 @@ export default function DrivePage() {
             marginBottom: 16,
             borderRadius: "var(--radius-md)",
             background: "var(--color-error-bg)",
-            color: "var(--text-secondary)",
+            color: "var(--color-text-secondary)",
             fontSize: "var(--font-size-sm)",
           }}
         >
@@ -205,7 +205,7 @@ export default function DrivePage() {
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  color: "var(--text-primary)",
+                  color: "var(--color-text-primary)",
                   textDecoration: "none",
                   fontWeight: 450,
                   overflow: "hidden",
@@ -218,7 +218,7 @@ export default function DrivePage() {
               </a>
               <span
                 style={{
-                  color: "var(--text-muted)",
+                  color: "var(--color-text-muted)",
                   fontFamily: "var(--font-sans)",
                   fontSize: "var(--font-size-xs)",
                   fontVariantNumeric: "tabular-nums",
@@ -229,7 +229,7 @@ export default function DrivePage() {
               </span>
               <span
                 style={{
-                  color: "var(--text-muted)",
+                  color: "var(--color-text-muted)",
                   fontSize: "var(--font-size-xs)",
                   flexShrink: 0,
                   minWidth: 90,

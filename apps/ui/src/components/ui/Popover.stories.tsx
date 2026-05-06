@@ -21,7 +21,7 @@ const SampleContent = () => (
           padding: "6px 14px",
           fontSize: 13,
           cursor: "pointer",
-          color: "var(--text-primary)",
+          color: "var(--color-text-primary)",
         }}
       >
         {label}
@@ -174,7 +174,7 @@ export const LongList: Story = {
                 padding: "6px 14px",
                 fontSize: 13,
                 cursor: "pointer",
-                color: "var(--text-primary)",
+                color: "var(--color-text-primary)",
                 borderBottom: i < 24 ? "1px solid rgba(0,0,0,0.06)" : "none",
               }}
             >

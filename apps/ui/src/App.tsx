@@ -27,7 +27,7 @@ const LoadingSpinner = () => (
       justifyContent: "center",
       gap: 8,
       minHeight: "100vh",
-      color: "var(--text-muted)",
+      color: "var(--color-text-muted)",
       fontSize: 13,
     }}
   >

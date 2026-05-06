@@ -12,15 +12,15 @@
   gap: var(--space-2);
   margin-bottom: var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .page-header-breadcrumbs a {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .page-header-breadcrumbs a:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .breadcrumb-sep {
@@ -37,7 +37,7 @@
   font-family: var(--font-display);
   font-size: var(--font-size-2xl);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   letter-spacing: 0.01em;
 }
 
@@ -62,13 +62,13 @@
 
 .status-badge-idle,
 .status-badge-pending {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   background: var(--color-accent-bg);
-  border-color: var(--text-secondary);
+  border-color: var(--color-text-secondary);
 }
 .status-badge-idle .status-dot,
 .status-badge-pending .status-dot {
-  background-color: var(--text-secondary);
+  background-color: var(--color-text-secondary);
 }
 
 .status-badge-working {
@@ -82,13 +82,13 @@
 
 .status-badge-offline,
 .status-badge-cancelled {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   background: var(--hover-bg);
-  border-color: var(--text-muted);
+  border-color: var(--color-text-muted);
 }
 .status-badge-offline .status-dot,
 .status-badge-cancelled .status-dot {
-  background-color: var(--text-muted);
+  background-color: var(--color-text-muted);
 }
 
 .status-badge-in_progress {
@@ -198,7 +198,7 @@
   align-items: center;
   gap: var(--space-1);
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .agent-stat {
@@ -209,12 +209,12 @@
 
 .agent-stat-value {
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
 }
 
 .agent-stat-label {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -222,17 +222,17 @@
 
 .agent-name {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .agent-role {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .agent-model {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .expertise-tag {
@@ -240,14 +240,14 @@
   border-radius: var(--radius-sm);
   background: var(--bg-row);
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .agent-stats {
   display: flex;
   gap: var(--space-4);
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 /* Quest row */
@@ -276,21 +276,21 @@
 
 .quest-id {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   min-width: 70px;
 }
 
 .quest-subject {
   flex: 1;
   min-width: 0;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .quest-time {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
@@ -327,12 +327,12 @@
 
 .activity-timestamp-compact {
   font-size: var(--font-size-2xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .activity-summary-compact {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.4;
   margin: 0;
 }
@@ -353,7 +353,7 @@
 
 .activity-entry-id {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-family: var(--font-sans);
 }
 
@@ -376,29 +376,29 @@
 
 .activity-project {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-decoration: none;
 }
 
 .activity-project:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .activity-timestamp {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
 .activity-time {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-left: auto;
 }
 
 .activity-summary {
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.4;
   margin: 0 0 var(--space-2);
 }
@@ -416,11 +416,11 @@
 }
 
 .activity-agent:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .activity-quest-id {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
 }
@@ -437,7 +437,7 @@
 .detail-panel-title {
   font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   margin-bottom: var(--space-4);
   padding-bottom: var(--space-3);
   border-bottom: none;
@@ -449,7 +449,7 @@
 
 .detail-field-label {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: var(--space-1);
@@ -457,7 +457,7 @@
 
 .detail-field-value {
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* Filters */
@@ -474,7 +474,7 @@
   border-radius: var(--input-radius);
   height: var(--input-h);
   padding: 0 var(--input-px);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   transition:
@@ -495,7 +495,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -520,7 +520,7 @@
 
 .text-hint {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .flex-wrap-tags {
   display: flex;
@@ -534,7 +534,7 @@
 }
 .filter-count {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   align-self: center;
 }
 
@@ -570,7 +570,7 @@
   height: 10px;
   border-radius: 50%;
   background: var(--bg-base);
-  border: 2px solid var(--text-muted);
+  border: 2px solid var(--color-text-muted);
   flex-shrink: 0;
   margin-top: 4px;
 }
@@ -598,12 +598,12 @@
 .checkpoint-worker {
   font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .checkpoint-summary {
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.4;
   margin: 0 0 var(--space-1);
 }
@@ -612,7 +612,7 @@
   display: flex;
   gap: var(--space-3);
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .checkpoint-cost {
@@ -620,11 +620,11 @@
 }
 
 .checkpoint-steps {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .checkpoint-time {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 /* Page Tabs — reusable horizontal tab bar for any content page */
@@ -657,18 +657,18 @@
   transition: var(--transition-fast);
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .tool-card:hover {
 }
 .tool-active {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   border-color: var(--border-hover);
   background: var(--bg-surface);
 }
 .tool-status {
   font-size: var(--font-size-2xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .tool-active .tool-status {
   color: var(--success);
@@ -695,12 +695,12 @@
 .agent-child-name {
   font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .agent-child-status {
   font-size: var(--font-size-2xs);
   font-family: var(--font-sans);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 /* Scoped quest rows */
@@ -719,14 +719,14 @@
 .scoped-quest-status {
   font-size: var(--font-size-2xs);
   font-family: var(--font-sans);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   background: var(--bg-row);
   padding: 1px 6px;
   border-radius: var(--radius-xs);
 }
 .scoped-quest-subject {
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ── Persistent composer ──
@@ -794,7 +794,7 @@
 
 /* global — graphite/dark (consistent with existing GLOBAL badge in events) */
 .scope-chip--global {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.12);
 }
@@ -803,7 +803,7 @@
 .scope-inherited-prefix {
   font-family: var(--font-sans);
   font-size: 9px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-weight: 400;
   letter-spacing: 0;
   margin-right: 4px;
@@ -835,14 +835,14 @@
   font-family: var(--font-display);
   font-size: 18px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
 
 .integrations-panel-desc {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
   max-width: 64ch;
@@ -850,7 +850,7 @@
 
 .integrations-panel-loading {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   padding: 16px 0;
 }
 
@@ -895,7 +895,7 @@
 .integration-card-label {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   margin: 0;
   letter-spacing: -0.005em;
 }
@@ -906,7 +906,7 @@
   border-radius: var(--radius-sm);
   background: var(--bg-row);
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 500;
   width: fit-content;
@@ -920,7 +920,7 @@
 
 .integration-card-desc {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0;
 }
@@ -933,19 +933,19 @@
 }
 
 .integration-card-meta-label {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-weight: 500;
 }
 
 .integration-card-meta-value {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 11px;
 }
 
 .integration-card-scopes {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .integration-card-scopes summary {
@@ -965,7 +965,7 @@
 
 .integration-card-scope-list code {
   font-size: 11px;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   background: var(--key-pill-bg);
   padding: 1px 6px;
   border-radius: var(--key-pill-radius);
@@ -1023,13 +1023,13 @@
   font-size: 16px;
   font-weight: 500;
   margin: 0;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .integration-modal-close {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
@@ -1038,7 +1038,7 @@
 }
 
 .integration-modal-close:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   background: var(--state-hover);
 }
 
@@ -1048,7 +1048,7 @@
   flex-direction: column;
   gap: 12px;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.55;
 }
 
@@ -1067,7 +1067,7 @@
 .integration-modal-fallback {
   margin: 0;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .integration-modal-fallback a {
@@ -1078,7 +1078,7 @@
 .integration-modal-scope {
   margin: 0;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .integration-modal-scope code {

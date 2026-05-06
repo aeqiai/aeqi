@@ -150,7 +150,7 @@ export default function TreasuryPage({ entityId }: TreasuryPageProps) {
             borderRadius: "var(--radius-md)",
             marginBottom: "var(--space-md)",
             color: "var(--color-text-muted)",
-            fontSize: "var(--text-sm)",
+            fontSize: "var(--font-size-sm)",
           }}
         >
           Couldn't load billing: {billingError}
@@ -198,7 +198,7 @@ function ContractInfoRow({ trustAddress }: { trustAddress: string }) {
         background: "var(--color-card)",
         borderRadius: "var(--radius-md)",
         marginBottom: "var(--space-md)",
-        fontSize: "var(--text-sm)",
+        fontSize: "var(--font-size-sm)",
         color: "var(--color-text-muted)",
       }}
     >
@@ -207,7 +207,7 @@ function ContractInfoRow({ trustAddress }: { trustAddress: string }) {
         style={{
           fontFamily: "var(--font-mono)",
           color: "var(--color-text)",
-          fontSize: "var(--text-xs)",
+          fontSize: "var(--font-size-xs)",
         }}
       >
         {short}
@@ -219,7 +219,7 @@ function ContractInfoRow({ trustAddress }: { trustAddress: string }) {
           rel="noopener noreferrer"
           style={{
             color: "var(--color-text-muted)",
-            fontSize: "var(--text-xs)",
+            fontSize: "var(--font-size-xs)",
             textDecoration: "underline",
             textUnderlineOffset: "2px",
           }}
@@ -227,7 +227,7 @@ function ContractInfoRow({ trustAddress }: { trustAddress: string }) {
           {CHAIN_NAME}
         </a>
       ) : (
-        <span style={{ fontSize: "var(--text-xs)" }}>{CHAIN_NAME}</span>
+        <span style={{ fontSize: "var(--font-size-xs)" }}>{CHAIN_NAME}</span>
       )}
     </div>
   );
@@ -266,7 +266,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <h3
       style={{
         margin: "0 0 var(--space-sm) 0",
-        fontSize: "var(--text-sm)",
+        fontSize: "var(--font-size-sm)",
         color: "var(--color-text-muted)",
         textTransform: "uppercase",
         letterSpacing: "0.04em",
@@ -348,7 +348,7 @@ function HoldingsSection({
             <div
               style={{
                 fontWeight: 500,
-                fontSize: "var(--text-base)",
+                fontSize: "var(--font-size-base)",
                 marginBottom: "var(--space-xs)",
               }}
             >
@@ -357,7 +357,7 @@ function HoldingsSection({
             <div
               style={{
                 color: "var(--color-text-muted)",
-                fontSize: "var(--text-sm)",
+                fontSize: "var(--font-size-sm)",
               }}
             >
               Once your Treasury earns or spends, balances will appear here.
@@ -367,7 +367,7 @@ function HoldingsSection({
                 style={{
                   marginTop: "var(--space-md)",
                   color: "var(--color-text-muted)",
-                  fontSize: "var(--text-xs)",
+                  fontSize: "var(--font-size-xs)",
                 }}
               >
                 Send ETH or USDC to{" "}
@@ -383,7 +383,7 @@ function HoldingsSection({
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              fontSize: "var(--text-sm)",
+              fontSize: "var(--font-size-sm)",
             }}
           >
             <thead>
@@ -429,7 +429,7 @@ function HoldingsSection({
                       padding: "var(--space-xs) var(--space-md)",
                       textAlign: "right",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                     }}
                   >
                     {Number(nativeEth).toFixed(4)}
@@ -438,7 +438,7 @@ function HoldingsSection({
                     style={{
                       padding: "var(--space-xs) var(--space-md)",
                       color: "var(--color-text-muted)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                     }}
                   >
                     native
@@ -462,7 +462,7 @@ function HoldingsSection({
                       padding: "var(--space-xs) var(--space-md)",
                       textAlign: "right",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                     }}
                   >
                     {b.amount}
@@ -472,7 +472,7 @@ function HoldingsSection({
                       padding: "var(--space-xs) var(--space-md)",
                       color: "var(--color-text-muted)",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                     }}
                   >
                     {truncateAddress(b.tokenAddress)}
@@ -518,7 +518,7 @@ function TransfersSection({
             style={{
               padding: "var(--space-lg) var(--space-md)",
               color: "var(--color-text-muted)",
-              fontSize: "var(--text-sm)",
+              fontSize: "var(--font-size-sm)",
               textAlign: "center",
             }}
           >
@@ -529,7 +529,7 @@ function TransfersSection({
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              fontSize: "var(--text-sm)",
+              fontSize: "var(--font-size-sm)",
             }}
           >
             <thead>
@@ -589,7 +589,7 @@ function TransfersSection({
                     style={{
                       padding: "var(--space-xs) var(--space-md)",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                       color: "var(--color-text-muted)",
                     }}
                   >
@@ -600,7 +600,7 @@ function TransfersSection({
                       padding: "var(--space-xs) var(--space-md)",
                       textAlign: "right",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                     }}
                   >
                     {t.amount}
@@ -610,7 +610,7 @@ function TransfersSection({
                       padding: "var(--space-xs) var(--space-md)",
                       textAlign: "right",
                       color: "var(--color-text-muted)",
-                      fontSize: "var(--text-xs)",
+                      fontSize: "var(--font-size-xs)",
                     }}
                   >
                     {t.block.toLocaleString()}
@@ -671,7 +671,7 @@ function BillingCard({ billing, paymentLast4, onManage, portalBusy }: BillingCar
           <div
             style={{
               color: "var(--color-text-muted)",
-              fontSize: "var(--text-sm)",
+              fontSize: "var(--font-size-sm)",
               marginTop: "var(--space-xs)",
             }}
           >
@@ -719,7 +719,7 @@ function ResourcePack() {
               padding: "var(--space-md)",
             }}
           >
-            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)" }}>
+            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
               {it.label}
             </div>
             <div style={{ fontWeight: 500, marginTop: "var(--space-xs)" }}>{it.value}</div>

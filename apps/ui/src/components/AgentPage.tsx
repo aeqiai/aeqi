@@ -273,10 +273,17 @@ function ToolsDetail({
           {allowed ? "Disable" : "Enable"}
         </Button>
       </div>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 8 }}>
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--color-text-secondary)",
+          lineHeight: 1.6,
+          marginTop: 8,
+        }}
+      >
         {selected.description}
       </p>
-      <div style={{ marginTop: 16, fontSize: 12, color: "var(--text-muted)" }}>
+      <div style={{ marginTop: 16, fontSize: 12, color: "var(--color-text-muted)" }}>
         Status:{" "}
         <span
           className="agent-settings-status-dot"
@@ -285,7 +292,7 @@ function ToolsDetail({
             width: 8,
             height: 8,
             borderRadius: "50%",
-            background: allowed ? "var(--success)" : "var(--text-muted)",
+            background: allowed ? "var(--success)" : "var(--color-text-muted)",
             marginRight: 6,
             verticalAlign: "middle",
           }}

@@ -12,7 +12,7 @@
 .label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .input {
@@ -22,7 +22,7 @@
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--input-radius);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   transition:
@@ -41,7 +41,7 @@
 }
 
 .input::placeholder {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .input:disabled {
@@ -60,7 +60,7 @@
 
 .hint {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .error {

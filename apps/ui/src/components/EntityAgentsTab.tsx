@@ -443,7 +443,7 @@ function AgentsChart({
 
   if (loading) {
     return (
-      <div className="ideas-list-body" style={{ color: "var(--text-muted)" }}>
+      <div className="ideas-list-body" style={{ color: "var(--color-text-muted)" }}>
         Loading org chart…
       </div>
     );
@@ -515,12 +515,12 @@ function AgentsChart({
                   )}
                   <span style={{ fontWeight: 500 }}>{occupant?.name || p.title || "(vacant)"}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.title}</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{p.title}</div>
                 {occupant && (
                   <div
                     style={{
                       fontSize: 12,
-                      color: "var(--text-muted)",
+                      color: "var(--color-text-muted)",
                       marginTop: 4,
                     }}
                   >

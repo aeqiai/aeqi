@@ -34,7 +34,7 @@
   margin: 0;
   font-size: 14px;
   line-height: 1.55;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   max-width: 60ch;
 }
 
@@ -82,12 +82,12 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.005em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .bp-launch-blank-tagline {
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .bp-launch-blank-cue {
   display: inline-flex;
@@ -96,11 +96,11 @@
   width: 24px;
   height: 24px;
   font-size: 16px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 .bp-launch-blank:hover:not(:disabled) .bp-launch-blank-cue {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ── Recommended section ───────────────────────── */
@@ -117,7 +117,7 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .bp-launch-grid {
@@ -168,12 +168,12 @@
 .bp-launch-browse-link {
   font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 .bp-launch-browse-link:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ── /start/<slug> CompanySetupPage ──────────────── */
@@ -199,7 +199,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 .company-setup-title {
   margin: 0;
@@ -207,14 +207,14 @@
   font-size: 28px;
   font-weight: 500;
   letter-spacing: -0.015em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   line-height: 1.15;
   text-transform: lowercase;
 }
 .company-setup-sub {
   margin: 0;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   max-width: 60ch;
   line-height: 1.55;
 }
@@ -243,7 +243,7 @@
   font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .company-setup-section-step {
   display: inline-flex;
@@ -252,7 +252,7 @@
   width: 22px;
   height: 22px;
   border-radius: var(--radius-sm);
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   color: var(--bg-paper);
   font-family: var(--font-sans);
   font-size: 12px;
@@ -261,7 +261,7 @@
 .company-setup-section-sub {
   margin: 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.55;
 }
 .company-setup-counts {
@@ -297,32 +297,32 @@
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition:
     background 0.12s ease,
     color 0.12s ease;
 }
 .plan-interval-btn:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .plan-interval-btn--active {
   background: var(--bg-paper);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .plan-interval-save {
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   text-transform: lowercase;
 }
 .plan-interval-btn--active .plan-interval-save {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .plan-card {
   position: relative;
 }
 .plan-card--popular {
-  border-color: var(--text-secondary);
+  border-color: var(--color-text-secondary);
 }
 .plan-card-badge {
   position: absolute;
@@ -331,7 +331,7 @@
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   color: var(--bg-paper);
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
@@ -341,7 +341,7 @@
   text-transform: uppercase;
 }
 .plan-card-feature-soon {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   font-style: italic;
   font-size: 10px;
 }
@@ -372,14 +372,14 @@
 }
 .plan-card--selected {
   background: var(--color-card-elevated, var(--bg-surface));
-  outline: 2px solid var(--text-primary);
+  outline: 2px solid var(--color-text-primary);
   outline-offset: -2px;
 }
 .plan-card-name {
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .plan-card-price {
   display: flex;
@@ -391,19 +391,19 @@
   font-family: var(--font-sans);
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   letter-spacing: -0.01em;
 }
 .plan-card-price-cadence {
   font-family: var(--font-sans);
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   text-transform: lowercase;
 }
 .plan-card-blurb {
   font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.45;
 }
 .plan-card-features {
@@ -417,7 +417,7 @@
 .plan-card-features li {
   font-family: var(--font-sans);
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   position: relative;
   padding-left: 14px;
 }
@@ -425,5 +425,5 @@
   content: "·";
   position: absolute;
   left: 4px;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }

@@ -87,7 +87,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
           background: "none",
           border: "none",
           cursor: "pointer",
-          color: "var(--text-muted)",
+          color: "var(--color-text-muted)",
           fontFamily: "var(--font-sans)",
           fontSize: "var(--font-size-xs)",
           textAlign: "left",
@@ -111,7 +111,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
             }}
           >
             <Spinner size="sm" />
@@ -127,7 +127,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
               style={{
                 margin: 0,
                 fontSize: "var(--font-size-xs)",
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 fontStyle: "italic",
               }}
             >
@@ -161,7 +161,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                       borderRadius: "var(--radius-md)",
                       fontFamily: "var(--font-sans)",
                       fontSize: "var(--font-size-xs)",
-                      color: "var(--text-secondary)",
+                      color: "var(--color-text-secondary)",
                       lineHeight: 1.5,
                       maxHeight: 200,
                       overflowY: "auto",
@@ -177,7 +177,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
                   style={{
                     margin: "0 0 8px",
                     fontSize: "var(--font-size-xs)",
-                    color: "var(--text-muted)",
+                    color: "var(--color-text-muted)",
                     fontStyle: "italic",
                   }}
                 >
@@ -201,7 +201,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
               style={{
                 margin: 0,
                 fontSize: "var(--font-size-xs)",
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 fontStyle: "italic",
               }}
             >

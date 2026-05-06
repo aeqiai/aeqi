@@ -24,7 +24,7 @@
   padding: 10px 14px;
   background: var(--color-card-elevated);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   text-align: left;
   font-family: var(--font-sans);
   cursor: default;
@@ -66,18 +66,18 @@
 
 .role-node--human .role-node-monogram {
   background: var(--bg-row);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .role-node--vacant {
   background: var(--color-card);
   border-style: dashed;
   border-color: var(--border-strong, var(--border));
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .role-node--vacant .role-node-monogram {
   background: transparent;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   border: 1px dashed var(--border-strong, var(--border));
 }
 
@@ -91,20 +91,20 @@
 .role-node-title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .role-node-occupant {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .role-node--vacant .role-node-title {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* Cards-grid variant — same tile, taller breathing room. */
@@ -168,7 +168,7 @@
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .roles-chart-roster {
   display: flex;
@@ -227,7 +227,7 @@
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   border-bottom: none;
   padding-bottom: var(--space-1);
   margin-bottom: var(--space-1);
@@ -242,7 +242,7 @@
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   transition: background 0.12s ease;
 }
 .roles-list-row:hover {
@@ -268,24 +268,24 @@
   font-weight: 500;
 }
 .roles-list-cell-kind {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: 11px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   margin-right: 4px;
 }
 .roles-list-cell-parents {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .roles-list-cell-meta {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .roles-list-cell-muted {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }

@@ -50,7 +50,7 @@
   font-size: var(--font-size-lg);
   font-weight: 600;
   margin-bottom: var(--space-6);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .modal-field {
@@ -64,7 +64,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-bottom: var(--space-1);
 }
 
@@ -74,7 +74,7 @@
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   transition: border-color var(--transition-fast);
@@ -87,7 +87,7 @@
 
 .modal-hint {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-top: var(--space-1);
 }
 
@@ -132,7 +132,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-bottom: var(--space-1);
 }
 
@@ -141,13 +141,13 @@
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   margin: 0 0 var(--space-1) 0;
 }
 
 .cam-hero-sub {
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.45;
 }
@@ -176,7 +176,7 @@
   background: var(--bg-surface);
   border: none;
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -210,7 +210,7 @@
 
 .cam-template-fallback-hint {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-top: var(--space-1);
   font-style: italic;
 }

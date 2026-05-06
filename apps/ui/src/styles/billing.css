@@ -26,7 +26,7 @@
   gap: var(--space-2);
   padding: var(--space-10) 0;
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 /* Wraps a Banner + Retry button when the panel has nothing else to show. */
@@ -59,7 +59,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .billing-total {
   display: flex;
@@ -71,17 +71,17 @@
   font-size: 36px;
   font-weight: 600;
   letter-spacing: -0.018em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   line-height: 1;
 }
 .billing-total-suffix {
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .billing-summary-sub {
   margin: 0;
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.55;
   max-width: 60ch;
 }
@@ -98,7 +98,7 @@
   font-weight: 600;
   letter-spacing: -0.012em;
   line-height: 1.05;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .billing-summary-aside {
   display: flex;
@@ -106,7 +106,7 @@
   align-items: flex-end;
   gap: var(--space-1);
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-align: right;
 }
 .billing-pm-label {
@@ -118,11 +118,11 @@
 .billing-pm-value {
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .billing-pm-empty {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 /* ── Empty state ───────────────────────────────── */
@@ -143,12 +143,12 @@
   font-family: var(--font-display);
   font-size: var(--font-size-xl);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .billing-empty-sub {
   margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .billing-empty-cta {
   text-decoration: none;
@@ -179,7 +179,7 @@
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.005em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   line-height: 1.2;
   word-break: break-word;
 }
@@ -200,10 +200,10 @@
   font-size: var(--font-size-micro);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .billing-company-charge-value {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .billing-company-actions {
   display: flex;
@@ -213,13 +213,13 @@
 }
 .billing-company-open {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-decoration: none;
   white-space: nowrap;
   transition: color 0.12s;
 }
 .billing-company-open:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* ── Inline upgrade selector ───────────────────── */
@@ -257,7 +257,7 @@
   font-family: var(--font-display);
   font-size: var(--font-size-base);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .billing-upgrade-plan-price {
   display: flex;
@@ -265,11 +265,11 @@
   gap: 2px;
   font-family: var(--font-sans);
   font-size: var(--font-size-lg);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .billing-upgrade-plan-suffix {
   font-size: var(--font-size-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .billing-upgrade-controls {
   display: flex;
@@ -283,17 +283,17 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 .billing-upgrade-hint {
   margin: 0;
   font-size: var(--font-size-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .billing-upgrade-hint code {
   font-family: var(--font-sans);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* ── Footer / portal link ──────────────────────── */
@@ -309,12 +309,12 @@
 .billing-footer-line {
   margin: 0;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .billing-footer-fineprint {
   margin: 0;
   font-size: var(--font-size-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 .billing-footer-secondary {
   border-top: 0;
@@ -327,13 +327,13 @@
   border: 0;
   background: none;
   font: inherit;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
 }
 .billing-link:hover:not(:disabled) {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .billing-link:disabled {
   opacity: 0.6;

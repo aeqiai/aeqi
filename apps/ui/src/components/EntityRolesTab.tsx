@@ -292,7 +292,7 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
                       padding: "12px 24px 4px",
                       fontSize: 11,
                       fontWeight: 600,
-                      color: "var(--text-muted)",
+                      color: "var(--color-text-muted)",
                       textTransform: "uppercase",
                       letterSpacing: "0.08em",
                     }}
@@ -316,7 +316,9 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
 }
 
 function RolesLoading() {
-  return <div style={{ padding: "24px 28px", color: "var(--text-muted)" }}>Loading roles…</div>;
+  return (
+    <div style={{ padding: "24px 28px", color: "var(--color-text-muted)" }}>Loading roles…</div>
+  );
 }
 
 function RolesError({ message }: { message: string }) {

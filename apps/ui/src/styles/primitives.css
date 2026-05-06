@@ -186,7 +186,7 @@
      card surface, not blend with it — so they take the elevated tier
      (pure white) while the card itself sits at the new mid-tone. */
   --btn-secondary-bg: var(--color-card-elevated);
-  --btn-secondary-text: var(--text-primary);
+  --btn-secondary-text: var(--color-text-primary);
   --btn-secondary-border: var(--border);
 
   /* Extra font size not in shared tokens */
@@ -249,7 +249,7 @@ body {
      band. (.shell itself is bounded; .content-card fills its width
      with --bg-sidebar, so the body mirror makes the seam invisible.) */
   background: var(--bg-sidebar);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   line-height: 1.5;
 }
 
@@ -263,7 +263,7 @@ a {
   text-decoration: none;
 }
 a:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* Caret default — pin every input / textarea / contenteditable surface

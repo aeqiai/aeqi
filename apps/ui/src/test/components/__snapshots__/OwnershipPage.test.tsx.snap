@@ -23,7 +23,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with off-chain roles only
     style="margin-bottom: var(--space-lg);"
   >
     <h3
-      style="margin: 0 0 var(--space-sm) 0; font-size: var(--text-sm); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;"
+      style="margin: 0 0 var(--space-sm) 0; font-size: var(--font-size-sm); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;"
     >
       Founders
       <span
@@ -48,9 +48,9 @@ exports[`OwnershipPage — snapshot > matches snapshot with off-chain roles only
             CEO
           </div>
           <div
-            style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-0);"
+            style="font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-0);"
           >
-            Human
+            user…er-1
           </div>
         </div>
         <div
@@ -98,7 +98,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
     style="margin-bottom: var(--space-lg);"
   >
     <h3
-      style="margin: 0 0 var(--space-sm) 0; font-size: var(--text-sm); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;"
+      style="margin: 0 0 var(--space-sm) 0; font-size: var(--font-size-sm); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;"
     >
       Founders
       <span
@@ -123,9 +123,9 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
             CEO
           </div>
           <div
-            style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-0);"
+            style="font-size: var(--font-size-sm); color: var(--color-text-muted); margin-top: var(--space-0);"
           >
-            Human
+            user…er-1
           </div>
         </div>
         <div
@@ -151,7 +151,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
     style="margin-top: var(--space-xl);"
   >
     <h3
-      style="margin: 0 0 var(--space-sm) 0; font-size: var(--text-sm); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;"
+      style="margin: 0 0 var(--space-sm) 0; font-size: var(--font-size-sm); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;"
     >
       On-chain roles
       <span
@@ -171,12 +171,12 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
           style="flex: 1 1 0%; min-width: 0;"
         >
           <div
-            style="font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 500;"
+            style="font-family: var(--font-mono); font-size: var(--font-size-sm); font-weight: 500;"
           >
             0xdead…beef
           </div>
           <div
-            style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-0);"
+            style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: var(--space-0);"
           >
             slot 
             0
@@ -194,7 +194,7 @@ exports[`OwnershipPage — snapshot > matches snapshot with on-chain roles loade
           <a
             href="https://ipfs.io/ipfs/bafyreiabc123"
             rel="noreferrer"
-            style="font-size: var(--text-xs); color: var(--color-text-muted); font-family: var(--font-mono);"
+            style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-family: var(--font-mono);"
             target="_blank"
           >
             ipfs

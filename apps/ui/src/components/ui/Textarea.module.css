@@ -11,7 +11,7 @@
 .label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .textarea {
@@ -21,7 +21,7 @@
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--input-radius);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   line-height: 1.5;
@@ -42,7 +42,7 @@
 }
 
 .textarea::placeholder {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .textarea:disabled {
@@ -61,7 +61,7 @@
 
 .hint {
   font-size: var(--font-size-xs);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .error {

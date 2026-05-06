@@ -53,7 +53,7 @@ function UnassignedDot({ size }: { size: number }) {
         cy="10"
         r="8"
         fill="none"
-        stroke="var(--text-muted)"
+        stroke="var(--color-text-muted)"
         strokeWidth="1.2"
         strokeDasharray="2 2"
       />
