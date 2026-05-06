@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.32.0 — 2026-05-06
+
+**Headline:** aeiq dogfood company live + role invitation polish + Treasury/Governance empty-state cleanup.
+
+- Blueprint for AEIQ's own dogfood company (`aeiq-company`) shipped and deployed; entity_id `59bc9fd3-956a-4104-aaf8-83253fde840c` provisioned on production
+- Roles tab: invite-not-sent status badge + "Send invite" affordance for roles where `email_sent=false` (Wave 32 role invitation UX, see `architecture_role_primitive.md`)
+- Treasury and Governance tabs: polished empty states for fresh TRUSTs that have no on-chain activity yet — replaces raw empty lists with context-appropriate messaging
+- Telegram bot setup guide added to integrations docs
+- Evolve: test-copy coupling pattern documented (empty-state polish cost captured)
+
+**Architecture notes:** `architecture_role_primitive.md` — Role invitation `skip_email` / `email_sent` column is in aeqi-platform; this commit wires the UI indicator to that field.
+
+**Known limitations / next:** Board vs org-chart correction (CFO/CMO/CLO/CISO as operational, not director) not yet reflected in default blueprint seed roles. Mass test-company cleanup complete (obs: `aeiq-rebuild-2026-05-06.md`).
+
 ## v0.31.0 — 2026-05-05
 
 **Headline:** Stack wizard UI shipped. Multi-Company orchestration now has a frontend.
