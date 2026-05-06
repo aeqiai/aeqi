@@ -9,6 +9,7 @@ import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import IdeasFilterPopover from "./IdeasFilterPopover";
 import IdeasSortPopover from "./IdeasSortPopover";
 import IdeasViewPopover from "./IdeasViewPopover";
+import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import {
   type FilterState,
   type IdeasFilter,
@@ -69,7 +70,14 @@ export default function IdeasListView({
   const ranked = useMemo(() => {
     if (searchActive) {
       return filtered
-        .map((idea, i) => ({ idea, i, rank: matchRank(idea, filter.search) }))
+        .map((idea, i) => ({
+          idea,
+          i,
+          rank: matchRank(
+            { name: idea.name, content: blockTreeToPlainText(idea.content) },
+            filter.search,
+          ),
+        }))
         .sort((a, b) => a.rank - b.rank || a.i - b.i)
         .map((r) => r.idea);
     }
@@ -573,8 +581,9 @@ export default function IdeasListView({
                   )}
                   {!isCollapsed &&
                     items.map((idea) => {
-                      const snippet = snippetFor(idea.content, filter.search);
-                      const wordCount = idea.content.trim().split(/\s+/).filter(Boolean).length;
+                      const flatContent = blockTreeToPlainText(idea.content);
+                      const snippet = snippetFor(flatContent, filter.search);
+                      const wordCount = flatContent.trim().split(/\s+/).filter(Boolean).length;
                       const ago = relativeTime(idea.created_at);
                       const tags = idea.tags ?? [];
                       const isCandidate =

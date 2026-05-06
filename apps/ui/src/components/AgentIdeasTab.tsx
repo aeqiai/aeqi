@@ -8,6 +8,7 @@ import type { GraphNode, GraphEdge } from "./IdeaGraph";
 import IdeasListView from "./ideas/IdeasListView";
 import IdeasGraphView from "./ideas/IdeasGraphView";
 import IdeasCanvasView from "./ideas/IdeasCanvasView";
+import { blockTreeToPlainText } from "./editor/blockEditorContent";
 import { Spinner } from "./ui";
 import {
   type FilterState,
@@ -139,7 +140,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
       }
       if (q) {
         const inName = idea.name.toLowerCase().includes(q);
-        const inContent = idea.content.toLowerCase().includes(q);
+        const inContent = blockTreeToPlainText(idea.content).toLowerCase().includes(q);
         if (!inName && !inContent) return false;
       }
       return true;

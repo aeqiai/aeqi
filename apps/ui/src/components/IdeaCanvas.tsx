@@ -15,7 +15,8 @@ import { useAgentIdeas, useAgentIdeasCache } from "@/queries/ideas";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { Button, Textarea, Tooltip } from "./ui";
 import { Events, useTrack } from "@/lib/analytics";
-import { RichMarkdown, buildIdeasByName } from "./markdown/RichMarkdown";
+import LazyBlockEditor from "./editor/LazyBlockEditor";
+import { blockTreeToPlainText } from "./editor/blockEditorContent";
 import IdeaLinksPanel from "./IdeaLinksPanel";
 import RefsRow, { type RefRecord } from "./RefsRow";
 import TagsEditor from "./TagsEditor";
@@ -133,7 +134,6 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const track = useTrack();
   const { data: ideas } = useAgentIdeas(agentId);
   const { patchIdea, removeIdea, addIdea } = useAgentIdeasCache(agentId);
-  const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
   // All tags the agent has used elsewhere — ranked by frequency — power the
   // tag-autocomplete dropdown. Self-tags are excluded in TagsEditor.
   const tagSuggestions = useMemo(() => {
@@ -168,12 +168,12 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const [showRejectPanel, setShowRejectPanel] = useState(false);
   const [rejectRationale, setRejectRationale] = useState("");
 
-  // Body editing mode: in `edit`, the textarea is active; in `view`, the
-  // rendered markdown is shown. Compose mode (no idea yet) starts in edit.
-  const [bodyMode, setBodyMode] = useState<"view" | "edit">(isEdit ? "view" : "edit");
-
+  // The block editor is always-editable when `editable` is true — no
+  // separate view/edit toggle. The `editable` flag mirrors the
+  // pre-existing canvas's "embedded read-only" surface (compose mode is
+  // always editable; edit mode also editable; the canvas can be passed
+  // `editable={false}` later for a future read-only embed).
   const titleRef = useRef<HTMLInputElement>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const flashRef = useRef<number | null>(null);
   const dirtyRef = useRef(false);
   const inflightRef = useRef(false);
@@ -198,27 +198,18 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setDecisionError(null);
     setShowRejectPanel(false);
     setRejectRationale("");
-    setBodyMode(idea?.id ? "view" : "edit");
     setComposeScope("self");
     setPendingRefs([]);
     dirtyRef.current = false;
   }, [idea?.id, idea?.name, idea?.content, idea?.tags]);
 
-  // Focus the textarea whenever we enter edit mode on an existing idea.
-  useEffect(() => {
-    if (bodyMode === "edit" && isEdit) {
-      requestAnimationFrame(() => bodyRef.current?.focus());
-    }
-  }, [bodyMode, isEdit]);
-
-  // Focus the title when this mount shows the compose canvas — unless
-  // the title arrived pre-filled from a create-from-query flow, in which
-  // case the body is the interesting surface to land on.
+  // Focus the title when this mount shows the compose canvas. Body
+  // autofocus is delegated to the BlockEditor itself via its `autofocus`
+  // prop when a pre-filled title arrived from a create-from-query flow.
   useEffect(() => {
     if (!isEdit) {
       requestAnimationFrame(() => {
-        if (initialName && initialName.length > 0) bodyRef.current?.focus();
-        else titleRef.current?.focus();
+        if (!(initialName && initialName.length > 0)) titleRef.current?.focus();
       });
     }
   }, [isEdit, initialName]);
@@ -227,10 +218,10 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     if (!idea) throw new Error("flushSave called without an idea");
     if (inflightRef.current) return idea.id;
     const snapshot = latestRef.current;
-    const tags = mergeTags(snapshot.content, snapshot.typedTags);
+    const flatBody = blockTreeToPlainText(snapshot.content);
+    const tags = mergeTags(flatBody, snapshot.typedTags);
     const trimmedName = snapshot.name.trim();
-    const effectiveName =
-      trimmedName || snapshot.content.split("\n")[0].slice(0, 60).trim() || "Untitled";
+    const effectiveName = trimmedName || flatBody.split("\n")[0].slice(0, 60).trim() || "Untitled";
 
     // Skip redundant saves — nothing changed since last persisted state.
     if (
@@ -288,14 +279,14 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const handleCreate = useCallback(async (): Promise<string> => {
     if (isEdit) throw new Error("handleCreate called in edit mode");
     const snapshot = latestRef.current;
-    const trimmedContent = snapshot.content.trim();
-    if (!trimmedContent && !snapshot.name.trim()) {
+    const flatBody = blockTreeToPlainText(snapshot.content).trim();
+    if (!flatBody && !snapshot.name.trim()) {
       setError("Write something first");
       throw new Error("empty");
     }
     const effectiveName =
-      snapshot.name.trim() || trimmedContent.split("\n")[0].slice(0, 60).trim() || "Untitled";
-    const tags = mergeTags(snapshot.content, snapshot.typedTags);
+      snapshot.name.trim() || flatBody.split("\n")[0].slice(0, 60).trim() || "Untitled";
+    const tags = mergeTags(flatBody, snapshot.typedTags);
     setSaveState("saving");
     setError(null);
     try {
@@ -391,35 +382,20 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     onCanCommitChange(canCommit);
   }, [isEdit, name, content, onCanCommitChange]);
 
-  // Cmd/Ctrl + Enter — commit in create mode, save in edit mode.
-  // `e` (bare) — from view mode, enter edit (Linear-style doc shortcut). Ignored
-  // when focus is already in an editable surface so it never eats real keystrokes.
+  // Cmd/Ctrl + Enter — commit in create mode, save in edit mode. The
+  // BlockEditor is always-editable; no view/edit toggle to manage, so
+  // the bare `e` shortcut (Linear-style "enter edit") was retired.
   useEffect(() => {
     const handler = (ev: KeyboardEvent) => {
       if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
         ev.preventDefault();
         if (isEdit) flushSave();
         else handleCreate();
-        return;
-      }
-      if (
-        ev.key === "e" &&
-        !ev.metaKey &&
-        !ev.ctrlKey &&
-        !ev.altKey &&
-        isEdit &&
-        bodyMode === "view"
-      ) {
-        const tgt = ev.target as HTMLElement | null;
-        const tag = tgt?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tgt?.isContentEditable) return;
-        ev.preventDefault();
-        setBodyMode("edit");
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isEdit, flushSave, handleCreate, bodyMode]);
+  }, [isEdit, flushSave, handleCreate]);
 
   const handleDelete = async () => {
     if (!idea) return;
@@ -470,7 +446,12 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setDecisionState("saving");
     setDecisionError(null);
     const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "rejected"];
-    const nextContent = content.trimEnd() + "\n\n## Rejection rationale\n" + rejectRationale.trim();
+    // Reject rationale is appended as plaintext; the BlockEditor will
+    // re-parse it on next mount. We project the current JSON tree to
+    // text first so existing block structure isn't lost — the editor
+    // round-trips plain paragraphs cleanly back to blocks on reload.
+    const flat = blockTreeToPlainText(content).trimEnd();
+    const nextContent = flat + "\n\n## Rejection rationale\n" + rejectRationale.trim();
     try {
       await ideasApi.updateIdea(idea.id, { tags: nextTags, content: nextContent });
       patchIdea(idea.id, { tags: nextTags, content: nextContent });
@@ -484,7 +465,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     }
   }, [idea, patchIdea, content, rejectRationale]);
 
-  const inlineTags = mergeTags(content, typedTags);
+  const inlineTags = mergeTags(blockTreeToPlainText(content), typedTags);
   // Resolved scope for display in the header popover. In compose mode the
   // user-picked composeScope drives it; in edit mode we read from the idea
   // (with `global` shadowed when agent_id is null, since legacy rows can
@@ -782,62 +763,19 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
           </div>
         )}
 
-        {bodyMode === "edit" || !isEdit ? (
-          <Textarea
-            bare
-            ref={bodyRef}
-            className="ideas-canvas-body"
-            placeholder={
-              isEdit
-                ? "Keep writing…"
-                : "Write the idea.\n\n#tag to tag · [[name]] to link · ![[name]] to embed"
-            }
-            value={content}
-            onChange={(e) => {
-              setContent(e.target.value);
+        <div className="ideas-canvas-body ideas-canvas-body-block">
+          <LazyBlockEditor
+            initialContent={idea?.content ?? content ?? null}
+            onChange={(json) => {
+              setContent(json);
               markDirty();
             }}
-            onKeyDown={(e) => {
-              // Esc: drop back to rendered view when there's nothing to lose.
-              // If the user has unsaved changes we stay in edit so they can
-              // see the Save button; a second Esc still escapes focus.
-              if (e.key === "Escape" && isEdit && !dirtyRef.current) {
-                e.preventDefault();
-                setBodyMode("view");
-              }
-            }}
-            onBlur={() => {
-              // Only drop back to rendered view when there are no unsaved
-              // changes — otherwise the user would lose their editing surface
-              // (and the Save button would have nothing to flush visually).
-              if (isEdit && !dirtyRef.current) setBodyMode("view");
-            }}
+            placeholder={
+              isEdit ? "Keep writing…" : "Write the idea. Type / for blocks · #tag to tag"
+            }
+            autofocus={!isEdit && !!initialName && initialName.length > 0}
           />
-        ) : (
-          <div
-            className="ideas-canvas-body ideas-canvas-body-rendered"
-            role="textbox"
-            tabIndex={0}
-            aria-label="Click to edit"
-            onClick={() => setBodyMode("edit")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setBodyMode("edit");
-              }
-            }}
-          >
-            {content.trim() ? (
-              <RichMarkdown body={content} ideasByName={ideasByName} agentId={agentId} />
-            ) : (
-              <span className="ideas-canvas-body-empty">Click to write…</span>
-            )}
-            <span className="ideas-canvas-body-edit-hint" aria-hidden>
-              <kbd>E</kbd>
-              <span>edit</span>
-            </span>
-          </div>
-        )}
+        </div>
       </div>
       {/* Conversation panel — only shown when viewing an existing idea */}
       {isEdit && idea && <IdeaConversationPanel ideaId={idea.id} />}

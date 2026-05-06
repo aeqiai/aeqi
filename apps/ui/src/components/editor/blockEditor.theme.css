@@ -1,0 +1,175 @@
+/*
+ * BlockEditor theme overrides.
+ *
+ * BlockNote ships its own CSS variables and Mantine chrome. We rebind
+ * just enough of them to its `--bn-*` namespace so the editor reads
+ * as a native part of the aeqi shell — Inter body, ink text, paper
+ * background, shared spacing scale. We do NOT override structural
+ * BlockNote internals (slash menu positioning, drag handle hit areas,
+ * etc.) — only color, type, spacing.
+ */
+
+.block-editor-root {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  /* The editor's own padding lives below; this container is just the
+     bridge between the canvas's flex column and BlockNote's view. */
+}
+
+.block-editor-root .bn-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  background: transparent;
+  font-family: var(--font-body, var(--font-sans));
+  color: var(--color-text-primary);
+  /* Pull BlockNote's tokens onto our palette. */
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: var(--color-text-primary);
+  --bn-colors-menu-background: var(--color-card);
+  --bn-colors-menu-text: var(--color-text-primary);
+  --bn-colors-tooltip-background: var(--color-card-elevated);
+  --bn-colors-tooltip-text: var(--color-text-primary);
+  --bn-colors-hovered-background: var(--bg-subtle);
+  --bn-colors-hovered-text: var(--color-text-primary);
+  --bn-colors-selected-background: var(--bg-subtle);
+  --bn-colors-selected-text: var(--color-text-primary);
+  --bn-colors-disabled-background: var(--bg-subtle);
+  --bn-colors-disabled-text: var(--color-text-muted);
+  --bn-colors-shadow: rgba(0, 0, 0, 0.08);
+  --bn-colors-border: transparent;
+  --bn-colors-side-menu: var(--color-text-muted);
+  --bn-colors-highlights-gray-background: var(--bg-subtle);
+  --bn-border-radius-medium: var(--radius-sm, 6px);
+  --bn-border-radius-small: var(--radius-sm, 6px);
+  --bn-font-family: var(--font-body, var(--font-sans));
+}
+
+/* Editor surface — paper, no ring, body type, line-height that matches
+   the prior textarea so existing visual rhythm survives. */
+.block-editor-root .bn-editor {
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 1.72;
+  letter-spacing: 0.002em;
+  caret-color: var(--accent);
+}
+
+.block-editor-root .bn-editor:focus,
+.block-editor-root .bn-editor:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Heading scale tracks the rendered-markdown surface so flipping
+   between view and edit doesn't reflow. */
+.block-editor-root .bn-block-content h1 {
+  font-size: 1.6em;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+.block-editor-root .bn-block-content h2 {
+  font-size: 1.3em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.block-editor-root .bn-block-content h3 {
+  font-size: 1.12em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* Inline code + code blocks read in the system mono stack. */
+.block-editor-root .bn-block-content code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--bg-subtle);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.block-editor-root .bn-block-content pre,
+.block-editor-root .bn-block-content pre code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 10px;
+}
+
+/* Blockquote — a thin inline mark on the leading edge instead of a
+   full-card block, so the body still reads as one column. */
+.block-editor-root .bn-block-content blockquote {
+  padding-left: 12px;
+  margin-left: 0;
+  border-left: 2px solid var(--border, var(--color-card-elevated));
+  color: var(--color-text-secondary);
+}
+
+/* Slash menu / formatting toolbar — adopt the existing popover language. */
+.block-editor-root .bn-suggestion-menu,
+.block-editor-root .bn-formatting-toolbar,
+.block-editor-root .bn-slash-menu {
+  background: var(--color-card);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: var(--shadow-popover, 0 6px 20px rgba(0, 0, 0, 0.12));
+  border: none;
+}
+
+.block-editor-root .bn-suggestion-menu-item,
+.block-editor-root .bn-slash-menu-item {
+  color: var(--color-text-primary);
+  font-family: var(--font-body, var(--font-sans));
+  font-size: 13px;
+}
+
+.block-editor-root .bn-suggestion-menu-item[data-hovered="true"],
+.block-editor-root .bn-suggestion-menu-item:hover,
+.block-editor-root .bn-slash-menu-item[data-hovered="true"],
+.block-editor-root .bn-slash-menu-item:hover {
+  background: var(--bg-subtle);
+}
+
+/* Side menu (drag handle + add block button) — restrained, only
+   surfaces on hover of a block. */
+.block-editor-root .bn-side-menu {
+  color: var(--color-text-muted);
+}
+.block-editor-root .bn-side-menu button:hover {
+  color: var(--color-text-primary);
+  background: var(--bg-subtle);
+}
+
+/* Read-only mode: no caret, no slash menu, paper text. */
+.block-editor-root .bn-editor[contenteditable="false"] {
+  caret-color: transparent;
+}
+
+/* Suspense fallback styling — a textarea-shaped placeholder so the
+   layout doesn't jump when the editor chunk arrives. */
+.block-editor-fallback {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 280px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.72;
+  letter-spacing: 0.002em;
+  color: var(--color-text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  white-space: pre-wrap;
+}
+.block-editor-fallback::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
