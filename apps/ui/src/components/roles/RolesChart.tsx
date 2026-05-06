@@ -261,13 +261,14 @@ function OrgZoomViewport({ children }: { children: React.ReactNode }) {
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
+    const drag = dragRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
     setTransform((prev) => ({
       ...prev,
-      tx: dragRef.current!.startTx + dx,
-      ty: dragRef.current!.startTy + dy,
+      tx: drag.startTx + dx,
+      ty: drag.startTy + dy,
     }));
   }, []);
 
