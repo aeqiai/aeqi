@@ -111,6 +111,23 @@
   color: var(--color-text-secondary);
 }
 
+/* Table block — BlockNote ships `border: 1px solid #ddd` on every cell.
+   Cell borders are structural here (they define the data grid, not chrome),
+   so the no-hairlines rule doesn't apply — but we do swap the hardcoded
+   colour for the design-token border so the table reads on both light
+   and future-dark surfaces. Header row gets a subtle tint so it stands
+   apart from body rows without an extra divider. */
+.block-editor-root .bn-editor [data-content-type="table"] th,
+.block-editor-root .bn-editor [data-content-type="table"] td {
+  border: 1px solid var(--color-border-subtle, var(--border));
+  padding: 6px 10px;
+}
+.block-editor-root .bn-editor [data-content-type="table"] th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 /* Slash menu / formatting toolbar — adopt the existing popover language. */
 .block-editor-root .bn-suggestion-menu,
 .block-editor-root .bn-formatting-toolbar,

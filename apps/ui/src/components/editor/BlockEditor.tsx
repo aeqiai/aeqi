@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
+import { BlockNoteSchema, defaultBlockSpecs } from "@blocknote/core";
 import { en } from "@blocknote/core/locales";
 import type { Block, PartialBlock } from "@blocknote/core";
 
@@ -32,6 +33,14 @@ export interface BlockEditorProps {
 }
 
 const DEBOUNCE_MS = 400;
+
+// Explicit schema declaration — `defaultBlockSpecs` is BlockNote's full
+// default block set including `table`. We name it here so future custom
+// blocks (Phase 2/3) can extend this object without changing the editor's
+// init shape.
+const editorSchema = BlockNoteSchema.create({
+  blockSpecs: defaultBlockSpecs,
+});
 
 /**
  * Forgiving parser. BlockNote's own document type is `PartialBlock[]`;
@@ -86,6 +95,7 @@ export default function BlockEditor({
   }, [placeholder]);
 
   const editor = useCreateBlockNote({
+    schema: editorSchema,
     initialContent: initial,
     dictionary,
   });
