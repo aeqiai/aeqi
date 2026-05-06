@@ -481,6 +481,16 @@ The fix is one word: `app` → `app.into_make_service_with_connect_info::<Socket
 
 **`deploy/aeqi-bundler.service` is the canonical service file — keep it in sync with `/etc/systemd/system/aeqi-bundler.service`.** Changes to bundler service config (resource limits, flags, etc.) go to `deploy/aeqi-bundler.service` in the repo first, then are applied via `sudo cp deploy/aeqi-bundler.service /etc/systemd/system/aeqi-bundler.service && sudo systemctl daemon-reload`. Before this session (2026-05-06) the bundler service had no repo copy — changes applied only to the live `/etc/` file went untracked. `deploy/aeqi-paymaster.service` has always been in-repo; extend the same discipline to the bundler.
 
+**`deploy.sh` does NOT restart `aeqi-sandbox-*` services — manual restart required after Rust changes.** `./scripts/deploy.sh` queries `runtime_placements WHERE placement_type='host'` and restarts those units only. Sandbox-mode placements (`placement_type='sandbox'`, service prefix `aeqi-sandbox-<entity_id>`) are NOT touched. After a Rust deploy, sandbox processes remain running the old in-memory binary even though `/home/claudedev/aeqi-platform/runtime/bin/aeqi` has been swapped. The swap only takes effect on the NEXT restart. Symptoms: new feature works when you `curl` directly but the spawned agent inside the sandbox behaves as if the old code is still running (because it is). Manual fix after any full deploy:
+
+```bash
+for s in $(systemctl list-units --type=service --all | awk '/aeqi-sandbox-/ {print $1}'); do
+  sudo systemctl restart "$s"
+done
+```
+
+Diagnostic: `strings /home/claudedev/aeqi-platform/runtime/bin/aeqi | grep "<new-sql-string>"` — if absent, the binary wasn't rebuilt. If present but the sandbox still misbehaves, the process is running the old image; restart the sandbox unit. Cost (2026-05-06): phantom entity fix appeared deployed (health 200, binary fresh mtime) but sandbox ran old code; two phantom entities created before root cause found.
+
 **Planned stub routes MUST return explicit 501, not be left unregistered.** When a frontend feature is built against a route that isn't implemented yet (e.g. `POST /api/wallet/upgrade-to-passkey`), leaving the route unregistered causes axum's authed catch-all to return 401 "missing authorization header" — which is indistinguishable from a real auth failure. Frontend graceful-degradation logic that checks `if (msg.includes("501") || msg.toLowerCase().includes("not implemented"))` never fires; the user sees a red error banner instead of the intended "processing in background" success state. **Fix**: always register a one-liner 501 stub in aeqi-platform before shipping the frontend that calls it: `post(|| async { (StatusCode::NOT_IMPLEMENTED, Json(json!({"error": "not yet implemented"}))) })`. Cost (2026-05-05): dogfood v3 — passkey upgrade modal showed error banner for every user instead of the graceful success state.
 
 ## Release tagging convention
