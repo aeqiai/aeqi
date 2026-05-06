@@ -84,7 +84,10 @@ export default function OwnershipPage({ entityId }: OwnershipPageProps) {
       const agent = agents.find((a) => a.id === role.occupant_id);
       return agent ? agent.name : "Agent";
     }
-    return "Human";
+    // Human: prefer platform-resolved display name.
+    if (role.occupant_name) return role.occupant_name;
+    const id = role.occupant_id;
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
   };
 
   if (error) {

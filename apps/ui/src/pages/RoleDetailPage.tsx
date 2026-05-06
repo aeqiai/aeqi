@@ -203,7 +203,9 @@ export default function RoleDetailPage() {
                 }}
                 aria-hidden
               >
-                {getOccupantDisplay(role.occupant_id, agentNames).slice(0, 1).toUpperCase()}
+                {getOccupantDisplay(role.occupant_id, agentNames, role.occupant_name)
+                  .slice(0, 1)
+                  .toUpperCase()}
               </div>
               <span>
                 <span
@@ -214,7 +216,7 @@ export default function RoleDetailPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  {getOccupantDisplay(role.occupant_id, agentNames)}
+                  {getOccupantDisplay(role.occupant_id, agentNames, role.occupant_name)}
                 </span>
                 <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>
                   {role.occupant_kind}
@@ -401,10 +403,16 @@ function InvitationRow({
   );
 }
 
-function getOccupantDisplay(occupantId: string | null, agentNames: Map<string, string>): string {
+function getOccupantDisplay(
+  occupantId: string | null,
+  agentNames: Map<string, string>,
+  occupantName?: string | null,
+): string {
   if (!occupantId) return "Unoccupied";
+  // Prefer platform-resolved display name for human occupants.
+  if (occupantName) return occupantName;
   const agentName = agentNames.get(occupantId);
   if (agentName) return agentName;
-  // Fallback: show truncated UUID (first 4 + "..." + last 4 chars)
-  return `0x...${occupantId.slice(-4)}`;
+  // Fallback: truncated id suffix.
+  return `${occupantId.slice(0, 4)}…${occupantId.slice(-4)}`;
 }

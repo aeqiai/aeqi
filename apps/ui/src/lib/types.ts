@@ -457,6 +457,10 @@ export interface Role {
   title: string;
   occupant_kind: OccupantKind;
   occupant_id: string | null;
+  /** Display name for a human occupant, injected by the platform proxy.
+   *  Null when the occupant is an agent, vacant, or the user record is
+   *  not found. Prefer this over deriving a name from `occupant_id`. */
+  occupant_name?: string | null;
   role_type: RoleType;
   founder: boolean;
   grants: string[];

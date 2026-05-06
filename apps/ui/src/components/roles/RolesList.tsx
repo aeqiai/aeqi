@@ -71,11 +71,15 @@ function OccupantInline({ role, agentName }: { role: Role; agentName?: string })
       </span>
     );
   }
-  // Human occupant: show truncated UUID format (first 4 + "..." + last 4)
-  const displayId = role.occupant_id ? `0x...${role.occupant_id.slice(-4)}` : "";
+  // Human occupant: prefer platform-resolved display name over raw id.
+  const displayName = role.occupant_name
+    ? role.occupant_name
+    : role.occupant_id
+      ? `${role.occupant_id.slice(0, 4)}…${role.occupant_id.slice(-4)}`
+      : "";
   return (
     <span>
-      <span className="roles-list-cell-kind">human</span> <strong>{displayId}</strong>
+      <span className="roles-list-cell-kind">human</span> <strong>{displayName}</strong>
     </span>
   );
 }

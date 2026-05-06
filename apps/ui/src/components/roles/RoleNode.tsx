@@ -71,9 +71,12 @@ function describeOccupant(role: Role, agentName?: string): { label: string } {
   if (role.occupant_kind === "agent") {
     return { label: agentName ?? role.occupant_id?.slice(0, 8) ?? "agent" };
   }
-  // Human occupant: show truncated UUID format (first 4 + "..." + last 4)
+  // Human occupant: prefer platform-resolved display name, fall back to
+  // email local-part (if the name looks like one), then truncated id.
+  if (role.occupant_name) return { label: role.occupant_name };
   if (role.occupant_id) {
-    return { label: `0x...${role.occupant_id.slice(-4)}` };
+    const id = role.occupant_id;
+    return { label: `${id.slice(0, 4)}…${id.slice(-4)}` };
   }
   return { label: "human" };
 }
