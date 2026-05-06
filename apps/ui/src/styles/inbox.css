@@ -29,9 +29,8 @@
   width: 400px;
   min-width: 280px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border-faint);
   overflow: hidden;
-  background: var(--color-card);
+  background: var(--color-card-subtle);
 }
 
 .inbox-head {
@@ -53,6 +52,13 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--color-card);
+}
+
+/* Loading state — shown when first fetch is in-flight and list is empty */
+.inbox-list-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) 0;
 }
 
 /* ── List: time groups ───────────────────────────────────────── */

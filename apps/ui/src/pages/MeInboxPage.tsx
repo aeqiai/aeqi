@@ -5,6 +5,7 @@ import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
 import InboxList from "@/components/inbox/InboxList";
 import InboxDetail from "@/components/inbox/InboxDetail";
+import { Spinner } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 
@@ -25,6 +26,7 @@ export default function MeInboxPage() {
 
   // Store subscriptions — field-level to avoid selector churn
   const allItems = useInboxStore((s) => s.items);
+  const loading = useInboxStore((s) => s.loading);
   const pending = useInboxStore((s) => s.pendingDismissal);
   const answerItem = useInboxStore((s) => s.answerItem);
   const dismissItem = useInboxStore((s) => s.dismissItem);
@@ -253,12 +255,18 @@ export default function MeInboxPage() {
           </div>
         )}
         <div className="inbox-pane-list-scroll">
-          <InboxList
-            rows={visible}
-            selectedId={selectedId}
-            newIds={newIds}
-            onSelect={setSelectedId}
-          />
+          {loading && visible.length === 0 ? (
+            <div className="inbox-list-loading">
+              <Spinner size="sm" />
+            </div>
+          ) : (
+            <InboxList
+              rows={visible}
+              selectedId={selectedId}
+              newIds={newIds}
+              onSelect={setSelectedId}
+            />
+          )}
         </div>
       </div>
 
