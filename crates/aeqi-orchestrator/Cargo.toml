@@ -23,6 +23,7 @@ slack = ["dep:aeqi-pack-slack"]
 
 [dependencies]
 aeqi-core = { workspace = true }
+aeqi-architect = { workspace = true }
 aeqi-ideas = { workspace = true }
 aeqi-quests = { workspace = true }
 aeqi-providers = { workspace = true }

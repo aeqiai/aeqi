@@ -132,6 +132,12 @@ export default function App() {
               GatedAppShell dispatches AppLayout for authed visitors and
               redirects everyone else to /login?next=<here>. Will revert
               to a public-marketing variant once that surface ships. */}
+          {/* Studio — Architect surface (Wave 34 Phase 1). Top-level
+              destination, auth-gated end-to-end. Same dispatch shape as
+              /blueprints — GatedAppShell mounts AppLayout for authed
+              visitors and bounces everyone else to /login?next=<here>. */}
+          <Route path="/studio" element={<GatedAppShell />} />
+          <Route path="/studio/*" element={<GatedAppShell />} />
           <Route path="/blueprints" element={<GatedAppShell />} />
           <Route path="/blueprints/companies" element={<GatedAppShell />} />
           <Route path="/blueprints/agents" element={<GatedAppShell />} />

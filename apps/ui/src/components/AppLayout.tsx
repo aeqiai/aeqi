@@ -28,6 +28,7 @@ const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
+const StudioPage = lazy(() => import("@/pages/StudioPage"));
 const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const RoleNewPage = lazy(() => import("@/pages/RoleNewPage"));
@@ -193,6 +194,7 @@ export default function AppLayout() {
     isSettings,
     isEconomy,
     isBlueprints,
+    isStudio,
     isDrive,
     isStart,
     isNotFound,
@@ -293,6 +295,7 @@ export default function AppLayout() {
     if (isDrive) return <DrivePage />;
     if (isSettings) return <MePage />;
     if (isEconomy) return <EconomyPage />;
+    if (isStudio) return <StudioPage />;
     if (isBlueprints) {
       // /blueprints/<seg> where <seg> is a known kind (companies / agents /
       // events / quests / ideas) → catalog tab. Otherwise <seg> is a slug
@@ -330,6 +333,7 @@ export default function AppLayout() {
     !isStart &&
     !isEconomy &&
     !isBlueprints &&
+    !isStudio &&
     effectiveTab === "sessions";
   const showComposer = sessionsMounted;
   const showSessionsRail = sessionsMounted && !!isEntityRoute && !!drilledAgent;

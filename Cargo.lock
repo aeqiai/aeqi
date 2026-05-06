@@ -65,6 +65,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "aeqi-architect"
+version = "0.15.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "aeqi-core"
 version = "0.15.0"
 dependencies = [
@@ -244,6 +254,7 @@ dependencies = [
 name = "aeqi-orchestrator"
 version = "0.15.0"
 dependencies = [
+ "aeqi-architect",
  "aeqi-core",
  "aeqi-gates",
  "aeqi-graph",

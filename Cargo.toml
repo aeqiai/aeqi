@@ -23,6 +23,7 @@ members = [
     "crates/aeqi-indexer",
     "crates/aeqi-ipfs",
     "crates/aeqi-paymaster",
+    "crates/aeqi-architect",
 ]
 
 [workspace.package]
@@ -145,6 +146,7 @@ aeqi-pack-notion = { version = "0.15.0", path = "crates/aeqi-pack-notion" }
 aeqi-pack-slack = { version = "0.15.0", path = "crates/aeqi-pack-slack" }
 aeqi-indexer = { version = "0.15.0", path = "crates/aeqi-indexer" }
 aeqi-ipfs = { version = "0.15.0", path = "crates/aeqi-ipfs" }
+aeqi-architect = { version = "0.15.0", path = "crates/aeqi-architect" }
 
 
 [profile.release]

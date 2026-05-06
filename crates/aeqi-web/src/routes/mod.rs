@@ -1,4 +1,5 @@
 mod agents;
+mod architect;
 pub mod auth;
 mod channels;
 mod chat;
@@ -48,5 +49,6 @@ pub fn api_routes() -> Router<AppState> {
         .merge(models::routes())
         .merge(roles::routes())
         .merge(templates::routes())
+        .merge(architect::routes())
         .merge(integrations::routes())
 }

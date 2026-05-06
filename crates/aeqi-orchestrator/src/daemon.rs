@@ -1723,6 +1723,36 @@ impl Daemon {
                     crate::ipc::seed::handle_seed_ideas(&ctx, &request, &allowed_roots).await
                 }
 
+                // ── Architect (Wave 34 Phase 1) ──────────────────────
+                // The Architect is a meta-agent that turns a free-text
+                // brief into a deployable Blueprint. Phase 1 ships the
+                // crate scaffold + IPC plumbing with a stub generator;
+                // Phase 2 wires inference into `architect.draft`.
+                "architect.draft" => {
+                    crate::ipc::architect::handle_architect_draft(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+                "architect.refine" => {
+                    crate::ipc::architect::handle_architect_refine(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+                "architect.deploy" => {
+                    crate::ipc::architect::handle_architect_deploy(
+                        &ctx,
+                        &request,
+                        &allowed_roots,
+                    )
+                    .await
+                }
+
                 "list_blueprints" => {
                     crate::ipc::blueprints::handle_list_blueprints(&ctx, &request, &allowed_roots)
                         .await

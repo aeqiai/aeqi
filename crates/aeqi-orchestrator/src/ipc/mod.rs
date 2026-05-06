@@ -4,6 +4,7 @@
 //! and a `serde_json::Value` request, returning a `serde_json::Value` response.
 
 pub mod agents;
+pub mod architect;
 pub mod blueprints;
 pub mod channels;
 pub mod chat;
