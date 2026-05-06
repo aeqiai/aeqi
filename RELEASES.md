@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.41.0 — 2026-05-08
+
+**Headline:** Co-creation surface lands — BlockNote ideas, Slack-shaped channels, Linear-shaped quests, agent personality tab, inference spend visibility, and a UX P0 sweep.
+
+- **BlockNote editor primitive** (`apps/ui/src/components/editor/BlockEditor.tsx`): reusable Notion-style block editor — slash menu, drag handles, inline markdown — wired into the Ideas surface as the canonical write affordance. First Notion-Ideas Phase 1 ship; the editor itself is a primitive, not Idea-specific, and gets reused by the Personality tab. `e68a682d`.
+- **Slack-shaped channels surface** (`apps/ui/src/pages/Channels*` + session primitive wiring): list, detail, composer, send/receive — all over the existing Session primitive, no new transport. `@`-mentions in in-app channels now trigger agent spawn (closes the loop: type at the agent in a channel → it picks up the turn). `c86529f9`, `26c79d7c`.
+- **Linear-shaped Quest detail page** with S/P/A keyboard shortcuts (Status / Priority / Assignee). Quest now wraps an Idea body so the Quest description is a first-class block document, not a flat text field. Phase 1 of Linear-Quests. `dac5d449`.
+- **Personality tab on agent rail** (`apps/ui/src/pages/agent/PersonalityTab.tsx`): block editor binds to a `personality:<agent_id>` Idea; `system_prompt` field sunset on the agent shape. The agent's character is now editable and queryable like any other Idea — same affordances, same inbox, same tags. Memory `feedback_no_prompt_vocabulary.md` made canonical at the data layer, not just in copy. `85cbf0a9`.
+- **Per-agent inference accounting** wired at the `agent-completed` emission point in `crates/aeqi-orchestrator`: every LLM call records prompt/completion tokens + USD cost against the agent. Surfaced as a "Lifetime Spend" stat + recent-calls table on the Agent Treasury tab and a "Spend" column on the agents list. The dollar cost of an agent is now visible at the row level, not buried in upstream provider logs. `d4ebfcbe`, `bcc4281e`.
+- **UX P0 hotfix bundle** (`01aae710`, `59df8009`): drop double `/api` prefix that was 404'ing the JWT-mint path; fix Personal Entity rendering (was crashing on null `roles[]`); console-clean sweep across the app shell; post-login lands on `/me/inbox` instead of root; inbox dismiss-probe 400 fixed; `/c/<personal>/` resilient to 502s during host respawn. The "first 90 seconds after sign-in" path is clean again.
+- **Inbox round-trip + proactive multi-agent greeting** (`05656f8a`): user-reply round-trip now fires correctly through the agent-bound DM session pattern (`create_session` + `add_session_participant`, not `find_or_create_dm_session` which leaves `agent_id` NULL); a freshly-blueprinted Company auto-seeds a greeting from each bound agent on first inbox load. New companies feel populated immediately instead of empty.
+- **Routing fix on event + idea row clicks** (`88b77492`): list-row click handlers now navigate to the detail page instead of no-op'ing on stopPropagation collisions with the row's hover-+ button.
+
 ## v0.40.0 — 2026-05-07
 
 **Headline:** AEIQ Executive Assistant goes live — Telegram bot answering, mention-gate live, Google OAuth Path B end-to-end, session-streaming P0 fix.
