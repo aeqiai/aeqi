@@ -944,11 +944,13 @@ clipped at default zoom until this was corrected.
 
 ## Org chart — use `layoutChart` directly, no dept-cluster envelopes
 
-**Both `RolesChart` and `AgentsChart` render a pure Sugiyama-lite layered DAG via
-`layoutChart` from `roles/layout.ts`.** The chart is a single SVG canvas: CEO at layer 0,
-direct reports at layer 1, grandchildren at layer 2, etc. There are no painted
-department-cluster envelopes — hierarchy is expressed by vertical position and bezier
-edges alone.
+**Both `RolesChart` and `AgentsChart` render a Reingold-Tilford tidy-tree via
+`layoutChart` from `roles/layout.ts`.** Each subtree claims a horizontal slot
+proportional to its own width (deep subtrees get more space than leaf siblings),
+and every parent is centred over its children cluster. The chart is a single SVG
+canvas: CEO at layer 0, direct reports at layer 1, grandchildren at layer 2, etc.
+No painted department-cluster envelopes — hierarchy is expressed by vertical
+position and bezier edges alone. V_GAP=120, H_GAP=48.
 
 `layoutDepts` and the `DeptCluster` / `DeptLayout` interfaces were deleted in
 `100ac7b9` (2026-05-06). Do not reintroduce them. The old "swim-lane" model was
