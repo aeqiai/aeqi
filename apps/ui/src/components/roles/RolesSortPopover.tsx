@@ -51,6 +51,7 @@ export default function RolesSortPopover({ sort, onChange }: RolesSortPopoverPro
           className={`ideas-toolbar-btn${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-label={`Sort: ${ROLES_SORT_LABEL[sort]}`}
           title={`Sort: ${ROLES_SORT_LABEL[sort]}`}
         >
           {SORT_GLYPH[sort]}

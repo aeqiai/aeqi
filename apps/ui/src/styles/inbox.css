@@ -150,6 +150,11 @@
 .inbox-list-row.is-new {
   animation: inbox-pulse-in 0.7s ease forwards;
 }
+@media (prefers-reduced-motion: reduce) {
+  .inbox-list-row.is-new {
+    animation: none;
+  }
+}
 
 /* Decision-request accent dot — 3px, accent color, absolute at left edge.
    Distinct from the unread dot (different size + position). Co-exists with it. */

@@ -45,6 +45,7 @@ export default function InboxFilterPopover({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
+          aria-label={active > 0 ? `Filter — ${active} active` : "Filter"}
           title={active > 0 ? `Filter — ${active} active` : "Filter"}
         >
           <svg

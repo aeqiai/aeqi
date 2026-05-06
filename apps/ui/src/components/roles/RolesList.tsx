@@ -24,7 +24,7 @@ export default function RolesList({ roles, edges, agentNames, onSelectRole }: Ro
 
   return (
     <div className="roles-list">
-      <div className="roles-list-head" role="row">
+      <div className="roles-list-head">
         <span>Title</span>
         <span>Occupant</span>
         <span>Reports to</span>
@@ -38,7 +38,6 @@ export default function RolesList({ roles, edges, agentNames, onSelectRole }: Ro
             type="button"
             className="roles-list-row"
             onClick={() => onSelectRole(role)}
-            role="row"
           >
             <span className="roles-list-cell-title">{role.title || <em>(untitled)</em>}</span>
             <span className="roles-list-cell-occupant">

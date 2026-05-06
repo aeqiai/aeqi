@@ -1,3 +1,23 @@
+/* ── Skip-to-main-content link — keyboard a11y
+   Hidden off-screen by default; slides into view on :focus so
+   sighted keyboard users can skip the sidebar on every route. */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  padding: 8px 16px;
+  z-index: 9999;
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 0;
+  outline: var(--focus-ring);
+}
+
 /* ── Shell — viewport row: sidebar + content-column side by side.
    The footer lives inside content-column (below the card), so nothing
    sits under the left sidebar — the sidebar column runs uninterrupted
@@ -615,6 +635,10 @@
 .sidebar-nav-item:hover {
   color: var(--color-text-title);
   background: var(--state-hover);
+}
+.sidebar-nav-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .sidebar-nav-item.active {
   /* Title-weight ink + semibold pulls the active row out of the resting
@@ -3782,6 +3806,14 @@
   background: var(--destructive);
   border-color: var(--destructive);
   animation: ideas-btn-pulse 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell-rate-limit-dot {
+    animation: none;
+  }
+  .ideas-toolbar-btn.danger.armed:hover {
+    animation: none;
+  }
 }
 @keyframes ideas-btn-pulse {
   0%,

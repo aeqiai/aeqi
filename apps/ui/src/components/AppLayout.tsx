@@ -324,6 +324,9 @@ export default function AppLayout() {
 
   return (
     <>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <div className="shell">
         <LeftSidebar entityId={entityId} path={path} />
 
@@ -345,7 +348,7 @@ export default function AppLayout() {
                     <SessionsRail />
                   </aside>
                 )}
-                <div className="content-main-col">
+                <main id="main-content" className="content-main-col">
                   <div className="content-scroll">
                     <Suspense fallback={null}>{mainContent}</Suspense>
                   </div>
@@ -356,7 +359,7 @@ export default function AppLayout() {
                       sessionsMounted={sessionsMounted}
                     />
                   )}
-                </div>
+                </main>
               </div>
             </div>
           </div>

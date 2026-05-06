@@ -72,7 +72,6 @@ export default function InboxList({ rows, selectedId, newIds, onSelect }: InboxL
                     else rowRefs.current.delete(row.id);
                   }}
                   type="button"
-                  role="listitem"
                   className={[
                     "inbox-list-row",
                     selected ? "is-selected" : "",

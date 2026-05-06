@@ -51,6 +51,7 @@ export default function InboxSortPopover({ sort, onChange }: InboxSortPopoverPro
           className={`ideas-toolbar-btn${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-label={`Sort: ${SORT_LABELS[sort]}`}
           title={`Sort: ${SORT_LABELS[sort]}`}
         >
           {SORT_GLYPH[sort]}

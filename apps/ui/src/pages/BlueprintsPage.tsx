@@ -650,6 +650,7 @@ function ToolbarRadioPopover<T extends string>({
           className={`ideas-toolbar-btn${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-label={`${label}: ${current}`}
           title={`${label}: ${current}`}
         >
           {glyph}
@@ -732,6 +733,7 @@ function FilterPopover({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
+          aria-label={totalActive > 0 ? `Filter — ${totalActive} active` : "Filter"}
           title={totalActive > 0 ? `Filter — ${totalActive} active` : "Filter"}
         >
           <svg
