@@ -1,5 +1,17 @@
 # Release Notes
 
+## v0.36.0 — 2026-05-07
+
+**Headline:** Reingold-Tilford tidy-tree org chart + /me primitives polish + UX micro-pass.
+
+- **Org chart layout:** Sugiyama-lite layered DAG → Reingold-Tilford tidy-tree. Each subtree gets a horizontal slot proportional to its width. Verified: Backend Engineer (with Intern child) renders at 488px subtree width vs Frontend Engineer (leaf) at 220px; Intern centered 0px offset under BE. V_GAP raised to 120, H_GAP to 48 — generous vertical breathing between layers.
+- **/me primitives audit batch:** Loading-state gates on AgentIdeasTab/EventsTab/QuestsTab (no more empty-state flash during cold load); Events sidebar gets the missing hover-+ rowAction; "system-prompt moment" copy removed (memory `feedback_no_prompt_vocabulary.md`); `--text-title` undefined token renamed; Quests empty-state CTA uses canonical Button component.
+- **UI polish micro-pass:** hover affordances added where they were missing; v3 `--space-{xs,sm,md,lg,xl}` token aliases were silently zeroing spacing on Governance + Treasury — bridged in `primitives.css`; empty states warmer; no-op hovers eliminated; remaining hairline traces cleaned.
+
+**Architecture notes:** UX 5.0/5 maintained on full walk. The tidy-tree layout handles arbitrary depth (verified 3-level CEO → CTO → BE → Intern).
+
+**Known limitations / next:** Bundle size manualChunks for cache-friendly chunking still deferred (P2). VPS dogfood respawn pending founder approval. W33B stack-blueprint cross-Company on-chain edge wiring still in flight.
+
 ## v0.35.0 — 2026-05-06
 
 **Headline:** Org chart pure nested tree + agent-spawn data integrity (no duplicate roles, no phantom entities).
