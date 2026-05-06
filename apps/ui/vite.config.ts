@@ -28,16 +28,30 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Vendor split: react + router live in a separate chunk so the
-        // browser can cache them across deploys (only re-rolls when the
-        // vendor versions bump, not on every app commit).
+        // Manual chunks. Conservative: only carve out react itself so it
+        // gets its own long-cache bucket. Everything else falls through
+        // to rollup's per-import default chunking — wallet stack
+        // (metamask-sdk, walletconnect, reown) already auto-splits into
+        // multiple async chunks that only load when WalletProvider
+        // mounts; editor stack (blocknote/tiptap/prosemirror) likewise
+        // rides along with BlockEditor's `lazy(() => import(...))`.
+        //
+        // CRITICAL: do NOT use `id.includes("/react/")` for the
+        // react-vendor split — that substring also matches
+        // `@tiptap/react`, `@blocknote/react`, `wagmi/react`, etc.,
+        // which vacuums their entire ecosystems (TipTap+ProseMirror
+        // ~1.3MB) into the eager react-vendor chunk. Anchor on
+        // `/node_modules/react/` (leading slash + no nesting) instead.
+        // Pre-fix react-vendor was 1.44MB / 445KB gz; with the anchor
+        // it's ~233KB / 74KB gz — a single character (`/`) saves
+        // ~370KB gzipped on first paint.
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
           if (
-            id.includes("/react/") ||
-            id.includes("/react-dom/") ||
-            id.includes("/react-router") ||
-            id.includes("/scheduler/")
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/react-router") ||
+            id.includes("/node_modules/scheduler/")
           ) {
             return "react-vendor";
           }
