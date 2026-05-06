@@ -4,10 +4,17 @@ import RoleNode from "./RoleNode";
 export interface RolesCardsProps {
   roles: Role[];
   agentNames: Map<string, string>;
+  /** Avatar URLs keyed by agent id, sourced from the daemon store. */
+  agentAvatars: Map<string, string>;
   onSelectRole: (role: Role) => void;
 }
 
-export default function RolesCards({ roles, agentNames, onSelectRole }: RolesCardsProps) {
+export default function RolesCards({
+  roles,
+  agentNames,
+  agentAvatars,
+  onSelectRole,
+}: RolesCardsProps) {
   return (
     <div className="roles-cards-grid" role="list" aria-label="Roles">
       {roles.map((role) => (
@@ -15,6 +22,7 @@ export default function RolesCards({ roles, agentNames, onSelectRole }: RolesCar
           key={role.id}
           role={role}
           agentName={role.occupant_id ? agentNames.get(role.occupant_id) : undefined}
+          agentAvatar={role.occupant_id ? agentAvatars.get(role.occupant_id) : undefined}
           onClick={() => onSelectRole(role)}
           className="role-node--card"
         />

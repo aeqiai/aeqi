@@ -8,6 +8,8 @@ export interface RolesChartProps {
   roles: Role[];
   edges: RoleEdge[];
   agentNames: Map<string, string>;
+  /** Avatar URLs keyed by agent id, sourced from the daemon store. */
+  agentAvatars: Map<string, string>;
   onSelectRole: (role: Role) => void;
 }
 
@@ -42,7 +44,13 @@ const FIT_TRANSFORM: Transform = { scale: 1, tx: 0, ty: 0 };
  * click+drag pans, and the toolbar buttons (+/-/fit) give precise
  * control. Default view scales to fit the container width.
  */
-export default function RolesChart({ roles, edges, agentNames, onSelectRole }: RolesChartProps) {
+export default function RolesChart({
+  roles,
+  edges,
+  agentNames,
+  agentAvatars,
+  onSelectRole,
+}: RolesChartProps) {
   const directors = roles.filter((r) => r.role_type === "director");
   const advisors = roles.filter((r) => r.role_type === "advisor");
   const operational = roles.filter((r) => r.role_type === "operational");
@@ -65,6 +73,7 @@ export default function RolesChart({ roles, edges, agentNames, onSelectRole }: R
                   key={r.id}
                   role={r}
                   agentName={r.occupant_id ? agentNames.get(r.occupant_id) : undefined}
+                  agentAvatar={r.occupant_id ? agentAvatars.get(r.occupant_id) : undefined}
                   onClick={() => onSelectRole(r)}
                   style={{ width: NODE_W, height: NODE_H }}
                 />
@@ -106,6 +115,9 @@ export default function RolesChart({ roles, edges, agentNames, onSelectRole }: R
                   key={n.role.id}
                   role={n.role}
                   agentName={n.role.occupant_id ? agentNames.get(n.role.occupant_id) : undefined}
+                  agentAvatar={
+                    n.role.occupant_id ? agentAvatars.get(n.role.occupant_id) : undefined
+                  }
                   onClick={() => onSelectRole(n.role)}
                   className={n.layer === 0 ? "role-node--apex" : undefined}
                   style={{
@@ -129,6 +141,7 @@ export default function RolesChart({ roles, edges, agentNames, onSelectRole }: R
                   key={r.id}
                   role={r}
                   agentName={r.occupant_id ? agentNames.get(r.occupant_id) : undefined}
+                  agentAvatar={r.occupant_id ? agentAvatars.get(r.occupant_id) : undefined}
                   onClick={() => onSelectRole(r)}
                   style={{ width: NODE_W, height: NODE_H }}
                 />

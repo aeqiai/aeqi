@@ -461,6 +461,9 @@ export interface Role {
    *  Null when the occupant is an agent, vacant, or the user record is
    *  not found. Prefer this over deriving a name from `occupant_id`. */
   occupant_name?: string | null;
+  /** Avatar URL for a human occupant, injected by the platform proxy.
+   *  Null when the occupant is an agent, vacant, or the user has no photo. */
+  occupant_avatar_url?: string | null;
   role_type: RoleType;
   founder: boolean;
   grants: string[];

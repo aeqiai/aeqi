@@ -7,6 +7,8 @@ export interface RolesListProps {
   /** Full role set for parent-title lookups. Defaults to `roles` when omitted. */
   allRoles?: Role[];
   agentNames: Map<string, string>;
+  /** Avatar URLs keyed by agent id, sourced from the daemon store. */
+  agentAvatars: Map<string, string>;
   onSelectRole: (role: Role) => void;
 }
 
@@ -71,6 +73,7 @@ export default function RolesList({
   edges,
   allRoles,
   agentNames,
+  agentAvatars,
   onSelectRole,
 }: RolesListProps) {
   const ordered = useMemo(() => preorder(roles, edges), [roles, edges]);
@@ -97,7 +100,11 @@ export default function RolesList({
             {role.title || <em>(untitled)</em>}
           </span>
           <span className="roles-list-cell-occupant">
-            <OccupantInline role={role} agentName={agentNames.get(role.occupant_id ?? "")} />
+            <OccupantInline
+              role={role}
+              agentName={agentNames.get(role.occupant_id ?? "")}
+              agentAvatar={agentAvatars.get(role.occupant_id ?? "")}
+            />
           </span>
           <span className="roles-list-cell-parents">
             <ParentsCell roleId={role.id} allRoles={allRoles ?? roles} edges={edges} />
@@ -131,15 +138,83 @@ function ParentsCell({
   return <>{parents.join(", ")}</>;
 }
 
-function OccupantInline({ role, agentName }: { role: Role; agentName?: string }) {
+function OccupantAvatar({
+  avatarUrl,
+  label,
+}: {
+  avatarUrl: string | null | undefined;
+  label: string;
+}) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: "999px",
+          objectFit: "cover",
+          flexShrink: 0,
+          verticalAlign: "middle",
+          display: "inline-block",
+          marginRight: 4,
+        }}
+      />
+    );
+  }
+  const initials = label
+    ? label
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase()
+    : "·";
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 18,
+        height: 18,
+        borderRadius: "999px",
+        background: "var(--color-bg-subtle)",
+        color: "var(--color-text-muted)",
+        fontSize: 9,
+        fontWeight: 600,
+        flexShrink: 0,
+        verticalAlign: "middle",
+        marginRight: 4,
+      }}
+    >
+      {initials}
+    </span>
+  );
+}
+
+function OccupantInline({
+  role,
+  agentName,
+  agentAvatar,
+}: {
+  role: Role;
+  agentName?: string;
+  agentAvatar?: string;
+}) {
   if (role.occupant_kind === "vacant") {
     return <span className="roles-list-cell-muted">vacant</span>;
   }
   if (role.occupant_kind === "agent") {
+    const name = agentName ?? role.occupant_id?.slice(0, 8) ?? "";
     return (
-      <span>
-        <span className="roles-list-cell-kind">agent</span>{" "}
-        <strong>{agentName ?? role.occupant_id?.slice(0, 8) ?? ""}</strong>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        <OccupantAvatar avatarUrl={agentAvatar} label={name} />
+        <span className="roles-list-cell-kind">agent</span> <strong>{name}</strong>
       </span>
     );
   }
@@ -150,7 +225,8 @@ function OccupantInline({ role, agentName }: { role: Role; agentName?: string })
       ? `${role.occupant_id.slice(0, 4)}…${role.occupant_id.slice(-4)}`
       : "";
   return (
-    <span>
+    <span style={{ display: "inline-flex", alignItems: "center" }}>
+      <OccupantAvatar avatarUrl={role.occupant_avatar_url} label={displayName} />
       <span className="roles-list-cell-kind">human</span> <strong>{displayName}</strong>
     </span>
   );

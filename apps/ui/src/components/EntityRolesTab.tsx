@@ -54,6 +54,13 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
     for (const a of agents) m.set(a.id, a.name);
     return m;
   }, [agents]);
+  const agentAvatars = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of agents) {
+      if (a.avatar) m.set(a.id, a.avatar);
+    }
+    return m;
+  }, [agents]);
 
   useEffect(() => {
     let cancelled = false;
@@ -261,12 +268,18 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
             roles={filtered}
             edges={filteredEdges}
             agentNames={agentNames}
+            agentAvatars={agentAvatars}
             onSelectRole={handleSelectRole}
           />
         )}
         {!loading && !error && filtered.length > 0 && view === "cards" && (
           <div style={{ flex: 1, overflow: "auto" }}>
-            <RolesCards roles={filtered} agentNames={agentNames} onSelectRole={handleSelectRole} />
+            <RolesCards
+              roles={filtered}
+              agentNames={agentNames}
+              agentAvatars={agentAvatars}
+              onSelectRole={handleSelectRole}
+            />
           </div>
         )}
         {!loading && !error && filtered.length > 0 && view === "list" && (
@@ -275,6 +288,7 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
               roles={filtered}
               edges={filteredEdges}
               agentNames={agentNames}
+              agentAvatars={agentAvatars}
               onSelectRole={handleSelectRole}
             />
           </div>

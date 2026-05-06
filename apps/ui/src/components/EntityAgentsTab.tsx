@@ -545,7 +545,7 @@ function AgentRow({
     >
       <div className="ideas-list-row-head">
         <span aria-hidden style={{ display: "inline-flex", alignItems: "center" }}>
-          <AgentAvatar name={a.name} />
+          <AgentAvatar name={a.name} src={a.avatar} />
         </span>
         <span className="ideas-list-row-name">{a.name}</span>
         {a.model && <span className="ideas-list-row-more">{a.model}</span>}
@@ -712,7 +712,7 @@ function AgentCard({
     >
       {agent ? (
         <span aria-hidden style={{ display: "inline-flex", flexShrink: 0 }}>
-          <AgentAvatar name={agent.name} />
+          <AgentAvatar name={agent.name} src={agent.avatar} />
         </span>
       ) : (
         <span
