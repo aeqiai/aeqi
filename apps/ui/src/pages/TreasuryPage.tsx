@@ -152,8 +152,8 @@ export default function TreasuryPage({ entityId }: TreasuryPageProps) {
           title={`No subscription on this ${entityTerm}`}
           description={
             isPersonal
-              ? "This account isn't billed through Stripe yet. Personal accounts are exempt."
-              : "This Company isn't billed through Stripe yet. Personal Companies on the founder account are exempt; joint Companies bill the creator."
+              ? "No active subscription on this account."
+              : "No active subscription on this Company."
           }
         />
       )}

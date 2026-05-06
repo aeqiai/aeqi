@@ -393,10 +393,10 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
             {!isPersonal && (
               <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
                 <div className="sidebar-section-label">Organization</div>
-                {navItem("treasury", "Treasury", <TreasuryIcon />)}
-                {navItem("ownership", "Ownership", <OwnershipIcon />)}
-                {navItem("governance", "Governance", <GovernanceIcon />)}
                 {navItem("roles", "Roles", <RolesIcon />)}
+                {navItem("ownership", "Ownership", <OwnershipIcon />)}
+                {navItem("treasury", "Treasury", <TreasuryIcon />)}
+                {navItem("governance", "Governance", <GovernanceIcon />)}
               </nav>
             )}
 

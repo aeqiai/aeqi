@@ -117,6 +117,9 @@ function MePersonalRail({ tab }: { tab: string }) {
     return <AgentPage agentId={personalRootAgent.id} tab={tab} />;
   }
 
+  // Retired route — portfolio moved to treasury
+  if (tab === "portfolio") return <Navigate to="/me/treasury" replace />;
+
   // Unknown tab — fall through to settings
   return (
     <Suspense fallback={null}>

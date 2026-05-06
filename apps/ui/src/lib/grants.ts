@@ -19,7 +19,7 @@ export const GRANT_CATALOG = [
   {
     id: "treasury.read",
     label: "View treasury",
-    desc: "See Stripe-side spend and budgets",
+    desc: "See billing and resource usage",
   },
   {
     id: "governance.read",
