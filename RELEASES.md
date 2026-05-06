@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.37.0 — 2026-05-07
+
+**Headline:** Real avatars + cleaner chart edges + board-org tinted band + cross-tab indented tree.
+
+- **Avatars:** Roles + Agents views now render real avatars where they exist. Director seat (Luca) shows the Google profile photo; CEO Assistant shows its `/avatars/tech-lead.svg`. Other agents fall back to colored circles with initials (CTO Asst blue, COO Asst green) or neutral graphite for unset. Platform proxy enriches `/api/roles` with `occupant_avatar_url`; UI consumes via `AgentAvatar`.
+- **Chart edges:** stroke 1px → 1.5px; color stepped from `--border` (rgba(0,0,0,0.06)) to `--color-text-secondary` (rgba(10,10,11,0.65)). Edges now read at default zoom on dense subtrees.
+- **Board / Org separation:** chart canvas tints the Director seat zone with a subtle band + divider. The list view populates a "Reports to {parent.title}" column for non-root roles via cross-type role_edges resolution.
+- **Indented tree (both lists):** Roles + Agents list views switched from section-header grouping to a single linear pre-order traversal with `padding-left: depth * 24px`. Same hierarchy as the chart, vertical-list ergonomics. CTO at depth 1, Backend Engineer at depth 2, Backend Intern at depth 3.
+
+**Architecture notes:** Chart layout = Reingold-Tilford tidy-tree (`layoutChart`); both list views = pre-order DAG traversal + indent. `layoutDepts` removed entirely (memory `architecture_role_primitive.md` is canonical; no painted dept envelopes anywhere).
+
+**UX score:** 5.0/5 maintained on full walk. All 9 chart/list/avatar ships verified.
+
+**Known limitations / next:** `?view=list` query param dropped during 308 redirect from `/c/<id>` to `/trust/<address>` (cosmetic). VPS dogfood respawn pending founder approval. W33B stack-blueprint cross-Company on-chain edge wiring still in flight.
+
 ## v0.36.0 — 2026-05-07
 
 **Headline:** Reingold-Tilford tidy-tree org chart + /me primitives polish + UX micro-pass.
