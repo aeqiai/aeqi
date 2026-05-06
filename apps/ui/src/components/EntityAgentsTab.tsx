@@ -7,7 +7,7 @@ import { Button, EmptyState, Popover, Tooltip } from "./ui";
 import AgentAvatar from "./AgentAvatar";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import { relativeTime } from "./ideas/types";
-import { layoutChart, NODE_W, NODE_H } from "@/components/roles/layout";
+import { layoutChart, reRootEdges, NODE_W, NODE_H } from "@/components/roles/layout";
 
 type ViewMode = "list" | "chart";
 type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active";
@@ -382,6 +382,13 @@ export interface AgentTreeEntry {
  * (0 = root / C-suite, 1 = direct report, 2 = grandchild, …). Agents with no
  * role assignment are appended at the end with depth 0.
  *
+ * Re-rooting: the agents-only subgraph is a transitive contraction of the full
+ * role DAG. Each agent's parent is the nearest agent ancestor in the original
+ * DAG; intervening human/vacant roles are skipped. This means a CFO whose
+ * parent CEO is human still nests under whatever agent (if any) sits above the
+ * CEO — usually no one, so CFO becomes a depth-0 root rather than appearing as
+ * a sibling of unrelated advisors.
+ *
  * Pre-order guarantees: parent always appears before its children; siblings are
  * ordered alphabetically by role title (stable, deterministic).
  */
@@ -390,15 +397,20 @@ function buildAgentTreeData(agents: Agent[], roles: Role[], edges: RoleEdge[]): 
     return agents.map((a) => ({ agent: a, depth: 0 }));
   }
 
-  const roleById = new Map(roles.map((r) => [r.id, r]));
+  // Agent-occupied role subset.
+  const agentRoles = roles.filter((r) => r.occupant_kind === "agent" && r.occupant_id);
+  const agentRoleIds = new Set(agentRoles.map((r) => r.id));
+  const agentEdges = reRootEdges(agentRoleIds, edges);
+
+  const roleById = new Map(agentRoles.map((r) => [r.id, r]));
   const children = new Map<string, string[]>();
   const parentCount = new Map<string, number>();
 
-  for (const r of roles) {
+  for (const r of agentRoles) {
     children.set(r.id, []);
     parentCount.set(r.id, 0);
   }
-  for (const e of edges) {
+  for (const e of agentEdges) {
     if (!roleById.has(e.parent_role_id) || !roleById.has(e.child_role_id)) continue;
     children.get(e.parent_role_id)!.push(e.child_role_id);
     parentCount.set(e.child_role_id, (parentCount.get(e.child_role_id) ?? 0) + 1);
@@ -414,35 +426,28 @@ function buildAgentTreeData(agents: Agent[], roles: Role[], edges: RoleEdge[]): 
     });
   }
 
-  // Roots = roles with no parents in the valid edge set.
-  const roots = roles
+  // Roots = roles with no parents in the re-rooted edge set.
+  const roots = agentRoles
     .filter((r) => (parentCount.get(r.id) ?? 0) === 0)
     .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
-
-  // Build occupant → role map.
-  const occupantRole = new Map<string, Role>();
-  for (const r of roles) {
-    if (r.occupant_kind === "agent" && r.occupant_id) {
-      occupantRole.set(r.occupant_id, r);
-    }
-  }
 
   // Build agent lookup for fast access.
   const agentById = new Map(agents.map((a) => [a.id, a]));
 
-  // Pre-order DFS: emit agent for each role node (if occupied by an agent in our list).
+  // Pre-order DFS over the agent-only subgraph; cycle defence via visited set.
   const result: AgentTreeEntry[] = [];
   const emitted = new Set<string>();
+  const visited = new Set<string>();
 
   const visit = (roleId: string, depth: number): void => {
+    if (visited.has(roleId)) return;
+    visited.add(roleId);
     const role = roleById.get(roleId);
-    if (!role) return;
-    if (role.occupant_kind === "agent" && role.occupant_id) {
-      const agent = agentById.get(role.occupant_id);
-      if (agent && !emitted.has(agent.id)) {
-        result.push({ agent, depth });
-        emitted.add(agent.id);
-      }
+    if (!role || !role.occupant_id) return;
+    const agent = agentById.get(role.occupant_id);
+    if (agent && !emitted.has(agent.id)) {
+      result.push({ agent, depth });
+      emitted.add(agent.id);
     }
     for (const childId of children.get(roleId) ?? []) {
       visit(childId, depth + 1);
@@ -612,14 +617,20 @@ function AgentsChart({
     );
   }
 
-  // Only operational roles feed the tree layout (directors/advisors
-  // are governance tiers, not org-chart nodes).
-  const opPositions = positions.filter((r) => r.role_type === "operational");
-  const opIds = new Set(opPositions.map((r) => r.id));
-  const opEdges = edges.filter((e) => opIds.has(e.parent_role_id) && opIds.has(e.child_role_id));
-  const treeLayout = layoutChart(opPositions, opEdges);
+  // Agents-only view — the chart MUST reflect agent-to-agent hierarchy,
+  // not the literal subset of original edges. Filter to roles whose
+  // occupant is an agent (any role_type — operational, advisor, etc.),
+  // then re-root: each agent's effective parent is the nearest agent
+  // ancestor in the full DAG. Otherwise human-occupied or vacant
+  // intermediaries (e.g. a human CEO between Director and CFO) leave
+  // every direct report stranded as a depth-0 root, falsely peering
+  // them with parentless advisors.
+  const agentRoles = positions.filter((r) => r.occupant_kind === "agent");
+  const agentRoleIds = new Set(agentRoles.map((r) => r.id));
+  const agentEdges = reRootEdges(agentRoleIds, edges);
+  const treeLayout = layoutChart(agentRoles, agentEdges);
 
-  if (opPositions.length === 0) {
+  if (agentRoles.length === 0) {
     return (
       <div className="ideas-list-body">
         <EmptyState

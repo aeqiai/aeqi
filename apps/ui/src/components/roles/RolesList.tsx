@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import type { Role, RoleEdge } from "@/lib/types";
+import type { Role, RoleEdge, RoleType } from "@/lib/types";
+import BlockAvatar from "../BlockAvatar";
 
 export interface RolesListProps {
   roles: Role[];
@@ -17,14 +18,32 @@ interface RoleWithDepth {
   depth: number;
 }
 
+// Bucket order: directors first (board), then operational (CEO/C-suite/agents),
+// then advisors. Within each bucket, hierarchy is preserved via pre-order DFS;
+// no section headers — the bucket order is sort order, not grouping.
+const BUCKET_ORDER: RoleType[] = ["director", "operational", "advisor"];
+
 /**
- * Compute pre-order traversal of the role DAG.
+ * Compute type-bucketed, pre-order traversal of the role DAG.
  *
- * Roots are roles with no parent in the provided edge set. For each root
- * we DFS children in stable (insertion) order. Depth drives the indent
- * applied to each row's title cell. Diamond edges (role with two parents)
- * are handled by the visited set — the first-encountered position wins.
+ * Three passes — director, operational, advisor — each running an independent
+ * DFS over the subset of roles with that role_type. Within each pass:
+ *   - Roots = roles in the bucket with no parent (in the bucket's own edge subset).
+ *   - DFS children in stable insertion order, indenting per depth.
+ *   - Diamond edges resolve via visited set; first-encountered wins.
+ *   - Roles reachable only through roles of a different type appear as roots
+ *     in their bucket (advisors, with no edges, are always depth-0 roots).
  */
+function preorderByType(roles: Role[], edges: RoleEdge[]): RoleWithDepth[] {
+  const out: RoleWithDepth[] = [];
+  for (const bucket of BUCKET_ORDER) {
+    const subset = roles.filter((r) => r.role_type === bucket);
+    if (subset.length === 0) continue;
+    out.push(...preorder(subset, edges));
+  }
+  return out;
+}
+
 function preorder(roles: Role[], edges: RoleEdge[]): RoleWithDepth[] {
   const byId = new Map(roles.map((r) => [r.id, r]));
   const children = new Map<string, string[]>();
@@ -34,6 +53,9 @@ function preorder(roles: Role[], edges: RoleEdge[]): RoleWithDepth[] {
     children.set(r.id, []);
     parentCount.set(r.id, 0);
   }
+  // Only consider edges whose BOTH endpoints are in this bucket — keeps each
+  // bucket's traversal self-contained so a director->CEO edge doesn't pull
+  // the CEO into the director bucket.
   for (const e of edges) {
     if (!byId.has(e.parent_role_id) || !byId.has(e.child_role_id)) continue;
     children.get(e.parent_role_id)!.push(e.child_role_id);
@@ -76,7 +98,7 @@ export default function RolesList({
   agentAvatars,
   onSelectRole,
 }: RolesListProps) {
-  const ordered = useMemo(() => preorder(roles, edges), [roles, edges]);
+  const ordered = useMemo(() => preorderByType(roles, edges), [roles, edges]);
 
   return (
     <div className="roles-list">
@@ -138,7 +160,19 @@ function ParentsCell({
   return <>{parents.join(", ")}</>;
 }
 
-function OccupantAvatar({
+const AVATAR_SIZE = 18;
+
+/**
+ * Avatar render contract — matches RoleNode (the chart/cards surface):
+ *
+ *   agent + URL    → square <img> (borderRadius 4) — block aesthetic
+ *   agent + no URL → BlockAvatar identicon (already borderRadius 4)
+ *   human + URL    → circular <img> (borderRadius 999px)
+ *   human + no URL → circular initials chip (borderRadius 999px)
+ *
+ * Square-vs-circle is the agent/human shape rule shipped on RoleNode.
+ */
+function AgentAvatarChip({
   avatarUrl,
   label,
 }: {
@@ -151,8 +185,48 @@ function OccupantAvatar({
         src={avatarUrl}
         alt=""
         style={{
-          width: 18,
-          height: 18,
+          width: AVATAR_SIZE,
+          height: AVATAR_SIZE,
+          borderRadius: 4,
+          objectFit: "cover",
+          flexShrink: 0,
+          verticalAlign: "middle",
+          display: "inline-block",
+          marginRight: 4,
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        flexShrink: 0,
+        verticalAlign: "middle",
+        marginRight: 4,
+      }}
+    >
+      <BlockAvatar name={label} size={AVATAR_SIZE} />
+    </span>
+  );
+}
+
+function HumanAvatarChip({
+  avatarUrl,
+  label,
+}: {
+  avatarUrl: string | null | undefined;
+  label: string;
+}) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        style={{
+          width: AVATAR_SIZE,
+          height: AVATAR_SIZE,
           borderRadius: "999px",
           objectFit: "cover",
           flexShrink: 0,
@@ -180,8 +254,8 @@ function OccupantAvatar({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: 18,
-        height: 18,
+        width: AVATAR_SIZE,
+        height: AVATAR_SIZE,
         borderRadius: "999px",
         background: "var(--color-bg-subtle)",
         color: "var(--color-text-muted)",
@@ -213,7 +287,7 @@ function OccupantInline({
     const name = agentName ?? role.occupant_id?.slice(0, 8) ?? "";
     return (
       <span style={{ display: "inline-flex", alignItems: "center" }}>
-        <OccupantAvatar avatarUrl={agentAvatar} label={name} />
+        <AgentAvatarChip avatarUrl={agentAvatar} label={name} />
         <span className="roles-list-cell-kind">agent</span> <strong>{name}</strong>
       </span>
     );
@@ -226,7 +300,7 @@ function OccupantInline({
       : "";
   return (
     <span style={{ display: "inline-flex", alignItems: "center" }}>
-      <OccupantAvatar avatarUrl={role.occupant_avatar_url} label={displayName} />
+      <HumanAvatarChip avatarUrl={role.occupant_avatar_url} label={displayName} />
       <span className="roles-list-cell-kind">human</span> <strong>{displayName}</strong>
     </span>
   );

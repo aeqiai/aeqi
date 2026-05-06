@@ -1,5 +1,58 @@
 import type { Role, RoleEdge } from "@/lib/types";
 
+/**
+ * Re-root the role DAG to a subset of roles.
+ *
+ * In agent-only views (Agents tab list / chart), filtering by occupant kind
+ * leaves orphan agents whose original parent is human-occupied or vacant —
+ * they would otherwise float to depth 0 alongside true roots like advisors,
+ * making the chart look like an advisor leads the C-suite.
+ *
+ * For each role in the subset, walk parents transitively in the FULL DAG
+ * until a parent that is also in the subset is found; emit that as the
+ * effective parent edge. If no ancestor is in the subset, the role becomes
+ * a true root (no edge emitted). Cycle defence via visited set.
+ *
+ * Returns edges only between subset roles. The caller is expected to pass
+ * the subset itself as the `roles` argument to layoutChart.
+ */
+export function reRootEdges(subsetIds: Set<string>, allEdges: RoleEdge[]): RoleEdge[] {
+  const parentsOf = new Map<string, string[]>();
+  for (const e of allEdges) {
+    if (!parentsOf.has(e.child_role_id)) parentsOf.set(e.child_role_id, []);
+    parentsOf.get(e.child_role_id)!.push(e.parent_role_id);
+  }
+
+  const out: RoleEdge[] = [];
+  for (const childId of subsetIds) {
+    const ancestor = nearestAncestorInSubset(childId, parentsOf, subsetIds);
+    if (ancestor) {
+      out.push({ parent_role_id: ancestor, child_role_id: childId });
+    }
+  }
+  return out;
+}
+
+function nearestAncestorInSubset(
+  start: string,
+  parentsOf: Map<string, string[]>,
+  subsetIds: Set<string>,
+): string | null {
+  // BFS over parents in the original DAG; first hit in subset wins.
+  const visited = new Set<string>([start]);
+  const queue: string[] = [...(parentsOf.get(start) ?? [])];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    if (subsetIds.has(id)) return id;
+    for (const p of parentsOf.get(id) ?? []) {
+      if (!visited.has(p)) queue.push(p);
+    }
+  }
+  return null;
+}
+
 export const NODE_W = 220;
 export const NODE_H = 76;
 export const H_GAP = 48;
