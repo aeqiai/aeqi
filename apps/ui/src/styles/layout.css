@@ -3759,7 +3759,7 @@
     box-shadow 0.12s ease;
 }
 .ideas-toolbar-btn:hover {
-  color: var(--text-title);
+  color: var(--color-text-title);
   background: var(--bg-row);
   border-color: var(--input-border-focus, var(--border-hover));
 }

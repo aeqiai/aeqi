@@ -8,6 +8,7 @@ import type { GraphNode, GraphEdge } from "./IdeaGraph";
 import IdeasListView from "./ideas/IdeasListView";
 import IdeasGraphView from "./ideas/IdeasGraphView";
 import IdeasCanvasView from "./ideas/IdeasCanvasView";
+import { Spinner } from "./ui";
 import {
   type FilterState,
   type IdeasFilter,
@@ -99,7 +100,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
     [patchParams],
   );
 
-  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId);
+  const { data: ideas = NO_IDEAS, isLoading: ideasLoading } = useAgentIdeas(agentId);
 
   // Apply scope + search + tag to the agent's ideas. The graph view
   // filters its own nodes against this same universe so the two views
@@ -311,6 +312,17 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
         onBack={() => goEntity(entityId, "ideas")}
         onNew={() => fireNewIdea()}
       />
+    );
+  }
+
+  if (ideasLoading) {
+    return (
+      <div
+        className="ideas-list-body"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+      >
+        <Spinner size="md" />
+      </div>
     );
   }
 

@@ -97,7 +97,7 @@ describe("AgentQuestsTab smoke", () => {
       workerEvents: [],
       wsConnected: false,
       loading: false,
-      initialLoaded: false,
+      initialLoaded: true,
     });
   });
 

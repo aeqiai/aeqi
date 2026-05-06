@@ -4,7 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
-import { Button, Popover } from "./ui";
+import { Button, Popover, Spinner } from "./ui";
 import QuestCanvas from "./QuestCanvas";
 import type { Quest, QuestStatus, QuestPriority, ScopeValue, User } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
@@ -307,6 +307,7 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
+  const questsLoaded = useDaemonStore((s) => s.initialLoaded);
   const currentUser = useAuthStore((s) => s.user);
   // Candidate humans for the assignee picker. Today this is just the
   // authenticated user — every quest is reassignable to "me." A future
@@ -371,6 +372,16 @@ export default function AgentQuestsTab({ agentId }: { agentId: string }) {
   }
 
   if (!quest) {
+    if (!questsLoaded) {
+      return (
+        <div
+          className="ideas-list-body"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <Spinner size="md" />
+        </div>
+      );
+    }
     // agent.id match + cross-agent quests surfaced by the API.
     const visibleQuests = quests.filter((q) => q.agent_id === agent?.id || q.agent_id == null);
     const filteredQuests =
@@ -958,7 +969,7 @@ function QuestList({
               ? "Try a different search, or start a new quest."
               : "Create the first quest to populate this board."}
           </p>
-          <button type="button" className="ideas-toolbar-btn primary" onClick={onNew}>
+          <Button variant="primary" size="sm" onClick={onNew}>
             <svg
               width="13"
               height="13"
@@ -972,7 +983,7 @@ function QuestList({
               <path d="M6.5 2.5v8M2.5 6.5h8" />
             </svg>
             <span>New quest</span>
-          </button>
+          </Button>
         </div>
       </div>
     );

@@ -4,7 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import * as eventsApi from "@/api/events";
 import { useAgentEvents, useAgentEventsCache } from "@/queries/events";
 import type { AgentEvent, ScopeValue } from "@/lib/types";
-import { Button, Select } from "./ui";
+import { Button, Select, Spinner } from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
 import {
@@ -34,7 +34,7 @@ const TRANSPORT_PRESETS: TransportPreset[] = [
     label: "session · lifecycle",
     desc: "Fires at a moment in this agent's own reasoning loop.",
     patterns: [
-      { value: "session:start", label: "session starts (system-prompt moment)" },
+      { value: "session:start", label: "session starts" },
       { value: "session:step_start", label: "before every step" },
       { value: "session:quest_start", label: "when a quest starts" },
       { value: "session:quest_end", label: "when a quest ends" },
@@ -153,7 +153,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
     [patchParams],
   );
 
-  const { data: events = NO_EVENTS } = useAgentEvents(agentId);
+  const { data: events = NO_EVENTS, isLoading: eventsLoading } = useAgentEvents(agentId);
   const { invalidateEvents, patchEvent, removeEvent } = useAgentEventsCache(agentId);
 
   useEffect(() => {
@@ -408,6 +408,19 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
             }}
             onBack={() => goEntity(entityId, "events", undefined, { replace: true })}
           />
+        </div>
+      </div>
+    );
+  }
+
+  if (eventsLoading) {
+    return (
+      <div className="asv-main events-surface">
+        <div
+          className="events-surface-body"
+          style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <Spinner size="md" />
         </div>
       </div>
     );

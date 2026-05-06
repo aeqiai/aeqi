@@ -403,7 +403,11 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
               <div className="sidebar-section-label">Workspace</div>
               {navItem("agents", "Agents", <AgentsIcon />)}
-              {navItem("events", "Events", <EventsIcon />)}
+              {navItem("events", "Events", <EventsIcon />, {
+                action: rowAction("New event", <PlusIcon />, () => {
+                  navigate(`${base}/events?compose=1`);
+                }),
+              })}
               {navItem("quests", "Quests", <QuestsIcon />, {
                 action: rowAction("New quest", <PlusIcon />, () => {
                   navigate(`${base}/quests/new`);
