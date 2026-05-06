@@ -479,6 +479,15 @@ The fix is one word: `app` → `app.into_make_service_with_connect_info::<Socket
 
 **Planned stub routes MUST return explicit 501, not be left unregistered.** When a frontend feature is built against a route that isn't implemented yet (e.g. `POST /api/wallet/upgrade-to-passkey`), leaving the route unregistered causes axum's authed catch-all to return 401 "missing authorization header" — which is indistinguishable from a real auth failure. Frontend graceful-degradation logic that checks `if (msg.includes("501") || msg.toLowerCase().includes("not implemented"))` never fires; the user sees a red error banner instead of the intended "processing in background" success state. **Fix**: always register a one-liner 501 stub in aeqi-platform before shipping the frontend that calls it: `post(|| async { (StatusCode::NOT_IMPLEMENTED, Json(json!({"error": "not yet implemented"}))) })`. Cost (2026-05-05): dogfood v3 — passkey upgrade modal showed error banner for every user instead of the graceful success state.
 
+## Release tagging convention
+
+Release notes live in `RELEASES.md` at each repo root (aeqi, aeqi-platform, aeqi-landing).
+Format: `## vX.Y.Z — YYYY-MM-DD` header + `**Headline:**` one-liner + bullet list.
+The same `vX.Y.Z` annotated tag is pushed to each repo's `origin` after the RELEASES.md
+commit merges. Repos with <3 substantive commits since their last tag are skipped.
+aeqi-docs is content-only and skips the tag cycle by default (landing's build pulls it).
+aeqi-core tags only when contract-facing commits have landed.
+
 ## Platform-level friction (out of our hands)
 
 Tracked separately in `platform-friction.md`. These are paper cuts in the
