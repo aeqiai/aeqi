@@ -135,7 +135,7 @@ export default function RoleNewPage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -157,7 +157,7 @@ export default function RoleNewPage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -175,9 +175,7 @@ export default function RoleNewPage() {
                   padding: "var(--space-2) var(--space-3)",
                   borderRadius: "var(--radius-md)",
                   background:
-                    roleType === opt.value
-                      ? "var(--color-card-elevated, #fff)"
-                      : "var(--color-card)",
+                    roleType === opt.value ? "var(--color-card-elevated)" : "var(--color-card)",
                   cursor: "pointer",
                 }}
               >
@@ -200,7 +198,9 @@ export default function RoleNewPage() {
                   >
                     {opt.label}
                   </span>
-                  <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>
+                  <span
+                    style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}
+                  >
                     {opt.desc}
                   </span>
                 </span>
@@ -217,7 +217,7 @@ export default function RoleNewPage() {
               style={{
                 fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}
@@ -241,7 +241,7 @@ export default function RoleNewPage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -264,7 +264,7 @@ export default function RoleNewPage() {
               style={{
                 fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}
@@ -290,7 +290,7 @@ export default function RoleNewPage() {
               style={{
                 fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}
@@ -312,7 +312,7 @@ export default function RoleNewPage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -350,7 +350,9 @@ export default function RoleNewPage() {
                     >
                       {g.label}
                     </span>
-                    <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>
+                    <span
+                      style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}
+                    >
                       {g.desc}
                     </span>
                   </span>

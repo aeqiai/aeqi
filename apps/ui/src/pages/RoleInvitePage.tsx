@@ -92,7 +92,7 @@ export default function RoleInvitePage() {
         <div
           style={{
             padding: "var(--space-5) var(--space-6)",
-            background: "var(--color-card-elevated, #fff)",
+            background: "var(--color-card-elevated)",
             borderRadius: "var(--radius-md)",
             display: "flex",
             flexDirection: "column",
@@ -102,7 +102,13 @@ export default function RoleInvitePage() {
           <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, margin: 0 }}>
             Open invitation link created
           </p>
-          <p style={{ fontSize: "var(--font-size-xs)", color: "var(--text-secondary)", margin: 0 }}>
+          <p
+            style={{
+              fontSize: "var(--font-size-xs)",
+              color: "var(--color-text-secondary)",
+              margin: 0,
+            }}
+          >
             Anyone with this link can claim the role. It expires in 1 hour.
           </p>
           <div
@@ -163,7 +169,7 @@ export default function RoleInvitePage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -181,9 +187,7 @@ export default function RoleInvitePage() {
                   padding: "var(--space-2) var(--space-4)",
                   borderRadius: "var(--radius-md)",
                   background:
-                    targetKind === opt.value
-                      ? "var(--color-card-elevated, #fff)"
-                      : "var(--color-card)",
+                    targetKind === opt.value ? "var(--color-card-elevated)" : "var(--color-card)",
                   cursor: "pointer",
                   fontSize: "var(--font-size-sm)",
                   fontWeight: 500,
@@ -210,7 +214,7 @@ export default function RoleInvitePage() {
               style={{
                 fontSize: "var(--font-size-xs)",
                 fontWeight: 500,
-                color: "var(--text-muted)",
+                color: "var(--color-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
               }}
@@ -235,7 +239,7 @@ export default function RoleInvitePage() {
               background: "var(--color-card)",
               borderRadius: "var(--radius-md)",
               fontSize: "var(--font-size-sm)",
-              color: "var(--text-secondary)",
+              color: "var(--color-text-secondary)",
             }}
           >
             An open link lets anyone with the URL claim this role. It expires in 1 hour.
@@ -249,7 +253,7 @@ export default function RoleInvitePage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
@@ -264,7 +268,7 @@ export default function RoleInvitePage() {
             maxLength={500}
             rows={3}
           />
-          <span style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "right" }}>
+          <span style={{ fontSize: 11, color: "var(--color-text-muted)", textAlign: "right" }}>
             {welcomeNote.length}/500
           </span>
         </div>

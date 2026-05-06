@@ -79,7 +79,7 @@ export default function RoleDetailPage() {
           alignItems: "center",
           gap: 8,
           padding: "var(--space-6) var(--space-8)",
-          color: "var(--text-muted)",
+          color: "var(--color-text-muted)",
           fontSize: "var(--font-size-sm)",
         }}
       >
@@ -96,7 +96,7 @@ export default function RoleDetailPage() {
         </div>
         <Link
           to={backHref}
-          style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}
+          style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}
         >
           Back to Roles
         </Link>
@@ -121,7 +121,7 @@ export default function RoleDetailPage() {
             style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", minWidth: 0 }}
           >
             <h1 className="page-title" style={{ marginBottom: 0 }}>
-              {role.title || <em style={{ color: "var(--text-muted)" }}>(untitled)</em>}
+              {role.title || <em style={{ color: "var(--color-text-muted)" }}>(untitled)</em>}
             </h1>
             {role.founder && (
               <Badge variant="muted" size="sm">
@@ -136,7 +136,7 @@ export default function RoleDetailPage() {
             <Button variant="secondary" size="sm" onClick={() => navigate(editHref)}>
               Edit
             </Button>
-            <Button variant="secondary" size="sm" onClick={handleArchive} loading={archiving}>
+            <Button variant="danger" size="sm" onClick={handleArchive} loading={archiving}>
               Archive
             </Button>
           </div>
@@ -149,7 +149,7 @@ export default function RoleDetailPage() {
           style={{
             fontSize: "var(--font-size-xs)",
             fontWeight: 600,
-            color: "var(--text-muted)",
+            color: "var(--color-text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.08em",
             marginBottom: "var(--space-3)",
@@ -168,7 +168,7 @@ export default function RoleDetailPage() {
               borderRadius: "var(--radius-md)",
             }}
           >
-            <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
               Vacant — no one holds this role yet.
             </span>
             <Button variant="primary" size="sm" onClick={() => navigate(inviteHref)}>
@@ -182,7 +182,7 @@ export default function RoleDetailPage() {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "var(--space-4) var(--space-5)",
-              background: "var(--color-card-elevated, #fff)",
+              background: "var(--color-card-elevated)",
               borderRadius: "var(--radius-md)",
             }}
           >
@@ -193,7 +193,7 @@ export default function RoleDetailPage() {
                   height: 32,
                   borderRadius: 999,
                   background: "var(--accent)",
-                  color: "#fff",
+                  color: "var(--color-text-on-accent)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -218,7 +218,7 @@ export default function RoleDetailPage() {
                 >
                   {getOccupantDisplay(role.occupant_id, agentNames, role.occupant_name)}
                 </span>
-                <span style={{ fontSize: "var(--font-size-xs)", color: "var(--text-muted)" }}>
+                <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
                   {role.occupant_kind}
                 </span>
               </span>
@@ -236,7 +236,7 @@ export default function RoleDetailPage() {
           style={{
             fontSize: "var(--font-size-xs)",
             fontWeight: 600,
-            color: "var(--text-muted)",
+            color: "var(--color-text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.08em",
             marginBottom: "var(--space-3)",
@@ -245,7 +245,7 @@ export default function RoleDetailPage() {
           Authority
         </h2>
         {role.grants.length === 0 ? (
-          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--text-muted)" }}>
+          <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
             No grants assigned.
           </span>
         ) : (
@@ -261,7 +261,7 @@ export default function RoleDetailPage() {
                   background: "var(--color-card)",
                   fontSize: "var(--font-size-xs)",
                   fontWeight: 500,
-                  color: "var(--text-secondary)",
+                  color: "var(--color-text-secondary)",
                   fontFamily: "var(--font-mono)",
                 }}
               >
@@ -279,7 +279,7 @@ export default function RoleDetailPage() {
             style={{
               fontSize: "var(--font-size-xs)",
               fontWeight: 600,
-              color: "var(--text-muted)",
+              color: "var(--color-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.08em",
               marginBottom: "var(--space-3)",
@@ -364,7 +364,7 @@ function InvitationRow({
           style={{
             display: "block",
             fontSize: "var(--font-size-xs)",
-            color: "var(--text-muted)",
+            color: "var(--color-text-muted)",
             fontFamily: "var(--font-mono)",
           }}
         >
@@ -373,7 +373,7 @@ function InvitationRow({
             <span
               style={{
                 marginLeft: "var(--space-2)",
-                color: "var(--text-secondary)",
+                color: "var(--color-text-secondary)",
                 fontFamily: "inherit",
                 fontStyle: "italic",
               }}
