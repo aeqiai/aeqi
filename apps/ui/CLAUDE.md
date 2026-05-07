@@ -1051,6 +1051,62 @@ in some build modes and fails tsc in strict mode with "Property
 
 Cost (2026-05-04): two tsc edit passes when writing `AAEnrollmentPage`.
 
+## Popover trigger wraps in `onClick={toggle}` — Link-as-trigger fights itself
+
+`Popover.tsx` mounts its `trigger` prop inside a `<div className={styles.triggerSlot}
+onClick={toggle}>` wrapper. The wrapper's click handler always toggles the popover,
+regardless of what the trigger element does. Two consequences:
+
+1. **Don't put a `<Link>` (or any element that needs to handle its own click as the
+   primary affordance) INSIDE a Popover trigger.** Clicking the Link both navigates
+   AND toggles the popover — the popover blinks open while React Router transitions,
+   and the result is incoherent. If a row needs both "primary navigate" and
+   "secondary menu" affordances, make them SIBLINGS, not parent/child:
+
+   ```tsx
+   <div className="row">
+     <Link to="/me" className="row-primary">
+       …
+     </Link>
+     <Popover trigger={<button className="row-chevron">⋯</button>} portal>
+       …
+     </Popover>
+   </div>
+   ```
+
+   Pattern shipped 2026-05-07 in `AccountDropdown.tsx` (sidebar bottom user row).
+
+2. **The Popover root is `display: inline-block`.** When the row wrapper uses flex
+   (`.account-dropdown-row { display: flex }`), the Popover sits as a content-sized
+   sibling — its inline-block doesn't break the flex distribution. But if you ever
+   want the chevron-popover to grow, you need to wrap it in a flex item or override
+   the root's display. Don't try to set `flex: 1` on the Popover element directly —
+   that's what `triggerSlot { display: contents }` is hiding from you.
+
+   `triggerSlot { display: contents }` means the trigger ELEMENT (your button)
+   participates in the parent's flex/grid context as if the trigger wrapper weren't
+   there. Layout looks normal; click handling is still on the wrapper. This is what
+   lets a button with hover styles work cleanly inside a Popover.
+
+## Stale "already does X" comments — verify behaviour before trusting them
+
+Inline comments that describe component behaviour (especially "already routes" /
+"already handles" / "already gates X") are NOT proof of behaviour. They go stale
+when the underlying code changes and nobody updates the comment. In `LeftSidebar.tsx`
+on 2026-05-07, the comment above `<AccountDropdown />` said "the AccountDropdown
+trigger below already routes to /me on click, and a duplicate row is redundant" —
+but the underlying component opened a popover and never navigated.
+
+Rule: when a comment claims behaviour that's load-bearing for the surrounding code
+(i.e. it justifies removing or skipping something), verify the claim against the
+actual implementation before relying on it. If the comment is right, leave it. If
+it's wrong, fix EITHER the comment OR the code in the same commit — pick whichever
+matches the founder's intent. Don't let a misleading comment compound: the next
+reader will trust it the same way you almost did.
+
+Sister rule to the "Brief asserts UI duplication — grep + read transports" rule —
+inline comments are briefs from past selves. Same skepticism applies.
+
 ## `api` is an object — use `apiRequest` for raw HTTP
 
 `api` from `@/lib/api.ts` is a plain object with named methods
