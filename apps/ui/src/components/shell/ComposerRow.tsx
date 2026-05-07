@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import ChatComposer from "@/components/session/ChatComposer";
+import Composer from "@/components/composer/Composer";
 import { api } from "@/lib/api";
 import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
@@ -58,12 +58,9 @@ export default function ComposerRow({
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<{ name: string; content: string; size: number }[]>([]);
   const [ideas, setIdeas] = useState<string[]>([]);
   const [task, setTask] = useState<{ id: string; name: string } | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const dragCounter = useRef(0);
 
   const readFiles = useCallback((fl: FileList | File[]) => {
     Array.from(fl).forEach((file) => {
@@ -249,27 +246,34 @@ export default function ComposerRow({
     <div className="composer-row" ref={rowRef}>
       <div className="composer-wrap">
         <div className="persistent-composer">
-          <ChatComposer
-            input={input}
-            setInput={setInput}
+          <Composer
+            variant="shell"
+            value={input}
+            onChange={setInput}
+            onSend={handleSend}
+            placeholder={`Message ${agentDisplayName || "agent"}...`}
+            composerRef={inputRef}
             streaming={streaming}
-            displayName={agentDisplayName || "agent"}
-            sessionIdeas={ideas}
-            setSessionIdeas={setIdeas}
-            sessionTask={task}
-            setSessionTask={setTask}
+            onStop={handleStop}
+            attachmentTypes={["idea", "quest", "file"]}
+            attachedIdeas={ideas}
+            setAttachedIdeas={setIdeas}
+            attachedQuest={task}
+            setAttachedQuest={setTask}
             attachedFiles={files}
             setAttachedFiles={setFiles}
-            setShowAttachPicker={() => {}}
-            readFiles={readFiles}
-            dragOver={dragOver}
-            setDragOver={setDragOver}
-            dragCounter={dragCounter}
-            onSend={handleSend}
-            onStop={handleStop}
-            inputRef={inputRef}
-            fileInputRef={fileInputRef}
-            historySeed={historySeed}
+            // Picker lives inside AgentSessionView and is opened via
+            // ⌘P/⌘Q keydown there. The slash palette and attach icons
+            // dispatch the same intent through a window event so the
+            // bridge stays consistent regardless of which surface is
+            // mounted.
+            onAttachClick={(kind) => {
+              window.dispatchEvent(
+                new CustomEvent("aeqi:open-attach-picker", { detail: { kind } }),
+              );
+            }}
+            onReadFiles={readFiles}
+            historySource={historySeed}
           />
         </div>
       </div>

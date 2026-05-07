@@ -375,74 +375,20 @@
   white-space: pre-wrap;
 }
 
-/* ── Composer ────────────────────────────────────────────────── */
+/* ── Composer wrapper ──────────────────────────────────────────
+ * Composer body lives in `composer.css` under `.asv-composer--card`.
+ * This wrapper only adds the inbox-specific error banner above it. */
 
-.inbox-composer {
+.inbox-composer-wrap {
   display: flex;
   flex-direction: column;
-  padding: var(--space-3) var(--space-5) var(--space-4);
-  background: var(--color-card-subtle);
   flex-shrink: 0;
 }
 
 .inbox-composer-error {
   font-size: var(--font-size-xs);
   color: var(--color-error);
-  padding-bottom: var(--space-2);
-}
-
-.inbox-composer-inner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--input-radius);
-  padding: var(--space-2) var(--space-3);
-  transition:
-    border-color 0.12s ease,
-    box-shadow 0.12s ease;
-}
-
-.inbox-composer-inner:focus-within {
-  border-color: var(--input-border-focus);
-  box-shadow: var(--input-ring-focus);
-}
-
-.inbox-composer-textarea {
-  appearance: none;
-  border: none;
-  background: transparent;
-  resize: none;
-  width: 100%;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  color: var(--color-ink-text);
-  line-height: 1.5;
-  outline: none;
-  caret-color: var(--accent);
-}
-
-.inbox-composer-textarea::placeholder {
-  color: var(--color-ink-disabled);
-}
-
-.inbox-composer-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.inbox-composer-hint {
-  font-size: var(--font-size-2xs);
-  color: var(--color-ink-muted);
-}
-
-/* Actions group: archive icon + send button */
-.inbox-composer-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5) 0;
 }
 
 /* Archive button — uses .sidebar-row-action-btn base; color override for context */

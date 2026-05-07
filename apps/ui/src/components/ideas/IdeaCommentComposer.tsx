@@ -1,5 +1,6 @@
 /**
- * IdeaCommentComposer — textarea + submit for adding a comment to an idea.
+ * IdeaCommentComposer — thin wrapper around the canonical `<Composer>`
+ * primitive that adapts an idea-comment optimistic-update flow.
  *
  * Calls messageTo({ target: { kind: "idea", id }, body }).
  * On unknown_command (backend not yet wired), renders disabled with
@@ -7,10 +8,14 @@
  *
  * Optimistic update: caller supplies onOptimistic / onConfirm / onError
  * so IdeaConversationPanel can splice the temp row and swap it on resolution.
+ *
+ * Adopts canonical Enter-to-send (the prior surface used ⌘↵; chat-shape
+ * is the canonical contract per `architecture_session_primitive.md`).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Spinner, Tooltip } from "@/components/ui";
+import { useCallback, useState } from "react";
+import { Tooltip } from "@/components/ui";
+import Composer from "@/components/composer/Composer";
 import { messageTo, type CommentRow } from "@/api/sessions";
 import { useAuthStore } from "@/store/auth";
 
@@ -42,15 +47,6 @@ export default function IdeaCommentComposer({
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [comingSoon, setComingSoon] = useState(knownUnavailable);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Auto-grow the textarea as the user types.
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [body]);
 
   const submit = useCallback(async () => {
     const trimmed = body.trim();
@@ -95,46 +91,30 @@ export default function IdeaCommentComposer({
   if (comingSoon) {
     return (
       <Tooltip content="Comment posting will be available soon.">
-        <div className="idea-convo-composer idea-convo-composer--disabled" aria-disabled="true">
-          <textarea
-            className="idea-convo-composer-textarea"
+        <div aria-disabled="true">
+          <Composer
+            variant="card"
+            value=""
+            onChange={() => {}}
+            onSend={() => {}}
             placeholder="Coming soon…"
             disabled
-            rows={2}
+            sendLabel="Comment"
           />
-          <Button variant="primary" size="sm" disabled>
-            Comment
-          </Button>
         </div>
       </Tooltip>
     );
   }
 
-  const canSubmit = body.trim().length > 0 && !submitting;
-
   return (
-    <div className="idea-convo-composer">
-      <textarea
-        ref={textareaRef}
-        className="idea-convo-composer-textarea"
-        placeholder="Add a comment… (⌘↵ to send)"
-        value={body}
-        rows={2}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-            e.preventDefault();
-            void submit();
-          }
-        }}
-      />
-      <div className="idea-convo-composer-foot">
-        <span className="idea-convo-composer-hint">⌘↵ to send</span>
-        <Button variant="primary" size="sm" onClick={submit} disabled={!canSubmit}>
-          {submitting ? <Spinner size="sm" /> : null}
-          Comment
-        </Button>
-      </div>
-    </div>
+    <Composer
+      variant="card"
+      value={body}
+      onChange={setBody}
+      onSend={() => void submit()}
+      placeholder="Add a comment…"
+      disabled={submitting}
+      sendLabel="Comment"
+    />
   );
 }

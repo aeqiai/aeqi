@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Tooltip } from "../ui";
+import { Tooltip } from "@/components/ui";
+import Composer from "@/components/composer/Composer";
 import { probeDismissEndpoint } from "@/store/inbox";
 
 export interface InboxComposerProps {
@@ -30,6 +31,13 @@ function ArchiveIcon() {
   );
 }
 
+/**
+ * InboxComposer — thin wrapper around the canonical `<Composer>` primitive
+ * that provides the inbox-specific Archive button, dismiss-endpoint probe,
+ * and per-session state reset. Adopts canonical Enter-to-send (the prior
+ * surface used ⌘↵; chat-shape is the canonical contract per
+ * `architecture_session_primitive.md`).
+ */
 export default function InboxComposer({
   sessionId,
   onSend,
@@ -84,59 +92,37 @@ export default function InboxComposer({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      void send();
-    }
-  };
+  const archiveButton = (
+    <Tooltip content={dismissAvailable === false ? "Coming soon" : "Archive"}>
+      <button
+        type="button"
+        className="sidebar-row-action-btn inbox-archive-btn"
+        onClick={() => void dismiss()}
+        disabled={dismissing || dismissAvailable === false || dismissAvailable === null}
+        aria-label={dismissAvailable === false ? "Archive (coming soon)" : "Archive"}
+      >
+        <ArchiveIcon />
+      </button>
+    </Tooltip>
+  );
 
   return (
-    <div className="inbox-composer">
+    <div className="inbox-composer-wrap">
       {error && (
         <div className="inbox-composer-error" role="alert">
           {error}
         </div>
       )}
-      <div className="inbox-composer-inner">
-        <textarea
-          ref={composerRef}
-          className="inbox-composer-textarea"
-          placeholder="Reply…"
-          rows={3}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={sending}
-          aria-label="Reply"
-        />
-        <div className="inbox-composer-footer">
-          <span className="inbox-composer-hint" aria-hidden>
-            ⌘↵ to send
-          </span>
-          <div className="inbox-composer-actions">
-            <Tooltip content={dismissAvailable === false ? "Coming soon" : "Archive"}>
-              <button
-                type="button"
-                className="sidebar-row-action-btn inbox-archive-btn"
-                onClick={() => void dismiss()}
-                disabled={dismissing || dismissAvailable === false || dismissAvailable === null}
-                aria-label={dismissAvailable === false ? "Archive (coming soon)" : "Archive"}
-              >
-                <ArchiveIcon />
-              </button>
-            </Tooltip>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => void send()}
-              disabled={!body.trim() || sending}
-            >
-              {sending ? "Sending" : "Send"}
-            </Button>
-          </div>
-        </div>
-      </div>
+      <Composer
+        variant="card"
+        value={body}
+        onChange={setBody}
+        onSend={() => void send()}
+        placeholder="Reply…"
+        composerRef={composerRef}
+        disabled={sending}
+        extraActions={archiveButton}
+      />
     </div>
   );
 }

@@ -338,9 +338,20 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     window.addEventListener("keydown", handler);
     const newSessionHandler = () => handleNewConversation();
     window.addEventListener("aeqi:new-session", newSessionHandler);
+    // Bridge from ComposerRow's slash palette / attach buttons (which run
+    // outside this view's React tree) to the local picker state.
+    const openPickerHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const kind = detail?.kind;
+      if (kind === "idea" || kind === "quest") {
+        setShowAttachPicker((prev) => (prev === kind ? null : kind));
+      }
+    };
+    window.addEventListener("aeqi:open-attach-picker", openPickerHandler);
     return () => {
       window.removeEventListener("keydown", handler);
       window.removeEventListener("aeqi:new-session", newSessionHandler);
+      window.removeEventListener("aeqi:open-attach-picker", openPickerHandler);
     };
   }, [handleNewConversation]);
 

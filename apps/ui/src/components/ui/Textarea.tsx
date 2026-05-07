@@ -12,7 +12,7 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
    * styling and a11y without imposing a wrapper.
    *
    * Constraints: `bare` disables label, hint, error rendering. Use only when the
-   * parent layout controls text and form state chrome. Pages: ChatComposer, EventCanvasEditor,
+   * parent layout controls text and form state chrome. Pages: Composer, EventCanvasEditor,
    * IdeaCanvas (both).
    */
   bare?: boolean;

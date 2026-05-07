@@ -1,0 +1,116 @@
+/* ── Composer primitive — variant + mention extensions ──────────────────
+ *
+ * The base `.asv-composer*` styles in chat.css are the canonical shape.
+ * This file layers two things on top:
+ *   - `.asv-composer--card` variant (inbox / idea-comments / channels):
+ *     bordered card on a surface, replaces the surface-specific
+ *     `.inbox-composer*` and `.idea-convo-composer*` rules retired in
+ *     the composer-primitive sweep.
+ *   - `.asv-mention-list` — channel @mention autocomplete used to live
+ *     inline in ChannelComposer.tsx (inline styles); now a real
+ *     primitive class.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* Card variant — sits on a surface with padding around it. */
+.asv-composer--card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  background: var(--color-card-subtle);
+  flex-shrink: 0;
+}
+
+.asv-composer--card .asv-composer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--input-bg);
+  border-radius: var(--input-radius);
+  padding: var(--space-2) var(--space-3);
+  transition: box-shadow 0.12s ease;
+  /* Match the bordered-input shape via inset shadow rather than a 1px border
+   * (per `feedback_no_hairlines.md` — express boundary as tint shift).
+   * `--input-bg` already contrasts with `--color-card-subtle`; the focus
+   * ring takes over on focus-within. */
+  max-width: none;
+}
+
+.asv-composer--card .asv-composer-inner:focus-within {
+  box-shadow: var(--input-ring-focus);
+}
+
+.asv-composer--card .asv-textarea {
+  min-height: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  caret-color: var(--accent);
+  padding: 0;
+}
+
+/* The card variant doesn't need the "send is a wide pill" treatment —
+ * it's a paper-on-card layout. Default Send keeps the asv-send shape;
+ * extra actions (e.g. inbox Archive) sit alongside it via .asv-send-stack. */
+.asv-composer--card .asv-send-stack {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.asv-composer--card .asv-composer-footer {
+  padding-top: 0;
+}
+
+/* Card variant ribbon hides — too noisy on a small bordered card. The
+ * Composer primitive defaults `showKbdRibbon` to follow `showSlashPalette`,
+ * so absent attachments the ribbon is already off; this is a defensive
+ * hide for any caller that opts into the ribbon on a card surface. */
+.asv-composer--card .asv-composer-ribbon {
+  display: none;
+}
+
+/* ── @mention autocomplete (channel surface) ────────────────────────── */
+
+.asv-mention-list {
+  position: absolute;
+  bottom: calc(100% - var(--space-2));
+  left: var(--space-4);
+  right: var(--space-4);
+  background: var(--color-card);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-md);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+  padding: var(--space-1) 0;
+}
+
+.asv-mention-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  transition: background 0.1s;
+}
+
+.asv-mention-item:hover,
+.asv-mention-item.active {
+  background: var(--bg-subtle);
+}
+
+.asv-mention-label {
+  flex: 1;
+  letter-spacing: -0.005em;
+}
+
+.asv-mention-kind {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}

@@ -6901,62 +6901,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   word-break: break-word;
 }
 
-/* ── Composer ──────────────────────────────────────────────── */
-
-.idea-convo-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px;
-  background: var(--color-card, var(--bg-paper));
-  border-radius: var(--radius-md);
-}
-
-.idea-convo-composer--disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.idea-convo-composer-textarea {
-  width: 100%;
-  min-height: 56px;
-  max-height: 200px;
-  padding: 0;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--color-text-primary);
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  caret-color: var(--accent);
-  overflow-y: auto;
-}
-
-.idea-convo-composer-textarea::placeholder {
-  color: var(--color-text-muted);
-  opacity: 0.6;
-}
-
-.idea-convo-composer-textarea:disabled {
-  cursor: not-allowed;
-}
-
-.idea-convo-composer-foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.idea-convo-composer-hint {
-  font-size: 10.5px;
-  color: var(--color-text-muted);
-  margin-right: auto;
-}
-
 /* ── Tables-in-Ideas Phase 2.1 — property chips + children list ── */
 
 .idea-properties {
