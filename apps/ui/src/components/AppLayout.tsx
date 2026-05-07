@@ -286,6 +286,18 @@ export default function AppLayout() {
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
+  // Channels are an agent-rail primitive only — see
+  // `apps/ui/CLAUDE.md` "Channels are an agent-rail primitive only".
+  // The company-scope `/c/<id>/channels` and trust-scope
+  // `/trust/<addr>/channels` URLs were briefly shipped 2026-05-07
+  // and reverted same day. Redirect any stale link/bookmark to the
+  // entity overview. The drilled-agent path
+  // `/c/<id>/agents/<aid>/channels` is the canonical surface and is
+  // unaffected (gated by `!drilledAgent` here).
+  if (tab === "channels" && isEntityRoute && !drilledAgent) {
+    return <Navigate to={`${base}${search}`} replace />;
+  }
+
   const mainContent = (() => {
     if (isNotFound) return <NotFoundPage />;
     if (isRolesNew) return <RoleNewPage />;
