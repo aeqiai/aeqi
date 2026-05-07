@@ -7225,6 +7225,16 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .ideas-kanban-card.is-pending {
   opacity: 0.6;
 }
+.ideas-kanban-card[draggable="true"] {
+  cursor: grab;
+}
+.ideas-kanban-card.is-dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+.ideas-kanban-col.is-drag-over {
+  background: var(--color-card-elevated);
+}
 .ideas-kanban-card-name {
   font-family: var(--font-sans);
   font-size: 13px;

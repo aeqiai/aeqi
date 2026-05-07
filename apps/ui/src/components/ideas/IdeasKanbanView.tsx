@@ -1,3 +1,4 @@
+import type React from "react";
 import { useMemo, useState } from "react";
 import { Button, Tooltip } from "../ui";
 import IdeasViewPopover, { type IdeasView } from "./IdeasViewPopover";
@@ -11,9 +12,11 @@ import type { Idea } from "@/lib/types";
  *
  * Groups Ideas by `properties.status` (or, if absent, by the first
  * enum-shaped property key found in the visible set). Default columns
- * are `todo / in_progress / done`. Click a card's status pill to step
- * through statuses (Phase 2.0 — drag-and-drop deferred to Phase 2.5
- * per the brief).
+ * are `todo / in_progress / done`. Two interactions change status:
+ * (1) click a card's status pill to cycle to the next lane (Phase 2.0),
+ * (2) drag a card across lanes to drop it into a new status (Phase 2.5,
+ * HTML5 native — no library). Within-lane reordering is deferred to
+ * a later phase (would need a manual_order column).
  */
 export interface IdeasKanbanViewProps {
   agentId: string;
@@ -71,6 +74,8 @@ export default function IdeasKanbanView({
 }: IdeasKanbanViewProps) {
   const queryClient = useQueryClient();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverLane, setDragOverLane] = useState<Lane | null>(null);
 
   const lanes = useMemo(() => lanesForIdeas(ideas), [ideas]);
 
@@ -86,19 +91,60 @@ export default function IdeasKanbanView({
     return map;
   }, [ideas, lanes]);
 
-  async function cycleStatus(idea: Idea) {
-    const current = ideaProperties(idea).status;
-    const target = nextLaneFor(typeof current === "string" ? current : undefined, lanes);
-    if (target === null) return;
-    setPendingId(idea.id);
+  async function setStatus(ideaId: string, target: string) {
+    setPendingId(ideaId);
     try {
-      await setIdeaProperties(idea.id, { status: target });
+      await setIdeaProperties(ideaId, { status: target });
       // Invalidate every Idea query — cheap; the view re-derives from
       // the daemon-store hydrate path.
       await queryClient.invalidateQueries({ queryKey: ideaKeys.all });
     } finally {
       setPendingId(null);
     }
+  }
+
+  async function cycleStatus(idea: Idea) {
+    const current = ideaProperties(idea).status;
+    const target = nextLaneFor(typeof current === "string" ? current : undefined, lanes);
+    if (target === null) return;
+    await setStatus(idea.id, target);
+  }
+
+  function handleDragStart(e: React.DragEvent<HTMLElement>, idea: Idea) {
+    e.dataTransfer.setData("text/plain", idea.id);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggingId(idea.id);
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null);
+    setDragOverLane(null);
+  }
+
+  function handleLaneDragOver(e: React.DragEvent<HTMLElement>, lane: Lane) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverLane !== lane) setDragOverLane(lane);
+  }
+
+  function handleLaneDragLeave(e: React.DragEvent<HTMLElement>, lane: Lane) {
+    // Only clear when leaving the lane container itself, not a child.
+    if (e.currentTarget === e.target && dragOverLane === lane) {
+      setDragOverLane(null);
+    }
+  }
+
+  async function handleLaneDrop(e: React.DragEvent<HTMLElement>, lane: Lane) {
+    e.preventDefault();
+    const ideaId = e.dataTransfer.getData("text/plain");
+    setDraggingId(null);
+    setDragOverLane(null);
+    if (!ideaId || lane === UNSET_LANE) return;
+    const idea = ideas.find((i) => i.id === ideaId);
+    if (!idea) return;
+    const current = ideaProperties(idea).status;
+    if (typeof current === "string" && current === lane) return;
+    await setStatus(ideaId, lane);
   }
 
   return (
@@ -131,8 +177,18 @@ export default function IdeasKanbanView({
       <div className="ideas-kanban" role="region" aria-label="Ideas kanban">
         {lanes.map((lane) => {
           const cards = grouped.get(lane) ?? [];
+          const isDropTarget = lane !== UNSET_LANE;
+          const isDragOver = dragOverLane === lane && isDropTarget;
+          const laneClass = `ideas-kanban-col${isDragOver ? " is-drag-over" : ""}`;
           return (
-            <section key={lane} className="ideas-kanban-col" aria-label={`${lane} lane`}>
+            <section
+              key={lane}
+              className={laneClass}
+              aria-label={`${lane} lane`}
+              onDragOver={isDropTarget ? (e) => handleLaneDragOver(e, lane) : undefined}
+              onDragLeave={isDropTarget ? (e) => handleLaneDragLeave(e, lane) : undefined}
+              onDrop={isDropTarget ? (e) => void handleLaneDrop(e, lane) : undefined}
+            >
               <header className="ideas-kanban-col-head">
                 <span className="ideas-kanban-col-label">{lane}</span>
                 <span className="ideas-kanban-col-count">{cards.length}</span>
@@ -144,10 +200,21 @@ export default function IdeasKanbanView({
                   cards.map((idea) => {
                     const status = ideaProperties(idea).status;
                     const statusLabel = typeof status === "string" ? status : UNSET_LANE;
+                    const isDragging = draggingId === idea.id;
+                    const cardClass = [
+                      "ideas-kanban-card",
+                      pendingId === idea.id ? "is-pending" : "",
+                      isDragging ? "is-dragging" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
                     return (
                       <article
                         key={idea.id}
-                        className={`ideas-kanban-card${pendingId === idea.id ? " is-pending" : ""}`}
+                        className={cardClass}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, idea)}
+                        onDragEnd={handleDragEnd}
                       >
                         <button
                           type="button"
