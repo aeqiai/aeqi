@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import { apiRequest } from "@/api/client";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { createDraftId, useChatStore, type PendingMessage } from "@/store/chat";
@@ -8,150 +7,11 @@ import { useMessageProcessor } from "./session/useMessageProcessor";
 import { useSessionManager } from "./session/useSessionManager";
 import { useWebSocketChat } from "./session/useWebSocketChat";
 import { useFileAttachments } from "./session/useFileAttachments";
-import BlockAvatar from "./BlockAvatar";
 import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
 import AwaitingBanner from "./session/AwaitingBanner";
-
-// ── Session participant strip ──────────────────────────────────────────────
-
-interface Participant {
-  id: string;
-  name: string;
-  kind: "user" | "agent" | "position";
-}
-
-const MAX_PARTICIPANTS_INLINE = 5;
-
-function useParticipants(
-  sessionId: string | null,
-  fallbackAgentId: string,
-  fallbackAgentName: string,
-  userEmail: string,
-): Participant[] {
-  const [participants, setParticipants] = useState<Participant[] | null>(null);
-
-  useEffect(() => {
-    if (!sessionId) {
-      setParticipants(null);
-      return;
-    }
-    let cancelled = false;
-    apiRequest<{ participants?: Array<{ id: string; name?: string; kind?: string }> }>(
-      `/sessions/${sessionId}/participants`,
-    )
-      .then((res) => {
-        if (cancelled) return;
-        const raw = res?.participants;
-        if (Array.isArray(raw) && raw.length > 0) {
-          setParticipants(
-            raw.map((p) => ({
-              id: p.id ?? "",
-              name: p.name ?? p.id ?? "",
-              kind: (p.kind as Participant["kind"]) ?? "agent",
-            })),
-          );
-        } else {
-          setParticipants(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setParticipants(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId]);
-
-  // Fallback: [agent, you] from session metadata when endpoint returns 404 / empty
-  if (participants !== null) return participants;
-  const fallback: Participant[] = [
-    { id: fallbackAgentId, name: fallbackAgentName, kind: "agent" },
-    { id: "you", name: userEmail || "You", kind: "user" },
-  ];
-  return fallback;
-}
-
-function AddParticipantModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="asv-participant-modal-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="asv-participant-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add participant"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="asv-participant-modal-title">Add participant</p>
-        <p className="asv-participant-modal-body">
-          Use the <code>add_participant</code> API directly for now.
-        </p>
-        <button type="button" className="asv-participant-modal-close" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SessionParticipantStrip({
-  sessionId,
-  agentId,
-  agentName,
-  userEmail,
-}: {
-  sessionId: string | null;
-  agentId: string;
-  agentName: string;
-  userEmail: string;
-}) {
-  const [showModal, setShowModal] = useState(false);
-  const participants = useParticipants(sessionId, agentId, agentName, userEmail);
-
-  if (!sessionId) return null;
-
-  const inline = participants.slice(0, MAX_PARTICIPANTS_INLINE);
-  const overflow = participants.length - inline.length;
-
-  return (
-    <>
-      <div className="asv-participant-strip">
-        <div className="asv-participant-strip-avatars">
-          {inline.map((p) => (
-            <div key={p.id} className="asv-participant-avatar" title={p.name}>
-              <BlockAvatar name={p.name} size={18} />
-            </div>
-          ))}
-          {overflow > 0 && (
-            <div className="asv-participant-overflow" title={`${overflow} more`}>
-              +{overflow}
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          className="sidebar-row-action-btn asv-participant-add-btn"
-          aria-label="Add participant"
-          title="Add participant"
-          onClick={() => setShowModal(true)}
-        >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-        </button>
-      </div>
-      {showModal && <AddParticipantModal onClose={() => setShowModal(false)} />}
-    </>
-  );
-}
+import ParticipantStrip from "./sessions/ParticipantStrip";
 
 // ── Queued draft helpers ───────────────────────────────────────────────────
 
@@ -192,7 +52,6 @@ interface AgentSessionProps {
 
 export default function AgentSessionView({ agentId, sessionId: urlSessionId }: AgentSessionProps) {
   const token = useAuthStore((s) => s.token);
-  const userEmail = useAuthStore((s) => s.user?.email ?? "");
   const agents = useDaemonStore((s) => s.agents);
 
   const agentInfo = agents.find((a) => a.id === agentId);
@@ -531,12 +390,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       onDragLeave={fileAttachments.handleDragLeave}
     >
       <div className="asv-main">
-        <SessionParticipantStrip
-          sessionId={activeSessionId}
-          agentId={agentId}
-          agentName={agentName}
-          userEmail={userEmail}
-        />
+        <ParticipantStrip sessionId={activeSessionId} />
         <AwaitingBanner sessionId={activeSessionId} agentName={agentName} />
         <div className="asv-messages" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
           {messages.length === 0 && queuedDrafts.length === 0 && !streaming && (

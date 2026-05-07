@@ -409,6 +409,8 @@ const MessageItem = memo(function MessageItem({
   const agents = useDaemonStore((s) => s.agents);
   const userEmail = useAuthStore((s) => s.user?.email ?? "");
   const currentUserId = useAuthStore((s) => s.user?.id ?? "");
+  const currentUserName = useAuthStore((s) => s.user?.name ?? "");
+  const currentUserAvatarUrl = useAuthStore((s) => s.user?.avatar_url ?? "");
 
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -498,10 +500,27 @@ const MessageItem = memo(function MessageItem({
   // "this is a formal ask, not a chat reply".
   const isAsk = msg.source === "question.ask";
 
-  // Avatar: agent and position kinds render a left-side BlockAvatar with name.
-  const showAvatar = author.kind === "agent" || author.kind === "position";
+  // Avatar: agent + position render a left-side BlockAvatar; user renders a
+  // right-side BlockAvatar (or photo when avatar_url is set on the current
+  // user). System messages have no avatar.
+  const showAvatar =
+    author.kind === "agent" || author.kind === "position" || author.kind === "user";
   const avatarName =
-    author.kind === "agent" ? author.name : author.kind === "position" ? author.title : "";
+    author.kind === "agent"
+      ? author.name
+      : author.kind === "position"
+        ? author.title
+        : author.kind === "user"
+          ? author.id && currentUserId && author.id === currentUserId
+            ? currentUserName || author.name || userEmail || "You"
+            : author.name || "User"
+          : "";
+  // Photo URL — only for the current user's own avatar (we don't have other
+  // users' photos in the session message payload yet).
+  const avatarPhotoUrl =
+    author.kind === "user" && author.id && currentUserId && author.id === currentUserId
+      ? currentUserAvatarUrl || ""
+      : "";
 
   // Author header label — small line above the bubble that names the sender.
   // Becomes load-bearing in 3+ participant sessions where the avatar alone
@@ -518,16 +537,36 @@ const MessageItem = memo(function MessageItem({
             : "You"
           : null;
 
+  const isUserAuthor = author.kind === "user";
+  const avatarBlock = showAvatar ? (
+    <div className="asv-msg-avatar">
+      {avatarPhotoUrl ? (
+        <img
+          src={avatarPhotoUrl}
+          alt={avatarName}
+          width={20}
+          height={20}
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: "999px",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      ) : (
+        <BlockAvatar name={avatarName} size={20} />
+      )}
+      {author.kind === "position" && <PositionChip title={author.title} />}
+    </div>
+  ) : null;
+
   return (
     <div
       className={`asv-msg ${bubbleClass}${msg.queued ? " asv-msg-queued" : ""}${isAsk ? " asv-msg-ask" : ""}`}
     >
-      {showAvatar && (
-        <div className="asv-msg-avatar">
-          <BlockAvatar name={avatarName} size={20} />
-          {author.kind === "position" && <PositionChip title={author.title} />}
-        </div>
-      )}
+      {/* Agent / position avatar sits to the LEFT of the body. */}
+      {!isUserAuthor && avatarBlock}
       <div className="asv-msg-body">
         {authorLabel && <div className="asv-msg-author">{authorLabel}</div>}
         {isAsk && (
@@ -649,6 +688,10 @@ const MessageItem = memo(function MessageItem({
           </div>
         )}
       </div>
+      {/* User avatar sits to the RIGHT of the body — mirror of the agent's
+          left-side avatar. The row's `justify-content: flex-end` packs both
+          children at the right edge with the body to the avatar's left. */}
+      {isUserAuthor && avatarBlock}
     </div>
   );
 });

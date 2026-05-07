@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import { sessionDeepUrl } from "@/lib/sessionUrl";
 import { useNavigate } from "react-router-dom";
 import InboxComposer from "./InboxComposer";
+import ParticipantStrip from "@/components/sessions/ParticipantStrip";
 import type { InboxRow } from "./types";
 
 export interface InboxDetailProps {
@@ -85,6 +86,9 @@ export default function InboxDetail({
 
   return (
     <div className="inbox-detail">
+      {/* Participant strip — multi-participant native; mounts above the
+          header so the avatar row reads as the session's "who's here" cap. */}
+      <ParticipantStrip sessionId={row.id} entityId={row.entity_id ?? undefined} />
       {/* Header */}
       <div className="inbox-detail-header">
         <div className="inbox-detail-header-from">
