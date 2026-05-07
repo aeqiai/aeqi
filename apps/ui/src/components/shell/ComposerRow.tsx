@@ -31,7 +31,7 @@ interface ComposerRowProps {
  *   1. If AgentSessionView is mounted, fire `aeqi:send-message` — the
  *      active view picks it up and dispatches it through its websocket.
  *   2. Otherwise (user is on /:agent/quests, /events, etc.) stash the
- *      payload in chat store and navigate to /:agent/sessions. The chat
+ *      payload in chat store and navigate to /:agent/inbox. The chat
  *      view drains `pendingMessage` on mount and the send continues
  *      seamlessly.
  */
@@ -49,11 +49,7 @@ export default function ComposerRow({
   const agent = agentId ? agents.find((a) => a.id === agentId) : undefined;
   const agentDisplayName = agent?.name || agentId || "";
   const currentSessionId =
-    explicitSessionId !== undefined
-      ? explicitSessionId
-      : tab === "sessions"
-        ? itemId || null
-        : null;
+    explicitSessionId !== undefined ? explicitSessionId : tab === "inbox" ? itemId || null : null;
 
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -91,7 +87,7 @@ export default function ComposerRow({
       window.dispatchEvent(new CustomEvent("aeqi:send-message", { detail }));
     } else {
       if (agentId) setPendingMessage(agentId, detail);
-      navigate(`${base}/sessions`);
+      navigate(`${base}/inbox`);
     }
     setInput("");
     setFiles([]);

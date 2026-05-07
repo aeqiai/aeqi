@@ -7,28 +7,32 @@ import { recencyBucket, timeShort } from "@/lib/format";
 import { sessionDeepUrl } from "@/lib/sessionUrl";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionsToolbar from "@/components/sessions/SessionsToolbar";
+import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
+import SessionsFilterPopover, {
+  type SessionsFilterState,
+} from "@/components/sessions/SessionsFilterPopover";
 
 const NO_SESSIONS: SessionInfo[] = [];
 
+const DEFAULT_FILTER: SessionsFilterState = { status: "all" };
+
 /**
  * Sessions rail — the left-adjacent index column for the drilled-agent
- * chat surface. Renders the canonical `<SessionsToolbar>` (search +
- * sort/filter slots) above the universal `<SessionRail>` primitive.
+ * inbox. Renders the canonical `<SessionsToolbar>` (search + sort +
+ * filter, slot-based) above the universal `<SessionRail>` primitive.
  * Adapts the chat-store sessions list into `SessionRailRow`s; awaiting
- * rows are flagged via the inbox store. The user-scope inbox lives at
- * `/me/inbox` (MeInboxPage) and mounts the same primitive pair.
+ * rows are flagged via the inbox store. The user-scope inbox at
+ * `/me/inbox` (MeInboxPage) mounts the same primitive pair through
+ * `<InboxToolbar>` — both surfaces read as the same chrome shape.
  *
- * Sort / filter slots are intentionally empty here — agent-rail
- * sessions sort by recency only, no decision-vs-system kind split, no
- * cross-entity filter. The shared toolbar shell still gives both
- * surfaces one search field at the top of the rail; matching is
- * client-side substring against `primary` and `secondary`.
+ * Sort: recent (default) / oldest first.
+ * Filter: status — all / active / archived. Matches `s.status === "active"`.
  *
  * Row shape is single-line h=32 across both adopters — visual parity
  * with the inbox.
  */
 export default function SessionsRail() {
-  // Mounted only under `/c/<entity>/agents/<agent>/sessions[/...]` per
+  // Mounted only under `/c/<entity>/agents/<agent>/inbox[/...]` per
   // AppLayout's `showSessionsRail` gate, so both params are populated.
   const { entityId, agentId, itemId } = useParams<{
     entityId?: string;
@@ -47,10 +51,21 @@ export default function SessionsRail() {
   );
 
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SessionsSort>("recent");
+  const [filter, setFilter] = useState<SessionsFilterState>(DEFAULT_FILTER);
+
+  const patchFilter = useCallback((patch: Partial<SessionsFilterState>) => {
+    setFilter((prev) => ({ ...prev, ...patch }));
+  }, []);
 
   const allRows = useMemo<SessionRailRow[]>(() => {
-    return sessions
+    const mapped = sessions
       .filter((s) => s.session_type !== "task")
+      .filter((s) => {
+        if (filter.status === "all") return true;
+        const isActive = s.status === "active" || s.status === "running";
+        return filter.status === "active" ? isActive : !isActive;
+      })
       .map((s) => {
         const tsRaw = s.last_active || s.created_at;
         const ts = tsRaw ? new Date(tsRaw).getTime() : 0;
@@ -63,9 +78,11 @@ export default function SessionsRail() {
           group: recencyBucket(tsRaw ?? null),
           sortKey: ts,
         };
-      })
-      .sort((a, b) => b.sortKey - a.sortKey);
-  }, [sessions, awaitingSessionIds]);
+      });
+    return mapped.sort((a, b) =>
+      sort === "recent" ? b.sortKey - a.sortKey : a.sortKey - b.sortKey,
+    );
+  }, [sessions, awaitingSessionIds, filter, sort]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -90,7 +107,13 @@ export default function SessionsRail() {
 
   return (
     <>
-      <SessionsToolbar query={query} onQuery={setQuery} searchPlaceholder="Search sessions" />
+      <SessionsToolbar
+        query={query}
+        onQuery={setQuery}
+        searchPlaceholder="Search inbox"
+        sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
+        filter={<SessionsFilterPopover filter={filter} onChange={patchFilter} />}
+      />
       <SessionRail
         rows={rows}
         selectedId={itemId ?? null}

@@ -54,7 +54,7 @@ export default function ContentTopBar() {
   const agent =
     (agentId ? agents.find((a) => a.id === agentId) : null) ??
     (entityId ? (agents.find((a) => a.entity_id === entityId) ?? null) : null);
-  const section = tab || "sessions";
+  const section = tab || "overview";
   const primitiveWord = PRIMITIVE_WORDS[section];
   // User-scoped topbar: mirror the agent-topbar shape when we're on
   // the user's own surfaces (/, /settings). Avatar + name on the left,
@@ -97,7 +97,7 @@ export default function ContentTopBar() {
             </Tooltip>
           ))}
         {agent &&
-          (section === "sessions" ? (
+          (section === "inbox" ? (
             <span className="content-topbar-agent">
               <span className="content-topbar-agent-avatar" aria-hidden>
                 <AgentAvatar name={agentName} />

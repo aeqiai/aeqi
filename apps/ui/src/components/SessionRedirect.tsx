@@ -11,7 +11,7 @@ interface Resolved {
 
 /**
  * Bounces the legacy flat `/sessions/:sessionId` URL onto the canonical
- * deep shape `/c/<entity>/agents/<agent>/sessions/<sessionId>`.
+ * deep shape `/c/<entity>/agents/<agent>/inbox/<sessionId>`.
  *
  * Resolution order:
  * 1. Inbox store (sync, populated for awaiting sessions).
@@ -83,6 +83,6 @@ export default function SessionRedirect() {
   if (resolveFailed) return <Navigate to="/" replace />;
   if (!resolved) return null;
 
-  const deep = `/c/${encodeURIComponent(resolved.entityId)}/agents/${encodeURIComponent(resolved.agentId)}/sessions/${encodeURIComponent(sessionId)}`;
+  const deep = `/c/${encodeURIComponent(resolved.entityId)}/agents/${encodeURIComponent(resolved.agentId)}/inbox/${encodeURIComponent(sessionId)}`;
   return <Navigate to={deep} replace />;
 }

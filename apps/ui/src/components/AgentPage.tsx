@@ -39,11 +39,11 @@ const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
 // far left, sessions list to its right, chat to the right of that.
 export const AGENT_RAIL_TABS = [
   { id: "overview", label: "Overview" },
-  // Personality slots between Overview and Sessions per the agent rail
+  // Personality slots between Overview and Inbox per the agent rail
   // v1 spec amendment — the most-common operator action ("teach the
   // agent") is one click off Overview.
   { id: "personality", label: "Personality" },
-  { id: "sessions", label: "Inbox" },
+  { id: "inbox", label: "Inbox" },
   { id: "quests", label: "Quests" },
   { id: "events", label: "Events" },
   { id: "ideas", label: "Ideas" },
@@ -54,13 +54,13 @@ export const AGENT_RAIL_TABS = [
   { id: "settings", label: "Settings" },
 ];
 
-// Routes that AgentPage knows how to render. No-tab resolves to the Sessions
-// surface — the agent's home landing. ContentTopBar is the primary nav and
-// lives outside of this component.
+// Routes that AgentPage knows how to render. No-tab resolves to the Overview
+// surface — the agent's canonical landing. ContentTopBar is the primary nav
+// and lives outside of this component.
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "personality", label: "Personality" },
-  { id: "sessions", label: "Inbox" },
+  { id: "inbox", label: "Inbox" },
   { id: "settings", label: "Settings" },
   { id: "roles", label: "Roles" },
   { id: "agents", label: "Agents" },
@@ -85,8 +85,8 @@ export default function AgentPage({
   const params = useParams<{ tab?: string; itemId?: string }>();
   const routeTab = tabProp ?? params.tab;
   const itemId = itemIdProp ?? params.itemId;
-  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "sessions";
-  const sessionId = activeTab === "sessions" ? itemId || null : null;
+  const activeTab = routeTab && TABS.some((t) => t.id === routeTab) ? routeTab : "overview";
+  const sessionId = activeTab === "inbox" ? itemId || null : null;
 
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);
@@ -140,7 +140,7 @@ export default function AgentPage({
 
         {activeTab === "personality" && <PersonalityPage agentId={resolvedAgentId} />}
 
-        {activeTab === "sessions" && (
+        {activeTab === "inbox" && (
           <div className="agent-page-chat">
             <AgentSessionView agentId={agentId} sessionId={sessionId} />
           </div>

@@ -38,7 +38,7 @@ describe("PrimitivePreview", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/sessions"]}>
+        <MemoryRouter initialEntries={["/c/root-1/inbox"]}>
           <Routes>
             <Route
               path="c/:entityId/:tab"
@@ -77,7 +77,7 @@ describe("PrimitivePreview", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/sessions"]}>
+        <MemoryRouter initialEntries={["/c/root-1/inbox"]}>
           <Routes>
             <Route
               path="c/:entityId/:tab"

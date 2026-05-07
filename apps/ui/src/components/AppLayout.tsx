@@ -128,7 +128,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     const titles: Record<string, string> = {
-      sessions: "home",
+      inbox: "Inbox",
       channels: "Channels",
       drive: "Drive",
       settings: "Settings",
@@ -140,13 +140,12 @@ export default function AppLayout() {
       quests: "Quests",
       ideas: "Ideas",
       overview: "Overview",
-      inbox: "Inbox",
       roles: "Roles",
       ownership: "Ownership",
       treasury: "Treasury",
       governance: "Governance",
     };
-    const section = tab || "sessions";
+    const section = tab || "overview";
     const sectionTitle = titles[section] || section;
     const label = drilledAgent?.name ?? rootAgent?.name;
     document.title = label ? `${sectionTitle} — ${label} · æiq` : "æiq";
@@ -256,10 +255,10 @@ export default function AppLayout() {
   // No-tab default at entity scope = "overview" (the company
   // dashboard is the canonical landing). `/` is served outside this
   // shell as the public Discover page, so it never reaches AppLayout.
-  // Drilled agents default to "sessions" so the bare drilled URL opens
-  // chat.
+  // Drilled agents also default to "overview" — clicking on an agent
+  // lands on its cockpit, not its chat. Inbox is one click off.
   const isEntityRoute = !!(routeEntityId || routeTrustAddress);
-  const effectiveTab = tab || (isEntityRoute && !drilledAgent ? "overview" : "sessions");
+  const effectiveTab = tab || "overview";
 
   // Runtime mode has no account-level identity surface.
   if (isSettings && appMode && appMode !== "platform") {
@@ -275,6 +274,18 @@ export default function AppLayout() {
   // to nothing — bounce up to the company shell.
   if (routeAgentId && !drilledAgent && encodedEntityId) {
     return <Navigate to={`${base}${search}`} replace />;
+  }
+
+  // Backward-compat: the drilled-agent inbox URL was previously
+  // `/c/<entity>/agents/<agent>/sessions[/<sid>]`. The canonical
+  // shape is now `/inbox` instead of `/sessions`. Replace-navigate
+  // any stale links/bookmarks onto the new shape — the closest
+  // thing to a 308 in a SPA. Mirrors the company-scope `/sessions`
+  // case as well (no drilled agent, root-agent inbox).
+  if (tab === "sessions" && encodedEntityId) {
+    const suffix = itemId ? `/inbox/${encodeURIComponent(itemId)}` : "/inbox";
+    const agentSeg = drilledAgent ? `/agents/${encodeURIComponent(drilledAgent.id)}` : "";
+    return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
   const mainContent = (() => {
@@ -320,9 +331,9 @@ export default function AppLayout() {
   })();
 
   // The chat composer + sessions rail only belong on the chat surface
-  // (drilled agent at /c/<entity>/agents/<id>/sessions[/<sid>]). Inbox,
+  // (drilled agent at /c/<entity>/agents/<id>/inbox[/<sid>]). Inbox,
   // company overview, list pages — none of these mount the composer.
-  // The legacy `/sessions/<id>` URL redirects to the deep shape
+  // The legacy flat `/sessions/<id>` URL redirects to the deep shape
   // outside this shell, so we don't special-case it.
   const sessionsMounted =
     !isNotFound &&
@@ -333,7 +344,7 @@ export default function AppLayout() {
     !isEconomy &&
     !isBlueprints &&
     !isStudio &&
-    effectiveTab === "sessions";
+    effectiveTab === "inbox";
   const showComposer = sessionsMounted;
   const showSessionsRail = sessionsMounted && !!isEntityRoute && !!drilledAgent;
 
@@ -362,7 +373,7 @@ export default function AppLayout() {
                 {showAgentRail && (
                   <PageRail
                     tabs={AGENT_RAIL_TABS}
-                    defaultTab="sessions"
+                    defaultTab="overview"
                     title="Agent"
                     basePath={agentRailBase}
                     currentValue={agentRailCurrent}

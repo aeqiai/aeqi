@@ -223,11 +223,11 @@ describe("shell components smoke", () => {
     const errors = captureRenderErrors(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/c/root-1/agents/child-1/sessions"]}>
+          <MemoryRouter initialEntries={["/c/root-1/agents/child-1/inbox"]}>
             <Routes>
               <Route
                 path="c/:entityId/*"
-                element={<LeftSidebar entityId="root-1" path="/c/root-1/agents/child-1/sessions" />}
+                element={<LeftSidebar entityId="root-1" path="/c/root-1/agents/child-1/inbox" />}
               />
             </Routes>
           </MemoryRouter>
@@ -256,7 +256,7 @@ describe("shell components smoke", () => {
   it("ComposerRow renders with a mounted chat (event-bridge path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/sessions"]}>
+        <MemoryRouter initialEntries={["/c/root-1/inbox"]}>
           <Routes>
             <Route
               path="c/:entityId/*"

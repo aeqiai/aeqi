@@ -31,12 +31,12 @@ export function useSessionManager({
     sessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Navigate helpers. The company sessions landing is the bare
-  // `/c/:entityId` URL — there is no `/sessions` suffix when no session is
+  // Navigate helpers. The company inbox landing is the bare
+  // `/c/:entityId` URL — there is no `/inbox` suffix when no session is
   // picked. Only append the tab segment when we have a real sessionId.
   const setSession = useCallback(
     (sid: string | null) => {
-      if (sid) goEntity(entityId, "sessions", sid, { replace: true });
+      if (sid) goEntity(entityId, "inbox", sid, { replace: true });
       else goEntity(entityId, undefined, undefined, { replace: true });
     },
     [entityId, goEntity],

@@ -28,12 +28,11 @@ export interface SessionsToolbarProps {
  * domain semantics (inbox kind/entity vs agent status, etc.) live with
  * the surface, not in this primitive.
  *
- * Adopters today:
- *  - components/inbox/InboxToolbar.tsx — wraps this with inbox sort +
- *    filter popovers.
- *  - components/shell/SessionsRail.tsx — mounts this above the rail
- *    with search-only (no sort/filter slot) on the drilled-agent
- *    surface.
+ * Adopters today (both render search + sort + filter for parity):
+ *  - components/inbox/InboxToolbar.tsx — wraps this with inbox kind +
+ *    entity popovers.
+ *  - components/shell/SessionsRail.tsx — wraps this with sessions sort
+ *    + status popovers on the drilled-agent surface.
  */
 export default function SessionsToolbar({
   query,

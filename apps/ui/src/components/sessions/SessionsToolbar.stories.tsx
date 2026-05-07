@@ -11,7 +11,7 @@ const meta: Meta<typeof SessionsToolbar> = {
     docs: {
       description: {
         component:
-          "Canonical toolbar for every conversation surface that mounts a `<SessionRail>`: search + sort + filter, in the chrome zone above the row list. Search is mandatory; sort and filter are slot-based so the domain semantics (inbox kind/entity vs agent status) live with the surface, not the primitive. Adopters: `InboxToolbar` (wraps with kind+entity popovers) and `shell/SessionsRail` (search-only on the drilled-agent surface).",
+          "Canonical toolbar for every conversation surface that mounts a `<SessionRail>`: search + sort + filter, in the chrome zone above the row list. Search is mandatory; sort and filter are slot-based so the domain semantics (inbox kind/entity vs agent session status) live with the surface, not the primitive. Both adopters — `InboxToolbar` (kind/entity popovers) and `shell/SessionsRail` (sort + status popovers) — render the same chrome shape; only the popover internals differ.",
       },
     },
   },
