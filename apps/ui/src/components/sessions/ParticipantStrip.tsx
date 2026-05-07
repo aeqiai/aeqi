@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "@/api/client";
 import BlockAvatar from "@/components/BlockAvatar";
+import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
 import AddParticipantModal from "./AddParticipantModal";
 
 /**
@@ -130,11 +132,46 @@ export default function ParticipantStrip({
     void loadParticipants(sessionId);
   }, [sessionId, loadParticipants]);
 
+  // Cross-reference the API's participant list with daemon-store agents and
+  // the auth-store user so the avatar + display name match what `MessageItem`
+  // renders for the same identity. The /sessions/<id>/participants endpoint
+  // omits avatar_url for agents (no daemon photo), and reports humans by their
+  // session-time name (often a truncated email prefix), so without this seam
+  // the same identity ends up with a different BlockAvatar in the strip vs
+  // the message bubble.
+  const agents = useDaemonStore((s) => s.agents);
+  const currentUser = useAuthStore((s) => s.user);
+
+  const enriched = useMemo(
+    () =>
+      (participants ?? []).map((p) => {
+        if (p.kind === "agent") {
+          const a = agents.find((x) => x.id === p.id);
+          if (a) {
+            return {
+              ...p,
+              avatar_url: a.avatar ?? p.avatar_url,
+              name: a.name ?? p.name,
+            };
+          }
+          return p;
+        }
+        if (p.kind === "user" && currentUser && currentUser.id === p.id) {
+          return {
+            ...p,
+            avatar_url: currentUser.avatar_url ?? p.avatar_url,
+            name: currentUser.name ?? p.name,
+          };
+        }
+        return p;
+      }),
+    [participants, agents, currentUser],
+  );
+
   if (!sessionId) return null;
 
-  const list = participants ?? [];
-  const inline = list.slice(0, MAX_PARTICIPANTS_INLINE);
-  const overflow = list.length - inline.length;
+  const inline = enriched.slice(0, MAX_PARTICIPANTS_INLINE);
+  const overflow = enriched.length - inline.length;
 
   return (
     <>
