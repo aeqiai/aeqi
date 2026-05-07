@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Popover, SelectOption } from "@/components/ui";
 import UserAvatar from "@/components/UserAvatar";
 import { useAuthStore } from "@/store/auth";
@@ -20,13 +20,6 @@ const AccountIcon = () => (
   <svg {...iconProps}>
     <circle cx="8" cy="5.5" r="2.5" />
     <path d="M3 13.5c0-2.5 2-4.5 5-4.5s5 2 5 4.5" />
-  </svg>
-);
-
-const InboxIcon = () => (
-  <svg {...iconProps}>
-    <path d="M2 8.5 4 3h8l2 5.5v4.5H2z" />
-    <path d="M2 8.5h3.5l1 1.5h3l1-1.5H14" />
   </svg>
 );
 
@@ -52,24 +45,6 @@ const SignOutIcon = () => (
   </svg>
 );
 
-// Small ⋯ glyph — same affordance vocabulary as a "more" menu trigger.
-// Sits right of the user identity, opens the secondary actions popover
-// without competing with the row's primary navigation click.
-const MoreIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 16 16"
-    fill="currentColor"
-    aria-hidden="true"
-    focusable="false"
-  >
-    <circle cx="3" cy="8" r="1.25" />
-    <circle cx="8" cy="8" r="1.25" />
-    <circle cx="13" cy="8" r="1.25" />
-  </svg>
-);
-
 export default function AccountDropdown() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -81,10 +56,8 @@ export default function AccountDropdown() {
 
   const isAccount =
     (pathname === "/me" || pathname.startsWith("/me/")) && pathname !== "/me/billing";
-  const isPersonalInbox = pathname === "/";
   const isBilling = pathname === "/me/billing";
   // Row-level "active" — highlighted whenever we're somewhere under /me.
-  // Same vocabulary the trigger had before; just lifted onto the Link.
   const rowActive = pathname === "/me" || pathname.startsWith("/me/");
 
   const userName =
@@ -106,9 +79,8 @@ export default function AccountDropdown() {
     navigate("/login");
   }, [track, logout, navigate]);
 
-  // Local-mode (no auth) keeps the old single-trigger shape — there
-  // are no secondary actions to surface, and there's no /me route to
-  // navigate to. Render the bare identity tile; click is a no-op.
+  // Local-mode (no auth) keeps the bare identity tile — no popover, no
+  // navigation; there's no /me route to land on and no actions to surface.
   if (authMode === "none") {
     return (
       <div className="account-dropdown-row">
@@ -127,47 +99,34 @@ export default function AccountDropdown() {
     );
   }
 
-  // Primary affordance: the row IS a Link to /me. Click navigates,
-  // no popover side-effect. Keyboard activation (Enter/Space) routes
-  // identically — Link delegates to React Router. The chevron sibling
-  // is the secondary affordance for sign-out / billing / inbox.
-  const chevronTrigger = (
+  // The row IS the trigger. Click anywhere on the row opens the popover.
+  // The "Account" item inside the dropdown navigates to /me — the row
+  // itself does not navigate. Single affordance, no chevron.
+  const rowTrigger = (
     <button
       type="button"
-      className="account-dropdown-chevron"
+      className={`account-dropdown-trigger${rowActive ? " account-dropdown-trigger--active" : ""}`}
       aria-label="Account menu"
       aria-haspopup="menu"
+      aria-current={rowActive ? "page" : undefined}
     >
-      <MoreIcon />
+      <span className="account-dropdown-avatar">
+        <UserAvatar name={userName} size={16} src={user?.avatar_url} />
+      </span>
+      <span className="account-dropdown-identity">
+        <span className="account-dropdown-name">{userName}</span>
+        {userEmail && (
+          <span className="account-dropdown-email" title={userEmail}>
+            {userEmail}
+          </span>
+        )}
+      </span>
     </button>
   );
 
   return (
     <div className="account-dropdown-row">
-      <Link
-        to="/me"
-        className={`account-dropdown-trigger${rowActive ? " account-dropdown-trigger--active" : ""}`}
-        aria-current={rowActive ? "page" : undefined}
-      >
-        <span className="account-dropdown-avatar">
-          <UserAvatar name={userName} size={16} src={user?.avatar_url} />
-        </span>
-        <span className="account-dropdown-identity">
-          <span className="account-dropdown-name">{userName}</span>
-          {userEmail && (
-            <span className="account-dropdown-email" title={userEmail}>
-              {userEmail}
-            </span>
-          )}
-        </span>
-      </Link>
-      <Popover
-        trigger={chevronTrigger}
-        open={open}
-        onOpenChange={setOpen}
-        placement="top-end"
-        portal
-      >
+      <Popover trigger={rowTrigger} open={open} onOpenChange={setOpen} placement="top-start" portal>
         <div className="account-dropdown-menu" role="menu">
           <SelectOption
             selected={isAccount}
@@ -175,13 +134,6 @@ export default function AccountDropdown() {
             leadingIcon={<AccountIcon />}
           >
             Account
-          </SelectOption>
-          <SelectOption
-            selected={isPersonalInbox}
-            onClick={() => go("/")}
-            leadingIcon={<InboxIcon />}
-          >
-            Personal Inbox
           </SelectOption>
           <SelectOption
             disabled
