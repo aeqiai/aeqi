@@ -2000,3 +2000,53 @@ Cost (2026-05-07): msg-author-header ship — 4 probe iterations
 (~5 min) before reaching the bundle-level fallback. Future ships
 should skip straight to bundle verification when `/api/entities`
 returns 400 in the network log.
+
+## Adding a new sub-tree to a `:tab/:itemId` route — use a literal segment, not a third param level
+
+When extending an existing `agents/:agentId/:tab/:itemId` route shape with
+a deeper sub-surface (e.g. `agents/:agentId/settings/:settingsTab[/:itemId]`),
+the route definition needs an EXPLICIT literal segment for the sub-tree —
+do NOT try to overload `:tab` to mean both "regular tab" and "container
+for sub-tabs":
+
+```tsx
+// In App.tsx — explicit literal "settings" branch, distinct param name
+<Route path="agents/:agentId" element={null}>
+  <Route index element={null} />
+  <Route path="settings" element={null} />
+  <Route path="settings/:settingsTab" element={null} />
+  <Route path="settings/:settingsTab/:itemId" element={null} />
+  <Route path=":tab" element={null} />
+  <Route path=":tab/:itemId" element={null} />
+</Route>
+```
+
+Two follow-on rules:
+
+1. **Use a distinct param name** (`settingsTab`, not another `tab`). React
+   Router's `useParams` returns params from the matched route only; if the
+   sub-tree's param shadows the outer `:tab`, downstream redirects that
+   key off `tab === "<oldname>"` silently never fire.
+
+2. **Detect the sub-surface via path regex, not via `useParams`.** When the
+   route is `agents/:agentId/settings/:settingsTab`, the OUTER `:tab` is
+   undefined — `useParams.tab` returns nothing. Code that wants to know
+   "are we on the settings sub-surface?" must read `location.pathname`
+   directly. Pattern in `AppLayout.tsx`:
+
+   ```ts
+   const agentSettingsSegment = (() => {
+     if (!routeAgentId) return false;
+     const re = /\/agents\/[^/]+\/(settings)(?:\/|$)/;
+     return re.test(path);
+   })();
+   ```
+
+React Router resolves static segments before parameters, so the literal
+`settings` branch wins over `:tab` when the URL is `/agents/<id>/settings`
+— no order-dependent ambiguity. Don't try to disambiguate with route
+ordering alone; use a distinct literal + a path-regex detector.
+
+Cost (2026-05-07): ~3 min on the agent-shape-redesign ship before
+settling on the path-regex detector. Without it, the chat-vs-settings
+dispatch is impossible to express from `useParams` alone.
