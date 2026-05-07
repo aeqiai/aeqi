@@ -1111,6 +1111,41 @@ Cost (2026-05-06): smoke test `AgentQuestsTab smoke > exposes a New quest button
 the empty board` failed after adding `initialLoaded` gate — `beforeEach` had
 `initialLoaded: false`; fix was a one-line flip to `true`.
 
+## Storybook stories with state — extract `render: () =>` into a real component
+
+**Calling `useState` (or any hook) directly inside a Storybook
+`render: () => { ... }` arrow fails eslint `react-hooks/rules-of-hooks`.**
+The arrow is treated as a plain function, not a React component, so
+the rule (correctly) flags every `useState` / `useEffect` / `useRef`
+call inside it. Symptom during `npm run verify`:
+
+```
+React Hook "useState" is called in function "render" that is neither a
+React function component nor a custom React Hook function.
+```
+
+Fix: lift each interactive story body into a named PascalCase component
+declared at module scope, then call it from `render`. The component
+gets a real React identity and the lint rule is satisfied:
+
+```tsx
+function ActiveQueryDemo() {
+  const [q, setQ] = useState("aeiq");
+  return <SessionsToolbar query={q} onQuery={setQ} searchPlaceholder="Search inbox" />;
+}
+
+export const ActiveQuery: Story = {
+  name: "Active query",
+  render: () => <ActiveQueryDemo />,
+};
+```
+
+This is the canonical shape for any story that needs `useState` (controlled
+inputs, popover-open demos, hover-state stubs). Anonymous arrow `render`
+is fine ONLY for stories with no hooks. Cost (2026-05-07): one verify
+loop on `SessionsToolbar.stories.tsx` before extracting the three demo
+components.
+
 ## wagmi + native chain balance — `/chain/rpc` proxy pattern
 
 **The browser cannot reach `127.0.0.1:8545` (anvil) directly.** Any wagmi hook that reads native ETH balance (`useBalance`) or calls RPC methods must go through the platform's `/chain/rpc` reverse-proxy, not directly to the node URL.
@@ -1538,6 +1573,30 @@ Verification recipe for any rail / inbox / SessionRail copy change:
    Source-side proof that the new strings are in the live bundle and
    the old strings are absent is a stronger signal than a stuck headless
    render. Combine with the `/me/inbox` screenshot for the visual.
+
+   **`index.html` only enumerates the eager chunks. Lazy route chunks
+   (`MeInboxPage-XXX.js`, `AgentSessionView-XXX.js`, every dynamic
+   import) are referenced from INSIDE `assets/index-XXX.js`, not from
+   the HTML.** A grep that scans only top-level chunks returns 0
+   matches for any string that lives in a lazy-loaded route component
+   — which looks identical to "the ship didn't take" but is actually
+   "you didn't search the chunk that holds the string". Recipe to
+   walk dynamic imports too:
+
+   ```bash
+   INDEX_JS=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' /tmp/live.html | head -1)
+   curl -sL "https://app.aeqi.ai/$INDEX_JS" -o /tmp/index.js
+   for f in $(grep -oE 'assets/[A-Za-z][A-Za-z0-9_-]+\.js' /tmp/index.js | sort -u); do
+     C=$(curl -sL "https://app.aeqi.ai/$f" | grep -c "<expected-string>")
+     [ "$C" -gt "0" ] && echo "$f: $C"
+   done
+   ```
+
+   Combine both passes — top-level chunks from `index.html` AND
+   lazy chunks from `index.js` — for full coverage. Cost (2026-05-07):
+   `Search inbox` placeholder shipped in `MeInboxPage-DZjC7hLr.js`;
+   the top-level scan returned 0 matches and looked like a regression
+   until the dynamic-import descent surfaced it.
 
 Don't burn time iterating wait strategies / route alternatives on the
 drilled-agent route. Two ship cycles have hit it now (rail-search-v28
