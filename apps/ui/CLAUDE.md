@@ -518,6 +518,20 @@ package internals partial. Run `npm install` again from the parent — a second 
 fills in the missing package contents. Cost (2026-05-05): confused `tsc` invocation
 with missing bins when the real issue was incomplete TypeScript package innards.
 
+**eslint partial install — `formatters/stylish.js` missing mid-verify.** Sister
+trap to the TypeScript partial-install case, but for eslint. Symptom: `npm run
+verify` reaches the eslint step and fails with `There was a problem loading
+formatter: .../node_modules/eslint/lib/cli-engine/formatters/stylish.js — Error:
+Cannot find module ...`. `tsc` and `prettier` already passed; eslint itself runs
+(its bin is present) but its default `stylish` formatter file is absent because
+a prior `--ignore-scripts` install or interrupted reinstall left the eslint
+package partial — `ls node_modules/eslint/lib/cli-engine/formatters/` shows
+`html.js / json.js / json-with-metadata.js` but no `stylish.js`. Fix is the same
+as the typescript case: `cd /home/claudedev/aeqi/apps/ui && npm install --silent`
+(no `--ignore-scripts`) — fills in the missing formatter file in place. Step 0
+pre-flight only checks the typescript package today; eslint can slip through
+into Step 1 verify. Cost (2026-05-07): ~60s on avatar-shape-by-kind ship.
+
 **`keccak` / native-addon `spawn ELOOP` during `npm install`.** When the
 parent's node_modules is absent and you run `npm install` while a worktree
 symlink points at the same target, `npm` hits `spawn ELOOP` on native
