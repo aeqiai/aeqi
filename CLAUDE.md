@@ -535,6 +535,25 @@ The `/var/lib/aeqi/hosts/<slug>/aeqi.db` file exists but is stale legacy state f
 
 **Planned stub routes MUST return explicit 501, not be left unregistered.** When a frontend feature is built against a route that isn't implemented yet (e.g. `POST /api/wallet/upgrade-to-passkey`), leaving the route unregistered causes axum's authed catch-all to return 401 "missing authorization header" — which is indistinguishable from a real auth failure. Frontend graceful-degradation logic that checks `if (msg.includes("501") || msg.toLowerCase().includes("not implemented"))` never fires; the user sees a red error banner instead of the intended "processing in background" success state. **Fix**: always register a one-liner 501 stub in aeqi-platform before shipping the frontend that calls it: `post(|| async { (StatusCode::NOT_IMPLEMENTED, Json(json!({"error": "not yet implemented"}))) })`. Cost (2026-05-05): dogfood v3 — passkey upgrade modal showed error banner for every user instead of the graceful success state.
 
+**Sessions DB table is `session_messages`, not `messages`.** The `~/.aeqi/sessions.db` and per-tenant `/var/lib/aeqi/containers/<entity_id>/sessions.db` schemas put session-scoped messages in `session_messages` (the FTS shadow tables `messages_fts*` exist but are NOT the source-of-truth row table). Investigation docs and brief snippets sometimes abbreviate this to `messages`; running the abbreviated SQL throws `Error: in prepare, no such table: messages`. Always use `session_messages` when writing backfill / repair SQL. Same trap on FTS — `messages_fts` is a shadow, never SELECT or UPDATE against it directly. Cost (2026-05-07): cron-attribution backfill paused ~30s on the typo before checking `.tables`.
+
+**Per-tenant DB sweeps need `sudo -n sqlite3` AND a loop over all containers.** Repair / backfill SQL that needs to apply across every tenant lives at `/var/lib/aeqi/containers/<entity_id>/sessions.db` and `/var/lib/aeqi/containers/<entity_id>/aeqi.db`. The container directories are root-owned; `sqlite3` without sudo silently returns "unable to open database file" or empty results on a few of them while others succeed. Canonical sweep recipe:
+
+```bash
+TOTAL=0
+for db in $(sudo -n find /var/lib/aeqi/containers -maxdepth 3 -name 'sessions.db' 2>/dev/null); do
+  CT=$(sudo -n sqlite3 "$db" "<COUNT-QUERY>" 2>/dev/null || echo 0)
+  if [ "$CT" -gt 0 ]; then
+    echo "$db: $CT rows"
+    sudo -n sqlite3 "$db" "<UPDATE-QUERY>"
+    TOTAL=$((TOTAL+CT))
+  fi
+done
+echo "Total: $TOTAL"
+```
+
+Don't forget the host's own `~/.aeqi/sessions.db` — it's owned by `claudedev` (no sudo needed) and is a SEPARATE step from the per-tenant loop. A repair that only hits one or the other ships the system inconsistent. Cost (2026-05-07): cron-attribution backfill — 5 host rows + 35 tenant rows across 5 of 14 containers; missing the loop would have left the AEIQ company (27 of those rows) mis-attributed.
+
 ## Release tagging convention
 
 Release notes live in `RELEASES.md` at each repo root (aeqi, aeqi-platform, aeqi-landing).
