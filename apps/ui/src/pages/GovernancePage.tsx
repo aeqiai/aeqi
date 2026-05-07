@@ -10,6 +10,7 @@ import type { IndexedProposal, IndexedVotingPower } from "@/lib/indexer";
 import type { Role } from "@/lib/types";
 import { useGovernance } from "@/hooks/useGovernance";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 
 interface GovernancePageProps {
   entityId: string;
@@ -28,6 +29,7 @@ interface GovernancePageProps {
  */
 export default function GovernancePage({ entityId }: GovernancePageProps) {
   const entity = useDaemonStore((s) => s.entities.find((e) => e.id === entityId));
+  const entitiesList = useDaemonStore((s) => s.entities);
   const trustAddress = entity?.trust_address;
   const navigate = useNavigate();
 
@@ -115,7 +117,9 @@ export default function GovernancePage({ entityId }: GovernancePageProps) {
               grantLabel={g.label}
               grantDesc={g.desc}
               holders={grantHolders[g.id]}
-              onOpenRole={(roleId) => navigate(`/c/${entityId}/roles/${roleId}`)}
+              onOpenRole={(roleId) =>
+                navigate(entityPathFromId(entitiesList, entityId, "roles", roleId))
+              }
             />
           ))}
         </ul>

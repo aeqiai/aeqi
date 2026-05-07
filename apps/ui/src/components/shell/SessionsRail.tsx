@@ -4,7 +4,8 @@ import { useChatStore } from "@/store/chat";
 import { useInboxStore } from "@/store/inbox";
 import { sessionLabel, type SessionInfo } from "@/components/session/types";
 import { recencyBucket, timeShort } from "@/lib/format";
-import { sessionDeepUrl } from "@/lib/sessionUrl";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { useDaemonStore } from "@/store/daemon";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionsToolbar from "@/components/sessions/SessionsToolbar";
 import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
@@ -91,12 +92,13 @@ export default function SessionsRail() {
   }, [allRows, query]);
 
   const navigate = useNavigate();
+  const entities = useDaemonStore((s) => s.entities);
   const handleSelect = useCallback(
     (id: string) => {
       if (!entityId || !agentId) return;
-      navigate(sessionDeepUrl(entityId, agentId, id), { replace: true });
+      navigate(sessionDeepUrlFromId(entities, entityId, agentId, id), { replace: true });
     },
-    [entityId, agentId, navigate],
+    [entityId, agentId, entities, navigate],
   );
 
   // Empty-state copy distinguishes "no sessions yet" from "no matches"

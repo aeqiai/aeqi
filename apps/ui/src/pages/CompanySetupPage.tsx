@@ -285,11 +285,7 @@ export default function CompanySetupPage() {
         await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
       }
 
-      if (trustAddr) {
-        navigate(entityPath({ id: entityId, trust_address: trustAddr }, "overview"));
-      } else {
-        navigate(`/c/${encodeURIComponent(entityId)}/overview`);
-      }
+      navigate(entityPath({ id: entityId, trust_address: trustAddr ?? undefined }, "overview"));
     } catch (e) {
       if (e instanceof ApiError && e.status === 402) {
         // No active subscription — redirect to Stripe checkout.

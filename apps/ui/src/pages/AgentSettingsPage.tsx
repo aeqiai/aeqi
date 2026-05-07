@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Button } from "@/components/ui";
 import ModelPicker from "@/components/ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
@@ -390,6 +391,7 @@ function DangerZone({
 }) {
   const navigate = useNavigate();
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const entitiesList = useDaemonStore((s) => s.entities);
   const [cascade, setCascade] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -417,7 +419,7 @@ function DangerZone({
       showToast(`Deleted ${count} agent${count === 1 ? "" : "s"}`);
       await fetchAgents();
       if (agent?.entity_id) {
-        navigate(`/c/${encodeURIComponent(agent.entity_id)}`);
+        navigate(entityPathFromId(entitiesList, agent.entity_id));
       } else {
         navigate("/");
       }

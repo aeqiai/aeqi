@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Modal } from "@/components/ui";
 import { BlueprintLaunchPicker } from "@/components/blueprints/BlueprintLaunchPicker";
 
@@ -47,6 +48,7 @@ export function BlueprintPickerModal({
 }: BlueprintPickerModalProps) {
   const navigate = useNavigate();
   const fetchAgents = useDaemonStore((s) => s.fetchAgents);
+  const entitiesList = useDaemonStore((s) => s.entities);
 
   const handleSpawned = useCallback(async () => {
     await fetchAgents();
@@ -54,9 +56,9 @@ export function BlueprintPickerModal({
     if (onSpawned) {
       onSpawned();
     } else {
-      navigate(`/c/${encodeURIComponent(entityId)}/agents`);
+      navigate(entityPathFromId(entitiesList, entityId, "agents"));
     }
-  }, [entityId, fetchAgents, navigate, onClose, onSpawned]);
+  }, [entityId, entitiesList, fetchAgents, navigate, onClose, onSpawned]);
 
   return (
     <Modal open={open} onClose={onClose} title={title ?? "Add agents from a Blueprint"}>

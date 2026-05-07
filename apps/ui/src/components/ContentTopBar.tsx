@@ -2,6 +2,8 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAgents } from "@/queries/agents";
 import { useCostQuery } from "@/queries/runtime";
 import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Button, Tooltip } from "@/components/ui";
 import AgentAvatar from "./AgentAvatar";
 import UserAvatar from "./UserAvatar";
@@ -48,6 +50,7 @@ export default function ContentTopBar() {
   const appMode = useAuthStore((s) => s.appMode);
   const user = useAuthStore((s) => s.user);
   const authMode = useAuthStore((s) => s.authMode);
+  const entitiesList = useDaemonStore((s) => s.entities);
 
   // Drilled per-agent surface? Resolve that agent. Otherwise resolve the
   // entity's root agent for breadcrumb context.
@@ -107,7 +110,7 @@ export default function ContentTopBar() {
           ) : (
             <Tooltip content={`Back to ${agentName}'s home`}>
               <Link
-                to={`/c/${encodeURIComponent(entityId ?? agent.entity_id ?? agent.id)}`}
+                to={entityPathFromId(entitiesList, entityId ?? agent.entity_id ?? agent.id)}
                 className="content-topbar-agent content-topbar-agent-link"
               >
                 <span className="content-topbar-agent-avatar" aria-hidden>
@@ -122,7 +125,11 @@ export default function ContentTopBar() {
           (crumbIsLink ? (
             <Tooltip content={`Back to ${primitiveWord?.toLowerCase()}`}>
               <Link
-                to={`/c/${encodeURIComponent(entityId ?? agent!.entity_id ?? agent!.id)}/${section}`}
+                to={entityPathFromId(
+                  entitiesList,
+                  entityId ?? agent!.entity_id ?? agent!.id,
+                  section,
+                )}
                 className="content-topbar-crumb content-topbar-crumb-link"
               >
                 {primitiveWord}
@@ -142,7 +149,11 @@ export default function ContentTopBar() {
               className={`topbar-settings-btn${settingsActive ? " active" : ""}`}
               onClick={() =>
                 navigate(
-                  `/c/${encodeURIComponent(entityId ?? agent.entity_id ?? agent.id)}/settings`,
+                  entityPathFromId(
+                    entitiesList,
+                    entityId ?? agent.entity_id ?? agent.id,
+                    "settings",
+                  ),
                 )
               }
             >

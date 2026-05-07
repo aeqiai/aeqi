@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Agent, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Button, EmptyState, Popover, Tooltip } from "./ui";
 import AgentAvatar from "./AgentAvatar";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
@@ -57,10 +58,11 @@ const STATUS_VALUES = new Set<StatusFilter>(STATUS_ORDER);
  */
 export default function EntityAgentsTab({ entityId }: { entityId: string }) {
   const navigate = useNavigate();
+  const entitiesList = useDaemonStore((s) => s.entities);
   const openAgent = useCallback(
     (agentId: string) =>
-      navigate(`/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(agentId)}`),
-    [navigate, entityId],
+      navigate(entityPathFromId(entitiesList, entityId, "agents", encodeURIComponent(agentId))),
+    [navigate, entityId, entitiesList],
   );
   const [searchParams, setSearchParams] = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);

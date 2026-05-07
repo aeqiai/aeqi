@@ -3,6 +3,7 @@ import { Navigate, useParams } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { api } from "@/lib/api";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 
 interface Resolved {
   agentId: string;
@@ -25,6 +26,7 @@ export default function SessionRedirect() {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const inboxItem = useInboxStore((s) => s.items.find((i) => i.session_id === sessionId) ?? null);
   const agents = useDaemonStore((s) => s.agents);
+  const entities = useDaemonStore((s) => s.entities);
 
   const inboxResolved: Resolved | null =
     inboxItem?.agent_id && inboxItem?.entity_id
@@ -83,6 +85,6 @@ export default function SessionRedirect() {
   if (resolveFailed) return <Navigate to="/" replace />;
   if (!resolved) return null;
 
-  const deep = `/c/${encodeURIComponent(resolved.entityId)}/agents/${encodeURIComponent(resolved.agentId)}/inbox/${encodeURIComponent(sessionId)}`;
+  const deep = sessionDeepUrlFromId(entities, resolved.entityId, resolved.agentId, sessionId);
   return <Navigate to={deep} replace />;
 }

@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { formatCents } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
+import { entityPath } from "@/lib/entityPath";
 import { Banner, Button, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import "@/styles/billing.css";
@@ -87,7 +88,7 @@ export default function BillingPanel() {
           setActiveEntity(match.id);
           await fetchAgents().catch(() => {});
           setSearchParams(new URLSearchParams(), { replace: true });
-          navigate(`/c/${encodeURIComponent(match.id)}/inbox`);
+          navigate(entityPath(match, "inbox"));
           return;
         }
       } catch {

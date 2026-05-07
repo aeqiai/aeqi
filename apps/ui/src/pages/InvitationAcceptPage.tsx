@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { InvitationDetail } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Button, Select, Spinner } from "@/components/ui";
 import Wordmark from "@/components/Wordmark";
 
@@ -20,6 +22,7 @@ export default function InvitationAcceptPage() {
   const authToken = useAuthStore((s) => s.token);
   const authMode = useAuthStore((s) => s.authMode);
   const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
+  const daemonEntities = useDaemonStore((s) => s.entities);
 
   const [invitation, setInvitation] = useState<InvitationDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,7 +90,7 @@ export default function InvitationAcceptPage() {
       // Navigate to the company that now holds the role
       const entity = directedEntities.find((e) => e.entity_id === invitation?.entity_id);
       if (entity) {
-        navigate(`/c/${encodeURIComponent(entity.entity_id)}/roles`, { replace: true });
+        navigate(entityPathFromId(daemonEntities, entity.entity_id, "roles"), { replace: true });
       } else {
         navigate("/", { replace: true });
       }

@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
 import type { Role, RoleInvitation } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Badge, Button, Spinner } from "@/components/ui";
 
 const ROLE_TYPE_LABEL: Record<string, string> = {
@@ -27,6 +28,7 @@ export default function RoleDetailPage() {
   const [archiving, setArchiving] = useState(false);
 
   const agents = useDaemonStore((s) => s.agents);
+  const entitiesList = useDaemonStore((s) => s.entities);
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of agents) m.set(a.id, a.name);
@@ -60,16 +62,28 @@ export default function RoleDetailPage() {
     setArchiving(true);
     try {
       await api.archiveRole(roleId);
-      navigate(`/c/${encodeURIComponent(entityId)}/roles`, { replace: true });
+      navigate(entityPathFromId(entitiesList, entityId, "roles"), { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not archive role.");
       setArchiving(false);
     }
   };
 
-  const backHref = `/c/${encodeURIComponent(entityId)}/roles`;
-  const editHref = `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(roleId)}/edit`;
-  const inviteHref = `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(roleId)}/invite`;
+  const backHref = entityPathFromId(entitiesList, entityId, "roles");
+  const editHref = entityPathFromId(
+    entitiesList,
+    entityId,
+    "roles",
+    encodeURIComponent(roleId),
+    "edit",
+  );
+  const inviteHref = entityPathFromId(
+    entitiesList,
+    entityId,
+    "roles",
+    encodeURIComponent(roleId),
+    "invite",
+  );
 
   if (loading) {
     return (

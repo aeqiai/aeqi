@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { CardTrigger } from "./ui";
 import BlockAvatar from "./BlockAvatar";
 import BrandMark from "./BrandMark";
@@ -101,6 +102,7 @@ export default function AgentOrgChart({
 }) {
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
+  const entitiesList = useDaemonStore((s) => s.entities);
   const entityId = useMemo(() => {
     const found = agents.find((a) => a.id === parentAgentId);
     return found?.entity_id ?? null;
@@ -178,7 +180,8 @@ export default function AgentOrgChart({
 
   const handleSelect = (id: string) => {
     if (onSelect) onSelect(id);
-    else navigate(`/c/${encodeURIComponent(id)}`);
+    else if (entityId)
+      navigate(entityPathFromId(entitiesList, entityId, "agents", encodeURIComponent(id)));
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {

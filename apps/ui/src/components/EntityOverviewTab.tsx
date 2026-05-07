@@ -7,7 +7,8 @@ import { useInboxStore } from "@/store/inbox";
 import { useTreasury } from "@/hooks/useTreasury";
 import { fetchTrust } from "@/lib/indexer";
 import type { Quest } from "@/lib/types";
-import { sessionDeepUrl } from "@/lib/sessionUrl";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { entityBasePath } from "@/lib/entityPath";
 import EntityHeroStrip from "./EntityHeroStrip";
 import BlockAvatar from "./BlockAvatar";
 import "@/styles/overview.css";
@@ -158,8 +159,11 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
     [subtreeAgents],
   );
 
-  const basePath = `/c/${encodeURIComponent(entityId)}`;
-  const trustPath = trustAddress ? `/trust/${trustAddress.toLowerCase()}` : basePath;
+  // basePath is canonical: /trust/<addr> when on-chain, /c/<id> otherwise.
+  // trustPath here is the same — kept as a separate name for the
+  // signers stat tile to read clearly.
+  const basePath = entity ? entityBasePath(entity) : `/c/${encodeURIComponent(entityId)}`;
+  const trustPath = basePath;
 
   return (
     <div className="entity-overview">
@@ -245,7 +249,14 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
                       type="button"
                       className="entity-overview-pulse-btn"
                       onClick={() =>
-                        navigate(sessionDeepUrl(item.entity_id, item.agent_id, item.session_id))
+                        navigate(
+                          sessionDeepUrlFromId(
+                            entities,
+                            item.entity_id,
+                            item.agent_id,
+                            item.session_id,
+                          ),
+                        )
                       }
                     >
                       <span className="entity-overview-pulse-from">

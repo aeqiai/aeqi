@@ -4,6 +4,8 @@ import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
 import type { Role, RoleType } from "@/lib/types";
 import { Button, Input, Spinner } from "@/components/ui";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 
 const ROLE_TYPE_OPTIONS: { value: RoleType; label: string; desc: string }[] = [
   { value: "director", label: "Director", desc: "Full authority — all grants by default" },
@@ -14,6 +16,7 @@ const ROLE_TYPE_OPTIONS: { value: RoleType; label: string; desc: string }[] = [
 export default function RoleEditPage() {
   const { entityId = "", roleId = "" } = useParams<{ entityId: string; roleId: string }>();
   const navigate = useNavigate();
+  const entitiesList = useDaemonStore((s) => s.entities);
 
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +65,7 @@ export default function RoleEditPage() {
 
     try {
       await api.updateRole(roleId, patch);
-      navigate(`/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(roleId)}`, {
+      navigate(entityPathFromId(entitiesList, entityId, "roles", encodeURIComponent(roleId)), {
         replace: true,
       });
     } catch (err) {
@@ -71,7 +74,7 @@ export default function RoleEditPage() {
     }
   };
 
-  const backHref = `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(roleId)}`;
+  const backHref = entityPathFromId(entitiesList, entityId, "roles", encodeURIComponent(roleId));
 
   if (loading) {
     return (
@@ -110,7 +113,7 @@ export default function RoleEditPage() {
     <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)", maxWidth: 680 }}>
       <div className="page-header">
         <div className="page-header-breadcrumbs">
-          <Link to={`/c/${encodeURIComponent(entityId)}/roles`}>Roles</Link>
+          <Link to={entityPathFromId(entitiesList, entityId, "roles")}>Roles</Link>
           <span>/</span>
           <Link to={backHref}>{role.title || "(untitled)"}</Link>
           <span>/</span>

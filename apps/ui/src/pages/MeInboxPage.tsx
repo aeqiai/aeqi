@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { sessionDeepUrl } from "@/lib/sessionUrl";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
@@ -358,7 +358,12 @@ export default function MeInboxPage() {
       );
     }
 
-    const deepUrl = sessionDeepUrl(selectedRow.entity_id, selectedRow.agent_id, selectedRow.id);
+    const deepUrl = sessionDeepUrlFromId(
+      entities,
+      selectedRow.entity_id,
+      selectedRow.agent_id,
+      selectedRow.id,
+    );
 
     const headerExtras = (
       <>

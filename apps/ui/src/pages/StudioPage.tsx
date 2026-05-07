@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Banner, Button, Spinner, Textarea } from "@/components/ui";
 import { apiRequest } from "@/api/client";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import "@/styles/studio.css";
 
 /**
@@ -74,6 +76,7 @@ const REFINEMENT_PLACEHOLDER =
 
 export default function StudioPage() {
   const navigate = useNavigate();
+  const entitiesList = useDaemonStore((s) => s.entities);
   const [brief, setBrief] = useState("");
   const [refinement, setRefinement] = useState("");
   const [drafting, setDrafting] = useState(false);
@@ -175,13 +178,13 @@ export default function StudioPage() {
         setError(res.error ?? "Deploy failed.");
         return;
       }
-      navigate(`/c/${encodeURIComponent(res.entity_id)}`);
+      navigate(entityPathFromId(entitiesList, res.entity_id));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setDeploying(false);
     }
-  }, [turns, deploying, navigate]);
+  }, [turns, deploying, navigate, entitiesList]);
 
   const reset = useCallback(() => {
     setTurns([]);

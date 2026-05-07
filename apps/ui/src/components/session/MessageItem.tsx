@@ -5,6 +5,7 @@ import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas } from "@/queries/ideas";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
+import { entityPathFromId } from "@/lib/entityPath";
 import { RichMarkdown, buildIdeasByName } from "@/components/markdown/RichMarkdown";
 import BlockAvatar from "@/components/BlockAvatar";
 import MentionText from "@/components/MentionText";
@@ -541,6 +542,7 @@ const MessageItem = memo(function MessageItem({
 }) {
   const { entityId } = useNav();
   const agents = useDaemonStore((s) => s.agents);
+  const entitiesList = useDaemonStore((s) => s.entities);
   const userEmail = useAuthStore((s) => s.user?.email ?? "");
   const currentUserId = useAuthStore((s) => s.user?.id ?? "");
   const currentUserName = useAuthStore((s) => s.user?.name ?? "");
@@ -682,10 +684,10 @@ const MessageItem = memo(function MessageItem({
   const avatarHref = (() => {
     if (!entityId) return undefined;
     if (author.kind === "agent" && author.id) {
-      return `/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(author.id)}`;
+      return entityPathFromId(entitiesList, entityId, "agents", encodeURIComponent(author.id));
     }
     if (author.kind === "position" && author.id) {
-      return `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(author.id)}`;
+      return entityPathFromId(entitiesList, entityId, "roles", encodeURIComponent(author.id));
     }
     if (author.kind === "user" && author.id && currentUserId && author.id === currentUserId) {
       return "/account";

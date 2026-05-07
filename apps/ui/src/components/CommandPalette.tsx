@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 
 interface PaletteItem {
   id: string;
@@ -21,6 +23,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const appMode = useAuthStore((s) => s.appMode);
   const { entityId } = useParams<{ entityId?: string }>();
   const activeEntity = useUIStore((s) => s.activeEntity);
+  const entities = useDaemonStore((s) => s.entities);
   const scopeId = activeEntity || entityId || "";
 
   const go = useCallback(
@@ -39,7 +42,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     }
     inputRef.current?.focus();
 
-    const scope = scopeId ? `/c/${encodeURIComponent(scopeId)}` : "";
+    const scope = scopeId ? entityPathFromId(entities, scopeId) : "";
     const buildItems = async () => {
       const navItems: PaletteItem[] = scopeId
         ? [
@@ -126,7 +129,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
             label: a.name as string,
             hint: ((a.model || a.status) as string) || "",
             section: "Agents",
-            action: () => go(`/c/${encodeURIComponent(eid)}/agents/${encodeURIComponent(aid)}`),
+            action: () => go(entityPathFromId(entities, eid, "agents", encodeURIComponent(aid))),
           };
         });
 
@@ -157,7 +160,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       }
     };
     buildItems();
-  }, [open, go, appMode, entityId, scopeId]);
+  }, [open, go, appMode, entityId, scopeId, entities]);
 
   const filtered = query
     ? items.filter(

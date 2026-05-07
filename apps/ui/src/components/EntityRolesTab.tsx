@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import "@/styles/roles.css";
 import { Button, EmptyState, Tooltip } from "./ui";
 import RolesChart from "./roles/RolesChart";
@@ -49,6 +50,7 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const agents = useDaemonStore((s) => s.agents);
+  const entities = useDaemonStore((s) => s.entities);
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of agents) m.set(a.id, a.name);
@@ -179,9 +181,9 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
 
   const handleSelectRole = useCallback(
     (role: Role) => {
-      navigate(`/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(role.id)}`);
+      navigate(entityPathFromId(entities, entityId, "roles", encodeURIComponent(role.id)));
     },
-    [navigate, entityId],
+    [navigate, entityId, entities],
   );
 
   const showEmpty = !loading && !error && roles.length === 0;
@@ -238,7 +240,7 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate(`/c/${encodeURIComponent(entityId)}/roles/new`)}
+              onClick={() => navigate(entityPathFromId(entities, entityId, "roles", "new"))}
             >
               <svg
                 width="11"

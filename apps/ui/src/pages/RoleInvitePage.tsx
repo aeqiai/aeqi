@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button, Input, Textarea } from "@/components/ui";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 
 type TargetKind = "email" | "open";
 
@@ -13,6 +15,7 @@ const TARGET_OPTIONS: { value: TargetKind; label: string }[] = [
 export default function RoleInvitePage() {
   const { entityId = "", roleId = "" } = useParams<{ entityId: string; roleId: string }>();
   const navigate = useNavigate();
+  const entitiesList = useDaemonStore((s) => s.entities);
 
   const [targetKind, setTargetKind] = useState<TargetKind>("email");
   const [targetEmail, setTargetEmail] = useState("");
@@ -28,7 +31,7 @@ export default function RoleInvitePage() {
     document.title = "Invite to role · æiq";
   }, []);
 
-  const detailHref = `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(roleId)}`;
+  const detailHref = entityPathFromId(entitiesList, entityId, "roles", encodeURIComponent(roleId));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +84,7 @@ export default function RoleInvitePage() {
       <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)", maxWidth: 560 }}>
         <div className="page-header">
           <div className="page-header-breadcrumbs">
-            <Link to={`/c/${encodeURIComponent(entityId)}/roles`}>Roles</Link>
+            <Link to={entityPathFromId(entitiesList, entityId, "roles")}>Roles</Link>
             <span>/</span>
             <Link to={detailHref}>Role</Link>
             <span>/</span>
@@ -148,7 +151,7 @@ export default function RoleInvitePage() {
     <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)", maxWidth: 560 }}>
       <div className="page-header">
         <div className="page-header-breadcrumbs">
-          <Link to={`/c/${encodeURIComponent(entityId)}/roles`}>Roles</Link>
+          <Link to={entityPathFromId(entitiesList, entityId, "roles")}>Roles</Link>
           <span>/</span>
           <Link to={detailHref}>Role</Link>
           <span>/</span>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIStore } from "@/store/ui";
+import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 
 interface Options {
   entityId: string;
@@ -41,6 +43,7 @@ export function useGlobalShortcuts({
   setShortcutsOpen,
 }: Options) {
   const navigate = useNavigate();
+  const entitiesList = useDaemonStore((s) => s.entities);
 
   // Vim go-to prefix deadline. Ref (not state) so changing it doesn't
   // re-bind the keydown handler — and so the deadline stays stable
@@ -101,8 +104,11 @@ export function useGlobalShortcuts({
           e.preventDefault();
           gDeadlineRef.current = 0;
           const seg = tabs[key];
-          const base = `/c/${encodeURIComponent(entityId)}`;
-          navigate(seg ? `${base}/${seg}` : base);
+          navigate(
+            seg
+              ? entityPathFromId(entitiesList, entityId, seg)
+              : entityPathFromId(entitiesList, entityId),
+          );
           return;
         }
         // Any other key cancels the prefix so the next tap is normal.
@@ -130,7 +136,7 @@ export function useGlobalShortcuts({
         // Blueprint picker. At user scope (no entity) fall back to /start
         // (company creation).
         if (entityId) {
-          navigate(`/c/${encodeURIComponent(entityId)}/agents`);
+          navigate(entityPathFromId(entitiesList, entityId, "agents"));
           // Give the route swap a tick before dispatching so the agents
           // tab is mounted and listening.
           setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
@@ -146,5 +152,14 @@ export function useGlobalShortcuts({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [searching, shortcutsOpen, openSearch, closeSearch, setShortcutsOpen, entityId, navigate]);
+  }, [
+    searching,
+    shortcutsOpen,
+    openSearch,
+    closeSearch,
+    setShortcutsOpen,
+    entityId,
+    entitiesList,
+    navigate,
+  ]);
 }

@@ -28,3 +28,34 @@ export function entityPath(
   if (segments.length === 0) return base;
   return `${base}/${segments.join("/")}`;
 }
+
+/**
+ * Build a canonical path when the call site only has the entity id (not
+ * the full Entity object). Resolves to `/trust/<addr>` when the entities
+ * lookup hits a row with `trust_address`; otherwise falls back to
+ * `/c/<id>`.
+ *
+ * Use this in components that hold `entityId: string` and have access to
+ * the daemon store's `entities` array. Prefer `entityPath(entity, ...)`
+ * when an Entity object is in scope — this helper is the id-keyed
+ * alternative.
+ */
+export function entityPathFromId(
+  entities: ReadonlyArray<Pick<Entity, "id" | "trust_address">>,
+  id: string,
+  ...segments: string[]
+): string {
+  const entity = entities.find((e) => e.id === id);
+  if (entity) return entityPath(entity, ...segments);
+  const base = `/c/${encodeURIComponent(id)}`;
+  if (segments.length === 0) return base;
+  return `${base}/${segments.join("/")}`;
+}
+
+/** Same as `entityBasePath` but keyed by id with an entities-array lookup. */
+export function entityBasePathFromId(
+  entities: ReadonlyArray<Pick<Entity, "id" | "trust_address">>,
+  id: string,
+): string {
+  return entityPathFromId(entities, id);
+}

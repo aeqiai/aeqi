@@ -4,6 +4,7 @@ import { apiRequest } from "@/api/client";
 import BlockAvatar from "@/components/BlockAvatar";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import AddParticipantModal from "./AddParticipantModal";
 
 /**
@@ -46,11 +47,12 @@ function ParticipantAvatar({ p, entityId }: { p: Participant; entityId?: string 
   // identity's surface. Agent → /<entityBase>/agents/<id>; position
   // → /<entityBase>/roles/<id>; user / external are unlinked (no public
   // surface today).
+  const entitiesList = useDaemonStore((s) => s.entities);
   const href =
     entityId && p.id && p.kind === "agent"
-      ? `/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(p.id)}`
+      ? entityPathFromId(entitiesList, entityId, "agents", encodeURIComponent(p.id))
       : entityId && p.id && p.kind === "position"
-        ? `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(p.id)}`
+        ? entityPathFromId(entitiesList, entityId, "roles", encodeURIComponent(p.id))
         : undefined;
 
   // Avatar shape is determined by KIND, not by whether a photo URL exists.

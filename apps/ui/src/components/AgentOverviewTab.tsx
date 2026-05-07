@@ -4,7 +4,8 @@ import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import type { Idea, Quest, Role } from "@/lib/types";
-import { sessionDeepUrl } from "@/lib/sessionUrl";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { entityPathFromId } from "@/lib/entityPath";
 
 /**
  * `/c/<entity>/agents/<agent>/overview` — the agent cockpit. Mirrors
@@ -31,6 +32,7 @@ export default function AgentOverviewTab({
 }) {
   const navigate = useNavigate();
   const agents = useDaemonStore((s) => s.agents);
+  const entities = useDaemonStore((s) => s.entities);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const events = useDaemonStore((s) => s.events);
 
@@ -130,7 +132,8 @@ export default function AgentOverviewTab({
     return parts.join(" · ");
   }, [openQuestCount, agentInbox.length]);
 
-  const basePath = `/c/${encodeURIComponent(entityId)}/agents/${encodeURIComponent(agentId)}`;
+  const basePath = entityPathFromId(entities, entityId, "agents", encodeURIComponent(agentId));
+  const entityBase = entityPathFromId(entities, entityId);
 
   return (
     <div className="dashboard">
@@ -160,7 +163,7 @@ export default function AgentOverviewTab({
               <h2 id="agent-roles" className="dashboard-card-title">
                 Roles
               </h2>
-              <Link to={`/c/${encodeURIComponent(entityId)}/roles`} className="dashboard-card-link">
+              <Link to={`${entityBase}/roles`} className="dashboard-card-link">
                 Org chart →
               </Link>
             </div>
@@ -170,7 +173,7 @@ export default function AgentOverviewTab({
                   <button
                     type="button"
                     className="dashboard-list-btn"
-                    onClick={() => navigate(`/c/${encodeURIComponent(entityId)}/roles`)}
+                    onClick={() => navigate(`${entityBase}/roles`)}
                   >
                     <span className="dashboard-list-from">role</span>
                     <span className="dashboard-list-text">{r.title}</span>
@@ -233,7 +236,14 @@ export default function AgentOverviewTab({
                     type="button"
                     className="dashboard-list-btn"
                     onClick={() =>
-                      navigate(sessionDeepUrl(item.entity_id, item.agent_id, item.session_id))
+                      navigate(
+                        sessionDeepUrlFromId(
+                          entities,
+                          item.entity_id,
+                          item.agent_id,
+                          item.session_id,
+                        ),
+                      )
                     }
                   >
                     <span className="dashboard-list-from">

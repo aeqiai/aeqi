@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { GRANT_CATALOG, DEFAULT_GRANTS } from "@/lib/grants";
 import type { OccupantKind, RoleType } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 import { Button, Input, Select } from "@/components/ui";
 
 const ROLE_TYPE_OPTIONS: { value: RoleType; label: string; desc: string }[] = [
@@ -36,6 +37,7 @@ export default function RoleNewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const agents = useDaemonStore((s) => s.agents);
+  const entitiesList = useDaemonStore((s) => s.entities);
   const scopedAgents = useMemo(
     () => agents.filter((a) => a.entity_id === entityId || a.id === entityId),
     [agents, entityId],
@@ -102,14 +104,16 @@ export default function RoleNewPage() {
         role_type: roleType,
         grants,
       });
-      navigate(`/c/${encodeURIComponent(entityId)}/roles/${resp.role.id}`, { replace: true });
+      navigate(entityPathFromId(entitiesList, entityId, "roles", resp.role.id), {
+        replace: true,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create role.");
       setSubmitting(false);
     }
   };
 
-  const backHref = `/c/${encodeURIComponent(entityId)}/roles`;
+  const backHref = entityPathFromId(entitiesList, entityId, "roles");
 
   return (
     <div className="asv-main" style={{ padding: "var(--space-6) var(--space-8)", maxWidth: 680 }}>

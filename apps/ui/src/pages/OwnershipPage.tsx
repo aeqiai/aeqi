@@ -10,6 +10,7 @@ import { indexerEnabled, type TrustRole, type TrustRoleRequest } from "@/lib/ind
 import type { Role, RoleType } from "@/lib/types";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { entityPathFromId } from "@/lib/entityPath";
 
 interface OwnershipPageProps {
   entityId: string;
@@ -43,9 +44,12 @@ const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
  */
 export default function OwnershipPage({ entityId }: OwnershipPageProps) {
   const entity = useDaemonStore((s) => s.entities.find((e) => e.id === entityId));
+  const entitiesList = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const navigate = useNavigate();
   const trustId = entity?.trust_id;
+  const openRoleHref = (roleId: string) =>
+    entityPathFromId(entitiesList, entityId, "roles", roleId);
 
   const [roles, setRoles] = useState<Role[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +143,7 @@ export default function OwnershipPage({ entityId }: OwnershipPageProps) {
           title="Founders"
           roles={grouped.founders}
           occupantLabel={occupantLabel}
-          onOpenRole={(roleId) => navigate(`/c/${entityId}/roles/${roleId}`)}
+          onOpenRole={(roleId) => navigate(openRoleHref(roleId))}
         />
       )}
 
@@ -150,7 +154,7 @@ export default function OwnershipPage({ entityId }: OwnershipPageProps) {
             title={ROLE_TYPE_LABEL[t]}
             roles={grouped.byType[t]}
             occupantLabel={occupantLabel}
-            onOpenRole={(roleId) => navigate(`/c/${entityId}/roles/${roleId}`)}
+            onOpenRole={(roleId) => navigate(openRoleHref(roleId))}
           />
         ) : null,
       )}
