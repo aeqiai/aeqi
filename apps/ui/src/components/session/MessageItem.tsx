@@ -555,6 +555,13 @@ const MessageItem = memo(function MessageItem({
     return undefined;
   })();
 
+  // Avatar shape is determined by KIND, not by whether a photo URL exists.
+  // Humans/users render as full circles; agents (and agent-adjacent kinds
+  // like positions) render as slight-rounded squares.
+  const avatarShape: "circle" | "rounded-square" =
+    author.kind === "user" ? "circle" : "rounded-square";
+  const photoBorderRadius = avatarShape === "circle" ? "999px" : "var(--radius-sm)";
+
   const avatarEl = showAvatar ? (
     avatarPhotoUrl ? (
       avatarHref ? (
@@ -573,7 +580,7 @@ const MessageItem = memo(function MessageItem({
             style={{
               width: 20,
               height: 20,
-              borderRadius: "999px",
+              borderRadius: photoBorderRadius,
               objectFit: "cover",
               display: "block",
             }}
@@ -588,14 +595,20 @@ const MessageItem = memo(function MessageItem({
           style={{
             width: 20,
             height: 20,
-            borderRadius: "999px",
+            borderRadius: photoBorderRadius,
             objectFit: "cover",
             display: "block",
           }}
         />
       )
     ) : (
-      <BlockAvatar name={avatarName} size={20} href={avatarHref} ariaLabel={avatarName} />
+      <BlockAvatar
+        name={avatarName}
+        size={20}
+        href={avatarHref}
+        ariaLabel={avatarName}
+        shape={avatarShape}
+      />
     )
   ) : null;
 

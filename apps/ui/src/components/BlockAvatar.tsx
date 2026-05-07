@@ -15,9 +15,23 @@ export interface BlockAvatarProps {
   href?: string;
   /** Optional aria-label override for the link wrapper. */
   ariaLabel?: string;
+  /**
+   * Shape of the avatar tile. Agents (and agent-adjacent identities like
+   * positions, external) render as a slightly-rounded square; humans/users
+   * render as a full circle. Default is `"rounded-square"` because most
+   * existing call sites (org chart node icons, sidebar identicons) represent
+   * agents. Pass `"circle"` explicitly when mounting for a human identity.
+   */
+  shape?: "circle" | "rounded-square";
 }
 
-export default function BlockAvatar({ name, size = 22, href, ariaLabel }: BlockAvatarProps) {
+export default function BlockAvatar({
+  name,
+  size = 22,
+  href,
+  ariaLabel,
+  shape = "rounded-square",
+}: BlockAvatarProps) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
 
@@ -67,7 +81,12 @@ export default function BlockAvatar({ name, size = 22, href, ariaLabel }: BlockA
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      style={{ borderRadius: "50%", flexShrink: 0, background: bg, display: "block" }}
+      style={{
+        borderRadius: shape === "circle" ? "50%" : "var(--radius-sm)",
+        flexShrink: 0,
+        background: bg,
+        display: "block",
+      }}
     >
       {rects}
     </svg>

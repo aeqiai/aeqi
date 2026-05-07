@@ -53,6 +53,12 @@ function ParticipantAvatar({ p, entityId }: { p: Participant; entityId?: string 
         ? `/c/${encodeURIComponent(entityId)}/roles/${encodeURIComponent(p.id)}`
         : undefined;
 
+  // Avatar shape is determined by KIND, not by whether a photo URL exists.
+  // Humans/users render as full circles; agents (and agent-adjacent kinds
+  // like positions, external) render as slight-rounded squares.
+  const shape: "circle" | "rounded-square" = p.kind === "user" ? "circle" : "rounded-square";
+  const photoBorderRadius = shape === "circle" ? "999px" : "var(--radius-sm)";
+
   if (p.avatar_url) {
     const img = (
       <img
@@ -63,7 +69,7 @@ function ParticipantAvatar({ p, entityId }: { p: Participant; entityId?: string 
         style={{
           width: 24,
           height: 24,
-          borderRadius: "999px",
+          borderRadius: photoBorderRadius,
           objectFit: "cover",
           display: "block",
         }}
@@ -90,7 +96,7 @@ function ParticipantAvatar({ p, entityId }: { p: Participant; entityId?: string 
   }
   return (
     <div className="asv-participant-avatar" title={p.name}>
-      <BlockAvatar name={p.name || "?"} size={24} href={href} ariaLabel={p.name} />
+      <BlockAvatar name={p.name || "?"} size={24} href={href} ariaLabel={p.name} shape={shape} />
     </div>
   );
 }
