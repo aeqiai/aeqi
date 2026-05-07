@@ -16,7 +16,6 @@ const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentOverviewTab = lazy(() => import("@/components/AgentOverviewTab"));
 const AgentIntegrationsTab = lazy(() => import("@/pages/Agent/Integrations"));
-const PersonalityPage = lazy(() => import("@/pages/agents/PersonalityPage"));
 const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
 
 /**
@@ -24,8 +23,8 @@ const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
  * settings sub-surface for a drilled agent.
  *
  * Header: breadcrumb [← <Agent>] / <Agent> / Settings
- * Body: PageRail (Overview · Personality · Quests · Events · Ideas ·
- *       Channels · Treasury · Tools · Integrations) + the active
+ * Body: PageRail (Overview · Quests · Events · Ideas · Channels ·
+ *       Treasury · Tools · Integrations) + the active
  *       sub-tab's content. Default sub-tab = Overview. Settings is
  *       NOT a tab inside the rail — it's the rail's container; the
  *       sub-tabs are the canonical "settings for this agent" pages.
@@ -82,7 +81,6 @@ export default function AgentSettingsPage({ agentId }: { agentId: string }) {
         {activeTab === "overview" && isDrilledAgent && (
           <AgentOverviewTab agentId={resolvedAgentId} entityId={resolvedEntityId} />
         )}
-        {activeTab === "personality" && <PersonalityPage agentId={resolvedAgentId} />}
         {activeTab === "quests" && <AgentQuestsTab agentId={resolvedAgentId} />}
         {activeTab === "events" && <AgentEventsTab agentId={resolvedAgentId} />}
         {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}

@@ -14,12 +14,15 @@ const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
  * Inbox is dropped from the rail (now the default agent surface).
  * Settings is the rail's container, not a tab inside it.
  *
- * Rail order: Overview · Personality · Quests · Events · Ideas ·
- * Channels · Treasury · Tools · Integrations.
+ * Rail order: Overview · Quests · Events · Ideas · Channels ·
+ * Treasury · Tools · Integrations.
+ *
+ * Personality was dropped 2026-05-08 — Ideas (HOW per the four
+ * W-primitives) defines the agent's identity/instructions/memories;
+ * a separate Personality tab duplicated what Ideas already does.
  */
 export const AGENT_RAIL_TABS = [
   { id: "overview", label: "Overview" },
-  { id: "personality", label: "Personality" },
   { id: "quests", label: "Quests" },
   { id: "events", label: "Events" },
   { id: "ideas", label: "Ideas" },

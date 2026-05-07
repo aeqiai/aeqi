@@ -43,7 +43,6 @@ const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
 // 308) so existing bookmarks survive the relocation.
 const RELOCATED_AGENT_TABS = new Set([
   "overview",
-  "personality",
   "quests",
   "events",
   "ideas",
@@ -328,9 +327,24 @@ export default function AppLayout() {
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
-  // Backward-compat: the drilled-agent rail tabs (Overview, Personality,
-  // Quests, Events, Ideas, Channels, Treasury, Tools, Integrations) used
-  // to live at `/c/<entity>/agents/<agent>/<tab>`. They moved under the
+  // Personality was dropped from the agent settings rail 2026-05-08 —
+  // Ideas (HOW per the four W-primitives) is the canonical surface for
+  // an agent's identity/instructions/memories. Replace-navigate any
+  // stale `/personality` URL onto `/settings/ideas` — the closest
+  // thing to a 308 in a SPA. Catches both the old flat shape
+  // (`/c/<eid>/agents/<aid>/personality`) and the relocated shape
+  // (`/c/<eid>/agents/<aid>/settings/personality`).
+  if (
+    drilledAgent &&
+    (tab === "personality" || (agentSettingsSegment && settingsTab === "personality"))
+  ) {
+    const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
+    return <Navigate to={`${base}${agentSeg}/settings/ideas${search}`} replace />;
+  }
+
+  // Backward-compat: the drilled-agent rail tabs (Overview, Quests,
+  // Events, Ideas, Channels, Treasury, Tools, Integrations) used to
+  // live at `/c/<entity>/agents/<agent>/<tab>`. They moved under the
   // settings sub-surface 2026-05-08 (the agent default surface is now
   // chat with no rail; settings owns the rail). Replace-navigate stale
   // bookmarks to the new shape — the closest thing to a 308 in a SPA.
