@@ -271,9 +271,12 @@ export default function MeInboxPage() {
             <SessionRail
               rows={visible.map<SessionRailRow>((r) => ({
                 id: r.id,
+                // Single-line h=32 row to match the agent surface (same
+                // SessionRail primitive, same shape on both adopters per
+                // the locked direction "render the user inbox like the
+                // agent session"). Sender name lives in the detail
+                // header on the right pane, not duplicated in the rail.
                 primary: r.subject,
-                secondary: r.from.name,
-                wrapPrimary: true,
                 time: timeShort(r.created_at),
                 status: r.unread ? "active" : undefined,
                 awaiting: r.replyable,

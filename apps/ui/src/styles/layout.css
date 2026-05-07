@@ -1347,6 +1347,21 @@
     display: none;
   }
 }
+/* Drilled-agent surface tablet collapse — at <=1024px the LeftSidebar
+   already shrinks to the 52px icon strip; the PageRail (180px) plus
+   sessions-rail-col (300px) still leave the main content column under
+   ~360px on a 900px viewport, which wraps the chat to ~1 word per line.
+   Hide the agent PageRail at the same breakpoint the LeftSidebar
+   collapses at — same gesture, same bound. The rail's tabs remain
+   reachable via the sessions list (drilled URLs) and direct-link
+   navigation. Scoped to `.content-body-row .page-rail` so the
+   /settings / /blueprints PageRail (different parent, no squeeze) is
+   unaffected. */
+@media (max-width: 1024px) {
+  .content-body-row .page-rail {
+    display: none;
+  }
+}
 .sessions-rail {
   display: flex;
   flex-direction: column;

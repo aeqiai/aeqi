@@ -168,6 +168,7 @@ export default function InboxDetail({
       {row.replyable && (
         <InboxComposer
           sessionId={row.id}
+          agentName={row.from.name}
           onSend={onAnswer}
           onDismiss={onDismiss}
           composerRef={composerRef}
