@@ -40,6 +40,28 @@ pub(super) async fn ipc_proxy(
     cmd: &str,
     params: serde_json::Value,
 ) -> Response {
+    ipc_proxy_inner(state, scope, cmd, params, None).await
+}
+
+/// Same as [`ipc_proxy`] but with an explicit per-call timeout. LLM-fronting
+/// verbs (architect.draft) use this to relax the default 10s ceiling.
+pub(super) async fn ipc_proxy_with_timeout(
+    state: AppState,
+    scope: Option<&UserScope>,
+    cmd: &str,
+    params: serde_json::Value,
+    timeout_secs: u64,
+) -> Response {
+    ipc_proxy_inner(state, scope, cmd, params, Some(timeout_secs)).await
+}
+
+async fn ipc_proxy_inner(
+    state: AppState,
+    scope: Option<&UserScope>,
+    cmd: &str,
+    params: serde_json::Value,
+    timeout_secs: Option<u64>,
+) -> Response {
     // Merge allowed_roots and caller_user_id into the params so the daemon
     // can both gate by tenant and attribute the request to the calling user.
     let params = if let Some(scope) = scope {
@@ -57,10 +79,24 @@ pub(super) async fn ipc_proxy(
         params
     };
 
-    let result = if params.is_null() || params.as_object().is_some_and(|m| m.is_empty()) {
-        state.ipc.cmd(cmd).await
-    } else {
-        state.ipc.cmd_with(cmd, params).await
+    let result = match timeout_secs {
+        Some(secs) => {
+            // Always go through cmd_with_timeout — it merges the cmd into the
+            // params object, same shape `cmd_with` produces.
+            let p = if params.is_null() {
+                serde_json::json!({})
+            } else {
+                params
+            };
+            state.ipc.cmd_with_timeout(cmd, p, secs).await
+        }
+        None => {
+            if params.is_null() || params.as_object().is_some_and(|m| m.is_empty()) {
+                state.ipc.cmd(cmd).await
+            } else {
+                state.ipc.cmd_with(cmd, params).await
+            }
+        }
     };
 
     match result {

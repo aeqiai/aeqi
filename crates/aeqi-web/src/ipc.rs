@@ -24,14 +24,30 @@ impl IpcClient {
         &self.socket_path
     }
 
-    /// Send a JSON request and get a JSON response (with 10s timeout).
+    /// Default per-request timeout for the IPC client. Most verbs return
+    /// in <100ms; LLM-fronting verbs (architect.draft, architect.refine)
+    /// override via [`request_with_timeout`].
+    const DEFAULT_TIMEOUT_SECS: u64 = 10;
+
+    /// Send a JSON request and get a JSON response (with the default 10s timeout).
     pub async fn request(&self, request: &serde_json::Value) -> Result<serde_json::Value> {
+        self.request_with_timeout(request, Self::DEFAULT_TIMEOUT_SECS)
+            .await
+    }
+
+    /// Send a JSON request with an explicit timeout (in seconds). Used by
+    /// LLM-fronting verbs that legitimately take 5-30s (architect.draft).
+    pub async fn request_with_timeout(
+        &self,
+        request: &serde_json::Value,
+        timeout_secs: u64,
+    ) -> Result<serde_json::Value> {
         tokio::time::timeout(
-            std::time::Duration::from_secs(10),
+            std::time::Duration::from_secs(timeout_secs),
             self.request_inner(request),
         )
         .await
-        .map_err(|_| anyhow::anyhow!("IPC request timed out after 10s"))?
+        .map_err(|_| anyhow::anyhow!("IPC request timed out after {}s", timeout_secs))?
     }
 
     async fn request_inner(&self, request: &serde_json::Value) -> Result<serde_json::Value> {
@@ -123,6 +139,21 @@ impl IpcClient {
         let mut req = params;
         req["cmd"] = serde_json::Value::String(cmd.to_string());
         self.request(&req).await
+    }
+
+    /// Send a command with params and an explicit timeout (in seconds).
+    /// Used by LLM-fronting verbs (architect.draft, architect.refine)
+    /// where the default 10s timeout is too aggressive for upstream LLM
+    /// latency.
+    pub async fn cmd_with_timeout(
+        &self,
+        cmd: &str,
+        params: serde_json::Value,
+        timeout_secs: u64,
+    ) -> Result<serde_json::Value> {
+        let mut req = params;
+        req["cmd"] = serde_json::Value::String(cmd.to_string());
+        self.request_with_timeout(&req, timeout_secs).await
     }
 
     /// Send a streaming command — returns events via callback until done.

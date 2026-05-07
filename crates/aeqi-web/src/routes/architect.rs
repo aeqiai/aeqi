@@ -20,10 +20,15 @@ use axum::{
     routing::post,
 };
 
-use super::helpers::ipc_proxy;
+use super::helpers::ipc_proxy_with_timeout;
 use crate::auth::Claims;
 use crate::extractors::Scope;
 use crate::server::AppState;
+
+/// Architect verbs front an LLM call; the default 10s IPC timeout is
+/// too aggressive. Allow up to 60s — covers the architect's own 30s
+/// internal timeout plus IPC overhead and slow OpenRouter routes.
+const ARCHITECT_IPC_TIMEOUT_SECS: u64 = 60;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -37,7 +42,14 @@ async fn architect_draft(
     scope: Scope,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "architect.draft", body).await
+    ipc_proxy_with_timeout(
+        state,
+        scope.as_ref(),
+        "architect.draft",
+        body,
+        ARCHITECT_IPC_TIMEOUT_SECS,
+    )
+    .await
 }
 
 async fn architect_refine(
@@ -45,7 +57,14 @@ async fn architect_refine(
     scope: Scope,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    ipc_proxy(state, scope.as_ref(), "architect.refine", body).await
+    ipc_proxy_with_timeout(
+        state,
+        scope.as_ref(),
+        "architect.refine",
+        body,
+        ARCHITECT_IPC_TIMEOUT_SECS,
+    )
+    .await
 }
 
 /// Phase 1 deploy mirrors the `spawn_blueprint` route's gating: free-trial
