@@ -1475,18 +1475,46 @@ Rule: if you're building a chart surface over `Role[]` + `RoleEdge[]`, import
 `layoutChart` (and `NODE_W` / `NODE_H`) from `roles/layout.ts` and render nodes
 at their absolute `(x, y)` positions.
 
-**List views use pre-order DAG traversal + depth indent, not section headers.**
-`RolesList` (Roles tab list view) and `AgentsList` (Agents tab list view) both
-express hierarchy as a depth-indented flat list — pre-order DFS from roots,
-`paddingLeft: depth * 24` on the first cell. Section-header grouping by
-`role_type` or department label was the prior anti-pattern and was removed
-(2026-05-06) from `EntityRolesTab.tsx`. Do not reintroduce `ROLE_TYPE_ORDER`
-or any section-header loop in the list view — hierarchy lives in the indent,
-not in headers.
+**Roles list view — pre-order DAG traversal + depth indent. Agents list view — flat.**
+`RolesList` (Roles tab list view) expresses hierarchy as a depth-indented flat
+list — pre-order DFS from roots, `paddingLeft: depth * 24` on the first cell.
+Section-header grouping by `role_type` or department label was the prior
+anti-pattern and was removed (2026-05-06) from `EntityRolesTab.tsx`. Do not
+reintroduce `ROLE_TYPE_ORDER` or any section-header loop in the Roles list
+view.
+
+`AgentsList` (Agents tab list view) is FLAT — no depth indent, no
+`buildAgentTreeData`, no pre-order traversal. The depth-indent shipped on
+2026-05-06 (task #164) was reverted 2026-05-07 by founder direction:
+hierarchy is a chart concern. Sort order comes from the toolbar selector
+(recent / alpha / activity / spend). Do not reintroduce the indent.
 
 CSS classes that are gone and must NOT be added back:
 `.roles-chart-dept-cluster`, `.roles-chart-dept-root`, `.roles-chart-ceo-row`,
 `.roles-chart-dept-row`, `.roles-chart-dept-label`.
+
+## Channels are an agent-rail primitive only — never a Company-tier surface
+
+**`AgentChannelsTab` (transport channels per agent — Telegram / WhatsApp /
+Slack-app / etc.) is the only channels surface in the product.** A
+Company-scoped Slack-style channels surface (`/c/<id>/channels` /
+`/trust/<addr>/channels`, Multi-participant scope-bound sessions) was
+shipped briefly 2026-05-07 (commit `e2ce3cb0`) and reverted same day by
+founder direction ("channels are just on an agent itself like we already
+got prior"). The reverted set:
+
+- `pages/ChannelsListPage.tsx`, `pages/ChannelDetailPage.tsx`
+- `components/channels/ChannelComposer.tsx`, `components/channels/NewChannelModal.tsx`
+- `api/conversation-channels.ts`
+- `conversationChannelKeys` in `queries/keys.ts`
+- `.channels-list*` rules tied to the company surface (kept the AgentChannelsTab variants)
+- the `Channels` tab in the Company rail (LeftSidebar Organization zone)
+- the `channels` entry in `COMPANY_PAGE_TABS` and the CompanyPage dispatch branch
+
+Do not reintroduce any of these. Multi-participant Sessions are a primitive
+already (`architecture_session_primitive.md`) — they're not "channels," and
+they don't deserve a rail tab. If a future ship asks for "company channels,"
+the answer is no: the founder already considered and rejected that surface.
 
 ## New view component — every className must have CSS, not just compile
 

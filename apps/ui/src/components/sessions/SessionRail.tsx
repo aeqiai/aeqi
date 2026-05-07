@@ -63,10 +63,6 @@ export interface SessionRailProps {
  * Adopters today:
  *  - shell/SessionsRail.tsx — agent surface, drives from useChatStore
  *  - pages/MeInboxPage.tsx — inbox, drives from useInboxStore
- *
- * Channels surface (ChannelsListPage + ChannelDetailPage) is a different
- * row shape (last_message_preview + member count) and does not adopt
- * this rail today.
  */
 export default function SessionRail({
   rows,
