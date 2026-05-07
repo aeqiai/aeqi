@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.49.0 — 2026-05-08
+
+**Headline:** Architect close-the-loop — second contract trap closed, /studio walks two shapes end-to-end.
+
+- **Architect — schema-gate template allow-list narrowed to known-good on-chain wiring** (`crates/aeqi-architect/src/llm.rs`): walk-3 found `architect.deploy` reverting on `registerTRUST` because the LLM emitted `template: "foundation"` for a non-profit brief — the schema-gate (shipped v0.48.0 `f2526074`) accepted `foundation` as canonical, but only `entity` / `venture` / `fund` have proven on-chain wiring through the provisioner today. Snap any non-canonical template (including the previously-accepted `foundation` and any new LLM drift like `nonprofit` / `startup` / `lp`) to `entity`, the safest universal default. Closes the walk-3 registerTRUST revert root cause; verified end-to-end via walk-8 across two distinct brief shapes (Foundation + Venture flavors), TRUSTs minted on both, indexer trustsCount 22→24. `97085207`.
+- **UX walk v24 batch — public /economy + /me/portfolio drop + Tables Phase 2 CSS** (`apps/ui/src/pages/economy/EconomyPage.tsx` + `apps/ui/src/router.tsx` + `apps/ui/src/styles/layout.css`): three v24-walk fixes, one ship. (1) `/economy` now renders for authed users — was bouncing to `/me/inbox` because the route guard's auth-gate ran before the public-route allow-list (the Economy is a public app surface per `project_public_app_surfaces.md`). (2) `/me/portfolio` route dropped — Personal rail v1 (`project_personal_rail_v1.md`) has no portfolio tab; the route was a v0.32.0 leftover that 404'd in production and confused the rail surface count. (3) `IdeasTableView` container fix — the table view's flex container was cramped to 250px in a 900px viewport because Phase 2's CSS shipped a `min-width` without a matching `flex: 1`; columns now distribute correctly across the full content area. `3d27b535`.
+
 ## v0.48.0 — 2026-05-08
 
 **Headline:** /studio deploy reaches the chain — and survives natural language.
