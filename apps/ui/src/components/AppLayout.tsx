@@ -21,7 +21,7 @@ import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
-const MePage = lazy(() => import("@/pages/MePage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
@@ -215,7 +215,7 @@ export default function AppLayout() {
   const appMode = useAuthStore((s) => s.appMode);
 
   const {
-    isSettings,
+    isAccount,
     isEconomy,
     isBlueprints,
     isStudio,
@@ -300,7 +300,7 @@ export default function AppLayout() {
   const effectiveTab = tab || "overview";
 
   // Runtime mode has no account-level identity surface.
-  if (isSettings && appMode && appMode !== "platform") {
+  if (isAccount && appMode && appMode !== "platform") {
     return <Navigate to="/" replace />;
   }
 
@@ -382,7 +382,7 @@ export default function AppLayout() {
     }
     if (isAdmin) return <AdminPage />;
     if (isDrive) return <DrivePage />;
-    if (isSettings) return <MePage />;
+    if (isAccount) return <ProfilePage />;
     if (isEconomy) return <EconomyPage />;
     if (isStudio) return <StudioPage />;
     if (isBlueprints) {
@@ -421,18 +421,18 @@ export default function AppLayout() {
 
   // The chat composer + sessions rail belong on the drilled-agent
   // default surface (`/c/<entity>/agents/<id>/[inbox/<sid>]`). The
-  // entity-scope inbox (`/c/<entity>/inbox`) and personal inbox
-  // (`/me/inbox`) embed `<SessionDetail>` (which mounts its own
-  // composer against the inbox-store POST path) — they must not also
-  // mount the AppLayout chat composer or it stacks visually over the
-  // inbox detail. Same applies to other top-level non-chat routes
-  // and to the agent's settings sub-surface (rail without chat).
+  // entity-scope inbox (`/trust/<addr>/inbox`) embeds
+  // `<SessionDetail>` (which mounts its own composer against the
+  // inbox-store POST path) — it must not also mount the AppLayout
+  // chat composer or it stacks visually over the inbox detail. Same
+  // applies to other top-level non-chat routes and to the agent's
+  // settings sub-surface (rail without chat).
   const isAgentChatDefault =
     !!drilledAgent && !agentSettingsSegment && (tab === undefined || tab === "inbox");
   const sessionsMounted =
     !isNotFound &&
     !isDrive &&
-    !isSettings &&
+    !isAccount &&
     !isAdmin &&
     !isStart &&
     !isEconomy &&

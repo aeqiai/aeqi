@@ -94,7 +94,7 @@ export default function AdminPage() {
     if (isAdmin) load();
   }, [isAdmin]);
 
-  if (userLoaded && !isAdmin) return <Navigate to="/me" replace />;
+  if (userLoaded && !isAdmin) return <Navigate to="/account" replace />;
 
   return (
     <div className="admin-page">

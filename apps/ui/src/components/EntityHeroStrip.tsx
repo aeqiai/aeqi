@@ -10,7 +10,7 @@ import BlockAvatar from "./BlockAvatar";
  * Click-to-edit name + tagline persist via `api.updateEntity`. Public
  * toggle flips `entities.public` (Phase 2 ships the public profile page
  * itself; Phase 1 only sets the flag). Plan label-link routes to
- * `/me/billing` for workspace billing — the per-Company plan tab is
+ * `/account/billing` for workspace billing — the per-Company plan tab is
  * retired with this ship.
  *
  * In `public` mode the strip renders read-only: no click-to-edit on name
@@ -327,7 +327,7 @@ export default function EntityHeroStrip({
             }}
           >
             <Link
-              to="/me/billing"
+              to="/account/billing"
               style={{
                 color: "inherit",
                 textDecoration: "none",

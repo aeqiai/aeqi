@@ -14,10 +14,8 @@ import { useMemo } from "react";
  * flag is gone.
  */
 export interface ShellSurface {
-  /** True for all `/me/*` paths — MePage dispatches further. */
-  isMeRoute: boolean;
-  /** @deprecated Use isMeRoute. Kept for AppLayout dispatch compat. */
-  isSettings: boolean;
+  /** True for all `/account/*` paths — ProfilePage dispatches further. */
+  isAccount: boolean;
   isEconomy: boolean;
   isBlueprints: boolean;
   /** `/studio` — Architect surface (Wave 34 Phase 1). Free-text brief →
@@ -43,10 +41,8 @@ export interface ShellSurface {
 export function useShellSurface(path: string, tab: string | undefined): ShellSurface {
   return useMemo(() => {
     const isAdmin = path === "/admin" || path.startsWith("/admin/");
-    // All /me/* paths are handled by MePage; isSettings is an alias kept
-    // so AppLayout's single dispatch point stays unchanged.
-    const isMeRoute = path === "/me" || path.startsWith("/me/") || tab === "profile";
-    const isSettings = isMeRoute;
+    // All /account/* paths are handled by ProfilePage.
+    const isAccount = path === "/account" || path.startsWith("/account/");
     // `/` is the canonical Economy URL — the front door of the app
     // shell. `/economy` is kept as an alias and redirects to `/` in
     // App.tsx, but the shell-side flag must match either path so the
@@ -73,12 +69,11 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // door (isEconomy === true at `/`).
     const isCompanyRoute = /^\/c\/[^/]+(\/|$)/.test(path) || /^\/trust\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
-      isCompanyRoute || isSettings || isEconomy || isBlueprints || isStudio || isStart || isAdmin;
+      isCompanyRoute || isAccount || isEconomy || isBlueprints || isStudio || isStart || isAdmin;
     const isNotFound = !isKnownShellRoute;
 
     return {
-      isMeRoute,
-      isSettings,
+      isAccount,
       isEconomy,
       isBlueprints,
       isStudio,

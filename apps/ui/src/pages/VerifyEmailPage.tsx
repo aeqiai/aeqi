@@ -24,7 +24,7 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     if (isAuthenticated()) {
       localStorage.removeItem("aeqi_pending_email");
-      navigate("/me/inbox", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

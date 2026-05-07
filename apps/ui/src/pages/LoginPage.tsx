@@ -15,12 +15,12 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const track = useTrack();
-  // Post-login default lands on the personal Inbox — that's the daily-action
-  // surface (memory: project_personal_rail_v1.md). Pre-pivot default was `/`
-  // which renders the Economy front door, but the user's first action after
-  // signing in is reading their inbox, not browsing the marketplace. The
-  // `?next=` param still wins when present (deep links survive auth).
-  const redirectAfter = useCallback(() => getRedirectAfterAuth(params, "/me/inbox"), [params]);
+  // Post-login default lands on `/`, which `RootRouteSwitch` resolves to
+  // the user's primary entity inbox (`/trust/<addr>/inbox`) — the daily-
+  // action surface. Resolving at nav-time avoids forcing a post-auth
+  // entities fetch into LoginPage. The `?next=` param still wins when
+  // present (deep links survive auth).
+  const redirectAfter = useCallback(() => getRedirectAfterAuth(params, "/"), [params]);
   const {
     authMode,
     googleOAuth,

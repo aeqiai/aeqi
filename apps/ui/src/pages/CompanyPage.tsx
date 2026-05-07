@@ -13,8 +13,7 @@ import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 const EntityOverviewTab = lazy(() => import("@/components/EntityOverviewTab"));
 // Entity-scope primitive tabs. `EntityAgentsTab` is entity-typed (takes
 // entityId, filters the directory). The remaining three render the
-// agent-scoped tab against the entity's ROOT agent — same pattern MePage
-// uses for `/me/{events,quests,ideas}`. Without these explicit branches,
+// agent-scoped tab against the entity's ROOT agent. Without these explicit branches,
 // the fallthrough to `<AgentPage tab=...>` rendered the root agent's chat
 // surface (AgentPage ignores `tab`) — see "Dispatch hole fix 2026-05-09".
 const EntityAgentsTab = lazy(() => import("@/components/EntityAgentsTab"));
@@ -64,7 +63,7 @@ interface CompanyPageProps {
  *
  * The former `/c/:entityId/settings` tab was retired — workspace label,
  * tagline, public toggle, and plan link now live in the EntityHeroStrip
- * on Overview. Workspace billing remains at `/me/billing`.
+ * on Overview. Workspace billing remains at `/account/billing`.
  */
 export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyPageProps) {
   const navigate = useNavigate();

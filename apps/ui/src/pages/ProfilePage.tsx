@@ -29,14 +29,14 @@ const BASE_TABS = [
 const ADMIN_TAB = { id: "invites", label: "Invites" };
 
 /**
- * `/me` — user-scoped account shell. Each tab lives in its own
+ * `/account` — user-scoped account shell. Each tab lives in its own
  * component under `pages/Settings/` and owns its own state + data-
  * fetching. This file is a thin router: pick the right panel for the
  * active tab. Splitting was driven by the page reaching 878 lines with
  * six tabs' worth of state interleaved in a single component; the
  * ApiKey + Integrations tabs were already external, the rest followed.
  *
- * Tabs are path-based (`/me/:tab`) to match the rest of the app;
+ * Tabs are path-based (`/account/:tab`) to match the rest of the app;
  * legacy `?tab=` URLs redirect to the path form on mount.
  */
 export default function ProfilePage() {
@@ -47,14 +47,14 @@ export default function ProfilePage() {
 
   const tabs = useMemo(() => (isAdmin ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS), [isAdmin]);
 
-  // Backwards-compat: old bookmarks of `/me?tab=security` get
-  // bounced to `/me/security` once on mount, then the param is
+  // Backwards-compat: old bookmarks of `/account?tab=security` get
+  // bounced to `/account/security` once on mount, then the param is
   // dropped from the address bar.
   useEffect(() => {
     const legacy = searchParams.get("tab");
     if (!legacy) return;
     const known = tabs.some((t) => t.id === legacy);
-    const target = known && legacy !== "profile" ? `/me/${legacy}` : "/me";
+    const target = known && legacy !== "profile" ? `/account/${legacy}` : "/account";
     navigate(target, { replace: true });
   }, [searchParams, navigate, tabs]);
 
@@ -62,7 +62,7 @@ export default function ProfilePage() {
 
   return (
     <div className="page-rail-shell">
-      <PageRail tabs={tabs} defaultTab="profile" title="Account" basePath="/me" />
+      <PageRail tabs={tabs} defaultTab="profile" title="Account" basePath="/account" />
       <div className="account-page page-rail-content">
         {activeTab === "profile" && <ProfilePanel />}
         {activeTab === "billing" && <BillingPanel />}

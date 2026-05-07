@@ -109,7 +109,8 @@ export default function ParticipantStrip({
 }: {
   sessionId: string | null;
   /** Optional entity scope override — needed when the host route doesn't
-   *  resolve an entity via `useNav` (e.g. `/me/inbox`). */
+   *  resolve an entity via `useNav` (e.g. when the inbox surface is
+   *  mounted in a context without a matching :entityId/:trustAddress). */
   entityId?: string;
 }) {
   const [participants, setParticipants] = useState<Participant[] | null>(null);

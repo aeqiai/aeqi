@@ -23,8 +23,8 @@ type Candidate =
 interface AddParticipantModalProps {
   open: boolean;
   sessionId: string;
-  /** Override for the entity scope (used by `/me/inbox` where useNav doesn't
-   *  yield an entity). When omitted, falls back to useNav().entityId. */
+  /** Override for the entity scope. When omitted, falls back to
+   *  useNav().entityId. */
   entityId?: string;
   onClose: () => void;
   onAdded: () => void;

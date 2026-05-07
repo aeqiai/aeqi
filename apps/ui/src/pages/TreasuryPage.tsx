@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { useBalance } from "wagmi";
 import { anvil } from "wagmi/chains";
 
@@ -72,14 +71,9 @@ const STATUS_LABEL: Record<CompanyBillingRow["status"], string> = {
  *   5. Resource pack — plan limits.
  */
 export default function TreasuryPage({ entityId, agentId }: TreasuryPageProps) {
-  const location = useLocation();
   const entity = useDaemonStore((s) => s.entities.find((e) => e.id === entityId));
   const trustAddress = entity?.trust_address;
   const trustId = entity?.trust_id;
-  // URL-based detection: /me/* routes are always personal accounts (entity.type === 'human')
-  // This is reliable because /me/ is reserved for the personal entity (auto-created at signup)
-  const isPersonal = location.pathname.startsWith("/me/");
-  const entityTerm = isPersonal ? "account" : "Company";
 
   const [billing, setBilling] = useState<CompanyBillingRow | null | undefined>(undefined);
   const [paymentLast4, setPaymentLast4] = useState<string | null>(null);
@@ -143,7 +137,7 @@ export default function TreasuryPage({ entityId, agentId }: TreasuryPageProps) {
         <p style={{ color: "var(--color-text-muted)", margin: "var(--space-xs) 0 0 0" }}>
           {agentId
             ? "Lifetime inference spend and recent calls for this agent."
-            : `Subscription, resources, and on-chain balances for this ${entityTerm}.`}
+            : "Subscription, resources, and on-chain balances for this Company."}
         </p>
       </header>
 
@@ -173,11 +167,7 @@ export default function TreasuryPage({ entityId, agentId }: TreasuryPageProps) {
       {!billing && !billingError && (
         <EmptyState
           title="No active plan"
-          description={
-            isPersonal
-              ? "Subscribe to unlock inference, compute, and on-chain features."
-              : "Add a plan to this Company to unlock inference and on-chain features."
-          }
+          description="Add a plan to this Company to unlock inference and on-chain features."
         />
       )}
 

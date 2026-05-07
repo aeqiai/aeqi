@@ -2,10 +2,12 @@ import { lazy, Suspense, useEffect } from "react";
 import type { ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Spinner } from "@/components/ui";
 import AppLayout from "@/components/AppLayout";
 import SessionRedirect from "@/components/SessionRedirect";
+import { entityPath } from "@/lib/entityPath";
 
 // Auth pages -- loaded eagerly since they gate entry
 import LoginPage from "@/pages/LoginPage";
@@ -33,7 +35,7 @@ const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const RESERVED_SLUGS = new Set([
   "api",
   "auth",
-  "me",
+  "account",
   "c",
   "trust",
   "start",
@@ -59,11 +61,11 @@ const RESERVED_SLUGS = new Set([
  * Public-profile route wrapper. Renders the profile page only when the
  * URL segment is NOT a reserved slug; reserved slugs (auth pages, app
  * shell paths, asset prefixes) delegate to the authed protected tree so
- * `/me`, `/admin`, `/start`, etc. continue to render the in-shell app
- * surface for authenticated users (and bounce to /login for everyone
- * else, the same as before this route existed). Without this delegation
- * react-router would prefer `/:slug` over `/*` and shadow `/me` for
- * authenticated users.
+ * `/account`, `/admin`, `/start`, etc. continue to render the in-shell
+ * app surface for authenticated users (and bounce to /login for
+ * everyone else, the same as before this route existed). Without this
+ * delegation react-router would prefer `/:slug` over `/*` and shadow
+ * `/account` for authenticated users.
  */
 function PublicProfileRoute({ protectedFallback }: { protectedFallback: ReactNode }) {
   const { slug } = useParams<{ slug: string }>();
@@ -146,24 +148,49 @@ function GatedAppShell() {
 }
 
 /**
- * Bare `/` while authed lands on `/me/inbox` — the daily-action surface
- * per the personal rail spec. The previous shape fell through to the
- * Economy front door, which is wrong for habitual users (Inbox is the
- * canonical daily destination). Unauthed visitors and `auth=none` mode
- * still see the Economy/AppLayout dispatch via GatedAppShell.
+ * Bare `/` while authed lands on the user's primary entity inbox —
+ * the daily-action surface. Resolved at nav-time from the daemon
+ * store: prefer the `host`-typed placement (the platform-owner
+ * carve-out, per `architecture_user_account_is_company.md`); fall
+ * back to `entities[0]`. Until entities load, render the Economy
+ * shell so the user lands on something coherent rather than a
+ * spinner. Unauthed visitors and `auth=none` mode see the
+ * Economy/AppLayout dispatch via GatedAppShell.
  */
 function RootRouteSwitch() {
   const authMode = useAuthStore((s) => s.authMode);
   const token = useAuthStore((s) => s.token);
   const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
+  const entities = useDaemonStore((s) => s.entities);
+  const initialLoaded = useDaemonStore((s) => s.initialLoaded);
+  const fetchEntities = useDaemonStore((s) => s.fetchEntities);
 
   useEffect(() => {
     fetchAuthMode();
   }, [fetchAuthMode]);
 
+  // The daemon store is normally hydrated by AppLayout's `fetchAll`
+  // — but this branch fires BEFORE AppLayout mounts. Kick the
+  // entities fetch ourselves so we can resolve a primary inbox URL
+  // for habitual users without falling through to the Economy front
+  // door first. No-op when entities are already cached.
+  useEffect(() => {
+    if (authMode && authMode !== "none" && token && !initialLoaded) {
+      void fetchEntities();
+    }
+  }, [authMode, token, initialLoaded, fetchEntities]);
+
   if (!authMode) return <LoadingSpinner />;
   if (authMode !== "none" && token) {
-    return <Navigate to="/me/inbox" replace />;
+    if (!initialLoaded) return <LoadingSpinner />;
+    const host = entities.find((e) => e.placement_type === "host");
+    const primary = host ?? entities[0] ?? null;
+    if (primary) {
+      return <Navigate to={entityPath(primary, "inbox")} replace />;
+    }
+    // No entity yet — render the in-shell Economy front door so the
+    // user can pick / create one rather than dead-ending.
+    return <GatedAppShell />;
   }
   return <GatedAppShell />;
 }
@@ -173,16 +200,20 @@ function RootRouteSwitch() {
 // never generate bogus top-level paths like `/quests`.
 
 /**
- * Version C — entity-root URL architecture. The app shell lives at
- * `/c/:entityId/...`; the sidebar always navigates inside that entity. Child
- * agents remain addressable at `/c/:entityId/agents/:agentId/...`. Profile
- * lives at `/me` (top-level, user-scoped) so it never dead-ends when
- * no root is active; it still inherits the shell.
+ * Entity-root URL architecture. The app shell lives at
+ * `/trust/:trustAddress/...` (canonical) or `/c/:entityId/...` (pending
+ * fallback); the sidebar always navigates inside that entity. Child
+ * agents remain addressable at `/trust/<addr>/agents/:agentId/...`.
+ * The user's account-level surface (login profile, billing, settings)
+ * lives at `/account` — it's user-scoped, not entity-scoped. There is
+ * NO `/me/*` namespace: every entity is a Company entity (founder
+ * direction 2026-05-07). Bare `/` resolves to the user's primary
+ * entity inbox via `RootRouteSwitch`.
  */
 export default function App() {
   // Protected app shell — extracted so the public-profile route can
-  // delegate to it for reserved slugs (`/me`, `/admin`, `/start`, etc.)
-  // without router-shadowing collisions.
+  // delegate to it for reserved slugs (`/account`, `/admin`, `/start`,
+  // etc.) without router-shadowing collisions.
   const protectedTree = (
     <ProtectedRoute>
       <Routes>
@@ -195,11 +226,11 @@ export default function App() {
             entity, then Navigate replace to the canonical deep shape. */}
         <Route path="sessions/:sessionId" element={<SessionRedirect />} />
 
-        {/* Home dashboard + profile + every company at /c/:entityId/...
-            share the same shell — AppLayout decides content from path. */}
+        {/* Account surface + every company at /trust/<addr>/... share
+            the same shell — AppLayout decides content from path. */}
         <Route element={<AppLayout />}>
-          <Route path="me" element={null} />
-          <Route path="me/:tab" element={null} />
+          <Route path="account" element={null} />
+          <Route path="account/:tab" element={null} />
           <Route path="admin" element={null} />
           <Route path="start" element={null} />
           <Route path="start/:slug" element={null} />
@@ -263,13 +294,14 @@ export default function App() {
           {/* `/` is the Economy front door — rendered inside AppLayout
               so the sidebar (with Economy lit) is always present. The
               previous shell-rendered Inbox at `/` shifted to
-              `/c/:entityId/inbox` (Phase-1 sidebar lock); the previous
-              fullscreen DiscoverPage at `/` was retired in favor of the
-              in-shell Economy. `/economy` is a public surface (per
-              project_public_app_surfaces.md) — it must render for
-              authed users too, NOT bounce to /me/inbox. Mount it via
-              GatedAppShell so unauthed visitors hit /login and authed
-              visitors land on the in-shell Economy with the sidebar. */}
+              `/trust/<addr>/inbox` (Phase-1 sidebar lock); authed
+              users hitting bare `/` resolve to their primary entity's
+              inbox via `RootRouteSwitch`. `/economy` is a public
+              surface (per project_public_app_surfaces.md) — it must
+              render for authed users too, NOT bounce to the inbox.
+              Mount it via GatedAppShell so unauthed visitors hit
+              /login and authed visitors land on the in-shell Economy
+              with the sidebar. */}
           <Route path="/" element={<RootRouteSwitch />} />
           <Route path="/economy" element={<GatedAppShell />} />
           <Route path="/economy/*" element={<GatedAppShell />} />

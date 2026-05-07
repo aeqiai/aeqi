@@ -221,7 +221,10 @@ export default function AgentOverviewTab({
               Awaiting you
             </h2>
             {agentInbox.length > 0 && (
-              <Link to="/me/inbox" className="dashboard-card-link">
+              <Link
+                to={entityPathFromId(entities, entityId, "inbox")}
+                className="dashboard-card-link"
+              >
                 Open inbox →
               </Link>
             )}

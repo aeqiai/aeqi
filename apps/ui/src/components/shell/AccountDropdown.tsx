@@ -55,10 +55,11 @@ export default function AccountDropdown() {
   const [open, setOpen] = useState(false);
 
   const isAccount =
-    (pathname === "/me" || pathname.startsWith("/me/")) && pathname !== "/me/billing";
-  const isBilling = pathname === "/me/billing";
-  // Row-level "active" — highlighted whenever we're somewhere under /me.
-  const rowActive = pathname === "/me" || pathname.startsWith("/me/");
+    (pathname === "/account" || pathname.startsWith("/account/")) &&
+    pathname !== "/account/billing";
+  const isBilling = pathname === "/account/billing";
+  // Row-level "active" — highlighted whenever we're somewhere under /account.
+  const rowActive = pathname === "/account" || pathname.startsWith("/account/");
 
   const userName =
     user?.name || user?.email?.split("@")[0] || (authMode === "none" ? "Local" : "You");
@@ -80,7 +81,7 @@ export default function AccountDropdown() {
   }, [track, logout, navigate]);
 
   // Local-mode (no auth) keeps the bare identity tile — no popover, no
-  // navigation; there's no /me route to land on and no actions to surface.
+  // navigation; there's no /account route to land on and no actions to surface.
   if (authMode === "none") {
     return (
       <div className="account-dropdown-row">
@@ -100,8 +101,8 @@ export default function AccountDropdown() {
   }
 
   // The row IS the trigger. Click anywhere on the row opens the popover.
-  // The "Account" item inside the dropdown navigates to /me — the row
-  // itself does not navigate. Single affordance, no chevron.
+  // The "Account" item inside the dropdown navigates to /account — the
+  // row itself does not navigate. Single affordance, no chevron.
   const rowTrigger = (
     <button
       type="button"
@@ -130,7 +131,7 @@ export default function AccountDropdown() {
         <div className="account-dropdown-menu" role="menu">
           <SelectOption
             selected={isAccount}
-            onClick={() => go("/me")}
+            onClick={() => go("/account")}
             leadingIcon={<AccountIcon />}
           >
             Account
@@ -145,7 +146,7 @@ export default function AccountDropdown() {
           </SelectOption>
           <SelectOption
             selected={isBilling}
-            onClick={() => go("/me/billing")}
+            onClick={() => go("/account/billing")}
             leadingIcon={<BillingIcon />}
           >
             Billing

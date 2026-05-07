@@ -73,12 +73,12 @@ export default function CompanySwitcher() {
   }, [navigate]);
 
   // Trigger label is sticky to the active workspace. Going to
-  // `/me/inbox` from inside `/c/acme` shouldn't make the switcher
+  // `/account` from inside `/c/acme` shouldn't make the switcher
   // flip — Acme is still the user's current workspace; the URL just
-  // put them in a personal lens. When there's no active workspace
-  // (brand-new user, or it got cleared), the trigger reads as a
-  // clear placeholder — "Select a company" — so the user knows the
-  // dropdown is the next move.
+  // put them on the user-scoped account surface. When there's no
+  // active workspace (brand-new user, or it got cleared), the
+  // trigger reads as a clear placeholder — "Select a company" — so
+  // the user knows the dropdown is the next move.
   const triggerEntity = activeEntity ?? null;
   const triggerLabel = triggerEntity?.name ?? "Select a company";
   const triggerAvatar = triggerEntity ? (

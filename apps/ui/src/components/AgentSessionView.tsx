@@ -67,7 +67,8 @@ interface AgentSessionProps {
  * Agent session surface — drilled-into-an-agent inbox/chat view.
  *
  * Renders `<SessionDetail hideComposer={true} />` so the visual chrome
- * (ParticipantStrip + Header + Transcript) matches `/me/inbox` exactly.
+ * (ParticipantStrip + Header + Transcript) matches the entity inbox
+ * (`/trust/<addr>/inbox`) exactly.
  * The composer for this surface lives in `AppLayout`'s `<ComposerRow>`
  * chrome and communicates via window events (`aeqi:send-message`,
  * `aeqi:stop-streaming`, `aeqi:streaming-state`).

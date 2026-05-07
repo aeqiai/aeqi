@@ -20,7 +20,7 @@ const WalletProvider = lazy(() => import("./components/WalletProvider"));
 // Authed users have already accepted the privacy policy at signup, so
 // analytics defaults to on for them. Anonymous app visitors (rare —
 // the app is gated) stay null until they auth in or explicitly opt in.
-// Once a user toggles consent in /me/preferences, that decision
+// Once a user toggles consent in /account/preferences, that decision
 // is respected on every subsequent boot.
 if (typeof window !== "undefined" && readConsent() === null) {
   const hasToken = !!window.localStorage.getItem("aeqi_token");

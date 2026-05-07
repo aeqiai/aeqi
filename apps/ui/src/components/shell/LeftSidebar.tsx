@@ -193,11 +193,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
 
   const navHref = (id: string) => `${base}/${id}`;
 
-  // Personal entity routes (/me/*) hide the ORGANIZATION section.
-  // Treasury stays visible per the personal rail lock. Only Ownership,
-  // Governance, and Roles are hidden.
-  const isPersonal = path.startsWith("/me");
-
   // The Company cockpit row stays lit ONLY at the bare `/c/<entity>`
   // overview URL — Phase 1 promotes Treasury / Ownership / Governance /
   // Roles to top-level rows, so they own their own "active" state and
@@ -400,25 +395,23 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                   navigate(`${base}/ideas?compose=1`);
                 }),
               })}
-              {isPersonal && navItem("treasury", "Treasury", <TreasuryIcon />)}
             </nav>
 
-            {!isPersonal && (
-              <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
-                <div className="sidebar-section-label">Organization</div>
-                {navItem("roles", "Roles", <RolesIcon />)}
-                {navItem("ownership", "Ownership", <OwnershipIcon />)}
-                {navItem("treasury", "Treasury", <TreasuryIcon />)}
-                {navItem("governance", "Governance", <GovernanceIcon />)}
-              </nav>
-            )}
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
+              <div className="sidebar-section-label">Organization</div>
+              {navItem("roles", "Roles", <RolesIcon />)}
+              {navItem("ownership", "Ownership", <OwnershipIcon />)}
+              {navItem("treasury", "Treasury", <TreasuryIcon />)}
+              {navItem("governance", "Governance", <GovernanceIcon />)}
+            </nav>
           </>
         )}
 
         {/* ── Bottom group — Blueprints + (admin) + AccountDropdown.
             Account isn't a nav row anymore: the AccountDropdown trigger
-            below already routes to /me on click, and a duplicate row is
-            redundant. Blueprints = the catalog (top-level, public). ── */}
+            below opens a menu that routes to /account on click, and a
+            duplicate row is redundant. Blueprints = the catalog
+            (top-level, public). ── */}
         <div className="sidebar-bottom-group">
           <nav className="sidebar-surface-nav" aria-label="Platform">
             {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}

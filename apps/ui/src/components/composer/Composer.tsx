@@ -20,8 +20,8 @@
  *   - surface-specific extra actions slot (e.g. inbox Archive)
  *
  * Enter sends, ⇧⏎ inserts newline. `composerRef` exposes the inner
- * textarea so parents can focus it (used by /me/inbox, AppLayout's
- * `aeqi:focus-composer` event, etc.).
+ * textarea so parents can focus it (used by the inbox surface,
+ * AppLayout's `aeqi:focus-composer` event, etc.).
  */
 
 import {

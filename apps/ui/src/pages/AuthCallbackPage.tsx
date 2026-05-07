@@ -29,13 +29,13 @@ export default function AuthCallbackPage() {
           if (!roots || roots.length === 0) {
             navigate("/start", { replace: true });
           } else {
-            // Post-auth default is the personal Inbox — daily-action
-            // surface, not the Economy front door.
-            navigate("/me/inbox", { replace: true });
+            // Post-auth default is `/`, which `RootRouteSwitch`
+            // resolves to the user's primary entity inbox.
+            navigate("/", { replace: true });
           }
         })
         .catch(() => {
-          navigate("/me/inbox", { replace: true });
+          navigate("/", { replace: true });
         });
     } else {
       navigate("/login", { replace: true });

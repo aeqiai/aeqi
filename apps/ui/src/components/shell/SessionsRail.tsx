@@ -22,9 +22,9 @@ const DEFAULT_FILTER: SessionsFilterState = { status: "all" };
  * inbox. Renders the canonical `<SessionsToolbar>` (search + sort +
  * filter, slot-based) above the universal `<SessionRail>` primitive.
  * Adapts the chat-store sessions list into `SessionRailRow`s; awaiting
- * rows are flagged via the inbox store. The user-scope inbox at
- * `/me/inbox` (MeInboxPage) mounts the same primitive pair through
- * `<InboxToolbar>` — both surfaces read as the same chrome shape.
+ * rows are flagged via the inbox store. The entity-scope inbox at
+ * `/trust/<addr>/inbox` (MeInboxPage) mounts the same primitive pair
+ * through `<InboxToolbar>` — both surfaces read as the same chrome shape.
  *
  * Sort: recent (default) / oldest first.
  * Filter: status — all / active / archived. Matches `s.status === "active"`.
