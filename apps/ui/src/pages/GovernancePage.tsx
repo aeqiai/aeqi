@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { api } from "@/lib/api";
@@ -99,13 +98,17 @@ export default function GovernancePage({ entityId }: GovernancePageProps) {
         </p>
       </header>
 
+      {trustAddress && (
+        <ProposalsSection proposals={proposals} votingPower={votingPower} error={govError} />
+      )}
+
       {roles.length === 0 ? (
         <EmptyState
           title="No roles defined yet"
           description="Add a role from the Roles tab to start distributing decision authority."
         />
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, marginTop: "var(--space-xl)" }}>
           {GRANT_CATALOG.map((g) => (
             <GrantRow
               key={g.id}
@@ -116,10 +119,6 @@ export default function GovernancePage({ entityId }: GovernancePageProps) {
             />
           ))}
         </ul>
-      )}
-
-      {trustAddress && (
-        <ProposalsSection proposals={proposals} votingPower={votingPower} error={govError} />
       )}
     </div>
   );
@@ -179,10 +178,18 @@ function GrantRow({ grantLabel, grantDesc, holders, onOpenRole }: GrantRowProps)
           }}
         >
           {holders.map((r) => (
-            <Button key={r.id} variant="secondary" size="sm" onClick={() => onOpenRole(r.id)}>
-              {r.title}
-              {r.founder ? " · founder" : ""}
-            </Button>
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onOpenRole(r.id)}
+              className="role-chip-button"
+              aria-label={`Open role ${r.title}`}
+            >
+              <Badge variant="muted" size="sm">
+                {r.title}
+                {r.founder ? " · founder" : ""}
+              </Badge>
+            </button>
           ))}
         </div>
       )}
@@ -235,7 +242,7 @@ function relativeTime(unixSec: number): string {
 
 function ProposalsSection({ proposals, votingPower, error }: ProposalsSectionProps) {
   return (
-    <section style={{ marginTop: "var(--space-xl)" }}>
+    <section>
       <div
         style={{
           display: "flex",

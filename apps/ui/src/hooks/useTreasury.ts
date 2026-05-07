@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { indexerEnabled } from "@/lib/indexer";
+import { resolveSymbol } from "@/lib/tokenRegistry";
 
 // ── Shape of a token holding ──────────────────────────────────────────────────
 
@@ -63,11 +64,6 @@ function formatHexBalance(hex: string): string {
   }
 }
 
-/** Derive a short symbol from a token address (4-char hex prefix). */
-function symbolFromAddress(addr: string): string {
-  return addr.slice(2, 6).toUpperCase();
-}
-
 /**
  * Fetches on-chain ERC-20 treasury balances + recent transfers for an entity's
  * TRUST contract, using the indexer's `treasuryBalances(trustId)` field.
@@ -111,7 +107,7 @@ export function useTreasury(trustId: string | undefined): TreasuryState {
         const raw = await fetchTreasuryBalances(trustId);
         if (!cancelled) {
           resolvedBalances = raw.map((r) => ({
-            symbol: symbolFromAddress(r.tokenAddress),
+            symbol: resolveSymbol(r.tokenAddress),
             amount: formatHexBalance(r.balance),
             tokenAddress: r.tokenAddress,
             lastUpdatedBlock: r.lastUpdatedBlock,

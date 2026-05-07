@@ -111,7 +111,8 @@ describe("useTreasury", () => {
     expect(result.current.balances![0].tokenAddress).toBe(
       "0xc26adf1e8385689ca692c9a69e8d205877be339a",
     );
-    expect(result.current.balances![0].symbol).toBe("C26A");
+    // Unknown tokens fall back to a truncated address (registry miss).
+    expect(result.current.balances![0].symbol).toBe("0xc26a…");
     expect(result.current.balances![0].amount).toMatch(/1\.0000/);
     expect(result.current.balances![0].lastUpdatedBlock).toBe(100);
   });
