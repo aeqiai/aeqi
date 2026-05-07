@@ -103,7 +103,7 @@ export default function StudioPage() {
     setDrafting(true);
     setError(null);
     try {
-      const res = await apiRequest<DraftResponse>("/api/architect/draft", {
+      const res = await apiRequest<DraftResponse>("/architect/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brief: trimmed }),
@@ -134,7 +134,7 @@ export default function StudioPage() {
     setError(null);
     try {
       const history = turns.map((t) => ({ brief: t.text, draft: t.draft }));
-      const res = await apiRequest<DraftResponse>("/api/architect/refine", {
+      const res = await apiRequest<DraftResponse>("/architect/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history, instruction: trimmed }),
@@ -166,7 +166,7 @@ export default function StudioPage() {
     setDeploying(true);
     setError(null);
     try {
-      const res = await apiRequest<DeployResponse>("/api/architect/deploy", {
+      const res = await apiRequest<DeployResponse>("/architect/deploy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ draft: latest.draft }),
