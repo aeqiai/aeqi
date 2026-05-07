@@ -1158,6 +1158,30 @@ reduction for danger/muted actions. Grep for no-op candidates:
 grep -A2 ':hover' src/styles/*.css | grep 'color-card-elevated'
 ```
 
+## Brief specs vs locked design rules — translate, don't transcribe
+
+**When a task brief specifies a CSS technique that conflicts with a locked anti-pattern,
+translate it to the canonical equivalent silently — don't hedge, don't deviate-and-explain.**
+Example pattern (Tables Phase 2.5, 2026-05-07): brief said "lane highlight (border-left-color
+shift on `dragOver`)". `feedback_no_hairlines.md` and `.impeccable.md` both ban 1px borders
+for separation. Canonical translation:
+
+| Brief says                                                  | Canonical translation                               |
+| ----------------------------------------------------------- | --------------------------------------------------- |
+| `border-left-color` shift / `border` accent stripe          | `background` tier step (card → card-elevated)       |
+| 1px divider line                                            | spacing + tint shift                                |
+| `box-shadow: inset 0 0 0 1px ...` (cosmetic-swap of border) | real `--shadow-sm` lift OR background step          |
+| explicit hex / rgba color                                   | nearest design-system token (grep `primitives.css`) |
+| custom radius value                                         | nearest `--radius-*`                                |
+| custom font-size literal                                    | nearest `--font-size-*`                             |
+
+Briefs are written by humans/subagents who don't always carry the design-system constraints
+in working memory. The agent does. Apply the canonical move; the brief is intent, not contract.
+Do NOT add a paragraph in the reply explaining the deviation — it's a translation, not a
+disagreement. If the canonical move materially changes the UX (not just the CSS technique),
+THEN flag it in the reply. Cost (2026-05-07): one mid-implementation pause to weigh
+brief-fidelity vs hairline ban — translating without comment is the cheaper path.
+
 ## Auth pages — skip link pattern
 
 **Auth pages render outside `AppLayout` and need their own skip link.** `AppLayout`
