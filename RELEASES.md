@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.55.0 — 2026-05-09
+
+**Headline:** Agent inbox + user inbox finally share the same top bar — Wave 4 closes.
+
+- **`AgentSessionView` migrated to `<SessionDetail hideComposer />` — full session-unification ships** (`apps/ui/src/components/AgentSessionView.tsx` + `apps/ui/src/components/sessions/SessionDetail.tsx`): closes the last divergence between agent-rail inbox and user inbox detail. v0.53.0 extracted `<SessionDetail>` and migrated `MeInboxPage`, but `AgentSessionView` kept its own header/strip render path because the WS-streaming composer + thinking segments + queued drafts + fork/edit/resend stack didn't compose cleanly under the primitive's contract. Resolution: `<SessionDetail>` gains a `hideComposer` flag; agent surface mounts the primitive for ParticipantStrip + header + MessageItem stream, then renders its own bespoke composer below. Per-message handlers (`onFork`, `onEdit`, `onResend`, `onJumpToEvent`) move from the dead render-prop slot to first-class callback props on `<SessionDetail>` so the agent surface composes them without a second component. Agent inbox top bar is now byte-identical to user inbox top bar; the visual primitive is single-source on every adopter. Wave 4 closed. `bbad98c9`, `d5983b4b`.
+- **`<ParticipantStrip>` cross-references daemon agents + auth user for avatar consistency** (`apps/ui/src/components/sessions/ParticipantStrip.tsx`): the strip previously rendered participant avatars from the session participant payload alone; agents missing `avatar_url` fell back to a generic `BlockAvatar` identicon while the same agent on `MessageItem` (which cross-references `useDaemonStore`) rendered the canonical custom avatar. Visual divergence between header strip and message bubble for the same agent. Strip now resolves agent participants through `useDaemonStore` and the current user through `useAuth`, matching the resolution path `MessageItem` already uses. `7c2c4a96`.
+- **`BlockAvatar` identicon rendered as a circle, not a rounded square** (`apps/ui/src/components/BlockAvatar.tsx`): the generic identicon used `border-radius: 25%` which produced a rounded-square shape that clashed visually with custom avatar images (which are circular by container CSS). Switch to `border-radius: 50%`. Round-everywhere on the chat surface. `780a801b`.
+- **Company-scope `/channels` route redirects to Overview** (`apps/ui/src/router.tsx`): v0.54.0 reverted the brief Company-tier Channels surface but left the bare `/c/<eid>/channels` route unhandled — direct navigation 404'd. Add a redirect to `/c/<eid>/` so any external link or stale bookmark lands on the canonical Company Overview. `21729e62`.
+- **Inbox detail drops the "Awaiting your decision" tag strip** (`apps/ui/src/components/sessions/SessionDetail.tsx`): the `kind=decision_request` chip strip above the thread was visual noise — the row in the rail already carries the decision badge, and `<SessionDetail>` headers carry enough context. One pre-thread slot retired; surface area shrinks. `8f5d0f53`.
+
 ## v0.54.0 — 2026-05-09
 
 **Headline:** Company Overview becomes a cockpit; chat polish lands; Channels back to agent-only.
