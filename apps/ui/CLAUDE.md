@@ -1107,6 +1107,59 @@ reader will trust it the same way you almost did.
 Sister rule to the "Brief asserts UI duplication — grep + read transports" rule —
 inline comments are briefs from past selves. Same skepticism applies.
 
+**JSDoc dispatch tables go stale the same way.** A page-level JSDoc that
+documents "Routes:" or "Tab dispatch:" with arrows like `/c/:entityId/agents
+→ AgentPage(rootAgent, tab="agents")` is also a load-bearing comment. When
+the dispatch target's prop semantics change (`AgentPage` dropping its `tab`
+prop in `e8305fc6`), the JSDoc still claims the prop is honored and the
+fall-through code still passes it — silently rendering the wrong surface.
+Treat JSDoc dispatch tables as code: when the target component changes
+shape, every dispatch-table line that references it needs review in the
+same commit. Cost (2026-05-09): `CompanyPage.tsx`'s JSDoc said "Every
+other tab name (agents, events, quests, ideas) falls through to AgentPage,
+which is the canonical primitive surface" — false since 2026-05-08, caused
+the dispatch-hole bug.
+
+## Dropping a prop creates dispatch holes at fall-through call sites
+
+When a component is rewritten to drop a prop it used to honor (e.g.
+`AgentPage` removing its `tab` switch in `e8305fc6` 2026-05-08), every
+upstream dispatcher that still passes the prop becomes a silent no-op.
+TypeScript doesn't catch this — the prop is still typed as optional, so
+the call sites compile clean. The runtime symptom is an entire surface
+rendering the component's _default_ shape instead of the
+prop-discriminated branch, which can be subtle (default = chat header
+with no body for AgentPage; the user sees "Agents" in the URL and gets
+a chat surface labelled with the root agent's name).
+
+Audit recipe whenever a prop is dropped from a component:
+
+```bash
+# Find every site that passes the dropped prop. Most will be the call
+# sites you intentionally rewrote; the orphans are the dispatch holes.
+DROPPED_COMPONENT="AgentPage"
+DROPPED_PROP="tab"
+grep -rn "<$DROPPED_COMPONENT" apps/ui/src/ | grep -E "$DROPPED_PROP=|tab=\{"
+```
+
+Each hit is either: (a) intentionally rewritten — confirm the call site
+no longer relies on the prop, ideally remove the now-dead prop from the
+JSX; or (b) a dispatch hole — the call site assumes the prop still
+discriminates and is now silently broken. Fix by adding explicit branches
+upstream of the rewritten component.
+
+Sister pattern: when a child component drops a prop, the parent's
+JSDoc dispatch table is almost certainly stale too — see "JSDoc
+dispatch tables go stale the same way" above.
+
+Cost (2026-05-09): `/c/<id>/agents`, `/me/agents`, `/c/<id>/events`,
+`/c/<id>/quests`, `/c/<id>/ideas` (and the trust-route equivalents)
+all fell through to `<AgentPage tab={tab}>` and rendered the root
+agent's chat surface instead of their entity-scope LIST. Latent for
+~24h after the AgentPage rewrite. The fix added explicit branches in
+`CompanyPage.tsx` (mirroring `MePage.tsx`'s already-correct shape:
+explicit per-primitive dispatch on rootAgentId).
+
 ## `api` is an object — use `apiRequest` for raw HTTP
 
 `api` from `@/lib/api.ts` is a plain object with named methods
