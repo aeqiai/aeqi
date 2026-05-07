@@ -1195,6 +1195,18 @@ regardless of what the trigger element does. Two consequences:
    there. Layout looks normal; click handling is still on the wrapper. This is what
    lets a button with hover styles work cleanly inside a Popover.
 
+3. **When the row IS a Popover (single trigger, no sibling Link), the row's children
+   need `flex: 1`.** Pattern: collapsing the AccountDropdown chevron-pattern into
+   "click the row → opens menu" makes Popover the only child of the flex row. The
+   Popover root is still `display: inline-block` (collapses to button width). The
+   `triggerSlot { display: contents }` lets the inner button receive flex sizing,
+   but only if the Popover ROOT itself stretches. Canonical fix is one CSS rule on
+   the row: `.row > * { flex: 1; min-width: 0; }`. The button inside the trigger
+   (with its own `flex: 1`) then fills correctly. Don't reach for `display: contents`
+   on the root, or for a wrapper `<div className="grow">`; the universal-child
+   selector is the cheapest and most explicit. Pattern shipped 2026-05-07 in
+   `AccountDropdown.tsx` (founder revert of `cb100f4f` chevron + Personal Inbox).
+
 ## Stale "already does X" comments — verify behaviour before trusting them
 
 Inline comments that describe component behaviour (especially "already routes" /
