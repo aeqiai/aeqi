@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.43.0 — 2026-05-08
+
+**Headline:** Quests get a due date, Ideas get tables, Companies go public.
+
+- **Linear-Quests Phase 2 — `due_at` + `D` shortcut + DueDatePopover + Due column + overdue chip** (`apps/ui/src/pages/quest/QuestDetailPage.tsx` + `QuestsPage.tsx` + `crates/aeqi-orchestrator/src/quests/`): quests now carry an optional `due_at` timestamp. `D` keyboard shortcut on the Quest detail page opens the DueDatePopover (Today / Tomorrow / Next week / pick a date). The Quests list view gains a `Due` column; rows past due render an `overdue` chip in the danger tint. Phase 1 of Linear-Quests shipped the detail page in v0.41.0; Phase 2 closes the loop on time-bounded execution. `422491d6`.
+- **BlockNote tables in Ideas** (`apps/ui/src/components/editor/BlockEditor.tsx`): the BlockNote default schema includes the table block — enabling it is one config flag plus design-token border styling for grid lines. Slash-menu hint added so the affordance is discoverable. Ideas now compose like a Notion doc with structured data inline. `087953d0`, `2058ec50`.
+- **Public Company profile at `/<slug>`** (`apps/ui/src/pages/PublicCompanyPage.tsx` + `crates/aeqi-web/src/handlers/public.rs`): read-only EntityHeroStrip + public roles + public ideas rendered at the bare `/<slug>` route — no auth required. The `public` toggle on the EntityHeroStrip (shipped v0.42.0) flips the Company between private and link-shareable. Pairs with platform `90e26c6` (`GET /api/public/entities/<slug>` public-read endpoint). First step of the public-app-surfaces plan. `b974b220`.
+- **EntityHeroStrip renders on `/c/<id>/` again** (`apps/ui/src/pages/company/CompanyOverviewPage.tsx`): the `isDrilledAgent` intercept added during the agent rail unification was over-broad — it suppressed the hero strip on the canonical `/c/<id>/` Company Overview route too. Dropped the intercept; the strip is back where it belongs. Notes captured in CLAUDE.md on isDrilledAgent semantic drift + grep-before-fix-string-asserts so the next pass doesn't repeat the call. `315aab64`, `2211857f`.
+
 ## v0.42.0 — 2026-05-08
 
 **Headline:** Agents touch the world — Architect spawns Companies from a brief, W33B wires real cross-Company role grants on-chain, Drive read+write completes the OAuth loop.
