@@ -259,60 +259,6 @@
   outline-offset: 2px;
 }
 
-/* ── Awaiting-context banner ──
-   Renders when the displayed session has an unanswered question.ask
-   from the agent (driven by inbox-store row presence). Title borrows
-   the PageRail "Settings" treatment — display font, 16px, weight 500.
-   Subject sits below at body-text size, 2-line clamp. No hairline; the
-   subtle bg-paper tint and the spacing below carry the boundary. */
-.asv-awaiting-banner {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  column-gap: 10px;
-  row-gap: 4px;
-  align-items: center;
-  padding: 14px clamp(16px, 3vw, 28px) 12px;
-  background: var(--bg-paper, transparent);
-}
-.asv-awaiting-banner-avatar {
-  grid-row: 1;
-  grid-column: 1;
-  display: inline-flex;
-  align-items: center;
-}
-.asv-awaiting-banner-title {
-  grid-row: 1;
-  grid-column: 2;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  line-height: 1;
-  color: var(--color-text-primary);
-  text-transform: lowercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.asv-awaiting-banner-subject {
-  grid-row: 2;
-  grid-column: 2;
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--color-text-secondary);
-  letter-spacing: 0;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  word-break: break-word;
-}
-
 /* ── Messages area ──
    Session stretches across the full content card. User input stays as a
    right-aligned bubble with its own max-width; assistant prose runs

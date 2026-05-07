@@ -10,7 +10,6 @@ import { useFileAttachments } from "./session/useFileAttachments";
 import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
-import AwaitingBanner from "./session/AwaitingBanner";
 import SessionDetail from "./sessions/SessionDetail";
 import { sessionLabel } from "./session/types";
 
@@ -399,20 +398,15 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     </>
   );
 
-  const preThreadSlot = (
-    <>
-      <AwaitingBanner sessionId={activeSessionId} agentName={agentName} />
-      {showEmptyState && (
-        <EmptyState
-          agentId={agentId}
-          agentName={agentName}
-          displayName={displayName}
-          activeSessionId={activeSessionId}
-          onSuggestionClick={handleSuggestionClick}
-        />
-      )}
-    </>
-  );
+  const preThreadSlot = showEmptyState ? (
+    <EmptyState
+      agentId={agentId}
+      agentName={agentName}
+      displayName={displayName}
+      activeSessionId={activeSessionId}
+      onSuggestionClick={handleSuggestionClick}
+    />
+  ) : null;
 
   return (
     <div
