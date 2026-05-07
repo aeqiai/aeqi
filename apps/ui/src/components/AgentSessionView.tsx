@@ -11,7 +11,8 @@ import MessageItem from "./session/MessageItem";
 import StreamingMessage from "./session/StreamingMessage";
 import EmptyState from "./session/EmptyState";
 import AwaitingBanner from "./session/AwaitingBanner";
-import ParticipantStrip from "./sessions/ParticipantStrip";
+import SessionDetail from "./sessions/SessionDetail";
+import { sessionLabel } from "./session/types";
 
 // ── Queued draft helpers ───────────────────────────────────────────────────
 
@@ -45,11 +46,39 @@ function mergeQueuedDrafts(drafts: PendingMessage[]): PendingMessage {
   };
 }
 
+// ── Origin helper ─────────────────────────────────────────────────────────
+//
+// Mirrors the prior shell/SessionsRail.tsx prefix-stripping rules: surface
+// the transport origin (telegram / whatsapp / web) on the detail header
+// where it doesn't compete with the session title in the rail row.
+function deriveOrigin(name: string | null | undefined): string | undefined {
+  if (!name) return undefined;
+  if (/^telegram dm:/i.test(name) || /^telegram:/i.test(name)) return "telegram";
+  if (/^telegram group/i.test(name)) return "telegram · group";
+  if (/^whatsapp:/i.test(name)) return "whatsapp";
+  return undefined;
+}
+
 interface AgentSessionProps {
   agentId: string;
   sessionId: string | null;
 }
 
+/**
+ * Agent session surface — drilled-into-an-agent inbox/chat view.
+ *
+ * Renders `<SessionDetail hideComposer={true} />` so the visual chrome
+ * (ParticipantStrip + Header + Transcript) matches `/me/inbox` exactly.
+ * The composer for this surface lives in `AppLayout`'s `<ComposerRow>`
+ * chrome and communicates via window events (`aeqi:send-message`,
+ * `aeqi:stop-streaming`, `aeqi:streaming-state`).
+ *
+ * This component owns the WS streaming wiring, queued drafts, file
+ * drag-drop, attach pickers, and keyboard shortcuts — none of which fit
+ * inside the universal SessionDetail primitive. Those are surfaced into
+ * the primitive via the threadTrailingSlot, onFork/onEdit/onResend, and
+ * preThreadSlot props.
+ */
 export default function AgentSessionView({ agentId, sessionId: urlSessionId }: AgentSessionProps) {
   const token = useAuthStore((s) => s.token);
   const agents = useDaemonStore((s) => s.agents);
@@ -67,10 +96,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   const [availableTasks, setAvailableTasks] = useState<
     { id: string; name: string; status: string }[]
   >([]);
-
-  const messagesEnd = useRef<HTMLDivElement>(null);
-  const messagesScrollRef = useRef<HTMLDivElement>(null);
-  const [atBottom, setAtBottom] = useState(true);
 
   const processRawMessages = useMessageProcessor();
 
@@ -105,6 +130,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
   });
 
   const {
+    sessions,
     messages,
     setMessages,
     activeSessionId,
@@ -213,57 +239,6 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       window.removeEventListener("aeqi:open-attach-picker", openPickerHandler);
     };
   }, [handleNewConversation]);
-
-  // Auto-scroll - improved version that doesn't cause twitching
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
-    const scrollEl = messagesScrollRef.current;
-    const endEl = messagesEnd.current;
-    if (!scrollEl || !endEl) return;
-
-    // Calculate the exact position to scroll to
-    const targetScrollTop = scrollEl.scrollHeight - scrollEl.clientHeight;
-
-    // Only scroll if we're not already at the bottom (within a small threshold)
-    const currentDistance = Math.abs(scrollEl.scrollTop - targetScrollTop);
-    if (currentDistance > 2) {
-      // 2px threshold to prevent micro-adjustments
-      if (behavior === "smooth") {
-        scrollEl.scrollTo({
-          top: targetScrollTop,
-          behavior: "smooth",
-        });
-      } else {
-        scrollEl.scrollTop = targetScrollTop;
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom("auto");
-    setAtBottom(true);
-  }, [activeSessionId, scrollToBottom]);
-
-  useEffect(() => {
-    if (!atBottom) return;
-    scrollToBottom("auto");
-  }, [messages, liveSegments, atBottom, scrollToBottom]);
-
-  const handleMessagesScroll = useCallback(() => {
-    const el = messagesScrollRef.current;
-    if (!el) return;
-
-    // Calculate distance to bottom with a more generous threshold
-    // that accounts for composer height changes
-    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-
-    // Use a dynamic threshold based on composer height if available
-    const composerHeight = parseInt(
-      getComputedStyle(el).getPropertyValue("--composer-height") || "140",
-    );
-    const threshold = Math.max(48, composerHeight * 0.3); // At least 48px or 30% of composer height
-
-    setAtBottom(distance < threshold);
-  }, []);
 
   // Internal send handler — used by both local calls and the event bridge
   const sendDraft = useCallback(
@@ -381,6 +356,64 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
 
   if (!agentId) return null;
 
+  // ── SessionDetail bindings ───────────────────────────────────────────────
+
+  const currentSession = sessions.find((s) => s.id === activeSessionId) || null;
+  const title = currentSession ? sessionLabel(currentSession) : agentName;
+  const subtitle = deriveOrigin(currentSession?.name);
+
+  // The renderable thread is the static messages array minus queued drafts
+  // (those are rendered separately in the trailing slot below the
+  // StreamingMessage so the visual order matches the agent's turn-taking
+  // semantics).
+  const renderableMessages = messages.filter((msg) => !msg.queued);
+
+  // Empty-state — surfaces the agent's full <EmptyState> block when there
+  // are no messages, no queued drafts, and no live stream. Wraps in
+  // preThreadSlot so SessionDetail's own empty-state title doesn't double.
+  const showEmptyState = renderableMessages.length === 0 && queuedDrafts.length === 0 && !streaming;
+
+  const threadTrailingSlot = (
+    <>
+      <StreamingMessage
+        agentName={agentName}
+        liveSegments={liveSegments}
+        thinkingStart={thinkingStart}
+        streaming={streaming}
+        stepOffset={liveStepOffset}
+      />
+      {queuedDrafts.map((draft) => (
+        <MessageItem
+          key={draft.id}
+          msg={{
+            role: "user",
+            content: draft.text,
+            queued: true,
+          }}
+          onFork={handleFork}
+          onEdit={handleEdit}
+          onResend={handleResend}
+          sessionAgentId={agentId}
+        />
+      ))}
+    </>
+  );
+
+  const preThreadSlot = (
+    <>
+      <AwaitingBanner sessionId={activeSessionId} agentName={agentName} />
+      {showEmptyState && (
+        <EmptyState
+          agentId={agentId}
+          agentName={agentName}
+          displayName={displayName}
+          activeSessionId={activeSessionId}
+          onSuggestionClick={handleSuggestionClick}
+        />
+      )}
+    </>
+  );
+
   return (
     <div
       className={`asv ${fileAttachments.dragOver ? "asv--dragover" : ""}`}
@@ -389,71 +422,24 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
       onDragEnter={fileAttachments.handleDragEnter}
       onDragLeave={fileAttachments.handleDragLeave}
     >
-      <div className="asv-main">
-        <ParticipantStrip sessionId={activeSessionId} />
-        <AwaitingBanner sessionId={activeSessionId} agentName={agentName} />
-        <div className="asv-messages" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
-          {messages.length === 0 && queuedDrafts.length === 0 && !streaming && (
-            <EmptyState
-              agentId={agentId}
-              agentName={agentName}
-              displayName={displayName}
-              activeSessionId={activeSessionId}
-              onSuggestionClick={handleSuggestionClick}
-            />
-          )}
-
-          {messages
-            .filter((msg) => !msg.queued)
-            .map((msg, i) => (
-              <MessageItem
-                key={i}
-                msg={msg}
-                onFork={handleFork}
-                onEdit={handleEdit}
-                onResend={handleResend}
-                sessionAgentId={agentId}
-              />
-            ))}
-
-          <StreamingMessage
-            agentName={agentName}
-            liveSegments={liveSegments}
-            thinkingStart={thinkingStart}
-            streaming={streaming}
-            stepOffset={liveStepOffset}
-          />
-
-          {queuedDrafts.map((draft) => (
-            <MessageItem
-              key={draft.id}
-              msg={{
-                role: "user",
-                content: draft.text,
-                queued: true,
-              }}
-              onFork={handleFork}
-              onEdit={handleEdit}
-              onResend={handleResend}
-              sessionAgentId={agentId}
-            />
-          ))}
-
-          <div ref={messagesEnd} />
-        </div>
-        {!atBottom && (
-          <button
-            type="button"
-            className="asv-jump-bottom"
-            onClick={() => {
-              scrollToBottom("auto");
-              setAtBottom(true);
-            }}
-          >
-            Jump to latest
-          </button>
-        )}
-      </div>
+      <SessionDetail
+        sessionId={activeSessionId}
+        agentId={agentId}
+        title={title}
+        subtitle={subtitle}
+        messages={renderableMessages}
+        isStreaming={streaming}
+        onSend={() => {
+          /* composer chrome lives in AppLayout; SessionDetail's composer is hidden */
+        }}
+        hideComposer={true}
+        preThreadSlot={preThreadSlot}
+        threadTrailingSlot={threadTrailingSlot}
+        onFork={handleFork}
+        onEdit={handleEdit}
+        onResend={handleResend}
+        emptyTitle="no messages yet"
+      />
     </div>
   );
 }

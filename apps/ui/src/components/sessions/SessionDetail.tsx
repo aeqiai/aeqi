@@ -85,6 +85,18 @@ export interface SessionDetailProps {
    * urgency strips (decision-request tag, awaiting banner, etc.). */
   preThreadSlot?: React.ReactNode;
 
+  /** Slot rendered inside the thread, AFTER the messages map and BEFORE the
+   * empty-state. Used by the agent surface to render <StreamingMessage> and
+   * queued drafts that don't fit cleanly into the static messages array. */
+  threadTrailingSlot?: React.ReactNode;
+
+  /** Per-message interaction handlers — threaded into MessageItem. Optional;
+   * when absent the message bubbles render without those affordances (the
+   * inbox surface doesn't expose fork/edit/resend). */
+  onFork?: (messageId: number) => void;
+  onEdit?: (messageId: number, text: string) => void;
+  onResend?: (text: string) => void;
+
   // Inline error banner — rendered above the composer.
   errorMessage?: string | null;
 
@@ -121,6 +133,10 @@ export default function SessionDetail({
   emptyTitle,
   emptyHint,
   preThreadSlot,
+  threadTrailingSlot,
+  onFork,
+  onEdit,
+  onResend,
   errorMessage,
   hideComposer = false,
 }: SessionDetailProps) {
@@ -227,15 +243,25 @@ export default function SessionDetail({
       {preThreadSlot}
 
       <div className="session-detail-thread" ref={scrollRef}>
-        {messages.length === 0 ? (
+        {messages.length === 0 && !threadTrailingSlot ? (
           <div className="session-detail-empty">
             {emptyTitle && <div className="session-detail-empty-title">{emptyTitle}</div>}
             {emptyHint && <div className="session-detail-empty-hint">{emptyHint}</div>}
           </div>
         ) : (
-          messages.map((msg, i) => (
-            <MessageItem key={msg.messageId ?? i} msg={msg} sessionAgentId={agentId} />
-          ))
+          <>
+            {messages.map((msg, i) => (
+              <MessageItem
+                key={msg.messageId ?? i}
+                msg={msg}
+                sessionAgentId={agentId}
+                onFork={onFork}
+                onEdit={onEdit}
+                onResend={onResend}
+              />
+            ))}
+            {threadTrailingSlot}
+          </>
         )}
       </div>
 
