@@ -182,6 +182,27 @@
   white-space: nowrap;
 }
 
+/* ── Author header line ──
+   Small muted label above the bubble naming the sender. Becomes load-bearing
+   in 3+ participant sessions where the avatar alone doesn't disambiguate.
+   Aligns with the bubble's side: left for incoming, right for outgoing. */
+.asv-msg-author {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  margin-bottom: var(--space-1);
+  letter-spacing: 0.01em;
+}
+.asv-msg-assistant .asv-msg-author,
+.asv-msg-streaming .asv-msg-author {
+  text-align: left;
+}
+.asv-msg-user .asv-msg-author {
+  text-align: right;
+}
+
 /* ── Awaiting-context banner ──
    Renders when the displayed session has an unanswered question.ask
    from the agent (driven by inbox-store row presence). Title borrows

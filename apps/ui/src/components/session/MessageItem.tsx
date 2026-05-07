@@ -408,6 +408,7 @@ const MessageItem = memo(function MessageItem({
   const { entityId } = useNav();
   const agents = useDaemonStore((s) => s.agents);
   const userEmail = useAuthStore((s) => s.user?.email ?? "");
+  const currentUserId = useAuthStore((s) => s.user?.id ?? "");
 
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -502,6 +503,21 @@ const MessageItem = memo(function MessageItem({
   const avatarName =
     author.kind === "agent" ? author.name : author.kind === "position" ? author.title : "";
 
+  // Author header label — small line above the bubble that names the sender.
+  // Becomes load-bearing in 3+ participant sessions where the avatar alone
+  // doesn't disambiguate. "You" for the current user, real name for others;
+  // suppressed for system messages.
+  const authorLabel =
+    author.kind === "agent"
+      ? author.name
+      : author.kind === "position"
+        ? author.title
+        : author.kind === "user"
+          ? author.id && currentUserId && author.id !== currentUserId
+            ? author.name || "User"
+            : "You"
+          : null;
+
   return (
     <div
       className={`asv-msg ${bubbleClass}${msg.queued ? " asv-msg-queued" : ""}${isAsk ? " asv-msg-ask" : ""}`}
@@ -513,6 +529,7 @@ const MessageItem = memo(function MessageItem({
         </div>
       )}
       <div className="asv-msg-body">
+        {authorLabel && <div className="asv-msg-author">{authorLabel}</div>}
         {isAsk && (
           <div className="asv-msg-ask-header" aria-label="Asking the director">
             <span className="asv-msg-ask-eyebrow">ASKING THE DIRECTOR</span>

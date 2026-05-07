@@ -196,8 +196,14 @@
   color: var(--color-ink-muted);
 }
 
+/* Author header alignment — incoming on the left, outgoing on the right.
+   Mirrors the .asv-msg-author convention on the agent session surface. */
 .inbox-thread-msg--assistant .inbox-thread-msg-role {
   color: var(--color-ink-secondary);
+  text-align: left;
+}
+.inbox-thread-msg--user .inbox-thread-msg-role {
+  text-align: right;
 }
 
 .inbox-thread-msg-content {
