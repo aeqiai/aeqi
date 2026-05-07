@@ -259,10 +259,14 @@ export default function App() {
               previous shell-rendered Inbox at `/` shifted to
               `/c/:entityId/inbox` (Phase-1 sidebar lock); the previous
               fullscreen DiscoverPage at `/` was retired in favor of the
-              in-shell Economy. `/economy` redirects to `/` to keep one
-              canonical URL. */}
+              in-shell Economy. `/economy` is a public surface (per
+              project_public_app_surfaces.md) — it must render for
+              authed users too, NOT bounce to /me/inbox. Mount it via
+              GatedAppShell so unauthed visitors hit /login and authed
+              visitors land on the in-shell Economy with the sidebar. */}
           <Route path="/" element={<RootRouteSwitch />} />
-          <Route path="/economy" element={<Navigate to="/" replace />} />
+          <Route path="/economy" element={<GatedAppShell />} />
+          <Route path="/economy/*" element={<GatedAppShell />} />
 
           {/* Blueprints — top-level destination, auth-gated end-to-end.
               GatedAppShell dispatches AppLayout for authed visitors and

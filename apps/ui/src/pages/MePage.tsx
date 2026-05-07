@@ -104,10 +104,13 @@ function MePersonalRail({ tab }: { tab: string }) {
     return <AgentPage agentId={personalRootAgentId} tab={tab} />;
   }
 
-  // Retired route — portfolio moved to treasury
-  if (tab === "portfolio") return <Navigate to="/me/treasury" replace />;
-
-  // Unknown tab — fall through to settings
+  // Unknown tab — fall through to settings.
+  // Note: `/me/portfolio` is NOT a personal-rail tab (the locked tabs are
+  // Inbox · Agents · Events · Quests · Ideas · Treasury · Settings, per
+  // project_personal_rail_v1.md). The previous 308-to-/me/treasury was a
+  // dead-end that confused habitual users; dropped 2026-05-08 (UX walk v24).
+  // Falls through to ProfilePage (Settings) here, matching every other
+  // unknown `/me/<tab>` value.
   return (
     <Suspense fallback={null}>
       <ProfilePage />

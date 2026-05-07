@@ -7156,6 +7156,103 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   border-radius: 999px;
 }
 
+/* Ideas — Table view (Phase 2). The `<table>` is wrapped in a flex
+   container that owns the remaining viewport height — without this, the
+   bare `<table>` collapses to its content's natural height (~250px) and
+   leaves the rest of the viewport blank. List + Kanban each get their
+   full-bleed container via `.ideas-list-body { flex: 1 }`; the wrap below
+   gives the table the same treatment so all three views render at the
+   same depth. Discovered in UX walk v24 (2026-05-08) — the table
+   classes had no CSS at all when Phase 2 shipped. */
+.ideas-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.ideas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+.ideas-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-row);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-3);
+}
+.ideas-table-col-name {
+  width: 36%;
+}
+.ideas-table-col-tags {
+  width: 18%;
+  text-align: right !important;
+}
+.ideas-table-empty {
+  text-align: center;
+  padding: var(--space-6) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.ideas-table-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.ideas-table-row:hover {
+  background: var(--color-card-muted);
+}
+.ideas-table-row:focus-visible {
+  outline: none;
+  background: var(--color-card-elevated);
+  box-shadow: var(--input-ring-focus, var(--ring-muted));
+}
+.ideas-table-row td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: top;
+}
+.ideas-table-cell-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ideas-table-name {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ideas-table-snippet {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ideas-table-cell-prop {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.ideas-table-cell-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
 /* Ideas — Kanban view (Phase 2). Lanes flow horizontally so the surface
    reads as a board, not a stacked list. Each lane is a fixed-width column
    that scrolls vertically inside its body; the row-level container scrolls
