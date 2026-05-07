@@ -874,7 +874,7 @@ from `@/api/client`:
 ```tsx
 import { apiRequest } from "@/api/client";
 
-await apiRequest("/api/account/enroll-passkey", {
+await apiRequest("/account/enroll-passkey", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(payload),
@@ -885,6 +885,20 @@ await apiRequest("/api/account/enroll-passkey", {
 build on. Use it when you need a one-off POST/PUT/DELETE that doesn't
 warrant a named method on the `api` object. Cost (2026-05-04): one
 tsc edit pass when writing `AAEnrollmentPage`.
+
+**`apiRequest` already prepends `/api` — paths must NOT start with `/api/`.**
+`API_BASE_URL` in `apps/ui/src/api/client.ts` is `"/api"` (or
+`VITE_API_URL`). `apiRequest("/foo/bar")` resolves to `/api/foo/bar`.
+Calling `apiRequest("/api/foo/bar")` produces `/api/api/foo/bar` and
+404s — the platform's catch-all proxy doesn't strip the duplicate
+prefix. Symptom: route works in tsc, fails in browser, brief reads
+"the page returns 404 on submit." Same trap caught twice now —
+`01aae710` fixed `GoogleConnectCard`, `9f607ce2` fixed `StudioPage`'s
+three architect verbs. Pattern hits any new page wiring `apiRequest`
+because the dev intuitively types the full path. Rule for new code:
+strip the `/api` prefix from every `apiRequest()` first argument.
+Grep before commit: `grep -n 'apiRequest("/api/' src/` should return
+zero matches.
 
 ## Modal accepts no `size` prop
 

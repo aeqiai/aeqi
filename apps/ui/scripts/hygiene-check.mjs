@@ -56,6 +56,15 @@ const FORBIDDEN_PATTERNS = [
     pattern: /\bbg-black\/\[?0\.0[34]\]?/g,
     message: "Use bg-hover (0.03) or bg-divider (0.04) instead",
   },
+  {
+    // apiRequest already prepends API_BASE_URL ("/api"), so paths must
+    // NOT start with /api/. Calling apiRequest("/api/foo") produces
+    // /api/api/foo and 404s. Same trap fixed twice (01aae710, 9f607ce2);
+    // catch it before the third occurrence ships.
+    pattern: /\bapiRequest[<\w>]*\(\s*["'`]\/api\//g,
+    message:
+      'apiRequest already prepends /api — drop the /api/ prefix from the path arg (e.g. apiRequest("/architect/draft"), not apiRequest("/api/architect/draft"))',
+  },
 ];
 
 function changedLines() {
