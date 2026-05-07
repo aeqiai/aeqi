@@ -420,7 +420,14 @@ pub fn parse_llm_response(raw: &str, brief: &str) -> Result<GeneratedBlueprint, 
     let (rationale, blueprint_obj) = split_rationale_and_blueprint(parsed);
 
     // Back-fill required Blueprint fields the model may have omitted.
-    let blueprint = normalize_blueprint(blueprint_obj, brief);
+    let mut blueprint = normalize_blueprint(blueprint_obj, brief);
+
+    // Schema-gate enum-typed fields. The LLM happily emits English-sensible
+    // values (e.g. `role_type: "contractor"`) that aren't in the canonical
+    // enum and fail orchestrator deserialization with `unknown variant`.
+    // Snap to the nearest valid value with a warn — fixing the prompt would
+    // help, but defense-in-depth here means a typo never crashes spawn.
+    schema_gate_blueprint(&mut blueprint);
 
     Ok(GeneratedBlueprint {
         kind: "single".to_string(),
@@ -428,6 +435,133 @@ pub fn parse_llm_response(raw: &str, brief: &str) -> Result<GeneratedBlueprint, 
         blueprint,
         generator: GeneratorProvenance::llm_v1(),
     })
+}
+
+// ---------------------------------------------------------------------------
+// Schema gate
+// ---------------------------------------------------------------------------
+
+/// Canonical `RoleType` variants the orchestrator accepts.
+/// See `crates/aeqi-orchestrator/src/role_registry.rs`.
+const VALID_ROLE_TYPES: &[&str] = &["director", "operational", "advisor"];
+
+/// Canonical on-chain template slugs. Anything else fails the
+/// `keccak256(template) → templateId` lookup at provision time.
+const VALID_TEMPLATES: &[&str] = &["foundation", "entity", "venture", "fund"];
+
+/// Snap an arbitrary LLM-emitted role_type string to the nearest canonical
+/// variant. Returns the canonical value and whether the input needed snapping.
+fn snap_role_type(raw: &str) -> (&'static str, bool) {
+    let lower = raw.trim().to_ascii_lowercase();
+    if VALID_ROLE_TYPES.iter().any(|v| *v == lower) {
+        // Already canonical — return the &'static slot.
+        let canonical = match lower.as_str() {
+            "director" => "director",
+            "operational" => "operational",
+            "advisor" => "advisor",
+            _ => unreachable!(),
+        };
+        return (canonical, false);
+    }
+    // Map common synonyms.
+    let snapped = match lower.as_str() {
+        // Operational tier — paid contributors, contractors, employees.
+        "contractor" | "freelancer" | "consultant" | "employee" | "contract" | "staff"
+        | "operator" | "worker" | "ic" => "operational",
+        // Advisor tier — board members (non-director), advisors, mentors.
+        "board" | "advisors" | "advisory" | "mentor" | "investor" | "observer" => "advisor",
+        // Director tier — founders, executives, C-suite.
+        "founder" | "cofounder" | "co-founder" | "ceo" | "cto" | "cfo" | "coo" | "chair"
+        | "chairman" | "president" | "executive" | "exec" | "owner" => "director",
+        // Anything else: operational is the safe default.
+        _ => "operational",
+    };
+    (snapped, true)
+}
+
+/// Snap an arbitrary LLM-emitted template string to the nearest canonical
+/// on-chain template slug. Returns the canonical value and whether the
+/// input needed snapping.
+fn snap_template(raw: &str) -> (&'static str, bool) {
+    let lower = raw.trim().to_ascii_lowercase();
+    if let Some(v) = VALID_TEMPLATES.iter().find(|v| ***v == lower) {
+        return (v, false);
+    }
+    let snapped = match lower.as_str() {
+        "nonprofit" | "foundation" | "charity" | "ngo" | "mission" => "foundation",
+        "startup" | "vc" | "venture" | "company-vc" | "tokenized" => "venture",
+        "investment" | "lp" | "syndicate" | "fund-vehicle" => "fund",
+        // Default for unknown is `entity` — the smallest viable template.
+        _ => "entity",
+    };
+    (snapped, true)
+}
+
+/// Walk a parsed Blueprint JSON value and snap every enum-typed field to
+/// its canonical variant. Logs a `warn!` for each snap so journalctl shows
+/// the LLM drift; behavior is otherwise transparent to callers.
+fn schema_gate_blueprint(bp: &mut Value) {
+    let Some(obj) = bp.as_object_mut() else {
+        return;
+    };
+
+    // Top-level template slug.
+    if let Some(Value::String(t)) = obj.get("template")
+        && !t.is_empty()
+    {
+        let raw = t.clone();
+        let (snapped, did_snap) = snap_template(&raw);
+        if did_snap {
+            warn!(
+                from = %raw,
+                to = %snapped,
+                "architect.llm: snapped template {raw} → {snapped}"
+            );
+            obj.insert("template".to_string(), Value::String(snapped.to_string()));
+        }
+    }
+
+    // seed_roles[].role_type — the field that motivated the gate.
+    if let Some(Value::Array(roles)) = obj.get_mut("seed_roles") {
+        for role in roles.iter_mut() {
+            let Some(role_obj) = role.as_object_mut() else {
+                continue;
+            };
+            let Some(rt) = role_obj.get("role_type") else {
+                continue;
+            };
+            // Tolerate `null` and non-string values — drop them so serde's
+            // `Option<RoleType>::deserialize` falls back to the default.
+            let raw = match rt {
+                Value::String(s) => s.clone(),
+                Value::Null => {
+                    role_obj.remove("role_type");
+                    continue;
+                }
+                _ => {
+                    warn!(
+                        value = %rt,
+                        "architect.llm: dropping non-string role_type"
+                    );
+                    role_obj.remove("role_type");
+                    continue;
+                }
+            };
+            if raw.trim().is_empty() {
+                role_obj.remove("role_type");
+                continue;
+            }
+            let (snapped, did_snap) = snap_role_type(&raw);
+            if did_snap {
+                warn!(
+                    from = %raw,
+                    to = %snapped,
+                    "architect.llm: snapped role_type {raw} → {snapped}"
+                );
+                role_obj.insert("role_type".to_string(), Value::String(snapped.to_string()));
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -982,6 +1116,151 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, ArchitectError::LlmFailure(_)));
+    }
+
+    #[test]
+    fn schema_gate_snaps_contractor_to_operational() {
+        // Walk-2 regression: refinement "make the writers contractors not
+        // full-time" causes the LLM to emit `role_type: "contractor"`.
+        // Pre-fix, this passed straight through and the runtime spawn
+        // failed with `unknown variant 'contractor'`, leaving the company
+        // at a hung splash. Post-fix, the gate snaps it to `operational`.
+        let raw = r#"{
+  "blueprint": {
+    "slug": "writers-co",
+    "name": "Writers Co",
+    "template": "entity",
+    "root": { "name": "founder" },
+    "seed_roles": [
+      { "key": "founder", "title": "Founder", "role_type": "director" },
+      { "key": "writer-1", "title": "Writer", "role_type": "contractor" },
+      { "key": "writer-2", "title": "Writer", "role_type": "Freelancer" }
+    ]
+  }
+}"#;
+        let out = parse_llm_response(raw, "writing studio").unwrap();
+        let roles = out.blueprint["seed_roles"].as_array().unwrap();
+        assert_eq!(roles[0]["role_type"], "director");
+        assert_eq!(roles[1]["role_type"], "operational");
+        // Case-insensitive match on the snap input.
+        assert_eq!(roles[2]["role_type"], "operational");
+    }
+
+    #[test]
+    fn schema_gate_maps_advisor_synonyms() {
+        let raw = r#"{
+  "blueprint": {
+    "slug": "x", "name": "X", "template": "entity",
+    "root": { "name": "founder" },
+    "seed_roles": [
+      { "key": "a", "title": "A", "role_type": "board" },
+      { "key": "b", "title": "B", "role_type": "mentor" },
+      { "key": "c", "title": "C", "role_type": "investor" }
+    ]
+  }
+}"#;
+        let out = parse_llm_response(raw, "irrelevant").unwrap();
+        let roles = out.blueprint["seed_roles"].as_array().unwrap();
+        assert_eq!(roles[0]["role_type"], "advisor");
+        assert_eq!(roles[1]["role_type"], "advisor");
+        assert_eq!(roles[2]["role_type"], "advisor");
+    }
+
+    #[test]
+    fn schema_gate_maps_director_synonyms() {
+        let raw = r#"{
+  "blueprint": {
+    "slug": "x", "name": "X", "template": "entity",
+    "root": { "name": "founder" },
+    "seed_roles": [
+      { "key": "a", "title": "A", "role_type": "ceo" },
+      { "key": "b", "title": "B", "role_type": "co-founder" },
+      { "key": "c", "title": "C", "role_type": "executive" }
+    ]
+  }
+}"#;
+        let out = parse_llm_response(raw, "irrelevant").unwrap();
+        let roles = out.blueprint["seed_roles"].as_array().unwrap();
+        assert_eq!(roles[0]["role_type"], "director");
+        assert_eq!(roles[1]["role_type"], "director");
+        assert_eq!(roles[2]["role_type"], "director");
+    }
+
+    #[test]
+    fn schema_gate_unknown_role_type_defaults_to_operational() {
+        let raw = r#"{
+  "blueprint": {
+    "slug": "x", "name": "X", "template": "entity",
+    "root": { "name": "founder" },
+    "seed_roles": [
+      { "key": "a", "title": "A", "role_type": "warlock" }
+    ]
+  }
+}"#;
+        let out = parse_llm_response(raw, "irrelevant").unwrap();
+        let roles = out.blueprint["seed_roles"].as_array().unwrap();
+        assert_eq!(roles[0]["role_type"], "operational");
+    }
+
+    #[test]
+    fn schema_gate_drops_null_or_non_string_role_type() {
+        let raw = r#"{
+  "blueprint": {
+    "slug": "x", "name": "X", "template": "entity",
+    "root": { "name": "founder" },
+    "seed_roles": [
+      { "key": "a", "title": "A", "role_type": null },
+      { "key": "b", "title": "B", "role_type": 42 }
+    ]
+  }
+}"#;
+        let out = parse_llm_response(raw, "irrelevant").unwrap();
+        let roles = out.blueprint["seed_roles"].as_array().unwrap();
+        assert!(roles[0].get("role_type").is_none());
+        assert!(roles[1].get("role_type").is_none());
+    }
+
+    #[test]
+    fn schema_gate_passes_canonical_role_types_unchanged() {
+        let raw = r#"{
+  "blueprint": {
+    "slug": "x", "name": "X", "template": "entity",
+    "root": { "name": "founder" },
+    "seed_roles": [
+      { "key": "a", "title": "A", "role_type": "director" },
+      { "key": "b", "title": "B", "role_type": "operational" },
+      { "key": "c", "title": "C", "role_type": "advisor" }
+    ]
+  }
+}"#;
+        let out = parse_llm_response(raw, "irrelevant").unwrap();
+        let roles = out.blueprint["seed_roles"].as_array().unwrap();
+        assert_eq!(roles[0]["role_type"], "director");
+        assert_eq!(roles[1]["role_type"], "operational");
+        assert_eq!(roles[2]["role_type"], "advisor");
+    }
+
+    #[test]
+    fn schema_gate_snaps_unknown_template() {
+        let raw = r#"{
+  "blueprint": {
+    "slug": "x", "name": "X", "template": "nonprofit",
+    "root": { "name": "founder" }
+  }
+}"#;
+        let out = parse_llm_response(raw, "irrelevant").unwrap();
+        assert_eq!(out.blueprint["template"], "foundation");
+    }
+
+    #[test]
+    fn schema_gate_passes_canonical_template_unchanged() {
+        for tpl in ["foundation", "entity", "venture", "fund"] {
+            let raw = format!(
+                r#"{{"blueprint":{{"slug":"x","name":"X","template":"{tpl}","root":{{"name":"founder"}}}}}}"#
+            );
+            let out = parse_llm_response(&raw, "irrelevant").unwrap();
+            assert_eq!(out.blueprint["template"], tpl);
+        }
     }
 
     #[tokio::test]
