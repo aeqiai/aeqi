@@ -405,7 +405,6 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
               removeEvent(selected.id);
               goEntity(entityId, "events", undefined, { replace: true });
             }}
-            onBack={() => goEntity(entityId, "events", undefined, { replace: true })}
           />
         </div>
       </div>

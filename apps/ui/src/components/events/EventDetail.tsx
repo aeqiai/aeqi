@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { AgentEvent, ToolCall } from "@/lib/types";
-import { Button, Tooltip } from "../ui";
+import { Button } from "../ui";
+import SurfaceHeader from "../SurfaceHeader";
+import { useNav } from "@/hooks/useNav";
 import TestTriggerPanel from "../TestTriggerPanel";
 import EventCanvasEditor, { type CanvasDraft } from "./EventCanvasEditor";
 import FiresPanel from "./FiresPanel";
@@ -10,7 +12,6 @@ interface EventDetailProps {
   agentId: string;
   onSave: (fields: SaveFields) => Promise<void>;
   onDelete: () => Promise<void>;
-  onBack: () => void;
 }
 
 export interface SaveFields {
@@ -25,13 +26,9 @@ function deepEqualToolCalls(a: ToolCall[], b: ToolCall[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export default function EventDetail({
-  event,
-  agentId,
-  onSave,
-  onDelete,
-  onBack,
-}: EventDetailProps) {
+export default function EventDetail({ event, agentId, onSave, onDelete }: EventDetailProps) {
+  const { entityPath, entityId } = useNav();
+  const backHref = entityId ? entityPath(entityId, "events") : "/";
   const isGlobal = event.agent_id == null;
   const isSystem = event.system === true;
   const readOnly = isGlobal || isSystem;
@@ -105,18 +102,9 @@ export default function EventDetail({
 
   return (
     <div className="events-detail">
+      <SurfaceHeader backHref={backHref} backLabel="Events" title={event.name || "Event"} />
       <header className="events-detail-strip">
         <div className="events-detail-strip-lead">
-          <Tooltip content="Back to events">
-            <button
-              type="button"
-              className="events-detail-strip-back"
-              onClick={onBack}
-              aria-label="Back to events"
-            >
-              <span aria-hidden>←</span>
-            </button>
-          </Tooltip>
           <input
             className="events-detail-strip-name"
             type="text"
