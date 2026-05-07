@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.60.0 — 2026-05-09
+
+**Headline:** Personality folded into Ideas; event detail gets the canonical header.
+
+- **Agent rail — Personality tab dropped, Ideas is canonical for HOW** (`apps/ui/src/components/AgentPage.tsx` + sibling rail config): the Personality tab duplicated affordance with Ideas — Ideas has been the canonical surface for HOW (per `architecture_four_w_primitives.md`: agents=WHO, events=WHEN, quests=WHAT, ideas=HOW) since the four-primitive model locked. Carrying a separate Personality tab fragmented the mental model. Drop the tab; rail goes 9 → 8. `5fc84a03`.
+- **Event detail surface header standardized** (`apps/ui/src/pages/EventDetailPage.tsx`): event detail now wears the same header shape as idea detail / quest detail / role detail — back affordance, kind badge, name, primary action slot. Closes the last asymmetry in the canonical detail-surface header pattern. `d4ced2a5`.
+
 ## v0.59.0 — 2026-05-09
 
 **Headline:** Roles dispatch wired; inbox shows every session you're in, sorted recent.
