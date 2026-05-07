@@ -382,16 +382,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               {navItem("inbox", "Inbox", <InboxIcon />)}
             </nav>
 
-            {!isPersonal && (
-              <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
-                <div className="sidebar-section-label">Organization</div>
-                {navItem("roles", "Roles", <RolesIcon />)}
-                {navItem("ownership", "Ownership", <OwnershipIcon />)}
-                {navItem("treasury", "Treasury", <TreasuryIcon />)}
-                {navItem("governance", "Governance", <GovernanceIcon />)}
-              </nav>
-            )}
-
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
               <div className="sidebar-section-label">Workspace</div>
               {navItem("agents", "Agents", <AgentsIcon />)}
@@ -412,6 +402,16 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               })}
               {isPersonal && navItem("treasury", "Treasury", <TreasuryIcon />)}
             </nav>
+
+            {!isPersonal && (
+              <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
+                <div className="sidebar-section-label">Organization</div>
+                {navItem("roles", "Roles", <RolesIcon />)}
+                {navItem("ownership", "Ownership", <OwnershipIcon />)}
+                {navItem("treasury", "Treasury", <TreasuryIcon />)}
+                {navItem("governance", "Governance", <GovernanceIcon />)}
+              </nav>
+            )}
           </>
         )}
 
