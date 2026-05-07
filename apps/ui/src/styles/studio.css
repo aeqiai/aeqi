@@ -222,3 +222,73 @@
 .studio-preview-draft-id code {
   font-family: var(--font-mono);
 }
+
+/* ── Wave 35: chat-shaped refinement loop ── */
+
+/* The conversation column replaces the two-pane grid once the first
+   draft lands. Brief/refinement messages are right-aligned (founder's
+   voice); blueprint cards land below at full width. */
+.studio-conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.studio-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-margin-top: 24px;
+}
+
+.studio-turn-message {
+  align-self: flex-end;
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+}
+.studio-turn-message-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.studio-turn-message-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.studio-blueprint-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.studio-refine-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  position: sticky;
+  bottom: 16px;
+}
+
+.studio-actions-trail {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

@@ -34,5 +34,6 @@ pub mod types;
 pub use generator::{ArchitectError, generate, refine};
 pub use llm::{
     LlmCaller, LlmGenerationOptions, OpenRouterLlm, build_default_llm, generate_via_llm,
+    refine_via_llm,
 };
 pub use types::{Brief, GeneratedBlueprint};

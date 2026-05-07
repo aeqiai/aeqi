@@ -7,25 +7,27 @@
 //!   falling back to the stub when no API key is set or the LLM call
 //!   fails. Provenance is recorded on the draft so the UI can show
 //!   "drafted by LLM" vs "drafted by stub fallback".
-//! - `architect.refine` — apply an instruction to an existing draft (Phase 1
-//!   stub: returns input unchanged).
+//! - `architect.refine` — Wave 35 Phase 3. Multi-turn LLM refinement: the
+//!   UI ferries the full conversation history (every prior brief +
+//!   draft pair) and the new instruction; the orchestrator threads them
+//!   into a chat completion via `aeqi_architect::refine_via_llm` and
+//!   returns the next draft. Stateless — no DB, no in-memory cache.
 //! - `architect.deploy` — provision a Company from a generated blueprint by
 //!   piping it through the existing `spawn_blueprint` provisioner.
 //!
-//! Phase 2 is still request/response; there is no LLM streaming, no draft
-//! persistence, and no refinement diff. Phase 3 will ship a stream-of-thought
-//! UI.
+//! Phase 3 is still request/response (no streaming). Phase 4 ships
+//! streaming + `architect_drafts` persistence.
 //!
-//! All draft IDs in Phase 2 are minted ad-hoc and are NOT stored — clients
-//! must round-trip the full `draft` JSON object on `architect.refine` /
-//! `architect.deploy`. This keeps the orchestrator stateless during the
-//! scaffolding phase.
+//! All draft IDs are minted ad-hoc and are NOT stored — clients must
+//! round-trip the full `draft` JSON object on `architect.refine` /
+//! `architect.deploy`. The refinement loop ferries the whole prior turn
+//! list to keep the orchestrator stateless across calls.
 
 use std::time::Instant;
 
 use aeqi_architect::{
     ArchitectError, Brief, GeneratedBlueprint, build_default_llm, generate, generate_via_llm,
-    refine,
+    refine, refine_via_llm,
 };
 use serde_json::{Value, json};
 use tracing::{info, warn};
@@ -165,47 +167,180 @@ pub async fn handle_architect_draft(
     })
 }
 
-/// `architect.refine` — apply an instruction to a draft.
+/// `architect.refine` — apply an instruction to an existing draft via a
+/// multi-turn LLM conversation.
 ///
-/// Phase 1 stub: returns the input draft unchanged so the round trip is
-/// honored. Phase 2 will diff the instruction against the draft and emit
-/// a revised blueprint via inference.
+/// Wave 35 Phase 3. The UI ferries the entire conversation history on
+/// each call: the original brief, every prior refinement instruction,
+/// and the assistant's draft after each turn. The orchestrator stays
+/// stateless — there is no DB row, no in-memory cache, no draft id
+/// lookup. Phase 4 will add `architect_drafts` persistence.
 ///
 /// Request shape:
 /// ```json
-/// { "draft_id": "<id>", "draft": <GeneratedBlueprint>, "instruction": "..." }
+/// {
+///   "history": [
+///     { "brief": "AI consulting firm", "draft": <GeneratedBlueprint> }
+///     // … one entry per prior turn, oldest first …
+///   ],
+///   "instruction": "focus on legal AI"
+/// }
 /// ```
+///
+/// Backward-compatible legacy shape (single prior turn, no array):
+/// ```json
+/// { "draft": <GeneratedBlueprint>, "instruction": "..." }
+/// ```
+/// The legacy path falls back to the Phase-1 stub `refine` (returns the
+/// draft unchanged) when the LLM is unavailable, so existing callers
+/// don't break.
 pub async fn handle_architect_refine(
     _ctx: &super::CommandContext,
     request: &Value,
     _allowed: &Option<Vec<String>>,
 ) -> Value {
-    let Some(draft_value) = request.get("draft").cloned() else {
-        return json!({"ok": false, "error": "draft is required", "code": "invalid_request"});
-    };
-    let draft: GeneratedBlueprint = match serde_json::from_value(draft_value) {
-        Ok(d) => d,
-        Err(err) => {
-            return json!({
-                "ok": false,
-                "error": format!("draft is malformed: {err}"),
-                "code": "invalid_request",
-            });
-        }
-    };
     let instruction = request
         .get("instruction")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-
-    match refine(draft, &instruction) {
-        Ok(refined) => {
-            let draft_id = synthetic_draft_id(&refined);
-            json!({"ok": true, "draft_id": draft_id, "draft": refined})
-        }
-        Err(err) => architect_error_response(err),
+    if instruction.trim().is_empty() {
+        return json!({
+            "ok": false,
+            "error": "instruction is required",
+            "code": "invalid_request",
+        });
     }
+    if instruction.len() > MAX_BRIEF_CHARS {
+        return json!({
+            "ok": false,
+            "error": format!("instruction exceeds {MAX_BRIEF_CHARS}-char cap"),
+            "code": "too_long",
+        });
+    }
+
+    // Decode the history. Two accepted shapes:
+    //  - canonical: `history: [{brief, draft}, ...]` (Wave 35)
+    //  - legacy:    `draft: <GeneratedBlueprint>` (Phase 1)
+    let (prior_briefs, prior_drafts): (Vec<String>, Vec<GeneratedBlueprint>) =
+        match request.get("history") {
+            Some(Value::Array(items)) if !items.is_empty() => {
+                let mut briefs = Vec::with_capacity(items.len());
+                let mut drafts = Vec::with_capacity(items.len());
+                for (i, item) in items.iter().enumerate() {
+                    let brief = match item.get("brief").and_then(|v| v.as_str()) {
+                        Some(s) if !s.trim().is_empty() => s.to_string(),
+                        _ => {
+                            return json!({
+                                "ok": false,
+                                "error": format!("history[{i}].brief is required"),
+                                "code": "invalid_request",
+                            });
+                        }
+                    };
+                    let draft_value = match item.get("draft").cloned() {
+                        Some(v) => v,
+                        None => {
+                            return json!({
+                                "ok": false,
+                                "error": format!("history[{i}].draft is required"),
+                                "code": "invalid_request",
+                            });
+                        }
+                    };
+                    let draft: GeneratedBlueprint = match serde_json::from_value(draft_value) {
+                        Ok(d) => d,
+                        Err(err) => {
+                            return json!({
+                                "ok": false,
+                                "error": format!("history[{i}].draft is malformed: {err}"),
+                                "code": "invalid_request",
+                            });
+                        }
+                    };
+                    briefs.push(brief);
+                    drafts.push(draft);
+                }
+                (briefs, drafts)
+            }
+            _ => {
+                // Legacy single-draft shape. Synthesize a one-entry
+                // history with an empty brief — the LLM will treat the
+                // instruction itself as the founder's request.
+                let Some(draft_value) = request.get("draft").cloned() else {
+                    return json!({
+                        "ok": false,
+                        "error": "history or draft is required",
+                        "code": "invalid_request",
+                    });
+                };
+                let draft: GeneratedBlueprint = match serde_json::from_value(draft_value) {
+                    Ok(d) => d,
+                    Err(err) => {
+                        return json!({
+                            "ok": false,
+                            "error": format!("draft is malformed: {err}"),
+                            "code": "invalid_request",
+                        });
+                    }
+                };
+                let synthesized_brief = draft
+                    .blueprint
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("(prior brief unavailable)")
+                    .to_string();
+                (vec![synthesized_brief], vec![draft])
+            }
+        };
+
+    let started = Instant::now();
+    let refined = match build_default_llm() {
+        Some((llm, opts)) => {
+            match refine_via_llm(
+                &prior_briefs,
+                &prior_drafts,
+                &instruction,
+                llm.as_ref(),
+                &opts,
+            )
+            .await
+            {
+                Ok(r) => {
+                    info!(
+                        latency_ms = started.elapsed().as_millis() as u64,
+                        prior_turns = prior_briefs.len(),
+                        "architect.refine: LLM refinement succeeded"
+                    );
+                    r
+                }
+                Err(err) => {
+                    warn!(error = %err, "architect.refine: LLM path failed");
+                    return architect_error_response(err);
+                }
+            }
+        }
+        None => {
+            // No LLM credentials — fall back to the stub refine, which
+            // returns the most recent draft unchanged so the UI keeps
+            // working in tests / offline dev. Callers see a `stub` provenance.
+            warn!(
+                "architect.refine: no LLM credentials in env; falling back to stub (draft unchanged)"
+            );
+            let last = prior_drafts
+                .last()
+                .cloned()
+                .expect("history is non-empty by construction");
+            match refine(last, &instruction) {
+                Ok(r) => r,
+                Err(err) => return architect_error_response(err),
+            }
+        }
+    };
+
+    let draft_id = synthetic_draft_id(&refined);
+    json!({"ok": true, "draft_id": draft_id, "draft": refined})
 }
 
 /// `architect.deploy` — provision a Company from a generated blueprint.

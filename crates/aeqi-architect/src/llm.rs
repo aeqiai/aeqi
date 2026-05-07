@@ -279,6 +279,92 @@ pub async fn generate_via_llm(
     parse_llm_response(&raw, trimmed)
 }
 
+/// Refine an existing draft via a multi-turn LLM conversation.
+///
+/// Wave 35 Phase 3. Builds a chat history that re-uses the same system
+/// prompt as [`generate_via_llm`], stages the original brief as the first
+/// user turn, the prior blueprint (rendered as JSON) as the assistant
+/// reply, and then the founder's refinement instruction as the second
+/// user turn. The model returns a fresh `{rationale, blueprint}` envelope
+/// that we parse the same way as the initial draft.
+///
+/// `prior_briefs` is the list of previous user turns in chronological
+/// order — the first entry is the original brief, every subsequent entry
+/// is a prior refinement instruction. `prior_drafts` is the parallel list
+/// of assistant responses (one per prior brief). The two slices MUST be
+/// the same length; the IPC handler validates this before calling.
+///
+/// On any failure (network, timeout, parse, schema) returns an
+/// [`ArchitectError::LlmFailure`] — Phase 3 does NOT fall back to the stub
+/// for refinement (the stub can't operationalise an instruction). The IPC
+/// layer surfaces the error to the UI so the founder can retry.
+pub async fn refine_via_llm(
+    prior_briefs: &[String],
+    prior_drafts: &[GeneratedBlueprint],
+    instruction: &str,
+    llm: &dyn LlmCaller,
+    opts: &LlmGenerationOptions,
+) -> Result<GeneratedBlueprint, ArchitectError> {
+    if prior_briefs.is_empty() || prior_drafts.is_empty() {
+        return Err(ArchitectError::EmptyBrief);
+    }
+    if prior_briefs.len() != prior_drafts.len() {
+        return Err(ArchitectError::LlmFailure(format!(
+            "refine: brief/draft history length mismatch ({} vs {})",
+            prior_briefs.len(),
+            prior_drafts.len()
+        )));
+    }
+    let trimmed_instr = instruction.trim();
+    if trimmed_instr.is_empty() {
+        return Err(ArchitectError::EmptyBrief);
+    }
+    if trimmed_instr.len() > HARD_CHAR_CAP {
+        return Err(ArchitectError::BriefTooLong(trimmed_instr.len()));
+    }
+
+    let messages = build_refine_messages(prior_briefs, prior_drafts, trimmed_instr);
+    let req = ChatCompletionRequest {
+        model: opts.model.clone(),
+        messages,
+        stream: false,
+        max_tokens: Some(opts.max_tokens),
+        temperature: Some(opts.temperature),
+    };
+
+    debug!(
+        model = %opts.model,
+        prior_turns = prior_briefs.len(),
+        instr_len = trimmed_instr.len(),
+        "architect.llm: dispatching refine chat_completion"
+    );
+
+    let raw = match tokio::time::timeout(DEFAULT_TIMEOUT, llm.complete(req)).await {
+        Ok(Ok(text)) => text,
+        Ok(Err(err)) => {
+            warn!(error = %err, "architect.llm: refine upstream call failed");
+            return Err(ArchitectError::LlmFailure(err));
+        }
+        Err(_) => {
+            warn!("architect.llm: refine timed out");
+            return Err(ArchitectError::LlmFailure(format!(
+                "LLM call exceeded {DEFAULT_TIMEOUT:?}"
+            )));
+        }
+    };
+
+    debug!(
+        raw_len = raw.len(),
+        "architect.llm: refine got response, parsing"
+    );
+
+    // Reuse the original brief for back-fill defaults — the orchestrator
+    // expects a stable "founder intent" string when the model omits a
+    // required scalar; the original brief is the most authoritative
+    // source for that.
+    parse_llm_response(&raw, &prior_briefs[0])
+}
+
 /// Parse the LLM's text response into a [`GeneratedBlueprint`].
 ///
 /// Tolerant: strips ```/```json fences, picks the first JSON object found,
@@ -325,6 +411,48 @@ fn build_messages(brief: &str) -> Vec<ChatMessage> {
             content: brief.to_string(),
         },
     ]
+}
+
+/// Stage a multi-turn conversation: system prompt, then alternating
+/// user/assistant pairs replaying every prior turn, then the founder's
+/// new refinement instruction as the trailing user message.
+///
+/// Each prior assistant turn is rendered as the same `{rationale,
+/// blueprint}` JSON envelope the model is asked to emit — so the model
+/// sees its own canonical output shape and can edit it in place rather
+/// than guessing at the schema again.
+fn build_refine_messages(
+    prior_briefs: &[String],
+    prior_drafts: &[GeneratedBlueprint],
+    instruction: &str,
+) -> Vec<ChatMessage> {
+    let mut out = Vec::with_capacity(2 + prior_briefs.len() * 2 + 1);
+    out.push(ChatMessage {
+        role: "system".to_string(),
+        content: SYSTEM_PROMPT.to_string(),
+    });
+    for (brief, draft) in prior_briefs.iter().zip(prior_drafts.iter()) {
+        out.push(ChatMessage {
+            role: "user".to_string(),
+            content: brief.clone(),
+        });
+        let envelope = json!({
+            "rationale": draft.rationale,
+            "blueprint": draft.blueprint,
+        });
+        out.push(ChatMessage {
+            role: "assistant".to_string(),
+            content: envelope.to_string(),
+        });
+    }
+    out.push(ChatMessage {
+        role: "user".to_string(),
+        content: format!(
+            "Refine the previous Blueprint based on this feedback (keep the same JSON envelope shape; \
+             change only what the feedback implies, and update the rationale to explain the diff):\n\n{instruction}"
+        ),
+    });
+    out
 }
 
 const SYSTEM_PROMPT: &str = r##"You are a Company architect for the aeqi platform. Given a founder's brief, you generate a Blueprint that aeqi will provision into a working Company.
@@ -740,6 +868,93 @@ mod tests {
         let llm = MockLlm::new("{}");
         let opts = LlmGenerationOptions::default();
         let err = generate_via_llm(&brief("   \n\t "), &llm, &opts)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ArchitectError::EmptyBrief));
+        assert_eq!(llm.calls.load(Ordering::SeqCst), 0);
+    }
+
+    fn fake_draft(name: &str, template: &str) -> GeneratedBlueprint {
+        GeneratedBlueprint {
+            kind: "single".to_string(),
+            rationale: format!("Initial pick: {template}"),
+            blueprint: json!({
+                "slug": "test-co",
+                "name": name,
+                "template": template,
+                "root": { "name": "founder" }
+            }),
+            generator: GeneratorProvenance::llm_v1(),
+        }
+    }
+
+    #[tokio::test]
+    async fn refine_via_llm_threads_history_and_returns_new_blueprint() {
+        let response = r#"{
+  "rationale": "Pivoted to legal AI focus; tightened agents to a contract reviewer.",
+  "blueprint": {
+    "slug": "legal-ai-consulting",
+    "name": "Legal AI Co",
+    "template": "entity",
+    "root": { "name": "founder", "system_prompt": "Lead a legal-AI consulting firm." },
+    "seed_agents": [{ "owner": "root", "name": "reviewer", "system_prompt": "Review contracts." }],
+    "seed_ideas": [],
+    "seed_quests": [],
+    "seed_roles": [],
+    "seed_role_edges": [],
+    "seed_events": []
+  }
+}"#;
+        let llm = MockLlm::new(response);
+        let opts = LlmGenerationOptions::default();
+        let prior_briefs = vec!["AI consulting firm with 3 engineers".to_string()];
+        let prior_drafts = vec![fake_draft("AI Consulting", "entity")];
+
+        let out = refine_via_llm(
+            &prior_briefs,
+            &prior_drafts,
+            "focus on legal AI",
+            &llm,
+            &opts,
+        )
+        .await
+        .expect("refine succeeds");
+        assert_eq!(out.blueprint["name"], "Legal AI Co");
+        assert_eq!(out.blueprint["template"], "entity");
+        assert_eq!(out.generator.kind, "llm");
+        assert_eq!(llm.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn refine_via_llm_rejects_empty_instruction() {
+        let llm = MockLlm::new("{}");
+        let opts = LlmGenerationOptions::default();
+        let prior_briefs = vec!["whatever".to_string()];
+        let prior_drafts = vec![fake_draft("X", "entity")];
+        let err = refine_via_llm(&prior_briefs, &prior_drafts, "   ", &llm, &opts)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ArchitectError::EmptyBrief));
+        assert_eq!(llm.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn refine_via_llm_rejects_history_length_mismatch() {
+        let llm = MockLlm::new("{}");
+        let opts = LlmGenerationOptions::default();
+        let prior_briefs = vec!["a".to_string(), "b".to_string()];
+        let prior_drafts = vec![fake_draft("X", "entity")];
+        let err = refine_via_llm(&prior_briefs, &prior_drafts, "fix it", &llm, &opts)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ArchitectError::LlmFailure(_)));
+    }
+
+    #[tokio::test]
+    async fn refine_via_llm_rejects_empty_history() {
+        let llm = MockLlm::new("{}");
+        let opts = LlmGenerationOptions::default();
+        let err = refine_via_llm(&[], &[], "fix it", &llm, &opts)
             .await
             .unwrap_err();
         assert!(matches!(err, ArchitectError::EmptyBrief));
