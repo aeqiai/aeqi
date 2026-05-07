@@ -1035,6 +1035,18 @@ not a real type problem. The cost of guessing wrong (~2 min on
 2026-04-30): re-reading polymorphic-`as` ref typing trying to find a
 bug that wasn't there.
 
+**Symptom fingerprint: "wagmi/chains has no exported member 'anvil'" + "viem
+cannot find module" on a fresh worktree.** When `tsc` reports a flurry of
+TS2305 / TS2307 errors against `wagmi/chains`, `viem`, or other recently-added
+deps on first verify in a worktree, AND `node node_modules/typescript/bin/tsc
+--noEmit` from the parent (`/home/claudedev/aeqi/apps/ui/`) exits 0 — it's
+ALWAYS a stale `.tsbuildinfo`, never a missing package. The symbol-not-exported
+shape mimics a real install regression and can sidetrack into npm install
+debugging. Recipe: confirm parent is clean first (one tsc run from main),
+then `rm <worktree>/apps/ui/.tsbuildinfo` (and `/home/claudedev/aeqi/apps/ui/
+.tsbuildinfo` if present) and re-run verify. Cost (2026-05-07): one extra tsc
+pass on roles-dispatch-hole ship before reaching for the rm.
+
 ## Banner uses `kind`, not `variant`
 
 The `Banner` component accepts a `kind` prop (`BannerKind =
