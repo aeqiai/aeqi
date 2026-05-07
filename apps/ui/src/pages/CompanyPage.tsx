@@ -18,6 +18,7 @@ const EntityOverviewTab = lazy(() => import("@/components/EntityOverviewTab"));
 // the fallthrough to `<AgentPage tab=...>` rendered the root agent's chat
 // surface (AgentPage ignores `tab`) — see "Dispatch hole fix 2026-05-09".
 const EntityAgentsTab = lazy(() => import("@/components/EntityAgentsTab"));
+const EntityRolesTab = lazy(() => import("@/components/EntityRolesTab"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
@@ -52,7 +53,7 @@ interface CompanyPageProps {
  * Routes:
  *   /c/:entityId               → EntityOverviewTab (cockpit)
  *   /c/:entityId/inbox         → MeInboxPage
- *   /c/:entityId/roles         → AgentPage(rootAgent, tab="roles")
+ *   /c/:entityId/roles         → EntityRolesTab (org chart)
  *   /c/:entityId/ownership     → OwnershipPage
  *   /c/:entityId/treasury      → TreasuryPage
  *   /c/:entityId/governance    → GovernancePage
@@ -139,6 +140,13 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
       </Suspense>
     );
   }
+  if (tab === "roles") {
+    return (
+      <Suspense>
+        <EntityRolesTab entityId={entityId} />
+      </Suspense>
+    );
+  }
   if (tab === "events") {
     return (
       <Suspense>
@@ -161,9 +169,8 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
     );
   }
 
-  // Roles falls through to AgentPage on the entity's root agent —
-  // legacy path; AgentPage's tab prop is a no-op so this currently
-  // renders the root chat surface. Out of scope for the dispatch hole
-  // fix; tracked separately if it's broken.
+  // Any unknown tab falls through to the root agent's chat surface.
+  // AgentPage's tab prop is a no-op since 2026-05-08 — every entity-scope
+  // tab MUST have an explicit branch above. New tabs go above this line.
   return <AgentPage agentId={agentId} tab={tab} itemId={itemId} />;
 }
