@@ -54,7 +54,6 @@ const COMPANY_PAGE_TABS = new Set([
   "ownership",
   "treasury",
   "governance",
-  "channels",
 ]);
 
 export default function AppLayout() {
@@ -129,7 +128,6 @@ export default function AppLayout() {
   useEffect(() => {
     const titles: Record<string, string> = {
       inbox: "Inbox",
-      channels: "Channels",
       drive: "Drive",
       settings: "Settings",
       tools: "Tools",

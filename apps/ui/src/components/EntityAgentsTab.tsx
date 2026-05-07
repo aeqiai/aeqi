@@ -46,10 +46,10 @@ const STATUS_VALUES = new Set<StatusFilter>(STATUS_ORDER);
  * and Blueprints. State (q, sort, filter, view) persists in the URL via the
  * same `patchParams` idiom Ideas / Quests / Positions adopted.
  *
- * List view groups agents by department (the parent role's title for each
- * C-suite head in the DAG). Agents whose role has no parent are grouped
- * under the C-suite label directly; agents with no role at all fall into
- * "Unassigned".
+ * List view is a flat scannable register sorted by the toolbar selector
+ * (recent / alpha / activity / spend). Hierarchy lives in the chart view —
+ * the indented-tree shape was reverted 2026-05-07; nesting is a chart
+ * concern, not a list concern.
  *
  * Chart view mirrors EntityPositionsTab's layered-DAG renderer so both
  * tabs answer the same shape from different lenses — Positions reads
@@ -84,8 +84,8 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
     [allAgents, entityId],
   );
 
-  // Roles + edges are used by both the list view (grouping) and the chart
-  // view. Load once for the entity and share across both views.
+  // Roles + edges power the chart view; the list view is flat. Load once
+  // for the entity so a tab toggle doesn't refetch.
   const [positions, setPositions] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
@@ -159,14 +159,6 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
     rows.sort((a, b) => compareAgents(a, b, sort));
     return rows;
   }, [entityAgents, search, sort, status]);
-
-  // Build pre-order tree traversal + depth map for the indented list view.
-  // Each agent gets a depth (0 = root, 1 = direct report, 2 = grandchild, …).
-  // Agents with no role entry land at the end with depth 0.
-  const agentTreeData = useMemo(
-    () => buildAgentTreeData(entityAgents, positions, edges),
-    [entityAgents, positions, edges],
-  );
 
   // Active-filter chip strip mirrors IdeasListView — only renders when
   // a non-resting filter is in play.
@@ -322,7 +314,7 @@ export default function EntityAgentsTab({ entityId }: { entityId: string }) {
           <AgentsEmptyState onNew={openPicker} />
         </div>
       ) : view === "list" ? (
-        <AgentsList agents={filtered} treeData={agentTreeData} onSelect={openAgent} />
+        <AgentsList agents={filtered} onSelect={openAgent} />
       ) : (
         <AgentsChart
           positions={positions}
@@ -377,104 +369,6 @@ function compareAgents(a: Agent, b: Agent, mode: SortMode): number {
   }
 }
 
-export interface AgentTreeEntry {
-  agent: Agent;
-  depth: number;
-}
-
-/**
- * Build a pre-order traversal of agents keyed by their position in the role DAG.
- *
- * Returns an ordered array where each entry carries the agent and its tree depth
- * (0 = root / C-suite, 1 = direct report, 2 = grandchild, …). Agents with no
- * role assignment are appended at the end with depth 0.
- *
- * Re-rooting: the agents-only subgraph is a transitive contraction of the full
- * role DAG. Each agent's parent is the nearest agent ancestor in the original
- * DAG; intervening human/vacant roles are skipped. This means a CFO whose
- * parent CEO is human still nests under whatever agent (if any) sits above the
- * CEO — usually no one, so CFO becomes a depth-0 root rather than appearing as
- * a sibling of unrelated advisors.
- *
- * Pre-order guarantees: parent always appears before its children; siblings are
- * ordered alphabetically by role title (stable, deterministic).
- */
-function buildAgentTreeData(agents: Agent[], roles: Role[], edges: RoleEdge[]): AgentTreeEntry[] {
-  if (roles.length === 0) {
-    return agents.map((a) => ({ agent: a, depth: 0 }));
-  }
-
-  // Agent-occupied role subset.
-  const agentRoles = roles.filter((r) => r.occupant_kind === "agent" && r.occupant_id);
-  const agentRoleIds = new Set(agentRoles.map((r) => r.id));
-  const agentEdges = reRootEdges(agentRoleIds, edges);
-
-  const roleById = new Map(agentRoles.map((r) => [r.id, r]));
-  const children = new Map<string, string[]>();
-  const parentCount = new Map<string, number>();
-
-  for (const r of agentRoles) {
-    children.set(r.id, []);
-    parentCount.set(r.id, 0);
-  }
-  for (const e of agentEdges) {
-    if (!roleById.has(e.parent_role_id) || !roleById.has(e.child_role_id)) continue;
-    children.get(e.parent_role_id)!.push(e.child_role_id);
-    parentCount.set(e.child_role_id, (parentCount.get(e.child_role_id) ?? 0) + 1);
-  }
-
-  // Sort children alphabetically by role title for deterministic ordering.
-  for (const [, kids] of children) {
-    kids.sort((a, b) => {
-      const ra = roleById.get(a);
-      const rb = roleById.get(b);
-      if (!ra || !rb) return 0;
-      return ra.title.localeCompare(rb.title) || a.localeCompare(b);
-    });
-  }
-
-  // Roots = roles with no parents in the re-rooted edge set.
-  const roots = agentRoles
-    .filter((r) => (parentCount.get(r.id) ?? 0) === 0)
-    .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
-
-  // Build agent lookup for fast access.
-  const agentById = new Map(agents.map((a) => [a.id, a]));
-
-  // Pre-order DFS over the agent-only subgraph; cycle defence via visited set.
-  const result: AgentTreeEntry[] = [];
-  const emitted = new Set<string>();
-  const visited = new Set<string>();
-
-  const visit = (roleId: string, depth: number): void => {
-    if (visited.has(roleId)) return;
-    visited.add(roleId);
-    const role = roleById.get(roleId);
-    if (!role || !role.occupant_id) return;
-    const agent = agentById.get(role.occupant_id);
-    if (agent && !emitted.has(agent.id)) {
-      result.push({ agent, depth });
-      emitted.add(agent.id);
-    }
-    for (const childId of children.get(roleId) ?? []) {
-      visit(childId, depth + 1);
-    }
-  };
-
-  for (const root of roots) {
-    visit(root.id, 0);
-  }
-
-  // Append any agents not reached via the role DAG (unassigned).
-  for (const agent of agents) {
-    if (!emitted.has(agent.id)) {
-      result.push({ agent, depth: 0 });
-    }
-  }
-
-  return result;
-}
-
 function AgentsEmptyState({ onNew }: { onNew: () => void }) {
   return (
     <EmptyState
@@ -490,15 +384,7 @@ function AgentsEmptyState({ onNew }: { onNew: () => void }) {
   );
 }
 
-function AgentsList({
-  agents,
-  treeData,
-  onSelect,
-}: {
-  agents: Agent[];
-  treeData: AgentTreeEntry[];
-  onSelect: (id: string) => void;
-}) {
+function AgentsList({ agents, onSelect }: { agents: Agent[]; onSelect: (id: string) => void }) {
   if (agents.length === 0) {
     return (
       <div className="ideas-list-body">
@@ -510,52 +396,22 @@ function AgentsList({
     );
   }
 
-  // When a search/filter is active the `agents` array is a subset of the full
-  // tree. Build a set of visible agent IDs and filter treeData to match,
-  // preserving tree order (pre-order traversal) while honouring the filter.
-  const visibleIds = new Set(agents.map((a) => a.id));
-  const rows = treeData.filter((entry) => visibleIds.has(entry.agent.id));
-
-  // Fallback: if treeData is not yet populated (roles still loading) but agents
-  // are present, render them flat without indentation.
-  if (rows.length === 0) {
-    return (
-      <div className="ideas-list-body">
-        {agents.map((a) => (
-          <AgentRow key={a.id} agent={a} depth={0} onSelect={onSelect} />
-        ))}
-      </div>
-    );
-  }
-
+  // Flat list — sort order comes from the toolbar's sort selector. The
+  // earlier indented-tree shape was reverted 2026-05-07: hierarchy lives
+  // in the chart view; the list view is a flat scannable register.
   return (
     <div className="ideas-list-body">
-      {rows.map(({ agent, depth }) => (
-        <AgentRow key={agent.id} agent={agent} depth={depth} onSelect={onSelect} />
+      {agents.map((a) => (
+        <AgentRow key={a.id} agent={a} onSelect={onSelect} />
       ))}
     </div>
   );
 }
 
-const INDENT_PX = 24;
-
-function AgentRow({
-  agent: a,
-  depth,
-  onSelect,
-}: {
-  agent: Agent;
-  depth: number;
-  onSelect: (id: string) => void;
-}) {
+function AgentRow({ agent: a, onSelect }: { agent: Agent; onSelect: (id: string) => void }) {
   const spend = a.lifetime_cost_usd ?? 0;
   return (
-    <button
-      type="button"
-      className="ideas-list-row"
-      onClick={() => onSelect(a.id)}
-      style={depth > 0 ? { paddingLeft: depth * INDENT_PX + 16 } : undefined}
-    >
+    <button type="button" className="ideas-list-row" onClick={() => onSelect(a.id)}>
       <div className="ideas-list-row-head">
         <span aria-hidden style={{ display: "inline-flex", alignItems: "center" }}>
           <AgentAvatar name={a.name} src={a.avatar} />

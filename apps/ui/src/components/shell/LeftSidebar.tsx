@@ -112,15 +112,6 @@ const GovernanceIcon = () => (
   </svg>
 );
 
-// Channels — chat-room hash. Speech bubble with a # mark reads as
-// Slack-style channel rooms (multi-participant scope-bound sessions).
-const ChannelsIcon = () => (
-  <svg {...iconProps}>
-    <path d="M2.5 4.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-3 2.5v-2.5h-.5a2 2 0 0 1-1-1.732" />
-    <path d="M6.5 5.5l-1 3M9.5 5.5l-1 3M5 6.5h4.5M5 8.5h4" />
-  </svg>
-);
-
 // Roles — org chart; one node atop two children.
 const RolesIcon = () => (
   <svg {...iconProps}>
@@ -398,7 +389,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                 {navItem("ownership", "Ownership", <OwnershipIcon />)}
                 {navItem("treasury", "Treasury", <TreasuryIcon />)}
                 {navItem("governance", "Governance", <GovernanceIcon />)}
-                {navItem("channels", "Channels", <ChannelsIcon />)}
               </nav>
             )}
 
