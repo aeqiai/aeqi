@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { AgentEvent, ToolCall } from "@/lib/types";
-import { Button } from "../ui";
-import SurfaceHeader from "../SurfaceHeader";
+import { Button, Tooltip } from "../ui";
 import { useNav } from "@/hooks/useNav";
 import TestTriggerPanel from "../TestTriggerPanel";
 import EventCanvasEditor, { type CanvasDraft } from "./EventCanvasEditor";
@@ -27,6 +27,7 @@ function deepEqualToolCalls(a: ToolCall[], b: ToolCall[]): boolean {
 }
 
 export default function EventDetail({ event, agentId, onSave, onDelete }: EventDetailProps) {
+  const navigate = useNavigate();
   const { entityPath, entityId } = useNav();
   const backHref = entityId ? entityPath(entityId, "events") : "/";
   const isGlobal = event.agent_id == null;
@@ -100,17 +101,32 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
     setErr(null);
   };
 
-  // Header is bare (back link only) — mirrors IdeaCanvas's chrome shape.
-  // Editable name + scope chips + toggle + actions live in a thin
-  // sub-header inside the body so the canvas can claim full available
-  // height instead of competing with a stacked header band.
+  // Header is the canonical `.ideas-toolbar.ideas-canvas-toolbar` shape —
+  // byte-identical chrome with idea + quest detail. Back · name input ·
+  // chips · spacer · save state · enabled · test · delete · save.
 
   return (
     <div className="events-detail">
-      <SurfaceHeader backHref={backHref} backLabel="Events" />
-
-      <div className="events-detail-subhead">
-        <div className="events-detail-subhead-left">
+      <div className="ideas-list-head ideas-canvas-head">
+        <div className="ideas-toolbar ideas-canvas-toolbar">
+          <Tooltip content="Back to events">
+            <Button variant="secondary" size="sm" onClick={() => navigate(backHref)}>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M8 3 L4.5 6.5 L8 10" />
+              </svg>
+              Events
+            </Button>
+          </Tooltip>
           <input
             className="events-detail-name-input"
             type="text"
@@ -129,8 +145,7 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
           {event.scope && event.scope !== "self" && (
             <span className={`scope-chip scope-chip--${event.scope}`}>{event.scope}</span>
           )}
-        </div>
-        <div className="events-detail-subhead-right">
+          <div className="ideas-toolbar-spacer" aria-hidden />
           <label className="events-detail-toggle" title="Enabled">
             <input
               type="checkbox"
@@ -140,38 +155,78 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
             />
             enabled
           </label>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowTrigger((v) => !v)}
-            disabled={readOnly}
-          >
-            {showTrigger ? "hide test" : "test trigger"}
-          </Button>
-          {!readOnly && !event.pattern.startsWith("session:") && (
+          <Tooltip content={showTrigger ? "Hide test panel" : "Test this trigger"}>
             <Button
               variant="secondary"
               size="sm"
-              className="channel-disconnect-btn"
-              onClick={onDelete}
+              onClick={() => setShowTrigger((v) => !v)}
+              disabled={readOnly}
             >
-              delete
+              {showTrigger ? "Hide test" : "Test"}
             </Button>
+          </Tooltip>
+          {!readOnly && !event.pattern.startsWith("session:") && (
+            <Tooltip content="Delete event">
+              <Button variant="danger" size="sm" onClick={onDelete}>
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                </svg>
+                Delete
+              </Button>
+            </Tooltip>
           )}
           {dirty && !readOnly && (
             <>
-              <Button variant="ghost" size="sm" onClick={handleReset} disabled={saving}>
-                reset
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSave}
-                loading={saving}
-                disabled={saving}
-              >
-                save
-              </Button>
+              <Tooltip content="Cancel">
+                <Button variant="secondary" size="sm" onClick={handleReset} disabled={saving}>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    aria-hidden
+                  >
+                    <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                  </svg>
+                  Cancel
+                </Button>
+              </Tooltip>
+              <Tooltip content="Save (⌘↵)">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSave}
+                  loading={saving}
+                  disabled={saving}
+                >
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                  </svg>
+                  Save
+                </Button>
+              </Tooltip>
             </>
           )}
         </div>

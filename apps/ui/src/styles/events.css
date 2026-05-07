@@ -718,32 +718,10 @@
   padding-top: 8px;
 }
 
-/* ── Detail sub-header — editable name + chips + actions inside body ──
-   Mirrors IdeaCanvas: SurfaceHeader is a bare back link; the title
-   input + scope chips + enabled toggle + save/delete actions live in
-   one thin row inside `.events-detail` so the canvas below can claim
-   full available height. */
-.events-detail-subhead {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-6);
-  min-height: 44px;
-}
-.events-detail-subhead-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  flex: 1;
-}
-.events-detail-subhead-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
+/* ── Detail header — folded into the canonical `.ideas-toolbar.ideas-canvas-toolbar`
+   shape. Back · name input · chips · spacer · enabled · test · delete · save.
+   Byte-identical chrome with idea + quest detail. The classes below decorate
+   the editable name + status badge + toggle that live INSIDE that toolbar. */
 .events-detail-name-input {
   flex: 1;
   min-width: 0;
