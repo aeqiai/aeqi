@@ -9,7 +9,8 @@ pub mod solana_repo;
 pub use agent_repo::{AgentWalletStore, StoredAgentWallet};
 pub use auth_repo::{
     AuthMethodKind, AuthMethodStore, EmailVerificationStore, InsertAuthMethod,
-    InsertEmailVerification, InsertWalletChallenge, StoredAuthMethod, StoredEmailVerification,
+    InsertEmailVerification, InsertPasskeyChallenge, InsertWalletChallenge, PasskeyChallengeKind,
+    PasskeyChallengeStore, StoredAuthMethod, StoredEmailVerification, StoredPasskeyChallenge,
     StoredWalletChallenge, WalletChallengeStore,
 };
 pub use repo::{StoredWallet, WalletStore};

@@ -236,6 +236,25 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             ON wallet_challenges(pubkey_b58);
         CREATE INDEX IF NOT EXISTS idx_wallet_challenges_expires
             ON wallet_challenges(expires_at);
+
+        -- Pending WebAuthn (passkey) ceremony state. Either a registration
+        -- challenge (signup with new authenticator) or an assertion
+        -- challenge (login with existing). `kind` discriminates;
+        -- `state_json` is the webauthn-rs PasskeyRegistration or
+        -- PasskeyAuthentication serialized via the danger-allow-state-
+        -- serialisation feature. Short ttl (5 min) — the user's
+        -- authenticator either responds quickly or the ceremony is
+        -- abandoned.
+        CREATE TABLE IF NOT EXISTS passkey_challenges (
+            id              TEXT PRIMARY KEY,
+            kind            TEXT NOT NULL CHECK (kind IN ('registration','assertion')),
+            state_json      TEXT NOT NULL,
+            issued_at       TEXT NOT NULL,
+            expires_at      TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_passkey_challenges_expires
+            ON passkey_challenges(expires_at);
         "#,
     )?;
 

@@ -358,6 +358,122 @@ fn row_to_wallet_challenge(
     })())
 }
 
+// ── Passkey challenges ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasskeyChallengeKind {
+    Registration,
+    Assertion,
+}
+
+impl PasskeyChallengeKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Registration => "registration",
+            Self::Assertion => "assertion",
+        }
+    }
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "registration" => Some(Self::Registration),
+            "assertion" => Some(Self::Assertion),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StoredPasskeyChallenge {
+    pub id: String,
+    pub kind: PasskeyChallengeKind,
+    pub state_json: String,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InsertPasskeyChallenge {
+    pub id: String,
+    pub kind: PasskeyChallengeKind,
+    pub state_json: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+pub struct PasskeyChallengeStore;
+
+impl PasskeyChallengeStore {
+    pub fn insert(conn: &Connection, c: &InsertPasskeyChallenge) -> Result<(), StoreError> {
+        conn.execute(
+            r#"INSERT INTO passkey_challenges
+               (id, kind, state_json, issued_at, expires_at)
+               VALUES (?, ?, ?, ?, ?)"#,
+            params![
+                c.id,
+                c.kind.as_str(),
+                c.state_json,
+                Utc::now().to_rfc3339(),
+                c.expires_at.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn lookup_by_id(
+        conn: &Connection,
+        id: &str,
+    ) -> Result<Option<StoredPasskeyChallenge>, StoreError> {
+        let mut stmt = conn.prepare(
+            r#"SELECT id, kind, state_json, issued_at, expires_at
+               FROM passkey_challenges WHERE id = ?"#,
+        )?;
+        let row = stmt
+            .query_row(params![id], row_to_passkey_challenge)
+            .optional()?
+            .transpose()?;
+        Ok(row)
+    }
+
+    pub fn consume(conn: &Connection, id: &str) -> Result<(), StoreError> {
+        conn.execute("DELETE FROM passkey_challenges WHERE id = ?", params![id])?;
+        Ok(())
+    }
+
+    pub fn sweep_expired(conn: &Connection) -> Result<u64, StoreError> {
+        let n = conn.execute(
+            "DELETE FROM passkey_challenges WHERE expires_at < ?",
+            params![Utc::now().to_rfc3339()],
+        )?;
+        Ok(n as u64)
+    }
+}
+
+fn row_to_passkey_challenge(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<Result<StoredPasskeyChallenge, StoreError>> {
+    let id: String = row.get(0)?;
+    let kind_s: String = row.get(1)?;
+    let state_json: String = row.get(2)?;
+    let issued_at_s: String = row.get(3)?;
+    let expires_at_s: String = row.get(4)?;
+    Ok((|| -> Result<StoredPasskeyChallenge, StoreError> {
+        let kind = PasskeyChallengeKind::parse(&kind_s)
+            .ok_or_else(|| StoreError::BadCustodyState(kind_s))?;
+        let issued_at = DateTime::parse_from_rfc3339(&issued_at_s)
+            .map_err(|e| StoreError::BadTimestamp(e.to_string()))?
+            .with_timezone(&Utc);
+        let expires_at = DateTime::parse_from_rfc3339(&expires_at_s)
+            .map_err(|e| StoreError::BadTimestamp(e.to_string()))?
+            .with_timezone(&Utc);
+        Ok(StoredPasskeyChallenge {
+            id,
+            kind,
+            state_json,
+            issued_at,
+            expires_at,
+        })
+    })())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -498,6 +614,29 @@ mod tests {
             },
         );
         assert!(dup.is_err(), "should violate UNIQUE(nonce)");
+    }
+
+    #[test]
+    fn passkey_challenge_roundtrip_and_consume() {
+        let conn = fresh_db();
+        PasskeyChallengeStore::insert(
+            &conn,
+            &InsertPasskeyChallenge {
+                id: "pk-1".into(),
+                kind: PasskeyChallengeKind::Registration,
+                state_json: r#"{"fake":"state"}"#.into(),
+                expires_at: Utc::now() + Duration::minutes(5),
+            },
+        )
+        .unwrap();
+        let found = PasskeyChallengeStore::lookup_by_id(&conn, "pk-1")
+            .unwrap()
+            .expect("found");
+        assert_eq!(found.kind, PasskeyChallengeKind::Registration);
+        assert_eq!(found.state_json, r#"{"fake":"state"}"#);
+        PasskeyChallengeStore::consume(&conn, &found.id).unwrap();
+        let post = PasskeyChallengeStore::lookup_by_id(&conn, "pk-1").unwrap();
+        assert!(post.is_none());
     }
 
     #[test]
