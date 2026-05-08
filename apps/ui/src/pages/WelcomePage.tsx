@@ -1,35 +1,23 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Wordmark from "@/components/Wordmark";
+import { Button, Input } from "@/components/ui";
 
 /**
  * Welcome — combined sign-in / sign-up entry point. Per the canonical
  * "every user = a Company" model, there is no separate signup vs login
- * flow: a user authenticates (passkey, Phantom/Solana wallet, or email),
- * the server resolves them to a Company (creating one if their auth
- * identity is new), the spawn animates live on-chain, and they land on
+ * flow: a user authenticates (wallet, passkey, or email), the server
+ * resolves them to a Company (creating one if their auth identity is
+ * new), the spawn animates live on-chain, and they land on
  * `/trust/<pubkey>/` inside their Company.
  *
- * Three doors:
- *   - Continue with a Solana wallet — uses `window.solana` (Phantom,
- *     Backpack, Solflare, etc. all inject the same shape). Detected on
- *     mount; surfaced as the recommended option when available.
- *   - Continue with passkey — WebAuthn ceremony; secp256r1-native on
- *     Solana so the passkey IS the on-chain authority. Recommended when
- *     Touch ID / Face ID / Windows Hello is available.
- *   - Continue with email — magic-link / OTP today; the email serves as
- *     the auth identity that resolves to a Company.
- *
- * Companion to `aeqi-platform`'s `/api/solana/companies/create` (smoke
- * server at :9220 by default; override with VITE_AEQI_SOLANA_API).
+ * Companion to `aeqi-platform`'s `/api/auth/welcome/*` routes (served
+ * relative to the current origin in prod; override with
+ * VITE_AEQI_SOLANA_API for local smoke testing).
  */
 
 type Door = "wallet" | "passkey" | "email";
 
-/**
- * Standard shape exposed by Phantom, Backpack, Solflare, and any other
- * Solana Wallet Standard provider on `window.solana`. Only the methods
- * we actually call are typed; extra properties exist on real providers
- * and that's fine.
- */
 interface WalletProvider {
   isPhantom?: boolean;
   isBackpack?: boolean;
@@ -37,12 +25,6 @@ interface WalletProvider {
   signMessage: (message: Uint8Array, encoding?: "utf8") => Promise<{ signature: Uint8Array }>;
 }
 
-/**
- * Base64url encode/decode for WebAuthn buffer fields. WebAuthn-rs
- * serializes byte fields as base64url strings; the browser's
- * `navigator.credentials.create()` / `.get()` expect ArrayBuffer for
- * those same fields. These helpers bridge.
- */
 function b64uEncode(buf: ArrayBuffer | Uint8Array): string {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let s = "";
@@ -54,18 +36,11 @@ function b64uDecode(s: string): Uint8Array<ArrayBuffer> {
   const padded = s.replace(/-/g, "+").replace(/_/g, "/");
   const padLen = (4 - (padded.length % 4)) % 4;
   const decoded = atob(padded + "=".repeat(padLen));
-  // Explicit ArrayBuffer (not SharedArrayBuffer) so the result narrows
-  // to Uint8Array<ArrayBuffer>, which is what BufferSource expects.
   const bytes = new Uint8Array(new ArrayBuffer(decoded.length));
   for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
   return bytes;
 }
 
-/**
- * Walk the `publicKey` field of a WebAuthn-rs CreationChallengeResponse
- * (returned as JSON) and convert all base64url byte fields into
- * `BufferSource` (Uint8Array) so the browser API accepts it.
- */
 function decodeCreateOptions(ccr: Record<string, unknown>): PublicKeyCredentialCreationOptions {
   const pk = (ccr.publicKey ?? ccr) as Record<string, unknown>;
   const user = pk.user as Record<string, unknown>;
@@ -94,10 +69,6 @@ function decodeCreateOptions(ccr: Record<string, unknown>): PublicKeyCredentialC
   };
 }
 
-/**
- * Walk a WebAuthn-rs RequestChallengeResponse and convert byte fields
- * the same way as `decodeCreateOptions` but for the assertion shape.
- */
 function decodeRequestOptions(rcr: Record<string, unknown>): PublicKeyCredentialRequestOptions {
   const pk = (rcr.publicKey ?? rcr) as Record<string, unknown>;
   const allowRaw = (pk.allowCredentials ?? []) as Array<{
@@ -118,10 +89,6 @@ function decodeRequestOptions(rcr: Record<string, unknown>): PublicKeyCredential
   };
 }
 
-/**
- * Pack a registration credential (returned by navigator.credentials.create())
- * into the JSON shape webauthn-rs's `RegisterPublicKeyCredential` expects.
- */
 function encodeRegistrationCredential(cred: PublicKeyCredential) {
   const att = cred.response as AuthenticatorAttestationResponse;
   return {
@@ -136,10 +103,6 @@ function encodeRegistrationCredential(cred: PublicKeyCredential) {
   };
 }
 
-/**
- * Pack an assertion credential (from navigator.credentials.get()) into
- * the shape webauthn-rs's `PublicKeyCredential` expects.
- */
 function encodeAssertionCredential(cred: PublicKeyCredential) {
   const ass = cred.response as AuthenticatorAssertionResponse;
   return {
@@ -156,10 +119,6 @@ function encodeAssertionCredential(cred: PublicKeyCredential) {
   };
 }
 
-/**
- * Base58 encoder. Bitcoin alphabet (matches Solana). Pulled inline so
- * we don't pay a wallet-adapter dep just for a 30-line helper.
- */
 function base58Encode(bytes: Uint8Array): string {
   const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
   let zeros = 0;
@@ -188,34 +147,34 @@ export type WelcomeMode = "signup" | "login" | "welcome";
 interface WelcomeCopy {
   title: string;
   subtitle: string;
-  emailButton: string;
-  sideTitle: string;
-  foot: string;
+  switchLabel: string;
+  switchHref: string;
+  switchCta: string;
 }
 
 const COPY: Record<WelcomeMode, WelcomeCopy> = {
   signup: {
-    title: "Start your company.",
+    title: "Start your company",
     subtitle: "Three seconds. One signer. Your TRUST is on-chain before you blink.",
-    emailButton: "Sign up →",
-    sideTitle: "What you get in 3 seconds",
-    foot: "One Company per identity. Sign in with any method later — we resolve to the same on-chain TRUST.",
+    switchLabel: "Already have an account?",
+    switchHref: "/login",
+    switchCta: "Sign in",
   },
   login: {
-    title: "Welcome back.",
+    title: "Welcome back",
     subtitle:
       "Sign in with your wallet, passkey, or email — same Company, same on-chain authority.",
-    emailButton: "Sign in →",
-    sideTitle: "Pick up where you left off",
-    foot: "First time here? Same flow — we'll spawn your Company on the spot.",
+    switchLabel: "First time here?",
+    switchHref: "/signup",
+    switchCta: "Sign up",
   },
   welcome: {
-    title: "Welcome to aeqi.",
+    title: "Welcome to aeqi",
     subtitle:
-      "Continue with your wallet, passkey, or email. The system figures out new vs returning.",
-    emailButton: "Continue →",
-    sideTitle: "What you get in 3 seconds",
-    foot: "One Company per identity. Sign in with any method later — we resolve to the same on-chain TRUST.",
+      "Continue with your wallet, passkey, or email. We'll spawn or resume your Company in seconds.",
+    switchLabel: "",
+    switchHref: "",
+    switchCta: "",
   },
 };
 
@@ -244,8 +203,10 @@ interface SpawnStep {
   status: "pending" | "active" | "done";
 }
 
-const SOLANA_API_URL =
-  (import.meta.env.VITE_AEQI_SOLANA_API as string | undefined) ?? "http://127.0.0.1:9220";
+// Empty default → relative URLs hit the current origin (app.aeqi.ai in
+// prod, localhost dev in dev). Override with VITE_AEQI_SOLANA_API only
+// when running the standalone smoke server on a non-default port.
+const SOLANA_API_URL = (import.meta.env.VITE_AEQI_SOLANA_API as string | undefined) ?? "";
 
 const SOLSCAN_BASE =
   (import.meta.env.VITE_SOLSCAN_BASE as string | undefined) ?? "https://solscan.io";
@@ -260,22 +221,61 @@ function solscanLink(kind: "tx" | "account", value: string): string {
   return `${SOLSCAN_BASE}/${path}/${value}?cluster=${SOLSCAN_CLUSTER}`;
 }
 
+function SolanaIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 397.7 311.7"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        fill="currentColor"
+        d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7zM64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8zM333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.6z"
+      />
+    </svg>
+  );
+}
+
+function PasskeyIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="8" r="4" />
+      <path d="M9 14c-2.8 0-5 1.5-5 4v2h6" />
+      <path d="M19 12v8" />
+      <path d="M16 16h6" />
+      <path d="M16 19h3" />
+    </svg>
+  );
+}
+
 export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode } = {}) {
+  const navigate = useNavigate();
   const copy = COPY[mode];
-  const [stage, setStage] = useState<"door" | "spawning" | "welcome" | "error">("door");
+  const [stage, setStage] = useState<"door" | "spawning" | "welcome" | "error" | "check-email">(
+    "door",
+  );
   const [picked, setPicked] = useState<Door | null>(null);
   const [email, setEmail] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SpawnResponse | null>(null);
   const [steps, setSteps] = useState<SpawnStep[]>([]);
-  const [walletDetected, setWalletDetected] = useState<{
-    name: string;
-    icon?: string;
-  } | null>(null);
+  const [walletDetected, setWalletDetected] = useState<{ name: string } | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Detect installed Solana wallet (Phantom, Backpack, Solflare,
-  // any Wallet Standard provider) on mount.
   useEffect(() => {
     const w = (
       window as unknown as {
@@ -284,13 +284,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         solflare?: { isSolflare?: boolean };
       }
     ).solana;
-    if (w?.isPhantom) setWalletDetected({ name: "Phantom", icon: "👻" });
-    else if (w?.isBackpack) setWalletDetected({ name: "Backpack", icon: "🎒" });
+    if (w?.isPhantom) setWalletDetected({ name: "Phantom" });
+    else if (w?.isBackpack) setWalletDetected({ name: "Backpack" });
     else if ((window as unknown as { solflare?: unknown }).solflare)
-      setWalletDetected({ name: "Solflare", icon: "🔥" });
+      setWalletDetected({ name: "Solflare" });
     else if (w) setWalletDetected({ name: "Solana wallet" });
 
-    // Detect platform authenticator (Touch ID / Face ID / Windows Hello).
     if (window.PublicKeyCredential) {
       window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
         .then((avail) => setPasskeyAvailable(avail))
@@ -303,36 +302,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   function buildSteps(): SpawnStep[] {
     return [
-      {
-        key: "auth",
-        label: "Identity confirmed",
-        status: "done",
-      },
-      {
-        key: "wallet",
-        label: "Provisioning your Solana wallet",
-        status: "active",
-      },
-      {
-        key: "trust",
-        label: "Deploying your Company on Solana",
-        status: "pending",
-      },
-      {
-        key: "role",
-        label: "Role module initialized",
-        status: "pending",
-      },
-      {
-        key: "token",
-        label: "Token module initialized",
-        status: "pending",
-      },
-      {
-        key: "governance",
-        label: "Governance module initialized",
-        status: "pending",
-      },
+      { key: "auth", label: "Identity confirmed", status: "done" },
+      { key: "wallet", label: "Provisioning your Solana wallet", status: "active" },
+      { key: "trust", label: "Deploying your Company on Solana", status: "pending" },
+      { key: "role", label: "Role module initialized", status: "pending" },
+      { key: "token", label: "Token module initialized", status: "pending" },
+      { key: "governance", label: "Governance module initialized", status: "pending" },
     ];
   }
 
@@ -349,10 +324,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   async function animateSpawn(data: SpawnResponse) {
     setOutcome(data);
     const trustPda = data.trust_pubkey_b58;
-    // Returning users (already_existed:true) skip the long animation
-    // since nothing was actually spawned — flash through the steps and
-    // land on welcome. New users get the full ~2s motion to make the
-    // on-chain spawn feel real.
     const tick = data.already_existed ? 120 : 450;
     const advanceWith = async (idx: number, detail?: string) => {
       await new Promise((r) => setTimeout(r, tick));
@@ -368,32 +339,25 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setStage("welcome");
   }
 
-  /**
-   * Wallet path: real SIWS — Sign-In With Solana.
-   *
-   *   1. POST /api/auth/welcome/wallet-start with the wallet pubkey →
-   *      get back a server-issued nonce + the canonical message text.
-   *   2. Hand the message to `wallet.signMessage()`. Phantom / Backpack /
-   *      Solflare all expose the same shape — they pop a confirmation
-   *      to the user displaying the message text, then return a 64-byte
-   *      ed25519 signature.
-   *   3. POST /api/auth/welcome/wallet-verify with the pubkey + message
-   *      + signature. Server runs ed25519 verify (cryptographic gate),
-   *      consumes the nonce (replay protection), resolves auth_methods
-   *      (returning user) or creates a new Company (first time), mints
-   *      JWT bound to company_id, kind=wallet_siws.
-   *   4. Persist JWT to localStorage and animate the spawn.
-   *
-   * Same email-style auth_methods resolution as the email path — the
-   * wallet's pubkey is the canonical identity for kind=wallet_siws.
-   * Same wallet on a second sign-in returns the same Company forever.
-   */
+  function persistSession(s: {
+    session_jwt: string;
+    company_id: string;
+    session_expires_at: string;
+  }) {
+    try {
+      localStorage.setItem("aeqi_session_jwt", s.session_jwt);
+      localStorage.setItem("aeqi_session_company_id", s.company_id);
+      localStorage.setItem("aeqi_session_expires_at", s.session_expires_at);
+    } catch {
+      // Safari private mode etc. — non-fatal.
+    }
+  }
+
   async function spawnViaWalletSiws(provider: WalletProvider, walletPubkey: string) {
     setStage("spawning");
     setErrorMsg(null);
     setSteps(buildSteps());
     try {
-      // Stage 1: get challenge.
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/wallet-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -402,21 +366,10 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       if (!startRes.ok) {
         throw new Error(`wallet-start ${startRes.status}: ${await startRes.text()}`);
       }
-      const start = (await startRes.json()) as {
-        wallet_pubkey: string;
-        nonce: string;
-        message: string;
-        expires_at: string;
-      };
-
-      // Stage 2: ask the wallet to sign. Phantom & friends expose
-      // signMessage(Uint8Array, "utf8") returning { signature: Uint8Array }.
+      const start = (await startRes.json()) as { message: string };
       const encoded = new TextEncoder().encode(start.message);
       const signed = await provider.signMessage(encoded, "utf8");
-      const signatureBytes = signed.signature;
-      const signatureB58 = base58Encode(signatureBytes);
-
-      // Stage 3: verify on the server.
+      const signatureB58 = base58Encode(signed.signature);
       const verifyRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/wallet-verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -433,15 +386,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         session_jwt: string;
         session_expires_at: string;
       };
-
-      try {
-        localStorage.setItem("aeqi_session_jwt", verify.session_jwt);
-        localStorage.setItem("aeqi_session_company_id", verify.company_id);
-        localStorage.setItem("aeqi_session_expires_at", verify.session_expires_at);
-      } catch {
-        // Safari private mode etc. — non-fatal.
-      }
-
+      persistSession(verify);
       await animateSpawn(verify);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -450,20 +395,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
   }
 
-  /**
-   * Email path: real auth via magic link.
-   *
-   *   1. POST /api/auth/welcome/email-start with the email
-   *   2. Smoke server returns the magic_link_url directly (real prod
-   *      sends via SMTP and omits the URL); we auto-follow in dev so
-   *      the demo doesn't require an inbox
-   *   3. GET that URL → /api/auth/welcome/email-verify which:
-   *      - resolves the email via auth_methods (returning user) OR
-   *        creates a new Company + spawns TRUST + persists auth_method
-   *      - mints a JWT bound to company_id
-   *   4. We persist the JWT to localStorage and animate the spawn
-   */
-  async function spawnViaEmailMagicLink(email: string) {
+  async function spawnViaEmailMagicLink(emailAddress: string) {
     setStage("spawning");
     setErrorMsg(null);
     setSteps(buildSteps());
@@ -471,41 +403,26 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: emailAddress }),
       });
       if (!startRes.ok) {
-        const body = await startRes.text();
-        throw new Error(`email-start ${startRes.status}: ${body}`);
+        throw new Error(`email-start ${startRes.status}: ${await startRes.text()}`);
       }
-      const start = (await startRes.json()) as {
-        email: string;
-        expires_at: string;
-        magic_link_url?: string;
-      };
+      const start = (await startRes.json()) as { magic_link_url?: string };
       if (!start.magic_link_url) {
-        // Real prod path: tell the user to check their inbox.
-        throw new Error(
-          "Magic link sent — check your email. (Auto-follow disabled in this build.)",
-        );
+        // Real prod path — magic link sent via SMTP, no auto-follow.
+        setStage("check-email");
+        return;
       }
       const verifyRes = await fetch(start.magic_link_url);
       if (!verifyRes.ok) {
-        const body = await verifyRes.text();
-        throw new Error(`email-verify ${verifyRes.status}: ${body}`);
+        throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
       }
       const verify = (await verifyRes.json()) as SpawnResponse & {
         session_jwt: string;
         session_expires_at: string;
       };
-      // Persist the session. Future API calls attach `Authorization:
-      // Bearer ${jwt}` and the platform resolves the company from sub.
-      try {
-        localStorage.setItem("aeqi_session_jwt", verify.session_jwt);
-        localStorage.setItem("aeqi_session_company_id", verify.company_id);
-        localStorage.setItem("aeqi_session_expires_at", verify.session_expires_at);
-      } catch {
-        // Safari private mode etc. — non-fatal; session lives in memory only.
-      }
+      persistSession(verify);
       await animateSpawn(verify);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -533,14 +450,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
   }
 
-  /**
-   * Passkey path: real WebAuthn ceremony.
-   *
-   * Tries assertion first (returning user's existing passkey for this rp_id).
-   * On NotAllowedError or no-credential / aborted, falls back to registration
-   * (new authenticator). Either path resolves through auth_methods on the
-   * server and lands on the same spawn animation.
-   */
   async function handlePasskey() {
     setPicked("passkey");
     if (!window.PublicKeyCredential) {
@@ -551,35 +460,27 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setStage("spawning");
     setErrorMsg(null);
     setSteps(buildSteps());
-
     try {
-      // Try ASSERTION first — covers the returning-user case where the
-      // browser's authenticator already has a credential for our rp_id.
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/passkey-assert-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
       if (!startRes.ok) {
-        const body = await startRes.text();
-        throw new Error(`assert-start ${startRes.status}: ${body}`);
+        throw new Error(`assert-start ${startRes.status}: ${await startRes.text()}`);
       }
       const start = (await startRes.json()) as {
         ceremony_id: string;
         challenge: Record<string, unknown>;
       };
       const requestOptions = decodeRequestOptions(start.challenge);
-
       let assertion: PublicKeyCredential | null = null;
       try {
         assertion = (await navigator.credentials.get({
           publicKey: requestOptions,
         })) as PublicKeyCredential | null;
       } catch (e) {
-        // NotAllowedError / no-credential — fall through to registration.
-        if ((e as DOMException)?.name !== "NotAllowedError") {
-          throw e;
-        }
+        if ((e as DOMException)?.name !== "NotAllowedError") throw e;
       }
 
       if (assertion) {
@@ -600,32 +501,25 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           await animateSpawn(verify);
           return;
         }
-        // Server rejected (credential not registered, expired, etc.) —
-        // fall through to registration so the user still lands somewhere.
       }
 
-      // REGISTRATION path: first-time user, or assertion gave us nothing.
       const regStartRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/passkey-register-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
       if (!regStartRes.ok) {
-        const body = await regStartRes.text();
-        throw new Error(`register-start ${regStartRes.status}: ${body}`);
+        throw new Error(`register-start ${regStartRes.status}: ${await regStartRes.text()}`);
       }
       const regStart = (await regStartRes.json()) as {
         ceremony_id: string;
         challenge: Record<string, unknown>;
       };
       const createOptions = decodeCreateOptions(regStart.challenge);
-
       const registration = (await navigator.credentials.create({
         publicKey: createOptions,
       })) as PublicKeyCredential | null;
-      if (!registration) {
-        throw new Error("authenticator did not return a credential");
-      }
+      if (!registration) throw new Error("authenticator did not return a credential");
 
       const finishRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/passkey-register-finish`, {
         method: "POST",
@@ -651,25 +545,16 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
   }
 
-  function persistSession(s: {
-    session_jwt: string;
-    company_id: string;
-    session_expires_at: string;
-  }) {
-    try {
-      localStorage.setItem("aeqi_session_jwt", s.session_jwt);
-      localStorage.setItem("aeqi_session_company_id", s.company_id);
-      localStorage.setItem("aeqi_session_expires_at", s.session_expires_at);
-    } catch {
-      // Safari private mode etc. — non-fatal.
-    }
-  }
-
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
     setPicked("email");
-    await spawnViaEmailMagicLink(email.trim().toLowerCase());
+    setSubmitting(true);
+    try {
+      await spawnViaEmailMagicLink(email.trim().toLowerCase());
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function reset() {
@@ -680,270 +565,297 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setSteps([]);
   }
 
-  if (stage === "spawning") return <SpawningView steps={steps} picked={picked} />;
-
-  if (stage === "welcome" && outcome) return <WelcomeView outcome={outcome} onContinue={reset} />;
-
-  if (stage === "error")
-    return <ErrorView message={errorMsg ?? "Something went wrong."} onBack={reset} />;
-
-  // stage === "door"
   return (
-    <main className="welcome-shell">
+    <main className="signup-split">
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
-      <div className="welcome-pane" id="main-content">
-        <div className="welcome-mark">æ</div>
-        <h1 className="welcome-headline">{copy.title}</h1>
-        <p className="welcome-subhead">{copy.subtitle}</p>
+      <div className="signup-form-side" id="main-content">
+        <div className="auth-container" role="region" aria-live="polite">
+          <div className="auth-logo">
+            <Wordmark size={36} />
+          </div>
 
-        <div className="welcome-doors">
-          {walletDetected && (
-            <button
-              type="button"
-              className="welcome-door welcome-door--recommended"
-              onClick={handleWalletConnect}
-            >
-              <span className="welcome-door-icon" aria-hidden="true">
-                {walletDetected.icon ?? "◎"}
-              </span>
-              <span className="welcome-door-body">
-                <span className="welcome-door-title">Continue with {walletDetected.name}</span>
-                <span className="welcome-door-detail">
-                  Sign once. Your wallet pubkey is your Company authority.
-                </span>
-              </span>
-              <span className="welcome-door-chev" aria-hidden="true">
-                →
-              </span>
-            </button>
+          {stage === "door" && (
+            <DoorView
+              copy={copy}
+              email={email}
+              setEmail={setEmail}
+              walletDetected={walletDetected}
+              passkeyAvailable={passkeyAvailable}
+              submitting={submitting}
+              onEmailSubmit={handleEmailSubmit}
+              onWallet={handleWalletConnect}
+              onPasskey={handlePasskey}
+              onSwitch={() => navigate(copy.switchHref)}
+            />
           )}
 
-          {!walletDetected && (
-            <div className="welcome-door welcome-door--hint" aria-hidden="true">
-              <span className="welcome-door-icon">◎</span>
-              <span className="welcome-door-body">
-                <span className="welcome-door-title">No Solana wallet detected</span>
-                <span className="welcome-door-detail">
-                  Phantom · Backpack · Solflare · Glow — install any to use it as your signer.
-                </span>
-              </span>
-            </div>
+          {stage === "check-email" && <CheckEmailView email={email} onBack={reset} />}
+
+          {stage === "spawning" && <SpawningView steps={steps} picked={picked} />}
+
+          {stage === "welcome" && outcome && (
+            <WelcomeView
+              outcome={outcome}
+              onContinue={() => navigate(`/trust/${outcome.trust_pubkey_b58}/`)}
+              onAddSigner={reset}
+            />
           )}
 
-          <button
-            type="button"
-            className={`welcome-door ${
-              passkeyAvailable && !walletDetected ? "welcome-door--recommended" : ""
-            }`}
-            onClick={handlePasskey}
-          >
-            <span className="welcome-door-icon" aria-hidden="true">
-              ⌥
-            </span>
-            <span className="welcome-door-body">
-              <span className="welcome-door-title">
-                One-touch with passkey
-                {passkeyAvailable && <span className="welcome-door-tag"> · Touch ID ready</span>}
-              </span>
-              <span className="welcome-door-detail">
-                Non-custodial. Your passkey IS the Solana authority via secp256r1.
-              </span>
-            </span>
-            <span className="welcome-door-chev" aria-hidden="true">
-              →
-            </span>
-          </button>
+          {stage === "error" && (
+            <ErrorView message={errorMsg ?? "Something went wrong."} onBack={reset} />
+          )}
 
-          <form className="welcome-door welcome-door--email" onSubmit={handleEmailSubmit}>
-            <span className="welcome-door-icon" aria-hidden="true">
-              @
-            </span>
-            <span className="welcome-door-body">
-              <label className="welcome-door-title" htmlFor="welcome-email">
-                Continue with email
-              </label>
-              <input
-                id="welcome-email"
-                className="welcome-door-input"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-            </span>
-            <button type="submit" className="welcome-door-submit">
-              {copy.emailButton}
-            </button>
-          </form>
+          <div className="auth-footer">
+            <p>
+              By continuing, you agree to the{" "}
+              <a href="https://aeqi.ai/terms" target="_blank" rel="noopener noreferrer">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener noreferrer">
+                Privacy Policy
+              </a>
+              .
+            </p>
+          </div>
         </div>
-
-        <p className="welcome-foot">{copy.foot}</p>
       </div>
 
-      <aside className="welcome-side">
-        <div className="welcome-side-inner">
-          <h2 className="welcome-side-title">{copy.sideTitle}</h2>
-          <ul className="welcome-side-list">
-            <li>
-              <span className="welcome-side-step">01</span>
-              <span>
-                <strong>Your TRUST.</strong> A Solana smart account with role graph, treasury, and
-                governance — yours from the second you land.
-              </span>
-            </li>
-            <li>
-              <span className="welcome-side-step">02</span>
-              <span>
-                <strong>Your authority.</strong> Your wallet, your passkey, or your email-bound
-                custodial keypair — your call. Rotate anytime without losing the Company.
-              </span>
-            </li>
-            <li>
-              <span className="welcome-side-step">03</span>
-              <span>
-                <strong>Your stack.</strong> Cap table (Token-2022), org chart (roles), governance
-                (proposals + voting) — all deployed atomically.
-              </span>
-            </li>
-          </ul>
-          <p className="welcome-side-foot">
-            Powered by <span className="welcome-side-brand">aeqi</span> on Solana
+      <div className="signup-pitch-side">
+        <div className="signup-pitch-content">
+          <h2 className="signup-pitch-heading">Start something that can work without you.</h2>
+          <p className="signup-lead">
+            Build companies where humans set direction. Agents turn context into execution.
           </p>
+          <p className="signup-trust">Open source · Self-hostable · Free to start</p>
         </div>
-      </aside>
+      </div>
     </main>
   );
 }
 
-// ── Spawning view ─────────────────────────────────────────────────────────
+// ── Door view (initial three-door form) ───────────────────────────
+
+interface DoorViewProps {
+  copy: WelcomeCopy;
+  email: string;
+  setEmail: (s: string) => void;
+  walletDetected: { name: string } | null;
+  passkeyAvailable: boolean;
+  submitting: boolean;
+  onEmailSubmit: (e: React.FormEvent) => void;
+  onWallet: () => void;
+  onPasskey: () => void;
+  onSwitch: () => void;
+}
+
+function DoorView({
+  copy,
+  email,
+  setEmail,
+  walletDetected,
+  passkeyAvailable,
+  submitting,
+  onEmailSubmit,
+  onWallet,
+  onPasskey,
+  onSwitch,
+}: DoorViewProps) {
+  return (
+    <>
+      <h1 className="auth-heading">{copy.title}</h1>
+      <p className="auth-subheading">{copy.subtitle}</p>
+
+      <form className="auth-form" onSubmit={onEmailSubmit} autoComplete="on">
+        <Input
+          size="lg"
+          type="email"
+          name="email"
+          autoComplete="email"
+          placeholder="Email address"
+          aria-label="Email address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoFocus
+        />
+        <Button
+          variant="primary"
+          size="lg"
+          type="submit"
+          fullWidth
+          disabled={!email.trim() || submitting}
+        >
+          {submitting ? "Sending magic link…" : "Continue with email"}
+        </Button>
+      </form>
+
+      <div className="auth-oauth-recess">
+        <p className="auth-oauth-recess-label">Or</p>
+        <div className="auth-oauth-group">
+          <div className="auth-oauth-row">
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={onWallet}
+              type="button"
+              disabled={!walletDetected}
+            >
+              <SolanaIcon /> {walletDetected ? walletDetected.name : "No wallet detected"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={onPasskey}
+              type="button"
+              disabled={!passkeyAvailable}
+            >
+              <PasskeyIcon /> Passkey
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {copy.switchHref && copy.switchCta && (
+        <p className="auth-switch">
+          {copy.switchLabel}{" "}
+          <a
+            href={copy.switchHref}
+            onClick={(e) => {
+              e.preventDefault();
+              onSwitch();
+            }}
+          >
+            {copy.switchCta}
+          </a>
+        </p>
+      )}
+    </>
+  );
+}
+
+// ── Check-email view (real prod, no auto-follow) ─────────────────
+
+function CheckEmailView({ email, onBack }: { email: string; onBack: () => void }) {
+  return (
+    <>
+      <h1 className="auth-heading">Check your email</h1>
+      <p className="auth-subheading">
+        We sent a magic link to <strong>{email}</strong>. Open it on this device to continue.
+      </p>
+      <Button variant="secondary" size="lg" fullWidth type="button" onClick={onBack}>
+        Use a different method
+      </Button>
+    </>
+  );
+}
+
+// ── Spawning view ────────────────────────────────────────────────
 
 function SpawningView({ steps, picked }: { steps: SpawnStep[]; picked: Door | null }) {
   const pickedLabel =
     picked === "wallet" ? "your wallet" : picked === "passkey" ? "your passkey" : "your email";
   return (
-    <main className="welcome-shell welcome-shell--solo">
-      <div className="welcome-pane welcome-pane--center">
-        <div className="welcome-mark welcome-mark--lg">æ</div>
-        <h1 className="welcome-spawn-title">Welcome to your Company.</h1>
-        <p className="welcome-spawn-sub">
-          Authenticated with {pickedLabel}. Spawning your TRUST on Solana now.
-        </p>
-        <ol className="welcome-spawn-list">
-          {steps.map((s) => (
-            <li key={s.key} className={`welcome-spawn-step welcome-spawn-step--${s.status}`}>
-              <span className="welcome-spawn-marker" aria-hidden="true">
-                {s.status === "done" ? "✓" : s.status === "active" ? "•" : "·"}
+    <>
+      <h1 className="auth-heading">Welcome to your Company.</h1>
+      <p className="auth-subheading">
+        Authenticated with {pickedLabel}. Spawning your TRUST on Solana now.
+      </p>
+      <ol className="welcome-spawn-list">
+        {steps.map((s) => (
+          <li key={s.key} className={`welcome-spawn-step welcome-spawn-step--${s.status}`}>
+            <span className="welcome-spawn-marker" aria-hidden="true">
+              {s.status === "done" ? "✓" : s.status === "active" ? "•" : "·"}
+            </span>
+            <span className="welcome-spawn-label">{s.label}</span>
+            {s.detail && (
+              <span className="welcome-spawn-detail">
+                {s.detail.length > 24 ? `${s.detail.slice(0, 8)}…${s.detail.slice(-6)}` : s.detail}
               </span>
-              <span className="welcome-spawn-label">{s.label}</span>
-              {s.detail && (
-                <span className="welcome-spawn-detail">
-                  {s.detail.length > 24
-                    ? `${s.detail.slice(0, 8)}…${s.detail.slice(-6)}`
-                    : s.detail}
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
-      </div>
-    </main>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 
-// ── Welcome (post-spawn) view ─────────────────────────────────────────────
+// ── Welcome (post-spawn) view ────────────────────────────────────
 
-function WelcomeView({ outcome, onContinue }: { outcome: SpawnResponse; onContinue: () => void }) {
-  const trustShort = `${outcome.trust_pubkey_b58.slice(
-    0,
-    6,
-  )}…${outcome.trust_pubkey_b58.slice(-4)}`;
-  const authorityShort = `${outcome.authority_pubkey_b58.slice(
-    0,
-    6,
-  )}…${outcome.authority_pubkey_b58.slice(-4)}`;
+function WelcomeView({
+  outcome,
+  onContinue,
+  onAddSigner,
+}: {
+  outcome: SpawnResponse;
+  onContinue: () => void;
+  onAddSigner: () => void;
+}) {
+  const trustShort = `${outcome.trust_pubkey_b58.slice(0, 6)}…${outcome.trust_pubkey_b58.slice(-4)}`;
+  const authorityShort = `${outcome.authority_pubkey_b58.slice(0, 6)}…${outcome.authority_pubkey_b58.slice(-4)}`;
   return (
-    <main className="welcome-shell welcome-shell--solo">
-      <div className="welcome-pane welcome-pane--center">
-        <div className="welcome-mark welcome-mark--lg welcome-mark--success">✓</div>
-        <h1 className="welcome-spawn-title">Your Company is live.</h1>
-        <p className="welcome-spawn-sub">
-          {outcome.already_existed
-            ? "Welcome back — your TRUST is exactly where you left it."
-            : "Authority pubkey + role + token + governance modules are on-chain."}
-        </p>
+    <>
+      <h1 className="auth-heading">Your Company is live.</h1>
+      <p className="auth-subheading">
+        {outcome.already_existed
+          ? "Welcome back — your TRUST is exactly where you left it."
+          : "Authority pubkey + role + token + governance modules are on-chain."}
+      </p>
 
-        <dl className="welcome-summary">
-          <div className="welcome-summary-row">
-            <dt>TRUST</dt>
-            <dd>
-              <a
-                href={solscanLink("account", outcome.trust_pubkey_b58)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="welcome-summary-link"
-              >
-                {trustShort} ↗
-              </a>
-            </dd>
-          </div>
-          <div className="welcome-summary-row">
-            <dt>Authority</dt>
-            <dd>
-              <a
-                href={solscanLink("account", outcome.authority_pubkey_b58)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="welcome-summary-link"
-              >
-                {authorityShort} ↗
-              </a>
-            </dd>
-          </div>
-        </dl>
-
-        <div className="welcome-cta-row">
-          <button
-            type="button"
-            className="welcome-cta welcome-cta--primary"
-            onClick={() => {
-              window.location.assign(`/trust/${outcome.trust_pubkey_b58}/`);
-            }}
-          >
-            Enter your Company →
-          </button>
-          <button type="button" className="welcome-cta welcome-cta--secondary" onClick={onContinue}>
-            Add a backup signer
-          </button>
+      <dl className="welcome-summary">
+        <div className="welcome-summary-row">
+          <dt>TRUST</dt>
+          <dd>
+            <a
+              href={solscanLink("account", outcome.trust_pubkey_b58)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="welcome-summary-link"
+            >
+              {trustShort} ↗
+            </a>
+          </dd>
         </div>
+        <div className="welcome-summary-row">
+          <dt>Authority</dt>
+          <dd>
+            <a
+              href={solscanLink("account", outcome.authority_pubkey_b58)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="welcome-summary-link"
+            >
+              {authorityShort} ↗
+            </a>
+          </dd>
+        </div>
+      </dl>
 
-        <p className="welcome-spawn-foot">
-          Tip: add a second signer (passkey on another device, hardware key) so you never lose
-          access.
-        </p>
+      <div className="auth-form">
+        <Button variant="primary" size="lg" fullWidth type="button" onClick={onContinue}>
+          Enter your Company →
+        </Button>
+        <Button variant="secondary" size="lg" fullWidth type="button" onClick={onAddSigner}>
+          Add a backup signer later
+        </Button>
       </div>
-    </main>
+    </>
   );
 }
 
-// ── Error view ────────────────────────────────────────────────────────────
+// ── Error view ───────────────────────────────────────────────────
 
 function ErrorView({ message, onBack }: { message: string; onBack: () => void }) {
   return (
-    <main className="welcome-shell welcome-shell--solo">
-      <div className="welcome-pane welcome-pane--center">
-        <div className="welcome-mark welcome-mark--lg">·</div>
-        <h1 className="welcome-spawn-title">That didn't work.</h1>
-        <p className="welcome-spawn-sub welcome-spawn-sub--err">{message}</p>
-        <div className="welcome-cta-row">
-          <button type="button" className="welcome-cta welcome-cta--primary" onClick={onBack}>
-            Try again
-          </button>
-        </div>
-      </div>
-    </main>
+    <>
+      <h1 className="auth-heading">That didn't work.</h1>
+      <p className="auth-subheading">{message}</p>
+      <Button variant="primary" size="lg" fullWidth type="button" onClick={onBack}>
+        Try again
+      </Button>
+    </>
   );
 }
