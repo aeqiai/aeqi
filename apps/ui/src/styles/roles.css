@@ -220,6 +220,7 @@
    in the page-padded container. All row/cell styling lives on the Table
    primitive; this rule only owns the surface padding.
    ------------------------------------------------------------------ */
-.roles-list {
+.roles-list,
+.agents-list {
   padding: 0 24px 24px;
 }
