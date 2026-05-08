@@ -1,6 +1,8 @@
+import Wordmark from "@/components/Wordmark";
+
 /**
  * Full-screen splash shown while the daemon store completes its first
- * fetch. Uses the canonical Zen Dots brandmark; gentle pulse so the
+ * fetch. Renders the canonical æqi wordmark with a gentle pulse so the
  * surface reads as deliberate rather than washed out.
  */
 export default function BootLoader() {
@@ -18,16 +20,11 @@ export default function BootLoader() {
     >
       <span
         style={{
-          fontFamily: "'Zen Dots', system-ui, sans-serif",
-          fontSize: 48,
-          fontWeight: 400,
-          letterSpacing: "0.04em",
-          color: "var(--color-text-primary, #0a0a0b)",
           animation: "ae-pulse 1.6s ease-in-out infinite",
-          lineHeight: 1,
+          display: "inline-flex",
         }}
       >
-        aeqi
+        <Wordmark size={48} />
       </span>
       <style>{`
         @keyframes ae-pulse {
