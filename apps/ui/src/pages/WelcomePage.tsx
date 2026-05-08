@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Wordmark from "@/components/Wordmark";
 import { Button, Input } from "@/components/ui";
@@ -439,10 +439,21 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
   }
 
-  async function spawnViaEmailMagicLink(emailAddress: string) {
-    setStage("spawning");
+  /**
+   * Send email-start: the platform persists a magic-link token + 6-digit
+   * code, mails BOTH to the user, and the SPA transitions to the "check
+   * email" view. The user can either click the magic link in their inbox
+   * (handled by the `?token=` useEffect on mount) OR paste / type the
+   * 6-digit code into the OTP boxes (handled by `spawnViaEmailCode`).
+   * Either path redeems the same row and lands on the same spawn flow.
+   *
+   * In dev (no SMTP backend), the platform inlines `magic_link_url` in
+   * the response so the smoke test can auto-follow it. In prod that
+   * field is absent and we wait for the user to act on the email.
+   */
+  async function submitEmailForCode(emailAddress: string) {
+    setStage("check-email");
     setErrorMsg(null);
-    setSteps(buildSteps());
     try {
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
@@ -453,14 +464,46 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         throw new Error(`email-start ${startRes.status}: ${await startRes.text()}`);
       }
       const start = (await startRes.json()) as { magic_link_url?: string };
-      if (!start.magic_link_url) {
-        // Real prod path — magic link sent via SMTP, no auto-follow.
-        setStage("check-email");
-        return;
+      // Dev / smoke path: server returned the URL inline. Auto-follow.
+      if (start.magic_link_url) {
+        setStage("spawning");
+        setSteps(buildSteps());
+        const verifyRes = await fetch(start.magic_link_url);
+        if (!verifyRes.ok) {
+          throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
+        }
+        const verify = (await verifyRes.json()) as SpawnResponse & {
+          session_jwt: string;
+          session_expires_at: string;
+        };
+        persistSession(verify);
+        await animateSpawn(verify);
       }
-      const verifyRes = await fetch(start.magic_link_url);
+      // Prod path: stays on "check-email" — user types the code or
+      // clicks the magic link from their inbox.
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErrorMsg(msg);
+      setStage("error");
+    }
+  }
+
+  /**
+   * Verify the 6-digit code from the email. Same downstream flow as the
+   * magic link path: persist session, animate spawn, land on /trust/<pk>.
+   */
+  async function spawnViaEmailCode(emailAddress: string, code: string) {
+    setStage("spawning");
+    setErrorMsg(null);
+    setSteps(buildSteps());
+    try {
+      const verifyRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-verify-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailAddress, code }),
+      });
       if (!verifyRes.ok) {
-        throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
+        throw new Error(`verify-code ${verifyRes.status}: ${await verifyRes.text()}`);
       }
       const verify = (await verifyRes.json()) as SpawnResponse & {
         session_jwt: string;
@@ -595,7 +638,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setPicked("email");
     setSubmitting(true);
     try {
-      await spawnViaEmailMagicLink(email.trim().toLowerCase());
+      await submitEmailForCode(email.trim().toLowerCase());
     } finally {
       setSubmitting(false);
     }
@@ -635,7 +678,13 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
             />
           )}
 
-          {stage === "check-email" && <CheckEmailView email={email} onBack={reset} />}
+          {stage === "check-email" && (
+            <CheckEmailView
+              email={email}
+              onCodeSubmit={(code) => spawnViaEmailCode(email.trim().toLowerCase(), code)}
+              onBack={reset}
+            />
+          )}
 
           {stage === "spawning" && <SpawningView steps={steps} picked={picked} />}
 
@@ -781,15 +830,94 @@ function DoorView({
   );
 }
 
-// ── Check-email view (real prod, no auto-follow) ─────────────────
+// ── Check-email view: OTP boxes + magic-link copy ────────────────
 
-function CheckEmailView({ email, onBack }: { email: string; onBack: () => void }) {
+/**
+ * Two ways to get past this screen: paste / type the 6-digit code from
+ * the email (auto-submits on the 6th digit) OR open the magic link in
+ * the email on any device (mounts back into WelcomePage with `?token=`).
+ * Cross-device: code + link are equivalent verifiers — either redeems
+ * the same row, single-use enforced server-side.
+ */
+function CheckEmailView({
+  email,
+  onCodeSubmit,
+  onBack,
+}: {
+  email: string;
+  onCodeSubmit: (code: string) => void;
+  onBack: () => void;
+}) {
+  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const setDigit = (idx: number, value: string) => {
+    const v = value.replace(/\D/g, "").slice(0, 1);
+    setDigits((prev) => {
+      const next = [...prev];
+      next[idx] = v;
+      // Auto-submit when all 6 boxes are filled.
+      if (v && idx === 5 && next.every((d) => d.length === 1)) {
+        // Defer to next tick so React commits the state before submit.
+        setTimeout(() => onCodeSubmit(next.join("")), 0);
+      }
+      return next;
+    });
+    if (v && idx < 5) inputRefs.current[idx + 1]?.focus();
+  };
+
+  const onKeyDown = (idx: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !digits[idx] && idx > 0) {
+      inputRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const onPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!text) return;
+    const next = ["", "", "", "", "", ""];
+    for (let i = 0; i < text.length; i++) next[i] = text[i];
+    setDigits(next);
+    if (next.every((d) => d.length === 1)) {
+      setTimeout(() => onCodeSubmit(next.join("")), 0);
+    } else {
+      inputRefs.current[Math.min(text.length, 5)]?.focus();
+    }
+  };
+
   return (
     <>
       <h1 className="auth-heading">Check your email</h1>
       <p className="auth-subheading">
-        We sent a magic link to <strong>{email}</strong>. Open it on this device to continue.
+        We sent a 6-digit code and a magic link to <strong>{email}</strong>. Type the code here, or
+        open the link from any device.
       </p>
+      <div
+        className="verify-code-inputs"
+        role="group"
+        aria-label="Email verification code"
+        onPaste={onPaste}
+      >
+        {digits.map((d, i) => (
+          <input
+            key={i}
+            ref={(el) => {
+              inputRefs.current[i] = el;
+            }}
+            className="verify-code-digit"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={1}
+            value={d}
+            onChange={(e) => setDigit(i, e.target.value)}
+            onKeyDown={onKeyDown(i)}
+            aria-label={`Digit ${i + 1}`}
+            autoFocus={i === 0}
+          />
+        ))}
+      </div>
       <Button variant="secondary" size="lg" fullWidth type="button" onClick={onBack}>
         Use a different method
       </Button>

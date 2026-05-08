@@ -174,6 +174,10 @@ pub struct StoredEmailVerification {
     pub id: String,
     pub email_lower: String,
     pub token_hash: Vec<u8>,
+    /// 6-digit decimal OTP code; equivalent verifier to the magic link's
+    /// token. Either redeems the same row (single-use). Empty for rows
+    /// seeded before the code path was restored 2026-05-08.
+    pub code: String,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
 }
@@ -183,6 +187,7 @@ pub struct InsertEmailVerification {
     pub id: String,
     pub email_lower: String,
     pub token_hash: Vec<u8>,
+    pub code: String,
     pub expires_at: DateTime<Utc>,
 }
 
@@ -192,12 +197,13 @@ impl EmailVerificationStore {
     pub fn insert(conn: &Connection, v: &InsertEmailVerification) -> Result<(), StoreError> {
         conn.execute(
             r#"INSERT INTO welcome_email_verifications
-               (id, email_lower, token_hash, issued_at, expires_at)
-               VALUES (?, ?, ?, ?, ?)"#,
+               (id, email_lower, token_hash, code, issued_at, expires_at)
+               VALUES (?, ?, ?, ?, ?, ?)"#,
             params![
                 v.id,
                 v.email_lower,
                 v.token_hash,
+                v.code,
                 Utc::now().to_rfc3339(),
                 v.expires_at.to_rfc3339(),
             ],
@@ -213,11 +219,36 @@ impl EmailVerificationStore {
         token_hash: &[u8],
     ) -> Result<Option<StoredEmailVerification>, StoreError> {
         let mut stmt = conn.prepare(
-            r#"SELECT id, email_lower, token_hash, issued_at, expires_at
+            r#"SELECT id, email_lower, token_hash, code, issued_at, expires_at
                FROM welcome_email_verifications WHERE token_hash = ?"#,
         )?;
         let row = stmt
             .query_row(params![token_hash], row_to_email_verification)
+            .optional()?
+            .transpose()?;
+        Ok(row)
+    }
+
+    /// Look up by (email_lower, code) — the OTP path. Multiple rows can
+    /// exist per email (e.g. user requested two codes); the most-recently-
+    /// issued non-expired row wins. Returns `None` if no live row matches.
+    pub fn lookup_by_email_code(
+        conn: &Connection,
+        email_lower: &str,
+        code: &str,
+    ) -> Result<Option<StoredEmailVerification>, StoreError> {
+        if code.is_empty() {
+            return Ok(None);
+        }
+        let mut stmt = conn.prepare(
+            r#"SELECT id, email_lower, token_hash, code, issued_at, expires_at
+               FROM welcome_email_verifications
+               WHERE email_lower = ? AND code = ?
+               ORDER BY issued_at DESC
+               LIMIT 1"#,
+        )?;
+        let row = stmt
+            .query_row(params![email_lower, code], row_to_email_verification)
             .optional()?
             .transpose()?;
         Ok(row)
@@ -246,8 +277,9 @@ fn row_to_email_verification(
     let id: String = row.get(0)?;
     let email_lower: String = row.get(1)?;
     let token_hash: Vec<u8> = row.get(2)?;
-    let issued_at_s: String = row.get(3)?;
-    let expires_at_s: String = row.get(4)?;
+    let code: String = row.get(3)?;
+    let issued_at_s: String = row.get(4)?;
+    let expires_at_s: String = row.get(5)?;
 
     Ok((|| -> Result<StoredEmailVerification, StoreError> {
         let issued_at = DateTime::parse_from_rfc3339(&issued_at_s)
@@ -260,6 +292,7 @@ fn row_to_email_verification(
             id,
             email_lower,
             token_hash,
+            code,
             issued_at,
             expires_at,
         })
@@ -552,6 +585,7 @@ mod tests {
                 id: "ev-1".into(),
                 email_lower: "alice@example.com".into(),
                 token_hash: token_hash.clone(),
+                code: "123456".into(),
                 expires_at: Utc::now() + Duration::minutes(15),
             },
         )
@@ -648,6 +682,7 @@ mod tests {
                 id: "ev-stale".into(),
                 email_lower: "stale@example.com".into(),
                 token_hash: vec![1u8; 32],
+                code: "111111".into(),
                 expires_at: Utc::now() - Duration::minutes(1), // expired
             },
         )
@@ -658,6 +693,7 @@ mod tests {
                 id: "ev-fresh".into(),
                 email_lower: "fresh@example.com".into(),
                 token_hash: vec![2u8; 32],
+                code: "222222".into(),
                 expires_at: Utc::now() + Duration::minutes(15),
             },
         )

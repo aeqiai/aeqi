@@ -206,6 +206,7 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             id              TEXT PRIMARY KEY,
             email_lower     TEXT NOT NULL,
             token_hash      BLOB NOT NULL UNIQUE,
+            code            TEXT NOT NULL DEFAULT '',
             issued_at       TEXT NOT NULL,
             expires_at      TEXT NOT NULL
         );
@@ -214,6 +215,8 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             ON welcome_email_verifications(email_lower);
         CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_expires
             ON welcome_email_verifications(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_email_code
+            ON welcome_email_verifications(email_lower, code);
 
         -- Pending Sign-In With Solana (SIWS) challenges. The client gets
         -- a fresh nonce, asks their wallet to sign a message containing
@@ -257,6 +260,22 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             ON passkey_challenges(expires_at);
         "#,
     )?;
+
+    // Idempotent in-place migration: tables created before the `code` column
+    // existed (welcome_email_verifications was originally token-only; the
+    // 6-digit code path was restored 2026-05-08 so cross-device email auth
+    // works again — paste the code on your laptop while the magic link sits
+    // in the inbox on your phone). ALTER TABLE … ADD COLUMN errors with
+    // "duplicate column name" if already applied; swallow that one.
+    if let Err(e) = conn.execute(
+        "ALTER TABLE welcome_email_verifications ADD COLUMN code TEXT NOT NULL DEFAULT ''",
+        [],
+    ) {
+        let msg = e.to_string().to_lowercase();
+        if !msg.contains("duplicate column name") {
+            return Err(e);
+        }
+    }
 
     Ok(())
 }
