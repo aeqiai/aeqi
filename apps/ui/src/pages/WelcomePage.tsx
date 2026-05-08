@@ -155,7 +155,7 @@ interface WelcomeCopy {
 const COPY: Record<WelcomeMode, WelcomeCopy> = {
   signup: {
     title: "Start your company",
-    subtitle: "Three seconds. One signer. Your TRUST is on-chain before you blink.",
+    subtitle: "Sign up with your wallet, passkey, or email.",
     switchLabel: "Already have an account?",
     switchHref: "/login",
     switchCta: "Sign in",
@@ -846,18 +846,16 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
               <p className="signup-pitch-eyebrow">Welcome back</p>
               <h2 className="signup-pitch-heading">Your company is still running.</h2>
               <p className="signup-lead">
-                Sign in. Your TRUST, your roles, your treasury — exactly where you left them.
+                Your TRUST, your roles, your treasury — exactly where you left them.
               </p>
-              <p className="signup-trust">On-chain · Self-custodial · Yours</p>
             </>
           ) : (
             <>
               <p className="signup-pitch-eyebrow">aeqi · the company OS</p>
               <h2 className="signup-pitch-heading">Start something that can work without you.</h2>
               <p className="signup-lead">
-                Three seconds. One signer. Your TRUST is on-chain before you blink.
+                Build companies where humans set direction. Agents turn context into execution.
               </p>
-              <p className="signup-trust">Solana · Open source · Self-hostable</p>
             </>
           )}
         </div>
