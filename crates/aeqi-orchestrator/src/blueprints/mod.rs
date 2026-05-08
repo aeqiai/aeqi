@@ -17,6 +17,7 @@ use crate::ipc::blueprints::Blueprint;
 pub const DEFAULT_BLUEPRINT_SLUG: &str = "aeqi";
 
 const AEQI_DEFAULT_JSON: &str = include_str!("../../../../presets/blueprints/aeqi.json");
+const AEQI_COMPANY_JSON: &str = include_str!("../../../../presets/blueprints/aeqi-company.json");
 const INDEX_FUND_JSON: &str = include_str!("../../../../presets/blueprints/index-fund.json");
 const SOLO_FOUNDER_JSON: &str = include_str!("../../../../presets/blueprints/solo-founder.json");
 const STUDIO_JSON: &str = include_str!("../../../../presets/blueprints/studio.json");
@@ -25,6 +26,7 @@ const PERSONAL_OS_JSON: &str = include_str!("../../../../presets/blueprints/pers
 
 const COMPANY_BLUEPRINT_JSON: &[&str] = &[
     AEQI_DEFAULT_JSON,
+    AEQI_COMPANY_JSON,
     INDEX_FUND_JSON,
     SOLO_FOUNDER_JSON,
     STUDIO_JSON,
@@ -94,6 +96,7 @@ mod tests {
         // (slug, display-category, on-chain-template)
         let expected = [
             ("aeqi", "company", "venture"),
+            ("aeqi-company", "company", "venture"),
             ("index-fund", "fund", "fund"),
             ("personal-os", "company", "entity"),
             ("solo-founder", "company", "entity"),
