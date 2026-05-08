@@ -1680,6 +1680,25 @@ vi.mock("wagmi", async (importOriginal) => {
 });
 ```
 
+## `VITE_*_API` env-var defaults — empty string or relative path, never `http://127.0.0.1:NNNN`
+
+**Any `VITE_*_API` / `VITE_*_RPC` / `VITE_*_URL` env var that the SPA reads via `import.meta.env` MUST default to either `""` (relative, hits current origin) or a relative path (`/chain/rpc`, `/api`). NEVER an absolute `http://127.0.0.1:NNNN` URL.** A localhost default ships into the prod bundle and causes every browser on `app.aeqi.ai` to try to fetch from the user's own laptop — which fails with "Failed to fetch" before any auth flow can run. The bundle compiles, the build is green, the surface ships looking dead.
+
+```typescript
+// Wrong — bakes localhost into the prod bundle
+const API_URL = (import.meta.env.VITE_FOO_API as string | undefined) ?? "http://127.0.0.1:9220";
+
+// Right — empty string falls through to the SPA's current origin
+const API_URL = (import.meta.env.VITE_FOO_API as string | undefined) ?? "";
+
+// Also right — relative path resolves against current origin
+const API_URL = (import.meta.env.VITE_FOO_API as string | undefined) || "/chain/rpc";
+```
+
+The dev-loop ergonomics that tempt the localhost default ("just want it to work when I `npm run dev` against my smoke server") are misleading: vite's dev server proxies `/api` → `:8400` per the dev section above, so a relative-default + dev proxy works in dev AND prod. If you genuinely need a non-default upstream for local smoke testing, set `VITE_FOO_API=http://127.0.0.1:NNNN` in `.env.local` (gitignored) — don't bake it into the source default.
+
+Sister rule to "Network / socket / proxy regressions — run the audit" above. The audit catches contract bugs the type system can't; this rule keeps URL defaults from becoming one of them. Cost (2026-05-08): welcome-cutover ship — `SOLANA_API_URL` defaulted to `http://127.0.0.1:9220`, every browser hit on prod app.aeqi.ai threw "Failed to fetch" before the auth-spawn flow could start. Founder caught it in dogfood; same hotfix ship that restored the canonical .signup-split design.
+
 ## Lazy wallet split — QueryClientProvider stays at root
 
 **When lazy-loading the wallet provider stack, `QueryClientProvider` must stay in `main.tsx`, NOT inside the lazy module.** The app uses react-query throughout (ideas, quests, events, agents, channels queries) — not only for wagmi. If `QueryClientProvider` moves inside the lazy `WalletProvider` chunk, every non-wallet query throws "No QueryClient set" until the wallet bundle loads.
