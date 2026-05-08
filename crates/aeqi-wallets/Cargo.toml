@@ -24,8 +24,15 @@ argon2 = { version = "0.5", features = ["std"] }
 zeroize = { version = "1.8", features = ["derive"] }
 secrecy = "0.10"
 
-# secp256k1 primitives for ECDSA + EVM address derivation
+# secp256k1 primitives for ECDSA + EVM address derivation (LEGACY — being culled
+# as part of the Solana cutover; do not introduce new uses).
 k256 = { version = "0.13", features = ["ecdsa", "schnorr", "arithmetic"] }
+
+# ed25519 primitives for Solana custodial signing. Canonical signer curve on
+# Solana — Solana account pubkeys ARE ed25519 verifying keys.
+ed25519-dalek = { version = "2", features = ["rand_core", "zeroize"] }
+# Base58 encoding for Solana account pubkeys + signatures.
+bs58 = "0.5"
 
 # BIP-39 mnemonic (recovery seeds)
 bip39 = { version = "2", features = ["rand"] }

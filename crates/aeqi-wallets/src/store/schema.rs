@@ -121,6 +121,55 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_agent_wallets_address
             ON agent_wallets(address);
+
+        -- ed25519 / Solana custodial wallets. Mirrors `user_wallets` but for
+        -- the Solana cutover. Pubkey IS the account address on Solana — no
+        -- separate Keccak-derived field. `pubkey_b58` stores the canonical
+        -- 43-44 char base58 form for fast equality lookup; `pubkey_bytes` is
+        -- the raw 32-byte verifying key for cryptographic ops.
+        CREATE TABLE IF NOT EXISTS solana_user_wallets (
+            id                            TEXT PRIMARY KEY,
+            user_id                       TEXT NOT NULL,
+            pubkey_b58                    TEXT NOT NULL UNIQUE,
+            pubkey_bytes                  BLOB NOT NULL,
+            custody_state                 TEXT NOT NULL CHECK (custody_state IN ('custodial','co_custody','self_custody')),
+            is_primary                    INTEGER NOT NULL DEFAULT 0,
+            provisioned_by                TEXT NOT NULL CHECK (provisioned_by IN ('runtime','user')),
+            server_share_ciphertext       BLOB,
+            server_share_kek_ciphertext   BLOB,
+            kek_version                   INTEGER,
+            added_at                      TEXT NOT NULL,
+            CHECK (
+                (custody_state = 'self_custody'  AND server_share_ciphertext IS NULL)
+                OR (custody_state IN ('custodial','co_custody') AND server_share_ciphertext IS NOT NULL)
+            )
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_solana_user_wallets_one_primary
+            ON solana_user_wallets(user_id) WHERE is_primary = 1;
+
+        CREATE INDEX IF NOT EXISTS idx_solana_user_wallets_user_id
+            ON solana_user_wallets(user_id);
+
+        CREATE TABLE IF NOT EXISTS solana_agent_wallets (
+            id                            TEXT PRIMARY KEY,
+            agent_id                      TEXT NOT NULL UNIQUE,
+            pubkey_b58                    TEXT NOT NULL UNIQUE,
+            pubkey_bytes                  BLOB NOT NULL,
+            custody_state                 TEXT NOT NULL CHECK (custody_state IN ('custodial','co_custody','self_custody')),
+            provisioned_by                TEXT NOT NULL CHECK (provisioned_by IN ('runtime','user')),
+            server_share_ciphertext       BLOB,
+            server_share_kek_ciphertext   BLOB,
+            kek_version                   INTEGER,
+            added_at                      TEXT NOT NULL,
+            CHECK (
+                (custody_state = 'self_custody'  AND server_share_ciphertext IS NULL)
+                OR (custody_state IN ('custodial','co_custody') AND server_share_ciphertext IS NOT NULL)
+            )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_solana_agent_wallets_pubkey
+            ON solana_agent_wallets(pubkey_b58);
         "#,
     )?;
 

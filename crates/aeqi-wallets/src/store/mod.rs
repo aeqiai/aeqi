@@ -3,6 +3,11 @@
 pub mod agent_repo;
 pub mod repo;
 pub mod schema;
+pub mod solana_repo;
 
 pub use agent_repo::{AgentWalletStore, StoredAgentWallet};
 pub use repo::{StoredWallet, WalletStore};
+pub use solana_repo::{
+    InsertSolanaAgentWallet, InsertSolanaWallet, SolanaAgentWalletStore, SolanaWalletStore,
+    StoredSolanaAgentWallet, StoredSolanaWallet,
+};
