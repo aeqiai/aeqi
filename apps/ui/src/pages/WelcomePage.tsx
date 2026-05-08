@@ -797,6 +797,14 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
             <CheckEmailView
               email={email}
               onCodeSubmit={(code) => spawnViaEmailCode(email.trim().toLowerCase(), code)}
+              onResend={async () => {
+                const lower = email.trim().toLowerCase();
+                await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email: lower }),
+                });
+              }}
               onBack={reset}
             />
           )}
@@ -975,14 +983,38 @@ function DoorView({
 function CheckEmailView({
   email,
   onCodeSubmit,
+  onResend,
   onBack,
 }: {
   email: string;
   onCodeSubmit: (code: string) => void;
+  onResend: () => Promise<void>;
   onBack: () => void;
 }) {
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [cooldownEndsAt, setCooldownEndsAt] = useState<number>(() => Date.now() + 60_000);
+  const [now, setNow] = useState(() => Date.now());
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remaining = Math.max(0, Math.ceil((cooldownEndsAt - now) / 1000));
+  const canResend = remaining === 0 && !resending;
+
+  const handleResend = async () => {
+    if (!canResend) return;
+    setResending(true);
+    try {
+      await onResend();
+      setCooldownEndsAt(Date.now() + 60_000);
+    } finally {
+      setResending(false);
+    }
+  };
 
   const setDigit = (idx: number, value: string) => {
     const v = value.replace(/\D/g, "").slice(0, 1);
@@ -1050,6 +1082,17 @@ function CheckEmailView({
             autoFocus={i === 0}
           />
         ))}
+      </div>
+      <div className="auth-resend-row">
+        <Button
+          variant="ghost"
+          size="md"
+          type="button"
+          onClick={handleResend}
+          disabled={!canResend}
+        >
+          {resending ? "Sending…" : canResend ? "Resend code" : `Resend in ${remaining}s`}
+        </Button>
       </div>
       <Button variant="secondary" size="lg" fullWidth type="button" onClick={onBack}>
         Use a different method
