@@ -208,19 +208,6 @@ interface SpawnStep {
 // when running the standalone smoke server on a non-default port.
 const SOLANA_API_URL = (import.meta.env.VITE_AEQI_SOLANA_API as string | undefined) ?? "";
 
-const SOLSCAN_BASE =
-  (import.meta.env.VITE_SOLSCAN_BASE as string | undefined) ?? "https://solscan.io";
-
-const SOLSCAN_CLUSTER = (import.meta.env.VITE_SOLSCAN_CLUSTER as string | undefined) ?? "custom";
-
-function solscanLink(kind: "tx" | "account", value: string): string {
-  const path = kind === "tx" ? "tx" : "account";
-  if (SOLSCAN_CLUSTER === "mainnet" || SOLSCAN_CLUSTER === "") {
-    return `${SOLSCAN_BASE}/${path}/${value}`;
-  }
-  return `${SOLSCAN_BASE}/${path}/${value}?cluster=${SOLSCAN_CLUSTER}`;
-}
-
 function SolanaIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
@@ -367,8 +354,16 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   async function animateSpawn(data: SpawnResponse) {
     setOutcome(data);
+    // Returning users (already_existed=true) skip the spawn ceremony
+    // entirely — there's nothing being provisioned, and the
+    // "TRUST/Authority" addresses are jargon that means nothing to a
+    // returning sign-in. Land them straight on /trust/<pubkey>/.
+    if (data.already_existed) {
+      navigate(`/trust/${data.trust_pubkey_b58}/`);
+      return;
+    }
     const trustPda = data.trust_pubkey_b58;
-    const tick = data.already_existed ? 120 : 450;
+    const tick = 450;
     const advanceWith = async (idx: number, detail?: string) => {
       await new Promise((r) => setTimeout(r, tick));
       advanceStep(idx, detail);
@@ -702,7 +697,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
             <WelcomeView
               outcome={outcome}
               onContinue={() => navigate(`/trust/${outcome.trust_pubkey_b58}/`)}
-              onAddSigner={reset}
             />
           )}
 
@@ -968,60 +962,21 @@ function SpawningView({ steps, picked }: { steps: SpawnStep[]; picked: Door | nu
 // ── Welcome (post-spawn) view ────────────────────────────────────
 
 function WelcomeView({
-  outcome,
+  outcome: _outcome,
   onContinue,
-  onAddSigner,
 }: {
   outcome: SpawnResponse;
   onContinue: () => void;
-  onAddSigner: () => void;
 }) {
-  const trustShort = `${outcome.trust_pubkey_b58.slice(0, 6)}…${outcome.trust_pubkey_b58.slice(-4)}`;
-  const authorityShort = `${outcome.authority_pubkey_b58.slice(0, 6)}…${outcome.authority_pubkey_b58.slice(-4)}`;
   return (
     <>
-      <h1 className="auth-heading">Your Company is live.</h1>
+      <h1 className="auth-heading">Your company is live.</h1>
       <p className="auth-subheading">
-        {outcome.already_existed
-          ? "Welcome back — your TRUST is exactly where you left it."
-          : "Authority pubkey + role + token + governance modules are on-chain."}
+        Roles, treasury, and governance are on-chain. Take it from here.
       </p>
-
-      <dl className="welcome-summary">
-        <div className="welcome-summary-row">
-          <dt>TRUST</dt>
-          <dd>
-            <a
-              href={solscanLink("account", outcome.trust_pubkey_b58)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="welcome-summary-link"
-            >
-              {trustShort} ↗
-            </a>
-          </dd>
-        </div>
-        <div className="welcome-summary-row">
-          <dt>Authority</dt>
-          <dd>
-            <a
-              href={solscanLink("account", outcome.authority_pubkey_b58)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="welcome-summary-link"
-            >
-              {authorityShort} ↗
-            </a>
-          </dd>
-        </div>
-      </dl>
-
       <div className="auth-form">
         <Button variant="primary" size="lg" fullWidth type="button" onClick={onContinue}>
-          Enter your Company →
-        </Button>
-        <Button variant="secondary" size="lg" fullWidth type="button" onClick={onAddSigner}>
-          Add a backup signer later
+          Enter your company →
         </Button>
       </div>
     </>

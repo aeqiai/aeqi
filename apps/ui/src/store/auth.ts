@@ -80,6 +80,31 @@ interface AuthState {
   needsOnboarding: () => boolean;
 }
 
+// Welcome-flow → canonical-key migration. Sessions persisted before
+// 2026-05-08 (when WelcomePage started writing aeqi_token directly)
+// only have aeqi_session_jwt set. On boot, promote that to aeqi_token
+// + the app/auth-mode defaults so existing welcome users resume without
+// re-auth instead of getting bounced to /login. Idempotent — once
+// aeqi_token is set, this is a no-op.
+(() => {
+  try {
+    if (!localStorage.getItem("aeqi_token")) {
+      const sess = localStorage.getItem("aeqi_session_jwt");
+      if (sess) {
+        localStorage.setItem("aeqi_token", sess);
+        if (!localStorage.getItem("aeqi_app_mode")) {
+          localStorage.setItem("aeqi_app_mode", "runtime");
+        }
+        if (!localStorage.getItem("aeqi_auth_mode")) {
+          localStorage.setItem("aeqi_auth_mode", "accounts");
+        }
+      }
+    }
+  } catch {
+    // localStorage unavailable (Safari private etc.) — non-fatal.
+  }
+})();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem("aeqi_token"),
   appMode: (localStorage.getItem("aeqi_app_mode") as AppMode) || null,
