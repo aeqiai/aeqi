@@ -475,9 +475,36 @@ export function SegmentRenderer({
     }
   }
 
+  // Drop step headers that have nothing meaningful between them and the next
+  // step (or the end of the trail). The runtime fires `session:step_start` on
+  // every model iteration, including iterations that produce no UI-visible
+  // output (a tool result absorbed by the model that then fires another step
+  // with no narration / new tool call). A bare "Step N" header with nothing
+  // beneath it just adds noise to the trail. Empty inline groups (whitespace-
+  // only text) also count as "no content".
+  const filteredGroups: SegGroup[] = [];
+  for (let i = 0; i < groups.length; i++) {
+    const g = groups[i];
+    if (g.kind === "step") {
+      let hasContent = false;
+      for (let j = i + 1; j < groups.length; j++) {
+        const next = groups[j];
+        if (next.kind === "step") break;
+        if (next.kind === "inline") {
+          const allEmpty = next.parts.every((p) => p.kind === "text" && !p.text.trim());
+          if (allEmpty) continue;
+        }
+        hasContent = true;
+        break;
+      }
+      if (!hasContent) continue;
+    }
+    filteredGroups.push(g);
+  }
+
   return (
     <>
-      {groups.map((group, gi) =>
+      {filteredGroups.map((group, gi) =>
         group.kind === "inline" ? (
           <InlineGroup key={gi} parts={group.parts} />
         ) : group.kind === "step" ? (
