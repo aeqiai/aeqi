@@ -12,6 +12,7 @@ import { entityPath } from "@/lib/entityPath";
 // Auth pages -- loaded eagerly since they gate entry
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
+import WelcomePage from "@/pages/WelcomePage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -282,6 +283,14 @@ export default function App() {
           {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          {/* Welcome — combined sign-in / sign-up under the new
+              "every user = a Company" model. Three-door entry
+              (Solana wallet · passkey · email), animated live spawn,
+              direct land on /trust/<pubkey>/. Slated to replace
+              /login + /signup as canonical front door once the auth
+              cutover lands. */}
+          <Route path="/welcome" element={<WelcomePage />} />
+          <Route path="/start" element={<Navigate to="/welcome" replace />} />
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
           <Route path="/verify" element={<VerifyEmailPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
