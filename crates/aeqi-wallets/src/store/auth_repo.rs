@@ -1,4 +1,4 @@
-//! `auth_methods` + `email_verifications` repository.
+//! `auth_methods` + `welcome_email_verifications` repository.
 //!
 //! Auth methods are many-to-one with companies: a single Company can have
 //! a passkey + an email + a Google OAuth + a wallet SIWS auth, all
@@ -191,7 +191,7 @@ pub struct EmailVerificationStore;
 impl EmailVerificationStore {
     pub fn insert(conn: &Connection, v: &InsertEmailVerification) -> Result<(), StoreError> {
         conn.execute(
-            r#"INSERT INTO email_verifications
+            r#"INSERT INTO welcome_email_verifications
                (id, email_lower, token_hash, issued_at, expires_at)
                VALUES (?, ?, ?, ?, ?)"#,
             params![
@@ -214,7 +214,7 @@ impl EmailVerificationStore {
     ) -> Result<Option<StoredEmailVerification>, StoreError> {
         let mut stmt = conn.prepare(
             r#"SELECT id, email_lower, token_hash, issued_at, expires_at
-               FROM email_verifications WHERE token_hash = ?"#,
+               FROM welcome_email_verifications WHERE token_hash = ?"#,
         )?;
         let row = stmt
             .query_row(params![token_hash], row_to_email_verification)
@@ -226,14 +226,14 @@ impl EmailVerificationStore {
     /// Consume (delete) a verification row by id. Called after successful
     /// verify to enforce single-use.
     pub fn consume(conn: &Connection, id: &str) -> Result<(), StoreError> {
-        conn.execute("DELETE FROM email_verifications WHERE id = ?", params![id])?;
+        conn.execute("DELETE FROM welcome_email_verifications WHERE id = ?", params![id])?;
         Ok(())
     }
 
     /// Sweep expired rows. Cheap; safe to call on every verify.
     pub fn sweep_expired(conn: &Connection) -> Result<u64, StoreError> {
         let n = conn.execute(
-            "DELETE FROM email_verifications WHERE expires_at < ?",
+            "DELETE FROM welcome_email_verifications WHERE expires_at < ?",
             params![Utc::now().to_rfc3339()],
         )?;
         Ok(n as u64)

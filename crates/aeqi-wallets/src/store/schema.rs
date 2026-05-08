@@ -202,7 +202,7 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         -- the email address normalised to lowercase for case-insensitive
         -- lookup at verify time. One row per outstanding link; verified
         -- rows are deleted on successful verify.
-        CREATE TABLE IF NOT EXISTS email_verifications (
+        CREATE TABLE IF NOT EXISTS welcome_email_verifications (
             id              TEXT PRIMARY KEY,
             email_lower     TEXT NOT NULL,
             token_hash      BLOB NOT NULL UNIQUE,
@@ -210,10 +210,10 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             expires_at      TEXT NOT NULL
         );
 
-        CREATE INDEX IF NOT EXISTS idx_email_verifications_email
-            ON email_verifications(email_lower);
-        CREATE INDEX IF NOT EXISTS idx_email_verifications_expires
-            ON email_verifications(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_email
+            ON welcome_email_verifications(email_lower);
+        CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_expires
+            ON welcome_email_verifications(expires_at);
 
         -- Pending Sign-In With Solana (SIWS) challenges. The client gets
         -- a fresh nonce, asks their wallet to sign a message containing
