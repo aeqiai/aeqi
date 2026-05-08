@@ -6,7 +6,7 @@
 //!   KEK, persist the row, return the base58 pubkey.
 //! - `sign_solana_custodial` — load a custodial wallet, decrypt the seed,
 //!   sign an arbitrary message, return the 64-byte signature.
-//! - `ensure_primary_solana_user_wallet` / `ensure_solana_agent_wallet` —
+//! - `ensure_primary_solana_company_wallet` / `ensure_solana_agent_wallet` —
 //!   idempotent provisioning helpers for signup / agent creation paths.
 //!
 //! Async wrapper over sync rusqlite repos: every DB call is wrapped in
@@ -38,7 +38,7 @@ const NONCE_LEN: usize = 12;
 
 #[derive(Debug)]
 pub struct ProvisionSolanaRequest {
-    pub user_id: String,
+    pub company_id: String,
     pub is_primary: bool,
     pub provisioned_by: ProvisionedBy,
 }
@@ -103,15 +103,15 @@ impl std::fmt::Debug for PrimarySolanaSigner {
 pub async fn load_primary_solana_signer<K: MasterKekProvider + ?Sized>(
     db: &SharedDb,
     master_kek: &K,
-    user_id: &str,
+    company_id: &str,
 ) -> Result<PrimarySolanaSigner, SolanaWalletError> {
     let wallets = {
         let db = db.clone();
-        let user_id = user_id.to_string();
+        let company_id = company_id.to_string();
         tokio::task::spawn_blocking(
             move || -> Result<Vec<StoredSolanaWallet>, SolanaWalletError> {
                 let conn = db.lock().expect("wallet db mutex poisoned");
-                Ok(SolanaWalletStore::list_for_user(&conn, &user_id)?)
+                Ok(SolanaWalletStore::list_for_company(&conn, &company_id)?)
             },
         )
         .await
@@ -155,7 +155,7 @@ pub async fn provision_solana_custodial<K: MasterKekProvider + ?Sized>(
     let wallet_id = WalletId::new();
     let insert = InsertSolanaWallet {
         id: wallet_id.clone(),
-        user_id: req.user_id,
+        company_id: req.company_id,
         pubkey,
         custody_state: CustodyState::Custodial,
         is_primary: req.is_primary,
@@ -199,18 +199,18 @@ pub async fn sign_solana_custodial<K: MasterKekProvider + ?Sized>(
 }
 
 /// Idempotently ensure a user has a primary Solana custodial wallet.
-pub async fn ensure_primary_solana_user_wallet<K: MasterKekProvider + ?Sized>(
+pub async fn ensure_primary_solana_company_wallet<K: MasterKekProvider + ?Sized>(
     db: &SharedDb,
     master_kek: &K,
-    user_id: &str,
+    company_id: &str,
 ) -> Result<Option<ProvisionedSolanaWallet>, SolanaWalletError> {
     let existing = {
         let db = db.clone();
-        let user_id = user_id.to_string();
+        let company_id = company_id.to_string();
         tokio::task::spawn_blocking(
             move || -> Result<Vec<StoredSolanaWallet>, SolanaWalletError> {
                 let conn = db.lock().expect("wallet db mutex poisoned");
-                Ok(SolanaWalletStore::list_for_user(&conn, &user_id)?)
+                Ok(SolanaWalletStore::list_for_company(&conn, &company_id)?)
             },
         )
         .await
@@ -223,7 +223,7 @@ pub async fn ensure_primary_solana_user_wallet<K: MasterKekProvider + ?Sized>(
         db,
         master_kek,
         ProvisionSolanaRequest {
-            user_id: user_id.to_string(),
+            company_id: company_id.to_string(),
             is_primary: true,
             provisioned_by: ProvisionedBy::Runtime,
         },
@@ -528,7 +528,7 @@ mod tests {
             &db,
             &kek,
             ProvisionSolanaRequest {
-                user_id: "user-1".into(),
+                company_id: "company-1".into(),
                 is_primary: true,
                 provisioned_by: ProvisionedBy::Runtime,
             },
@@ -550,11 +550,11 @@ mod tests {
         let db = fresh_db();
         let kek = TestMasterKek::new();
 
-        let first = ensure_primary_solana_user_wallet(&db, &kek, "user-1")
+        let first = ensure_primary_solana_company_wallet(&db, &kek, "company-1")
             .await
             .unwrap()
             .expect("first call provisions");
-        let second = ensure_primary_solana_user_wallet(&db, &kek, "user-1")
+        let second = ensure_primary_solana_company_wallet(&db, &kek, "company-1")
             .await
             .unwrap();
         assert!(second.is_none(), "second call must not provision");
@@ -571,12 +571,12 @@ mod tests {
         let db = fresh_db();
         let kek = TestMasterKek::new();
 
-        let provisioned = ensure_primary_solana_user_wallet(&db, &kek, "user-1")
+        let provisioned = ensure_primary_solana_company_wallet(&db, &kek, "company-1")
             .await
             .unwrap()
             .expect("provisioned");
 
-        let signer = load_primary_solana_signer(&db, &kek, "user-1")
+        let signer = load_primary_solana_signer(&db, &kek, "company-1")
             .await
             .expect("load signer");
         assert_eq!(signer.wallet_id.as_str(), provisioned.id.as_str());
@@ -596,7 +596,7 @@ mod tests {
         let db = fresh_db();
         let kek = TestMasterKek::new();
 
-        let err = load_primary_solana_signer(&db, &kek, "no-such-user")
+        let err = load_primary_solana_signer(&db, &kek, "no-such-company")
             .await
             .expect_err("no primary should error");
         assert!(

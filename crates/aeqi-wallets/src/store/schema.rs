@@ -122,14 +122,15 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_agent_wallets_address
             ON agent_wallets(address);
 
-        -- ed25519 / Solana custodial wallets. Mirrors `user_wallets` but for
-        -- the Solana cutover. Pubkey IS the account address on Solana — no
-        -- separate Keccak-derived field. `pubkey_b58` stores the canonical
-        -- 43-44 char base58 form for fast equality lookup; `pubkey_bytes` is
-        -- the raw 32-byte verifying key for cryptographic ops.
-        CREATE TABLE IF NOT EXISTS solana_user_wallets (
+        -- ed25519 / Solana custodial wallets, keyed by Company entity_id.
+        -- Reflects the canonical "every user = a Company, no separate user
+        -- account" model — auth methods map to a `company_id`, this table
+        -- holds the on-chain authority pubkey + KEK-encrypted seed for that
+        -- Company. Pubkey IS the account address on Solana (32-byte ed25519
+        -- verifying key, base58-encoded for the wire/UI).
+        CREATE TABLE IF NOT EXISTS solana_company_wallets (
             id                            TEXT PRIMARY KEY,
-            user_id                       TEXT NOT NULL,
+            company_id                    TEXT NOT NULL,
             pubkey_b58                    TEXT NOT NULL UNIQUE,
             pubkey_bytes                  BLOB NOT NULL,
             custody_state                 TEXT NOT NULL CHECK (custody_state IN ('custodial','co_custody','self_custody')),
@@ -145,11 +146,11 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             )
         );
 
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_solana_user_wallets_one_primary
-            ON solana_user_wallets(user_id) WHERE is_primary = 1;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_solana_company_wallets_one_primary
+            ON solana_company_wallets(company_id) WHERE is_primary = 1;
 
-        CREATE INDEX IF NOT EXISTS idx_solana_user_wallets_user_id
-            ON solana_user_wallets(user_id);
+        CREATE INDEX IF NOT EXISTS idx_solana_company_wallets_company_id
+            ON solana_company_wallets(company_id);
 
         CREATE TABLE IF NOT EXISTS solana_agent_wallets (
             id                            TEXT PRIMARY KEY,

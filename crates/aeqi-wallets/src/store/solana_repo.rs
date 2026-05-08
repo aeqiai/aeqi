@@ -1,4 +1,4 @@
-//! `solana_user_wallets` + `solana_agent_wallets` repository. Sync rusqlite
+//! `solana_company_wallets` + `solana_agent_wallets` repository. Sync rusqlite
 //! calls, intended to run inside `tokio::task::spawn_blocking` from the async
 //! service layer (matches the convention used elsewhere in aeqi).
 
@@ -9,11 +9,11 @@ use crate::solana_keypair::SolanaPubkey;
 use crate::store::repo::StoreError;
 use crate::types::{CustodyState, ProvisionedBy, WalletId};
 
-/// One row of `solana_user_wallets` mapped to a value type.
+/// One row of `solana_company_wallets` mapped to a value type.
 #[derive(Debug, Clone)]
 pub struct StoredSolanaWallet {
     pub id: WalletId,
-    pub user_id: String,
+    pub company_id: String,
     pub pubkey: SolanaPubkey,
     pub custody_state: CustodyState,
     pub is_primary: bool,
@@ -27,7 +27,7 @@ pub struct StoredSolanaWallet {
 #[derive(Debug, Clone)]
 pub struct InsertSolanaWallet {
     pub id: WalletId,
-    pub user_id: String,
+    pub company_id: String,
     pub pubkey: SolanaPubkey,
     pub custody_state: CustodyState,
     pub is_primary: bool,
@@ -69,19 +69,19 @@ impl SolanaWalletStore {
         let tx = conn.unchecked_transaction()?;
         if w.is_primary {
             tx.execute(
-                "UPDATE solana_user_wallets SET is_primary = 0 WHERE user_id = ? AND is_primary = 1",
-                params![w.user_id],
+                "UPDATE solana_company_wallets SET is_primary = 0 WHERE company_id = ? AND is_primary = 1",
+                params![w.company_id],
             )?;
         }
         tx.execute(
-            r#"INSERT INTO solana_user_wallets
-               (id, user_id, pubkey_b58, pubkey_bytes, custody_state, is_primary,
+            r#"INSERT INTO solana_company_wallets
+               (id, company_id, pubkey_b58, pubkey_bytes, custody_state, is_primary,
                 provisioned_by, server_share_ciphertext,
                 server_share_kek_ciphertext, kek_version, added_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
             params![
                 w.id.as_str(),
-                w.user_id,
+                w.company_id,
                 w.pubkey.to_base58(),
                 &w.pubkey.0[..],
                 w.custody_state.as_str(),
@@ -102,17 +102,17 @@ impl SolanaWalletStore {
             .and_then(|opt| opt.ok_or_else(|| StoreError::NotFound(id.0.clone())))
     }
 
-    pub fn list_for_user(
+    pub fn list_for_company(
         conn: &Connection,
-        user_id: &str,
+        company_id: &str,
     ) -> Result<Vec<StoredSolanaWallet>, StoreError> {
         let mut stmt = conn.prepare(
-            r#"SELECT id, user_id, pubkey_b58, pubkey_bytes, custody_state,
+            r#"SELECT id, company_id, pubkey_b58, pubkey_bytes, custody_state,
                       is_primary, provisioned_by, server_share_ciphertext,
                       server_share_kek_ciphertext, kek_version, added_at
-               FROM solana_user_wallets WHERE user_id = ?"#,
+               FROM solana_company_wallets WHERE company_id = ?"#,
         )?;
-        let rows = stmt.query_map(params![user_id], row_to_user_wallet)?;
+        let rows = stmt.query_map(params![company_id], row_to_company_wallet)?;
         let mut out = Vec::new();
         for r in rows {
             out.push(r??);
@@ -126,14 +126,14 @@ impl SolanaWalletStore {
         params: impl rusqlite::Params,
     ) -> Result<Option<StoredSolanaWallet>, StoreError> {
         let sql = format!(
-            r#"SELECT id, user_id, pubkey_b58, pubkey_bytes, custody_state,
+            r#"SELECT id, company_id, pubkey_b58, pubkey_bytes, custody_state,
                       is_primary, provisioned_by, server_share_ciphertext,
                       server_share_kek_ciphertext, kek_version, added_at
-               FROM solana_user_wallets WHERE {where_clause}"#
+               FROM solana_company_wallets WHERE {where_clause}"#
         );
         let mut stmt = conn.prepare(&sql)?;
         let row = stmt
-            .query_row(params, row_to_user_wallet)
+            .query_row(params, row_to_company_wallet)
             .optional()?
             .transpose()?;
         Ok(row)
@@ -200,11 +200,11 @@ impl SolanaAgentWalletStore {
     }
 }
 
-fn row_to_user_wallet(
+fn row_to_company_wallet(
     row: &rusqlite::Row<'_>,
 ) -> rusqlite::Result<Result<StoredSolanaWallet, StoreError>> {
     let id: String = row.get(0)?;
-    let user_id: String = row.get(1)?;
+    let company_id: String = row.get(1)?;
     let _pubkey_b58: String = row.get(2)?;
     let pubkey_bytes: Vec<u8> = row.get(3)?;
     let custody_state: String = row.get(4)?;
@@ -221,7 +221,7 @@ fn row_to_user_wallet(
             .map_err(|_| StoreError::AddressParse("pubkey not 32 bytes".into()))?;
         Ok(StoredSolanaWallet {
             id: WalletId(id),
-            user_id,
+            company_id,
             pubkey: SolanaPubkey(pubkey_arr),
             custody_state: CustodyState::parse(&custody_state)
                 .ok_or_else(|| StoreError::BadCustodyState(custody_state.clone()))?,
@@ -298,7 +298,7 @@ mod tests {
         let kp = SolanaKeypair::generate();
         let w = InsertSolanaWallet {
             id: WalletId::new(),
-            user_id: "user-1".into(),
+            company_id: "company-1".into(),
             pubkey: kp.pubkey,
             custody_state: CustodyState::Custodial,
             is_primary: true,
@@ -310,7 +310,7 @@ mod tests {
         SolanaWalletStore::insert(&conn, &w).unwrap();
 
         let fetched = SolanaWalletStore::get_by_id(&conn, &w.id).unwrap();
-        assert_eq!(fetched.user_id, "user-1");
+        assert_eq!(fetched.company_id, "company-1");
         assert_eq!(fetched.pubkey, kp.pubkey);
         assert!(fetched.is_primary);
     }
@@ -325,7 +325,7 @@ mod tests {
             &conn,
             &InsertSolanaWallet {
                 id: WalletId::new(),
-                user_id: "user-1".into(),
+                company_id: "company-1".into(),
                 pubkey: kp1.pubkey,
                 custody_state: CustodyState::Custodial,
                 is_primary: true,
@@ -342,7 +342,7 @@ mod tests {
             &conn,
             &InsertSolanaWallet {
                 id: WalletId::new(),
-                user_id: "user-1".into(),
+                company_id: "company-1".into(),
                 pubkey: kp2.pubkey,
                 custody_state: CustodyState::Custodial,
                 is_primary: true,
@@ -354,7 +354,7 @@ mod tests {
         )
         .unwrap();
 
-        let wallets = SolanaWalletStore::list_for_user(&conn, "user-1").unwrap();
+        let wallets = SolanaWalletStore::list_for_company(&conn, "company-1").unwrap();
         assert_eq!(wallets.len(), 2);
         let primaries: Vec<_> = wallets.iter().filter(|w| w.is_primary).collect();
         assert_eq!(primaries.len(), 1);
