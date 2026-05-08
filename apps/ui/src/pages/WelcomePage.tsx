@@ -24,6 +24,42 @@ import { useState, useEffect } from "react";
 
 type Door = "wallet" | "passkey" | "email";
 
+export type WelcomeMode = "signup" | "login" | "welcome";
+
+interface WelcomeCopy {
+  title: string;
+  subtitle: string;
+  emailButton: string;
+  sideTitle: string;
+  foot: string;
+}
+
+const COPY: Record<WelcomeMode, WelcomeCopy> = {
+  signup: {
+    title: "Start your company.",
+    subtitle: "Three seconds. One signer. Your TRUST is on-chain before you blink.",
+    emailButton: "Sign up →",
+    sideTitle: "What you get in 3 seconds",
+    foot: "One Company per identity. Sign in with any method later — we resolve to the same on-chain TRUST.",
+  },
+  login: {
+    title: "Welcome back.",
+    subtitle:
+      "Sign in with your wallet, passkey, or email — same Company, same on-chain authority.",
+    emailButton: "Sign in →",
+    sideTitle: "Pick up where you left off",
+    foot: "First time here? Same flow — we'll spawn your Company on the spot.",
+  },
+  welcome: {
+    title: "Welcome to aeqi.",
+    subtitle:
+      "Continue with your wallet, passkey, or email. The system figures out new vs returning.",
+    emailButton: "Continue →",
+    sideTitle: "What you get in 3 seconds",
+    foot: "One Company per identity. Sign in with any method later — we resolve to the same on-chain TRUST.",
+  },
+};
+
 interface SpawnResponse {
   company_id: string;
   trust_id_hex: string;
@@ -65,7 +101,8 @@ function solscanLink(kind: "tx" | "account", value: string): string {
   return `${SOLSCAN_BASE}/${path}/${value}?cluster=${SOLSCAN_CLUSTER}`;
 }
 
-export default function WelcomePage() {
+export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode } = {}) {
+  const copy = COPY[mode];
   const [stage, setStage] = useState<"door" | "spawning" | "welcome" | "error">("door");
   const [picked, setPicked] = useState<Door | null>(null);
   const [email, setEmail] = useState("");
@@ -101,8 +138,9 @@ export default function WelcomePage() {
         .catch(() => setPasskeyAvailable(false));
     }
 
-    document.title = "Welcome · aeqi";
-  }, []);
+    document.title =
+      mode === "login" ? "Sign in · aeqi" : mode === "signup" ? "Sign up · aeqi" : "Welcome · aeqi";
+  }, [mode]);
 
   function buildSteps(): SpawnStep[] {
     return [
@@ -256,10 +294,8 @@ export default function WelcomePage() {
       </a>
       <div className="welcome-pane" id="main-content">
         <div className="welcome-mark">æ</div>
-        <h1 className="welcome-headline">Start your company.</h1>
-        <p className="welcome-subhead">
-          Three seconds. One signer. Your TRUST is on-chain before you blink.
-        </p>
+        <h1 className="welcome-headline">{copy.title}</h1>
+        <p className="welcome-subhead">{copy.subtitle}</p>
 
         <div className="welcome-doors">
           {walletDetected && (
@@ -339,19 +375,17 @@ export default function WelcomePage() {
               />
             </span>
             <button type="submit" className="welcome-door-submit">
-              Sign in →
+              {copy.emailButton}
             </button>
           </form>
         </div>
 
-        <p className="welcome-foot">
-          One Company per identity. Sign in with any method — we resolve to the same on-chain TRUST.
-        </p>
+        <p className="welcome-foot">{copy.foot}</p>
       </div>
 
       <aside className="welcome-side">
         <div className="welcome-side-inner">
-          <h2 className="welcome-side-title">What you get in 3 seconds</h2>
+          <h2 className="welcome-side-title">{copy.sideTitle}</h2>
           <ul className="welcome-side-list">
             <li>
               <span className="welcome-side-step">01</span>

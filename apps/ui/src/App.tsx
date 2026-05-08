@@ -9,9 +9,20 @@ import AppLayout from "@/components/AppLayout";
 import SessionRedirect from "@/components/SessionRedirect";
 import { entityPath } from "@/lib/entityPath";
 
-// Auth pages -- loaded eagerly since they gate entry
-import LoginPage from "@/pages/LoginPage";
-import SignupPage from "@/pages/SignupPage";
+// Auth pages -- loaded eagerly since they gate entry.
+//
+// `/login`, `/signup`, and `/welcome` all render `<WelcomePage />` with
+// different `mode` props. Per the canonical "every user = a Company"
+// model, sign-in and sign-up are the same act — the auth method
+// resolves new vs returning via the `auth_methods` table. Three URLs
+// kept live so muscle-memory bookmarks (`/login`), marketing/SEO
+// (`/signup`), and the canonical post-auth landing (`/welcome`) all
+// land on the same flow with subtly different copy framings.
+//
+// LoginPage.tsx and SignupPage.tsx remain on disk (legacy invite-only
+// shape from the pre-Solana model) — they're unimported here and will
+// be deleted in the auth-cutover ship once the new `auth_methods`
+// backend, passkey ceremony, and SIWS wiring land.
 import WelcomePage from "@/pages/WelcomePage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
@@ -280,16 +291,15 @@ export default function App() {
     <ErrorBoundary>
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
-          {/* Public auth routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          {/* Welcome — combined sign-in / sign-up under the new
-              "every user = a Company" model. Three-door entry
-              (Solana wallet · passkey · email), animated live spawn,
-              direct land on /trust/<pubkey>/. Slated to replace
-              /login + /signup as canonical front door once the auth
-              cutover lands. */}
-          <Route path="/welcome" element={<WelcomePage />} />
+          {/* Public auth routes — three URLs, one component, three
+              copy modes. Per "every user = a Company": sign-in and
+              sign-up are the same act, the auth method resolves new
+              vs returning. All three render `<WelcomePage />` with a
+              different `mode` so muscle-memory + marketing + canonical
+              post-auth landing all work without wasted friction. */}
+          <Route path="/login" element={<WelcomePage mode="login" />} />
+          <Route path="/signup" element={<WelcomePage mode="signup" />} />
+          <Route path="/welcome" element={<WelcomePage mode="welcome" />} />
           <Route path="/start" element={<Navigate to="/welcome" replace />} />
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
           <Route path="/verify" element={<VerifyEmailPage />} />
