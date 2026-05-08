@@ -1,0 +1,89 @@
+/* Table primitive — Notion-minimal data table.
+ *
+ * Real <table> semantics so columns align, headers and cells share
+ * widths via <col>, and tabular numerics line up. No hairlines (per
+ * `feedback_no_hairlines.md` and the impeccable charter) — row
+ * separation is implicit, hover paints --color-card-elevated.
+ *
+ * One canonical answer for every list view in the app: roles, agents,
+ * quests, events, ideas-list, treasury rows, etc. Extend via columns
+ * + density; do not fork.
+ */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* Header — Notion's tiny uppercase column labels. Quiet, never compete
+   with the data below. */
+.table thead th {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+  background: transparent;
+}
+
+.table tbody td {
+  padding: var(--space-3);
+  vertical-align: middle;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Density — `compact` halves the vertical breathing for dense lists. */
+.compact thead th {
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+
+.compact tbody td {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/* Alignment — driven by per-column `align` prop, written to data-align
+   on both <th> and <td> so header + cell stay in lockstep. */
+.table thead th[data-align="end"],
+.table tbody td[data-align="end"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table thead th[data-align="center"],
+.table tbody td[data-align="center"] {
+  text-align: center;
+}
+
+/* Clickable rows — the entire <tr> is the affordance. Hover paints the
+   row in the elevated tint; focus matches the action focus register. */
+.rowClickable {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.rowClickable:hover {
+  background: var(--color-card-elevated);
+}
+
+.rowClickable:focus-visible {
+  outline: none;
+  background: var(--color-card-elevated);
+  box-shadow: var(--focus-ring);
+}
+
+/* Empty state — no <table> markup, just a centered slot. */
+.emptyWrap {
+  width: 100%;
+}

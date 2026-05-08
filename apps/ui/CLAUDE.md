@@ -1910,19 +1910,23 @@ Rule: if you're building a chart surface over `Role[]` + `RoleEdge[]`, import
 `layoutChart` (and `NODE_W` / `NODE_H`) from `roles/layout.ts` and render nodes
 at their absolute `(x, y)` positions.
 
-**Roles list view — pre-order DAG traversal + depth indent. Agents list view — flat.**
-`RolesList` (Roles tab list view) expresses hierarchy as a depth-indented flat
-list — pre-order DFS from roots, `paddingLeft: depth * 24` on the first cell.
-Section-header grouping by `role_type` or department label was the prior
-anti-pattern and was removed (2026-05-06) from `EntityRolesTab.tsx`. Do not
-reintroduce `ROLE_TYPE_ORDER` or any section-header loop in the Roles list
-view.
+**Roles + Agents list views — both FLAT. No depth indent, no DFS, no section headers.**
+`RolesList` and `AgentsList` (Roles / Agents tab list views) are flat
+tables. No `paddingLeft: depth * N` on the title cell, no pre-order DFS,
+no `ROLE_TYPE_ORDER` section-header loop, no `buildAgentTreeData` /
+`preorderByType`. The depth-indent shipped on RolesList (2026-05-06) and
+AgentsList (2026-05-06 task #164) were both reverted by founder direction:
+hierarchy is a chart concern; the list view is a normal table. Sort order
+comes from the toolbar selector (recent / alpha / activity / spend) or a
+default bucket-by-type sort (`director` → `operational` → `advisor`).
+Do not reintroduce indent or DFS.
 
-`AgentsList` (Agents tab list view) is FLAT — no depth indent, no
-`buildAgentTreeData`, no pre-order traversal. The depth-indent shipped on
-2026-05-06 (task #164) was reverted 2026-05-07 by founder direction:
-hierarchy is a chart concern. Sort order comes from the toolbar selector
-(recent / alpha / activity / spend). Do not reintroduce the indent.
+Both list views render through the canonical `<Table>` primitive
+(`components/ui/Table.tsx`) — real `<table>` semantics, columns drive
+both header and cells via `<col>` widths so alignment is browser-enforced.
+Don't fork; extend Table via columns/density. Cost (2026-05-08): roles
+list shipped without column-aligned cells (grid-template-columns drift
+between head + row); fixed by migrating to the Table primitive.
 
 CSS classes that are gone and must NOT be added back:
 `.roles-chart-dept-cluster`, `.roles-chart-dept-root`, `.roles-chart-ceo-row`,

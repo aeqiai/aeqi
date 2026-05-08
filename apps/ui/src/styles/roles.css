@@ -216,83 +216,10 @@
 }
 
 /* ------------------------------------------------------------------
-   List view — dense table with reports-to column.
+   List view — wraps the canonical Table primitive (components/ui/Table)
+   in the page-padded container. All row/cell styling lives on the Table
+   primitive; this rule only owns the surface padding.
    ------------------------------------------------------------------ */
 .roles-list {
   padding: 0 24px 24px;
-}
-.roles-list-head,
-.roles-list-row {
-  display: grid;
-  grid-template-columns: minmax(160px, 1.4fr) minmax(160px, 1.4fr) minmax(140px, 1fr) 120px;
-  align-items: baseline;
-  gap: 16px;
-  padding: 12px 8px;
-  text-align: left;
-}
-.roles-list-head {
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  border-bottom: none;
-  padding-bottom: var(--space-1);
-  margin-bottom: var(--space-1);
-  font-weight: 500;
-}
-.roles-list-row {
-  background: transparent;
-  border: none;
-  border-bottom: none;
-  padding-bottom: var(--space-1);
-  margin-bottom: var(--space-1);
-  cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: background 0.12s ease;
-}
-.roles-list-row:hover {
-  background: var(--color-card-elevated, var(--bg-row));
-}
-.roles-list-row:focus-visible {
-  outline: 2px solid var(--accent-dim);
-  outline-offset: -1px;
-  background: var(--color-card-elevated, var(--bg-row));
-}
-.roles-list-cell-title {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.roles-list-cell-occupant {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.roles-list-cell-occupant strong {
-  font-weight: 500;
-}
-.roles-list-cell-kind {
-  color: var(--color-text-muted);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  margin-right: 4px;
-}
-.roles-list-cell-parents {
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.roles-list-cell-meta {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.roles-list-cell-muted {
-  color: var(--color-text-muted);
 }
