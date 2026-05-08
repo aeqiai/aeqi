@@ -18,7 +18,7 @@ export default function VerifyEmailPage() {
   }, [pendingEmail]);
 
   useEffect(() => {
-    document.title = "verify email · æiq";
+    document.title = "verify email · æqi";
   }, []);
 
   useEffect(() => {

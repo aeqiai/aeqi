@@ -73,7 +73,7 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
   // Title effect
   useEffect(() => {
     const section = TAB_TITLES[tab] ?? "company";
-    document.title = `${section} · æiq`;
+    document.title = `${section} · æqi`;
   }, [tab]);
 
   // Trust-address redirect: when entity gains a trust_address, redirect to

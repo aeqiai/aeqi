@@ -51,7 +51,7 @@ export default function AgentsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = "agents · æiq";
+    document.title = "agents · æqi";
   }, []);
 
   useEffect(() => {

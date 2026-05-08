@@ -9,7 +9,7 @@ export default function AuthCallbackPage() {
   const handleOAuthCallback = useAuthStore((s) => s.handleOAuthCallback);
 
   useEffect(() => {
-    document.title = "signing in · æiq";
+    document.title = "signing in · æqi";
   }, []);
 
   useEffect(() => {
