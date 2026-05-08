@@ -215,8 +215,10 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             ON welcome_email_verifications(email_lower);
         CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_expires
             ON welcome_email_verifications(expires_at);
-        CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_email_code
-            ON welcome_email_verifications(email_lower, code);
+        -- NOTE: idx_welcome_email_verifications_email_code (covering the
+        -- `code` column) is created BELOW, after the in-place ALTER ensures
+        -- `code` exists on legacy tables. Putting it inside this batch fails
+        -- on prod DBs that pre-date the column with "no such column: code".
 
         -- Pending Sign-In With Solana (SIWS) challenges. The client gets
         -- a fresh nonce, asks their wallet to sign a message containing
@@ -276,6 +278,15 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             return Err(e);
         }
     }
+
+    // Index on the `code` column lives here (post-ALTER) so it works on both
+    // freshly-created tables and legacy tables that just gained the column.
+    conn.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_welcome_email_verifications_email_code
+            ON welcome_email_verifications(email_lower, code);
+        "#,
+    )?;
 
     Ok(())
 }
