@@ -878,9 +878,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
             <>
               <p className="signup-pitch-eyebrow">Welcome back</p>
               <h2 className="signup-pitch-heading">Your company is still running.</h2>
-              <p className="signup-lead">
-                Your TRUST, your roles, your treasury — exactly where you left them.
-              </p>
+              <p className="signup-lead">Pick up where you left off.</p>
             </>
           ) : (
             <>
