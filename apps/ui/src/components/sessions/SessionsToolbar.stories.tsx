@@ -108,7 +108,7 @@ export const WithSortAndFilter: Story = {
 /* ── Active query — clear-x button visible, kbd hint hidden ── */
 
 function ActiveQueryDemo() {
-  const [q, setQ] = useState("aeiq");
+  const [q, setQ] = useState("aeqi");
   return (
     <Wrap>
       <SessionsToolbar query={q} onQuery={setQ} searchPlaceholder="Search inbox" />

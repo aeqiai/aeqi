@@ -22,7 +22,7 @@ type Story = StoryObj<typeof SessionRail>;
 const SAMPLE_ROWS: SessionRailRow[] = [
   {
     id: "s-1",
-    primary: "AEIQ deploy postmortem",
+    primary: "AEQI deploy postmortem",
     time: "5m",
     status: "active",
     awaiting: true,
@@ -80,7 +80,7 @@ export const Default: Story = {
 };
 
 /* ── Filtered — caller has narrowed rows via `<SessionsToolbar>` query ── */
-const SEARCH_NARROWED = SAMPLE_ROWS.filter((r) => r.primary.toLowerCase().includes("aeiq"));
+const SEARCH_NARROWED = SAMPLE_ROWS.filter((r) => r.primary.toLowerCase().includes("aeqi"));
 
 export const Filtered: Story = {
   name: "Filtered by toolbar query",
