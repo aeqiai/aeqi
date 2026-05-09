@@ -80,8 +80,9 @@ curl -sk -X POST "https://api.telegram.org/bot${TOKEN}/setWebhook" \
 ```
 
 Expected response:
+
 ```json
-{"ok":true,"result":true,"description":"Webhook was set"}
+{ "ok": true, "result": true, "description": "Webhook was set" }
 ```
 
 ### 4. Add a channel row to the agent
@@ -121,9 +122,9 @@ automatically (read-only monitoring mode).
 Message your bot on Telegram. The message should appear in the agent's
 session within a few seconds.
 
-## AEIQ-specific setup
+## AEQI-specific setup
 
-For the AEIQ dogfood company (`entity_id: 8a3dfb3d-364e-4a9b-b62b-c326ae71439e`):
+For the AEQI dogfood company (`entity_id: 8a3dfb3d-364e-4a9b-b62b-c326ae71439e`):
 
 1. Create three bots via @BotFather: one per assistant (CEO, CTO, COO),
    or one shared bot routed by mention prefix.
@@ -132,12 +133,13 @@ For the AEIQ dogfood company (`entity_id: 8a3dfb3d-364e-4a9b-b62b-c326ae71439e`)
    Assistant (engineering notifications). CEO channel via WhatsApp
    (already wired in the Baileys adapter).
 
-3. Use the quest "Configure Telegram bot for AEIQ" in the AEIQ company
+3. Use the quest "Configure Telegram bot for AEQI" in the AEQI company
    for step-by-step tracking.
 
 ## Troubleshooting
 
 **Bot does not respond**:
+
 1. Check webhook is registered: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`
 2. Check the platform log: `sudo journalctl -u aeqi-platform.service -n 50 | grep telegram`
 3. Confirm the runtime is running: `systemctl is-active aeqi-sandbox-<entity_id>.service`

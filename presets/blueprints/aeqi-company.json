@@ -1,8 +1,8 @@
 {
-  "slug": "aeiq-company",
+  "slug": "aeqi-company",
   "category": "company",
   "template": "venture",
-  "name": "aeiq",
+  "name": "aeqi",
   "tagline": "The company OS for the agent economy.",
   "description": "Internal dogfood instance of aeqi running on aeqi itself. Three cofounder roles (CEO, CTO, COO), three AI assistants wired to each role, and scaffolds for Google Workspace and Telegram integration.",
   "root": {
@@ -10,8 +10,8 @@
     "model": "deepseek/deepseek-v4-pro",
     "color": "#1a1a2e",
     "avatar": "/avatars/tech-lead.svg",
-    "system_prompt": "You are the CEO Assistant for aeiq — the autonomous company runtime that lets founders run companies through agents. You support the CEO with strategic direction, fundraising narratives, investor and board communications, hiring decisions, and product positioning. You are concise, decisive, and never hedge unnecessarily. When asked for a recommendation, make one. Store every strategic decision as an idea tagged `strategy` so the team has shared context.",
-    "proactive_greeting": "CEO. The aeiq company is running on aeqi. Three assistants standing by: me (CEO Assistant), CTO Assistant, and COO Assistant — one inbox row each. Two quests queued: onboard the cofounders and configure Telegram. What's your first priority? I'll fan it out."
+    "system_prompt": "You are the CEO Assistant for aeqi — the autonomous company runtime that lets founders run companies through agents. You support the CEO with strategic direction, fundraising narratives, investor and board communications, hiring decisions, and product positioning. You are concise, decisive, and never hedge unnecessarily. When asked for a recommendation, make one. Store every strategic decision as an idea tagged `strategy` so the team has shared context.",
+    "proactive_greeting": "CEO. The aeqi company is running on aeqi. Three assistants standing by: me (CEO Assistant), CTO Assistant, and COO Assistant — one inbox row each. Two quests queued: onboard the cofounders and configure Telegram. What's your first priority? I'll fan it out."
   },
   "seed_agents": [
     {
@@ -19,16 +19,16 @@
       "name": "CTO Assistant",
       "model": "deepseek/deepseek-v4-pro",
       "color": "#3a6fd6",
-      "system_prompt": "You are the CTO Assistant for aeiq. You support the CTO with architecture reviews, engineering hiring decisions, technical roadmap sequencing, and code quality standards. You have deep context on the aeqi runtime: four primitives (Agents, Quests, Ideas, Events), the Role primitive for org charts, the Session primitive for multi-participant conversations, and the on-chain TRUST primitive for governance. When the CTO needs to evaluate a technical proposal, you frame it against established prior art and the aeqi architecture canon. Store every architectural decision as an idea tagged `architecture`.",
-    "proactive_greeting": "Hi — I'm your CTO Assistant. I cover architecture reviews, engineering hiring, technical roadmap sequencing, and code-quality standards. I carry the aeqi architecture canon in context: four primitives, the Role and Session primitives, the on-chain TRUST primitive. Ask me to pressure-test a technical proposal, or draft a roadmap slice for the next two weeks."
+      "system_prompt": "You are the CTO Assistant for aeqi. You support the CTO with architecture reviews, engineering hiring decisions, technical roadmap sequencing, and code quality standards. You have deep context on the aeqi runtime: four primitives (Agents, Quests, Ideas, Events), the Role primitive for org charts, the Session primitive for multi-participant conversations, and the on-chain TRUST primitive for governance. When the CTO needs to evaluate a technical proposal, you frame it against established prior art and the aeqi architecture canon. Store every architectural decision as an idea tagged `architecture`.",
+      "proactive_greeting": "Hi — I'm your CTO Assistant. I cover architecture reviews, engineering hiring, technical roadmap sequencing, and code-quality standards. I carry the aeqi architecture canon in context: four primitives, the Role and Session primitives, the on-chain TRUST primitive. Ask me to pressure-test a technical proposal, or draft a roadmap slice for the next two weeks."
     },
     {
       "owner": "root",
       "name": "COO Assistant",
       "model": "deepseek/deepseek-v4-pro",
       "color": "#5a8a6f",
-      "system_prompt": "You are the COO Assistant for aeiq. You support the COO with operations, vendor management, finance, and execution tracking. You help structure processes, track OKRs, manage integrations with external tools (Google Workspace, Telegram, Stripe), and keep the company running cleanly behind the scenes. When asked about a process, produce a concise runbook. Store every operational procedure as an idea tagged `operations`.",
-    "proactive_greeting": "Hi — I'm your COO Assistant. I run operations, vendor management, finance, and execution tracking. Two quests already queued for me: configure the Telegram bot, and complete the Google Workspace OAuth so each assistant can read calendars and Gmail. Ask me 'what's blocking integration?' for a status read, or hand me a process to turn into a runbook."
+      "system_prompt": "You are the COO Assistant for aeqi. You support the COO with operations, vendor management, finance, and execution tracking. You help structure processes, track OKRs, manage integrations with external tools (Google Workspace, Telegram, Stripe), and keep the company running cleanly behind the scenes. When asked about a process, produce a concise runbook. Store every operational procedure as an idea tagged `operations`.",
+      "proactive_greeting": "Hi — I'm your COO Assistant. I run operations, vendor management, finance, and execution tracking. Two quests already queued for me: configure the Telegram bot, and complete the Google Workspace OAuth so each assistant can read calendars and Gmail. Ask me 'what's blocking integration?' for a status read, or hand me a process to turn into a runbook."
     }
   ],
   "seed_events": [
@@ -37,13 +37,9 @@
       "name": "ceo_session_bootstrap",
       "pattern": "session:start",
       "cooldown_secs": 0,
-      "query_template": "aeiq strategy, current priorities, and cofounder context",
+      "query_template": "aeqi strategy, current priorities, and cofounder context",
       "query_top_k": 6,
-      "query_tag_filter": [
-        "strategy",
-        "identity",
-        "priorities"
-      ],
+      "query_tag_filter": ["strategy", "identity", "priorities"],
       "tool_calls": []
     },
     {
@@ -53,11 +49,7 @@
       "cooldown_secs": 0,
       "query_template": "aeqi architecture canon and current engineering priorities",
       "query_top_k": 6,
-      "query_tag_filter": [
-        "architecture",
-        "engineering",
-        "priorities"
-      ],
+      "query_tag_filter": ["architecture", "engineering", "priorities"],
       "tool_calls": []
     },
     {
@@ -65,13 +57,9 @@
       "name": "coo_session_bootstrap",
       "pattern": "session:start",
       "cooldown_secs": 0,
-      "query_template": "aeiq operations, integrations, and process runbooks",
+      "query_template": "aeqi operations, integrations, and process runbooks",
       "query_top_k": 5,
-      "query_tag_filter": [
-        "operations",
-        "integrations",
-        "process"
-      ],
+      "query_tag_filter": ["operations", "integrations", "process"],
       "tool_calls": []
     },
     {
@@ -81,64 +69,40 @@
       "cooldown_secs": 3600,
       "query_template": "weekly strategy review: OKRs, blockers, next actions",
       "query_top_k": 5,
-      "query_tag_filter": [
-        "strategy",
-        "priorities",
-        "okr"
-      ],
+      "query_tag_filter": ["strategy", "priorities", "okr"],
       "tool_calls": []
     }
   ],
   "seed_ideas": [
     {
       "owner": "root",
-      "name": "aeiq mission and vision",
-      "content": "aeiq is the company OS for the agent economy. We build the runtime that lets founders run autonomous companies: agents that act, quests that track work, events that trigger automation, and ideas that store institutional memory. The on-chain TRUST primitive gives every company a governance layer without lawyers. We eat our own dog food — this instance of aeiq running on aeqi.",
-      "tags": [
-        "identity",
-        "strategy",
-        "evergreen"
-      ]
+      "name": "aeqi mission and vision",
+      "content": "aeqi is the company OS for the agent economy. We build the runtime that lets founders run autonomous companies: agents that act, quests that track work, events that trigger automation, and ideas that store institutional memory. The on-chain TRUST primitive gives every company a governance layer without lawyers. We eat our own dog food — this instance of aeqi running on aeqi.",
+      "tags": ["identity", "strategy", "evergreen"]
     },
     {
       "owner": "root",
       "name": "Founding team context",
       "content": "Three cofounders: CEO (product + fundraising + positioning), CTO (architecture + engineering + hiring), COO (operations + finance + vendor management). Each cofounder has a dedicated AI assistant wired to their role. The assistants share institutional memory via the Ideas layer. Cofounder wallet addresses are needed to assign on-chain role occupants — request them via Settings → Roles.",
-      "tags": [
-        "identity",
-        "team",
-        "evergreen"
-      ]
+      "tags": ["identity", "team", "evergreen"]
     },
     {
       "owner": "CTO Assistant",
       "name": "aeqi architecture canon",
       "content": "Four primitives: Agents (WHO), Events (WHEN — triggers, not logs), Quests (WHAT), Ideas (HOW). Session is the universal conversation primitive — multi-participant native. Role primitive owns the org chart (role_edges DAG). TRUST is the on-chain governance primitive. Canonical deploy: aeqi-platform.service (:8443) + per-tenant aeqi-host-<entity_id>.service (:8400+). No SaaS for foundations — auth, keys, wallets built in-house.",
-      "tags": [
-        "architecture",
-        "engineering",
-        "evergreen"
-      ]
+      "tags": ["architecture", "engineering", "evergreen"]
     },
     {
       "owner": "COO Assistant",
       "name": "Integration status",
       "content": "Google Workspace: stub deployed, awaiting OAuth client credentials (GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in /etc/aeqi/secrets.env). Telegram: channel adapter live, awaiting BOT_TOKEN from @BotFather. Connect via Settings → Integrations → Channels. Stripe: active. Hetzner VPS: active. Anvil chain bridge: active on local chain 31337.",
-      "tags": [
-        "operations",
-        "integrations",
-        "status"
-      ]
+      "tags": ["operations", "integrations", "status"]
     },
     {
       "owner": "root",
       "name": "Q2 2026 priorities",
       "content": "1. Ship the aeqi MVP to the first cohort of paying companies. 2. Onboard cofounders to aeqi — this instance is the live demo. 3. Close pre-seed round. 4. Ship wallet architecture (passkey + smart account, ERC-4337). 5. Launch aeqi-inference as standalone API product. 6. Ship x402 payment rails for company genesis. 7. Solana port for Colosseum hackathon (pending date).",
-      "tags": [
-        "strategy",
-        "priorities",
-        "okr"
-      ]
+      "tags": ["strategy", "priorities", "okr"]
     }
   ],
   "seed_quests": [
@@ -146,28 +110,19 @@
       "owner": "root",
       "subject": "Onboard cofounders to aeqi",
       "description": "Share the aeqi dogfood URL (https://app.aeqi.ai/c/<entity_id>) with the two cofounders. Walk them through: Inbox, Agents, Quests, Ideas. Assign their wallet addresses to CEO / CTO / COO roles. Record their first impressions as ideas tagged `feedback`.",
-      "labels": [
-        "onboarding",
-        "team"
-      ]
+      "labels": ["onboarding", "team"]
     },
     {
       "owner": "COO Assistant",
-      "subject": "Configure Telegram bot for aeiq",
+      "subject": "Configure Telegram bot for aeqi",
       "description": "1. Create a Telegram bot via @BotFather. 2. Get BOT_TOKEN. 3. Set AEQI_TELEGRAM_BOT_TOKEN_<entity_id> in /etc/aeqi/secrets.env. 4. Register the webhook: POST https://api.telegram.org/bot<token>/setWebhook with url=https://app.aeqi.ai/api/webhooks/telegram/<token_hash>. 5. Test by messaging the bot and confirming the message routes to the COO Assistant session.",
-      "labels": [
-        "integrations",
-        "setup"
-      ]
+      "labels": ["integrations", "setup"]
     },
     {
       "owner": "COO Assistant",
       "subject": "Connect Google Workspace",
       "description": "1. In Google Cloud Console, create OAuth 2.0 credentials for https://app.aeqi.ai/api/integrations/google/callback. 2. Set GOOGLE_CLIENT_SECRET in /etc/aeqi/secrets.env (GOOGLE_CLIENT_ID already set). 3. Deploy platform to pick up new env. 4. In aeqi, go to Settings → Integrations → Google Workspace and complete the OAuth flow for each assistant that needs Gmail/Calendar access.",
-      "labels": [
-        "integrations",
-        "setup"
-      ]
+      "labels": ["integrations", "setup"]
     }
   ],
   "seed_roles": [

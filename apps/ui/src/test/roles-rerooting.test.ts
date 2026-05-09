@@ -3,7 +3,7 @@ import { reRootEdges } from "@/components/roles/layout";
 import type { RoleEdge } from "@/lib/types";
 
 /**
- * AEIQ-shaped fixture — same shape that produced the "Blockchain Advisor as
+ * AEQI-shaped fixture — same shape that produced the "Blockchain Advisor as
  * leader" bug in production:
  *
  *   director (human)         — board, no edges
@@ -43,7 +43,7 @@ describe("reRootEdges", () => {
     expect(out).toEqual([{ parent_role_id: "ceo", child_role_id: "be_eng" }]);
   });
 
-  it("AEIQ agents-only — every C-suite agent and grandchild becomes a root since CEO is human", () => {
+  it("AEQI agents-only — every C-suite agent and grandchild becomes a root since CEO is human", () => {
     // Agent subset (matches the production bug shape).
     const subset = new Set([
       "cfo",
