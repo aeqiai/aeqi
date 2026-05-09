@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { useAuthStore } from "@/store/auth";
 import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionDetail from "@/components/sessions/SessionDetail";
+import StreamingMessage from "@/components/session/StreamingMessage";
+import { useWebSocketChat } from "@/components/session/useWebSocketChat";
 import { Spinner, Tooltip } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
-import type { Message } from "@/components/session/types";
+import type { Message, SessionInfo } from "@/components/session/types";
 import { recencyBucket, timeShort } from "@/lib/format";
 
 const KIND_LABEL: Record<string, string> = {
@@ -123,6 +126,7 @@ export default function MeInboxPage() {
   const answerItem = useInboxStore((s) => s.answerItem);
   const dismissItem = useInboxStore((s) => s.dismissItem);
   const entities = useDaemonStore((s) => s.entities);
+  const token = useAuthStore((s) => s.token);
 
   // Convert visible items to client rows
   const rows: InboxRow[] = useMemo(
@@ -222,6 +226,7 @@ export default function MeInboxPage() {
   }, [selectedId, setSearchParams]);
 
   const selectedRow = visible.find((r) => r.id === selectedId) ?? null;
+  const activeSessionId = selectedRow?.id ?? null;
 
   // Entity options for the filter popover
   const entityOptions = useMemo(
@@ -286,6 +291,36 @@ export default function MeInboxPage() {
   // transport-agnostic.
   const [contextMessages, setContextMessages] = useState<Message[]>([]);
   const [contextLoading, setContextLoading] = useState(false);
+  const messagesRef = useRef<Message[]>(contextMessages);
+  messagesRef.current = contextMessages;
+  const sessionIdRef = useRef<string | null>(activeSessionId);
+  const prevSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    sessionIdRef.current = activeSessionId;
+  }, [activeSessionId]);
+
+  const setSession = useCallback((sid: string | null) => {
+    if (sid) setSelectedId(sid);
+  }, []);
+
+  const [, setStreamSessions] = useState<SessionInfo[]>([]);
+  const agentNameForStream = selectedRow?.from.name ?? selectedRow?.agent_id ?? "Agent";
+
+  const wsChat = useWebSocketChat({
+    token,
+    agentId: selectedRow?.agent_id ?? "",
+    agentName: agentNameForStream,
+    activeSessionId,
+    sessionIdRef,
+    prevSessionRef,
+    setSession,
+    setSessions: setStreamSessions,
+    messagesRef,
+    setMessages: setContextMessages,
+    sessionIdeas: [],
+    sessionTask: null,
+    attachedFiles: [],
+  });
 
   useEffect(() => {
     if (!selectedRow) {
@@ -335,12 +370,23 @@ export default function MeInboxPage() {
     async (body: string) => {
       if (!selectedRow) return;
       setSendError(null);
+      setContextMessages((prev) => [
+        ...prev,
+        {
+          role: "user",
+          from_kind: "user",
+          content: body,
+          timestamp: Date.now(),
+        },
+      ]);
+      wsChat.attachToLiveStream(selectedRow.id);
       const result = await answerItem(selectedRow.id, body);
       if (!result.ok) {
+        wsChat.handleStop(selectedRow.id);
         setSendError(result.error ?? "Failed to send.");
       }
     },
-    [selectedRow, answerItem],
+    [selectedRow, answerItem, wsChat],
   );
 
   const [dismissing, setDismissing] = useState(false);
@@ -456,6 +502,16 @@ export default function MeInboxPage() {
       selectedRow.subject && selectedRow.subject !== selectedRow.from.name
         ? selectedRow.subject
         : undefined;
+    const threadTrailingSlot =
+      wsChat.streaming || wsChat.liveSegments.length > 0 ? (
+        <StreamingMessage
+          agentName={agentNameForStream}
+          liveSegments={wsChat.liveSegments}
+          thinkingStart={wsChat.thinkingStart}
+          streaming={wsChat.streaming}
+          stepOffset={wsChat.liveStepOffset}
+        />
+      ) : undefined;
 
     return (
       <SessionDetail
@@ -466,13 +522,16 @@ export default function MeInboxPage() {
         subtitle={subtitle}
         headerExtras={headerExtras}
         messages={contextMessages}
+        isStreaming={wsChat.streaming}
         onSend={handleSend}
+        onStop={() => wsChat.handleStop(selectedRow.id)}
         composerRef={composerRef}
         composerExtraActions={archiveButton}
         attachmentTypes={["idea", "quest", "file"]}
         composerPlaceholder={`Message ${selectedRow.from.name}…`}
         emptyTitle={contextLoading ? "Loading context…" : "No prior messages."}
         errorMessage={sendError}
+        threadTrailingSlot={threadTrailingSlot}
       />
     );
   };
