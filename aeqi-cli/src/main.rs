@@ -11,7 +11,11 @@ use cli::Commands;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "aeqi", version, about = "AEQI — Multi-Agent Orchestration")]
+#[command(
+    name = "aeqi",
+    version = env!("AEQI_VERSION"),
+    about = "AEQI — Multi-Agent Orchestration"
+)]
 struct Cli {
     #[arg(short, long)]
     config: Option<PathBuf>,
