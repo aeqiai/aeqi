@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        None => cmd::chat::cmd_chat(&cli.config).await,
+        None => tui::run(&cli.config, None, None).await,
         Some(Commands::Run {
             prompt,
             root,

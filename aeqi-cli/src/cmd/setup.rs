@@ -92,41 +92,19 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
 
     let starter_files = [
         (
-            agents_dir.join("leader/agent.md"),
+            agents_dir.join("assistant/agent.md"),
             render_agent_md(
-                "leader",
-                "ld",
-                "orchestrator",
+                "assistant",
+                "asst",
+                "executive_assistant",
                 "vocal",
                 runtime,
-                "You are AEQI's primary orchestrator. Break ambiguous work into clear tasks, route specialists when needed, and keep the control plane legible.\n\nCoordinate aggressively but conservatively. Prefer explicit plans, visible checkpoints, and clean handoffs over improvisation.",
-            ),
-        ),
-        (
-            agents_dir.join("researcher/agent.md"),
-            render_agent_md(
-                "researcher",
-                "rs",
-                "advisor",
-                "silent",
-                worker_runtime,
-                "You gather missing context, compare alternatives, and turn uncertainty into actionable input for the rest of the harness.\n\nBias toward source-backed findings, explicit tradeoffs, and concise synthesis.",
-            ),
-        ),
-        (
-            agents_dir.join("reviewer/agent.md"),
-            render_agent_md(
-                "reviewer",
-                "rv",
-                "advisor",
-                "silent",
-                worker_runtime,
-                "You look for regressions, missing tests, and control-plane risks before work is accepted as complete.\n\nDefault to bug-finding, edge cases, and operational safety. Keep feedback direct.",
+                "You are an executive assistant — autonomous, precise, and proactive. Manage tasks, gather context, execute work, and keep the operator informed.\n\nDefault to action over deliberation. Prefer concrete output over analysis. Surface blockers with clear options.",
             ),
         ),
         (
             shared_agents_dir.join("WORKFLOW.md"),
-            "# Shared Workflow\n\n1. Run `aeqi doctor --strict` before starting substantial work.\n2. Keep tasks small enough for a single worker handoff.\n3. Post durable discoveries to notes.\n4. Use checkpoints and audits to resume instead of restarting from scratch.\n".to_string(),
+            "# Workflow\n\n1. Run `aeqi doctor --strict` before starting substantial work.\n2. Keep tasks small and self-contained.\n3. Save durable discoveries as ideas.\n4. Use checkpoints and audits to resume instead of restarting from scratch.\n".to_string(),
         ),
     ];
 
@@ -225,7 +203,7 @@ fn generate_web_secret() -> String {
 fn render_config(
     system_name: &str,
     runtime: &str,
-    worker_runtime: &str,
+    _worker_runtime: &str,
     default_model: &str,
     provider: ProviderKind,
     web_secret: &str,
@@ -253,63 +231,6 @@ temporal_decay_halflife_days = 30\n\
 router_cooldown_secs = 60\n\
 max_background_cost_usd = 0.5\n\
 \n\
-[[organizations]]\n\
-name = \"core\"\n\
-kind = \"workspace\"\n\
-default = true\n\
-mission = \"Maintain the workspace, keep execution moving, and preserve operator trust.\"\n\
-\n\
-[[organizations.units]]\n\
-name = \"control-plane\"\n\
-kind = \"core\"\n\
-mission = \"Coordinate work, gather evidence, and verify delivery.\"\n\
-lead = \"leader\"\n\
-members = [\"researcher\", \"reviewer\"]\n\
-\n\
-[[organizations.roles]]\n\
-agent = \"leader\"\n\
-title = \"Orchestrator\"\n\
-unit = \"control-plane\"\n\
-mandate = \"Break work down, route specialists, and keep the system legible.\"\n\
-goals = [\"Keep work moving\", \"Protect operator trust\"]\n\
-permissions = [\"delegate\", \"approve\", \"escalate\"]\n\
-\n\
-[[organizations.roles]]\n\
-agent = \"researcher\"\n\
-title = \"Research Lead\"\n\
-unit = \"control-plane\"\n\
-mandate = \"Turn ambiguity into evidence and options.\"\n\
-permissions = [\"research\", \"brief\"]\n\
-\n\
-[[organizations.roles]]\n\
-agent = \"reviewer\"\n\
-title = \"Quality Lead\"\n\
-unit = \"control-plane\"\n\
-mandate = \"Catch regressions and verify completion.\"\n\
-permissions = [\"review\", \"block\"]\n\
-\n\
-[[organizations.relationships]]\n\
-from = \"leader\"\n\
-to = \"researcher\"\n\
-kind = \"delegates_to\"\n\
-\n\
-[[organizations.relationships]]\n\
-from = \"leader\"\n\
-to = \"reviewer\"\n\
-kind = \"delegates_to\"\n\
-\n\
-[[organizations.relationships]]\n\
-from = \"reviewer\"\n\
-to = \"leader\"\n\
-kind = \"advises\"\n\
-\n\
-[[organizations.rituals]]\n\
-name = \"Daily Ops Review\"\n\
-owner = \"leader\"\n\
-cadence = \"daily\"\n\
-participants = [\"researcher\", \"reviewer\"]\n\
-purpose = \"Review readiness, open work, and blocked tasks.\"\n\
-\n\
 [orchestrator]\n\
 background_automation_enabled = true\n\
 expertise_routing = true\n\
@@ -319,27 +240,11 @@ infer_deps_threshold = 0.85\n\
 dispatch_ttl_secs = 3600\n\
 \n\
 [[agents]]\n\
-name = \"leader\"\n\
-prefix = \"ld\"\n\
-role = \"orchestrator\"\n\
+name = \"assistant\"\n\
+prefix = \"asst\"\n\
+role = \"executive_assistant\"\n\
 voice = \"vocal\"\n\
 runtime = \"{runtime}\"\n\
-max_workers = 1\n\
-\n\
-[[agents]]\n\
-name = \"researcher\"\n\
-prefix = \"rs\"\n\
-role = \"advisor\"\n\
-voice = \"silent\"\n\
-runtime = \"{worker_runtime}\"\n\
-max_workers = 1\n\
-\n\
-[[agents]]\n\
-name = \"reviewer\"\n\
-prefix = \"rv\"\n\
-role = \"advisor\"\n\
-voice = \"silent\"\n\
-runtime = \"{worker_runtime}\"\n\
 max_workers = 1\n\
 \n\
 # Add projects below. Runtime can be overridden per project.\n\
