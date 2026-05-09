@@ -89,8 +89,7 @@ export function useNav() {
   const trustEntityId = useMemo(() => {
     if (entityId) return entityId;
     if (!trustAddress) return "";
-    const lower = trustAddress.toLowerCase();
-    return entities.find((e) => e.trust_address?.toLowerCase() === lower)?.id ?? "";
+    return entities.find((e) => e.trust_address === trustAddress)?.id ?? "";
   }, [entityId, trustAddress, entities]);
 
   return { go, href, entityPath, goEntity, entityId: trustEntityId, base };

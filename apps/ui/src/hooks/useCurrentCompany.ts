@@ -26,8 +26,7 @@ export function useCurrentCompany(): {
 
   const entity = useMemo<Entity | null>(() => {
     if (trustAddress) {
-      const lower = trustAddress.toLowerCase();
-      return entities.find((e) => e.trust_address?.toLowerCase() === lower) ?? null;
+      return entities.find((e) => e.trust_address === trustAddress) ?? null;
     }
     if (routeEntityId) {
       return entities.find((e) => e.id === routeEntityId) ?? null;

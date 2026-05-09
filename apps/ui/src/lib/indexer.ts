@@ -130,7 +130,7 @@ export interface IndexedVotingPower {
 export async function fetchTrust(trustAddress: string): Promise<IndexedTrust | null> {
   const data = await indexerQuery<{ trust: IndexedTrust | null }>(
     `query($a: String!) { trust(address: $a) { trustId address creatorAddress templateId ipfsCid signersCount valueConfigsCount createdBlock } }`,
-    { a: trustAddress.toLowerCase() },
+    { a: trustAddress },
   );
   return data?.trust ?? null;
 }
@@ -139,7 +139,7 @@ export async function fetchTrust(trustAddress: string): Promise<IndexedTrust | n
 export async function fetchTrustModules(trustAddress: string): Promise<IndexedModule[]> {
   const data = await indexerQuery<{ trustModules: IndexedModule[] }>(
     `query($a: String!) { trustModules(trustAddress: $a) { trustAddress moduleId moduleAddress moduleAcl attachedBlock } }`,
-    { a: trustAddress.toLowerCase() },
+    { a: trustAddress },
   );
   return data?.trustModules ?? [];
 }
@@ -196,7 +196,7 @@ export async function fetchRolesForTrust(trustId: string): Promise<TrustRole[]> 
   try {
     const data = await indexerQuery<{ rolesForTrust: TrustRole[] }>(
       `query($id: String!) { rolesForTrust(trustId: $id) { account roleTypeId slotIndex ipfsCid } }`,
-      { id: trustId.toLowerCase() },
+      { id: trustId },
     );
     return data?.rolesForTrust ?? [];
   } catch (err) {
@@ -220,7 +220,7 @@ export async function fetchRoleRequestsForTrust(trustId: string): Promise<TrustR
   try {
     const data = await indexerQuery<{ roleRequestsForTrust: TrustRoleRequest[] }>(
       `query($id: String!) { roleRequestsForTrust(trustId: $id) { proposer account roleTypeId ipfsCid accepted } }`,
-      { id: trustId.toLowerCase() },
+      { id: trustId },
     );
     return data?.roleRequestsForTrust ?? [];
   } catch (err) {

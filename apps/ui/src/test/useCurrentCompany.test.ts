@@ -9,7 +9,7 @@ import type { Entity } from "@/lib/types";
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
 const ENTITY_ID = "ent-abc-123";
-const TRUST_ADDR = "0xdeadbeefcafe0000000000000000000000000001";
+const TRUST_ADDR = "6PHMM72UqfhgQuUvzDTU2KF9JZvBCCC4aJoKzVe2rKb2";
 
 const ENTITY: Entity = {
   id: ENTITY_ID,
@@ -95,10 +95,10 @@ describe("useCurrentCompany", () => {
     expect(result.current.entityId).toBe("");
   });
 
-  it("trust_address match is case-insensitive", () => {
-    const upper = TRUST_ADDR.toUpperCase();
-    const { result } = renderWithRoute(`/trust/${upper}/overview`, "/trust/:trustAddress/:tab");
-    expect(result.current.entity).toEqual(ENTITY);
-    expect(result.current.entityId).toBe(ENTITY_ID);
+  it("trust_address match is case-sensitive", () => {
+    const lower = TRUST_ADDR.toLowerCase();
+    const { result } = renderWithRoute(`/trust/${lower}/overview`, "/trust/:trustAddress/:tab");
+    expect(result.current.entity).toBeNull();
+    expect(result.current.entityId).toBe("");
   });
 });

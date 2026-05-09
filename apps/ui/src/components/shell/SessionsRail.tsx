@@ -103,9 +103,7 @@ export default function SessionsRail() {
   // re-derives the canonical /trust/<addr> base when the entity is on-chain.
   const resolvedEntityId =
     entityId ||
-    (trustAddress
-      ? entities.find((e) => e.trust_address?.toLowerCase() === trustAddress.toLowerCase())?.id
-      : undefined);
+    (trustAddress ? entities.find((e) => e.trust_address === trustAddress)?.id : undefined);
   const handleSelect = useCallback(
     (id: string) => {
       if (!resolvedEntityId || !agentId) return;

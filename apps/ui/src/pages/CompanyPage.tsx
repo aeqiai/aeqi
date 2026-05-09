@@ -86,7 +86,7 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
     }
 
     // Construct the target path: /trust/<address>/<tab>[/itemId]
-    const trustAddr = entity.trust_address.toLowerCase();
+    const trustAddr = entity.trust_address;
     let targetPath = `/trust/${encodeURIComponent(trustAddr)}/${tab}`;
     if (itemId) {
       targetPath += `/${encodeURIComponent(itemId)}`;

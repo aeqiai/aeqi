@@ -11,7 +11,7 @@ import type { Entity } from "@/lib/types";
  */
 export function entityBasePath(entity: Pick<Entity, "id" | "trust_address">): string {
   if (entity.trust_address) {
-    return `/trust/${entity.trust_address.toLowerCase()}`;
+    return `/trust/${entity.trust_address}`;
   }
   return `/c/${encodeURIComponent(entity.id)}`;
 }

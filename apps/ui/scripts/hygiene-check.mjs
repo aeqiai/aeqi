@@ -46,8 +46,10 @@
  */
 
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const STAGED = process.argv.includes("--staged");
+const REPO_ROOT = execSync("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
 
 const FORBIDDEN_PATTERNS = [
   {
@@ -95,12 +97,19 @@ const FORBIDDEN_PATTERNS = [
   },
 ];
 
+const GLOBAL_FORBIDDEN_PATTERNS = [
+  {
+    pattern: /(?=.*\b(?:trust_address|trustAddress|trustId)\b)(?=.*\.toLowerCase\()/,
+    message:
+      "Do not case-fold trust addresses or trust ids. Solana base58 identifiers are case-sensitive; preserve the exact string.",
+  },
+];
 
 function changedLines() {
   const cmd = STAGED
     ? "git diff --cached --unified=0 -- 'apps/ui/src/**/*.tsx' 'apps/ui/src/**/*.ts' 'apps/ui/src/**/*.css'"
     : "git diff --unified=0 -- 'apps/ui/src/**/*.tsx' 'apps/ui/src/**/*.ts' 'apps/ui/src/**/*.css'";
-  const diff = execSync(cmd, { encoding: "utf-8" });
+  const diff = execSync(cmd, { cwd: REPO_ROOT, encoding: "utf-8" });
   const out = [];
   let file = null;
   for (const raw of diff.split("\n")) {
@@ -112,9 +121,38 @@ function changedLines() {
   return out;
 }
 
+function sourceFiles() {
+  const out = execSync(
+    "git ls-files -- 'apps/ui/src/**/*.tsx' 'apps/ui/src/**/*.ts' 'apps/ui/src/**/*.css'",
+    { cwd: REPO_ROOT, encoding: "utf-8" },
+  );
+  return out.split("\n").filter(Boolean);
+}
+
+function fullTreeViolations() {
+  const violations = [];
+  for (const file of sourceFiles()) {
+    const lines = readFileSync(`${REPO_ROOT}/${file}`, "utf-8").split("\n");
+    lines.forEach((line, idx) => {
+      for (const { pattern, message } of GLOBAL_FORBIDDEN_PATTERNS) {
+        if (pattern.test(line)) {
+          violations.push({
+            file,
+            line: line.trim(),
+            lineNumber: idx + 1,
+            match: "case-folded trust identifier",
+            message,
+          });
+        }
+      }
+    });
+  }
+  return violations;
+}
+
 function main() {
   const added = changedLines();
-  const violations = [];
+  const violations = fullTreeViolations();
 
   for (const { file, line } of added) {
     for (const { pattern, message, allowFiles, skipDirs } of FORBIDDEN_PATTERNS) {
@@ -137,7 +175,7 @@ function main() {
   console.error(`✗ apps/ui design-system hygiene: ${violations.length} drift introduction(s)`);
   console.error("");
   for (const v of violations) {
-    console.error(`  ${v.file}`);
+    console.error(`  ${v.file}${v.lineNumber ? `:${v.lineNumber}` : ""}`);
     console.error(`    ${v.match} — ${v.message}`);
     console.error(`    ${v.line.length > 100 ? v.line.slice(0, 100) + "…" : v.line}`);
     console.error("");
