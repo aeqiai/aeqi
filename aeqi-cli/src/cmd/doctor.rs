@@ -416,14 +416,14 @@ pub(crate) async fn cmd_doctor(
                                     .flatten()
                                     .map(|a| a.name)
                                     .unwrap_or_else(|| ch.agent_id.clone());
-                                let channel_prefix =
-                                    format!("{}:{}:", ch.kind.as_str(), ch.agent_id);
                                 let bound_sessions = reg
-                                    .list_channel_sessions(&ch.agent_id)
-                                    .await
-                                    .unwrap_or_default()
+                                    .list_channel_session_records(&ch.agent_id)
+                                    .await?
                                     .into_iter()
-                                    .filter(|(key, _, _)| key.starts_with(&channel_prefix))
+                                    .filter(|record| {
+                                        record.key.transport == ch.kind.as_str()
+                                            && record.key.agent_id == ch.agent_id
+                                    })
                                     .count();
                                 println!(
                                     "    Channel {} kind={} agent={} allowed_chats={} channel_sessions={}",

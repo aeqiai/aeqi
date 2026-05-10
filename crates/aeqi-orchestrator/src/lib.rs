@@ -73,7 +73,7 @@ pub use channel_registry::{
     AllowedChat, Channel, ChannelConfig, ChannelKind, ChannelSpawner, ChannelStore, NewChannel,
     TelegramConfig, WhatsappBaileysConfig,
 };
-pub use channel_session::{ChannelSessionKey, ChannelSessionKeyError};
+pub use channel_session::{ChannelSessionKey, ChannelSessionKeyError, ChannelSessionRecord};
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;

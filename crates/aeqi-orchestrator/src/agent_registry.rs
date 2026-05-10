@@ -29,7 +29,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
 
-use crate::channel_session::ChannelSessionKey;
+use crate::channel_session::{ChannelSessionKey, ChannelSessionRecord};
 
 /// A persistent agent identity — one record = one node in the agent tree.
 ///
@@ -4001,9 +4001,30 @@ impl AgentRegistry {
                     row.get::<_, String>(2)?,
                 ))
             })?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
+    }
+
+    /// Typed view of channel sessions for a given agent.
+    ///
+    /// Invalid persisted keys return an error so operators see corruption
+    /// instead of receiving an incomplete runtime picture.
+    pub async fn list_channel_session_records(
+        &self,
+        agent_id: &str,
+    ) -> Result<Vec<ChannelSessionRecord>> {
+        self.list_channel_sessions(agent_id)
+            .await?
+            .into_iter()
+            .map(|(channel_key, session_id, created_at)| {
+                let key = ChannelSessionKey::parse(&channel_key)?;
+                Ok(ChannelSessionRecord {
+                    key,
+                    session_id,
+                    created_at,
+                })
+            })
+            .collect()
     }
 
     /// Look up channel_key for a given session_id (reverse lookup).

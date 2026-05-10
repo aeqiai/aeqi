@@ -16,6 +16,13 @@ pub struct ChannelSessionKey {
     pub peer_id: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChannelSessionRecord {
+    pub key: ChannelSessionKey,
+    pub session_id: String,
+    pub created_at: String,
+}
+
 impl ChannelSessionKey {
     pub fn new(
         transport: impl Into<String>,

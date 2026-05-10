@@ -5,8 +5,6 @@
 
 use super::request_field;
 use super::tenancy::check_agent_access;
-use crate::ChannelSessionKey;
-
 pub async fn handle_list_sessions(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -261,27 +259,23 @@ pub async fn handle_list_channel_sessions(
     if !check_agent_access(&ctx.agent_registry, allowed, &resolved_id).await {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
-    match ctx.agent_registry.list_channel_sessions(&resolved_id).await {
+    match ctx
+        .agent_registry
+        .list_channel_session_records(&resolved_id)
+        .await
+    {
         Ok(rows) => {
             let sessions: Vec<serde_json::Value> = rows
                 .into_iter()
-                .map(|(channel_key, session_id, created_at)| {
-                    let parsed = ChannelSessionKey::parse(&channel_key).ok();
-                    let transport = parsed
-                        .as_ref()
-                        .map(|key| key.transport.as_str())
-                        .unwrap_or("unknown");
-                    let peer_id = parsed
-                        .as_ref()
-                        .map(|key| key.peer_id.as_str())
-                        .unwrap_or("");
+                .map(|record| {
                     serde_json::json!({
-                        "channel_key": channel_key,
-                        "session_id": session_id,
-                        "chat_id": peer_id,
-                        "peer_id": peer_id,
-                        "transport": transport,
-                        "created_at": created_at,
+                        "channel_key": record.key.as_key(),
+                        "session_id": record.session_id,
+                        "chat_id": record.key.peer_id,
+                        "peer_id": record.key.peer_id,
+                        "transport": record.key.transport,
+                        "agent_id": record.key.agent_id,
+                        "created_at": record.created_at,
                     })
                 })
                 .collect();

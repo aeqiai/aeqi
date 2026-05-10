@@ -103,18 +103,6 @@ struct SessionInfoData {
     channel_sessions: Vec<ChannelSessionInfo>,
 }
 
-fn channel_key_parts(channel_key: &str) -> ChannelKeyInfo {
-    match ChannelSessionKey::parse(channel_key) {
-        Ok(key) => channel_key_info(&key),
-        Err(_) => ChannelKeyInfo {
-            channel_key: channel_key.to_string(),
-            transport: "unknown".to_string(),
-            agent_id: String::new(),
-            peer_id: String::new(),
-        },
-    }
-}
-
 fn channel_key_info(key: &ChannelSessionKey) -> ChannelKeyInfo {
     ChannelKeyInfo {
         channel_key: key.as_key(),
@@ -132,7 +120,7 @@ impl Tool for SessionInfoTool {
         let channels = channel_store.list_for_agent(&self.calling_agent_id).await?;
         let channel_sessions = self
             .agent_registry
-            .list_channel_sessions(&self.calling_agent_id)
+            .list_channel_session_records(&self.calling_agent_id)
             .await?;
         let current_channel_key = self
             .agent_registry
@@ -158,10 +146,10 @@ impl Tool for SessionInfoTool {
 
         let channel_session_data: Vec<_> = channel_sessions
             .iter()
-            .map(|(channel_key, session_id, created_at)| ChannelSessionInfo {
-                channel: channel_key_parts(channel_key),
-                session_id: session_id.clone(),
-                created_at: created_at.clone(),
+            .map(|record| ChannelSessionInfo {
+                channel: channel_key_info(&record.key),
+                session_id: record.session_id.clone(),
+                created_at: record.created_at.clone(),
             })
             .collect();
 
