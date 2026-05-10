@@ -38,7 +38,7 @@ bs58 = "0.5"
 bip39 = { version = "2", features = ["rand"] }
 
 # Keccak256 for EVM address derivation
-sha3 = "0.10"
+sha3 = "0.11"
 
 # Sign-In With Ethereum (EIP-4361) — Spruce's reference implementation
 siwe = "0.6"
