@@ -7,6 +7,7 @@ import { GoogleIcon, GitHubIcon } from "@/components/icons/Brand";
 import AddPasskeyButton from "@/pages/Settings/AddPasskeyButton";
 
 type Feedback = { type: "success" | "error"; msg: string } | null;
+type AuthMethodSummary = { kind?: unknown };
 
 /**
  * Mirrors `validate_security_phrase` in aeqi-platform/src/server.rs. Keep
@@ -50,6 +51,7 @@ export default function SecurityPanel() {
   const logout = useAuthStore((s) => s.logout);
 
   const [provider, setProvider] = useState<string>("local");
+  const [connectedAuthKinds, setConnectedAuthKinds] = useState<string[]>([]);
   const [accountEmail, setAccountEmail] = useState<string>("");
 
   // Phishing phrase
@@ -84,9 +86,20 @@ export default function SecurityPanel() {
         if (typeof u.phishing_code === "string") setPhishingCode(u.phishing_code);
         if (typeof u.provider === "string") setProvider(u.provider);
         if (typeof u.email === "string") setAccountEmail(u.email);
+        const kinds = new Set<string>();
+        if (typeof u.provider === "string") kinds.add(u.provider);
+        if (Array.isArray(u.auth_methods)) {
+          for (const method of u.auth_methods as AuthMethodSummary[]) {
+            if (typeof method.kind === "string") kinds.add(method.kind);
+          }
+        }
+        setConnectedAuthKinds([...kinds]);
       })
       .catch(() => {});
   }, []);
+
+  const googleConnected = provider === "google" || connectedAuthKinds.includes("google");
+  const githubConnected = provider === "github" || connectedAuthKinds.includes("github");
 
   const handlePhishingSave = async () => {
     setPhishingFeedback(null);
@@ -320,9 +333,9 @@ export default function SecurityPanel() {
         <StatusRow
           icon={<GoogleIcon />}
           label="Google"
-          status={provider === "google" ? "Connected" : undefined}
+          status={googleConnected ? "Connected" : undefined}
           action={
-            provider === "google" ? undefined : (
+            googleConnected ? undefined : (
               <Button
                 variant="secondary"
                 size="sm"
@@ -339,9 +352,9 @@ export default function SecurityPanel() {
         <StatusRow
           icon={<GitHubIcon />}
           label="GitHub"
-          status={provider === "github" ? "Connected" : undefined}
+          status={githubConnected ? "Connected" : undefined}
           action={
-            provider === "github" ? undefined : (
+            githubConnected ? undefined : (
               <Button
                 variant="secondary"
                 size="sm"

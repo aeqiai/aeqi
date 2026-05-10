@@ -185,7 +185,7 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         CREATE TABLE IF NOT EXISTS auth_methods (
             id              TEXT PRIMARY KEY,
             company_id      TEXT NOT NULL,
-            kind            TEXT NOT NULL CHECK (kind IN ('email','passkey','google','wallet_siws')),
+            kind            TEXT NOT NULL CHECK (kind IN ('email','passkey','google','github','wallet_siws')),
             identity        TEXT NOT NULL,
             metadata_json   TEXT,
             verified_at     TEXT NOT NULL,
@@ -263,6 +263,8 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         "#,
     )?;
 
+    migrate_auth_methods_github_kind(conn)?;
+
     // Idempotent in-place migration: tables created before the `code` column
     // existed (welcome_email_verifications was originally token-only; the
     // 6-digit code path was restored 2026-05-08 so cross-device email auth
@@ -291,6 +293,45 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn migrate_auth_methods_github_kind(conn: &Connection) -> rusqlite::Result<()> {
+    let create_sql = conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'auth_methods'",
+        [],
+        |row| row.get::<_, String>(0),
+    )?;
+    if create_sql.contains("'github'") {
+        return Ok(());
+    }
+
+    conn.execute_batch(
+        r#"
+        DROP INDEX IF EXISTS idx_auth_methods_company;
+
+        CREATE TABLE auth_methods_v2 (
+            id              TEXT PRIMARY KEY,
+            company_id      TEXT NOT NULL,
+            kind            TEXT NOT NULL CHECK (kind IN ('email','passkey','google','github','wallet_siws')),
+            identity        TEXT NOT NULL,
+            metadata_json   TEXT,
+            verified_at     TEXT NOT NULL,
+            last_used_at    TEXT,
+            UNIQUE(kind, identity)
+        );
+
+        INSERT INTO auth_methods_v2
+            (id, company_id, kind, identity, metadata_json, verified_at, last_used_at)
+        SELECT id, company_id, kind, identity, metadata_json, verified_at, last_used_at
+        FROM auth_methods;
+
+        DROP TABLE auth_methods;
+        ALTER TABLE auth_methods_v2 RENAME TO auth_methods;
+
+        CREATE INDEX IF NOT EXISTS idx_auth_methods_company
+            ON auth_methods(company_id);
+        "#,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,6 +351,19 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn auth_methods_accepts_github_kind() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        conn.execute(
+            "INSERT INTO auth_methods (id, company_id, kind, identity, verified_at)
+             VALUES ('am1', 'company1', 'github', 'user1', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
     }
 
     #[test]
