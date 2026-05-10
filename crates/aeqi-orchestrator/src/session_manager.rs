@@ -899,6 +899,8 @@ impl SessionManager {
         if let Some(agent_id) = agent_uuid.clone() {
             let orch_tools = crate::tools::build_orchestration_tools(
                 agent_id,
+                pregenerated_session_id.clone(),
+                opts.transport.clone(),
                 activity_log.clone(),
                 None,
                 idea_store_for_agent.clone(),
@@ -910,6 +912,25 @@ impl SessionManager {
             tools.extend(orch_tools);
         } else {
             warn!(agent = %agent_name, "skipping orchestration tools: unresolved agent id");
+        }
+
+        if opts.transport.is_some() {
+            let transport = opts.transport.as_deref().unwrap_or("unknown");
+            let channel_key = agent_registry
+                .get_channel_key_for_session(&pregenerated_session_id)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "none".to_string());
+            system_prompt = format!(
+                "{system_prompt}\n\n---\n\nRuntime context:\n\
+                 - Current session id: {pregenerated_session_id}\n\
+                 - Current transport: {transport}\n\
+                 - Current channel session key: {channel_key}\n\
+                 Use the `session.info` tool when you need authoritative agent, session, \
+                 channel, whitelist, or transport metadata. Do not infer the active \
+                 transport from config files or process names when runtime metadata is present."
+            );
         }
 
         // `question.ask` — director-inbox tool. Capability-gated; off-by-default.

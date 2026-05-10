@@ -5,6 +5,7 @@ pub mod ideas;
 pub mod openrouter_usage;
 pub mod quests;
 pub mod roles;
+pub mod session_info;
 pub mod sessions;
 
 pub use agents::AgentsTool;
@@ -14,6 +15,7 @@ pub use ideas::IdeasTool;
 pub use openrouter_usage::{collect_openrouter_usage, collect_worker_usage, usage_log_path};
 pub use quests::QuestsTool;
 pub use roles::RolesTool;
+pub use session_info::SessionInfoTool;
 pub use sessions::SessionsTool;
 
 use aeqi_core::traits::{IdeaStore, Tool, ToolResult, ToolSpec};
@@ -516,6 +518,8 @@ impl Tool for CodeTool {
 
 pub fn build_orchestration_tools(
     agent_id: String,
+    session_id: String,
+    transport: Option<String>,
     activity_log: Arc<ActivityLog>,
     api_key: Option<String>,
     idea_store: Option<Arc<dyn IdeaStore>>,
@@ -585,6 +589,12 @@ pub fn build_orchestration_tools(
         Arc::new(code_tool),
         Arc::new(roles_tool),
         Arc::new(budgets_tool),
+        Arc::new(SessionInfoTool::new(
+            agent_registry.clone(),
+            agent_id.clone(),
+            session_id,
+            transport,
+        )),
     ];
 
     // 4b. Sessions tool (read-only FTS5 search over transcripts).

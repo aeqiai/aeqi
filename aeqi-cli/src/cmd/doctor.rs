@@ -403,6 +403,54 @@ pub(crate) async fn cmd_doctor(
                     let ehs = aeqi_orchestrator::EventHandlerStore::new(reg.db());
                     let count = ehs.count_enabled().await.unwrap_or(0);
                     t.ok(format!("Event handlers: {count} enabled"));
+
+                    let channel_store = aeqi_orchestrator::ChannelStore::new(reg.db());
+                    match channel_store.list_enabled().await {
+                        Ok(channels) => {
+                            t.ok(format!("Runtime channels: {} enabled", channels.len()));
+                            for ch in channels {
+                                let agent_label = reg
+                                    .get(&ch.agent_id)
+                                    .await
+                                    .ok()
+                                    .flatten()
+                                    .map(|a| a.name)
+                                    .unwrap_or_else(|| ch.agent_id.clone());
+                                let channel_prefix =
+                                    format!("{}:{}:", ch.kind.as_str(), ch.agent_id);
+                                let bound_sessions = reg
+                                    .list_channel_sessions(&ch.agent_id)
+                                    .await
+                                    .unwrap_or_default()
+                                    .into_iter()
+                                    .filter(|(key, _, _)| key.starts_with(&channel_prefix))
+                                    .count();
+                                println!(
+                                    "    Channel {} kind={} agent={} allowed_chats={} channel_sessions={}",
+                                    ch.id,
+                                    ch.kind.as_str(),
+                                    agent_label,
+                                    ch.allowed_chats.len(),
+                                    bound_sessions,
+                                );
+                                if ch.allowed_chats.is_empty() {
+                                    t.report(
+                                        Severity::Optional,
+                                        format!(
+                                            "    Channel {} ({}) has no allowed chat/contact rows; \
+                                             set an explicit whitelist for production transports.",
+                                            ch.id,
+                                            ch.kind.as_str(),
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                        Err(e) => t.report(
+                            Severity::Blocking,
+                            format!("Runtime channels audit failed: {e}"),
+                        ),
+                    }
                 }
                 Err(_) => println!("[INFO] Event handlers: no agent registry"),
             }
