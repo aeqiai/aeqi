@@ -11,8 +11,8 @@ quests, and events.
 
 The repository contains the Rust runtime, CLI, daemon, HTTP/WebSocket server,
 embedded React dashboard, provider integrations, tool packs, tests, release
-workflows, and supporting docs for the runtime. It also carries active protocol
-and contract work under `projects/aeqi-solana` and `test-contracts`.
+workflows, and supporting docs for the runtime. The active protocol work lives
+under `projects/aeqi-solana`.
 
 ## Status and License
 
@@ -39,7 +39,6 @@ licensor's paid versions. The change license is Apache 2.0 on April 5, 2030.
 | `presets/` | Bootstrap and blueprint seed data used by setup and starter flows |
 | `packages/` | Shared TypeScript packages used by the UI |
 | `projects/aeqi-solana/` | Solana program workspace and indexer work |
-| `test-contracts/` | Solidity mock contracts for graph/indexing tests |
 | `scripts/` | Install, smoke-test, security, dependency, and public-surface scripts |
 | `.github/` | CI, release workflow, issue templates, and repository policy files |
 | `deploy/` | Example systemd units for deployable services |
@@ -99,6 +98,7 @@ Common commands:
 | `aeqi events install-defaults` | Install the standard schedule events on existing agents |
 | `aeqi monitor` | Show a consolidated operator monitor view |
 | `aeqi graph index --root <ROOT>` | Index a repository into the code graph |
+| `aeqi trust derive --entity-id <ENTITY>` | Derive the canonical trust identity for a company or entity |
 | `aeqi mcp` | Run the MCP server |
 
 Run `aeqi <command> --help` for the exact flags supported by a local build.
@@ -135,11 +135,10 @@ binary when built with the default `aeqi-web` feature set.
 | `aeqi-graph` | Code graph indexing for Rust, TypeScript, and Solidity |
 | `aeqi-hosting` | Hosting provider traits and local/managed placement helpers |
 | `aeqi-mcp` | MCP integration for exposing runtime capabilities to external clients |
-| `aeqi-wallets` | Wallet custody, signing, passkey, SIWE, and session-key primitives |
+| `aeqi-trust` | Trust kernel primitives for company identity and trust binding |
+| `aeqi-wallets` | Wallet custody, signing, passkey, and session-key primitives |
 | `aeqi-inference` | OpenAI-compatible inference router and billing lanes |
-| `aeqi-indexer` | Rust EVM indexer with SQLite and GraphQL |
 | `aeqi-ipfs` | Kubo HTTP API client for IPFS storage |
-| `aeqi-paymaster` | ERC-4337 paymaster signing service |
 | `aeqi-architect` | Blueprint generator for turning a brief into runtime starter data |
 | `aeqi-pack-*` | GitHub, Google Workspace, Notion, and Slack tool packs |
 | `aeqi-test-support` | Shared test harnesses and fixtures |

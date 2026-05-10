@@ -12,6 +12,7 @@
 - [deployment.md](deployment.md) — production topology, systemd, reverse proxy.
 - [runtime-platform-separation.md](runtime-platform-separation.md) — source-available runtime vs hosted platform.
 - [mcp-setup.md](mcp-setup.md) — wire aeqi into an MCP-aware client.
+- [solana-trust-handover.md](solana-trust-handover.md) — current Solana trust MVP state and next-step plan.
 
 ## Build with aeqi
 

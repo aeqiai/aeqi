@@ -154,14 +154,27 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         eprintln!("[aeqi-mcp] agent scope: {name}");
     }
 
-    // Resolve IPC socket: secret key auth (hosted root runtime) or local daemon fallback.
-    let sock_path = if let Ok(secret_key) = std::env::var("AEQI_SECRET_KEY") {
+    // Prefer the local daemon socket when it is present. That keeps the
+    // MCP server usable for self-hosted and development runs even when
+    // hosted auth env vars are set in the shell. Only fall back to hosted
+    // validation when the local socket is absent.
+    let local_sock = config.data_dir().join("rm.sock");
+    let sock_path = if local_sock.exists() {
+        eprintln!(
+            "[aeqi-mcp] using local daemon socket {}",
+            local_sock.display()
+        );
+        local_sock
+    } else if let Ok(secret_key) = std::env::var("AEQI_SECRET_KEY") {
         let api_key = std::env::var("AEQI_API_KEY").ok();
         let platform_url = std::env::var("AEQI_PLATFORM_URL")
             .unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
         validate_api_key(&secret_key, api_key.as_deref(), &platform_url)?
     } else {
-        config.data_dir().join("rm.sock")
+        anyhow::bail!(
+            "no local daemon socket at {} and AEQI_SECRET_KEY is unset",
+            local_sock.display()
+        );
     };
 
     let tools = vec![

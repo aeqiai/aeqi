@@ -206,6 +206,12 @@ pub enum Commands {
         action: WebAction,
     },
 
+    /// Trust kernel utilities.
+    Trust {
+        #[command(subcommand)]
+        action: TrustAction,
+    },
+
     /// Code intelligence graph — index, query, and analyze code structure.
     Graph {
         #[command(subcommand)]
@@ -443,6 +449,19 @@ pub enum WebAction {
         /// Override bind address (default: from config or 0.0.0.0:8400).
         #[arg(long)]
         bind: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum TrustAction {
+    /// Derive the canonical trust identity for a company/entity id.
+    Derive {
+        /// Runtime company or platform entity id.
+        #[arg(long = "entity-id")]
+        entity_id: String,
+        /// Emit JSON instead of key/value lines.
+        #[arg(long)]
+        json: bool,
     },
 }
 

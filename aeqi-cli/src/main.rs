@@ -132,6 +132,7 @@ async fn main() -> Result<()> {
         Some(Commands::Team { root }) => cmd::team::cmd_team(&cli.config, root.as_deref()).await,
         Some(Commands::Config { action }) => cmd::config::cmd_config(&cli.config, action).await,
         Some(Commands::Agent { action }) => cmd::agent::cmd_agent(&cli.config, action).await,
+        Some(Commands::Trust { action }) => cmd::trust::cmd_trust(&cli.config, action).await,
         Some(Commands::Audit { root, quest, last }) => {
             cmd::audit::cmd_audit(&cli.config, root.as_deref(), quest.as_deref(), last).await
         }

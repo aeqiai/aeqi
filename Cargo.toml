@@ -8,6 +8,7 @@ members = [
     "crates/aeqi-tools",
     "crates/aeqi-orchestrator",
     "crates/aeqi-ideas",
+    "crates/aeqi-trust",
     "crates/aeqi-inference",
     "crates/aeqi-gates",
     "crates/aeqi-web",
@@ -20,9 +21,7 @@ members = [
     "crates/aeqi-pack-notion",
     "crates/aeqi-pack-slack",
     "crates/aeqi-wallets",
-    "crates/aeqi-indexer",
     "crates/aeqi-ipfs",
-    "crates/aeqi-paymaster",
     "crates/aeqi-architect",
 ]
 
@@ -118,9 +117,6 @@ validator = { version = "0.20", features = ["derive"] }
 # Test
 tempfile = "3"
 
-# EVM / blockchain
-alloy = { version = "1", features = ["full"] }
-
 # GraphQL
 async-graphql = { version = "7", features = ["chrono", "uuid"] }
 async-graphql-axum = "7"
@@ -132,6 +128,7 @@ aeqi-providers = { version = "0.15.0", path = "crates/aeqi-providers" }
 aeqi-tools = { version = "0.15.0", path = "crates/aeqi-tools" }
 aeqi-orchestrator = { version = "0.15.0", path = "crates/aeqi-orchestrator" }
 aeqi-ideas = { version = "0.15.0", path = "crates/aeqi-ideas" }
+aeqi-trust = { version = "0.15.0", path = "crates/aeqi-trust" }
 aeqi-inference = { version = "0.15.0", path = "crates/aeqi-inference" }
 aeqi-gates = { version = "0.15.0", path = "crates/aeqi-gates" }
 aeqi-web = { version = "0.15.0", path = "crates/aeqi-web" }
@@ -144,7 +141,6 @@ aeqi-pack-google-workspace = { version = "0.15.0", path = "crates/aeqi-pack-goog
 aeqi-pack-github = { version = "0.15.0", path = "crates/aeqi-pack-github" }
 aeqi-pack-notion = { version = "0.15.0", path = "crates/aeqi-pack-notion" }
 aeqi-pack-slack = { version = "0.15.0", path = "crates/aeqi-pack-slack" }
-aeqi-indexer = { version = "0.15.0", path = "crates/aeqi-indexer" }
 aeqi-ipfs = { version = "0.15.0", path = "crates/aeqi-ipfs" }
 aeqi-architect = { version = "0.15.0", path = "crates/aeqi-architect" }
 

@@ -19,6 +19,7 @@ aeqi-gates = { workspace = true }
 aeqi-ideas = { workspace = true }
 aeqi-web = { workspace = true }
 aeqi-graph = { workspace = true }
+aeqi-trust = { workspace = true }
 
 tokio = { workspace = true }
 clap = { workspace = true }

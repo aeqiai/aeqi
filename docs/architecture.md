@@ -117,8 +117,6 @@ TurnStart, TextDelta, ToolStart, ToolComplete, TurnComplete, Status, DelegateSta
 | aeqi-hosting | Local/self-host runtime placement helpers |
 | aeqi-mcp | MCP server for external clients |
 | aeqi-wallets | Wallet keys, signing, and identity helpers |
-| aeqi-indexer | On-chain event indexer |
 | aeqi-inference | OpenAI-compatible inference routing |
-| aeqi-paymaster | Account-abstraction paymaster service |
 | aeqi-architect | Blueprint drafting and refinement |
 | aeqi-pack-* | Optional tool packs for GitHub, Google Workspace, Notion, and Slack |
