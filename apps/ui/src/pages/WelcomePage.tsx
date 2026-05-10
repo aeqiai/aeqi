@@ -157,7 +157,7 @@ interface WelcomeCopy {
 const COPY: Record<WelcomeMode, WelcomeCopy> = {
   signup: {
     title: "Start your company",
-    subtitle: "Sign up with your wallet, passkey, or email.",
+    subtitle: "Sign up with email, Google, GitHub, passkey, or wallet.",
     switchLabel: "Already have an account?",
     switchHref: "/login",
     switchCta: "Sign in",
@@ -165,7 +165,7 @@ const COPY: Record<WelcomeMode, WelcomeCopy> = {
   login: {
     title: "Welcome back",
     subtitle:
-      "Sign in with your wallet, passkey, or email — same Company, same on-chain authority.",
+      "Sign in with email, Google, GitHub, passkey, or wallet — same Company, same on-chain authority.",
     switchLabel: "First time here?",
     switchHref: "/signup",
     switchCta: "Sign up",
@@ -173,7 +173,7 @@ const COPY: Record<WelcomeMode, WelcomeCopy> = {
   welcome: {
     title: "Welcome to aeqi",
     subtitle:
-      "Continue with your wallet, passkey, or email. We'll spawn or resume your Company in seconds.",
+      "Continue with email, Google, GitHub, passkey, or wallet. We'll spawn or resume your Company in seconds.",
     switchLabel: "",
     switchHref: "",
     switchCta: "",
@@ -400,6 +400,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const authMode = useAuthStore((s) => s.authMode);
   const authModeLoaded = useAuthStore((s) => s.authModeLoaded);
   const fetchAuthMode = useAuthStore((s) => s.fetchAuthMode);
+  const handleOAuthCallback = useAuthStore((s) => s.handleOAuthCallback);
   useEffect(() => {
     if (!authModeLoaded) void fetchAuthMode();
   }, [authModeLoaded, fetchAuthMode]);
@@ -611,6 +612,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       localStorage.setItem("aeqi_session_jwt", s.session_jwt);
       localStorage.setItem("aeqi_session_company_id", s.company_id);
       localStorage.setItem("aeqi_session_expires_at", s.session_expires_at);
+      handleOAuthCallback(s.session_jwt);
     } catch {
       // Safari private mode etc. — non-fatal.
     }
@@ -1092,20 +1094,14 @@ function DoorView({
               <GithubIcon /> GitHub
             </Button>
           </div>
-          {(walletDetected || passkeyAvailable) && (
-            <div className="auth-oauth-row">
-              {walletDetected && (
-                <Button variant="secondary" size="lg" fullWidth onClick={onWallet} type="button">
-                  <SolanaIcon /> {walletDetected.name}
-                </Button>
-              )}
-              {passkeyAvailable && (
-                <Button variant="secondary" size="lg" fullWidth onClick={onPasskey} type="button">
-                  <PasskeyIcon /> Passkey
-                </Button>
-              )}
-            </div>
-          )}
+          <div className="auth-oauth-row">
+            <Button variant="secondary" size="lg" fullWidth onClick={onPasskey} type="button">
+              <PasskeyIcon /> {passkeyAvailable ? "Passkey" : "Security key"}
+            </Button>
+            <Button variant="secondary" size="lg" fullWidth onClick={onWallet} type="button">
+              <SolanaIcon /> {walletDetected?.name ?? "Wallet"}
+            </Button>
+          </div>
         </div>
       </div>
 
