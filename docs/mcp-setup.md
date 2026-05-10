@@ -32,6 +32,24 @@ No keys needed. Connects directly to `~/.aeqi/rm.sock`.
 
 ### Platform (remote runtime)
 
+Remote chat and remote MCP use different credentials because they do different jobs.
+
+For interactive chat, one account key is enough:
+
+```bash
+AEQI_API_KEY=ak_account_xxxxx aeqi chat
+```
+
+The account key identifies you. The chat session then selects:
+
+- company/entity: where the session runs
+- acting role: which human role context you are using, when applicable
+- target agent: which agent receives the session
+
+No extra key is required to choose the target agent.
+
+MCP is different: it is an entity-scoped tool bridge for external clients, so it uses a company secret key and may also carry the account key to bind the call to your user account.
+
 ```json
 {
   "mcpServers": {
@@ -48,9 +66,9 @@ No keys needed. Connects directly to `~/.aeqi/rm.sock`.
 }
 ```
 
-- `AEQI_SECRET_KEY` — identifies the company runtime
+- `AEQI_SECRET_KEY` — identifies the company runtime for MCP
 - `AEQI_API_KEY` — identifies the user account
-- `AEQI_AGENT` — which agent to operate as
+- `AEQI_AGENT` — agent context for MCP tool operations, not the human account identity
 
 ### Optional: agent identity on session start
 

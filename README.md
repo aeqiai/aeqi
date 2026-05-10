@@ -203,6 +203,25 @@ aeqi monitor                            # live terminal dashboard
 aeqi doctor                             # diagnostics; --fix to repair, --strict to fail-on-warn
 ```
 
+### Platform Chat
+
+For hosted/platform chat, use one account API key. The key identifies you; the CLI then selects the company, optional acting role, and target agent for the session.
+
+```bash
+AEQI_API_KEY=ak_account_xxxxx aeqi chat
+```
+
+Non-interactive selection is available when you already know the ids:
+
+```bash
+aeqi chat \
+  --api-key ak_account_xxxxx \
+  --api-url https://cloud.aeqi.ai \
+  --entity <company_id> \
+  --role <role_id> \
+  --agent <agent_id_or_name>
+```
+
 All other event types (schedule, pattern, webhook) are created via the API or the `events_manage` tool from inside a session; there is no `aeqi event create` subcommand today.
 
 ---
