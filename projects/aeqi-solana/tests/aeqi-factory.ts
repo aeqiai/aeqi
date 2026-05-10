@@ -575,8 +575,8 @@ describe("aeqi_factory", () => {
 
   // Canonical templates registry: prove that the on-chain factory supports
   // multiple distinct named templates registered side-by-side, each with a
-  // different module set. BASIC = role + token + governance (the AEIQ
-  // shape). VENTURE = BASIC + treasury + vesting (the cap-table-company
+  // different module set. BASIC = role + token + governance (the baseline
+  // entity shape). VENTURE = BASIC + treasury + vesting (the cap-table-company
   // shape that holds funds + has time-vested grants).
   //
   // What `instantiate_template` ships today: trust.initialize +

@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Pre-push gate — mirrors CI exactly. Prevents pushing broken code.
-set -e
+# Pre-push gate — mirrors the core blocking CI checks.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "=== pre-push: public surface scan ==="
+scripts/public-surface-scan.sh
 
 echo "=== pre-push: cargo fmt --check ==="
 cargo fmt --check
