@@ -5,6 +5,7 @@
 
 use super::request_field;
 use super::tenancy::check_agent_access;
+use crate::ChannelSessionKey;
 
 pub async fn handle_list_sessions(
     ctx: &super::CommandContext,
@@ -265,14 +266,20 @@ pub async fn handle_list_channel_sessions(
             let sessions: Vec<serde_json::Value> = rows
                 .into_iter()
                 .map(|(channel_key, session_id, created_at)| {
-                    // channel_key format: "transport:agent_id:chat_id"
-                    let parts: Vec<&str> = channel_key.splitn(3, ':').collect();
-                    let transport = parts.first().copied().unwrap_or("unknown");
-                    let chat_id = parts.get(2).copied().unwrap_or("");
+                    let parsed = ChannelSessionKey::parse(&channel_key).ok();
+                    let transport = parsed
+                        .as_ref()
+                        .map(|key| key.transport.as_str())
+                        .unwrap_or("unknown");
+                    let peer_id = parsed
+                        .as_ref()
+                        .map(|key| key.peer_id.as_str())
+                        .unwrap_or("");
                     serde_json::json!({
                         "channel_key": channel_key,
                         "session_id": session_id,
-                        "chat_id": chat_id,
+                        "chat_id": peer_id,
+                        "peer_id": peer_id,
                         "transport": transport,
                         "created_at": created_at,
                     })

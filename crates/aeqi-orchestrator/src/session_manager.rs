@@ -917,10 +917,11 @@ impl SessionManager {
         if opts.transport.is_some() {
             let transport = opts.transport.as_deref().unwrap_or("unknown");
             let channel_key = agent_registry
-                .get_channel_key_for_session(&pregenerated_session_id)
+                .get_channel_session_key_for_session(&pregenerated_session_id)
                 .await
                 .ok()
                 .flatten()
+                .map(|key| key.as_key())
                 .unwrap_or_else(|| "none".to_string());
             system_prompt = format!(
                 "{system_prompt}\n\n---\n\nRuntime context:\n\

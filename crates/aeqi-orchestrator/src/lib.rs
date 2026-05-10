@@ -15,6 +15,7 @@ pub mod blueprints;
 pub mod budget_registry;
 pub mod channel_credential_migration;
 pub mod channel_registry;
+pub mod channel_session;
 pub mod checkpoint;
 pub mod claude_code;
 pub mod context_budget;
@@ -72,6 +73,7 @@ pub use channel_registry::{
     AllowedChat, Channel, ChannelConfig, ChannelKind, ChannelSpawner, ChannelStore, NewChannel,
     TelegramConfig, WhatsappBaileysConfig,
 };
+pub use channel_session::{ChannelSessionKey, ChannelSessionKeyError};
 pub use checkpoint::AgentCheckpoint;
 pub use context_budget::ContextBudget;
 pub use daemon::Daemon;

@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use crate::agent_registry::AgentRegistry;
 use crate::channel_registry::ChannelStore;
+use crate::channel_session::ChannelSessionKey;
 
 pub struct SessionInfoTool {
     agent_registry: Arc<AgentRegistry>,
@@ -42,7 +43,7 @@ struct ChannelKeyInfo {
     channel_key: String,
     transport: String,
     agent_id: String,
-    transport_peer_id: String,
+    peer_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,7 +89,7 @@ struct ChannelSessionInfo {
 struct CurrentSessionInfo {
     id: String,
     transport: Option<String>,
-    transport_peer_id: Option<String>,
+    peer_id: Option<String>,
     channel_key: Option<String>,
     current_channel: Option<ChannelKeyInfo>,
     matching_channels: Vec<ChannelMatch>,
@@ -103,12 +104,23 @@ struct SessionInfoData {
 }
 
 fn channel_key_parts(channel_key: &str) -> ChannelKeyInfo {
-    let mut parts = channel_key.splitn(3, ':');
+    match ChannelSessionKey::parse(channel_key) {
+        Ok(key) => channel_key_info(&key),
+        Err(_) => ChannelKeyInfo {
+            channel_key: channel_key.to_string(),
+            transport: "unknown".to_string(),
+            agent_id: String::new(),
+            peer_id: String::new(),
+        },
+    }
+}
+
+fn channel_key_info(key: &ChannelSessionKey) -> ChannelKeyInfo {
     ChannelKeyInfo {
-        channel_key: channel_key.to_string(),
-        transport: parts.next().unwrap_or("unknown").to_string(),
-        agent_id: parts.next().unwrap_or("").to_string(),
-        transport_peer_id: parts.next().unwrap_or("").to_string(),
+        channel_key: key.as_key(),
+        transport: key.transport.clone(),
+        agent_id: key.agent_id.clone(),
+        peer_id: key.peer_id.clone(),
     }
 }
 
@@ -124,7 +136,7 @@ impl Tool for SessionInfoTool {
             .await?;
         let current_channel_key = self
             .agent_registry
-            .get_channel_key_for_session(&self.current_session_id)
+            .get_channel_session_key_for_session(&self.current_session_id)
             .await?;
 
         let channel_data: Vec<_> = channels
@@ -153,7 +165,7 @@ impl Tool for SessionInfoTool {
             })
             .collect();
 
-        let current_channel = current_channel_key.as_deref().map(channel_key_parts);
+        let current_channel = current_channel_key.as_ref().map(channel_key_info);
 
         let configured_transport = current_channel
             .as_ref()
@@ -164,7 +176,7 @@ impl Tool for SessionInfoTool {
 
         let current_peer = current_channel
             .as_ref()
-            .map(|ch| ch.transport_peer_id.as_str())
+            .map(|ch| ch.peer_id.as_str())
             .filter(|s| !s.is_empty())
             .map(str::to_string);
 
@@ -195,8 +207,8 @@ impl Tool for SessionInfoTool {
             session: CurrentSessionInfo {
                 id: self.current_session_id.clone(),
                 transport: configured_transport,
-                transport_peer_id: current_peer,
-                channel_key: current_channel_key,
+                peer_id: current_peer,
+                channel_key: current_channel_key.map(|key| key.as_key()),
                 current_channel,
                 matching_channels,
             },
@@ -260,7 +272,9 @@ mod tests {
             .await
             .unwrap();
 
-        let channel_key = format!("telegram:{}:7822194320", agent.id);
+        let channel_key = ChannelSessionKey::new("telegram", &agent.id, "7822194320")
+            .unwrap()
+            .as_key();
         let session_id = registry
             .get_or_create_channel_session(&channel_key, &agent.id)
             .await
@@ -277,10 +291,10 @@ mod tests {
         assert!(!result.is_error);
         assert_eq!(result.data["session"]["id"], session_id);
         assert_eq!(result.data["session"]["transport"], "telegram");
-        assert_eq!(result.data["session"]["transport_peer_id"], "7822194320");
+        assert_eq!(result.data["session"]["peer_id"], "7822194320");
         assert_eq!(result.data["session"]["channel_key"], channel_key);
         assert_eq!(
-            result.data["session"]["current_channel"]["transport_peer_id"],
+            result.data["session"]["current_channel"]["peer_id"],
             "7822194320"
         );
         assert_eq!(result.data["channels"][0]["id"], channel.id);

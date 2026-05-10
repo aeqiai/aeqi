@@ -29,6 +29,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
 
+use crate::channel_session::ChannelSessionKey;
+
 /// A persistent agent identity — one record = one node in the agent tree.
 ///
 /// Identity, personality, and capabilities are expressed through ideas
@@ -3969,6 +3971,18 @@ impl AgentRegistry {
         Ok(session_id)
     }
 
+    /// Typed wrapper around `get_or_create_channel_session`.
+    ///
+    /// Prefer this in new runtime code; the string-taking method remains for
+    /// compatibility with older gateway call sites.
+    pub async fn get_or_create_channel_session_for_key(
+        &self,
+        key: &ChannelSessionKey,
+    ) -> Result<String> {
+        self.get_or_create_channel_session(&key.as_key(), &key.agent_id)
+            .await
+    }
+
     /// List all channel sessions for a given agent.
     /// Returns (channel_key, session_id, created_at) tuples.
     pub async fn list_channel_sessions(
@@ -4003,6 +4017,20 @@ impl AgentRegistry {
             )
             .optional()?;
         Ok(key)
+    }
+
+    /// Typed reverse lookup for a channel-bound session.
+    ///
+    /// Invalid legacy keys surface as an error rather than being silently
+    /// treated as "not a channel session".
+    pub async fn get_channel_session_key_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<ChannelSessionKey>> {
+        self.get_channel_key_for_session(session_id)
+            .await?
+            .map(|key| ChannelSessionKey::parse(&key).map_err(anyhow::Error::from))
+            .transpose()
     }
 
     /// List quest IDs that have been in_progress for more than `max_hours` with no updates.
