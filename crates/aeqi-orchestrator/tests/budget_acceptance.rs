@@ -16,11 +16,11 @@
 //! 4. CTO `hire`s a "Research Lead" role + auto primary budget + initial
 //!    allocation — atomic.
 //! 5. (Inference settle simulated via direct registry call as System
-//!     CallerKind would do; the WS-B3 BudgetGate seam is covered in
-//!     aeqi-inference's own tests.)
+//!    CallerKind would do; the WS-B3 BudgetGate seam is covered in
+//!    aeqi-inference's own tests.)
 //! 6. (MCP-equivalent show — a second CommandContext clone reads the
-//!     same state through the IPC layer; same data the agent's tool
-//!     calls saw.)
+//!    same state through the IPC layer; same data the agent's tool
+//!    calls saw.)
 //! 7. Multi-role disambiguation — agent occupying two roles must pass
 //!    `as_role_id` or get `EAmbiguousCallerRole`.
 //! 8. Insufficient suballoc — over-allocate from CTO returns

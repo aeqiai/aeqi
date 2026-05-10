@@ -3135,7 +3135,7 @@ mod wave2_tests {
 
         // Re-fetch the idea to get its session_id.
         let idea_row = idea_store
-            .get_by_ids(&[idea_id.clone()])
+            .get_by_ids(std::slice::from_ref(&idea_id))
             .await
             .unwrap()
             .into_iter()
@@ -3224,7 +3224,7 @@ mod wave2_tests {
         // The update should have lazy-created the session and dropped a
         // system "edited" row into it.
         let idea = idea_store
-            .get_by_ids(&[idea_id.clone()])
+            .get_by_ids(std::slice::from_ref(&idea_id))
             .await
             .unwrap()
             .into_iter()

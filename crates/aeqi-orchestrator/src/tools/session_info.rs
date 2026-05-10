@@ -7,6 +7,7 @@
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
 use anyhow::Result;
 use async_trait::async_trait;
+use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -36,17 +37,79 @@ impl SessionInfoTool {
     }
 }
 
-fn channel_key_parts(channel_key: &str) -> serde_json::Value {
+#[derive(Debug, Clone, Serialize)]
+struct ChannelKeyInfo {
+    channel_key: String,
+    transport: String,
+    agent_id: String,
+    transport_peer_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AgentInfo {
+    id: String,
+    name: String,
+    entity_id: Option<String>,
+    workdir: Option<String>,
+    can_self_delegate: bool,
+    can_ask_director: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct AllowedChatInfo {
+    chat_id: String,
+    reply_allowed: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct ChannelInfo {
+    id: String,
+    kind: String,
+    enabled: bool,
+    allowed_chats: Vec<AllowedChatInfo>,
+}
+
+#[derive(Debug, Serialize)]
+struct ChannelMatch {
+    id: String,
+    kind: String,
+    enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct ChannelSessionInfo {
+    #[serde(flatten)]
+    channel: ChannelKeyInfo,
+    session_id: String,
+    created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct CurrentSessionInfo {
+    id: String,
+    transport: Option<String>,
+    transport_peer_id: Option<String>,
+    channel_key: Option<String>,
+    current_channel: Option<ChannelKeyInfo>,
+    matching_channels: Vec<ChannelMatch>,
+}
+
+#[derive(Debug, Serialize)]
+struct SessionInfoData {
+    agent: Option<AgentInfo>,
+    session: CurrentSessionInfo,
+    channels: Vec<ChannelInfo>,
+    channel_sessions: Vec<ChannelSessionInfo>,
+}
+
+fn channel_key_parts(channel_key: &str) -> ChannelKeyInfo {
     let mut parts = channel_key.splitn(3, ':');
-    let transport = parts.next().unwrap_or("unknown");
-    let agent_id = parts.next().unwrap_or("");
-    let transport_peer_id = parts.next().unwrap_or("");
-    json!({
-        "channel_key": channel_key,
-        "transport": transport,
-        "agent_id": agent_id,
-        "transport_peer_id": transport_peer_id,
-    })
+    ChannelKeyInfo {
+        channel_key: channel_key.to_string(),
+        transport: parts.next().unwrap_or("unknown").to_string(),
+        agent_id: parts.next().unwrap_or("").to_string(),
+        transport_peer_id: parts.next().unwrap_or("").to_string(),
+    }
 }
 
 #[async_trait]
@@ -54,63 +117,54 @@ impl Tool for SessionInfoTool {
     async fn execute(&self, _args: serde_json::Value) -> Result<ToolResult> {
         let agent = self.agent_registry.get(&self.calling_agent_id).await?;
         let channel_store = ChannelStore::new(self.agent_registry.db());
-        let channels = channel_store
-            .list_for_agent(&self.calling_agent_id)
-            .await
-            .unwrap_or_default();
+        let channels = channel_store.list_for_agent(&self.calling_agent_id).await?;
         let channel_sessions = self
             .agent_registry
             .list_channel_sessions(&self.calling_agent_id)
-            .await
-            .unwrap_or_default();
+            .await?;
         let current_channel_key = self
             .agent_registry
             .get_channel_key_for_session(&self.current_session_id)
-            .await
-            .unwrap_or(None);
+            .await?;
 
         let channel_data: Vec<_> = channels
             .iter()
-            .map(|ch| {
-                json!({
-                    "id": ch.id,
-                    "kind": ch.kind.as_str(),
-                    "enabled": ch.enabled,
-                    "allowed_chats": ch.allowed_chats.iter().map(|entry| {
-                        json!({
-                            "chat_id": entry.chat_id,
-                            "reply_allowed": entry.reply_allowed,
-                        })
-                    }).collect::<Vec<_>>(),
-                })
+            .map(|ch| ChannelInfo {
+                id: ch.id.clone(),
+                kind: ch.kind.as_str().to_string(),
+                enabled: ch.enabled,
+                allowed_chats: ch
+                    .allowed_chats
+                    .iter()
+                    .map(|entry| AllowedChatInfo {
+                        chat_id: entry.chat_id.clone(),
+                        reply_allowed: entry.reply_allowed,
+                    })
+                    .collect(),
             })
             .collect();
 
         let channel_session_data: Vec<_> = channel_sessions
             .iter()
-            .map(|(channel_key, session_id, created_at)| {
-                let mut data = channel_key_parts(channel_key);
-                data["session_id"] = json!(session_id);
-                data["created_at"] = json!(created_at);
-                data
+            .map(|(channel_key, session_id, created_at)| ChannelSessionInfo {
+                channel: channel_key_parts(channel_key),
+                session_id: session_id.clone(),
+                created_at: created_at.clone(),
             })
             .collect();
 
-        let current_channel = current_channel_key
-            .as_deref()
-            .map(channel_key_parts)
-            .unwrap_or(serde_json::Value::Null);
+        let current_channel = current_channel_key.as_deref().map(channel_key_parts);
 
         let configured_transport = current_channel
-            .get("transport")
-            .and_then(|v| v.as_str())
+            .as_ref()
+            .map(|ch| ch.transport.as_str())
             .filter(|s| !s.is_empty() && *s != "unknown")
             .map(str::to_string)
             .or_else(|| self.current_transport.clone());
 
         let current_peer = current_channel
-            .get("transport_peer_id")
-            .and_then(|v| v.as_str())
+            .as_ref()
+            .map(|ch| ch.transport_peer_id.as_str())
             .filter(|s| !s.is_empty())
             .map(str::to_string);
 
@@ -122,38 +176,36 @@ impl Tool for SessionInfoTool {
                     .map(|t| ch.kind.as_str() == t)
                     .unwrap_or(false)
             })
-            .map(|ch| {
-                json!({
-                    "id": ch.id,
-                    "kind": ch.kind.as_str(),
-                    "enabled": ch.enabled,
-                })
+            .map(|ch| ChannelMatch {
+                id: ch.id.clone(),
+                kind: ch.kind.as_str().to_string(),
+                enabled: ch.enabled,
             })
             .collect();
 
-        let data = json!({
-            "agent": agent.map(|a| json!({
-                "id": a.id,
-                "name": a.name,
-                "entity_id": a.entity_id,
-                "workdir": a.workdir,
-                "can_self_delegate": a.can_self_delegate,
-                "can_ask_director": a.can_ask_director,
-            })),
-            "session": {
-                "id": self.current_session_id,
-                "transport": configured_transport,
-                "transport_peer_id": current_peer,
-                "channel_key": current_channel_key,
-                "current_channel": current_channel,
-                "matching_channels": matching_channels,
+        let data = SessionInfoData {
+            agent: agent.map(|a| AgentInfo {
+                id: a.id,
+                name: a.name,
+                entity_id: a.entity_id,
+                workdir: a.workdir,
+                can_self_delegate: a.can_self_delegate,
+                can_ask_director: a.can_ask_director,
+            }),
+            session: CurrentSessionInfo {
+                id: self.current_session_id.clone(),
+                transport: configured_transport,
+                transport_peer_id: current_peer,
+                channel_key: current_channel_key,
+                current_channel,
+                matching_channels,
             },
-            "channels": channel_data,
-            "channel_sessions": channel_session_data,
-        });
+            channels: channel_data,
+            channel_sessions: channel_session_data,
+        };
 
         let output = serde_json::to_string_pretty(&data)?;
-        Ok(ToolResult::success(output).with_data(data))
+        Ok(ToolResult::success(output).with_data(serde_json::to_value(data)?))
     }
 
     fn spec(&self) -> ToolSpec {

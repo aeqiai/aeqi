@@ -668,7 +668,10 @@ mod tests {
             .unwrap();
 
         // Verify no session_id yet.
-        let before = idea_store.get_by_ids(&[idea_id.clone()]).await.unwrap();
+        let before = idea_store
+            .get_by_ids(std::slice::from_ref(&idea_id))
+            .await
+            .unwrap();
         assert!(
             before[0].session_id.is_none(),
             "session_id should be null before first message"
@@ -688,7 +691,10 @@ mod tests {
         assert!(!session_id.is_empty());
 
         // Verify session_id was backfilled on the idea row.
-        let after = idea_store.get_by_ids(&[idea_id.clone()]).await.unwrap();
+        let after = idea_store
+            .get_by_ids(std::slice::from_ref(&idea_id))
+            .await
+            .unwrap();
         assert_eq!(
             after[0].session_id.as_deref(),
             Some(session_id.as_str()),

@@ -1,7 +1,6 @@
 pub(crate) mod agent;
 pub(crate) mod audit;
 pub(crate) mod channel_gateways;
-pub(crate) mod chat;
 pub(crate) mod config;
 pub(crate) mod daemon;
 pub(crate) mod deps;
