@@ -14,6 +14,7 @@ aeqi-core = { workspace = true }
 aeqi-hosting = { workspace = true }
 aeqi-providers = { workspace = true }
 aeqi-quests = { workspace = true }
+aeqi-wallets = { workspace = true }
 
 tokio = { workspace = true }
 tower = { workspace = true }
@@ -37,6 +38,11 @@ uuid = { workspace = true }
 rand = { workspace = true }
 bcrypt = { workspace = true }
 validator = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+url = "2"
+webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"] }
 
 # Crypto (Twilio webhook signature verification)
 hmac = { workspace = true }

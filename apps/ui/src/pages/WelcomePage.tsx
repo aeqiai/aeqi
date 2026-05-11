@@ -157,7 +157,8 @@ interface WelcomeCopy {
 const COPY: Record<WelcomeMode, WelcomeCopy> = {
   signup: {
     title: "Start your company",
-    subtitle: "Sign up with email, Google, GitHub, passkey, or wallet.",
+    subtitle:
+      "Use email, Google, GitHub, passkey, or wallet. We will set up one Company and one Trust.",
     switchLabel: "Already have an account?",
     switchHref: "/login",
     switchCta: "Sign in",
@@ -165,15 +166,14 @@ const COPY: Record<WelcomeMode, WelcomeCopy> = {
   login: {
     title: "Welcome back",
     subtitle:
-      "Sign in with email, Google, GitHub, passkey, or wallet — same Company, same on-chain authority.",
+      "Sign in with email, Google, GitHub, passkey, or wallet. Your Company and Trust stay the same.",
     switchLabel: "First time here?",
     switchHref: "/signup",
     switchCta: "Sign up",
   },
   welcome: {
     title: "Welcome to aeqi",
-    subtitle:
-      "Continue with email, Google, GitHub, passkey, or wallet. We'll spawn or resume your Company in seconds.",
+    subtitle: "Continue with email, Google, GitHub, passkey, or wallet. We will open your Company.",
     switchLabel: "",
     switchHref: "",
     switchCta: "",
@@ -538,11 +538,9 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   function buildSteps(): SpawnStep[] {
     return [
       { key: "auth", label: "Identity confirmed", status: "done" },
-      { key: "wallet", label: "Provisioning your Solana wallet", status: "active" },
-      { key: "trust", label: "Deploying your Company on Solana", status: "pending" },
-      { key: "role", label: "Role module initialized", status: "pending" },
-      { key: "token", label: "Token module initialized", status: "pending" },
-      { key: "governance", label: "Governance module initialized", status: "pending" },
+      { key: "wallet", label: "Setting up your wallet", status: "active" },
+      { key: "trust", label: "Creating your trust", status: "pending" },
+      { key: "ready", label: "Opening your workspace", status: "pending" },
     ];
   }
 
@@ -573,9 +571,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       advanceStep(idx, detail);
     };
     await advanceWith(2, trustPda);
-    await advanceWith(3, data.role_init_signature_b58 ?? undefined);
-    await advanceWith(4, data.token_init_signature_b58 ?? undefined);
-    await advanceWith(5, data.governance_init_signature_b58 ?? undefined);
+    await advanceWith(3);
     await new Promise((r) => setTimeout(r, tick));
     setSteps((prev) => prev.map((s) => ({ ...s, status: "done" as const })));
     await new Promise((r) => setTimeout(r, 300));
@@ -958,7 +954,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           {stage === "welcome" && outcome && (
             <WelcomeView
               outcome={outcome}
-              onContinue={() => navigate(`/trust/${outcome.trust_pubkey_b58}/`)}
+              onContinue={() => navigate("/start", { replace: true })}
             />
           )}
 
@@ -1256,10 +1252,8 @@ function SpawningView({ steps, picked }: { steps: SpawnStep[]; picked: Door | nu
     picked === "wallet" ? "your wallet" : picked === "passkey" ? "your passkey" : "your email";
   return (
     <>
-      <h1 className="auth-heading">Welcome to your Company.</h1>
-      <p className="auth-subheading">
-        Authenticated with {pickedLabel}. Spawning your TRUST on Solana now.
-      </p>
+      <h1 className="auth-heading">Setting up your Company.</h1>
+      <p className="auth-subheading">Authenticated with {pickedLabel}. Creating your trust now.</p>
       <ol className="welcome-spawn-list">
         {steps.map((s) => (
           <li key={s.key} className={`welcome-spawn-step welcome-spawn-step--${s.status}`}>
@@ -1267,11 +1261,6 @@ function SpawningView({ steps, picked }: { steps: SpawnStep[]; picked: Door | nu
               {s.status === "done" ? "✓" : s.status === "active" ? "•" : "·"}
             </span>
             <span className="welcome-spawn-label">{s.label}</span>
-            {s.detail && (
-              <span className="welcome-spawn-detail">
-                {s.detail.length > 24 ? `${s.detail.slice(0, 8)}…${s.detail.slice(-6)}` : s.detail}
-              </span>
-            )}
           </li>
         ))}
       </ol>
@@ -1290,13 +1279,11 @@ function WelcomeView({
 }) {
   return (
     <>
-      <h1 className="auth-heading">Your company is live.</h1>
-      <p className="auth-subheading">
-        Roles, treasury, and governance are on-chain. Take it from here.
-      </p>
+      <h1 className="auth-heading">Your account is ready.</h1>
+      <p className="auth-subheading">Now shape the company you want to build.</p>
       <div className="auth-form">
         <Button variant="primary" size="lg" fullWidth type="button" onClick={onContinue}>
-          Enter your company →
+          Open studio →
         </Button>
       </div>
     </>

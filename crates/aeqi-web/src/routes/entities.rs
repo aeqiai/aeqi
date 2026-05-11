@@ -1,4 +1,4 @@
-use axum::{Json, Router, extract::State, response::Response, routing::get};
+use axum::{Json, Router, extract::State, response::IntoResponse, response::Response, routing::get};
 
 use super::helpers::ipc_proxy;
 use crate::auth::Claims;
@@ -70,17 +70,48 @@ async fn create_entity(
         Err(_) => serde_json::Value::Null,
     };
 
-    let resp = ipc_proxy(state.clone(), scope.as_ref(), "create_entity", body.clone()).await;
-
-    // Link root agent to user in accounts store.
-    if let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
-        && let Some(user_id) = claims.user_id.as_deref()
-        && let Some(name) = body.get("name").and_then(|v| v.as_str())
-    {
-        let _ = accounts.add_director(user_id, name);
+    let mut params = if body.is_null() {
+        serde_json::json!({})
+    } else {
+        body
+    };
+    if let Some(scope_ref) = scope.as_ref() {
+        params["allowed_roots"] = serde_json::json!(scope_ref.roots);
+        if let Some(uid) = scope_ref.user_id.as_deref() {
+            params["caller_user_id"] = serde_json::Value::String(uid.to_string());
+        }
     }
 
-    resp
+    let resp = match if params.is_null() || params.as_object().is_some_and(|m| m.is_empty()) {
+        state.ipc.cmd("create_entity").await
+    } else {
+        state.ipc.cmd_with("create_entity", params.clone()).await
+    } {
+        Ok(resp) => resp,
+        Err(e) => {
+            return (
+                axum::http::StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+
+    if resp.get("ok") == Some(&serde_json::Value::Bool(true))
+        && let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
+        && let Some(user_id) = claims.user_id.as_deref()
+        && let Some(entity_id) = resp.get("id").and_then(|v| v.as_str())
+    {
+        if let Err(err) = accounts.add_director(user_id, entity_id) {
+            tracing::warn!(
+                user_id,
+                entity_id,
+                "create_entity: failed to link entity to user: {err}"
+            );
+        }
+    }
+
+    Json(resp).into_response()
 }
 
 async fn update_entity_handler(
@@ -111,16 +142,48 @@ async fn create_root_legacy(
         Err(_) => serde_json::Value::Null,
     };
 
-    let resp = ipc_proxy(state.clone(), scope.as_ref(), "create_root", body.clone()).await;
-
-    if let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
-        && let Some(user_id) = claims.user_id.as_deref()
-        && let Some(name) = body.get("name").and_then(|v| v.as_str())
-    {
-        let _ = accounts.add_director(user_id, name);
+    let mut params = if body.is_null() {
+        serde_json::json!({})
+    } else {
+        body
+    };
+    if let Some(scope_ref) = scope.as_ref() {
+        params["allowed_roots"] = serde_json::json!(scope_ref.roots);
+        if let Some(uid) = scope_ref.user_id.as_deref() {
+            params["caller_user_id"] = serde_json::Value::String(uid.to_string());
+        }
     }
 
-    resp
+    let resp = match if params.is_null() || params.as_object().is_some_and(|m| m.is_empty()) {
+        state.ipc.cmd("create_root").await
+    } else {
+        state.ipc.cmd_with("create_root", params.clone()).await
+    } {
+        Ok(resp) => resp,
+        Err(e) => {
+            return (
+                axum::http::StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+
+    if resp.get("ok") == Some(&serde_json::Value::Bool(true))
+        && let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
+        && let Some(user_id) = claims.user_id.as_deref()
+        && let Some(entity_id) = resp.get("entity_id").or_else(|| resp.get("id")).and_then(|v| v.as_str())
+    {
+        if let Err(err) = accounts.add_director(user_id, entity_id) {
+            tracing::warn!(
+                user_id,
+                entity_id,
+                "create_root: failed to link entity to user: {err}"
+            );
+        }
+    }
+
+    Json(resp).into_response()
 }
 
 async fn update_root_legacy_handler(

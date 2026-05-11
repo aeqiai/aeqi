@@ -426,6 +426,23 @@ export default function AppLayout() {
     return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
+  if (isStart) {
+    return (
+      <>
+        <a className="skip-link" href="#main-content">
+          Skip to main content
+        </a>
+        <div className="start-shell">
+          <main id="main-content" className="start-shell-main">
+            <Suspense fallback={null}>{mainContent}</Suspense>
+          </main>
+        </div>
+        <CommandPalette open={searching} onClose={closeSearch} />
+        <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      </>
+    );
+  }
+
   // The chat composer + sessions rail belong on the drilled-agent
   // default surface (`/c/<entity>/agents/<id>/[inbox/<sid>]`). The
   // entity-scope inbox (`/trust/<addr>/inbox`) embeds

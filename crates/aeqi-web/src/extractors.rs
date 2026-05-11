@@ -73,6 +73,8 @@ mod tests {
     }
 
     fn test_state(auth_secret: Option<String>, auth_mode: AuthMode) -> crate::server::AppState {
+        let data_dir = std::path::PathBuf::from("/tmp/aeqi-test");
+        let _ = std::fs::create_dir_all(&data_dir);
         crate::server::AppState {
             ipc: std::sync::Arc::new(crate::ipc::IpcClient::new("/tmp/test.sock".into())),
             auth_secret,
@@ -80,10 +82,16 @@ mod tests {
             auth_config: AuthConfig::default(),
             ui_dist_dir: None,
             accounts: None,
+            wallets: std::sync::Arc::new(
+                crate::wallets::WalletContext::bootstrap("aeqi-dev", &data_dir).unwrap(),
+            ),
+            passkeys: std::sync::Arc::new(
+                crate::passkey::PasskeyContext::bootstrap("http://localhost:8400").unwrap(),
+            ),
             smtp: None,
             hosting: test_hosting(),
             twilio_auth_token: None,
-            data_dir: std::path::PathBuf::from("/tmp/aeqi-test"),
+            data_dir,
             default_blueprint_slug: "aeqi".to_string(),
             bootstrap_registry: std::sync::Arc::new(
                 crate::routes::integrations::BootstrapRegistry::new(),

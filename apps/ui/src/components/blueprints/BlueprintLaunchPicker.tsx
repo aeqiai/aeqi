@@ -24,6 +24,9 @@ interface BlueprintLaunchPickerProps {
    *  itself + refresh). spawn-company mode no longer fires a callback —
    *  it navigates to the setup surface instead. */
   onSpawnedAgent?: (slug: string) => void;
+  /** Optional query string appended when `mode === "spawn-company"`.
+   *  Used by `/start` to carry the user's brief into the setup wizard. */
+  launchQuery?: string;
 }
 
 /**
@@ -48,6 +51,7 @@ export function BlueprintLaunchPicker({
   entityId,
   parts,
   onSpawnedAgent,
+  launchQuery,
 }: BlueprintLaunchPickerProps) {
   const navigate = useNavigate();
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]); // only single blueprints
@@ -108,7 +112,7 @@ export function BlueprintLaunchPicker({
       // blueprint into my existing company" flow with no naming or
       // billing concerns to surface.
       if (mode === "spawn-company") {
-        navigate(`/start/${encodeURIComponent(tpl.slug)}`);
+        navigate(`/start/${encodeURIComponent(tpl.slug)}${launchQuery ?? ""}`);
         return;
       }
       setSubmittingSlug(slug);
@@ -127,7 +131,7 @@ export function BlueprintLaunchPicker({
         setSubmittingSlug(null);
       }
     },
-    [bySlug, mode, entityId, parts, onSpawnedAgent, navigate],
+    [bySlug, mode, entityId, parts, onSpawnedAgent, navigate, launchQuery],
   );
 
   const isBusy = submittingSlug !== null;

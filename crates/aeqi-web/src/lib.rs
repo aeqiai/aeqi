@@ -11,6 +11,8 @@ pub mod rate_limit;
 pub mod routes;
 pub mod security_middleware;
 pub mod server;
+pub mod passkey;
+pub mod wallets;
 pub mod session_ws;
 pub mod validation;
 pub mod ws;

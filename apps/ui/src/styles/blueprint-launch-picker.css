@@ -12,23 +12,47 @@
 
 /* ── /start in-shell wrapper ────────────────────── */
 
-/* `/start` renders inside `AppLayout`'s content-paper (LeftSidebar
-   visible). The picker sits on the page with the same gutter rhythm as
-   other in-shell pages (`--space-7` top/bottom, `--space-6` sides,
-   capped width so the recommended grid doesn't spread). */
+/* `/start` is the company studio. It renders as a full-screen surface
+   inside the authenticated app shell, but without the normal sidebar chrome.
+   The page uses a wider canvas so a brief + blueprint grid can breathe. */
 .start-page {
   width: 100%;
-  max-width: 760px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6) var(--space-12);
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-7);
 }
+
+.start-shell {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  background: var(--color-background);
+}
+
+.start-shell-main {
+  width: 100%;
+}
+
 .start-head {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+.start-head--studio {
+  max-width: 60ch;
+}
+.start-eyebrow,
+.start-section-kicker {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 .start-sub {
   margin: 0;
@@ -36,6 +60,64 @@
   line-height: 1.55;
   color: var(--color-text-secondary);
   max-width: 60ch;
+}
+
+.start-brief-panel,
+.start-library-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.start-brief-panel {
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+
+.start-brief-input {
+  min-height: 210px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.start-brief-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.start-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.start-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.start-section-sub {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+@media (min-width: 1100px) {
+  .start-page {
+    gap: var(--space-8);
+  }
+  .start-brief-panel {
+    padding: var(--space-6);
+  }
 }
 
 /* ── Start blank — promoted top row ─────────────── */

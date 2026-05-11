@@ -19,11 +19,13 @@ use tracing::info;
 
 use crate::accounts::AccountStore;
 use crate::auth;
+use crate::passkey::PasskeyContext;
 use crate::ipc::IpcClient;
 use crate::rate_limit;
 use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
 use crate::security_middleware::{SecurityHeadersConfig, security_headers_middleware};
 use crate::validation::{request_size_limit_middleware, validate_content_type_middleware};
+use crate::wallets::WalletContext;
 use crate::ws;
 use aeqi_core::config::SmtpConfig;
 use tower_governor::GovernorLayer;
@@ -37,6 +39,8 @@ pub struct AppState {
     pub auth_config: AuthConfig,
     pub ui_dist_dir: Option<PathBuf>,
     pub accounts: Option<Arc<AccountStore>>,
+    pub wallets: Arc<WalletContext>,
+    pub passkeys: Arc<PasskeyContext>,
     pub smtp: Option<SmtpConfig>,
     pub hosting: Arc<dyn aeqi_hosting::HostingProvider>,
     pub twilio_auth_token: Option<String>,
@@ -67,6 +71,15 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     } else {
         None
     };
+
+    // Initialize wallet/passkey services.
+    let wallets = Arc::new(WalletContext::bootstrap(
+        web.auth_secret.as_deref().unwrap_or("aeqi-dev"),
+        &data_dir,
+    )?);
+    let passkeys = Arc::new(PasskeyContext::bootstrap(
+        web.auth.base_url.as_deref().unwrap_or("http://localhost:8400"),
+    )?);
 
     // Initialize hosting provider.
     let hosting_config = aeqi_hosting::HostingConfig {
@@ -130,6 +143,8 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         auth_config: web.auth.clone(),
         ui_dist_dir: web.ui_dist_dir.as_ref().map(PathBuf::from),
         accounts,
+        wallets,
+        passkeys,
         smtp: web.auth.smtp.clone(),
         hosting,
         twilio_auth_token: web.twilio_auth_token.clone(),

@@ -1,21 +1,14 @@
 //! Billing lanes for aeqi-inference.
 //!
-//! Three lanes gate every inference request before it reaches the upstream:
+//! Billing lanes for aeqi-inference.
 //!
-//! 1. **Subscription** — JWT auth, dollar-denominated balance per Company.
-//! 2. **Treasury** — API-key auth (Entity signer), deposit-and-meter USDC.
-//! 3. **x402** — EIP-3009 USDC signature, per-call settlement. Any agent, no signup.
-//!
-//! Each lane is a Tower [`Layer`] + [`Service`] pair. The middleware stack in
-//! `src/api.rs` selects a lane based on the `Authorization` header shape.
-//!
-//! Phase 1 implements Subscription and x402 stubs; Treasury becomes live in
-//! Phase 2 after the WS-4 wallet build is complete.
+//! The active surface is the subscription lane: JWT auth plus dollar-balance
+//! debit per company. Role budgeting is handled separately by the runtime.
+//! The module keeps the lane interface explicit so the platform can wrap the
+//! inference router without baking in chain-specific billing rails.
 
 pub mod role_budget;
 pub mod subscription;
-pub mod treasury;
-pub mod x402;
 
 use crate::error::InferenceError;
 
@@ -26,7 +19,7 @@ pub enum BillingOutcome {
     /// so the post-response handler can debit the actual cost.
     Approved {
         /// Unique identifier for the billing subject (entity_id for sub/treasury,
-        /// payer address for x402).
+        /// entity_id for subscription.
         subject: String,
         /// Lane that approved the request.
         lane: BillingLane,
@@ -41,8 +34,6 @@ pub enum BillingOutcome {
 #[derive(Debug, Clone, Copy)]
 pub enum BillingLane {
     Subscription,
-    Treasury,
-    X402,
 }
 
 /// Shared trait for billing lane pre-checks.

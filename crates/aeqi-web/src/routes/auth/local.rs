@@ -12,7 +12,7 @@ use aeqi_core::config::AuthMode;
 
 use super::{
     CheckInviteRequest, EmailLoginRequest, ResendCodeRequest, SignupRequest, VerifyEmailRequest,
-    WaitlistRequest, server_configuration_error,
+    WaitlistRequest, ensure_canonical_company_root, server_configuration_error,
 };
 
 // ── Route builder ─────────────────────────────────────────
@@ -159,16 +159,49 @@ async fn signup_handler(
         }
     };
 
-    // Redeem invite code and generate new ones for the user.
+    if let Err(e) = ensure_canonical_company_root(&state, accounts, &user.id, name, email).await {
+        tracing::error!("signup canonical root bootstrap failed: {e}");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "failed to create company root"
+            })),
+        )
+            .into_response();
+    }
+
+    // Redeem invite code and generate new ones only after the trust root
+    // exists. That keeps a failed bootstrap from consuming the signup slot.
     if state.auth_config.waitlist && !invite_code.is_empty() {
         let _ = accounts.redeem_invite_code(invite_code, &user.id);
     }
     let _ = accounts.generate_invite_codes(&user.id, state.auth_config.invite_codes_per_user);
 
-    // No auto-creation of a root agent here. New users land on `/start`
-    // and explicitly pick a Blueprint to spawn their first company —
-    // that act consumes their free trial slot. Auto-seeding hid the
-    // trial decision and littered accounts with hollow agents.
+    let user = match accounts.get_user_by_id(&user.id) {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to load created account"
+                })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            tracing::error!("signup reload error: {e}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to load created account"
+                })),
+            )
+                .into_response();
+        }
+    };
 
     // Generate verification code and send email.
     let code = accounts.set_verify_code(&user.id).unwrap_or_default();
@@ -236,6 +269,52 @@ async fn email_login_handler(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
                     "ok": false, "error": "login failed"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let user = match ensure_canonical_company_root(
+        &state,
+        accounts,
+        &user.id,
+        &user.name,
+        &user.email,
+    )
+    .await
+    {
+        Ok(_) => match accounts.get_user_by_id(&user.id) {
+            Ok(Some(user)) => user,
+            Ok(None) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "ok": false,
+                        "error": "failed to load account"
+                    })),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                tracing::error!("login reload error: {e}");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "ok": false,
+                        "error": "failed to load account"
+                    })),
+                )
+                    .into_response();
+            }
+        },
+        Err(e) => {
+            tracing::error!("login canonical root bootstrap failed: {e}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to create company root"
                 })),
             )
                 .into_response();

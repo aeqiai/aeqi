@@ -26,6 +26,33 @@
   margin-bottom: var(--space-2);
 }
 
+.wizard-brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+
+.wizard-brief-label {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.wizard-brief-text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  max-width: 70ch;
+}
+
 .wizard-eyebrow {
   margin: 0;
   font-family: var(--font-sans);

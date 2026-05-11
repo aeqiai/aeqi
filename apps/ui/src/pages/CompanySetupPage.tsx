@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
@@ -148,6 +148,7 @@ type PanelId = "identity" | "roles" | "token" | "vesting" | "governance" | "revi
 
 export default function CompanySetupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { slug = "" } = useParams<{ slug: string }>();
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const userId = useAuthStore((s) => s.user?.id ?? null);
@@ -174,6 +175,7 @@ export default function CompanySetupPage() {
   const [token, setToken] = useState<TokenState | null>(null);
   const [vesting, setVesting] = useState<VestingState | null>(null);
   const [governance, setGovernance] = useState<GovernanceState | null>(null);
+  const brief = searchParams.get("brief")?.trim() ?? "";
 
   // ── Panel expand/collapse state ──────────────────────────────────
   const [expandedPanels, setExpandedPanels] = useState<Set<PanelId>>(new Set());
@@ -223,7 +225,7 @@ export default function CompanySetupPage() {
 
           // Seed wizard state from blueprint defaults
           const name = bp.root?.name ?? bp.name;
-          const tagline = bp.tagline ?? "";
+          const tagline = brief || bp.tagline || "";
           setIdentity({ name, tagline, slug: slugify(name) });
           setSeats(deriveSeats(bp, userId));
 
@@ -250,7 +252,7 @@ export default function CompanySetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, userId]);
+  }, [brief, slug, userId]);
 
   async function handleCreate() {
     if (!blueprint || !isValid) return;
@@ -356,6 +358,13 @@ export default function CompanySetupPage() {
         <h1 className="wizard-title">Configure your company.</h1>
         <p className="wizard-sub">{blueprint.tagline || "Review and configure, then create."}</p>
       </header>
+
+      {brief && (
+        <section className="wizard-brief">
+          <p className="wizard-brief-label">Your brief</p>
+          <p className="wizard-brief-text">{brief}</p>
+        </section>
+      )}
 
       {/* ── Top CTA row ─────────────────────────────── */}
       <div className="wizard-cta-row">

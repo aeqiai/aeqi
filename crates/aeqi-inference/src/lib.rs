@@ -1,16 +1,15 @@
-//! aeqi-inference — OpenAI-compatible inference router with three billing lanes.
+//! aeqi-inference — OpenAI-compatible inference router with subscription billing.
 //!
 //! ## Architecture
 //!
 //! ```text
 //! caller
-//!   │  Authorization: Bearer <JWT|api-key|eip3009-sig>
+//!   │  Authorization: Bearer <JWT>
 //!   │  X-Entity: <entity_id>          (subscription lane only)
 //!   ▼
 //! billing middleware (Tower layer, lane selected by auth header shape)
 //!   ├── SubscriptionLayer  — JWT + dollar-balance debit
-//!   ├── TreasuryLayer      — API-key + deposit-and-meter USDC (Phase 2)
-//!   └── X402Layer          — EIP-3009 per-call USDC (Phase 2)
+//!   └── Role budgeting     — runtime-side gating, separate from billing
 //!   ▼
 //! axum router  (src/api.rs)
 //!   ├── POST /v1/chat/completions
@@ -33,8 +32,7 @@
 //! Subscription lane gating by Bearer JWT + in-memory balance store.
 //! aeqi-platform mounts `/v1/*` with subscription layer applied.
 //!
-//! **Phase 2:** Anthropic + OpenAI + DeepSeek adapters; SQLite balance debit;
-//! x402 lane EIP-3009 settlement; treasury lane.
+//! **Phase 2:** Anthropic + OpenAI + DeepSeek adapters; SQLite balance debit.
 //!
 //! ## Integration with aeqi-platform
 //!

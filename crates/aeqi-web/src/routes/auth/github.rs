@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::auth;
 use crate::server::AppState;
 
-use super::{server_configuration_error, urlencoding};
+use super::{ensure_canonical_company_root, server_configuration_error, urlencoding};
 
 // ── Route builder ─────────────────────────────────────────
 
@@ -208,6 +208,16 @@ async fn github_callback_handler(
                 .into_response();
         }
     };
+
+    if let Err(e) = ensure_canonical_company_root(&state, accounts, &user.id, &user.name, &email).await
+    {
+        tracing::error!("github oauth canonical root bootstrap error: {e}");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to create company root",
+        )
+            .into_response();
+    }
 
     let signing_key = match auth::signing_secret(&state) {
         Ok(secret) => secret,
