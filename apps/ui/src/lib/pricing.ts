@@ -39,6 +39,43 @@ export const COMPANY_MONTHLY = WORKSPACE_MONTHLY;
 
 export const INFERENCE_CREDIT_USD = 25;
 
+export type LaunchPlanId = "starter" | "growth";
+
+export interface LaunchPlan {
+  id: LaunchPlanId;
+  name: string;
+  price: string;
+  cadence: string;
+  intro: string;
+  blurb: string;
+  features: string[];
+  recommended?: boolean;
+}
+
+export const LAUNCH_PLANS: LaunchPlan[] = [
+  {
+    id: "starter",
+    name: "Standard",
+    price: "$49",
+    cadence: "/mo",
+    intro: "Launch month included.",
+    blurb: "For a focused organization with one clear operating lane.",
+    features: ["1 organization", "Core agent runtime", "Ownership + governance"],
+  },
+  {
+    id: "growth",
+    name: "Pro",
+    price: "$149",
+    cadence: "/mo",
+    intro: "$69 first month.",
+    blurb: "For heavier execution, more agents, and broader coordination.",
+    features: ["More agents", "Higher usage", "Priority execution"],
+    recommended: true,
+  },
+];
+
+export const DEFAULT_LAUNCH_PLAN: LaunchPlanId = "growth";
+
 export const RESOURCE_PACK = {
   inferenceUsd: `$${INFERENCE_CREDIT_USD}`,
   cpu: "4 vCPU",

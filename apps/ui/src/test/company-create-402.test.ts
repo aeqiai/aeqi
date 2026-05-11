@@ -34,6 +34,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
 type HandleCreateDeps = {
   blueprintSlug: string;
   displayName: string;
+  mission: string;
+  plan: string;
   onSuccess: (entityId: string) => void;
   onError: (msg: string) => void;
   navigateTo: (url: string) => void;
@@ -42,6 +44,8 @@ type HandleCreateDeps = {
 async function composeHandleCreate({
   blueprintSlug,
   displayName,
+  mission,
+  plan,
   onSuccess,
   onError,
   navigateTo,
@@ -51,6 +55,8 @@ async function composeHandleCreate({
     const resp = await api.startLaunch({
       template: blueprintSlug,
       display_name: displayName,
+      mission,
+      plan,
     });
     onSuccess((resp as { entity_id: string }).entity_id);
   } catch (e) {
@@ -59,6 +65,9 @@ async function composeHandleCreate({
         const { url } = (await api.createCheckoutSession({
           blueprint: blueprintSlug,
           display_name: displayName,
+          mission,
+          plan,
+          launch: true,
         })) as { url: string };
         navigateTo(url);
       } catch {
@@ -78,6 +87,8 @@ describe("company create 402 handling", () => {
   const deps = (): HandleCreateDeps => ({
     blueprintSlug: "aeqi",
     displayName: "Acme Corp",
+    mission: "A better operator company.",
+    plan: "growth",
     onSuccess: (id) => {
       successEntityId = id;
     },
@@ -107,10 +118,15 @@ describe("company create 402 handling", () => {
     expect(startLaunch).toHaveBeenCalledWith({
       template: "aeqi",
       display_name: "Acme Corp",
+      mission: "A better operator company.",
+      plan: "growth",
     });
     expect(createCheckoutSession).toHaveBeenCalledWith({
       blueprint: "aeqi",
       display_name: "Acme Corp",
+      mission: "A better operator company.",
+      plan: "growth",
+      launch: true,
     });
     expect(redirectedTo).toBe("https://checkout.stripe.com/pay/cs_test_abc123");
     expect(errorSet).toBeNull();

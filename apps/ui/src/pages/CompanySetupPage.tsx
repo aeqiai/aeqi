@@ -1,212 +1,49 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
+import { entityPath } from "@/lib/entityPath";
+import { DEFAULT_LAUNCH_PLAN, LAUNCH_PLANS, type LaunchPlanId } from "@/lib/pricing";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Spinner } from "@/components/ui";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { FOUNDER_FEE } from "@/lib/pricing";
-import { entityPath } from "@/lib/entityPath";
-import {
-  WizardIdentityPanel,
-  WizardRolesPanel,
-  WizardTokenPanel,
-  WizardVestingPanel,
-  WizardGovernancePanel,
-  WizardReviewPanel,
-  slugify,
-} from "@/components/wizard";
-import type {
-  IdentityState,
-  RoleSeat,
-  InviteRow,
-  TokenState,
-  VestingState,
-  GovernanceState,
-  WizardState,
-} from "@/components/wizard";
-import "@/styles/templates.css";
+import { Banner, Button, Card, EmptyState, Input, Spinner, Textarea } from "@/components/ui";
 import "@/styles/blueprints-store.css";
-import "@/styles/wizard.css";
+import "@/styles/blueprint-launch-picker.css";
 
-/**
- * `/start/:blueprintId` — organization setup wizard.
- *
- * Sits between picking a Blueprint and the actual spawn so the operator
- * configures six panels in one scrollable flow:
- *
- *   Identity → Roles → Token → Vesting → Governance → Review
- *
- * Panels are collapsible sections, not modal steps. Default state is
- * collapsed showing the auto-filled summary; "Configure" header toggle
- * expands all at once. Panels only render when the blueprint has the
- * relevant module (Token / Vesting / Governance hidden for personal-os).
- */
+const PROVISION_POLL_INTERVAL_MS = 1000;
+const PROVISION_POLL_TIMEOUT_MS = 60_000;
 
-/** True when the blueprint is "personal-os" — stripped wizard variant. */
-function isPersonalOs(blueprint: Blueprint): boolean {
-  return blueprintId(blueprint) === "personal-os";
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-/**
- * Derive initial role seats from the blueprint.
- * - For personal-os: single Owner row with the user.
- * - For everything else: seed_roles map to seats; founder role(s)
- *   assigned to the user, agent seats assigned to their seed_agent.
- */
-function deriveSeats(blueprint: Blueprint, userId: string | null): RoleSeat[] {
-  if (isPersonalOs(blueprint)) {
-    return [
-      {
-        key: "owner",
-        title: "Owner",
-        roleType: "founder",
-        occupant: userId ? `user:${userId}` : "user:me",
-        addressPlaceholder: "0x... — provisioned at create",
-      },
-    ];
-  }
-
-  if (!blueprint.seed_roles || blueprint.seed_roles.length === 0) {
-    // Fallback: create a single Founder seat for the user + agent seats for seed_agents
-    const seats: RoleSeat[] = [
-      {
-        key: "founder",
-        title: "Founder",
-        roleType: "founder",
-        occupant: userId ? `user:${userId}` : "user:me",
-        addressPlaceholder: "0x... — provisioned at create",
-      },
-    ];
-    for (const agent of blueprint.seed_agents ?? []) {
-      seats.push({
-        key: agent.name.toLowerCase().replace(/\s+/g, "-"),
-        title: agent.name,
-        roleType: "worker",
-        occupant: `agent:${agent.name}`,
-        addressPlaceholder: null,
-      });
-    }
-    return seats;
-  }
-
-  return blueprint.seed_roles.map((r) => {
-    const isFounder = r.key === "founder" || r.title.toLowerCase().includes("founder");
-    const isDirector = r.key === "director" || r.title.toLowerCase().includes("director");
-    const isHumanSlot = isFounder || isDirector;
-    const roleType = isFounder ? "founder" : isDirector ? "director" : "worker";
-
-    return {
-      key: r.key,
-      title: r.title,
-      roleType,
-      occupant: isHumanSlot
-        ? userId
-          ? `user:${userId}`
-          : "user:me"
-        : `agent:${r.default_occupant_agent ?? r.title}`,
-      addressPlaceholder: isHumanSlot ? "0x... — provisioned at create" : null,
-    };
-  });
-}
-
-/** True for blueprints that should show Token / Vesting / Governance panels. */
-function hasOnchainModules(blueprint: Blueprint): boolean {
-  return !isPersonalOs(blueprint);
-}
-
-function deriveDefaultToken(blueprint: Blueprint): TokenState {
-  const companyName = blueprint.root?.name ?? blueprint.name;
-  const symbol = companyName
-    .replace(/[^a-zA-Z]/g, "")
-    .slice(0, 4)
-    .toUpperCase();
-  return {
-    name: `${companyName} Token`,
-    symbol,
-    maxSupply: "100000000",
-  };
-}
-
-const DEFAULT_VESTING: VestingState = {
-  schedules: [
-    { roleType: "Founder", durationYears: "4", cliffMonths: "12" },
-    { roleType: "Director", durationYears: "4", cliffMonths: "12" },
-    { roleType: "Worker", durationYears: "2", cliffMonths: "6" },
-  ],
-};
-
-const DEFAULT_GOVERNANCE: GovernanceState = {
-  votingPeriodDays: "7",
-  quorumPct: "50",
-  proposalThresholdPct: "1",
-};
-
-type PanelId = "identity" | "roles" | "token" | "vesting" | "governance" | "review";
 
 export default function CompanySetupPage() {
   const navigate = useNavigate();
   const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
-  const userId = useAuthStore((s) => s.user?.id ?? null);
-  const userName = useAuthStore((s) => s.user?.name ?? "You");
   const subscriptionStatus = useAuthStore((s) => s.user?.subscription_status ?? null);
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
-  const isInvited = subscriptionStatus === "invited";
-  const skipsStripe = isInvited || isAdmin;
+  const canSkipCheckout =
+    isAdmin || subscriptionStatus === "active" || subscriptionStatus === "invited";
 
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [provisioning, setProvisioning] = useState(false);
+  const [organizationName, setOrganizationName] = useState("");
+  const [mission, setMission] = useState("");
+  const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
 
-  // ── Wizard state ─────────────────────────────────────────────────
-  const [identity, setIdentity] = useState<IdentityState>({
-    name: "",
-    tagline: "",
-    slug: "",
-  });
-  const [seats, setSeats] = useState<RoleSeat[]>([]);
-  const [invites, setInvites] = useState<InviteRow[]>([]);
-  const [token, setToken] = useState<TokenState | null>(null);
-  const [vesting, setVesting] = useState<VestingState | null>(null);
-  const [governance, setGovernance] = useState<GovernanceState | null>(null);
-
-  // ── Panel expand/collapse state ──────────────────────────────────
-  const [expandedPanels, setExpandedPanels] = useState<Set<PanelId>>(new Set());
-
-  function togglePanel(id: PanelId) {
-    setExpandedPanels((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }
-
-  function expandAll() {
-    const ids: PanelId[] = ["identity", "roles", "token", "vesting", "governance", "review"];
-    setExpandedPanels(new Set(ids));
-  }
-
-  function collapseAll() {
-    setExpandedPanels(new Set());
-  }
-
-  const allExpanded = expandedPanels.size >= (blueprint && hasOnchainModules(blueprint) ? 6 : 3);
-
-  /** Wizard is valid when organization name is set. */
-  const isValid = identity.name.trim().length > 0;
+  const provisionHandled = useRef(false);
 
   useEffect(() => {
-    document.title = blueprint?.name ? `Set up ${blueprint.name} · aeqi` : "Set up · aeqi";
+    document.title = blueprint?.name ? `Launch ${blueprint.name} · aeqi` : "Launch · aeqi";
   }, [blueprint?.name]);
 
   useEffect(() => {
@@ -218,28 +55,16 @@ export default function CompanySetupPage() {
       .getBlueprint(blueprintIdParam)
       .then((resp) => {
         if (cancelled) return;
-        if (resp.blueprint && isSingleBlueprint(resp.blueprint)) {
-          const bp = resp.blueprint;
-          setBlueprint(bp);
-
-          // Seed wizard state from blueprint defaults
-          const name = bp.root?.name ?? bp.name;
-          const tagline = bp.tagline || "";
-          setIdentity({ name, tagline, slug: slugify(name) });
-          setSeats(deriveSeats(bp, userId));
-
-          if (hasOnchainModules(bp)) {
-            setToken(deriveDefaultToken(bp));
-            setVesting(DEFAULT_VESTING);
-            setGovernance(DEFAULT_GOVERNANCE);
-          } else {
-            setToken(null);
-            setVesting(null);
-            setGovernance(null);
-          }
-        } else {
+        const tpl = resp.blueprint;
+        if (!tpl || !isSingleBlueprint(tpl)) {
           setLoadError("Blueprint not found.");
+          return;
         }
+        setBlueprint(tpl);
+        const initialName = tpl.root?.name ?? tpl.name;
+        setOrganizationName(initialName);
+        setMission(tpl.tagline || tpl.description || "");
+        setPlan(DEFAULT_LAUNCH_PLAN);
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -251,63 +76,127 @@ export default function CompanySetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [blueprintIdParam, userId]);
+  }, [blueprintIdParam]);
 
-  async function handleCreate() {
-    if (!blueprint || !isValid) return;
+  const selectedLaunchPlan = useMemo(
+    () => LAUNCH_PLANS.find((p) => p.id === plan) ?? LAUNCH_PLANS[0],
+    [plan],
+  );
+
+  useEffect(() => {
+    const spawnName = searchParams.get("spawn");
+    if (!spawnName || provisionHandled.current) return;
+
+    provisionHandled.current = true;
+    setProvisioning(true);
     setSubmitError(null);
-    setSubmitting(true);
-    try {
-      const resp = await api.startLaunch({
-        template: blueprintId(blueprint),
-        display_name: identity.name.trim(),
-      });
-      // Refresh the entity list so the switcher shows the new organization.
-      await fetchEntities();
 
-      // Poll for trust_address for up to 10s (registerTRUST lands within 1-2s normally).
-      // Once confirmed on-chain, navigate to the canonical /trust/ URL.
-      // Timeout falls back to the /c/<id> URL (entity visible but not yet on-chain).
-      // The client-side CompanyPage useEffect will catch the redirect once
-      // trust_address arrives via daemon polling.
-      const entityId = resp.entity_id;
-      const POLL_INTERVAL = 1000;
-      const POLL_TIMEOUT = 10000;
-      const deadline = Date.now() + POLL_TIMEOUT;
-      let trustAddr: string | null = null;
-      while (Date.now() < deadline) {
+    let cancelled = false;
+    const deadline = Date.now() + PROVISION_POLL_TIMEOUT_MS;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
         await fetchEntities();
-        const entities = useDaemonStore.getState().entities;
-        const entity = entities.find((e) => e.id === entityId);
-        if (entity?.trust_address) {
-          trustAddr = entity.trust_address;
-          break;
+        const match = useDaemonStore
+          .getState()
+          .entities.find((entity) => entity.name === spawnName);
+        if (match) {
+          setSearchParams(new URLSearchParams(), { replace: true });
+          navigate(entityPath(match), { replace: true });
+          return;
         }
-        await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+      } catch {
+        // Keep polling through transient failures.
       }
 
-      navigate(entityPath({ id: entityId, trust_address: trustAddr ?? undefined }));
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 402) {
-        // No active subscription — redirect to Stripe checkout.
-        // Pass blueprint + display_name so the success redirect lands back
-        // on /start/:blueprintId with the right context.
-        try {
-          const { url } = await api.createCheckoutSession({
-            blueprint: blueprintId(blueprint),
-            display_name: identity.name.trim(),
-          });
-          window.location.href = url;
-        } catch {
-          setSubmitError("Subscribe to create your first organization. Go to Settings → Billing.");
-          setSubmitting(false);
+      if (Date.now() >= deadline) {
+        if (!cancelled) {
+          setProvisioning(false);
+          setSubmitError(
+            "Payment received. Your organization is still provisioning. Refresh in a moment.",
+          );
+          setSearchParams(new URLSearchParams(), { replace: true });
         }
         return;
       }
-      setSubmitError(e instanceof Error ? e.message : "Create failed. Try again.");
+
+      window.setTimeout(poll, PROVISION_POLL_INTERVAL_MS);
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchEntities, navigate, searchParams, setSearchParams]);
+
+  const handleLaunch = useCallback(async () => {
+    if (!blueprint) return;
+    const displayName = organizationName.trim();
+    const shortMission = mission.trim();
+    if (!displayName) return;
+
+    setSubmitError(null);
+    setSubmitting(true);
+
+    try {
+      if (canSkipCheckout) {
+        const resp = await api.startLaunch({
+          template: blueprintId(blueprint),
+          display_name: displayName,
+          mission: shortMission,
+          plan,
+        });
+
+        await fetchEntities();
+        const deadline = Date.now() + PROVISION_POLL_TIMEOUT_MS;
+        let trustAddr: string | null = null;
+        while (Date.now() < deadline) {
+          await fetchEntities();
+          const entity = useDaemonStore.getState().entities.find((e) => e.id === resp.entity_id);
+          if (entity?.trust_address) {
+            trustAddr = entity.trust_address;
+            break;
+          }
+          await sleep(PROVISION_POLL_INTERVAL_MS);
+        }
+
+        navigate(entityPath({ id: resp.entity_id, trust_address: trustAddr ?? undefined }), {
+          replace: true,
+        });
+        return;
+      }
+
+      const { url } = await api.createCheckoutSession({
+        blueprint: blueprintId(blueprint),
+        display_name: displayName,
+        mission: shortMission,
+        plan,
+        launch: true,
+      });
+      window.location.href = url;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 402) {
+        try {
+          const { url } = await api.createCheckoutSession({
+            blueprint: blueprintId(blueprint),
+            display_name: displayName,
+            mission: shortMission,
+            plan,
+            launch: true,
+          });
+          window.location.href = url;
+          return;
+        } catch {
+          setSubmitError("Payment is required to launch this organization.");
+        }
+      } else {
+        setSubmitError(e instanceof Error ? e.message : "Launch failed. Try again.");
+      }
+    } finally {
       setSubmitting(false);
     }
-  }
+  }, [blueprint, canSkipCheckout, fetchEntities, mission, navigate, organizationName, plan]);
 
   if (loading && !blueprint) {
     return (
@@ -335,123 +224,159 @@ export default function CompanySetupPage() {
     );
   }
 
-  const personal = isPersonalOs(blueprint);
-  const onchain = hasOnchainModules(blueprint);
-
-  const wizardState: WizardState = {
-    identity,
-    seats,
-    invites,
-    token: onchain ? token : null,
-    vesting: onchain ? vesting : null,
-    governance: onchain ? governance : null,
-  };
-
-  const ctaLabel = skipsStripe
-    ? "Create organization"
-    : `Create organization — $${FOUNDER_FEE} today`;
+  if (provisioning) {
+    return (
+      <div className="launch-page launch-page--provisioning">
+        <Card variant="default" padding="lg" className="launch-provisioning-card">
+          <p className="start-section-kicker">Provisioning</p>
+          <h1 className="page-title">Your organization is being created.</h1>
+          <p className="start-sub">Stripe has cleared. AEQI is wiring the runtime now.</p>
+          <div className="launch-provisioning-status">
+            <Spinner size="sm" /> Waiting for the organization to appear…
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="wizard-page">
-      {/* ── Page header ─────────────────────────────── */}
-      <header className="wizard-head">
-        <p className="wizard-eyebrow">Set up · {blueprint.name}</p>
-        <h1 className="wizard-title">Configure your organization.</h1>
-        <p className="wizard-sub">{blueprint.tagline || "Review and configure, then create."}</p>
+    <div className="launch-page">
+      <header className="launch-head">
+        <div className="launch-head-copy">
+          <p className="start-eyebrow">Launch · {blueprint.name}</p>
+          <h1 className="page-title">Launch your organization.</h1>
+          <p className="start-sub">
+            Name it, write the mission, pick Standard or Pro, then launch. Payment happens before
+            the organization is created.
+          </p>
+        </div>
+        <div className="launch-head-actions">
+          <Link to="/blueprints" className="start-secondary-link">
+            Browse blueprints
+          </Link>
+        </div>
       </header>
 
-      {/* ── Top CTA row ─────────────────────────────── */}
-      <div className="wizard-cta-row">
-        <Button variant="primary" disabled={!isValid || submitting} onClick={handleCreate}>
-          {submitting ? (
-            <>
-              <Spinner size="sm" />
-              Creating…
-            </>
-          ) : (
-            ctaLabel
-          )}
-        </Button>
-        {submitError && <span className="wizard-submit-error">{submitError}</span>}
-        <button
-          type="button"
-          className="wizard-configure-toggle"
-          onClick={allExpanded ? collapseAll : expandAll}
-        >
-          {allExpanded ? "Collapse all" : "Configure"}
-        </button>
-      </div>
+      {submitError && (
+        <Banner kind="error" className="start-banner">
+          {submitError}
+        </Banner>
+      )}
 
-      {/* ── Panel stack ─────────────────────────────── */}
-      <div className="wizard-panels">
-        <WizardIdentityPanel
-          state={identity}
-          onChange={setIdentity}
-          expanded={expandedPanels.has("identity")}
-          onToggle={() => togglePanel("identity")}
-        />
+      {loadError && !submitError && (
+        <Banner kind="error" className="start-banner">
+          {loadError}
+        </Banner>
+      )}
 
-        <WizardRolesPanel
-          blueprint={blueprint}
-          userId={userId}
-          userName={userName}
-          seats={seats}
-          invites={invites}
-          onSeatsChange={setSeats}
-          onInvitesChange={setInvites}
-          expanded={expandedPanels.has("roles")}
-          onToggle={() => togglePanel("roles")}
-          personalOs={personal}
-        />
+      <section className="launch-grid">
+        <div className="launch-main">
+          <Card variant="default" padding="lg" className="launch-card">
+            <div className="launch-card-head">
+              <div>
+                <p className="start-section-kicker">Selected blueprint</p>
+                <h2 className="start-section-title">{blueprint.name}</h2>
+                <p className="start-sub">{blueprint.tagline || blueprint.description || ""}</p>
+              </div>
+              <Link
+                to={`/blueprints/${encodeURIComponent(blueprintId(blueprint))}`}
+                className="launch-blueprint-link"
+              >
+                Open blueprint →
+              </Link>
+            </div>
 
-        {onchain && token && (
-          <WizardTokenPanel
-            state={token}
-            onChange={setToken}
-            expanded={expandedPanels.has("token")}
-            onToggle={() => togglePanel("token")}
-          />
-        )}
+            <div className="launch-fields">
+              <label className="launch-field">
+                <span className="launch-field-label">Organization name</span>
+                <Input
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  placeholder="Name your organization"
+                />
+              </label>
 
-        {onchain && vesting && (
-          <WizardVestingPanel
-            state={vesting}
-            onChange={setVesting}
-            expanded={expandedPanels.has("vesting")}
-            onToggle={() => togglePanel("vesting")}
-          />
-        )}
+              <label className="launch-field">
+                <span className="launch-field-label">Short mission</span>
+                <Textarea
+                  value={mission}
+                  onChange={(e) => setMission(e.target.value)}
+                  rows={3}
+                  placeholder="What this organization exists to do"
+                />
+              </label>
+            </div>
 
-        {onchain && governance && (
-          <WizardGovernancePanel
-            state={governance}
-            onChange={setGovernance}
-            expanded={expandedPanels.has("governance")}
-            onToggle={() => togglePanel("governance")}
-          />
-        )}
+            <div className="launch-plan-head">
+              <div>
+                <p className="start-section-kicker">Plan</p>
+                <h3 className="start-section-title">Pick the launch tier.</h3>
+              </div>
+              <p className="start-help">Pro is recommended for the first launch.</p>
+            </div>
 
-        <WizardReviewPanel
-          state={wizardState}
-          isValid={isValid}
-          blueprintSlug={blueprintId(blueprint)}
-          skipsStripe={skipsStripe}
-          founderFee={FOUNDER_FEE}
-          expanded={expandedPanels.has("review")}
-          onToggle={() => togglePanel("review")}
-          onSubmit={handleCreate}
-        />
-      </div>
+            <div className="plan-grid launch-plan-grid" role="list" aria-label="Launch plans">
+              {LAUNCH_PLANS.map((item) => {
+                const selected = item.id === plan;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`plan-card launch-plan-card ${selected ? "plan-card--selected" : ""} ${
+                      item.recommended ? "plan-card--popular" : ""
+                    }`}
+                    onClick={() => setPlan(item.id)}
+                    aria-pressed={selected}
+                  >
+                    {item.recommended && <span className="plan-card-badge">Recommended</span>}
+                    <div className="plan-card-name">{item.name}</div>
+                    <div className="plan-card-price">
+                      <span className="plan-card-price-amount">{item.price}</span>
+                      <span className="plan-card-price-cadence">{item.cadence}</span>
+                    </div>
+                    <p className="plan-card-blurb">
+                      {item.intro} {item.blurb}
+                    </p>
+                    <ul className="plan-card-features">
+                      {item.features.map((feature) => (
+                        <li key={feature}>{feature}</li>
+                      ))}
+                    </ul>
+                  </button>
+                );
+              })}
+            </div>
 
-      {/* ── Footer nav ──────────────────────────────── */}
-      <div className="wizard-foot">
-        <Button
-          variant="secondary"
-          onClick={() => navigate(`/blueprints/${encodeURIComponent(blueprintId(blueprint))}`)}
-        >
-          Back to blueprint
-        </Button>
-      </div>
+            <div className="launch-cta-row">
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={() => void handleLaunch()}
+                disabled={submitting || !organizationName.trim()}
+                loading={submitting}
+                loadingLabel="Launching"
+              >
+                {canSkipCheckout ? "Launch organization" : "Pay & launch organization"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+        <aside className="launch-side">
+          <Card variant="default" padding="lg" className="launch-side-card">
+            <p className="start-section-kicker">Blueprint</p>
+            <h2 className="launch-side-title">{blueprint.name}</h2>
+            <p className="start-sub">
+              {blueprint.tagline || "Launch from the default blueprint or browse another option."}
+            </p>
+            <p className="start-help">
+              Selected plan: {selectedLaunchPlan.name} · {selectedLaunchPlan.intro}
+            </p>
+            <p className="start-help">Use the catalog to switch templates before you launch.</p>
+          </Card>
+        </aside>
+      </section>
     </div>
   );
 }

@@ -26,12 +26,12 @@ interface BlueprintLaunchPickerProps {
    *  it navigates to the setup surface instead. */
   onSpawnedAgent?: (blueprintId: string) => void;
   /** Optional query string appended when `mode === "spawn-company"`.
-   *  Used by `/start` to carry the user's brief into the setup wizard. */
+   *  Used by `/launch` to carry the selected blueprint into setup. */
   launchQuery?: string;
 }
 
 /**
- * Shared picker UX for `/start` and the `+ New agent` modal. Three sections:
+ * Shared picker UX for `/launch` and the `+ New agent` modal. Three sections:
  *
  *   1. Start blank — promoted top row.
  *   2. Recommended — 3-4 curated ids from `recommendedBlueprints.ts`.
@@ -39,7 +39,7 @@ interface BlueprintLaunchPickerProps {
  *
  * Branches on `mode`:
  *   - spawn-company → navigate to /launch/<blueprintId> (CompanySetupPage)
- *     so the operator confirms name + roles + plan before spawn
+ *     so the operator confirms name + mission + plan before launch
  *   - spawn-into-entity → POST /api/blueprints/spawn-into
  *     (a "merge into existing company" flow — no naming or billing
  *     concerns to surface)

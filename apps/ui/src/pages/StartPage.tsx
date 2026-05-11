@@ -25,8 +25,8 @@ function pickInitialBlueprintId(
 
 /**
  * `/launch` is the canonical launch selector. It stays intentionally small:
- * choose a blueprint here, inspect the template on the Blueprint page, then
- * continue into the setup wizard.
+ * choose the default blueprint here, browse the catalog if you want another
+ * option, then continue into `/launch/:blueprintId`.
  */
 export default function StartPage() {
   const navigate = useNavigate();
@@ -116,20 +116,6 @@ export default function StartPage() {
             Pick a blueprint here. Detailed previews live on the Blueprint page.
           </p>
         </div>
-        <div className="start-head-actions">
-          <Link to="/blueprints" className="start-secondary-link">
-            Browse blueprints
-          </Link>
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={handleContinue}
-            disabled={loading || !selectedBlueprint}
-          >
-            Launch
-          </Button>
-        </div>
       </header>
 
       {loadError && (
@@ -138,50 +124,42 @@ export default function StartPage() {
         </Banner>
       )}
 
-      <section className="start-launch-grid" aria-label="Launch wizard">
-        <aside className="start-launch-list">
-          <div className="start-pane-head">
-            <p className="start-section-kicker">Default blueprint</p>
-            <h2 className="start-section-title">Use the recommended starting point.</h2>
-            <p className="start-sub">
-              Launch starts from one blueprint. Browse the catalog if you want another option.
-            </p>
+      <section className="start-launch-minimal" aria-label="Launch selector">
+        {loading ? (
+          <div className="start-loading-state" role="status" aria-live="polite">
+            <Spinner size="sm" /> Loading blueprints…
           </div>
-
-          {loading ? (
-            <div className="start-loading-state" role="status" aria-live="polite">
-              <Spinner size="sm" /> Loading blueprints…
-            </div>
-          ) : selectedBlueprint ? (
+        ) : selectedBlueprint ? (
+          <>
             <Card variant="default" padding="md" className="start-selected-card">
               <div className="start-selected-card-top">
-                <p className="start-selected-card-label">Selected</p>
+                <p className="start-selected-card-label">Selected blueprint</p>
                 <span className="start-selected-card-pill">Default</span>
               </div>
-              <h3 className="start-selected-card-name">{selectedBlueprint.name}</h3>
+              <h2 className="start-selected-card-name">{selectedBlueprint.name}</h2>
               <p className="start-selected-card-tagline">{selectedBlueprint.tagline}</p>
             </Card>
-          ) : (
-            <div className="start-loading-state" role="status" aria-live="polite">
-              No blueprints are available yet.
-            </div>
-          )}
-        </aside>
 
-        <aside className="start-launch-summary">
-          <Card variant="default" padding="lg" className="start-launch-summary-card">
-            <p className="start-section-kicker">Next step</p>
-            <h2 className="start-launch-summary-title">Configure it.</h2>
-            <p className="start-sub">
-              The wizard sets the name, roles, funding, vesting, and governance before launch.
-            </p>
-            <ul className="start-launch-summary-list">
-              <li>Name your organization.</li>
-              <li>Confirm the signers.</li>
-              <li>Review and launch.</li>
-            </ul>
-          </Card>
-        </aside>
+            <div className="start-launch-actions">
+              <Link to="/blueprints" className="start-secondary-link">
+                Browse blueprints
+              </Link>
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={handleContinue}
+                disabled={loading || !selectedBlueprint}
+              >
+                Launch
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="start-loading-state" role="status" aria-live="polite">
+            No blueprints are available yet.
+          </div>
+        )}
       </section>
     </div>
   );

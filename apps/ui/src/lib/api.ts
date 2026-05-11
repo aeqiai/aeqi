@@ -711,7 +711,12 @@ export const api = {
   // with subscription_status="invited" (sandbox tier) or "active" (paid).
   // Anyone else gets 402 PAYMENT_REQUIRED — they go through Stripe via
   // createCheckoutSession instead.
-  startLaunch: (data: { template: string; display_name: string }) =>
+  startLaunch: (data: {
+    template: string;
+    display_name: string;
+    mission?: string;
+    plan?: string;
+  }) =>
     request<{ ok: boolean; entity_id: string; display_name: string }>("/start/launch", {
       method: "POST",
       body: JSON.stringify(data),
@@ -955,13 +960,16 @@ export const api = {
       method: "DELETE",
     }),
 
-  // Stripe billing — single Company offer. $19 first month, $49/mo after
-  // (single subscription with first-month coupon). No plan / interval params
-  // — see lib/pricing.ts.
+  // Stripe billing. Launch flows can stamp `plan` / `mission` metadata
+  // for provisioning and return via the launch completion redirect; the
+  // Billing settings surfaces keep their existing behavior.
   createCheckoutSession: (data: {
     blueprint?: string;
     // not entity_id — entity is minted post-checkout when user lands on /start.
     display_name?: string;
+    mission?: string;
+    plan?: string;
+    launch?: boolean;
     role_overrides?: unknown[];
   }) =>
     request<{ url: string }>("/billing/checkout", {
@@ -969,6 +977,9 @@ export const api = {
       body: JSON.stringify({
         blueprint: data.blueprint,
         display_name: data.display_name,
+        mission: data.mission,
+        plan: data.plan,
+        launch: data.launch,
         role_overrides: data.role_overrides,
       }),
     }),

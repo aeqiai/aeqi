@@ -381,7 +381,7 @@ export default function AppLayout() {
     if (isRoleDetail) return <RoleDetailPage />;
     if (isLaunch || isStart) {
       // /launch/<blueprintId> or legacy /start/<blueprintId> → CompanySetupPage
-      // (name + roles + plan confirmation). Bare /launch or /start
+      // (name + mission + plan). Bare /launch or /start
       // stays on the launch surface.
       if (path === "/launch/studio" || path === "/start/studio") {
         return <Navigate to="/launch" replace />;
