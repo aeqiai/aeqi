@@ -380,8 +380,37 @@ export default function CompanySetupPage() {
                 );
               })}
             </div>
+          </Card>
+        </div>
 
-            <div className="launch-cta-row">
+        <aside className="launch-side">
+          <Card variant="default" padding="lg" className="launch-side-card">
+            <p className="start-section-kicker">Launch preview</p>
+            <h2 className="launch-side-title">{organizationName.trim() || blueprint.name}</h2>
+            <p className="launch-side-sub">
+              {mission.trim() ||
+                blueprint.tagline ||
+                "This organization will be created from the selected blueprint."}
+            </p>
+
+            <dl className="launch-summary">
+              <div>
+                <dt>Blueprint</dt>
+                <dd>{blueprint.name}</dd>
+              </div>
+              <div>
+                <dt>Plan</dt>
+                <dd>
+                  {selectedLaunchPlan.name} · {selectedLaunchPlan.intro}
+                </dd>
+              </div>
+              <div>
+                <dt>Payment</dt>
+                <dd>Collected before the organization is created.</dd>
+              </div>
+            </dl>
+
+            <div className="launch-side-actions">
               <Button
                 variant="primary"
                 size="lg"
@@ -393,21 +422,13 @@ export default function CompanySetupPage() {
               >
                 {canSkipCheckout ? "Launch organization" : "Pay & launch organization"}
               </Button>
+              <Link
+                to={`/blueprints/${encodeURIComponent(blueprintId(blueprint))}`}
+                className="launch-side-link"
+              >
+                Open blueprint →
+              </Link>
             </div>
-          </Card>
-        </div>
-
-        <aside className="launch-side">
-          <Card variant="default" padding="lg" className="launch-side-card">
-            <p className="start-section-kicker">Blueprint</p>
-            <h2 className="launch-side-title">{blueprint.name}</h2>
-            <p className="start-sub">
-              {blueprint.tagline || "Launch from the default blueprint or browse another option."}
-            </p>
-            <p className="start-help">
-              Selected plan: {selectedLaunchPlan.name} · {selectedLaunchPlan.intro}
-            </p>
-            <p className="start-help">Use the catalog to switch templates before you launch.</p>
           </Card>
         </aside>
       </section>
