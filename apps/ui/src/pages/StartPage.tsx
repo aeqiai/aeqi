@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
 import { Banner, Button, Card, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
 import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
-import { countBlueprintStructures } from "@/lib/blueprintStructures";
 import { Events, useTrack } from "@/lib/analytics";
 import { RECOMMENDED_BLUEPRINTS } from "@/lib/recommendedBlueprints";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
@@ -23,21 +21,6 @@ function pickInitialBlueprintId(
   }
   if (byBlueprintId.has(DEFAULT_BLUEPRINT_SLUG)) return DEFAULT_BLUEPRINT_SLUG;
   return blueprints[0] ? blueprintId(blueprints[0]) : null;
-}
-
-function formatChoiceMeta(template: Blueprint): string {
-  const parts: string[] = [];
-  const agents = (template.seed_agents?.length ?? 0) + 1;
-  const structures = countBlueprintStructures(template);
-  const events = template.seed_events?.length ?? 0;
-  const ideas = template.seed_ideas?.length ?? 0;
-  const quests = template.seed_quests?.length ?? 0;
-  parts.push(`${agents} ${agents === 1 ? "agent" : "agents"}`);
-  if (structures > 1) parts.push(`${structures} structures`);
-  if (events > 0) parts.push(`${events} ${events === 1 ? "event" : "events"}`);
-  if (ideas > 0) parts.push(`${ideas} ${ideas === 1 ? "idea" : "ideas"}`);
-  if (quests > 0) parts.push(`${quests} ${quests === 1 ? "quest" : "quests"}`);
-  return parts.join(" · ");
 }
 
 /**
@@ -116,31 +99,10 @@ export default function StartPage() {
     );
   }, [blueprints, byBlueprintId]);
 
-  const launchChoices = useMemo(() => {
-    const ids: string[] = [];
-    const add = (id: string | null | undefined) => {
-      if (!id || ids.includes(id) || !byBlueprintId.has(id)) return;
-      ids.push(id);
-    };
-
-    add(DEFAULT_BLUEPRINT_SLUG);
-    for (const id of RECOMMENDED_BLUEPRINTS) add(id);
-    for (const blueprint of blueprints) {
-      if (ids.length >= 5) break;
-      add(blueprintId(blueprint));
-    }
-
-    return ids.map((id) => byBlueprintId.get(id)).filter((t): t is Blueprint => !!t);
-  }, [blueprints, byBlueprintId]);
-
   const handleContinue = useCallback(() => {
     if (!selectedBlueprint) return;
     navigate(`/launch/${encodeURIComponent(blueprintId(selectedBlueprint))}`);
   }, [navigate, selectedBlueprint]);
-
-  const handleSelectBlueprint = useCallback((id: string) => {
-    setSelectedBlueprintId(id);
-  }, []);
 
   if (!isAuthed) return null;
 
@@ -179,10 +141,10 @@ export default function StartPage() {
       <section className="start-launch-grid" aria-label="Launch wizard">
         <aside className="start-launch-list">
           <div className="start-pane-head">
-            <p className="start-section-kicker">Blueprints</p>
-            <h2 className="start-section-title">Choose a starting structure.</h2>
+            <p className="start-section-kicker">Default blueprint</p>
+            <h2 className="start-section-title">Use the recommended starting point.</h2>
             <p className="start-sub">
-              Select a blueprint to continue. The setup wizard comes next.
+              Launch starts from one blueprint. Browse the catalog if you want another option.
             </p>
           </div>
 
@@ -190,82 +152,35 @@ export default function StartPage() {
             <div className="start-loading-state" role="status" aria-live="polite">
               <Spinner size="sm" /> Loading blueprints…
             </div>
+          ) : selectedBlueprint ? (
+            <Card variant="default" padding="md" className="start-selected-card">
+              <div className="start-selected-card-top">
+                <p className="start-selected-card-label">Selected</p>
+                <span className="start-selected-card-pill">Default</span>
+              </div>
+              <h3 className="start-selected-card-name">{selectedBlueprint.name}</h3>
+              <p className="start-selected-card-tagline">{selectedBlueprint.tagline}</p>
+            </Card>
           ) : (
-            <div className="start-choice-grid" role="list">
-              {launchChoices.map((template) => {
-                const templateId = blueprintId(template);
-                const active = selectedBlueprint
-                  ? blueprintId(selectedBlueprint) === templateId
-                  : false;
-                return (
-                  <button
-                    key={templateId}
-                    type="button"
-                    className="start-choice-card-btn"
-                    role="listitem"
-                    onClick={() => handleSelectBlueprint(templateId)}
-                    aria-pressed={active}
-                    aria-label={`${template.name}${template.tagline ? ` — ${template.tagline}` : ""}`}
-                  >
-                    <Card
-                      variant="default"
-                      padding="md"
-                      interactive
-                      className={`start-choice-card${active ? " start-choice-card--active" : ""}`}
-                    >
-                      <div className="start-choice-card-top">
-                        <h3 className="start-choice-card-name">{template.name}</h3>
-                        {active && <span className="start-choice-card-badge">Selected</span>}
-                      </div>
-                      {template.tagline && (
-                        <p className="start-choice-card-tagline">{template.tagline}</p>
-                      )}
-                      <p className="start-choice-card-meta">{formatChoiceMeta(template)}</p>
-                    </Card>
-                  </button>
-                );
-              })}
+            <div className="start-loading-state" role="status" aria-live="polite">
+              No blueprints are available yet.
             </div>
           )}
         </aside>
 
         <aside className="start-launch-summary">
           <Card variant="default" padding="lg" className="start-launch-summary-card">
-            <p className="start-section-kicker">Selected blueprint</p>
-            <h2 className="start-launch-summary-title">
-              {selectedBlueprint?.name ?? "Select a blueprint"}
-            </h2>
+            <p className="start-section-kicker">Next step</p>
+            <h2 className="start-launch-summary-title">Configure it.</h2>
             <p className="start-sub">
-              {selectedBlueprint?.tagline ?? "Pick one on the left to continue."}
+              The wizard sets the name, roles, funding, vesting, and governance before launch.
             </p>
-
-            {selectedBlueprint ? (
-              <>
-                <BlueprintSeedCounts template={selectedBlueprint} />
-                <ul className="start-launch-summary-list">
-                  <li>Name it on the next screen.</li>
-                  <li>Set roles, funding, vesting, and governance there.</li>
-                  <li>Preview details stay on the Blueprint page.</li>
-                </ul>
-                <div className="start-launch-summary-actions">
-                  <Link
-                    to={`/blueprints/${encodeURIComponent(blueprintId(selectedBlueprint))}`}
-                    className="start-secondary-link"
-                  >
-                    View template
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <div className="start-loading-state" role="status" aria-live="polite">
-                No blueprints are available yet.
-              </div>
-            )}
+            <ul className="start-launch-summary-list">
+              <li>Name your organization.</li>
+              <li>Confirm the signers.</li>
+              <li>Review and launch.</li>
+            </ul>
           </Card>
-
-          <p className="start-help">
-            The next step is the setup wizard. That is where you configure the organization.
-          </p>
         </aside>
       </section>
     </div>
