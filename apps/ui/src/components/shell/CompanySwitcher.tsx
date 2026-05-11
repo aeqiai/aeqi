@@ -39,7 +39,7 @@ const PlusIcon = () => (
  *
  * The dropdown always carries three groups: the user themselves (so
  * pivoting from a company back to "yourself" is one click), every
- * company they own, and a "+ New company" affordance. With zero
+ * organization they own, and a "+ New organization" affordance. With zero
  * companies the user entry + create entry are the only items, and the
  * trigger is still a popover — the create path is always visible.
  */
@@ -77,10 +77,10 @@ export default function CompanySwitcher() {
   // flip — Acme is still the user's current workspace; the URL just
   // put them on the user-scoped account surface. When there's no
   // active workspace (brand-new user, or it got cleared), the
-  // trigger reads as a clear placeholder — "Select a company" — so
+  // trigger reads as a clear placeholder — "Select an organization" — so
   // the user knows the dropdown is the next move.
   const triggerEntity = activeEntity ?? null;
-  const triggerLabel = triggerEntity?.name ?? "Select a company";
+  const triggerLabel = triggerEntity?.name ?? "Select an organization";
   const triggerAvatar = triggerEntity ? (
     <BlockAvatar name={triggerEntity.name} size={16} />
   ) : (
@@ -93,7 +93,7 @@ export default function CompanySwitcher() {
       className={`company-switcher-trigger${
         triggerEntity ? "" : " company-switcher-trigger--empty"
       }`}
-      aria-label={triggerEntity ? "Switch workspace" : "Select a company"}
+      aria-label={triggerEntity ? "Switch workspace" : "Select an organization"}
     >
       <span className="company-switcher-avatar">{triggerAvatar}</span>
       <span className="company-switcher-name">{triggerLabel}</span>
@@ -119,7 +119,7 @@ export default function CompanySwitcher() {
             sitting in its own footer band. Personal-scope navigation
             (Inbox, Portfolio) lives in the sidebar above; the switcher
             is purely a workspace picker. */}
-        <div className="company-switcher-eyebrow">Select company</div>
+        <div className="company-switcher-eyebrow">Select organization</div>
         <div className="company-switcher-list">
           {ordered.map((entity) => {
             const isCurrent = isEntityScope && entity.id === activeEntityId;
@@ -143,7 +143,7 @@ export default function CompanySwitcher() {
             leadingIcon={<PlusIcon />}
             className="company-switcher-create"
           >
-            Launch a new company
+            Launch a new organization
           </SelectOption>
         </div>
       </div>

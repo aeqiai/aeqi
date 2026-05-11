@@ -103,14 +103,14 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="left-sidebar-body">
-          {/* ── Start a company CTA in new-menu slot ── */}
+          {/* ── Start an organization CTA in new-menu slot ── */}
           <div className="sidebar-user-zone">
-            <Tooltip content="Start your first autonomous company">
+            <Tooltip content="Start your first autonomous organization">
               <button
                 type="button"
                 className="sidebar-nav-item new-menu-trigger"
                 onClick={() => navigate(`/signup${next}`)}
-                aria-label="Start a company"
+                aria-label="Start an organization"
               >
                 <span className="new-menu-plus" aria-hidden="true">
                   <svg viewBox="0 0 16 16" fill="none" width={14} height={14}>
@@ -122,7 +122,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                     />
                   </svg>
                 </span>
-                <span className="sidebar-nav-label">Start a company</span>
+                <span className="sidebar-nav-label">Start an organization</span>
               </button>
             </Tooltip>
           </div>

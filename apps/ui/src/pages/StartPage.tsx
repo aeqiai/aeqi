@@ -16,9 +16,9 @@ import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
 
 const START_PROMPTS = [
-  "A company that ships AI agents for customer support and ops",
+  "An organization that ships AI agents for customer support and ops",
   "A crypto-native studio with treasury, vesting, and governance",
-  "A small founder-led company with roles, hiring, and a clear roadmap",
+  "A small founder-led organization with roles, hiring, and a clear roadmap",
 ];
 
 type SelectionMode = "auto" | "manual";
@@ -85,7 +85,7 @@ function buildLaunchMessages(
   const intro = {
     kind: "assistant" as const,
     title: "AEQI",
-    body: "Tell me what you want to build. I’ll shape the company structure on the right.",
+    body: "Tell me what you want to build. I’ll shape the organization on the right.",
   };
   const messages: Array<{ kind: "assistant" | "user"; title: string; body: string }> = [intro];
   const trimmed = brief.trim();
@@ -109,7 +109,7 @@ function buildLaunchMessages(
 }
 
 /**
- * `/launch` is the company studio. It gives the user one shell-native
+ * `/launch` is the organization studio. It gives the user one shell-native
  * formation surface: talk on the left, shape the blueprint on the right,
  * then continue into setup.
  */
@@ -129,7 +129,7 @@ export default function StartPage() {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    document.title = "Launch a company · aeqi";
+    document.title = "Launch an organization · aeqi";
   }, []);
 
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function StartPage() {
       <header className="start-head start-head--studio">
         <div className="start-head-copy">
           <p className="start-eyebrow">Launch</p>
-          <h1 className="page-title">Choose the blueprint. AEQI shapes the company.</h1>
+          <h1 className="page-title">Choose the blueprint. AEQI shapes the organization.</h1>
           <p className="start-sub">
             Talk on the left. The live canvas on the right recomposes as you change the brief or
             switch the blueprint.
@@ -297,7 +297,7 @@ export default function StartPage() {
         <aside className="start-session-pane">
           <div className="start-pane-head">
             <p className="start-section-kicker">Chat</p>
-            <h2 className="start-section-title">Shape the company in conversation.</h2>
+            <h2 className="start-section-title">Shape the organization in conversation.</h2>
             <p className="start-section-sub">
               Keep it short. The canvas updates as you type and pin a blueprint.
             </p>
@@ -327,7 +327,7 @@ export default function StartPage() {
               onSend={handleBriefSend}
               composerRef={composerRef}
               variant="shell"
-              placeholder="Tell AEQI what this company should do, who it serves, and what makes it different."
+              placeholder="Tell AEQI what this organization should do, who it serves, and what makes it different."
               sendLabel="Launch"
             />
           </div>
@@ -378,11 +378,12 @@ export default function StartPage() {
           <section className="start-proposal-panel" aria-label="Current proposal">
             <p className="start-proposal-label">Current brief</p>
             <p className="start-proposal-text">
-              {briefValue || "Write a short brief to shape the first company."}
+              {briefValue || "Write a short brief to shape the first organization."}
             </p>
             {selectedBlueprint && (
               <p className="start-proposal-foot">
-                {formatChoiceMeta(selectedBlueprint)} · {selectedBlueprint.category ?? "company"}
+                {formatChoiceMeta(selectedBlueprint)} ·{" "}
+                {selectedBlueprint.category ?? "organization"}
               </p>
             )}
           </section>

@@ -10,7 +10,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityBasePath } from "@/lib/entityPath";
 
 interface LeftSidebarProps {
-  /** Canonical entity (company) id. Sidebar tabs are company-scoped, not child-agent scoped. */
+  /** Canonical entity (organization) id. Sidebar tabs are org-scoped, not child-agent scoped. */
   entityId: string | null;
   path: string;
 }
@@ -201,10 +201,10 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
 
   const navHref = (id: string) => `${base}/${id}`;
 
-  // The Company cockpit row stays lit ONLY at the bare `/c/<entity>`
+  // The Organization cockpit row stays lit ONLY at the bare `/c/<entity>`
   // overview URL — Phase 1 promotes Treasury / Ownership / Governance /
   // Roles to top-level rows, so they own their own "active" state and
-  // shouldn't double-light Company. (Compare to the previous shape where
+  // shouldn't double-light Organization. (Compare to the previous shape where
   // those were sub-tabs of CompanyPage and Company stayed lit across
   // them.)
   const isActiveTab = (id: string) => {
@@ -371,12 +371,12 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               Settings (standalone, gap above) ── */}
         {hasCompany && (
           <>
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Company">
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
               <div key="overview" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}
                   href={base}
-                  title="Company"
+                  title="Organization"
                   aria-current={isCompanyOverview ? "page" : undefined}
                   onClick={(e) => {
                     e.preventDefault();
@@ -384,7 +384,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                   }}
                 >
                   <CompanyIcon />
-                  <span className="sidebar-nav-label">Company</span>
+                  <span className="sidebar-nav-label">Organization</span>
                 </a>
               </div>
               {navItem("inbox", "Inbox", <InboxIcon />)}

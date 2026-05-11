@@ -366,7 +366,7 @@ export default function BlueprintsPage() {
             />
 
             {activeKind === "companies" && !isImportMode && (
-              <Tooltip content="New company">
+              <Tooltip content="New organization">
                 <Button variant="primary" size="sm" onClick={() => navigate("/launch")}>
                   <svg
                     width="11"
@@ -380,7 +380,7 @@ export default function BlueprintsPage() {
                   >
                     <path d="M6.5 2.5v8M2.5 6.5h8" />
                   </svg>
-                  Launch company
+                  Launch organization
                 </Button>
               </Tooltip>
             )}

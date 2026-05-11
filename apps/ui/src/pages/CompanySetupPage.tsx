@@ -32,7 +32,7 @@ import "@/styles/blueprints-store.css";
 import "@/styles/wizard.css";
 
 /**
- * `/start/:slug` — company setup wizard.
+ * `/start/:slug` — organization setup wizard.
  *
  * Sits between picking a Blueprint and the actual spawn so the operator
  * configures six panels in one scrollable flow:
@@ -203,7 +203,7 @@ export default function CompanySetupPage() {
 
   const allExpanded = expandedPanels.size >= (blueprint && hasOnchainModules(blueprint) ? 6 : 3);
 
-  /** Wizard is valid when company name is set. */
+  /** Wizard is valid when organization name is set. */
   const isValid = identity.name.trim().length > 0;
 
   useEffect(() => {
@@ -263,7 +263,7 @@ export default function CompanySetupPage() {
         template: blueprint.slug,
         display_name: identity.name.trim(),
       });
-      // Refresh the entity list so the company switcher shows the new company.
+      // Refresh the entity list so the switcher shows the new organization.
       await fetchEntities();
 
       // Poll for trust_address for up to 10s (registerTRUST lands within 1-2s normally).
@@ -300,7 +300,7 @@ export default function CompanySetupPage() {
           });
           window.location.href = url;
         } catch {
-          setSubmitError("Subscribe to create your first company. Go to Settings → Billing.");
+          setSubmitError("Subscribe to create your first organization. Go to Settings → Billing.");
           setSubmitting(false);
         }
         return;
@@ -348,14 +348,16 @@ export default function CompanySetupPage() {
     governance: onchain ? governance : null,
   };
 
-  const ctaLabel = skipsStripe ? "Create company" : `Create company — $${FOUNDER_FEE} today`;
+  const ctaLabel = skipsStripe
+    ? "Create organization"
+    : `Create organization — $${FOUNDER_FEE} today`;
 
   return (
     <div className="wizard-page">
       {/* ── Page header ─────────────────────────────── */}
       <header className="wizard-head">
         <p className="wizard-eyebrow">Set up · {blueprint.name}</p>
-        <h1 className="wizard-title">Configure your company.</h1>
+        <h1 className="wizard-title">Configure your organization.</h1>
         <p className="wizard-sub">{blueprint.tagline || "Review and configure, then create."}</p>
       </header>
 

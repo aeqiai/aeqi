@@ -125,7 +125,7 @@ export default function AgentsPage() {
       <header className="entities-header">
         <h2 className="entities-title">Agents</h2>
         <Button variant="primary" size="sm" onClick={() => navigate("/launch")}>
-          New company
+          New organization
         </Button>
       </header>
 
@@ -143,10 +143,10 @@ export default function AgentsPage() {
       ) : entities.length === 0 ? (
         <EmptyState
           title="No companies yet"
-          description="Pick a Blueprint and ship your first autonomous company."
+          description="Pick a Blueprint and ship your first autonomous organization."
           action={
             <Button variant="primary" onClick={() => navigate("/launch")}>
-              New company
+              New organization
             </Button>
           }
         />
