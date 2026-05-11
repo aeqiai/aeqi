@@ -21,7 +21,6 @@ import { entityPath } from "@/lib/entityPath";
 // copy framings.
 import WelcomePage from "@/pages/WelcomePage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
-import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import MagicLinkPage from "@/pages/MagicLinkPage";
 import InvitationAcceptPage from "@/pages/InvitationAcceptPage";
@@ -305,7 +304,6 @@ export default function App() {
           <Route path="/start/:slug" element={<GatedAppShell />} />
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
           <Route path="/verify" element={<VerifyEmailPage />} />
-          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/auth/magic" element={<MagicLinkPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
