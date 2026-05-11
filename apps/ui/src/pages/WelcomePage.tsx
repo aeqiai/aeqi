@@ -6,12 +6,10 @@ import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
 
 /**
- * Welcome — combined sign-in / sign-up entry point. Per the canonical
- * "every user = a Company" model, there is no separate signup vs login
- * flow: a user authenticates (wallet, passkey, or email), the server
- * resolves them to a Company (creating one if their auth identity is
- * new), the spawn animates live on-chain, and they land on
- * `/trust/<pubkey>/` inside their Company.
+ * Welcome — combined sign-in / sign-up entry point. A user authenticates
+ * with wallet, passkey, email, Google, or GitHub; the server resolves or
+ * creates the account, provisions the account wallet, and returns a session.
+ * Company creation is separate and happens later through the launch flow.
  *
  * Companion to `aeqi-platform`'s `/api/auth/welcome/*` routes (served
  * relative to the current origin in prod; override with
@@ -156,9 +154,8 @@ interface WelcomeCopy {
 
 const COPY: Record<WelcomeMode, WelcomeCopy> = {
   signup: {
-    title: "Start your company",
-    subtitle:
-      "Use email, Google, GitHub, passkey, or wallet. We will set up one Company and one Trust.",
+    title: "Create your account",
+    subtitle: "Use email, Google, GitHub, passkey, or wallet. We will set up your account wallet.",
     switchLabel: "Already have an account?",
     switchHref: "/login",
     switchCta: "Sign in",
@@ -166,36 +163,39 @@ const COPY: Record<WelcomeMode, WelcomeCopy> = {
   login: {
     title: "Welcome back",
     subtitle:
-      "Sign in with email, Google, GitHub, passkey, or wallet. Your Company and Trust stay the same.",
+      "Sign in with email, Google, GitHub, passkey, or wallet. Your account wallet stays the same.",
     switchLabel: "First time here?",
     switchHref: "/signup",
     switchCta: "Sign up",
   },
   welcome: {
     title: "Welcome to aeqi",
-    subtitle: "Continue with email, Google, GitHub, passkey, or wallet. We will open your Company.",
+    subtitle: "Continue with email, Google, GitHub, passkey, or wallet.",
     switchLabel: "",
     switchHref: "",
     switchCta: "",
   },
 };
 
-interface SpawnResponse {
-  company_id: string;
-  trust_id_hex: string;
-  trust_pubkey_b58: string;
-  authority_pubkey_b58: string;
+interface AccountSessionResponse {
+  account_id?: string;
+  user_id?: string;
+  wallet_pubkey_b58?: string;
+  company_id?: string | null;
+  trust_id_hex?: string;
+  trust_pubkey_b58?: string;
+  authority_pubkey_b58?: string;
   already_existed: boolean;
-  create_signature_b58: string | null;
-  role_init_signature_b58: string | null;
-  token_init_signature_b58: string | null;
-  governance_init_signature_b58: string | null;
-  role_module_pda_b58: string;
-  token_module_pda_b58: string;
-  governance_module_pda_b58: string;
-  role_module_state_pda_b58: string;
-  token_module_state_pda_b58: string;
-  governance_module_state_pda_b58: string;
+  create_signature_b58?: string | null;
+  role_init_signature_b58?: string | null;
+  token_init_signature_b58?: string | null;
+  governance_init_signature_b58?: string | null;
+  role_module_pda_b58?: string;
+  token_module_pda_b58?: string;
+  governance_module_pda_b58?: string;
+  role_module_state_pda_b58?: string;
+  token_module_state_pda_b58?: string;
+  governance_module_state_pda_b58?: string;
 }
 
 interface SpawnStep {
@@ -402,7 +402,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const [picked, setPicked] = useState<Door | null>(null);
   const [email, setEmail] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<SpawnResponse | null>(null);
+  const [outcome, setOutcome] = useState<AccountSessionResponse | null>(null);
   const [steps, setSteps] = useState<SpawnStep[]>([]);
   const [walletDetected, setWalletDetected] = useState<{ name: string } | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
@@ -410,26 +410,32 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   /**
    * OAuth hash landing path: Google + GitHub callbacks redirect to
-   * `/welcome#oauth_token=<jwt>&trust=<pubkey>&new=<0|1>`. The fragment
-   * never reaches a webserver; the SPA reads it on mount, persists the
-   * session, and either rolls into the spawn animation (new) or jumps
-   * straight to /trust/<addr>/ (returning).
+   * `/welcome#oauth_token=<jwt>&account=<id>&wallet=<pubkey>&new=<0|1>`.
+   * The fragment never reaches a webserver; the SPA reads it on mount,
+   * persists the session, and rolls into the account-ready view.
    */
   useEffect(() => {
     if (!window.location.hash) return;
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const token = hashParams.get("oauth_token");
-    const trust = hashParams.get("trust");
-    if (!token || !trust) return;
+    if (!token) return;
+    const account = hashParams.get("account") ?? "";
+    const wallet = hashParams.get("wallet") ?? hashParams.get("trust") ?? "";
     const isNew = hashParams.get("new") === "1";
     // Strip the fragment so refreshing doesn't replay.
     window.history.replaceState({}, "", window.location.pathname + window.location.search);
     setPicked("email");
     setErrorMsg(null);
-    const synthetic: SpawnResponse & { session_jwt: string; session_expires_at: string } = {
-      company_id: "",
-      trust_pubkey_b58: trust,
-      authority_pubkey_b58: "",
+    const synthetic: AccountSessionResponse & {
+      session_jwt: string;
+      session_expires_at: string;
+    } = {
+      account_id: account,
+      user_id: account,
+      wallet_pubkey_b58: wallet,
+      company_id: null,
+      trust_pubkey_b58: "",
+      authority_pubkey_b58: wallet,
       already_existed: !isNew,
       session_jwt: token,
       session_expires_at: "",
@@ -446,10 +452,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       governance_module_state_pda_b58: "",
     };
     persistSession(synthetic);
-    if (!isNew) {
-      navigate(`/trust/${trust}/`, { replace: true });
-      return;
-    }
     setStage("spawning");
     setSteps(buildSteps());
     void animateSpawn(synthetic);
@@ -473,7 +475,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
    * arrive at `/welcome?token=<hex>`. Strip the token off the URL so the
    * page can be safely refreshed/shared, fire `email-verify` against the
    * platform with the raw token, persist the resulting session, and roll
-   * straight into the spawn animation.
+   * straight into the account setup animation.
    */
   useEffect(() => {
     const token = searchParams.get("token");
@@ -496,7 +498,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         if (!verifyRes.ok) {
           throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
         }
-        const verify = (await verifyRes.json()) as SpawnResponse & {
+        const verify = (await verifyRes.json()) as AccountSessionResponse & {
           session_jwt: string;
           session_expires_at: string;
         };
@@ -539,7 +541,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     return [
       { key: "auth", label: "Identity confirmed", status: "done" },
       { key: "wallet", label: "Setting up your wallet", status: "active" },
-      { key: "trust", label: "Creating your trust", status: "pending" },
       { key: "ready", label: "Opening your workspace", status: "pending" },
     ];
   }
@@ -554,24 +555,15 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     );
   }
 
-  async function animateSpawn(data: SpawnResponse) {
+  async function animateSpawn(data: AccountSessionResponse) {
     setOutcome(data);
-    // Returning users (already_existed=true) skip the spawn ceremony
-    // entirely — there's nothing being provisioned, and the
-    // "TRUST/Authority" addresses are jargon that means nothing to a
-    // returning sign-in. Land them straight on /trust/<pubkey>/.
-    if (data.already_existed) {
-      navigate(`/trust/${data.trust_pubkey_b58}/`);
-      return;
-    }
-    const trustPda = data.trust_pubkey_b58;
     const tick = 450;
     const advanceWith = async (idx: number, detail?: string) => {
       await new Promise((r) => setTimeout(r, tick));
       advanceStep(idx, detail);
     };
-    await advanceWith(2, trustPda);
-    await advanceWith(3);
+    await advanceWith(1, data.wallet_pubkey_b58);
+    await advanceWith(2);
     await new Promise((r) => setTimeout(r, tick));
     setSteps((prev) => prev.map((s) => ({ ...s, status: "done" as const })));
     await new Promise((r) => setTimeout(r, 300));
@@ -580,22 +572,32 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   function persistSession(s: {
     session_jwt: string;
-    company_id: string;
+    account_id?: string;
+    user_id?: string;
+    wallet_pubkey_b58?: string;
+    company_id?: string | null;
     session_expires_at: string;
   }) {
     try {
       // Canonical auth-store keys (read by store/auth.ts on boot). Writing
       // the welcome JWT here is what bridges welcome → rest-of-app: without
       // these keys the auth store treats the user as logged-out and bounces
-      // every protected route to /login?next=… even though we just spawned
-      // their company.
+      // every protected route to /login?next=….
       localStorage.setItem("aeqi_token", s.session_jwt);
       localStorage.setItem("aeqi_app_mode", "runtime");
       localStorage.setItem("aeqi_auth_mode", "accounts");
-      // Welcome-flow scope (kept for downstream surfaces that need
-      // company_id specifically without re-decoding the JWT).
       localStorage.setItem("aeqi_session_jwt", s.session_jwt);
-      localStorage.setItem("aeqi_session_company_id", s.company_id);
+      if (s.account_id || s.user_id) {
+        localStorage.setItem("aeqi_session_account_id", s.account_id ?? s.user_id ?? "");
+      }
+      if (s.wallet_pubkey_b58) {
+        localStorage.setItem("aeqi_session_wallet_pubkey", s.wallet_pubkey_b58);
+      }
+      if (s.company_id) {
+        localStorage.setItem("aeqi_session_company_id", s.company_id);
+      } else {
+        localStorage.removeItem("aeqi_session_company_id");
+      }
       localStorage.setItem("aeqi_session_expires_at", s.session_expires_at);
       handleOAuthCallback(s.session_jwt);
     } catch {
@@ -634,7 +636,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       if (!verifyRes.ok) {
         throw new Error(`wallet-verify ${verifyRes.status}: ${await verifyRes.text()}`);
       }
-      const verify = (await verifyRes.json()) as SpawnResponse & {
+      const verify = (await verifyRes.json()) as AccountSessionResponse & {
         session_jwt: string;
         session_expires_at: string;
       };
@@ -653,7 +655,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
    * email" view. The user can either click the magic link in their inbox
    * (handled by the `?token=` useEffect on mount) OR paste / type the
    * 6-digit code into the OTP boxes (handled by `spawnViaEmailCode`).
-   * Either path redeems the same row and lands on the same spawn flow.
+   * Either path redeems the same row and lands on the same account flow.
    *
    * In dev (no SMTP backend), the platform inlines `magic_link_url` in
    * the response so the smoke test can auto-follow it. In prod that
@@ -692,7 +694,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         if (!verifyRes.ok) {
           throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
         }
-        const verify = (await verifyRes.json()) as SpawnResponse & {
+        const verify = (await verifyRes.json()) as AccountSessionResponse & {
           session_jwt: string;
           session_expires_at: string;
         };
@@ -710,7 +712,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
 
   /**
    * Verify the 6-digit code from the email. Same downstream flow as the
-   * magic link path: persist session, animate spawn, land on /trust/<pk>.
+   * magic link path: persist session and animate account setup.
    */
   async function spawnViaEmailCode(emailAddress: string, code: string) {
     setStage("spawning");
@@ -725,7 +727,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       if (!verifyRes.ok) {
         throw new Error(`verify-code ${verifyRes.status}: ${await verifyRes.text()}`);
       }
-      const verify = (await verifyRes.json()) as SpawnResponse & {
+      const verify = (await verifyRes.json()) as AccountSessionResponse & {
         session_jwt: string;
         session_expires_at: string;
       };
@@ -800,7 +802,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           }),
         });
         if (verifyRes.ok) {
-          const verify = (await verifyRes.json()) as SpawnResponse & {
+          const verify = (await verifyRes.json()) as AccountSessionResponse & {
             session_jwt: string;
             session_expires_at: string;
           };
@@ -840,7 +842,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       if (!finishRes.ok) {
         throw new Error(`register-finish ${finishRes.status}: ${await finishRes.text()}`);
       }
-      const finish = (await finishRes.json()) as SpawnResponse & {
+      const finish = (await finishRes.json()) as AccountSessionResponse & {
         session_jwt: string;
         session_expires_at: string;
       };
@@ -952,10 +954,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           {stage === "spawning" && <SpawningView steps={steps} picked={picked} />}
 
           {stage === "welcome" && outcome && (
-            <WelcomeView
-              outcome={outcome}
-              onContinue={() => navigate("/launch", { replace: true })}
-            />
+            <WelcomeView outcome={outcome} onContinue={() => navigate("/", { replace: true })} />
           )}
 
           {stage === "waitlist" && (
@@ -1252,8 +1251,8 @@ function SpawningView({ steps, picked }: { steps: SpawnStep[]; picked: Door | nu
     picked === "wallet" ? "your wallet" : picked === "passkey" ? "your passkey" : "your email";
   return (
     <>
-      <h1 className="auth-heading">Setting up your Company.</h1>
-      <p className="auth-subheading">Authenticated with {pickedLabel}. Creating your trust now.</p>
+      <h1 className="auth-heading">Setting up your account.</h1>
+      <p className="auth-subheading">Authenticated with {pickedLabel}. Preparing your wallet.</p>
       <ol className="welcome-spawn-list">
         {steps.map((s) => (
           <li key={s.key} className={`welcome-spawn-step welcome-spawn-step--${s.status}`}>
@@ -1274,16 +1273,18 @@ function WelcomeView({
   outcome: _outcome,
   onContinue,
 }: {
-  outcome: SpawnResponse;
+  outcome: AccountSessionResponse;
   onContinue: () => void;
 }) {
   return (
     <>
       <h1 className="auth-heading">Your account is ready.</h1>
-      <p className="auth-subheading">Now shape the company you want to build.</p>
+      <p className="auth-subheading">
+        Create a company from a blueprint or join one from your workspace.
+      </p>
       <div className="auth-form">
         <Button variant="primary" size="lg" fullWidth type="button" onClick={onContinue}>
-          Open studio →
+          Open aeqi →
         </Button>
       </div>
     </>
