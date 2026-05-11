@@ -177,7 +177,7 @@ export default function StartPage() {
     add("blank");
     for (const id of RECOMMENDED_BLUEPRINTS) add(id);
     for (const blueprint of blueprints) {
-      if (ids.length >= 7) break;
+      if (ids.length >= 4) break;
       add(blueprintId(blueprint));
     }
 
@@ -203,9 +203,6 @@ export default function StartPage() {
     setSelectedBlueprintId(id);
   }, []);
 
-  const briefValue = brief.trim();
-  const previewLine =
-    briefValue || selectedBlueprint?.tagline || "Write a brief and the canvas will adapt.";
   if (!isAuthed) return null;
 
   return (
@@ -213,10 +210,8 @@ export default function StartPage() {
       <header className="start-head start-head--studio">
         <div className="start-head-copy">
           <p className="start-eyebrow">Launch</p>
-          <h1 className="page-title">Choose the blueprint. AEQI shapes the organization.</h1>
-          <p className="start-sub">
-            Brief on the left. Blueprint on the right. Launch when the structure is right.
-          </p>
+          <h1 className="page-title">Start an organization.</h1>
+          <p className="start-sub">Write the brief, pick the blueprint, and launch when ready.</p>
         </div>
         <div className="start-head-actions">
           <Button
@@ -241,13 +236,10 @@ export default function StartPage() {
         <aside className="start-session-pane">
           <div className="start-pane-head">
             <p className="start-section-kicker">Brief</p>
-            <h2 className="start-section-title">Say what this organization should do.</h2>
-            <p className="start-section-sub">
-              AEQI will map the brief to a blueprint and keep the canvas in sync.
-            </p>
+            <h2 className="start-section-title">Describe the organization.</h2>
           </div>
 
-          <div className="start-chat-shell">
+          <div className="start-brief-panel">
             <Composer
               value={brief}
               onChange={handleBriefChange}
@@ -257,52 +249,37 @@ export default function StartPage() {
               placeholder="Tell AEQI what this organization should do, who it serves, and what makes it different."
               sendLabel="Launch"
             />
+            <p className="start-help">AEQI will suggest the best blueprint as you type.</p>
           </div>
-
-          <p className="start-session-foot-copy">
-            {selectionMode === "auto" ? "Auto-matching to your brief." : "Pinned blueprint."}
-          </p>
         </aside>
 
         <main className="start-canvas-pane">
           <div className="start-canvas-head">
             <div className="start-canvas-head-copy">
-              <p className="start-section-kicker">Live canvas</p>
+              <p className="start-section-kicker">Blueprint</p>
               <h2 className="start-section-title">
-                {selectedBlueprint?.name ?? "Loading blueprint"}
+                {selectedBlueprint?.name ?? "Loading blueprints"}
               </h2>
-              <p className="start-section-sub">{selectedBlueprint?.tagline ?? previewLine}</p>
+              <p className="start-section-sub">
+                {selectedBlueprint?.tagline ?? "Select a starting structure."}
+              </p>
             </div>
             <div className="start-canvas-meta">
-              <span className="start-canvas-meta-pill">
-                {selectionMode === "auto" ? "Auto-match" : "Pinned"}
+              <span className="start-canvas-meta-text">
+                {selectionMode === "auto" ? "Auto" : "Pinned"}
               </span>
-              <span className="start-canvas-meta-text">updates as you type</span>
             </div>
           </div>
-
-          <section className="start-proposal-panel" aria-label="Current proposal">
-            <p className="start-proposal-label">Current brief</p>
-            <p className="start-proposal-text">
-              {briefValue || "Write a short brief to shape the first organization."}
-            </p>
-            {selectedBlueprint && (
-              <p className="start-proposal-foot">
-                {formatChoiceMeta(selectedBlueprint)} ·{" "}
-                {selectedBlueprint.category ?? "organization"}
-              </p>
-            )}
-          </section>
 
           {loading ? (
             <div className="start-loading-state" role="status" aria-live="polite">
               <Spinner size="md" /> Loading blueprints…
             </div>
           ) : selectedBlueprint ? (
-            <>
+            <div className="start-canvas-stack">
               <BlueprintSeedCounts template={selectedBlueprint} />
               <BlueprintTreePreview template={selectedBlueprint} />
-            </>
+            </div>
           ) : (
             <div className="start-loading-state" role="status" aria-live="polite">
               No blueprints are available yet.
@@ -311,11 +288,8 @@ export default function StartPage() {
 
           <section className="start-choice-section" aria-label="Blueprint patterns">
             <div className="start-choice-head">
-              <p className="start-section-kicker">Patterns</p>
-              <h3 className="start-section-title">Pick a starting structure</h3>
-              <p className="start-section-sub">
-                Click a pattern to pin the canvas. Keep typing to let AEQI auto-match again.
-              </p>
+              <p className="start-section-kicker">Recommended</p>
+              <h3 className="start-section-title">Pick a starting structure.</h3>
             </div>
 
             <div className="start-choice-grid" role="list">
@@ -353,6 +327,10 @@ export default function StartPage() {
                 );
               })}
             </div>
+
+            <p className="start-help">
+              Click a blueprint to pin it. Type to switch back to auto-match.
+            </p>
           </section>
         </main>
       </section>
