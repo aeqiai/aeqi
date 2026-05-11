@@ -14,15 +14,20 @@
 
 /* `/start` is the company studio. It renders as a full-screen surface
    inside the authenticated app shell, but without the normal sidebar chrome.
-   The page uses a wider canvas so a brief + blueprint grid can breathe. */
+   The page uses a wider canvas so the composer + live blueprint canvas can
+   breathe side by side on desktop. */
 .start-page {
   width: 100%;
-  max-width: 1120px;
+  max-width: 1560px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6) var(--space-12);
   display: flex;
   flex-direction: column;
   gap: var(--space-7);
+}
+
+.start-page--studio {
+  min-height: 100%;
 }
 
 .start-shell {
@@ -42,7 +47,7 @@
   gap: var(--space-2);
 }
 .start-head--studio {
-  max-width: 60ch;
+  max-width: 84ch;
 }
 .start-eyebrow,
 .start-section-kicker {
@@ -60,6 +65,258 @@
   line-height: 1.55;
   color: var(--color-text-secondary);
   max-width: 60ch;
+}
+
+.start-step-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.start-step {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+.start-banner {
+  max-width: 84ch;
+}
+
+.start-studio-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.start-session-pane,
+.start-canvas-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.start-session-pane {
+  position: sticky;
+  top: var(--space-6);
+  align-self: start;
+}
+
+.start-pane-head,
+.start-canvas-head,
+.start-choice-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.start-canvas-head {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.start-canvas-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.start-canvas-meta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  text-align: right;
+}
+
+.start-canvas-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 999px;
+  background: var(--color-card-elevated);
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.start-canvas-meta-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.start-proposal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+
+.start-proposal-label {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.start-proposal-text {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  line-height: 1.55;
+  color: var(--color-text-primary);
+}
+
+.start-proposal-foot {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.start-loading-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+}
+
+.start-brief-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.start-session-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-1);
+}
+
+.start-session-foot-copy {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.start-session-foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.start-choice-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+}
+
+.start-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.start-choice-card-btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-lg);
+}
+
+.start-choice-card-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.start-choice-card {
+  height: 100%;
+}
+
+.start-choice-card--active {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-border);
+}
+
+.start-choice-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.start-choice-card-name {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
+}
+
+.start-choice-card-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.start-choice-card-tagline {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.start-choice-card-meta {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.start-canvas-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-top: var(--space-1);
 }
 
 .start-brief-panel,
@@ -115,8 +372,27 @@
   .start-page {
     gap: var(--space-8);
   }
-  .start-brief-panel {
-    padding: var(--space-6);
+}
+
+@media (max-width: 960px) {
+  .start-studio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .start-session-pane {
+    position: static;
+  }
+
+  .start-canvas-head,
+  .start-session-foot,
+  .start-canvas-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .start-canvas-meta {
+    align-items: flex-start;
+    text-align: left;
   }
 }
 
