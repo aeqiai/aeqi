@@ -321,8 +321,8 @@ export default function InvitationAcceptPage() {
                       }}
                     >
                       You have no companies to accept with. Create one first at{" "}
-                      <Link to="/start" style={{ color: "var(--accent)" }}>
-                        /start
+                      <Link to="/launch" style={{ color: "var(--accent)" }}>
+                        /launch
                       </Link>
                       .
                     </div>

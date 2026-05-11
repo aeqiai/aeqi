@@ -219,6 +219,7 @@ export default function AppLayout() {
     isEconomy,
     isBlueprints,
     isStudio,
+    isLaunch,
     isDrive,
     isStart,
     isNotFound,
@@ -380,11 +381,13 @@ export default function AppLayout() {
     if (isRoleInvite) return <RoleInvitePage />;
     if (isRoleEdit) return <RoleEditPage />;
     if (isRoleDetail) return <RoleDetailPage />;
-    if (isStart) {
-      // /start/<slug> → CompanySetupPage (the name + roles + plan
-      // confirmation surface). Bare /start stays on the catalog
-      // launch picker.
-      if (path.startsWith("/start/")) return <CompanySetupPage />;
+    if (isLaunch || isStart) {
+      // /launch/<slug> or legacy /start/<slug> → CompanySetupPage
+      // (name + roles + plan confirmation). Bare /launch or /start
+      // stays on the company studio.
+      if (path.startsWith("/launch/") || path.startsWith("/start/")) {
+        return <CompanySetupPage />;
+      }
       return <StartPage />;
     }
     if (isAdmin) return <AdminPage />;
@@ -426,23 +429,6 @@ export default function AppLayout() {
     return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
-  if (isStart) {
-    return (
-      <>
-        <a className="skip-link" href="#main-content">
-          Skip to main content
-        </a>
-        <div className="start-shell">
-          <main id="main-content" className="start-shell-main">
-            <Suspense fallback={null}>{mainContent}</Suspense>
-          </main>
-        </div>
-        <CommandPalette open={searching} onClose={closeSearch} />
-        <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      </>
-    );
-  }
-
   // The chat composer + sessions rail belong on the drilled-agent
   // default surface (`/c/<entity>/agents/<id>/[inbox/<sid>]`). The
   // entity-scope inbox (`/trust/<addr>/inbox`) embeds
@@ -458,6 +444,7 @@ export default function AppLayout() {
     !isDrive &&
     !isAccount &&
     !isAdmin &&
+    !isLaunch &&
     !isStart &&
     !isEconomy &&
     !isBlueprints &&

@@ -196,7 +196,7 @@ describe("BlueprintDetailPage", () => {
     );
   });
 
-  it("'Use this Blueprint' CTA navigates to /start with the slug pre-loaded", async () => {
+  it("'Use this Blueprint' CTA navigates to /launch with the slug pre-loaded", async () => {
     vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: SOLO });
     const user = userEvent.setup();
 
@@ -212,6 +212,8 @@ describe("BlueprintDetailPage", () => {
         <MemoryRouter initialEntries={["/blueprints/solo-founder"]}>
           <Routes>
             <Route path="/blueprints/:slug" element={<BlueprintDetailPage />} />
+            <Route path="/launch" element={<Probe />} />
+            <Route path="/launch/:slug" element={<Probe />} />
             <Route path="/start" element={<Probe />} />
             <Route path="/start/:slug" element={<Probe />} />
           </Routes>
@@ -225,6 +227,6 @@ describe("BlueprintDetailPage", () => {
     await waitFor(() => {
       expect(landed).not.toBeNull();
     });
-    expect(landed).toBe("/start/solo-founder");
+    expect(landed).toBe("/launch/solo-founder");
   });
 });

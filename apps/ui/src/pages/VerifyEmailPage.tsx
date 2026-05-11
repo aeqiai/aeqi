@@ -55,7 +55,7 @@ export default function VerifyEmailPage() {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
           // Post-signup verify → onboarding (no companies yet).
-          navigate("/start", { replace: true });
+          navigate("/launch", { replace: true });
         }
       });
     }
@@ -78,7 +78,7 @@ export default function VerifyEmailPage() {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
           // Post-signup verify → onboarding (no companies yet).
-          navigate("/start", { replace: true });
+          navigate("/launch", { replace: true });
         }
       });
     }

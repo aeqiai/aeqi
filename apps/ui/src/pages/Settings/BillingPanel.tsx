@@ -219,8 +219,8 @@ export default function BillingPanel() {
         <div className="billing-empty">
           <h3 className="billing-empty-title">No Companies yet</h3>
           <p className="billing-empty-sub">Launch your first Company to get started.</p>
-          <Link to="/start" className="billing-empty-cta">
-            <Button variant="primary">Start a Company →</Button>
+          <Link to="/launch" className="billing-empty-cta">
+            <Button variant="primary">Launch a Company →</Button>
           </Link>
         </div>
       ) : (

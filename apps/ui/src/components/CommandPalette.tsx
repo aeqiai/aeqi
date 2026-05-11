@@ -109,7 +109,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               label: "Start a Company",
               hint: "Launch",
               section: "Navigate",
-              action: () => go("/start"),
+              action: () => go("/launch"),
             },
           ];
 

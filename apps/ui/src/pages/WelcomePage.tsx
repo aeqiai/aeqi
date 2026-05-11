@@ -954,7 +954,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           {stage === "welcome" && outcome && (
             <WelcomeView
               outcome={outcome}
-              onContinue={() => navigate("/start", { replace: true })}
+              onContinue={() => navigate("/launch", { replace: true })}
             />
           )}
 

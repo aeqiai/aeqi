@@ -156,11 +156,11 @@ export default function BlueprintDetailPage() {
   const single = template as SingleBlueprint;
 
   // Detail page is preview-only. The launch CTA hands off to
-  // `/start/<slug>` (CompanySetupPage) where the operator confirms a
+  // `/launch/<slug>` (CompanySetupPage) where the operator confirms a
   // name, stages role overrides, and picks a plan before spawn.
   const launchHref = isImportMode
     ? `/blueprints/${encodeURIComponent(single.slug)}?import_into=${encodeURIComponent(importIntoId ?? "")}`
-    : `/start/${encodeURIComponent(single.slug)}`;
+    : `/launch/${encodeURIComponent(single.slug)}`;
 
   return (
     <div className="page-rail-shell">

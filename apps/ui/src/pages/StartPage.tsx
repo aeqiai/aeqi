@@ -78,8 +78,8 @@ function formatChoiceMeta(template: Blueprint): string {
 }
 
 /**
- * `/start` is the company studio. It gives the user one full-screen
- * launch surface: talk on the left, shape the blueprint on the right,
+ * `/launch` is the company studio. It gives the user one shell-native
+ * formation surface: talk on the left, shape the blueprint on the right,
  * then continue into setup.
  */
 export default function StartPage() {
@@ -98,15 +98,15 @@ export default function StartPage() {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    document.title = "Start a company · aeqi";
+    document.title = "Launch a company · aeqi";
   }, []);
 
   useEffect(() => {
     if (!isAuthed) {
-      navigate(`/signup?next=${encodeURIComponent("/start")}`, { replace: true });
+      navigate(`/signup?next=${encodeURIComponent("/launch")}`, { replace: true });
       return;
     }
-    track(Events.CompanyCreateStart, { surface: "start" });
+    track(Events.CompanyCreateStart, { surface: "launch" });
   }, [isAuthed, navigate, track]);
 
   useEffect(() => {
@@ -190,7 +190,7 @@ export default function StartPage() {
 
   const handleContinue = useCallback(() => {
     if (!selectedBlueprint) return;
-    navigate(`/start/${encodeURIComponent(selectedBlueprint.slug)}${launchQuery}`);
+    navigate(`/launch/${encodeURIComponent(selectedBlueprint.slug)}${launchQuery}`);
   }, [launchQuery, navigate, selectedBlueprint]);
 
   const handleBriefSend = useCallback(() => {
@@ -223,7 +223,7 @@ export default function StartPage() {
   return (
     <div className="start-page start-page--studio">
       <header className="start-head start-head--studio">
-        <p className="start-eyebrow">Company studio</p>
+        <p className="start-eyebrow">Launch studio</p>
         <h1 className="page-title">Describe the company. AEQI shapes the structure.</h1>
         <p className="start-sub">
           Talk on the left. The live canvas on the right recomposes as you change the brief or
@@ -243,7 +243,7 @@ export default function StartPage() {
         </Banner>
       )}
 
-      <section className="start-studio-grid" aria-label="Company launch studio">
+      <section className="start-studio-grid" aria-label="Launch studio">
         <aside className="start-session-pane">
           <div className="start-pane-head">
             <p className="start-section-kicker">Composer</p>

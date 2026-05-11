@@ -32,7 +32,7 @@ const PlusIcon = () => (
  * Top-of-rail workspace switcher. The user can be in two contexts:
  *
  * - **User scope** (`/`, `/me`, `/me/<sub>`, `/economy`, `/economy/<sub>`,
- *   `/sessions/<id>`, `/start`): the trigger renders the user's avatar
+ *   `/sessions/<id>`, `/launch`, `/start`): the trigger renders the user's avatar
  *   + name; the inbox / personal economy / settings live here.
  * - **Entity scope** (anything under `/c/<entity_id>/...`): the trigger
  *   renders the active company's avatar + name.
@@ -68,7 +68,7 @@ export default function CompanySwitcher() {
   );
 
   const createCompany = useCallback(() => {
-    navigate("/start");
+    navigate("/launch");
     setOpen(false);
   }, [navigate]);
 
@@ -143,7 +143,7 @@ export default function CompanySwitcher() {
             leadingIcon={<PlusIcon />}
             className="company-switcher-create"
           >
-            Start a new company
+            Launch a new company
           </SelectOption>
         </div>
       </div>

@@ -37,7 +37,7 @@ interface BlueprintLaunchPickerProps {
  *   3. Browse all → /blueprints — full catalog.
  *
  * Branches on `mode`:
- *   - spawn-company → navigate to /start/<slug> (CompanySetupPage)
+ *   - spawn-company → navigate to /launch/<slug> (CompanySetupPage)
  *     so the operator confirms name + roles + plan before spawn
  *   - spawn-into-entity → POST /api/blueprints/spawn-into
  *     (a "merge into existing company" flow — no naming or billing
@@ -112,7 +112,7 @@ export function BlueprintLaunchPicker({
       // blueprint into my existing company" flow with no naming or
       // billing concerns to surface.
       if (mode === "spawn-company") {
-        navigate(`/start/${encodeURIComponent(tpl.slug)}${launchQuery ?? ""}`);
+        navigate(`/launch/${encodeURIComponent(tpl.slug)}${launchQuery ?? ""}`);
         return;
       }
       setSubmittingSlug(slug);

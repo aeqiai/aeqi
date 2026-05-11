@@ -46,6 +46,7 @@ const RESERVED_SLUGS = new Set([
   "c",
   "trust",
   "start",
+  "launch",
   "studio",
   "economy",
   "blueprints",
@@ -239,6 +240,8 @@ export default function App() {
           <Route path="account" element={null} />
           <Route path="account/:tab" element={null} />
           <Route path="admin" element={null} />
+          <Route path="launch" element={null} />
+          <Route path="launch/:slug" element={null} />
           <Route path="start" element={null} />
           <Route path="start/:slug" element={null} />
           <Route path="trust/:trustAddress" element={null}>
@@ -295,11 +298,13 @@ export default function App() {
           <Route path="/login" element={<WelcomePage mode="login" />} />
           <Route path="/signup" element={<WelcomePage mode="signup" />} />
           <Route path="/welcome" element={<WelcomePage mode="welcome" />} />
-          {/* `/start` is the in-shell Company-launch surface — blueprint
-              picker at `/start`, setup at `/start/<slug>`. Routes through
-              GatedAppShell so the LeftSidebar stays mounted and unauth
-              visitors bounce to /login. AppLayout dispatches `isStart` to
-              StartPage / CompanySetupPage. */}
+          {/* `/launch` is the in-shell Company-launch surface — the
+              launch studio lives in the shell, and `/launch/<slug>` (with
+              `/start` aliases kept live) routes to CompanySetupPage.
+              Routes through GatedAppShell so the LeftSidebar stays
+              mounted and unauth visitors bounce to /login. AppLayout
+              dispatches `isLaunch` / `isStart` to StartPage /
+              CompanySetupPage. */}
           <Route path="/start" element={<GatedAppShell />} />
           <Route path="/start/:slug" element={<GatedAppShell />} />
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />

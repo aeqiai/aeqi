@@ -110,7 +110,7 @@ export default function AgentsPage() {
   }, [agents]);
 
   useEffect(() => {
-    const handler = () => navigate("/start");
+    const handler = () => navigate("/launch");
     window.addEventListener("aeqi:create", handler);
     return () => window.removeEventListener("aeqi:create", handler);
   }, [navigate]);
@@ -124,7 +124,7 @@ export default function AgentsPage() {
     <div className="entities">
       <header className="entities-header">
         <h2 className="entities-title">Agents</h2>
-        <Button variant="primary" size="sm" onClick={() => navigate("/start")}>
+        <Button variant="primary" size="sm" onClick={() => navigate("/launch")}>
           New company
         </Button>
       </header>
@@ -145,7 +145,7 @@ export default function AgentsPage() {
           title="No companies yet"
           description="Pick a Blueprint and ship your first autonomous company."
           action={
-            <Button variant="primary" onClick={() => navigate("/start")}>
+            <Button variant="primary" onClick={() => navigate("/launch")}>
               New company
             </Button>
           }

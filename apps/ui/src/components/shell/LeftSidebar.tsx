@@ -85,6 +85,14 @@ const BlueprintsIcon = () => (
   </svg>
 );
 
+const LaunchIcon = () => (
+  <svg {...iconProps}>
+    <path d="M3 12.5h10" />
+    <path d="M8 3v7" />
+    <path d="M5.5 7.5 8 10l2.5-2.5" />
+  </svg>
+);
+
 // Treasury — coin/safe geometry. Concentric circle reads as value/store.
 const TreasuryIcon = () => (
   <svg {...iconProps}>
@@ -207,6 +215,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
 
   // Top-level public rows.
   const isDiscover = path === "/" || path === "/economy" || path.startsWith("/economy/");
+  const isLaunch = path === "/launch" || path.startsWith("/launch/");
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isAdmin = path === "/admin" || path.startsWith("/admin/");
   const isAdminUser = useAuthStore((s) => s.user?.is_admin === true);
@@ -344,6 +353,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isDiscover, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
+          {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch)}
         </nav>
 
         {/* ── Workspace switcher — pivots between user-scope (Economy

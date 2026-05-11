@@ -133,7 +133,7 @@ export function useGlobalShortcuts({
         e.preventDefault();
         // Inside an entity, hop to the agents tab and fire the shared
         // `aeqi:create` event so the AgentsTab listener opens the
-        // Blueprint picker. At user scope (no entity) fall back to /start
+        // Blueprint picker. At user scope (no entity) fall back to /launch
         // (company creation).
         if (entityId) {
           navigate(entityPathFromId(entitiesList, entityId, "agents"));
@@ -141,7 +141,7 @@ export function useGlobalShortcuts({
           // tab is mounted and listening.
           setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
         } else {
-          navigate("/start");
+          navigate("/launch");
         }
         return;
       }

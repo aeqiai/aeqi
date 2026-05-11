@@ -22,6 +22,8 @@ export interface ShellSurface {
    *  generated Blueprint preview → deploy. Top-level destination, not
    *  scoped to any Company. */
   isStudio: boolean;
+  /** `/launch` — company formation surface. Left composer + right canvas. */
+  isLaunch: boolean;
   isDrive: boolean;
   isStart: boolean;
   /** True when the path doesn't match any known shell surface — drives the
@@ -50,6 +52,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isEconomy = path === "/" || path === "/economy" || path.startsWith("/economy/");
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isStudio = path === "/studio" || path.startsWith("/studio/");
+    const isLaunch = path === "/launch" || path.startsWith("/launch/");
     const isStart = path === "/start" || path.startsWith("/start/");
     const isDrive = tab === "drive";
 
@@ -69,7 +72,14 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // door (isEconomy === true at `/`).
     const isCompanyRoute = /^\/c\/[^/]+(\/|$)/.test(path) || /^\/trust\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
-      isCompanyRoute || isAccount || isEconomy || isBlueprints || isStudio || isStart || isAdmin;
+      isCompanyRoute ||
+      isAccount ||
+      isEconomy ||
+      isBlueprints ||
+      isStudio ||
+      isLaunch ||
+      isStart ||
+      isAdmin;
     const isNotFound = !isKnownShellRoute;
 
     return {
@@ -77,6 +87,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
       isEconomy,
       isBlueprints,
       isStudio,
+      isLaunch,
       isDrive,
       isStart,
       isNotFound,
