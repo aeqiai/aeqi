@@ -8,8 +8,8 @@ import { useMemo } from "react";
  * inputs (path, tab), so a single `useMemo` is cheaper than the inline
  * derivations it replaces.
  *
- * Phase-1 sidebar lock: Inbox moved to `/c/<entity>/inbox` and routes
- * through CompanyPage. The user-scope MVP entrypoint is now `/launch`.
+ * The shell now treats the launch surface and the company surfaces as
+ * first-class routes. The user-scope MVP entrypoint is `/launch`.
  */
 export interface ShellSurface {
   /** True for all `/account/*` paths — ProfilePage dispatches further. */
@@ -21,7 +21,7 @@ export interface ShellSurface {
   isStart: boolean;
   /** True when the path doesn't match any known shell surface — drives the
    *  in-shell 404 dispatch. Stays false for `/me/...`, `/start`,
-   *  `/launch/...`, `/blueprints/...`, and `/c/:entityId/...`. */
+   *  `/launch/...` and `/blueprints/...`. */
   isNotFound: boolean;
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
@@ -43,7 +43,7 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isStart = path === "/start" || path.startsWith("/start/");
     const isDrive = tab === "drive";
 
-    // In-shell role sub-pages. Matches both /c/:entityId and /trust/:addr shapes.
+    // In-shell role sub-pages. Matches both entity route shapes.
     const rolePathMatch = path.match(/^\/(?:c\/[^/]+|trust\/[^/]+)\/roles\/(.+)$/);
     const roleSuffix = rolePathMatch ? rolePathMatch[1] : null;
     const isRolesNew = roleSuffix === "new";

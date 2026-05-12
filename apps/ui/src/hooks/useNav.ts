@@ -6,21 +6,20 @@ import { entityBasePath, entityPath as makeEntityPath } from "@/lib/entityPath";
 /**
  * Navigate within the current company scope.
  *
- * Supports both `/trust/:trustAddress/...` (on-chain canonical) and
- * `/c/:entityId/...` (pending / legacy) shapes. `go()` / `href()` stay
- * within the current entity's URL scope; `goEntity()` / `entityPath()`
- * target a specific entity by id (resolving to /trust/ when available).
+ * Supports the canonical trust route plus the id-based fallback route.
+ * `go()` / `href()` stay within the current entity's URL scope;
+ * `goEntity()` / `entityPath()` target a specific entity by id and
+ * resolve to the trust route when available.
  */
 export function useNav() {
   const navigate = useNavigate();
   const { entityId, trustAddress } = useParams<{ entityId?: string; trustAddress?: string }>();
   const entities = useDaemonStore((s) => s.entities);
 
-  // Resolve the base path for the current route's entity. On-chain entities
-  // use /trust/<addr>; pending use /c/<id>.
+  // Resolve the base path for the current route's entity. Trust-backed
+  // entities use the trust route; otherwise fall back to the id route.
   const base = useMemo(() => {
     if (trustAddress) {
-      // Already on a /trust/ route — keep the same prefix.
       return `/trust/${trustAddress}`;
     }
     if (!entityId) return "";
@@ -44,8 +43,8 @@ export function useNav() {
   );
 
   /**
-   * Absolute path for a company surface. Resolves to /trust/<addr> when
-   * the entity has a trust_address, otherwise /c/<id>.
+   * Absolute path for a company surface. Resolves to the trust route when
+   * the entity has a trust_address, otherwise falls back to the id route.
    */
   const entityPath = useCallback(
     (id: string, tab?: string, itemId?: string) => {
@@ -80,12 +79,8 @@ export function useNav() {
   );
 
   // Resolve a stable `entityId` regardless of which route shape is active.
-  // On `/trust/<addr>/...` `useParams.entityId` is undefined — fall back to
-  // the entity matching the trustAddress so callers like `goEntity(entityId,
-  // "ideas", id)` always pass a real id. Without this, IdeaListView /
-  // EventsList click handlers built `/c//ideas/<id>` which the URL bar
-  // normalises to `/c/ideas/<id>`, AppLayout fails to resolve "ideas" as
-  // an entity id, and the user lands on `/` (P0 row-click regression).
+  // On the trust route `useParams.entityId` is undefined, so fall back to
+  // the entity matching `trustAddress` and keep nested navigation stable.
   const trustEntityId = useMemo(() => {
     if (entityId) return entityId;
     if (!trustAddress) return "";

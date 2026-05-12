@@ -3,11 +3,11 @@ import type { Entity } from "@/lib/types";
 /**
  * Canonical URL base for an entity.
  *
- * - On-chain entities (trust_address set): `/trust/<address>`
- * - Pending / off-chain entities:          `/c/<id>`
+ * - Trust-backed entities: canonical trust route
+ * - Unprovisioned entities: id-based fallback route
  *
  * Use this everywhere a link or navigation targets a company entity so
- * the address is consistently the primary URL once registerTRUST lands.
+ * the trust route stays canonical once provisioning lands.
  */
 export function entityBasePath(entity: Pick<Entity, "id" | "trust_address">): string {
   if (entity.trust_address) {
@@ -18,7 +18,7 @@ export function entityBasePath(entity: Pick<Entity, "id" | "trust_address">): st
 
 /**
  * Full path for an entity + optional sub-path.
- * e.g. entityPath(entity, "roles") → "/trust/0xabc.../roles".
+ * e.g. entityPath(entity, "roles") → trust route + "/roles".
  * `entityPath(entity)` (no segments) → bare base; the bare URL IS the
  * company cockpit, so don't pass an "overview" segment — that route
  * 308-redirects back to the bare URL via AppLayout.
@@ -34,9 +34,9 @@ export function entityPath(
 
 /**
  * Build a canonical path when the call site only has the entity id (not
- * the full Entity object). Resolves to `/trust/<addr>` when the entities
- * lookup hits a row with `trust_address`; otherwise falls back to
- * `/c/<id>`.
+ * the full Entity object). Resolves to the trust route when the entities
+ * lookup hits a row with `trust_address`; otherwise falls back to the
+ * id route.
  *
  * Use this in components that hold `entityId: string` and have access to
  * the daemon store's `entities` array. Prefer `entityPath(entity, ...)`
