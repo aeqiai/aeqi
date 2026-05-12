@@ -1005,11 +1005,18 @@ impl Daemon {
                 let (embed_queue, embed_rx) = aeqi_ideas::embed_worker::EmbedQueue::channel(1024);
                 let embed_queue = Arc::new(embed_queue);
 
-                // Spawn the embedding worker. Agent R replaces this with
-                // `run(rx, idea_store.clone(), embedder)` when the embedder
-                // is wired into the daemon. Until then the no-op worker
-                // drains the queue so enqueue never blocks.
-                tokio::spawn(aeqi_ideas::embed_worker::run_no_op(embed_rx));
+                match (self.idea_store.clone(), self.embedder.clone()) {
+                    (Some(store), Some(embedder)) => {
+                        info!("embedding worker started");
+                        tokio::spawn(aeqi_ideas::embed_worker::run(embed_rx, store, embedder));
+                    }
+                    _ => {
+                        warn!(
+                            "embedding worker running in no-op mode; ideas remain BM25-only until an embedder is configured"
+                        );
+                        tokio::spawn(aeqi_ideas::embed_worker::run_no_op(embed_rx));
+                    }
+                }
 
                 // ── Round 6 wiring: daemon-level pattern dispatcher ─────
                 //
