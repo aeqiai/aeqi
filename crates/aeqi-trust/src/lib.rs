@@ -1,13 +1,7 @@
-//! Trust kernel primitives shared by AEQI runtime and hosted surfaces.
+//! Trust identity primitives shared by AEQI crates.
 //!
-//! This crate intentionally stays small:
-//!
-//! - deterministic trust identity derivation
-//! - a stable binding type for entity/trust metadata
-//! - human-readable serialization for persisted records and API payloads
-//!
-//! Chain-specific provisioning, wallet custody, and indexing live in
-//! higher-level crates. This package defines the common identity layer.
+//! This crate defines deterministic trust IDs and a stable metadata binding.
+//! Chain-specific provisioning and custody live in higher-level crates.
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::{Digest, Sha256};

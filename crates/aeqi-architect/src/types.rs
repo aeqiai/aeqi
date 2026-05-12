@@ -10,9 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Free-text brief from the founder. Phase 1 ignores everything except
-/// `text` — `target_kind` and `notes` are reserved for Phase 2 so the
-/// schema is forward-compatible.
+/// Free-text brief from the founder.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Brief {
     /// The founder's natural-language description of what they want to build.
@@ -20,13 +18,11 @@ pub struct Brief {
     /// orchestrator IPC layer, not here).
     pub text: String,
 
-    /// Caller-supplied hint about the desired output shape. Phase 1
-    /// always produces `kind = "single"`.
+    /// Caller-supplied hint about the desired output shape.
     #[serde(default)]
     pub target_kind: Option<TargetKind>,
 
-    /// Free-form annotations the caller wants to ferry through (UI
-    /// session id, draft id, etc.). Architect does not interpret these.
+    /// Free-form annotations the caller wants to ferry through.
     #[serde(default)]
     pub notes: Option<serde_json::Value>,
 }
@@ -35,7 +31,7 @@ pub struct Brief {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TargetKind {
-    /// One Blueprint → one Company.
+    /// One blueprint → one organization.
     Single,
 }
 
