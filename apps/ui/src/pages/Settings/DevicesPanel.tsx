@@ -2,14 +2,6 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Button, ConfirmDialog } from "@/components/ui";
 
-type ActivityRow = {
-  action: string;
-  detail?: string;
-  ip?: string;
-  user_agent?: string;
-  created_at: string;
-};
-
 type Session = {
   jti: string;
   ip?: string;
@@ -19,22 +11,6 @@ type Session = {
   expires_at: string;
   current?: boolean;
 };
-
-const LOGIN_ACTIONS = new Set([
-  "login",
-  "login_success",
-  "login_failed",
-  "login_attempt",
-  "2fa_verified",
-  "totp_verified",
-  "totp_login_failed",
-  "logout",
-  "password_changed",
-  "oauth_login",
-  "session_revoked",
-  "sessions_revoked_others",
-  "account_created",
-]);
 
 function formatAgo(iso: string): string {
   try {
@@ -83,11 +59,6 @@ function classifyDevice(ua?: string): { kind: DeviceKind; os: string; browser: s
   else if (lower.includes("safari/") && !lower.includes("chrome/")) browser = "Safari";
 
   return { kind, os, browser };
-}
-
-function describeUserAgent(ua?: string): string {
-  const { browser, os } = classifyDevice(ua);
-  return `${browser} on ${os}`;
 }
 
 function DeviceIcon({ kind }: { kind: DeviceKind }) {
@@ -207,7 +178,7 @@ function DeviceIcon({ kind }: { kind: DeviceKind }) {
 }
 
 /**
- * Settings → Devices tab. Active sessions + login & IP history.
+ * Settings → Devices tab. Active sessions only.
  *
  * Sessions come from `/api/auth/sessions` (one row per live JWT in
  * platform.db). Revoking a session marks `revoked_at` so the auth
@@ -216,7 +187,6 @@ function DeviceIcon({ kind }: { kind: DeviceKind }) {
  */
 export default function DevicesPanel() {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyJti, setBusyJti] = useState<string | null>(null);
@@ -239,18 +209,7 @@ export default function DevicesPanel() {
 
   useEffect(() => {
     setError(null);
-    Promise.all([
-      loadSessions(),
-      api
-        .getActivity()
-        .then((data: Record<string, unknown>) => {
-          const events = (data as { events?: ActivityRow[] }).events;
-          if (Array.isArray(events)) setActivity(events);
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : "Failed to load login history.");
-        }),
-    ]).finally(() => setLoaded(true));
+    loadSessions().finally(() => setLoaded(true));
   }, []);
 
   const askRevoke = (jti: string, isCurrent: boolean) => {
@@ -290,7 +249,6 @@ export default function DevicesPanel() {
   };
 
   const otherSessionCount = sessions.filter((s) => !s.current).length;
-  const loginEvents = activity.filter((e) => LOGIN_ACTIONS.has(e.action));
 
   return (
     <>
@@ -359,47 +317,6 @@ export default function DevicesPanel() {
               : `${otherSessionCount} other ${otherSessionCount === 1 ? "device is" : "devices are"} signed in.`}
           </span>
         </div>
-      </div>
-
-      <div className="account-field-lg">
-        <label className="account-field-label">Login &amp; IP history</label>
-        <p className="account-field-desc">
-          Recent sign-ins and authentication events on your account.
-        </p>
-        {!loaded ? null : loginEvents.length === 0 ? (
-          <div className="account-activity-empty">No sign-in activity recorded yet.</div>
-        ) : (
-          <div className="account-activity-list">
-            {loginEvents.slice(0, 30).map((event, i) => {
-              const isError = event.action.includes("failed") || event.action.includes("error");
-              return (
-                <div key={i} className="account-activity-item">
-                  <div
-                    className={`account-activity-dot ${
-                      isError ? "account-activity-dot--error" : "account-activity-dot--success"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <div className="account-activity-body">
-                    <span className="account-activity-action">
-                      {event.action.replace(/_/g, " ")}
-                    </span>
-                    {event.detail && (
-                      <span className="account-activity-detail">{event.detail}</span>
-                    )}
-                    {event.user_agent && (
-                      <span className="account-activity-detail">
-                        {describeUserAgent(event.user_agent)}
-                      </span>
-                    )}
-                  </div>
-                  {event.ip && <span className="account-activity-meta">{event.ip}</span>}
-                  <span className="account-activity-time">{formatAgo(event.created_at)}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       <ConfirmDialog

@@ -1921,14 +1921,6 @@
   border-color: var(--color-error);
 }
 
-.account-activity-section {
-  margin-top: var(--space-8);
-}
-
-.account-activity-desc {
-  margin-bottom: var(--space-2);
-}
-
 .account-activity-empty {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
@@ -1941,70 +1933,6 @@
   border-radius: var(--radius-sm);
   padding: var(--space-3);
   font-size: var(--font-size-sm);
-}
-
-.account-activity-list {
-  border: none;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.account-activity-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 9px var(--space-3);
-  font-size: var(--font-size-xs);
-}
-
-.account-activity-item:not(:last-child) {
-  border-bottom: none;
-  padding-bottom: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.account-activity-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.account-activity-dot--success {
-  background: var(--success);
-}
-
-.account-activity-dot--error {
-  background: var(--error);
-}
-
-.account-activity-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.account-activity-action {
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-.account-activity-detail {
-  color: var(--color-text-muted);
-  margin-left: var(--space-1);
-}
-
-.account-activity-meta {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  flex-shrink: 0;
-}
-
-.account-activity-time {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  flex-shrink: 0;
-  min-width: 50px;
-  text-align: right;
 }
 
 .account-device-list {

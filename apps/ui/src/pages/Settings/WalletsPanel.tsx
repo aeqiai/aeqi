@@ -5,8 +5,6 @@ import { apiRequest } from "@/api/client";
 import { api } from "@/lib/api";
 import { Banner, Button, ConfirmDialog } from "@/components/ui";
 import { buildSiweMessage, fetchNonce } from "@/lib/walletAuth";
-import WalletUpgradeSection from "@/pages/Settings/WalletUpgradeSection";
-import type { SignerType } from "@/pages/Settings/WalletUpgradeSection";
 
 interface WalletRow {
   id: string;
@@ -28,26 +26,11 @@ function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-/** Derive the signer type from the primary wallet row. */
-function deriveSignerType(wallets: WalletRow[]): SignerType {
-  const primary = wallets.find((w) => w.is_primary) ?? wallets[0];
-  if (!primary) return "unknown";
-  if (primary.signer_type === "passkey") return "passkey";
-  if (primary.signer_type === "custodial_eoa") return "custodial_eoa";
-  // Fallback: custodial / co_custody states map to Phase 1 (custodial EOA).
-  if (primary.custody_state === "custodial") return "custodial_eoa";
-  return "unknown";
-}
-
 /**
  * Settings → Wallets. Lists every `user_wallets` row for the account,
  * exposes the management actions (set primary, remove, link external),
  * and offers a "link external wallet" button that runs SIWE against
  * `/api/me/wallets/link` to attach a wallet the user already controls.
- *
- * Also surfaces the "Smart account signer" sub-section which shows the
- * current Phase (custodial EOA vs passkey) and drives the Phase-2 upgrade
- * flow via `WalletUpgradeSection`.
  */
 export default function WalletsPanel() {
   const [wallets, setWallets] = useState<WalletRow[]>([]);
@@ -167,8 +150,6 @@ export default function WalletsPanel() {
     }
   }
 
-  const signerType = loading ? "unknown" : deriveSignerType(wallets);
-
   return (
     <>
       <div className="account-field-lg">
@@ -263,8 +244,6 @@ export default function WalletsPanel() {
           }
         />
       </div>
-
-      <WalletUpgradeSection signerType={signerType} />
     </>
   );
 }
