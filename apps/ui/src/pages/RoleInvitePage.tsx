@@ -28,7 +28,7 @@ export default function RoleInvitePage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    document.title = "Invite to role · æqi";
+    document.title = "aeqi";
   }, []);
 
   const detailHref = entityPathFromId(entitiesList, entityId, "roles", encodeURIComponent(roleId));

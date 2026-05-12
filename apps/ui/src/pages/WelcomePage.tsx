@@ -530,8 +530,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         .catch(() => setPasskeyAvailable(false));
     }
 
-    document.title =
-      mode === "login" ? "Sign in · aeqi" : mode === "signup" ? "Sign up · aeqi" : "Welcome · aeqi";
+    document.title = "aeqi";
   }, [mode]);
 
   function buildSteps(): SpawnStep[] {

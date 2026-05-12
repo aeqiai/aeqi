@@ -48,7 +48,7 @@ export default function RoleNewPage() {
   );
 
   useEffect(() => {
-    document.title = "New role · æqi";
+    document.title = "aeqi";
     api
       .getRoles(entityId)
       .then((r) => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { launchPlanDisplayName } from "@/lib/pricing";
 import { useAuthStore } from "@/store/auth";
 import {
   Badge,
@@ -75,6 +76,17 @@ function shortId(s: string): string {
 
 function valueOrDash(s: string | null | undefined): string {
   return s && s.trim() ? s : "—";
+}
+
+function planLabel(s: string | null | undefined): string {
+  if (!s || !s.trim()) return "—";
+  const normalized = s.toLowerCase();
+  if (
+    ["starter", "standard", "launch", "company", "workspace", "growth", "pro"].includes(normalized)
+  ) {
+    return launchPlanDisplayName(s);
+  }
+  return labelize(s);
 }
 
 function labelize(s: string | null | undefined): string {
@@ -277,7 +289,7 @@ export default function AdminPage() {
       {
         key: "plan",
         header: "Plan",
-        cell: (u) => valueOrDash(u.subscription_plan),
+        cell: (u) => planLabel(u.subscription_plan),
         width: "120px",
         sortable: true,
         sortAccessor: (u) => u.subscription_plan,
@@ -362,7 +374,7 @@ export default function AdminPage() {
       {
         key: "plan",
         header: "Plan",
-        cell: (p) => valueOrDash(p.plan),
+        cell: (p) => planLabel(p.plan),
         width: "100px",
         sortable: true,
         sortAccessor: (p) => p.plan,

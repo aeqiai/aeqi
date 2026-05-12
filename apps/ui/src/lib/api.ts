@@ -1,5 +1,6 @@
 import { API_BASE_URL, ApiError, apiRequest as request, RateLimitedError } from "@/api/client";
 import type { AppMode } from "@/lib/appMode";
+import type { LaunchPlanId } from "@/lib/pricing";
 import type {
   AgentEvent,
   Blueprint,
@@ -697,7 +698,7 @@ export const api = {
     template: string;
     display_name: string;
     mission?: string;
-    plan?: string;
+    plan?: LaunchPlanId | string;
   }) =>
     request<{ ok: boolean; entity_id: string; display_name: string }>("/start/launch", {
       method: "POST",
@@ -953,15 +954,14 @@ export const api = {
       method: "DELETE",
     }),
 
-  // Stripe billing. Launch flows can stamp `plan` / `mission` metadata
-  // for provisioning and return via the launch completion redirect; the
-  // Billing settings surfaces keep their existing behavior.
+  // Stripe billing. Launch and resubscribe flows stamp Standard/Pro `plan`
+  // metadata for provisioning and billing display.
   createCheckoutSession: (data: {
     blueprint?: string;
     // not entity_id — entity is minted post-checkout when user lands on /start.
     display_name?: string;
     mission?: string;
-    plan?: string;
+    plan?: LaunchPlanId | string;
     launch?: boolean;
     role_overrides?: unknown[];
   }) =>
@@ -989,7 +989,7 @@ export const api = {
       companies: Array<{
         name: string;
         agent_id: string | null;
-        plan: "company";
+        plan: LaunchPlanId | string | null;
         stripe_subscription_id: string | null;
         status: "active" | "trialing" | "past_due" | "canceled";
         next_charge_at: string | null;
@@ -1000,7 +1000,7 @@ export const api = {
   getCompanySubscription: (rootName: string) =>
     request<{
       name: string;
-      plan: "company";
+      plan: LaunchPlanId | string | null;
       status: string;
       stripe_subscription_id: string | null;
     }>(`/billing/companies/${encodeURIComponent(rootName)}`),

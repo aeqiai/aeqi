@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { launchPlanById } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "./BlockAvatar";
 
@@ -9,9 +10,8 @@ import BlockAvatar from "./BlockAvatar";
  *
  * Click-to-edit name + tagline persist via `api.updateEntity`. Public
  * toggle flips `entities.public` (Phase 2 ships the public profile page
- * itself; Phase 1 only sets the flag). Plan label-link routes to
- * `/account/billing` for workspace billing — the per-Company plan tab is
- * retired with this ship.
+ * itself; Phase 1 only sets the flag). Plan label-link routes to the
+ * organization plan tab.
  *
  * In `public` mode the strip renders read-only: no click-to-edit on name
  * or tagline, no plan label, no public/private toggle (the viewer is
@@ -134,10 +134,9 @@ export default function EntityHeroStrip({
   };
 
   const planLabel = (() => {
-    const plan = entity?.plan;
-    if (plan === "growth") return "Growth · $119/mo";
-    if (plan === "starter" || plan === "launch") return "Launch · $39/mo";
-    return "Free workspace";
+    if (!entity?.plan) return "No plan";
+    const plan = launchPlanById(entity.plan);
+    return `${plan.name} · ${plan.price}/mo`;
   })();
 
   const name = isPublicMode ? (publicEntity?.display_name ?? entityId) : (entity?.name ?? entityId);

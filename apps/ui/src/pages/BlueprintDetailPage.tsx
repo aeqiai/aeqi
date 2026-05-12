@@ -88,8 +88,8 @@ export default function BlueprintDetailPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
-    document.title = template?.name ? `${template.name} · Blueprints · aeqi` : "Blueprint · aeqi";
-  }, [template?.name]);
+    document.title = "aeqi";
+  }, []);
 
   useEffect(() => {
     if (!blueprintIdParam) return;

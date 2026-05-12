@@ -33,14 +33,14 @@ const ENTITY = {
 
 const BILLING_OVERVIEW = {
   ok: true,
-  total_monthly_cents: 1900,
-  total_annual_cents: 22800,
+  total_monthly_cents: 14900,
+  total_annual_cents: 178800,
   currency: "usd",
   companies: [
     {
       name: "Acme Corp",
       agent_id: "entity-1",
-      plan: "company" as const,
+      plan: "growth" as const,
       stripe_subscription_id: "sub_123",
       status: "active" as const,
       next_charge_at: "2026-06-01T00:00:00Z",
@@ -126,6 +126,7 @@ describe("TreasuryPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Company subscription")).toBeInTheDocument();
     });
+    expect(screen.getByText("Pro")).toBeInTheDocument();
     expect(screen.getByText(/manage billing/i)).toBeInTheDocument();
   });
 
@@ -177,7 +178,7 @@ describe("TreasuryPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText(/resource pack/i)).toBeInTheDocument();
-      expect(screen.getByText(/inference \/ month/i)).toBeInTheDocument();
+      expect(screen.getByText(/llm tokens \/ month/i)).toBeInTheDocument();
     });
   });
 });

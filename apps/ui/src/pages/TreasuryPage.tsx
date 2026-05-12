@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { api } from "@/lib/api";
 import { indexerEnabled } from "@/lib/indexer";
-import { COMPANY_MONTHLY, formatCents, RESOURCE_PACK } from "@/lib/pricing";
+import { formatCents, launchPlanById, launchPlanResourceItems } from "@/lib/pricing";
 import { useTreasury, type TreasuryTransfer, type TokenBalance } from "@/hooks/useTreasury";
 import { useDaemonStore } from "@/store/daemon";
 import type { InferenceCallRow } from "@/lib/types";
@@ -38,7 +38,7 @@ interface TreasuryPageProps {
 interface CompanyBillingRow {
   name: string;
   agent_id: string | null;
-  plan: "company";
+  plan: string | null;
   stripe_subscription_id: string | null;
   status: "active" | "trialing" | "past_due" | "canceled";
   next_charge_at: string | null;
@@ -56,7 +56,7 @@ const STATUS_VARIANT: Record<
 
 const STATUS_LABEL: Record<CompanyBillingRow["status"], string> = {
   active: "Active",
-  trialing: "Trial",
+  trialing: "Intro",
   past_due: "Past due",
   canceled: "Canceled",
 };
@@ -183,7 +183,7 @@ export default function TreasuryPage({ entityId, agentId }: TreasuryPageProps) {
         />
       )}
 
-      <ResourcePack />
+      <ResourcePack planId={billing?.plan} />
     </div>
   );
 }
@@ -641,6 +641,7 @@ interface BillingCardProps {
 }
 
 function BillingCard({ billing, paymentLast4, onManage, portalBusy }: BillingCardProps) {
+  const plan = launchPlanById(billing.plan);
   const nextCharge = billing.next_charge_at
     ? new Date(billing.next_charge_at).toLocaleDateString(undefined, {
         year: "numeric",
@@ -673,6 +674,9 @@ function BillingCard({ billing, paymentLast4, onManage, portalBusy }: BillingCar
             <Badge variant={STATUS_VARIANT[billing.status]} size="sm">
               {STATUS_LABEL[billing.status]}
             </Badge>
+            <Badge variant={plan.id === "growth" ? "accent" : "neutral"} size="sm">
+              {plan.name}
+            </Badge>
           </div>
           <div
             style={{
@@ -681,7 +685,9 @@ function BillingCard({ billing, paymentLast4, onManage, portalBusy }: BillingCar
               marginTop: "var(--space-xs)",
             }}
           >
-            {formatCents(COMPANY_MONTHLY * 100)} / month
+            {billing.status === "trialing"
+              ? `${plan.dueToday} first month, then ${formatCents(plan.monthlyCents)} / month`
+              : `${formatCents(plan.monthlyCents)} / month`}
             {billing.status === "active" && billing.next_charge_at
               ? ` · next charge ${nextCharge}`
               : ""}
@@ -698,13 +704,8 @@ function BillingCard({ billing, paymentLast4, onManage, portalBusy }: BillingCar
 
 // ── Resource pack ─────────────────────────────────────────────────────────────
 
-function ResourcePack() {
-  const items = [
-    { label: "Inference / month", value: RESOURCE_PACK.inferenceUsd },
-    { label: "Compute", value: RESOURCE_PACK.cpu },
-    { label: "Memory", value: RESOURCE_PACK.ram },
-    { label: "Storage", value: RESOURCE_PACK.storage },
-  ];
+function ResourcePack({ planId }: { planId?: string | null }) {
+  const items = launchPlanResourceItems(planId);
 
   return (
     <section style={{ marginBottom: "var(--space-lg)" }}>

@@ -22,19 +22,6 @@ const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
 
-const TAB_TITLES: Record<string, string> = {
-  overview: "overview",
-  inbox: "inbox",
-  roles: "roles",
-  ownership: "ownership",
-  treasury: "treasury",
-  governance: "governance",
-  agents: "agents",
-  events: "events",
-  quests: "quests",
-  ideas: "ideas",
-};
-
 interface CompanyPageProps {
   agentId: string;
   entityId: string;
@@ -72,9 +59,8 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
 
   // Title effect
   useEffect(() => {
-    const section = TAB_TITLES[tab] ?? "company";
-    document.title = `${section} · æqi`;
-  }, [tab]);
+    document.title = "aeqi";
+  }, []);
 
   // Trust-address redirect: when entity gains a trust_address, redirect to
   // the canonical /trust/<address>/tab URL (once registerTRUST lands).

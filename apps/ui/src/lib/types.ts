@@ -28,7 +28,7 @@ export interface Entity {
   tagline?: string;
   /** When true, `<host>/<slug>` returns a public profile page. */
   public?: boolean;
-  /** Per-Company billing plan ID (`free`, `starter`, `growth`). */
+  /** Organization billing plan ID (`starter` for Standard, `growth` for Pro). */
   plan?: string;
   /** Current platform-side provisioning status for the placement. */
   placement_status?: string;
@@ -241,11 +241,10 @@ export interface User {
   phone?: string;
   phishing_code?: string;
   /** Subscription state from the accounts table. Mirrors Stripe's
-   *  subscription status. `"none"` means no active Company subscription;
-   *  `"active"` is the standard monthly billing state. `"trialing"` is a
-   *  legacy state — new subs ship with no trial period (first month is
-   *  $19 via coupon, then $49/mo). Only grandfathered customers from the
-   *  pre-coupon dual-product setup can still be in `"trialing"`. */
+   *  subscription status. `"none"` means no active organization
+   *  subscription; `"active"` is the standard monthly billing state.
+   *  `"trialing"` can appear while intro pricing is in effect or from
+   *  grandfathered subscriptions. */
   subscription_status?: string;
   subscription_plan?: string;
 }

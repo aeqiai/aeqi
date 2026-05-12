@@ -18,7 +18,7 @@ export default function MagicLinkPage() {
   const [state, setState] = useState<State>("consuming");
 
   useEffect(() => {
-    document.title = "Signing in · aeqi";
+    document.title = "aeqi";
   }, []);
 
   useEffect(() => {

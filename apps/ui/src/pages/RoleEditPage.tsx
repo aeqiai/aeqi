@@ -30,7 +30,7 @@ export default function RoleEditPage() {
 
   useEffect(() => {
     if (!roleId) return;
-    document.title = "Edit role · æqi";
+    document.title = "aeqi";
     api
       .getRole(roleId)
       .then((r) => {
@@ -38,7 +38,7 @@ export default function RoleEditPage() {
         setTitle(r.role.title);
         setRoleType(r.role.role_type);
         setGrants(r.role.grants ?? []);
-        document.title = `Edit ${r.role.title || "role"} · æqi`;
+        document.title = "aeqi";
       })
       .catch((e: Error) => setLoadError(e.message || "Could not load role."))
       .finally(() => setLoading(false));

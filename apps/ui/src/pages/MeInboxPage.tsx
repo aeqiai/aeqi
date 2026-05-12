@@ -282,7 +282,7 @@ export default function MeInboxPage() {
   }, [selectedRow]);
 
   useEffect(() => {
-    document.title = "inbox · æqi";
+    document.title = "aeqi";
   }, []);
 
   // ── Per-selection message fetch ──────────────────────────────────────

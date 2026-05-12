@@ -37,7 +37,7 @@ export default function RoleDetailPage() {
 
   useEffect(() => {
     if (!roleId) return;
-    document.title = "Role · æqi";
+    document.title = "aeqi";
     setLoading(true);
     setError(null);
 
@@ -47,7 +47,7 @@ export default function RoleDetailPage() {
     ])
       .then(([roleResp, invResp]) => {
         setRole(roleResp.role);
-        document.title = `${roleResp.role.title || "Role"} · æqi`;
+        document.title = "aeqi";
         const roleInvitations = invResp.invitations.filter((i) => i.role_id === roleId);
         setInvitations(roleInvitations);
       })

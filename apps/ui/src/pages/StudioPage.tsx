@@ -89,7 +89,7 @@ export default function StudioPage() {
   const latestCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.title = "studio · aeqi";
+    document.title = "aeqi";
   }, []);
 
   // After every new turn lands, scroll the latest card into view so the

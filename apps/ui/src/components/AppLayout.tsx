@@ -151,28 +151,8 @@ export default function AppLayout() {
   }, [entityId, entities, setActiveEntity]);
 
   useEffect(() => {
-    const titles: Record<string, string> = {
-      inbox: "Inbox",
-      drive: "Drive",
-      settings: "Settings",
-      tools: "Tools",
-      profile: "Profile",
-      billing: "Billing",
-      agents: "Agents",
-      events: "Events",
-      quests: "Quests",
-      ideas: "Ideas",
-      overview: "Overview",
-      roles: "Roles",
-      ownership: "Ownership",
-      treasury: "Treasury",
-      governance: "Governance",
-    };
-    const section = tab || "overview";
-    const sectionTitle = titles[section] || section;
-    const label = drilledAgent?.name ?? rootAgent?.name;
-    document.title = label ? `${sectionTitle} — ${label} · æqi` : "æqi";
-  }, [tab, drilledAgent, rootAgent]);
+    document.title = "aeqi";
+  }, []);
 
   // Pause the periodic refresh while rate-limited — polling while blocked
   // just piles on more 429s and extends the window the user is stuck in.

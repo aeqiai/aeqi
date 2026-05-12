@@ -142,8 +142,8 @@ export default function BlueprintsPage() {
   }, [patchParams]);
 
   useEffect(() => {
-    document.title = `${KIND_TABS.find((t) => t.id === activeKind)?.label ?? "Blueprints"} · Blueprints · aeqi`;
-  }, [activeKind]);
+    document.title = "aeqi";
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

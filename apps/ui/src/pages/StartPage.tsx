@@ -40,7 +40,7 @@ export default function StartPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = "Launch an organization · aeqi";
+    document.title = "aeqi";
   }, []);
 
   useEffect(() => {

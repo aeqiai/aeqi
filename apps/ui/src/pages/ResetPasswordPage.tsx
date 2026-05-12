@@ -19,7 +19,7 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    document.title = "reset password · æqi";
+    document.title = "aeqi";
   }, []);
 
   useEffect(() => {

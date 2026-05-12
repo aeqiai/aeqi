@@ -65,8 +65,8 @@ export default function CompanySetupPage() {
   );
 
   useEffect(() => {
-    document.title = blueprint?.name ? `Launch ${blueprint.name} · aeqi` : "Launch · aeqi";
-  }, [blueprint?.name]);
+    document.title = "aeqi";
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

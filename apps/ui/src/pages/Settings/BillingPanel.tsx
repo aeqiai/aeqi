@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { formatCents } from "@/lib/pricing";
+import { formatCents, type LaunchPlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { entityPath } from "@/lib/entityPath";
@@ -25,7 +25,7 @@ const SPAWN_POLL_TIMEOUT_MS = 60_000;
 
 /**
  * `/settings/billing` — user-level rollup of every Company subscription
- * the user owns, plus per-Company actions (upgrade Free, manage paid via
+ * the user owns, plus per-Company actions (resubscribe, manage paid via
  * Stripe customer portal). Also handles the post-Checkout spawn-completion
  * flow when Stripe redirects back here with `?spawn=&plan=&blueprint=`.
  */
@@ -132,12 +132,13 @@ export default function BillingPanel() {
     }
   }, []);
 
-  const handleSubscribe = useCallback(async (rootSlug: string) => {
+  const handleSubscribe = useCallback(async (rootSlug: string, plan: LaunchPlanId) => {
     const key = `subscribe:${rootSlug}`;
     setActionPending(key);
     try {
       const { url } = await api.createCheckoutSession({
         display_name: rootSlug,
+        plan,
       });
       window.location.href = url;
     } catch (e: unknown) {
@@ -252,7 +253,7 @@ export default function BillingPanel() {
           </button>
         </p>
         <p className="billing-footer-fineprint">
-          Per-Company billing. Each Company runs on its own subscription.
+          Each organization runs on its own Standard or Pro subscription.
         </p>
       </div>
     </div>

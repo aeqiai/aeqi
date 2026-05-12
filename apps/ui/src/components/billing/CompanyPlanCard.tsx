@@ -1,11 +1,16 @@
 import { Link } from "react-router-dom";
-import { COMPANY_MONTHLY, FOUNDER_FEE } from "@/lib/pricing";
+import {
+  launchPlanBillingLine,
+  launchPlanById,
+  normalizeLaunchPlanId,
+  type LaunchPlanId,
+} from "@/lib/pricing";
 import { Badge, Button, Card, type BadgeVariant } from "@/components/ui";
 
 export type Company = {
   name: string;
   agent_id: string | null;
-  plan: "company";
+  plan: LaunchPlanId | string | null;
   stripe_subscription_id: string | null;
   status: "active" | "trialing" | "past_due" | "canceled";
   next_charge_at: string | null;
@@ -14,7 +19,7 @@ export type Company = {
 interface CompanyPlanCardProps {
   company: Company;
   actionPending: string | null;
-  onSubscribe: (rootSlug: string) => void;
+  onSubscribe: (rootSlug: string, plan: LaunchPlanId) => void;
   onPortal: () => void;
   /** Hide the "Open Company →" link — useful when the card already
    *  lives inside that Company's surface (e.g. agent plan tab). */
@@ -27,7 +32,7 @@ interface CompanyPlanCardProps {
 
 const STATUS_BADGE: Record<Company["status"], { variant: BadgeVariant; label: string }> = {
   active: { variant: "success", label: "Active" },
-  trialing: { variant: "info", label: "Founder trial" },
+  trialing: { variant: "info", label: "Intro period" },
   past_due: { variant: "warning", label: "Past due" },
   canceled: { variant: "error", label: "Canceled" },
 };
@@ -45,10 +50,9 @@ function formatNextCharge(iso: string | null): string {
 
 /**
  * Per-Company plan card — used in `/settings/billing` and the agent's own
- * `/{agentId}/settings/plan` tab. Single offer means a single line: status
- * badge, next-charge date, "Manage in Stripe" button. The only "upgrade"
- * action available is for canceled subscriptions to re-subscribe — which
- * just re-runs the standard checkout.
+ * `/{agentId}/settings/plan` tab. Billing is per organization; the backend
+ * sends the plan metadata stamped by checkout, and legacy single-plan records
+ * normalize to Standard.
  */
 export function CompanyPlanCard({
   company,
@@ -63,6 +67,8 @@ export function CompanyPlanCard({
   const label = displayName || company.name;
   const subscribeKey = `subscribe:${company.name}`;
   const subscribing = actionPending === subscribeKey;
+  const plan = launchPlanById(company.plan);
+  const planId = normalizeLaunchPlanId(company.plan);
 
   return (
     <Card variant="surface" padding="md" className="billing-company" role="listitem">
@@ -73,11 +79,14 @@ export function CompanyPlanCard({
             <Badge variant={statusBadge.variant} size="sm" dot>
               {statusBadge.label}
             </Badge>
+            <Badge variant={plan.id === "growth" ? "accent" : "neutral"} size="sm">
+              {plan.name}
+            </Badge>
           </div>
         </div>
         <div className="billing-company-charge">
           <span className="billing-company-charge-label">
-            {company.status === "trialing" ? "Trial ends" : "Next charge"}
+            {company.status === "trialing" ? "Intro ends" : "Next charge"}
           </span>
           <span className="billing-company-charge-value">
             {formatNextCharge(company.next_charge_at)}
@@ -89,9 +98,9 @@ export function CompanyPlanCard({
               variant="primary"
               size="sm"
               loading={subscribing}
-              onClick={() => onSubscribe(company.name)}
+              onClick={() => onSubscribe(company.name, planId)}
             >
-              Resubscribe — ${FOUNDER_FEE} →
+              Resubscribe — {plan.dueToday} →
             </Button>
           ) : (
             <Button
@@ -115,9 +124,7 @@ export function CompanyPlanCard({
       </div>
 
       {company.status === "trialing" && (
-        <p className="billing-company-trial-note">
-          ${FOUNDER_FEE} first month, ${COMPANY_MONTHLY}/mo after.
-        </p>
+        <p className="billing-company-trial-note">{launchPlanBillingLine(company.plan)}</p>
       )}
     </Card>
   );

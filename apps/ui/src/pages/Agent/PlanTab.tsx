@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import type { LaunchPlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { Banner, Card, Spinner } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
@@ -9,7 +10,7 @@ import "@/styles/billing.css";
 
 interface PlanTabProps {
   /** The agent the user is viewing — sub-agents resolve to their root
-   *  for plan lookup. Plan is per-Company (the root), so this tab shows
+   *  for plan lookup. Billing is per organization, so this tab shows
    *  the same data regardless of which agent in the tree is open. */
   agentId: string;
 }
@@ -35,9 +36,9 @@ function findRoot(agents: Agent[], id: string): Agent | null {
 }
 
 /**
- * `/{agentId}/plan` (and `/{agentId}/settings/plan`) — per-Company plan
+ * `/{agentId}/plan` (and `/{agentId}/settings/plan`) — organization plan
  * surface inside the agent shell. Shows the same plan info whether the
- * user is viewing the root or any sub-agent (plan is per-Company,
+ * user is viewing the root or any sub-agent (plan is organization-wide,
  * shared across the tree).
  *
  * Layout mirrors `/settings/billing` so the visual rhythm + upgrade
@@ -87,11 +88,12 @@ export default function PlanTab({ agentId }: PlanTabProps) {
     return overview.companies.find((c) => c.agent_id === root.id || c.name === root.name) ?? null;
   }, [overview, root]);
 
-  const handleSubscribe = useCallback(async (rootSlug: string) => {
+  const handleSubscribe = useCallback(async (rootSlug: string, plan: LaunchPlanId) => {
     setActionPending(`subscribe:${rootSlug}`);
     try {
       const { url } = await api.createCheckoutSession({
         display_name: rootSlug,
+        plan,
       });
       if (!url) throw new Error("Checkout returned no URL.");
       window.location.href = url;
@@ -157,7 +159,8 @@ export default function PlanTab({ agentId }: PlanTabProps) {
             <p className="billing-eyebrow">Plan</p>
             <h2 className="billing-summary-name">{entityName || root?.name}</h2>
             <p className="billing-summary-sub">
-              No subscription on file for this Company yet — the first plan stamps when it launches.
+              No subscription on file for this organization yet. Choose Standard or Pro during
+              launch.
             </p>
           </div>
           <div className="billing-summary-aside">
@@ -177,8 +180,8 @@ export default function PlanTab({ agentId }: PlanTabProps) {
           <p className="billing-eyebrow">Plan</p>
           <h2 className="billing-summary-name">{entityName || company.name}</h2>
           <p className="billing-summary-sub">
-            Per-Company subscription. Every agent in this tree shares this plan. See all your
-            Companies + payment methods in the{" "}
+            Every agent in this organization shares this plan. See all your organizations and
+            payment methods in the{" "}
             <Link to="/settings/billing" className="billing-link">
               user-level billing tab
             </Link>
