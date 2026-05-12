@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
+import { Table, type TableColumn } from "@/components/ui/Table";
 import { api } from "@/lib/api";
 import { indexerEnabled } from "@/lib/indexer";
 import { formatCents, launchPlanById, launchPlanResourceItems } from "@/lib/pricing";
@@ -14,6 +15,7 @@ import { useTreasury, type TreasuryTransfer, type TokenBalance } from "@/hooks/u
 import { useDaemonStore } from "@/store/daemon";
 import type { InferenceCallRow } from "@/lib/types";
 import { formatSpendUsd } from "@/lib/spend";
+import styles from "./TreasuryPage.module.css";
 
 // ── Chain config ──────────────────────────────────────────────────────────────
 
@@ -42,6 +44,13 @@ interface CompanyBillingRow {
   stripe_subscription_id: string | null;
   status: "active" | "trialing" | "past_due" | "canceled";
   next_charge_at: string | null;
+}
+
+interface HoldingRow {
+  id: string;
+  token: string;
+  amount: string;
+  contract: string;
 }
 
 const STATUS_VARIANT: Record<
@@ -327,6 +336,50 @@ function HoldingsSection({
   const hasEth = nativeEth !== undefined && nativeEth !== "0";
   const hasErc20 = balances && balances.length > 0;
   const hasAny = hasEth || hasErc20;
+  const holdingRows: HoldingRow[] = [
+    ...(nativeEth
+      ? [
+          {
+            id: "native-eth",
+            token: "ETH",
+            amount: Number(nativeEth).toFixed(4),
+            contract: "native",
+          },
+        ]
+      : []),
+    ...(balances ?? []).map((balance, index) => ({
+      id: `${balance.tokenAddress}-${index}`,
+      token: balance.symbol,
+      amount: balance.amount,
+      contract: truncateAddress(balance.tokenAddress),
+    })),
+  ];
+
+  const columns: Array<TableColumn<HoldingRow>> = [
+    {
+      key: "token",
+      header: "Token",
+      width: "28%",
+      cell: (row) => <span className={styles.cellStrong}>{row.token}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      width: "32%",
+      align: "end",
+      cell: (row) => <span className={styles.cellMono}>{row.amount}</span>,
+    },
+    {
+      key: "contract",
+      header: "Contract",
+      width: "40%",
+      cell: (row) => (
+        <span className={row.contract === "native" ? styles.cellMuted : styles.cellMutedMono}>
+          {row.contract}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <section style={{ marginBottom: "var(--space-lg)" }}>
@@ -385,108 +438,13 @@ function HoldingsSection({
             )}
           </div>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "var(--font-size-sm)",
-            }}
-          >
-            <thead>
-              <tr style={{ color: "var(--color-text-muted)" }}>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Token
-                </th>
-                <th
-                  style={{
-                    textAlign: "right",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Amount
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Contract
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Native ETH row — sourced from RPC, not the indexer */}
-              {nativeEth && (
-                <tr>
-                  <td style={{ padding: "var(--space-xs) var(--space-md)", fontWeight: 500 }}>
-                    ETH
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      textAlign: "right",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--font-size-xs)",
-                    }}
-                  >
-                    {Number(nativeEth).toFixed(4)}
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      color: "var(--color-text-muted)",
-                      fontSize: "var(--font-size-xs)",
-                    }}
-                  >
-                    native
-                  </td>
-                </tr>
-              )}
-              {/* ERC-20 rows — sourced from indexer treasuryBalances */}
-              {(balances ?? []).map((b, i) => (
-                <tr
-                  key={i}
-                  style={{
-                    background:
-                      (i + (nativeEth ? 1 : 0)) % 2 === 1 ? "var(--bg-subtle)" : undefined,
-                  }}
-                >
-                  <td style={{ padding: "var(--space-xs) var(--space-md)", fontWeight: 500 }}>
-                    {b.symbol}
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      textAlign: "right",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--font-size-xs)",
-                    }}
-                  >
-                    {b.amount}
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      color: "var(--color-text-muted)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--font-size-xs)",
-                    }}
-                  >
-                    {truncateAddress(b.tokenAddress)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table
+            columns={columns}
+            data={holdingRows}
+            rowKey={(row) => row.id}
+            density="compact"
+            ariaLabel="Treasury holdings"
+          />
         )}
       </div>
     </section>
@@ -502,6 +460,41 @@ function TransfersSection({
   transfers: TreasuryTransfer[] | null;
   loading: boolean;
 }) {
+  const columns: Array<TableColumn<TreasuryTransfer>> = [
+    {
+      key: "direction",
+      header: "Direction",
+      width: "18%",
+      cell: (row) => (
+        <Badge variant={row.direction === "in" ? "success" : "muted"} size="sm">
+          {row.direction === "in" ? "In" : "Out"}
+        </Badge>
+      ),
+    },
+    {
+      key: "counterparty",
+      header: "Counterparty",
+      width: "38%",
+      cell: (row) => (
+        <span className={styles.cellMutedMono}>{truncateAddress(row.counterparty)}</span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      width: "24%",
+      align: "end",
+      cell: (row) => <span className={styles.cellMono}>{row.amount}</span>,
+    },
+    {
+      key: "block",
+      header: "Block",
+      width: "20%",
+      align: "end",
+      cell: (row) => <span className={styles.cellMuted}>{row.block.toLocaleString()}</span>,
+    },
+  ];
+
   return (
     <section style={{ marginBottom: "var(--space-lg)" }}>
       <SectionLabel>Recent transfers</SectionLabel>
@@ -531,100 +524,13 @@ function TransfersSection({
             No transfers yet.
           </div>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "var(--font-size-sm)",
-            }}
-          >
-            <thead>
-              <tr style={{ color: "var(--color-text-muted)" }}>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Direction
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Counterparty
-                </th>
-                <th
-                  style={{
-                    textAlign: "right",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Amount
-                </th>
-                <th
-                  style={{
-                    textAlign: "right",
-                    padding: "var(--space-xs) var(--space-md)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Block
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {transfers.map((t, i) => (
-                <tr
-                  key={i}
-                  style={{
-                    background: i % 2 === 1 ? "var(--bg-subtle)" : undefined,
-                  }}
-                >
-                  <td style={{ padding: "var(--space-xs) var(--space-md)" }}>
-                    <Badge variant={t.direction === "in" ? "success" : "muted"} size="sm">
-                      {t.direction === "in" ? "In" : "Out"}
-                    </Badge>
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--font-size-xs)",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    {truncateAddress(t.counterparty)}
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      textAlign: "right",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--font-size-xs)",
-                    }}
-                  >
-                    {t.amount}
-                  </td>
-                  <td
-                    style={{
-                      padding: "var(--space-xs) var(--space-md)",
-                      textAlign: "right",
-                      color: "var(--color-text-muted)",
-                      fontSize: "var(--font-size-xs)",
-                    }}
-                  >
-                    {t.block.toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table
+            columns={columns}
+            data={transfers}
+            rowKey={(row, index) => `${row.block}-${row.counterparty}-${index}`}
+            density="compact"
+            ariaLabel="Recent treasury transfers"
+          />
         )}
       </div>
     </section>
@@ -780,6 +686,45 @@ function InferenceZone({ agentId }: { agentId: string }) {
 
   const lifetime = agent?.lifetime_cost_usd ?? 0;
   const totalTokens = agent?.total_tokens ?? 0;
+  const columns: Array<TableColumn<InferenceCallRow>> = [
+    {
+      key: "model",
+      header: "Model",
+      width: "30%",
+      cell: (row) => <span className={styles.cellStrong}>{row.model}</span>,
+    },
+    {
+      key: "tokens",
+      header: "Tokens (in / out)",
+      width: "24%",
+      align: "end",
+      cell: (row) => (
+        <span className={styles.cellMono}>
+          {row.prompt_tokens.toLocaleString()} / {row.completion_tokens.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      key: "cost",
+      header: "Cost",
+      width: "16%",
+      align: "end",
+      cell: (row) => <span className={styles.cellMono}>{formatSpendUsd(row.cost_usd)}</span>,
+    },
+    {
+      key: "stop",
+      header: "Stop",
+      width: "14%",
+      cell: (row) => <span className={styles.cellMuted}>{formatStopReason(row.stop_reason)}</span>,
+    },
+    {
+      key: "when",
+      header: "When",
+      width: "16%",
+      align: "end",
+      cell: (row) => <span className={styles.cellMuted}>{formatRelativeTime(row.created_at)}</span>,
+    },
+  ];
 
   return (
     <section style={{ marginBottom: "var(--space-lg)" }}>
@@ -877,124 +822,15 @@ function InferenceZone({ agentId }: { agentId: string }) {
           </div>
         ) : (
           <>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "var(--font-size-sm)",
-              }}
-            >
-              <thead>
-                <tr style={{ color: "var(--color-text-muted)" }}>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "var(--space-xs) var(--space-md)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Model
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "right",
-                      padding: "var(--space-xs) var(--space-md)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Tokens (in / out)
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "right",
-                      padding: "var(--space-xs) var(--space-md)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Cost
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "var(--space-xs) var(--space-md)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Stop
-                  </th>
-                  <th
-                    style={{
-                      textAlign: "right",
-                      padding: "var(--space-xs) var(--space-md)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    When
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {calls.map((c, i) => (
-                  <tr
-                    key={c.id}
-                    style={{
-                      background: i % 2 === 1 ? "var(--bg-subtle)" : undefined,
-                    }}
-                  >
-                    <td style={{ padding: "var(--space-xs) var(--space-md)", fontWeight: 500 }}>
-                      {c.model}
-                    </td>
-                    <td
-                      style={{
-                        padding: "var(--space-xs) var(--space-md)",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "var(--font-size-xs)",
-                      }}
-                    >
-                      {c.prompt_tokens.toLocaleString()} / {c.completion_tokens.toLocaleString()}
-                    </td>
-                    <td
-                      style={{
-                        padding: "var(--space-xs) var(--space-md)",
-                        textAlign: "right",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "var(--font-size-xs)",
-                      }}
-                    >
-                      {formatSpendUsd(c.cost_usd)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "var(--space-xs) var(--space-md)",
-                        color: "var(--color-text-muted)",
-                        fontSize: "var(--font-size-xs)",
-                      }}
-                    >
-                      {formatStopReason(c.stop_reason)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "var(--space-xs) var(--space-md)",
-                        textAlign: "right",
-                        color: "var(--color-text-muted)",
-                        fontSize: "var(--font-size-xs)",
-                      }}
-                    >
-                      {formatRelativeTime(c.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table
+              columns={columns}
+              data={calls}
+              rowKey={(row) => row.id}
+              density="compact"
+              ariaLabel="Recent inference calls"
+            />
             {calls.length === limit && limit < 500 && (
-              <div
-                style={{
-                  padding: "var(--space-sm) var(--space-md)",
-                  textAlign: "center",
-                  borderTop: "0",
-                }}
-              >
+              <div className={styles.loadMoreAction}>
                 <Button
                   variant="secondary"
                   size="sm"

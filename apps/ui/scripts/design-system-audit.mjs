@@ -57,6 +57,14 @@ const RULES = [
     guidance: "Use Textarea.",
   },
   {
+    key: "rawTable",
+    label: "raw <table>",
+    applies: (file) => file.endsWith(".tsx"),
+    pattern: /<table\b/g,
+    guidance: "Use the Table primitive from components/ui for tabular data.",
+    ignoreComments: true,
+  },
+  {
     key: "inlineStyle",
     label: "inline style object",
     applies: (file) => file.endsWith(".tsx"),
@@ -124,6 +132,10 @@ function countMatches(content, pattern) {
   return [...content.matchAll(pattern)].length;
 }
 
+function stripCodeComments(content) {
+  return content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 function topFiles(files) {
   return Object.entries(files)
     .filter(([, count]) => count > 0)
@@ -141,7 +153,8 @@ function auditDrift() {
     const content = readFileSync(path.join(REPO_ROOT, file), "utf-8");
     for (const rule of RULES) {
       if (!rule.applies(file)) continue;
-      const count = countMatches(content, rule.pattern);
+      const source = rule.ignoreComments ? stripCodeComments(content) : content;
+      const count = countMatches(source, rule.pattern);
       if (count === 0) continue;
       result[rule.key].count += count;
       result[rule.key].files[file] = count;

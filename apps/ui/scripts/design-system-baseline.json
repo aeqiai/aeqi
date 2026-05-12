@@ -87,16 +87,26 @@
       "count": 0,
       "topFiles": []
     },
-    "inlineStyle": {
-      "label": "inline style object",
-      "count": 504,
+    "rawTable": {
+      "label": "raw <table>",
+      "count": 1,
       "topFiles": [
         {
-          "file": "apps/ui/src/pages/TreasuryPage.tsx",
-          "count": 80
-        },
+          "file": "apps/ui/src/components/ideas/IdeasTableView.tsx",
+          "count": 1
+        }
+      ]
+    },
+    "inlineStyle": {
+      "label": "inline style object",
+      "count": 467,
+      "topFiles": [
         {
           "file": "apps/ui/src/pages/OwnershipPage.tsx",
+          "count": 43
+        },
+        {
+          "file": "apps/ui/src/pages/TreasuryPage.tsx",
           "count": 43
         },
         {
