@@ -79,13 +79,8 @@
     },
     "rawSelect": {
       "label": "raw <select>",
-      "count": 1,
-      "topFiles": [
-        {
-          "file": "apps/ui/src/components/ideas/IdeaPropertyChips.tsx",
-          "count": 1
-        }
-      ]
+      "count": 0,
+      "topFiles": []
     },
     "rawTextarea": {
       "label": "raw <textarea>",

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setIdeaProperties } from "@/api/ideas";
 import { ideaKeys } from "@/queries/keys";
-import { Button, Modal, Input } from "../ui";
+import { Button, Modal, Input, Select } from "../ui";
 
 /**
  * Tables-in-Ideas Phase 2.1 — Property chips on Idea detail header.
@@ -23,6 +23,7 @@ export interface IdeaPropertyChipsProps {
 
 const STATUS_KEY = "status";
 const STATUS_OPTIONS = ["todo", "in_progress", "done"] as const;
+const STATUS_SELECT_OPTIONS = STATUS_OPTIONS.map((value) => ({ value, label: value }));
 
 function chipValue(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -91,40 +92,34 @@ export default function IdeaPropertyChips({ ideaId, properties }: IdeaPropertyCh
         const editing = editingKey === key;
         const display = chipValue(value);
         if (editing && key === STATUS_KEY) {
+          const statusOptions =
+            STATUS_OPTIONS.includes(draftValue as (typeof STATUS_OPTIONS)[number]) ||
+            draftValue === ""
+              ? STATUS_SELECT_OPTIONS
+              : [...STATUS_SELECT_OPTIONS, { value: draftValue, label: draftValue }];
+
           return (
             <span className="idea-property-chip is-editing" key={key}>
               <span className="idea-property-chip-key">{key}</span>
-              <select
+              <Select
                 ref={selectRef}
                 className="idea-property-chip-select"
+                size="sm"
+                options={statusOptions}
                 value={draftValue}
                 disabled={saving}
-                onChange={(e) => setDraftValue(e.target.value)}
-                onBlur={() => commitEdit(key, draftValue)}
+                onChange={setDraftValue}
+                onBlur={(e) => commitEdit(key, e.currentTarget.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
                     e.preventDefault();
                     setEditingKey(null);
                   } else if (e.key === "Enter") {
                     e.preventDefault();
-                    commitEdit(key, draftValue);
+                    commitEdit(key, e.currentTarget.value);
                   }
                 }}
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-                {/* Preserve any non-canonical existing value so the option list
-                    doesn't silently drop it. */}
-                {!STATUS_OPTIONS.includes(draftValue as (typeof STATUS_OPTIONS)[number]) &&
-                  draftValue !== "" && (
-                    <option key={draftValue} value={draftValue}>
-                      {draftValue}
-                    </option>
-                  )}
-              </select>
+              />
             </span>
           );
         }
