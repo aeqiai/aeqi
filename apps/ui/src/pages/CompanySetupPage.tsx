@@ -14,7 +14,6 @@ import { useDaemonStore } from "@/store/daemon";
 import { Banner, Button, Card, EmptyState, Input, Spinner, Textarea } from "@/components/ui";
 import { Icon } from "@/components/ui/Icon";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
-import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
 import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
 
@@ -278,10 +277,7 @@ export default function CompanySetupPage() {
   return (
     <div className="launch-page">
       <header className="launch-head">
-        <div className="launch-head-copy">
-          <p className="start-eyebrow">Launch</p>
-          <h1 className="page-title">Launch your organization.</h1>
-        </div>
+        <h1 className="page-title">Launch your organization.</h1>
       </header>
 
       {submitError && (
@@ -318,15 +314,12 @@ export default function CompanySetupPage() {
 
           <Card variant="default" padding="lg" className="launch-card">
             <div className="launch-card-head">
-              <div>
-                <p className="start-section-kicker">Identity</p>
-                <h3 className="start-section-title">Name it.</h3>
-              </div>
+              <p className="start-section-kicker">Identity</p>
             </div>
 
             <div className="launch-fields">
               <label className="launch-field launch-field--name">
-                <span className="launch-field-label">Organization name</span>
+                <span className="launch-field-label">Registered name</span>
                 <Input
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
@@ -340,12 +333,12 @@ export default function CompanySetupPage() {
               </p>
 
               <label className="launch-field">
-                <span className="launch-field-label">What it is for</span>
+                <span className="launch-field-label">Mission</span>
                 <Textarea
                   value={mission}
                   onChange={(e) => setMission(e.target.value)}
                   rows={3}
-                  placeholder="What should this organization accomplish?"
+                  placeholder="What should this organization do?"
                 />
               </label>
             </div>
@@ -364,7 +357,6 @@ export default function CompanySetupPage() {
             <p className="start-sub launch-preview-sub">
               {blueprint.tagline || blueprint.description || blueprintMode.meta}
             </p>
-            <BlueprintSeedCounts template={blueprint} />
             <BlueprintTreePreview template={blueprint} />
           </Card>
         </div>
@@ -439,7 +431,7 @@ export default function CompanySetupPage() {
           </div>
           <Button
             variant="primary"
-            size="lg"
+            size="xl"
             onClick={() => void handleLaunch()}
             disabled={submitting || !organizationName.trim()}
             loading={submitting}

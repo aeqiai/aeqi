@@ -255,21 +255,6 @@
   gap: var(--space-5);
 }
 
-.launch-head-copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 72ch;
-}
-
-.launch-head-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
 .launch-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
@@ -349,15 +334,6 @@
   color: var(--color-text-primary);
 }
 
-.launch-blueprint-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.launch-blueprint-pill,
 .launch-preview-type {
   display: inline-flex;
   align-items: center;
@@ -369,11 +345,6 @@
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--color-text-secondary);
-}
-
-.launch-blueprint-meta-text {
-  font-size: 12px;
-  color: var(--color-text-muted);
 }
 
 .launch-fields {
@@ -580,10 +551,6 @@
   }
 
   .launch-footer-note {
-    max-width: none;
-  }
-
-  .launch-footer-meta {
     max-width: none;
   }
 
