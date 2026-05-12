@@ -1935,6 +1935,14 @@
   padding: var(--space-4) 0;
 }
 
+.account-activity-error {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
 .account-activity-list {
   border: none;
   border-radius: var(--radius-md);

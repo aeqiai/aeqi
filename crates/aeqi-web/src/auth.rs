@@ -7,6 +7,7 @@ use axum::{
 };
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::server::AppState;
 
@@ -37,6 +38,8 @@ pub struct Claims {
     pub sub: String,
     pub iat: usize,
     pub exp: usize,
+    #[serde(default)]
+    pub jti: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -55,6 +58,7 @@ pub fn create_token(
         sub: user_id.unwrap_or("operator").to_string(),
         iat: now,
         exp: now + (expiry_hours * 3600) as usize,
+        jti: uuid::Uuid::new_v4().to_string(),
         user_id: user_id.map(|s| s.to_string()),
         email: email.map(|s| s.to_string()),
     };
@@ -73,6 +77,18 @@ pub fn validate_token(token: &str, secret: &str) -> Result<Claims, jsonwebtoken:
         &Validation::default(),
     )?;
     Ok(data.claims)
+}
+
+/// Stable session id for auth-session persistence. New tokens carry a `jti`.
+/// Older tokens do not, so derive a non-reversible id from the signed token
+/// bytes. That lets existing devices appear in Settings and be revoked after
+/// this migration without forcing everyone through a fresh login.
+pub fn session_jti(token: &str, claims: &Claims) -> String {
+    if !claims.jti.is_empty() {
+        return claims.jti.clone();
+    }
+    let digest = Sha256::digest(token.as_bytes());
+    format!("legacy-{}", hex::encode(&digest[..16]))
 }
 
 /// Extract Bearer token from Authorization header.
@@ -172,9 +188,55 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
             };
             match validate_token(token, secret) {
                 Ok(claims) => {
+                    let session_jti = session_jti(token, &claims);
                     // Resolve user's root agents for tenant scoping.
                     if let Some(accounts) = &state.accounts {
                         let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
+                        if !session_jti.is_empty() {
+                            match accounts.is_auth_session_revoked(&session_jti) {
+                                Ok(true) => {
+                                    tracing::warn!(
+                                        user_id = %user_id,
+                                        jti = %session_jti,
+                                        "auth: revoked session token rejected"
+                                    );
+                                    return (
+                                        StatusCode::UNAUTHORIZED,
+                                        axum::Json(serde_json::json!({
+                                            "ok": false,
+                                            "error": "session revoked"
+                                        })),
+                                    )
+                                        .into_response();
+                                }
+                                Ok(false) => {}
+                                Err(e) => {
+                                    tracing::warn!(
+                                        user_id = %user_id,
+                                        jti = %session_jti,
+                                        error = %e,
+                                        "auth: failed to check session revocation"
+                                    );
+                                }
+                            }
+                            let (ip, user_agent) = request_context(req.headers());
+                            if let Some(expires_at) = claim_expiry_iso(claims.exp)
+                                && let Err(e) = accounts.touch_auth_session(
+                                    user_id,
+                                    &session_jti,
+                                    &expires_at,
+                                    ip.as_deref(),
+                                    user_agent.as_deref(),
+                                )
+                            {
+                                tracing::warn!(
+                                    user_id = %user_id,
+                                    jti = %session_jti,
+                                    error = %e,
+                                    "auth: failed to touch session"
+                                );
+                            }
+                        }
                         if let Ok(Some(user)) = accounts.get_user_by_id(user_id) {
                             let roots = user.roots.unwrap_or_default();
                             req.extensions_mut().insert(UserScope {
@@ -199,6 +261,34 @@ pub async fn require_auth(State(state): State<AppState>, mut req: Request, next:
             }
         }
     }
+}
+
+pub fn claim_expiry_iso(exp: usize) -> Option<String> {
+    chrono::DateTime::<chrono::Utc>::from_timestamp(exp as i64, 0).map(|dt| dt.to_rfc3339())
+}
+
+pub fn request_context(headers: &HeaderMap) -> (Option<String>, Option<String>) {
+    let ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+        })
+        .map(ToOwned::to_owned);
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+    (ip, user_agent)
 }
 
 #[cfg(test)]
@@ -245,6 +335,7 @@ mod tests {
             sub: "user".to_string(),
             iat: now - 7200,
             exp: now - 3600, // expired 1 hour ago
+            jti: "expired-test".to_string(),
             user_id: None,
             email: None,
         };
@@ -628,10 +719,12 @@ mod tests {
             sub: "user".to_string(),
             iat: 1000,
             exp: 2000,
+            jti: "jti-a".to_string(),
             user_id: None,
             email: None,
         };
         let json = serde_json::to_value(&claims).unwrap();
+        assert_eq!(json["jti"], "jti-a");
         assert!(!json.as_object().unwrap().contains_key("user_id"));
         assert!(!json.as_object().unwrap().contains_key("email"));
     }
@@ -642,6 +735,7 @@ mod tests {
             sub: "user".to_string(),
             iat: 1000,
             exp: 2000,
+            jti: "jti-b".to_string(),
             user_id: Some("uid".to_string()),
             email: Some("a@b.com".to_string()),
         };
@@ -655,6 +749,7 @@ mod tests {
         let json = r#"{"sub":"user","iat":1000,"exp":2000}"#;
         let claims: Claims = serde_json::from_str(json).unwrap();
         assert_eq!(claims.sub, "user");
+        assert!(claims.jti.is_empty());
         assert!(claims.user_id.is_none());
         assert!(claims.email.is_none());
     }
@@ -665,6 +760,7 @@ mod tests {
             sub: "test-sub".to_string(),
             iat: 1234567890,
             exp: 1234571490,
+            jti: "jti-c".to_string(),
             user_id: Some("test-uid".to_string()),
             email: Some("test@example.com".to_string()),
         };
@@ -673,8 +769,32 @@ mod tests {
         assert_eq!(deserialized.sub, original.sub);
         assert_eq!(deserialized.iat, original.iat);
         assert_eq!(deserialized.exp, original.exp);
+        assert_eq!(deserialized.jti, original.jti);
         assert_eq!(deserialized.user_id, original.user_id);
         assert_eq!(deserialized.email, original.email);
+    }
+
+    #[test]
+    fn session_jti_uses_claim_jti_when_present() {
+        let token = create_token("secret", 1, Some("user"), None).unwrap();
+        let claims = validate_token(&token, "secret").unwrap();
+        assert_eq!(session_jti(&token, &claims), claims.jti);
+    }
+
+    #[test]
+    fn session_jti_derives_stable_legacy_id_without_claim_jti() {
+        let claims = Claims {
+            sub: "user".to_string(),
+            iat: 1000,
+            exp: 2000,
+            jti: String::new(),
+            user_id: None,
+            email: None,
+        };
+        let a = session_jti("legacy-token", &claims);
+        let b = session_jti("legacy-token", &claims);
+        assert_eq!(a, b);
+        assert!(a.starts_with("legacy-"));
     }
 
     // ── Token creation with different secret lengths ─────────

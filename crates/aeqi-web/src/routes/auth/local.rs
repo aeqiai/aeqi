@@ -1,10 +1,11 @@
 use axum::{
     Json, Router,
     extract::{Request, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use serde::Deserialize;
 
 use crate::auth;
 use crate::server::AppState;
@@ -24,9 +25,116 @@ pub fn routes() -> Router<AppState> {
         .route("/api/auth/verify", post(verify_email_handler))
         .route("/api/auth/resend-code", post(resend_code_handler))
         .route("/api/auth/me", get(me_handler))
+        .route("/api/auth/activity", get(activity_handler))
+        .route("/api/auth/sessions", get(sessions_handler))
+        .route("/api/auth/sessions/revoke", post(revoke_session_handler))
+        .route(
+            "/api/auth/sessions/revoke-others",
+            post(revoke_other_sessions_handler),
+        )
         .route("/api/auth/waitlist", post(waitlist_handler))
         .route("/api/auth/invite/check", post(check_invite_handler))
         .route("/api/auth/invite/codes", get(my_invite_codes_handler))
+}
+
+#[derive(Deserialize)]
+struct RevokeSessionRequest {
+    jti: String,
+}
+
+fn claims_from_headers(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<(auth::Claims, String), Response> {
+    let secret = match auth::signing_secret(state) {
+        Ok(secret) => secret,
+        Err(err) => return Err(server_configuration_error(err)),
+    };
+    let token = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+
+    let Some(token) = token else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "ok": false, "error": "missing token"
+            })),
+        )
+            .into_response());
+    };
+
+    let mut claims = match auth::validate_token(token, secret) {
+        Ok(c) => c,
+        Err(_) => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "ok": false, "error": "invalid token"
+                })),
+            )
+                .into_response());
+        }
+    };
+    if claims.jti.is_empty() {
+        claims.jti = auth::session_jti(token, &claims);
+    }
+    let user_id = claims.user_id.clone().unwrap_or_else(|| claims.sub.clone());
+    Ok((claims, user_id))
+}
+
+fn ensure_session_allowed_and_touched(
+    state: &AppState,
+    headers: &HeaderMap,
+    claims: &auth::Claims,
+    user_id: &str,
+) -> Result<(), Response> {
+    let Some(accounts) = &state.accounts else {
+        return Err((StatusCode::BAD_REQUEST, "accounts not enabled").into_response());
+    };
+    if claims.jti.is_empty() {
+        return Ok(());
+    }
+    match accounts.is_auth_session_revoked(&claims.jti) {
+        Ok(true) => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "session revoked"
+                })),
+            )
+                .into_response());
+        }
+        Ok(false) => {}
+        Err(e) => {
+            tracing::warn!(
+                user_id = %user_id,
+                jti = %claims.jti,
+                error = %e,
+                "auth route failed to check session revocation"
+            );
+        }
+    }
+    if let Some(expires_at) = auth::claim_expiry_iso(claims.exp) {
+        let (ip, user_agent) = auth::request_context(headers);
+        if let Err(e) = accounts.touch_auth_session(
+            user_id,
+            &claims.jti,
+            &expires_at,
+            ip.as_deref(),
+            user_agent.as_deref(),
+        ) {
+            tracing::warn!(
+                user_id = %user_id,
+                jti = %claims.jti,
+                error = %e,
+                "auth route failed to touch session"
+            );
+        }
+    }
+    Ok(())
 }
 
 // ── Handlers ──────────────────────────────────────────────
@@ -275,51 +383,46 @@ async fn email_login_handler(
         }
     };
 
-    let user = match ensure_canonical_company_root(
-        &state,
-        accounts,
-        &user.id,
-        &user.name,
-        &user.email,
-    )
-    .await
-    {
-        Ok(_) => match accounts.get_user_by_id(&user.id) {
-            Ok(Some(user)) => user,
-            Ok(None) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({
-                        "ok": false,
-                        "error": "failed to load account"
-                    })),
-                )
-                    .into_response();
-            }
+    let user =
+        match ensure_canonical_company_root(&state, accounts, &user.id, &user.name, &user.email)
+            .await
+        {
+            Ok(_) => match accounts.get_user_by_id(&user.id) {
+                Ok(Some(user)) => user,
+                Ok(None) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({
+                            "ok": false,
+                            "error": "failed to load account"
+                        })),
+                    )
+                        .into_response();
+                }
+                Err(e) => {
+                    tracing::error!("login reload error: {e}");
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({
+                            "ok": false,
+                            "error": "failed to load account"
+                        })),
+                    )
+                        .into_response();
+                }
+            },
             Err(e) => {
-                tracing::error!("login reload error: {e}");
+                tracing::error!("login canonical root bootstrap failed: {e}");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({
                         "ok": false,
-                        "error": "failed to load account"
+                        "error": "failed to create company root"
                     })),
                 )
                     .into_response();
             }
-        },
-        Err(e) => {
-            tracing::error!("login canonical root bootstrap failed: {e}");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "ok": false,
-                    "error": "failed to create company root"
-                })),
-            )
-                .into_response();
-        }
-    };
+        };
 
     let signing_key = match auth::signing_secret(&state) {
         Ok(secret) => secret,
@@ -421,42 +524,15 @@ async fn me_handler(State(state): State<AppState>, req: Request) -> Response {
         return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
     };
 
-    // Extract user from JWT.
-    let secret = match auth::signing_secret(&state) {
-        Ok(secret) => secret,
-        Err(err) => return server_configuration_error(err),
+    let (claims, user_id) = match claims_from_headers(&state, req.headers()) {
+        Ok(v) => v,
+        Err(resp) => return resp,
     };
-    let token = req
-        .headers()
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "));
-
-    let Some(token) = token else {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({
-                "ok": false, "error": "missing token"
-            })),
-        )
-            .into_response();
-    };
-
-    let claims = match auth::validate_token(token, secret) {
-        Ok(c) => c,
-        Err(_) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(serde_json::json!({
-                    "ok": false, "error": "invalid token"
-                })),
-            )
-                .into_response();
-        }
-    };
-
-    let user_id = claims.user_id.as_deref().unwrap_or(&claims.sub);
-    match accounts.get_user_by_id(user_id) {
+    if let Err(resp) = ensure_session_allowed_and_touched(&state, req.headers(), &claims, &user_id)
+    {
+        return resp;
+    }
+    match accounts.get_user_by_id(&user_id) {
         Ok(Some(user)) => Json(serde_json::json!(user)).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
@@ -471,6 +547,150 @@ async fn me_handler(State(state): State<AppState>, req: Request) -> Response {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
                     "ok": false, "error": "failed to fetch user"
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn sessions_handler(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let (claims, user_id) = match claims_from_headers(&state, &headers) {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = ensure_session_allowed_and_touched(&state, &headers, &claims, &user_id) {
+        return resp;
+    }
+    match accounts.list_auth_sessions(&user_id, &claims.jti) {
+        Ok(sessions) => Json(serde_json::json!({
+            "ok": true,
+            "sessions": sessions,
+        }))
+        .into_response(),
+        Err(e) => {
+            tracing::error!(user_id = %user_id, error = %e, "failed to list auth sessions");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to list sessions"
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn activity_handler(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let (claims, user_id) = match claims_from_headers(&state, &headers) {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = ensure_session_allowed_and_touched(&state, &headers, &claims, &user_id) {
+        return resp;
+    }
+    match accounts.list_auth_activity(&user_id, 100) {
+        Ok(events) => Json(serde_json::json!({
+            "ok": true,
+            "events": events,
+        }))
+        .into_response(),
+        Err(e) => {
+            tracing::error!(user_id = %user_id, error = %e, "failed to list auth activity");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to list activity"
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn revoke_session_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<RevokeSessionRequest>,
+) -> Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let (claims, user_id) = match claims_from_headers(&state, &headers) {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = ensure_session_allowed_and_touched(&state, &headers, &claims, &user_id) {
+        return resp;
+    }
+    let jti = body.jti.trim();
+    if jti.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "jti required"
+            })),
+        )
+            .into_response();
+    }
+    let (ip, user_agent) = auth::request_context(&headers);
+    match accounts.revoke_auth_session(&user_id, jti, ip.as_deref(), user_agent.as_deref()) {
+        Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
+        Err(e) => {
+            tracing::error!(user_id = %user_id, jti = %jti, error = %e, "failed to revoke auth session");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to revoke session"
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn revoke_other_sessions_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(accounts) = &state.accounts else {
+        return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
+    };
+    let (claims, user_id) = match claims_from_headers(&state, &headers) {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = ensure_session_allowed_and_touched(&state, &headers, &claims, &user_id) {
+        return resp;
+    }
+    if claims.jti.is_empty() {
+        return Json(serde_json::json!({"ok": true, "revoked": 0})).into_response();
+    }
+    let (ip, user_agent) = auth::request_context(&headers);
+    match accounts.revoke_other_auth_sessions(
+        &user_id,
+        &claims.jti,
+        ip.as_deref(),
+        user_agent.as_deref(),
+    ) {
+        Ok(revoked) => Json(serde_json::json!({"ok": true, "revoked": revoked})).into_response(),
+        Err(e) => {
+            tracing::error!(user_id = %user_id, error = %e, "failed to revoke other auth sessions");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": "failed to revoke other sessions"
                 })),
             )
                 .into_response()

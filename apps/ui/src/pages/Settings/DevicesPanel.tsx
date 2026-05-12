@@ -218,6 +218,7 @@ export default function DevicesPanel() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busyJti, setBusyJti] = useState<string | null>(null);
   const [revokingOthers, setRevokingOthers] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<{ jti: string; isCurrent: boolean } | null>(
@@ -232,9 +233,12 @@ export default function DevicesPanel() {
         const list = (data as { sessions?: Session[] }).sessions;
         if (Array.isArray(list)) setSessions(list);
       })
-      .catch(() => {});
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load active sessions.");
+      });
 
   useEffect(() => {
+    setError(null);
     Promise.all([
       loadSessions(),
       api
@@ -243,7 +247,9 @@ export default function DevicesPanel() {
           const events = (data as { events?: ActivityRow[] }).events;
           if (Array.isArray(events)) setActivity(events);
         })
-        .catch(() => {}),
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Failed to load login history.");
+        }),
     ]).finally(() => setLoaded(true));
   }, []);
 
@@ -288,6 +294,8 @@ export default function DevicesPanel() {
 
   return (
     <>
+      {error && <div className="account-activity-error">{error}</div>}
+
       <div className="account-field-lg">
         <label className="account-field-label">Active sessions</label>
         <p className="account-field-desc">

@@ -33,6 +33,31 @@ pub struct User {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AuthSession {
+    pub jti: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
+    pub created_at: String,
+    pub last_seen_at: String,
+    pub expires_at: String,
+    pub current: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AuthActivity {
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
+    pub created_at: String,
+}
+
 /// Thread-safe account store with an in-memory TTL cache for user lookups.
 pub struct AccountStore {
     conn: Mutex<Connection>,
@@ -84,7 +109,31 @@ impl AccountStore {
             CREATE TABLE IF NOT EXISTS oauth_states (
                 state       TEXT PRIMARY KEY,
                 created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-            );",
+            );
+            CREATE TABLE IF NOT EXISTS auth_sessions (
+                jti          TEXT PRIMARY KEY,
+                user_id      TEXT NOT NULL REFERENCES users(id),
+                ip           TEXT,
+                user_agent   TEXT,
+                created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+                expires_at   TEXT NOT NULL,
+                revoked_at   TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_active
+                ON auth_sessions(user_id, revoked_at, last_seen_at);
+            CREATE TABLE IF NOT EXISTS auth_activity (
+                id          TEXT PRIMARY KEY,
+                user_id     TEXT NOT NULL REFERENCES users(id),
+                action      TEXT NOT NULL,
+                detail      TEXT,
+                ip          TEXT,
+                user_agent  TEXT,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_auth_activity_user_created
+                ON auth_activity(user_id, created_at DESC);
+            ",
         )?;
         // Migration: backfill free_company_used_at on existing user
         // tables (the column landed after the table did). SQLite's
@@ -430,6 +479,205 @@ impl AccountStore {
         }
     }
 
+    // ── Auth sessions and activity ─────────────────────
+
+    pub fn touch_auth_session(
+        &self,
+        user_id: &str,
+        jti: &str,
+        expires_at: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> anyhow::Result<()> {
+        if jti.is_empty() {
+            return Ok(());
+        }
+        let conn = self.conn.lock().unwrap();
+        let inserted = conn.execute(
+            "INSERT OR IGNORE INTO auth_sessions
+                (jti, user_id, ip, user_agent, expires_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![jti, user_id, ip, user_agent, expires_at],
+        )?;
+        conn.execute(
+            "UPDATE auth_sessions
+             SET last_seen_at = datetime('now'),
+                 ip = COALESCE(?3, ip),
+                 user_agent = COALESCE(?4, user_agent),
+                 expires_at = ?5
+             WHERE jti = ?1 AND user_id = ?2 AND revoked_at IS NULL",
+            params![jti, user_id, ip, user_agent, expires_at],
+        )?;
+        if inserted > 0 {
+            Self::insert_auth_activity_locked(
+                &conn,
+                user_id,
+                "login_success",
+                Some("Session created"),
+                ip,
+                user_agent,
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn is_auth_session_revoked(&self, jti: &str) -> anyhow::Result<bool> {
+        if jti.is_empty() {
+            return Ok(false);
+        }
+        let conn = self.conn.lock().unwrap();
+        let revoked_at: Option<Option<String>> = conn
+            .query_row(
+                "SELECT revoked_at FROM auth_sessions WHERE jti = ?1",
+                params![jti],
+                |row| row.get(0),
+            )
+            .ok();
+        Ok(matches!(revoked_at, Some(Some(_))))
+    }
+
+    pub fn list_auth_sessions(
+        &self,
+        user_id: &str,
+        current_jti: &str,
+    ) -> anyhow::Result<Vec<AuthSession>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT jti, ip, user_agent, created_at, last_seen_at, expires_at
+             FROM auth_sessions
+             WHERE user_id = ?1
+               AND revoked_at IS NULL
+               AND strftime('%s', expires_at) > strftime('%s', 'now')
+             ORDER BY last_seen_at DESC",
+        )?;
+        let rows = stmt
+            .query_map(params![user_id], |row| {
+                let jti: String = row.get(0)?;
+                Ok(AuthSession {
+                    current: !current_jti.is_empty() && jti == current_jti,
+                    jti,
+                    ip: row.get(1)?,
+                    user_agent: row.get(2)?,
+                    created_at: row.get(3)?,
+                    last_seen_at: row.get(4)?,
+                    expires_at: row.get(5)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn list_auth_activity(
+        &self,
+        user_id: &str,
+        limit: usize,
+    ) -> anyhow::Result<Vec<AuthActivity>> {
+        let limit = limit.clamp(1, 200) as i64;
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT action, detail, ip, user_agent, created_at
+             FROM auth_activity
+             WHERE user_id = ?1
+             ORDER BY created_at DESC, rowid DESC
+             LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![user_id, limit], |row| {
+                Ok(AuthActivity {
+                    action: row.get(0)?,
+                    detail: row.get(1)?,
+                    ip: row.get(2)?,
+                    user_agent: row.get(3)?,
+                    created_at: row.get(4)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn revoke_auth_session(
+        &self,
+        user_id: &str,
+        jti: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> anyhow::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let updated = conn.execute(
+            "UPDATE auth_sessions
+             SET revoked_at = datetime('now')
+             WHERE user_id = ?1 AND jti = ?2 AND revoked_at IS NULL",
+            params![user_id, jti],
+        )?;
+        if updated > 0 {
+            Self::insert_auth_activity_locked(
+                &conn,
+                user_id,
+                "session_revoked",
+                Some("Session revoked"),
+                ip,
+                user_agent,
+            )?;
+        }
+        Ok(updated > 0)
+    }
+
+    pub fn revoke_other_auth_sessions(
+        &self,
+        user_id: &str,
+        current_jti: &str,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> anyhow::Result<usize> {
+        let conn = self.conn.lock().unwrap();
+        let updated = conn.execute(
+            "UPDATE auth_sessions
+             SET revoked_at = datetime('now')
+             WHERE user_id = ?1
+               AND jti <> ?2
+               AND revoked_at IS NULL
+               AND strftime('%s', expires_at) > strftime('%s', 'now')",
+            params![user_id, current_jti],
+        )?;
+        if updated > 0 {
+            let detail = format!("Revoked {updated} other session(s)");
+            Self::insert_auth_activity_locked(
+                &conn,
+                user_id,
+                "sessions_revoked_others",
+                Some(&detail),
+                ip,
+                user_agent,
+            )?;
+        }
+        Ok(updated)
+    }
+
+    fn insert_auth_activity_locked(
+        conn: &Connection,
+        user_id: &str,
+        action: &str,
+        detail: Option<&str>,
+        ip: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> anyhow::Result<()> {
+        conn.execute(
+            "INSERT INTO auth_activity (id, user_id, action, detail, ip, user_agent)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                Uuid::new_v4().to_string(),
+                user_id,
+                action,
+                detail,
+                ip,
+                user_agent
+            ],
+        )?;
+        Ok(())
+    }
+
     /// Grant director access for a user to an agent. Invalidates the user
     /// cache so the updated roots list is picked up immediately.
     pub fn add_director(&self, user_id: &str, agent_id: &str) -> anyhow::Result<()> {
@@ -614,6 +862,47 @@ mod tests {
     fn oauth_state_unknown_nonce_rejected() {
         let (acc, _dir) = fresh_accounts();
         assert!(!acc.consume_oauth_state("never-saved").unwrap());
+    }
+
+    #[test]
+    fn auth_session_lifecycle_records_activity() {
+        let (acc, _dir) = fresh_accounts();
+        let user = acc
+            .create_user("session@example.com", "Session User", "hunter2hunter2")
+            .unwrap();
+        let expires_at = (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339();
+
+        acc.touch_auth_session(
+            &user.id,
+            "jti-1",
+            &expires_at,
+            Some("127.0.0.1"),
+            Some("Mozilla/5.0"),
+        )
+        .unwrap();
+
+        let sessions = acc.list_auth_sessions(&user.id, "jti-1").unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert!(sessions[0].current);
+        assert_eq!(sessions[0].ip.as_deref(), Some("127.0.0.1"));
+
+        let activity = acc.list_auth_activity(&user.id, 10).unwrap();
+        assert_eq!(activity.len(), 1);
+        assert_eq!(activity[0].action, "login_success");
+
+        assert!(
+            acc.revoke_auth_session(&user.id, "jti-1", Some("127.0.0.1"), Some("Mozilla/5.0"))
+                .unwrap()
+        );
+        assert!(acc.is_auth_session_revoked("jti-1").unwrap());
+        assert!(
+            acc.list_auth_sessions(&user.id, "jti-1")
+                .unwrap()
+                .is_empty()
+        );
+
+        let activity = acc.list_auth_activity(&user.id, 10).unwrap();
+        assert_eq!(activity[0].action, "session_revoked");
     }
 
     /// Regression: `verify_password` must not hold the SQLite mutex across
