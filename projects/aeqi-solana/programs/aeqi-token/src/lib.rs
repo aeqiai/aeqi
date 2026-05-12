@@ -89,11 +89,7 @@ pub mod aeqi_token {
         require!(data.len() >= 8, TokenError::InvalidConfig);
         let cfg = BytesConfigData::try_from_slice(&data[8..])
             .map_err(|_| error!(TokenError::InvalidConfig))?;
-        require_keys_eq!(
-            cfg.trust,
-            ctx.accounts.trust.key(),
-            TokenError::InvalidConfig
-        );
+        require_keys_eq!(cfg.trust, ctx.accounts.trust.key(), TokenError::InvalidConfig);
         require!(cfg.key == TOKEN_CONFIG_KEY, TokenError::InvalidConfig);
 
         let init_cfg = TokenInitConfig::try_from_slice(&cfg.value)
@@ -111,10 +107,7 @@ pub mod aeqi_token {
     /// is owned by a vesting PDA).
     pub fn burn_tokens(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
         let module = &ctx.accounts.module_state;
-        require!(
-            module.mint == ctx.accounts.mint.key(),
-            TokenError::MintMismatch
-        );
+        require!(module.mint == ctx.accounts.mint.key(), TokenError::MintMismatch);
 
         let cpi_accounts = Burn {
             mint: ctx.accounts.mint.to_account_info(),
@@ -142,20 +135,13 @@ pub mod aeqi_token {
     /// the pre-finalize default).
     pub fn mint_tokens(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         let module = &ctx.accounts.module_state;
-        require!(
-            module.mint == ctx.accounts.mint.key(),
-            TokenError::MintMismatch
-        );
+        require!(module.mint == ctx.accounts.mint.key(), TokenError::MintMismatch);
 
         if module.max_supply_cap > 0 {
             let current_supply = ctx.accounts.mint.supply;
-            let new_supply = current_supply
-                .checked_add(amount)
-                .ok_or(error!(TokenError::SupplyCapExceeded))?;
-            require!(
-                new_supply <= module.max_supply_cap,
-                TokenError::SupplyCapExceeded
-            );
+            let new_supply =
+                current_supply.checked_add(amount).ok_or(error!(TokenError::SupplyCapExceeded))?;
+            require!(new_supply <= module.max_supply_cap, TokenError::SupplyCapExceeded);
         }
 
         let trust_key = ctx.accounts.trust.key();
@@ -193,20 +179,10 @@ pub mod aeqi_token {
         // Mint creation is valid post-init *and* post-finalize. The factory
         // pipeline finalizes the module before user-driven create_mint runs,
         // so requiring strict Initialized would lock out the canonical flow.
-        require!(
-            module.initialized != ModuleInitState::Pending as u8,
-            TokenError::NotInitialized
-        );
-        require!(
-            module.mint == Pubkey::default(),
-            TokenError::MintAlreadyCreated
-        );
+        require!(module.initialized != ModuleInitState::Pending as u8, TokenError::NotInitialized);
+        require!(module.mint == Pubkey::default(), TokenError::MintAlreadyCreated);
         module.mint = ctx.accounts.mint.key();
-        emit!(MintCreated {
-            trust: module.trust,
-            mint: module.mint,
-            decimals,
-        });
+        emit!(MintCreated { trust: module.trust, mint: module.mint, decimals });
         Ok(())
     }
 }

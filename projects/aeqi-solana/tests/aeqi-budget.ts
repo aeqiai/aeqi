@@ -175,4 +175,58 @@ describe("aeqi_budget", () => {
     const b = await program.account.budget.fetch(budgetPda);
     expect(b.spent.toString()).to.eq("100");
   });
+
+  it("rejects freeze from a non-grantor", async () => {
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0xb3;
+
+    const [budgetPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      program.programId,
+    );
+
+    await program.methods
+      .createBudget(
+        Array.from(budgetId),
+        Array.from(new Uint8Array(32).fill(0x66)),
+        new anchor.BN(1000),
+        new anchor.BN(0),
+        null,
+      )
+      .accounts({
+        trust: fakeTrust,
+        moduleState: modulePda,
+        budget: budgetPda,
+        grantor: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const attacker = Keypair.generate();
+    const sig = await provider.connection.requestAirdrop(
+      attacker.publicKey,
+      2 * anchor.web3.LAMPORTS_PER_SOL,
+    );
+    const latest = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction(
+      { signature: sig, ...latest },
+      "confirmed",
+    );
+
+    let threw = false;
+    try {
+      await program.methods
+        .freeze()
+        .accounts({
+          budget: budgetPda,
+          grantor: attacker.publicKey,
+        })
+        .signers([attacker])
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/Unauthorized/);
+    }
+    expect(threw).to.eq(true);
+  });
 });

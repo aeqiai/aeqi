@@ -74,7 +74,8 @@ pub mod aeqi_funding {
         r.bump = ctx.bumps.request;
 
         let m = &mut ctx.accounts.module_state;
-        m.request_count = m.request_count.checked_add(1).unwrap();
+        m.request_count =
+            m.request_count.checked_add(1).ok_or(error!(FundingError::MathOverflow))?;
 
         emit!(FundingRequestCreated {
             trust: r.trust,
@@ -100,10 +101,7 @@ pub mod aeqi_funding {
         duration_secs: i64,
     ) -> Result<()> {
         let r = &mut ctx.accounts.request;
-        require!(
-            r.status == RequestStatus::Pending as u8,
-            FundingError::CannotActivate
-        );
+        require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 0, FundingError::WrongKind);
 
         let cpi = CreateCommitmentSale {
@@ -146,10 +144,7 @@ pub mod aeqi_funding {
         reserve_ratio_ppm: u32,
     ) -> Result<()> {
         let r = &mut ctx.accounts.request;
-        require!(
-            r.status == RequestStatus::Pending as u8,
-            FundingError::CannotActivate
-        );
+        require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 1, FundingError::WrongKind);
 
         let cpi = CreateCurve {
@@ -191,10 +186,7 @@ pub mod aeqi_funding {
         duration_secs: i64,
     ) -> Result<()> {
         let r = &mut ctx.accounts.request;
-        require!(
-            r.status == RequestStatus::Pending as u8,
-            FundingError::CannotActivate
-        );
+        require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 2, FundingError::WrongKind);
 
         let cpi = CreateExit {
@@ -231,15 +223,8 @@ pub mod aeqi_funding {
     /// `status == Finalized` as their gate.
     pub fn finalize_funding_request(ctx: Context<FinalizeFundingRequest>) -> Result<()> {
         let r = &mut ctx.accounts.request;
-        require_keys_eq!(
-            ctx.accounts.creator.key(),
-            r.creator,
-            FundingError::Unauthorized
-        );
-        require!(
-            r.status == RequestStatus::Activated as u8,
-            FundingError::CannotFinalize
-        );
+        require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
+        require!(r.status == RequestStatus::Activated as u8, FundingError::CannotFinalize);
         r.status = RequestStatus::Finalized as u8;
         emit!(FundingRequestFinalized {
             trust: r.trust,
@@ -253,20 +238,10 @@ pub mod aeqi_funding {
     /// Cancel a pending funding request. Only the creator can cancel.
     pub fn cancel_funding_request(ctx: Context<CancelFundingRequest>) -> Result<()> {
         let r = &mut ctx.accounts.request;
-        require_keys_eq!(
-            ctx.accounts.creator.key(),
-            r.creator,
-            FundingError::Unauthorized
-        );
-        require!(
-            r.status == RequestStatus::Pending as u8,
-            FundingError::CannotCancel
-        );
+        require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
+        require!(r.status == RequestStatus::Pending as u8, FundingError::CannotCancel);
         r.status = RequestStatus::Cancelled as u8;
-        emit!(FundingRequestCancelled {
-            trust: r.trust,
-            request_id: r.request_id,
-        });
+        emit!(FundingRequestCancelled { trust: r.trust, request_id: r.request_id });
         Ok(())
     }
 }
@@ -473,6 +448,8 @@ pub enum FundingError {
     InvalidKind,
     #[msg("amount must be > 0")]
     ZeroAmount,
+    #[msg("math overflow")]
+    MathOverflow,
     #[msg("only creator can cancel a request")]
     Unauthorized,
     #[msg("request is not in Pending status — can't cancel")]

@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "license": "MIT",
   "scripts": {
+    "fmt:rs": "cargo fmt --all",
+    "fmt:rs:check": "cargo fmt --all --check",
+    "cov:rs": "cargo llvm-cov --workspace --lcov --output-path target/coverage/lcov.info",
+    "cov:rs:html": "cargo llvm-cov --workspace --html --output-dir target/coverage/html",
+    "cov:rs:summary": "cargo llvm-cov --workspace --summary-only",
+    "lint:rs": "cargo clippy --all-targets --all-features",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
   },

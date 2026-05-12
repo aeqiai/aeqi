@@ -66,14 +66,8 @@ pub mod aeqi_governance {
         governance_config_id: [u8; 32],
         config: GovernanceConfigInput,
     ) -> Result<()> {
-        require!(
-            config.quorum_bps <= 10_000,
-            GovernanceError::InvalidBpsValue
-        );
-        require!(
-            config.support_bps <= 10_000,
-            GovernanceError::InvalidBpsValue
-        );
+        require!(config.quorum_bps <= 10_000, GovernanceError::InvalidBpsValue);
+        require!(config.support_bps <= 10_000, GovernanceError::InvalidBpsValue);
         require!(config.voting_period > 0, GovernanceError::ZeroVotingPeriod);
 
         let g = &mut ctx.accounts.governance_config;
@@ -140,10 +134,7 @@ pub mod aeqi_governance {
             .ok_or(error!(GovernanceError::MathOverflow))?
             .checked_div(10_000)
             .ok_or(error!(GovernanceError::MathOverflow))?;
-        require!(
-            participating >= quorum_required,
-            GovernanceError::QuorumNotMet
-        );
+        require!(participating >= quorum_required, GovernanceError::QuorumNotMet);
 
         // Support: for ≥ (for + against) * support_bps / 10000
         let decisive = p
@@ -156,27 +147,17 @@ pub mod aeqi_governance {
             .ok_or(error!(GovernanceError::MathOverflow))?
             .checked_div(10_000)
             .ok_or(error!(GovernanceError::MathOverflow))?;
-        require!(
-            p.for_votes >= support_required,
-            GovernanceError::SupportNotMet
-        );
+        require!(p.for_votes >= support_required, GovernanceError::SupportNotMet);
 
         // Optional execution delay: enforce now ≥ vote_end + execution_delay
         if cfg.execution_delay > 0 {
             let execution_ready_at = vote_end
                 .checked_add(cfg.execution_delay)
                 .ok_or(error!(GovernanceError::MathOverflow))?;
-            require!(
-                now >= execution_ready_at,
-                GovernanceError::ExecutionDelayNotMet
-            );
+            require!(now >= execution_ready_at, GovernanceError::ExecutionDelayNotMet);
         }
 
-        p.succeeded_at = if p.succeeded_at == 0 {
-            now
-        } else {
-            p.succeeded_at
-        };
+        p.succeeded_at = if p.succeeded_at == 0 { now } else { p.succeeded_at };
         p.executed = true;
 
         emit!(ProposalExecuted {
@@ -198,11 +179,7 @@ pub mod aeqi_governance {
         // Validate the cross-program account: must be owned by aeqi_role and
         // its PDA derivation is enforced by Anchor's seeds::program constraint.
         let acct_info = &ctx.accounts.voter_checkpoint;
-        require_keys_eq!(
-            *acct_info.owner,
-            AEQI_ROLE_ID,
-            GovernanceError::InvalidCheckpoint
-        );
+        require_keys_eq!(*acct_info.owner, AEQI_ROLE_ID, GovernanceError::InvalidCheckpoint);
 
         let data = acct_info.try_borrow_data()?;
         require!(data.len() >= 8, GovernanceError::InvalidCheckpoint);
@@ -229,14 +206,7 @@ pub mod aeqi_governance {
 
         apply_vote_tally(p, choice, weight)?;
         let v = &mut ctx.accounts.vote;
-        record_vote(
-            v,
-            p,
-            ctx.accounts.voter.key(),
-            choice,
-            weight,
-            ctx.bumps.vote,
-        );
+        record_vote(v, p, ctx.accounts.voter.key(), choice, weight, ctx.bumps.vote);
         Ok(())
     }
 
@@ -254,14 +224,7 @@ pub mod aeqi_governance {
 
         apply_vote_tally(p, choice, weight)?;
         let v = &mut ctx.accounts.vote;
-        record_vote(
-            v,
-            p,
-            ctx.accounts.voter.key(),
-            choice,
-            weight,
-            ctx.bumps.vote,
-        );
+        record_vote(v, p, ctx.accounts.voter.key(), choice, weight, ctx.bumps.vote);
         Ok(())
     }
 
@@ -279,14 +242,7 @@ pub mod aeqi_governance {
 
         apply_vote_tally(p, choice, weight)?;
         let v = &mut ctx.accounts.vote;
-        record_vote(
-            v,
-            p,
-            ctx.accounts.voter.key(),
-            choice,
-            weight,
-            ctx.bumps.vote,
-        );
+        record_vote(v, p, ctx.accounts.voter.key(), choice, weight, ctx.bumps.vote);
         Ok(())
     }
 
@@ -299,10 +255,7 @@ pub mod aeqi_governance {
         ipfs_cid: [u8; 64],
     ) -> Result<()> {
         let cfg = &ctx.accounts.governance_config;
-        require!(
-            cfg.governance_config_id == governance_config_id,
-            GovernanceError::ConfigMismatch
-        );
+        require!(cfg.governance_config_id == governance_config_id, GovernanceError::ConfigMismatch);
 
         let now = Clock::get()?.unix_timestamp;
         let p = &mut ctx.accounts.proposal;
@@ -323,10 +276,8 @@ pub mod aeqi_governance {
         p.bump = ctx.bumps.proposal;
 
         let m = &mut ctx.accounts.module_state;
-        m.proposal_count = m
-            .proposal_count
-            .checked_add(1)
-            .ok_or(error!(GovernanceError::MathOverflow))?;
+        m.proposal_count =
+            m.proposal_count.checked_add(1).ok_or(error!(GovernanceError::MathOverflow))?;
 
         emit!(ProposalCreated {
             trust: p.trust,
@@ -341,9 +292,7 @@ pub mod aeqi_governance {
 }
 
 fn proposal_vote_end(p: &Proposal) -> Result<i64> {
-    p.vote_start
-        .checked_add(p.vote_duration)
-        .ok_or(error!(GovernanceError::MathOverflow))
+    p.vote_start.checked_add(p.vote_duration).ok_or(error!(GovernanceError::MathOverflow))
 }
 
 fn require_vote_open(p: &Proposal, now: i64) -> Result<()> {
@@ -397,10 +346,8 @@ fn apply_vote_tally(proposal: &mut Account<Proposal>, choice: u8, weight: u128) 
 }
 
 fn bump_config_count(module_state: &mut Account<GovernanceModuleState>) -> Result<()> {
-    module_state.config_count = module_state
-        .config_count
-        .checked_add(1)
-        .ok_or(error!(GovernanceError::MathOverflow))?;
+    module_state.config_count =
+        module_state.config_count.checked_add(1).ok_or(error!(GovernanceError::MathOverflow))?;
     Ok(())
 }
 

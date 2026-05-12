@@ -1531,6 +1531,54 @@ describe("aeqi_unifutures", () => {
     let position = await program.account.liquidityPosition.fetch(positionPda);
     expect(position.shares.toString()).to.eq("1000");
 
+    let threw = false;
+    try {
+      await program.methods
+        .addLiquidity(new anchor.BN(100), new anchor.BN(50))
+        .accounts({
+          pool: poolPda,
+          poolAuthority: poolAuthorityPda,
+          baseMint,
+          quoteMint,
+          baseVault,
+          quoteVault,
+          position: positionPda,
+          provider: provider.wallet.publicKey,
+          providerBaseTa: baseAta,
+          providerQuoteTa: quoteAta,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/InvalidLiquidityRatio/);
+    }
+    expect(threw).to.eq(true);
+
+    threw = false;
+    try {
+      await program.methods
+        .swapExactIn(new anchor.BN(100), new anchor.BN(95), true)
+        .accounts({
+          pool: poolPda,
+          poolAuthority: poolAuthorityPda,
+          baseMint,
+          quoteMint,
+          baseVault,
+          quoteVault,
+          provider: provider.wallet.publicKey,
+          providerBaseTa: baseAta,
+          providerQuoteTa: quoteAta,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/SlippageExceeded/);
+    }
+    expect(threw).to.eq(true);
+
     await program.methods
       .swapExactIn(new anchor.BN(100), new anchor.BN(90), true)
       .accounts({

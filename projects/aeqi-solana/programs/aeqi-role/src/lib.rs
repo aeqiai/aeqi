@@ -63,11 +63,7 @@ pub mod aeqi_role {
         rt.config = config;
         rt.role_count = 0;
         rt.bump = ctx.bumps.role_type;
-        emit!(RoleTypeCreated {
-            trust: rt.trust,
-            role_type_id,
-            hierarchy,
-        });
+        emit!(RoleTypeCreated { trust: rt.trust, role_type_id, hierarchy });
         Ok(())
     }
 
@@ -87,10 +83,7 @@ pub mod aeqi_role {
         // Permissionless when caller_role is omitted — gated upstream by the
         // factory or trust authority via the parent transaction signing.
         if let Some(caller_role) = ctx.accounts.caller_role.as_ref() {
-            require!(
-                caller_role.account == ctx.accounts.payer.key(),
-                AeqiRoleError::Unauthorized
-            );
+            require!(caller_role.account == ctx.accounts.payer.key(), AeqiRoleError::Unauthorized);
             if let Some(parent) = parent_role_id {
                 check_authority_walk(caller_role, &parent, ctx.remaining_accounts)?;
             }
@@ -123,10 +116,7 @@ pub mod aeqi_role {
     /// auto-self-delegates voting power.
     pub fn assign_role(ctx: Context<AssignRole>, account: Pubkey) -> Result<()> {
         let role = &mut ctx.accounts.role;
-        require!(
-            role.status == RoleStatus::Vacant as u8,
-            AeqiRoleError::RoleNotVacant
-        );
+        require!(role.status == RoleStatus::Vacant as u8, AeqiRoleError::RoleNotVacant);
         role.account = account;
         role.status = RoleStatus::Occupied as u8;
         role.status_since = Clock::get()?.unix_timestamp;
@@ -139,11 +129,7 @@ pub mod aeqi_role {
             1,
         )?;
 
-        emit!(RoleAssigned {
-            trust: role.trust,
-            role_id: role.role_id,
-            account,
-        });
+        emit!(RoleAssigned { trust: role.trust, role_id: role.role_id, account });
         Ok(())
     }
 
@@ -152,15 +138,8 @@ pub mod aeqi_role {
     /// Occupied; an authorized parent can re-assign or remove it.
     pub fn resign_role(ctx: Context<ResignRole>) -> Result<()> {
         let role = &mut ctx.accounts.role;
-        require!(
-            role.status == RoleStatus::Occupied as u8,
-            AeqiRoleError::RoleNotOccupied
-        );
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            role.account,
-            AeqiRoleError::Unauthorized
-        );
+        require!(role.status == RoleStatus::Occupied as u8, AeqiRoleError::RoleNotOccupied);
+        require_keys_eq!(ctx.accounts.payer.key(), role.account, AeqiRoleError::Unauthorized);
 
         let prev_account = role.account;
         role.status = RoleStatus::Resigned as u8;
@@ -174,11 +153,7 @@ pub mod aeqi_role {
             -1,
         )?;
 
-        emit!(RoleResigned {
-            trust: role.trust,
-            role_id: role.role_id,
-            from: prev_account,
-        });
+        emit!(RoleResigned { trust: role.trust, role_id: role.role_id, from: prev_account });
         Ok(())
     }
 
@@ -187,15 +162,8 @@ pub mod aeqi_role {
     /// checkpoint.
     pub fn transfer_role(ctx: Context<TransferRole>, new_account: Pubkey) -> Result<()> {
         let role = &mut ctx.accounts.role;
-        require!(
-            role.status == RoleStatus::Occupied as u8,
-            AeqiRoleError::RoleNotOccupied
-        );
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            role.account,
-            AeqiRoleError::Unauthorized
-        );
+        require!(role.status == RoleStatus::Occupied as u8, AeqiRoleError::RoleNotOccupied);
+        require_keys_eq!(ctx.accounts.payer.key(), role.account, AeqiRoleError::Unauthorized);
 
         let prev_account = role.account;
         role.account = new_account;
@@ -228,15 +196,8 @@ pub mod aeqi_role {
     /// previous delegatee's checkpoint and increments the new delegatee's.
     pub fn delegate_role(ctx: Context<DelegateRole>, delegatee: Pubkey) -> Result<()> {
         let role = &ctx.accounts.role;
-        require!(
-            role.status == RoleStatus::Occupied as u8,
-            AeqiRoleError::RoleNotOccupied
-        );
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            role.account,
-            AeqiRoleError::Unauthorized
-        );
+        require!(role.status == RoleStatus::Occupied as u8, AeqiRoleError::RoleNotOccupied);
+        require_keys_eq!(ctx.accounts.payer.key(), role.account, AeqiRoleError::Unauthorized);
 
         let deleg = &mut ctx.accounts.delegation;
         let prev = deleg.delegatee;
@@ -299,14 +260,8 @@ fn check_authority_walk<'info>(
     for (i, acc) in remaining.iter().take(MAX_AUTHORITY_WALK).enumerate() {
         let role: Account<Role> =
             Account::try_from(acc).map_err(|_| AeqiRoleError::InvalidAuthorityWalk)?;
-        require!(
-            role.trust == caller_role.trust,
-            AeqiRoleError::InvalidAuthorityWalk
-        );
-        require!(
-            role.role_id == expected_id,
-            AeqiRoleError::InvalidAuthorityWalk
-        );
+        require!(role.trust == caller_role.trust, AeqiRoleError::InvalidAuthorityWalk);
+        require!(role.role_id == expected_id, AeqiRoleError::InvalidAuthorityWalk);
         // Hit the caller in the target's ancestor chain → authorized.
         if role.role_id == caller_role.role_id {
             return Ok(());
@@ -332,24 +287,18 @@ fn bump_checkpoint(
     ckpt.role_type_id = role_type_id;
     ckpt.slot = Clock::get()?.slot;
     if delta >= 0 {
-        ckpt.count = ckpt
-            .count
-            .checked_add(delta as u64)
-            .ok_or(error!(AeqiRoleError::MathOverflow))?;
+        ckpt.count =
+            ckpt.count.checked_add(delta as u64).ok_or(error!(AeqiRoleError::MathOverflow))?;
     } else {
-        ckpt.count = ckpt
-            .count
-            .checked_sub((-delta) as u64)
-            .ok_or(error!(AeqiRoleError::MathOverflow))?;
+        ckpt.count =
+            ckpt.count.checked_sub((-delta) as u64).ok_or(error!(AeqiRoleError::MathOverflow))?;
     }
     Ok(())
 }
 
 fn bump_role_count(role_type: &mut Account<RoleType>) -> Result<()> {
-    role_type.role_count = role_type
-        .role_count
-        .checked_add(1)
-        .ok_or(error!(AeqiRoleError::MathOverflow))?;
+    role_type.role_count =
+        role_type.role_count.checked_add(1).ok_or(error!(AeqiRoleError::MathOverflow))?;
     Ok(())
 }
 

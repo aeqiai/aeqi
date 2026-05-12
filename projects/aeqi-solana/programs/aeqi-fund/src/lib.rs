@@ -57,7 +57,7 @@ pub mod aeqi_fund {
         f.bump = ctx.bumps.fund;
 
         let m = &mut ctx.accounts.module_state;
-        m.fund_count = m.fund_count.checked_add(1).unwrap();
+        m.fund_count = m.fund_count.checked_add(1).ok_or(error!(FundError::MathOverflow))?;
 
         emit!(FundCreated {
             trust: f.trust,
@@ -100,19 +100,18 @@ pub mod aeqi_fund {
                 .checked_div(f.gross_nav as u128)
                 .ok_or(error!(FundError::MathOverflow))?
         };
-        let shares_u64: u64 = shares
-            .try_into()
-            .map_err(|_| error!(FundError::MathOverflow))?;
+        let shares_u64: u64 = shares.try_into().map_err(|_| error!(FundError::MathOverflow))?;
         require!(shares_u64 > 0, FundError::ShareTooSmall);
 
-        f.gross_nav = f.gross_nav.checked_add(amount).unwrap();
-        f.total_shares = f.total_shares.checked_add(shares_u64).unwrap();
+        f.gross_nav = f.gross_nav.checked_add(amount).ok_or(error!(FundError::MathOverflow))?;
+        f.total_shares =
+            f.total_shares.checked_add(shares_u64).ok_or(error!(FundError::MathOverflow))?;
 
         let s = &mut ctx.accounts.lp_share;
         s.trust = f.trust;
         s.fund_id = f.fund_id;
         s.lp = ctx.accounts.lp.key();
-        s.shares = s.shares.checked_add(shares_u64).unwrap();
+        s.shares = s.shares.checked_add(shares_u64).ok_or(error!(FundError::MathOverflow))?;
         s.bump = ctx.bumps.lp_share;
 
         emit!(FundDeposited {
@@ -138,9 +137,8 @@ pub mod aeqi_fund {
         require_keys_eq!(ctx.accounts.manager.key(), f.manager, FundError::NotManager);
 
         // Subtract already-accrued carry so we're working in LP terms.
-        let lp_nav = new_gross_nav
-            .checked_sub(f.accrued_carry)
-            .ok_or(error!(FundError::MathOverflow))?;
+        let lp_nav =
+            new_gross_nav.checked_sub(f.accrued_carry).ok_or(error!(FundError::MathOverflow))?;
 
         if lp_nav > f.high_water_mark {
             let increase = lp_nav - f.high_water_mark;
@@ -148,11 +146,10 @@ pub mod aeqi_fund {
                 .checked_mul(f.carry_bps as u128)
                 .ok_or(error!(FundError::MathOverflow))?
                 / 10_000u128;
-            let carry_u64: u64 = carry
-                .try_into()
-                .map_err(|_| error!(FundError::MathOverflow))?;
-            f.accrued_carry = f.accrued_carry.checked_add(carry_u64).unwrap();
-            f.gross_nav = lp_nav.checked_sub(carry_u64).unwrap();
+            let carry_u64: u64 = carry.try_into().map_err(|_| error!(FundError::MathOverflow))?;
+            f.accrued_carry =
+                f.accrued_carry.checked_add(carry_u64).ok_or(error!(FundError::MathOverflow))?;
+            f.gross_nav = lp_nav.checked_sub(carry_u64).ok_or(error!(FundError::MathOverflow))?;
             f.high_water_mark = f.gross_nav;
         } else {
             f.gross_nav = lp_nav;
@@ -180,12 +177,8 @@ pub mod aeqi_fund {
         let trust_key = f.trust;
         let fund_id_bytes = f.fund_id;
         let bump = ctx.bumps.fund_authority;
-        let seeds: &[&[&[u8]]] = &[&[
-            b"fund_authority",
-            trust_key.as_ref(),
-            fund_id_bytes.as_ref(),
-            &[bump],
-        ]];
+        let seeds: &[&[&[u8]]] =
+            &[&[b"fund_authority", trust_key.as_ref(), fund_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.fund_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -225,21 +218,16 @@ pub mod aeqi_fund {
             .ok_or(error!(FundError::MathOverflow))?
             .checked_div(f.total_shares as u128)
             .ok_or(error!(FundError::MathOverflow))?;
-        let quote_out: u64 = quote_out_u128
-            .try_into()
-            .map_err(|_| error!(FundError::MathOverflow))?;
+        let quote_out: u64 =
+            quote_out_u128.try_into().map_err(|_| error!(FundError::MathOverflow))?;
         require!(quote_out > 0, FundError::ShareTooSmall);
 
         // PDA-signed transfer fund_quote_vault → lp_quote_ta
         let trust_key = f.trust;
         let fund_id_bytes = f.fund_id;
         let bump = ctx.bumps.fund_authority;
-        let seeds: &[&[&[u8]]] = &[&[
-            b"fund_authority",
-            trust_key.as_ref(),
-            fund_id_bytes.as_ref(),
-            &[bump],
-        ]];
+        let seeds: &[&[&[u8]]] =
+            &[&[b"fund_authority", trust_key.as_ref(), fund_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.fund_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -252,9 +240,10 @@ pub mod aeqi_fund {
             ctx.accounts.quote_mint.decimals,
         )?;
 
-        s.shares = s.shares.checked_sub(shares).unwrap();
-        f.total_shares = f.total_shares.checked_sub(shares).unwrap();
-        f.gross_nav = f.gross_nav.checked_sub(quote_out).unwrap();
+        s.shares = s.shares.checked_sub(shares).ok_or(error!(FundError::MathOverflow))?;
+        f.total_shares =
+            f.total_shares.checked_sub(shares).ok_or(error!(FundError::MathOverflow))?;
+        f.gross_nav = f.gross_nav.checked_sub(quote_out).ok_or(error!(FundError::MathOverflow))?;
 
         emit!(FundRedeemed {
             trust: f.trust,

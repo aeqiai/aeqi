@@ -172,4 +172,38 @@ describe("aeqi_trust", () => {
     }
     expect(threw).to.eq(true);
   });
+
+  it("rejects finalize if no modules were registered", async () => {
+    const emptyTrustId = new Uint8Array(32).fill(0);
+    emptyTrustId[0] = 2;
+
+    const [emptyTrustPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("trust"), Buffer.from(emptyTrustId)],
+      program.programId,
+    );
+
+    await program.methods
+      .initialize(Array.from(emptyTrustId))
+      .accounts({
+        trust: emptyTrustPda,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    let threw = false;
+    try {
+      await program.methods
+        .finalize()
+        .accounts({
+          trust: emptyTrustPda,
+          authority: provider.wallet.publicKey,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/NoModulesRegistered/);
+    }
+    expect(threw).to.eq(true);
+  });
 });

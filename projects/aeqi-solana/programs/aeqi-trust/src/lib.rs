@@ -32,11 +32,7 @@ pub mod aeqi_trust {
         trust.paused = false;
         trust.module_count = 0;
         trust.bump = ctx.bumps.trust;
-        emit!(TrustInitialized {
-            trust: trust.key(),
-            trust_id,
-            authority: trust.authority,
-        });
+        emit!(TrustInitialized { trust: trust.key(), trust_id, authority: trust.authority });
         Ok(())
     }
 
@@ -69,12 +65,7 @@ pub mod aeqi_trust {
 
         bump_module_count(trust)?;
 
-        emit!(ModuleRegistered {
-            trust: trust.key(),
-            module_id,
-            program_id,
-            trust_acl,
-        });
+        emit!(ModuleRegistered { trust: trust.key(), module_id, program_id, trust_acl });
         Ok(())
     }
 
@@ -119,11 +110,9 @@ pub mod aeqi_trust {
             AeqiTrustError::Unauthorized
         );
         require!(trust.creation_mode, AeqiTrustError::AlreadyFinalized);
+        require!(trust.module_count > 0, AeqiTrustError::NoModulesRegistered);
         trust.creation_mode = false;
-        emit!(TrustFinalized {
-            trust: trust.key(),
-            module_count: trust.module_count,
-        });
+        emit!(TrustFinalized { trust: trust.key(), module_count: trust.module_count });
         Ok(())
     }
 
@@ -163,10 +152,7 @@ pub mod aeqi_trust {
         key: [u8; 32],
         value: Vec<u8>,
     ) -> Result<()> {
-        require!(
-            value.len() <= MAX_BYTES_CONFIG,
-            AeqiTrustError::ConfigTooLarge
-        );
+        require!(value.len() <= MAX_BYTES_CONFIG, AeqiTrustError::ConfigTooLarge);
         gate_config_write(&ctx.accounts.trust, ctx.accounts.authority.key())?;
         let cfg = &mut ctx.accounts.config;
         cfg.trust = ctx.accounts.trust.key();
@@ -185,10 +171,7 @@ pub mod aeqi_trust {
             AeqiTrustError::Unauthorized
         );
         trust.paused = paused;
-        emit!(TrustPauseChanged {
-            trust: trust.key(),
-            paused,
-        });
+        emit!(TrustPauseChanged { trust: trust.key(), paused });
         Ok(())
     }
 }
@@ -206,10 +189,8 @@ fn gate_config_write(trust: &Account<Trust>, signer: Pubkey) -> Result<()> {
 }
 
 fn bump_module_count(trust: &mut Account<Trust>) -> Result<()> {
-    trust.module_count = trust
-        .module_count
-        .checked_add(1)
-        .ok_or(error!(AeqiTrustError::MathOverflow))?;
+    trust.module_count =
+        trust.module_count.checked_add(1).ok_or(error!(AeqiTrustError::MathOverflow))?;
     Ok(())
 }
 

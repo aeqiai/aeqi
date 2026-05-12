@@ -49,10 +49,7 @@ pub mod aeqi_unifutures {
         reserve_ratio_ppm: u32,
     ) -> Result<()> {
         require!(max_supply > 0, UnifuturesError::ZeroMaxSupply);
-        require!(
-            reserve_ratio_ppm <= 1_000_000,
-            UnifuturesError::InvalidReserveRatio
-        );
+        require!(reserve_ratio_ppm <= 1_000_000, UnifuturesError::InvalidReserveRatio);
         let _ct = CurveType::from_u8(curve_type)
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
 
@@ -71,7 +68,8 @@ pub mod aeqi_unifutures {
         c.bump = ctx.bumps.curve;
 
         let m = &mut ctx.accounts.module_state;
-        m.curve_count = m.curve_count.checked_add(1).unwrap();
+        m.curve_count =
+            m.curve_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(CurveCreated {
             trust: c.trust,
@@ -90,10 +88,7 @@ pub mod aeqi_unifutures {
     /// creator can call any time if `proceeds_collected >= target_quote`.
     pub fn finalize_sale(ctx: Context<FinalizeSale>) -> Result<()> {
         let s = &mut ctx.accounts.sale;
-        require!(
-            s.status == SaleStatus::Active as u8,
-            UnifuturesError::SaleNotActive
-        );
+        require!(s.status == SaleStatus::Active as u8, UnifuturesError::SaleNotActive);
 
         let now = Clock::get()?.unix_timestamp;
         let voluntary =
@@ -117,17 +112,10 @@ pub mod aeqi_unifutures {
     /// Assets are transferred from the pre-loaded sale_asset_vault.
     pub fn claim_allocation(ctx: Context<ClaimAllocation>) -> Result<()> {
         let s = &ctx.accounts.sale;
-        require!(
-            s.status == SaleStatus::Completed as u8,
-            UnifuturesError::SaleNotCompleted
-        );
+        require!(s.status == SaleStatus::Completed as u8, UnifuturesError::SaleNotCompleted);
 
         let c = &mut ctx.accounts.commitment;
-        require_keys_eq!(
-            c.buyer,
-            ctx.accounts.buyer.key(),
-            UnifuturesError::Unauthorized
-        );
+        require_keys_eq!(c.buyer, ctx.accounts.buyer.key(), UnifuturesError::Unauthorized);
         require!(c.amount > 0, UnifuturesError::AlreadyClaimed);
 
         let allocation_u128 = (c.amount as u128)
@@ -135,21 +123,16 @@ pub mod aeqi_unifutures {
             .ok_or_else(|| error!(UnifuturesError::MathOverflow))?
             .checked_div(s.commitments_collected as u128)
             .ok_or_else(|| error!(UnifuturesError::MathOverflow))?;
-        let allocation: u64 = allocation_u128
-            .try_into()
-            .map_err(|_| error!(UnifuturesError::MathOverflow))?;
+        let allocation: u64 =
+            allocation_u128.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?;
         require!(allocation > 0, UnifuturesError::ShareTooSmall);
 
         // PDA-signed transfer from sale_asset_vault → buyer_asset_ta
         let trust_key = s.trust;
         let sale_id_bytes = s.sale_id;
         let bump = ctx.bumps.sale_authority;
-        let seeds: &[&[&[u8]]] = &[&[
-            b"sale_authority",
-            trust_key.as_ref(),
-            sale_id_bytes.as_ref(),
-            &[bump],
-        ]];
+        let seeds: &[&[&[u8]]] =
+            &[&[b"sale_authority", trust_key.as_ref(), sale_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.sale_asset_vault.to_account_info(),
             mint: ctx.accounts.asset_mint.to_account_info(),
@@ -165,12 +148,7 @@ pub mod aeqi_unifutures {
         // Zero the commitment so it can't be claimed twice.
         c.amount = 0;
 
-        emit!(AllocationClaimed {
-            trust: s.trust,
-            sale_id: s.sale_id,
-            buyer: c.buyer,
-            allocation,
-        });
+        emit!(AllocationClaimed { trust: s.trust, sale_id: s.sale_id, buyer: c.buyer, allocation });
         Ok(())
     }
 
@@ -179,15 +157,8 @@ pub mod aeqi_unifutures {
     /// holders can then claim_pro_rata by burning their cap-table tokens.
     pub fn settle_exit(ctx: Context<SettleExit>) -> Result<()> {
         let e = &ctx.accounts.exit;
-        require!(
-            e.status == SaleStatus::Active as u8,
-            UnifuturesError::SaleNotActive
-        );
-        require_keys_eq!(
-            ctx.accounts.creator.key(),
-            e.creator,
-            UnifuturesError::Unauthorized
-        );
+        require!(e.status == SaleStatus::Active as u8, UnifuturesError::SaleNotActive);
+        require_keys_eq!(ctx.accounts.creator.key(), e.creator, UnifuturesError::Unauthorized);
         require!(e.proceeds_collected == 0, UnifuturesError::AlreadySettled);
 
         let cpi = TransferChecked {
@@ -221,24 +192,17 @@ pub mod aeqi_unifutures {
         require!(burn_amount > 0, UnifuturesError::ZeroAmount);
         let e = &ctx.accounts.exit;
         require!(e.proceeds_collected > 0, UnifuturesError::NotSettled);
-        require!(
-            e.status == SaleStatus::Active as u8,
-            UnifuturesError::SaleNotActive
-        );
+        require!(e.status == SaleStatus::Active as u8, UnifuturesError::SaleNotActive);
 
         let share_u128 = (burn_amount as u128)
             .checked_mul(e.exit_quote as u128)
             .ok_or_else(|| error!(UnifuturesError::MathOverflow))?
             .checked_div(e.total_supply_snapshot as u128)
             .ok_or_else(|| error!(UnifuturesError::MathOverflow))?;
-        let share: u64 = share_u128
-            .try_into()
-            .map_err(|_| error!(UnifuturesError::MathOverflow))?;
+        let share: u64 =
+            share_u128.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?;
         require!(share > 0, UnifuturesError::ShareTooSmall);
-        require!(
-            share <= e.remaining_proceeds,
-            UnifuturesError::InsufficientReserve
-        );
+        require!(share <= e.remaining_proceeds, UnifuturesError::InsufficientReserve);
 
         // 1. Holder burns `burn_amount` of asset (holder signs)
         let burn_cpi = Burn {
@@ -246,21 +210,14 @@ pub mod aeqi_unifutures {
             from: ctx.accounts.holder_asset_ta.to_account_info(),
             authority: ctx.accounts.holder.to_account_info(),
         };
-        burn(
-            CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_cpi),
-            burn_amount,
-        )?;
+        burn(CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_cpi), burn_amount)?;
 
         // 2. Exit vault → holder (exit_authority PDA signs)
         let trust_key = e.trust;
         let exit_id_bytes = e.exit_id;
         let bump = ctx.bumps.exit_authority;
-        let seeds: &[&[&[u8]]] = &[&[
-            b"exit_authority",
-            trust_key.as_ref(),
-            exit_id_bytes.as_ref(),
-            &[bump],
-        ]];
+        let seeds: &[&[&[u8]]] =
+            &[&[b"exit_authority", trust_key.as_ref(), exit_id_bytes.as_ref(), &[bump]]];
         let cpi = TransferChecked {
             from: ctx.accounts.exit_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -274,7 +231,8 @@ pub mod aeqi_unifutures {
         )?;
 
         let e = &mut ctx.accounts.exit;
-        e.remaining_proceeds = e.remaining_proceeds.checked_sub(share).unwrap();
+        e.remaining_proceeds =
+            e.remaining_proceeds.checked_sub(share).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(ProRataClaimed {
             trust: e.trust,
@@ -312,11 +270,11 @@ pub mod aeqi_unifutures {
         e.remaining_proceeds = exit_quote;
         e.status = SaleStatus::Active as u8;
         e.start_time = now;
-        e.end_time = now.checked_add(duration_secs).unwrap();
+        e.end_time = now.checked_add(duration_secs).ok_or(error!(UnifuturesError::MathOverflow))?;
         e.bump = ctx.bumps.exit;
 
         let m = &mut ctx.accounts.module_state;
-        m.exit_count = m.exit_count.checked_add(1).unwrap();
+        m.exit_count = m.exit_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(ExitCreated {
             trust: e.trust,
@@ -342,10 +300,7 @@ pub mod aeqi_unifutures {
     ) -> Result<()> {
         require!(asset_amount > 0, UnifuturesError::ZeroAmount);
         require!(target_quote > 0, UnifuturesError::ZeroAmount);
-        require!(
-            overflow_quote >= target_quote,
-            UnifuturesError::InvalidOverflowTarget
-        );
+        require!(overflow_quote >= target_quote, UnifuturesError::InvalidOverflowTarget);
         require!(duration_secs > 0, UnifuturesError::InvalidDuration);
 
         let now = Clock::get()?.unix_timestamp;
@@ -360,11 +315,11 @@ pub mod aeqi_unifutures {
         s.commitments_collected = 0;
         s.status = SaleStatus::Active as u8;
         s.start_time = now;
-        s.end_time = now.checked_add(duration_secs).unwrap();
+        s.end_time = now.checked_add(duration_secs).ok_or(error!(UnifuturesError::MathOverflow))?;
         s.bump = ctx.bumps.sale;
 
         let m = &mut ctx.accounts.module_state;
-        m.sale_count = m.sale_count.checked_add(1).unwrap();
+        m.sale_count = m.sale_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(SaleCreated {
             trust: s.trust,
@@ -386,13 +341,13 @@ pub mod aeqi_unifutures {
 
         let s = &mut ctx.accounts.sale;
         let now = Clock::get()?.unix_timestamp;
-        require!(
-            s.status == SaleStatus::Active as u8,
-            UnifuturesError::SaleNotActive
-        );
+        require!(s.status == SaleStatus::Active as u8, UnifuturesError::SaleNotActive);
         require!(now < s.end_time, UnifuturesError::SaleClosed);
         require!(
-            s.proceeds_collected.checked_add(amount).unwrap() <= s.overflow_quote,
+            s.proceeds_collected
+                .checked_add(amount)
+                .ok_or(error!(UnifuturesError::MathOverflow))?
+                <= s.overflow_quote,
             UnifuturesError::OverflowExceeded
         );
 
@@ -414,11 +369,17 @@ pub mod aeqi_unifutures {
         c.trust = s.trust;
         c.sale_id = s.sale_id;
         c.buyer = ctx.accounts.buyer.key();
-        c.amount = c.amount.checked_add(amount).unwrap();
+        c.amount = c.amount.checked_add(amount).ok_or(error!(UnifuturesError::MathOverflow))?;
         c.bump = ctx.bumps.commitment;
 
-        s.proceeds_collected = s.proceeds_collected.checked_add(amount).unwrap();
-        s.commitments_collected = s.commitments_collected.checked_add(amount).unwrap();
+        s.proceeds_collected = s
+            .proceeds_collected
+            .checked_add(amount)
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        s.commitments_collected = s
+            .commitments_collected
+            .checked_add(amount)
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(SaleCommitted {
             trust: s.trust,
@@ -446,7 +407,10 @@ pub mod aeqi_unifutures {
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
 
         require!(
-            c.current_supply.checked_add(token_amount).unwrap() <= c.max_supply,
+            c.current_supply
+                .checked_add(token_amount)
+                .ok_or(error!(UnifuturesError::MathOverflow))?
+                <= c.max_supply,
             UnifuturesError::ExceedsMaxSupply
         );
 
@@ -459,9 +423,7 @@ pub mod aeqi_unifutures {
             token_amount as u128,
         )
         .ok_or_else(|| error!(UnifuturesError::MathOverflow))?;
-        let cost: u64 = cost_u128
-            .try_into()
-            .map_err(|_| error!(UnifuturesError::MathOverflow))?;
+        let cost: u64 = cost_u128.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?;
         require!(cost <= max_cost, UnifuturesError::SlippageExceeded);
 
         // 1. buyer pays quote → curve_quote_vault (buyer signs)
@@ -481,12 +443,8 @@ pub mod aeqi_unifutures {
         let trust_key = c.trust;
         let curve_id_bytes = c.curve_id;
         let bump = ctx.bumps.curve_authority;
-        let seeds: &[&[&[u8]]] = &[&[
-            b"curve_authority",
-            trust_key.as_ref(),
-            curve_id_bytes.as_ref(),
-            &[bump],
-        ]];
+        let seeds: &[&[&[u8]]] =
+            &[&[b"curve_authority", trust_key.as_ref(), curve_id_bytes.as_ref(), &[bump]]];
         let cpi_out = TransferChecked {
             from: ctx.accounts.curve_asset_vault.to_account_info(),
             mint: ctx.accounts.asset_mint.to_account_info(),
@@ -503,9 +461,18 @@ pub mod aeqi_unifutures {
             ctx.accounts.asset_mint.decimals,
         )?;
 
-        c.current_supply = c.current_supply.checked_add(token_amount).unwrap();
-        c.reserve_balance = c.reserve_balance.checked_add(cost as u128).unwrap();
-        c.proceeds_collected = c.proceeds_collected.checked_add(cost as u128).unwrap();
+        c.current_supply = c
+            .current_supply
+            .checked_add(token_amount)
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        c.reserve_balance = c
+            .reserve_balance
+            .checked_add(cost as u128)
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        c.proceeds_collected = c
+            .proceeds_collected
+            .checked_add(cost as u128)
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(CurveBuy {
             trust: c.trust,
@@ -532,10 +499,7 @@ pub mod aeqi_unifutures {
         let ct = CurveType::from_u8(c.curve_type)
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
 
-        require!(
-            token_amount <= c.current_supply,
-            UnifuturesError::ExceedsSupply
-        );
+        require!(token_amount <= c.current_supply, UnifuturesError::ExceedsSupply);
 
         let return_u128 = curve::sale_return(
             ct,
@@ -547,13 +511,9 @@ pub mod aeqi_unifutures {
             c.reserve_ratio_ppm,
         )
         .ok_or_else(|| error!(UnifuturesError::MathOverflow))?;
-        let return_amount: u64 = return_u128
-            .try_into()
-            .map_err(|_| error!(UnifuturesError::MathOverflow))?;
-        require!(
-            return_amount >= min_return,
-            UnifuturesError::SlippageExceeded
-        );
+        let return_amount: u64 =
+            return_u128.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?;
+        require!(return_amount >= min_return, UnifuturesError::SlippageExceeded);
         require!(
             (return_amount as u128) <= c.reserve_balance,
             UnifuturesError::InsufficientReserve
@@ -576,12 +536,8 @@ pub mod aeqi_unifutures {
         let trust_key = c.trust;
         let curve_id_bytes = c.curve_id;
         let bump = ctx.bumps.curve_authority;
-        let seeds: &[&[&[u8]]] = &[&[
-            b"curve_authority",
-            trust_key.as_ref(),
-            curve_id_bytes.as_ref(),
-            &[bump],
-        ]];
+        let seeds: &[&[&[u8]]] =
+            &[&[b"curve_authority", trust_key.as_ref(), curve_id_bytes.as_ref(), &[bump]]];
         let cpi_out = TransferChecked {
             from: ctx.accounts.curve_quote_vault.to_account_info(),
             mint: ctx.accounts.quote_mint.to_account_info(),
@@ -598,11 +554,14 @@ pub mod aeqi_unifutures {
             ctx.accounts.quote_mint.decimals,
         )?;
 
-        c.current_supply = c.current_supply.checked_sub(token_amount).unwrap();
+        c.current_supply = c
+            .current_supply
+            .checked_sub(token_amount)
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
         c.reserve_balance = c
             .reserve_balance
             .checked_sub(return_amount as u128)
-            .unwrap();
+            .ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(CurveSell {
             trust: c.trust,
@@ -678,7 +637,7 @@ pub mod aeqi_unifutures {
         p.bump = ctx.bumps.pool;
 
         let m = &mut ctx.accounts.module_state;
-        m.pool_count = m.pool_count.checked_add(1).unwrap();
+        m.pool_count = m.pool_count.checked_add(1).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(LiquidityPoolCreated {
             trust: p.trust,
@@ -741,10 +700,7 @@ pub mod aeqi_unifutures {
                 ctx.accounts.provider.key(),
                 UnifuturesError::Unauthorized
             );
-            require!(
-                position.pool_id == p.pool_id,
-                UnifuturesError::InvalidPoolPair
-            );
+            require!(position.pool_id == p.pool_id, UnifuturesError::InvalidPoolPair);
         }
 
         if p.total_shares > 0 {
@@ -821,15 +777,8 @@ pub mod aeqi_unifutures {
 
         let p = &mut ctx.accounts.pool;
         let pos = &mut ctx.accounts.position;
-        require_keys_eq!(
-            pos.provider,
-            ctx.accounts.provider.key(),
-            UnifuturesError::Unauthorized
-        );
-        require!(
-            share_amount <= pos.shares,
-            UnifuturesError::InsufficientShares
-        );
+        require_keys_eq!(pos.provider, ctx.accounts.provider.key(), UnifuturesError::Unauthorized);
+        require!(share_amount <= pos.shares, UnifuturesError::InsufficientShares);
         require!(p.total_shares > 0, UnifuturesError::InsufficientLiquidity);
 
         let base_out = p
@@ -844,10 +793,7 @@ pub mod aeqi_unifutures {
             .ok_or(error!(UnifuturesError::MathOverflow))?
             .checked_div(p.total_shares)
             .ok_or(error!(UnifuturesError::MathOverflow))?;
-        require!(
-            base_out > 0 && quote_out > 0,
-            UnifuturesError::ShareTooSmall
-        );
+        require!(base_out > 0 && quote_out > 0, UnifuturesError::ShareTooSmall);
 
         let seeds: &[&[&[u8]]] = &[&[
             b"pool_authority",
@@ -867,9 +813,7 @@ pub mod aeqi_unifutures {
                 },
                 seeds,
             ),
-            base_out
-                .try_into()
-                .map_err(|_| error!(UnifuturesError::MathOverflow))?,
+            base_out.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?,
             ctx.accounts.base_mint.decimals,
         )?;
         transfer_checked(
@@ -883,36 +827,26 @@ pub mod aeqi_unifutures {
                 },
                 seeds,
             ),
-            quote_out
-                .try_into()
-                .map_err(|_| error!(UnifuturesError::MathOverflow))?,
+            quote_out.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?,
             ctx.accounts.quote_mint.decimals,
         )?;
 
-        pos.shares = pos
-            .shares
-            .checked_sub(share_amount)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        pos.shares =
+            pos.shares.checked_sub(share_amount).ok_or(error!(UnifuturesError::MathOverflow))?;
         p.total_shares = p
             .total_shares
             .checked_sub(share_amount)
             .ok_or(error!(UnifuturesError::MathOverflow))?;
-        p.base_reserve = p
-            .base_reserve
-            .checked_sub(base_out)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
-        p.quote_reserve = p
-            .quote_reserve
-            .checked_sub(quote_out)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        p.base_reserve =
+            p.base_reserve.checked_sub(base_out).ok_or(error!(UnifuturesError::MathOverflow))?;
+        p.quote_reserve =
+            p.quote_reserve.checked_sub(quote_out).ok_or(error!(UnifuturesError::MathOverflow))?;
 
         emit!(LiquidityRemoved {
             trust: p.trust,
             pool_id: p.pool_id,
             provider: ctx.accounts.provider.key(),
-            base_amount: base_out
-                .try_into()
-                .map_err(|_| error!(UnifuturesError::MathOverflow))?,
+            base_amount: base_out.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?,
             quote_amount: quote_out
                 .try_into()
                 .map_err(|_| error!(UnifuturesError::MathOverflow))?,
@@ -958,21 +892,16 @@ pub mod aeqi_unifutures {
         let effective_in = (amount_in as u128)
             .checked_mul(fee_factor)
             .ok_or(error!(UnifuturesError::MathOverflow))?;
-        let numerator = effective_in
-            .checked_mul(reserve_out)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        let numerator =
+            effective_in.checked_mul(reserve_out).ok_or(error!(UnifuturesError::MathOverflow))?;
         let denominator = reserve_in
             .checked_mul(10_000)
             .ok_or(error!(UnifuturesError::MathOverflow))?
             .checked_add(effective_in)
             .ok_or(error!(UnifuturesError::MathOverflow))?;
-        let amount_out = numerator
-            .checked_div(denominator)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
-        require!(
-            amount_out >= min_out as u128,
-            UnifuturesError::SlippageExceeded
-        );
+        let amount_out =
+            numerator.checked_div(denominator).ok_or(error!(UnifuturesError::MathOverflow))?;
+        require!(amount_out >= min_out as u128, UnifuturesError::SlippageExceeded);
         require!(amount_out > 0, UnifuturesError::ShareTooSmall);
 
         let seeds: &[&[&[u8]]] = &[&[
@@ -1019,9 +948,7 @@ pub mod aeqi_unifutures {
                 },
                 seeds,
             ),
-            amount_out
-                .try_into()
-                .map_err(|_| error!(UnifuturesError::MathOverflow))?,
+            amount_out.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?,
             if base_to_quote {
                 ctx.accounts.quote_mint.decimals
             } else {
@@ -1054,9 +981,7 @@ pub mod aeqi_unifutures {
             pool_id: p.pool_id,
             trader: ctx.accounts.provider.key(),
             amount_in,
-            amount_out: amount_out
-                .try_into()
-                .map_err(|_| error!(UnifuturesError::MathOverflow))?,
+            amount_out: amount_out.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?,
             base_to_quote,
         });
         Ok(())
@@ -1083,20 +1008,16 @@ pub mod aeqi_unifutures {
         let effective_in = (amount_in as u128)
             .checked_mul(fee_factor)
             .ok_or(error!(UnifuturesError::MathOverflow))?;
-        let numerator = effective_in
-            .checked_mul(reserve_out)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
+        let numerator =
+            effective_in.checked_mul(reserve_out).ok_or(error!(UnifuturesError::MathOverflow))?;
         let denominator = reserve_in
             .checked_mul(10_000)
             .ok_or(error!(UnifuturesError::MathOverflow))?
             .checked_add(effective_in)
             .ok_or(error!(UnifuturesError::MathOverflow))?;
-        let amount_out = numerator
-            .checked_div(denominator)
-            .ok_or(error!(UnifuturesError::MathOverflow))?;
-        Ok(amount_out
-            .try_into()
-            .map_err(|_| error!(UnifuturesError::MathOverflow))?)
+        let amount_out =
+            numerator.checked_div(denominator).ok_or(error!(UnifuturesError::MathOverflow))?;
+        Ok(amount_out.try_into().map_err(|_| error!(UnifuturesError::MathOverflow))?)
     }
 }
 

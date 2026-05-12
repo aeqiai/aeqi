@@ -91,6 +91,97 @@ describe("aeqi_factory", () => {
     expect(tmpl.admin.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
   });
 
+  it("rejects duplicate module ids in a template", async () => {
+    const templateId = new Uint8Array(32);
+    templateId[0] = 0xab;
+
+    const [templatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("template"), Buffer.from(templateId)],
+      factory.programId,
+    );
+
+    const moduleId = new Uint8Array(32);
+    moduleId[0] = 0x52;
+
+    let threw = false;
+    try {
+      await factory.methods
+        .registerTemplate(
+          Array.from(templateId),
+          [
+            {
+              moduleId: Array.from(moduleId),
+              programId: anchor.web3.Keypair.generate().publicKey,
+              trustAcl: new anchor.BN(0xff),
+            },
+            {
+              moduleId: Array.from(moduleId),
+              programId: anchor.web3.Keypair.generate().publicKey,
+              trustAcl: new anchor.BN(0x80),
+            },
+          ],
+          [],
+        )
+        .accounts({
+          template: templatePda,
+          admin: provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/DuplicateModuleId/);
+    }
+    expect(threw).to.eq(true);
+  });
+
+  it("rejects acl edges that reference unknown module ids", async () => {
+    const templateId = new Uint8Array(32);
+    templateId[0] = 0xac;
+
+    const [templatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("template"), Buffer.from(templateId)],
+      factory.programId,
+    );
+
+    const moduleId = new Uint8Array(32);
+    moduleId[0] = 0x52;
+    const unknownModuleId = new Uint8Array(32);
+    unknownModuleId[0] = 0x99;
+
+    let threw = false;
+    try {
+      await factory.methods
+        .registerTemplate(
+          Array.from(templateId),
+          [
+            {
+              moduleId: Array.from(moduleId),
+              programId: anchor.web3.Keypair.generate().publicKey,
+              trustAcl: new anchor.BN(0xff),
+            },
+          ],
+          [
+            {
+              sourceModuleId: Array.from(moduleId),
+              targetModuleId: Array.from(unknownModuleId),
+              flags: new anchor.BN(1),
+            },
+          ],
+        )
+        .accounts({
+          template: templatePda,
+          admin: provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/UnknownAclModuleReference/);
+    }
+    expect(threw).to.eq(true);
+  });
+
   it("create_with_modules atomically spawns trust + N modules + finalizes", async () => {
     const trustId = new Uint8Array(32);
     trustId[0] = 0x77;

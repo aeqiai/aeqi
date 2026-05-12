@@ -46,10 +46,8 @@ pub mod aeqi_factory {
             authority: ctx.accounts.authority.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
         };
-        let cpi_ctx = CpiContext::new(
-            ctx.accounts.aeqi_trust_program.to_account_info(),
-            cpi_accounts,
-        );
+        let cpi_ctx =
+            CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), cpi_accounts);
         aeqi_trust::cpi::initialize(cpi_ctx, trust_id)?;
 
         emit!(CompanyCreated {
@@ -91,10 +89,8 @@ pub mod aeqi_factory {
             authority: ctx.accounts.authority.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
         };
-        let init_ctx = CpiContext::new(
-            ctx.accounts.aeqi_trust_program.to_account_info(),
-            init_accounts,
-        );
+        let init_ctx =
+            CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), init_accounts);
         aeqi_trust::cpi::initialize(init_ctx, trust_id)?;
 
         // 2. register every module
@@ -105,10 +101,8 @@ pub mod aeqi_factory {
                 authority: ctx.accounts.authority.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
             };
-            let reg_ctx = CpiContext::new(
-                ctx.accounts.aeqi_trust_program.to_account_info(),
-                reg_accounts,
-            );
+            let reg_ctx =
+                CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), reg_accounts);
             aeqi_trust::cpi::register_module(
                 reg_ctx,
                 spec.module_id,
@@ -122,10 +116,8 @@ pub mod aeqi_factory {
             trust: ctx.accounts.trust.to_account_info(),
             authority: ctx.accounts.authority.to_account_info(),
         };
-        let fin_ctx = CpiContext::new(
-            ctx.accounts.aeqi_trust_program.to_account_info(),
-            fin_accounts,
-        );
+        let fin_ctx =
+            CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), fin_accounts);
         aeqi_trust::cpi::finalize(fin_ctx)?;
 
         emit!(CompanySpawned {
@@ -287,9 +279,7 @@ pub mod aeqi_factory {
         ))?;
         aeqi_governance::cpi::finalize(CpiContext::new(
             ctx.accounts.aeqi_governance_program.to_account_info(),
-            FinalizeGovernance {
-                trust: ctx.accounts.trust.to_account_info(),
-            },
+            FinalizeGovernance { trust: ctx.accounts.trust.to_account_info() },
         ))?;
 
         // 5. finalize trust
@@ -320,6 +310,7 @@ pub mod aeqi_factory {
         require!(!modules.is_empty(), FactoryError::EmptyModuleSet);
         require!(modules.len() <= 16, FactoryError::TooManyModules);
         require!(acl_edges.len() <= 64, FactoryError::TooManyAclEdges);
+        validate_template_graph(&modules, &acl_edges)?;
 
         let template = &mut ctx.accounts.template;
         template.template_id = template_id;
@@ -368,10 +359,8 @@ pub mod aeqi_factory {
             authority: ctx.accounts.authority.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
         };
-        let init_ctx = CpiContext::new(
-            ctx.accounts.aeqi_trust_program.to_account_info(),
-            init_accounts,
-        );
+        let init_ctx =
+            CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), init_accounts);
         aeqi_trust::cpi::initialize(init_ctx, trust_id)?;
 
         // 2. register each module from the template's spec
@@ -382,10 +371,8 @@ pub mod aeqi_factory {
                 authority: ctx.accounts.authority.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
             };
-            let reg_ctx = CpiContext::new(
-                ctx.accounts.aeqi_trust_program.to_account_info(),
-                reg_accounts,
-            );
+            let reg_ctx =
+                CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), reg_accounts);
             aeqi_trust::cpi::register_module(
                 reg_ctx,
                 spec.module_id,
@@ -399,10 +386,8 @@ pub mod aeqi_factory {
             trust: ctx.accounts.trust.to_account_info(),
             authority: ctx.accounts.authority.to_account_info(),
         };
-        let fin_ctx = CpiContext::new(
-            ctx.accounts.aeqi_trust_program.to_account_info(),
-            fin_accounts,
-        );
+        let fin_ctx =
+            CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), fin_accounts);
         aeqi_trust::cpi::finalize(fin_ctx)?;
 
         emit!(TemplateInstantiated {
@@ -413,6 +398,23 @@ pub mod aeqi_factory {
         });
         Ok(())
     }
+}
+
+fn validate_template_graph(modules: &[ModuleSpec], acl_edges: &[AclEdgeSpec]) -> Result<()> {
+    for (i, module) in modules.iter().enumerate() {
+        for prev in modules.iter().take(i) {
+            require!(prev.module_id != module.module_id, FactoryError::DuplicateModuleId);
+        }
+    }
+
+    for edge in acl_edges {
+        let source_ok = modules.iter().any(|m| m.module_id == edge.source_module_id);
+        let target_ok = modules.iter().any(|m| m.module_id == edge.target_module_id);
+        require!(source_ok, FactoryError::UnknownAclModuleReference);
+        require!(target_ok, FactoryError::UnknownAclModuleReference);
+    }
+
+    Ok(())
 }
 
 #[derive(Accounts)]
@@ -563,4 +565,8 @@ pub enum FactoryError {
     TooManyAclEdges,
     #[msg("remaining_accounts.len() must equal modules.len()")]
     ModuleAccountCountMismatch,
+    #[msg("template module ids must be unique")]
+    DuplicateModuleId,
+    #[msg("template ACL edge references unknown module id")]
+    UnknownAclModuleReference,
 }

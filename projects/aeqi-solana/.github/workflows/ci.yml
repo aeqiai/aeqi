@@ -1,0 +1,90 @@
+name: Solana CI
+
+on:
+  push:
+    paths:
+      - "Anchor.toml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "package-lock.json"
+      - "package.json"
+      - "programs/**"
+      - "tests/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "Anchor.toml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "package-lock.json"
+      - "package.json"
+      - "programs/**"
+      - "tests/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  rust:
+    name: Rust checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format check
+        run: cargo fmt --all --check
+
+      - name: Rust tests
+        run: cargo test -q --workspace --lib
+
+      - name: Clippy
+        continue-on-error: true
+        run: cargo clippy --all-targets --all-features
+
+  coverage:
+    name: Rust coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate coverage summary
+        run: cargo llvm-cov --workspace --summary-only --lcov --output-path target/coverage/lcov.info
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-lcov
+          path: target/coverage/lcov.info
+          if-no-files-found: error
+
+  typescript:
+    name: TypeScript lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prettier check
+        run: npm run lint

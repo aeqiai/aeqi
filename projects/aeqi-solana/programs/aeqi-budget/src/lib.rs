@@ -57,7 +57,7 @@ pub mod aeqi_budget {
         b.bump = ctx.bumps.budget;
 
         let m = &mut ctx.accounts.module_state;
-        m.budget_count = m.budget_count.checked_add(1).unwrap();
+        m.budget_count = m.budget_count.checked_add(1).ok_or(error!(BudgetError::MathOverflow))?;
 
         emit!(BudgetCreated {
             trust: b.trust,
@@ -82,51 +82,29 @@ pub mod aeqi_budget {
             let now = Clock::get()?.unix_timestamp;
             require!(now < b.expiry, BudgetError::BudgetExpired);
         }
-        let new_spent = b
-            .spent
-            .checked_add(amount)
-            .ok_or(error!(BudgetError::MathOverflow))?;
+        let new_spent = b.spent.checked_add(amount).ok_or(error!(BudgetError::MathOverflow))?;
         require!(new_spent <= b.amount, BudgetError::ExceedsAllocation);
         b.spent = new_spent;
 
-        emit!(BudgetSpent {
-            trust: b.trust,
-            budget_id: b.budget_id,
-            amount,
-            total_spent: b.spent,
-        });
+        emit!(BudgetSpent { trust: b.trust, budget_id: b.budget_id, amount, total_spent: b.spent });
         Ok(())
     }
 
     /// Freeze a budget — blocks further spends. Grantor signs.
     pub fn freeze(ctx: Context<Freeze>) -> Result<()> {
         let b = &mut ctx.accounts.budget;
-        require_keys_eq!(
-            ctx.accounts.grantor.key(),
-            b.grantor,
-            BudgetError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.grantor.key(), b.grantor, BudgetError::Unauthorized);
         b.frozen = true;
-        emit!(BudgetFrozen {
-            trust: b.trust,
-            budget_id: b.budget_id,
-        });
+        emit!(BudgetFrozen { trust: b.trust, budget_id: b.budget_id });
         Ok(())
     }
 
     /// Unfreeze. Grantor signs.
     pub fn unfreeze(ctx: Context<Freeze>) -> Result<()> {
         let b = &mut ctx.accounts.budget;
-        require_keys_eq!(
-            ctx.accounts.grantor.key(),
-            b.grantor,
-            BudgetError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.grantor.key(), b.grantor, BudgetError::Unauthorized);
         b.frozen = false;
-        emit!(BudgetUnfrozen {
-            trust: b.trust,
-            budget_id: b.budget_id,
-        });
+        emit!(BudgetUnfrozen { trust: b.trust, budget_id: b.budget_id });
         Ok(())
     }
 }

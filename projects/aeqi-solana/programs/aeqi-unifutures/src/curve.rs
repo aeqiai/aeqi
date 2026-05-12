@@ -41,10 +41,8 @@ pub fn price_at(
         return start_price;
     }
     // progress in [0, PRECISION]
-    let progress = current_supply
-        .saturating_mul(PRECISION)
-        .saturating_div(max_supply)
-        .min(PRECISION);
+    let progress =
+        current_supply.saturating_mul(PRECISION).saturating_div(max_supply).min(PRECISION);
 
     let scale = match curve_type {
         CurveType::Linear => progress,
@@ -73,13 +71,7 @@ pub fn purchase_cost(
     if token_amount == 0 {
         return Some(0);
     }
-    let p_start = price_at(
-        curve_type,
-        start_price,
-        end_price,
-        max_supply,
-        current_supply,
-    );
+    let p_start = price_at(curve_type, start_price, end_price, max_supply, current_supply);
     let p_end = price_at(
         curve_type,
         start_price,
@@ -109,22 +101,10 @@ pub fn sale_return(
     }
     let new_supply = current_supply.checked_sub(token_amount)?;
     let p_end = price_at(curve_type, start_price, end_price, max_supply, new_supply);
-    let p_start = price_at(
-        curve_type,
-        start_price,
-        end_price,
-        max_supply,
-        current_supply,
-    );
+    let p_start = price_at(curve_type, start_price, end_price, max_supply, current_supply);
     let avg_price = p_end.checked_add(p_start)? / 2;
-    let gross = token_amount
-        .checked_mul(avg_price)?
-        .checked_div(PRECISION)?;
-    Some(
-        gross
-            .checked_mul(reserve_ratio_ppm as u128)?
-            .checked_div(1_000_000)?,
-    )
+    let gross = token_amount.checked_mul(avg_price)?.checked_div(PRECISION)?;
+    Some(gross.checked_mul(reserve_ratio_ppm as u128)?.checked_div(1_000_000)?)
 }
 
 #[cfg(test)]
@@ -134,10 +114,7 @@ mod tests {
     #[test]
     fn linear_price_at_extremes() {
         // start=1e18, end=2e18, max=1000
-        assert_eq!(
-            price_at(CurveType::Linear, PRECISION, 2 * PRECISION, 1000, 0),
-            PRECISION
-        );
+        assert_eq!(price_at(CurveType::Linear, PRECISION, 2 * PRECISION, 1000, 0), PRECISION);
         assert_eq!(
             price_at(CurveType::Linear, PRECISION, 2 * PRECISION, 1000, 1000),
             2 * PRECISION
@@ -170,8 +147,8 @@ mod tests {
         // Buying all 1000 starting at supply=0:
         // p_start = 1e18, p_end = 2e18, avg = 1.5e18
         // cost = 1000 * 1.5e18 / 1e18 = 1500
-        let cost =
-            purchase_cost(CurveType::Linear, PRECISION, 2 * PRECISION, 1000, 0, 1000).unwrap();
+        let cost = purchase_cost(CurveType::Linear, PRECISION, 2 * PRECISION, 1000, 0, 1000)
+            .expect("linear purchase cost should be computable");
         assert_eq!(cost, 1500);
     }
 
@@ -181,16 +158,9 @@ mod tests {
         // p_start (at 1000) = 2e18, p_end (at 500) = 1.5e18, avg = 1.75e18
         // gross = 500 * 1.75e18 / 1e18 = 875
         // 90% reserve = 875 * 0.9 = 787 (integer div)
-        let ret = sale_return(
-            CurveType::Linear,
-            PRECISION,
-            2 * PRECISION,
-            1000,
-            1000,
-            500,
-            900_000,
-        )
-        .unwrap();
+        let ret =
+            sale_return(CurveType::Linear, PRECISION, 2 * PRECISION, 1000, 1000, 500, 900_000)
+                .expect("linear sale return should be computable");
         assert_eq!(ret, 787);
     }
 }

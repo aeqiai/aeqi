@@ -12,6 +12,8 @@ pub enum AeqiTrustError {
     NotInCreationMode,
     #[msg("trust has already been finalized")]
     AlreadyFinalized,
+    #[msg("trust must register at least one module before finalization")]
+    NoModulesRegistered,
     #[msg("module has already been initialized")]
     ModuleAlreadyInitialized,
     #[msg("module has not yet been initialized")]

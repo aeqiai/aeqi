@@ -460,6 +460,46 @@ describe("aeqi_vesting", () => {
     expect(pos.claimedAmount.toString()).to.eq(String(TOTAL));
   });
 
+  it("rejects invalid vesting schedules", async () => {
+    const positionId = new Uint8Array(32);
+    positionId[0] = 0xee;
+
+    const [posPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vesting_pos"), fakeTrust.toBuffer(), Buffer.from(positionId)],
+      program.programId,
+    );
+
+    const now = Math.floor(Date.now() / 1000);
+
+    let threw = false;
+    try {
+      await program.methods
+        .createPosition(
+          Array.from(positionId),
+          provider.wallet.publicKey,
+          new anchor.BN(1000),
+          new anchor.BN(now + 1000),
+          new anchor.BN(now + 500),
+          new anchor.BN(now + 1000),
+          new anchor.BN(0),
+          PublicKey.default,
+        )
+        .accounts({
+          trust: fakeTrust,
+          moduleState: modulePda,
+          position: posPda,
+          mint,
+          grantor: provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/InvalidSchedule/);
+    }
+    expect(threw).to.eq(true);
+  });
+
   it("create_position rejects pre-cliff claims (NothingToClaim)", async () => {
     const positionId = new Uint8Array(32);
     positionId[0] = 0xf2;

@@ -68,7 +68,8 @@ pub mod aeqi_vesting {
         p.bump = ctx.bumps.position;
 
         let m = &mut ctx.accounts.module_state;
-        m.position_count = m.position_count.checked_add(1).unwrap();
+        m.position_count =
+            m.position_count.checked_add(1).ok_or(error!(VestingError::MathOverflow))?;
 
         emit!(PositionCreated {
             trust: p.trust,
@@ -89,15 +90,8 @@ pub mod aeqi_vesting {
     /// flipping `contribution_paid = true` so claim() will allow draws.
     pub fn pay_contribution(ctx: Context<PayContribution>) -> Result<()> {
         let p = &mut ctx.accounts.position;
-        require_keys_eq!(
-            ctx.accounts.recipient.key(),
-            p.recipient,
-            VestingError::Unauthorized
-        );
-        require!(
-            p.contribution_required > 0,
-            VestingError::NoContributionRequired
-        );
+        require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, VestingError::Unauthorized);
+        require!(p.contribution_required > 0, VestingError::NoContributionRequired);
         require!(!p.contribution_paid, VestingError::ContributionAlreadyPaid);
         require_keys_eq!(
             ctx.accounts.contribution_mint.key(),
@@ -132,11 +126,7 @@ pub mod aeqi_vesting {
     /// One-way flag.
     pub fn mark_fdv_milestone(ctx: Context<MarkFdvMilestone>) -> Result<()> {
         let p = &mut ctx.accounts.position;
-        require_keys_eq!(
-            ctx.accounts.grantor.key(),
-            p.grantor,
-            VestingError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.grantor.key(), p.grantor, VestingError::Unauthorized);
         require!(!p.fdv_milestone_unlocked, VestingError::AlreadyUnlocked);
         p.fdv_milestone_unlocked = true;
         emit!(FdvMilestoneHit {
@@ -165,9 +155,10 @@ pub mod aeqi_vesting {
         let vested = if p.fdv_milestone_unlocked {
             p.total_amount
         } else {
-            vested_amount_at(p, now)
+            vested_amount_at(p, now).ok_or(error!(VestingError::MathOverflow))?
         };
-        let claimable = vested.checked_sub(p.claimed_amount).unwrap();
+        let claimable =
+            vested.checked_sub(p.claimed_amount).ok_or(error!(VestingError::MathOverflow))?;
         require!(claimable > 0, VestingError::NothingToClaim);
 
         let trust_key = ctx.accounts.trust.key();
@@ -184,7 +175,8 @@ pub mod aeqi_vesting {
             CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), cpi, seeds);
         transfer_checked(cpi_ctx, claimable, ctx.accounts.mint.decimals)?;
 
-        p.claimed_amount = p.claimed_amount.checked_add(claimable).unwrap();
+        p.claimed_amount =
+            p.claimed_amount.checked_add(claimable).ok_or(error!(VestingError::MathOverflow))?;
 
         emit!(Claimed {
             trust: p.trust,
@@ -197,22 +189,18 @@ pub mod aeqi_vesting {
     }
 }
 
-fn vested_amount_at(p: &VestingPosition, now: i64) -> u64 {
+fn vested_amount_at(p: &VestingPosition, now: i64) -> Option<u64> {
     if now < p.cliff_time {
-        return 0;
+        return Some(0);
     }
     if now >= p.end_time {
-        return p.total_amount;
+        return Some(p.total_amount);
     }
-    let elapsed = (now.checked_sub(p.start_time).unwrap()) as u128;
-    let duration = (p.end_time.checked_sub(p.start_time).unwrap()) as u128;
+    let elapsed = now.checked_sub(p.start_time)? as u128;
+    let duration = p.end_time.checked_sub(p.start_time)? as u128;
     let total = p.total_amount as u128;
-    let vested = total
-        .checked_mul(elapsed)
-        .unwrap()
-        .checked_div(duration)
-        .unwrap();
-    vested as u64
+    let vested = total.checked_mul(elapsed)?.checked_div(duration)?;
+    vested.try_into().ok()
 }
 
 #[account]
@@ -395,4 +383,6 @@ pub enum VestingError {
     ContributionAlreadyPaid,
     #[msg("contribution_mint does not match the position's recorded mint")]
     ContributionMintMismatch,
+    #[msg("math overflow")]
+    MathOverflow,
 }
