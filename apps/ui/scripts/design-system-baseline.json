@@ -1,0 +1,327 @@
+{
+  "version": 1,
+  "rules": {
+    "rawButton": {
+      "label": "raw <button>",
+      "count": 172,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/pages/BlueprintsPage.tsx",
+          "count": 11
+        },
+        {
+          "file": "apps/ui/src/components/AgentQuestsTab.tsx",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/components/ideas/IdeasListView.tsx",
+          "count": 7
+        },
+        {
+          "file": "apps/ui/src/components/inbox/InboxFilterPopover.tsx",
+          "count": 6
+        },
+        {
+          "file": "apps/ui/src/components/EntityAgentsTab.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/components/events/EventsFilterPopover.tsx",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/pages/MeInboxPage.tsx",
+          "count": 5
+        }
+      ]
+    },
+    "rawInput": {
+      "label": "raw <input>",
+      "count": 57,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/components/AgentEventsTab.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/quests/QuestDueDatePopover.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/TestTriggerPanel.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/pages/AgentSettingsPage.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/AgentChannelsTab.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/blueprints/ImportMenu.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/EntityHeroStrip.tsx",
+          "count": 2
+        }
+      ]
+    },
+    "rawSelect": {
+      "label": "raw <select>",
+      "count": 2,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/components/AgentChannelsTab.tsx",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/components/ideas/IdeaPropertyChips.tsx",
+          "count": 1
+        }
+      ]
+    },
+    "rawTextarea": {
+      "label": "raw <textarea>",
+      "count": 3,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/components/editor/LazyBlockEditor.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/EntityHeroStrip.tsx",
+          "count": 1
+        }
+      ]
+    },
+    "inlineStyle": {
+      "label": "inline style object",
+      "count": 505,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/pages/TreasuryPage.tsx",
+          "count": 80
+        },
+        {
+          "file": "apps/ui/src/pages/OwnershipPage.tsx",
+          "count": 43
+        },
+        {
+          "file": "apps/ui/src/pages/RoleDetailPage.tsx",
+          "count": 31
+        },
+        {
+          "file": "apps/ui/src/pages/GovernancePage.tsx",
+          "count": 29
+        },
+        {
+          "file": "apps/ui/src/pages/RoleNewPage.tsx",
+          "count": 29
+        },
+        {
+          "file": "apps/ui/src/pages/InvitationAcceptPage.tsx",
+          "count": 26
+        },
+        {
+          "file": "apps/ui/src/pages/RoleEditPage.tsx",
+          "count": 25
+        },
+        {
+          "file": "apps/ui/src/components/BudgetsBlock.tsx",
+          "count": 24
+        }
+      ]
+    },
+    "windowLocation": {
+      "label": "window.location navigation",
+      "count": 13,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/pages/Agent/PlanTab.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/pages/CompanySetupPage.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/pages/Settings/BillingPanel.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/pages/Settings/SecurityPanel.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/pages/WelcomePage.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/api/client.ts",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/pages/Settings/DevicesPanel.tsx",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/pages/TreasuryPage.tsx",
+          "count": 1
+        }
+      ]
+    },
+    "literalHex": {
+      "label": "literal hex color",
+      "count": 74,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/events.css",
+          "count": 24
+        },
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 20
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 10
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 6
+        },
+        {
+          "file": "apps/ui/src/styles/components.css",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/IdeaGraph.tsx",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/components/editor/blockEditor.theme.css",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/components/EntityOverviewTab.tsx",
+          "count": 1
+        }
+      ]
+    },
+    "literalRgb": {
+      "label": "literal rgb/rgba color",
+      "count": 114,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 35
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 26
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 20
+        },
+        {
+          "file": "apps/ui/src/styles/events.css",
+          "count": 17
+        },
+        {
+          "file": "apps/ui/src/styles/components.css",
+          "count": 5
+        },
+        {
+          "file": "apps/ui/src/components/IdeaGraph.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/BlockAvatar.tsx",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/components/editor/blockEditor.theme.css",
+          "count": 2
+        }
+      ]
+    },
+    "borderLeft": {
+      "label": "border-left styling",
+      "count": 28,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 12
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 11
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/editor/blockEditor.theme.css",
+          "count": 1
+        }
+      ]
+    },
+    "linearGradient": {
+      "label": "linear-gradient",
+      "count": 8,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/layout.css",
+          "count": 3
+        },
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/styles/chat.css",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/styles/inbox.css",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/styles/modals.css",
+          "count": 1
+        }
+      ]
+    },
+    "backdropFilter": {
+      "label": "backdrop-filter",
+      "count": 4,
+      "topFiles": [
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 2
+        },
+        {
+          "file": "apps/ui/src/styles/modals.css",
+          "count": 1
+        },
+        {
+          "file": "apps/ui/src/styles/templates.css",
+          "count": 1
+        }
+      ]
+    }
+  }
+}

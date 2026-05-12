@@ -44,6 +44,21 @@ All design tokens live in `src/styles/primitives.css` as CSS custom properties:
 - **Typography:** Inter for UI text, system mono via `var(--font-mono)` for code
 - **No CSS framework** -- plain CSS files per component/page in `src/styles/`
 
+## Design-System Gates
+
+```bash
+npm run hygiene
+npm run design-system:audit
+npm run verify
+```
+
+`design-system:audit` is a ratchet for future Claude/Codex/human work. It
+records today's legacy drift in `scripts/design-system-baseline.json` and fails
+when a change adds more raw controls, inline style objects, literal colors,
+gradients, backdrop blur, border-left stripes, SPA-breaking navigation, or
+exported primitives without Storybook stories. Use primitives first; lower the
+baseline when a migration removes debt.
+
 ## Stack
 
 | Layer     | Choice                                         |

@@ -19,23 +19,31 @@ Every primitive in the library satisfies three conditions:
 ```ts
 import {
   Badge,
+  Banner,
   Button,
   Card,
+  CardTrigger,
+  ChipClose,
   Combobox,
-  DataState,
+  ConfirmDialog,
   DetailField,
   EmptyState,
   ErrorBoundary,
-  HeroStats,
+  Icon,
   IconButton,
   Input,
+  Inline,
   Menu,
   Modal,
-  Panel,
   Popover,
-  ProgressBar,
+  QRCode,
   Select,
+  SelectOption,
   Spinner,
+  Stack,
+  StatusRow,
+  TabTrigger,
+  Table,
   Tabs,
   TagList,
   Textarea,
@@ -51,46 +59,54 @@ story `Primitives/<bucket>/<name>` to keep the navigation aligned.
 
 ### Actions
 
-| Primitive    | Purpose                                                 |
-| ------------ | ------------------------------------------------------- |
-| `Button`     | Primary, secondary, ghost, and destructive actions      |
-| `IconButton` | Dense icon-only actions for toolbars and rows           |
-| `Menu`       | Disclosed action list for overflow and per-row controls |
+| Primitive     | Purpose                                                |
+| ------------- | ------------------------------------------------------ |
+| `Button`      | Primary, secondary, ghost, and destructive actions     |
+| `IconButton`  | Dense icon-only actions for toolbars and rows          |
+| `CardTrigger` | Keyboard-safe clickable cards and choice rows          |
+| `TabTrigger`  | Standalone tab-like trigger for dense mode controls    |
+| `ChipClose`   | Small remove affordance for chips and selected filters |
+| `Menu`        | Disclosed action list for overflow and row controls    |
 
 ### Inputs
 
-| Primitive  | Purpose                                                    |
-| ---------- | ---------------------------------------------------------- |
-| `Input`    | Single-line text input with label, hint, and error support |
-| `Textarea` | Multi-line prose input using the same field language       |
-| `Select`   | Native single-choice dropdown with consistent chrome       |
-| `Combobox` | Searchable single-choice picker over a known option set    |
+| Primitive      | Purpose                                                    |
+| -------------- | ---------------------------------------------------------- |
+| `Input`        | Single-line text input with label, hint, and error support |
+| `Textarea`     | Multi-line prose input using the same field language       |
+| `Select`       | Native single-choice dropdown with consistent chrome       |
+| `SelectOption` | Option row for custom listbox/select compositions          |
+| `Combobox`     | Searchable single-choice picker over a known option set    |
 
-### Containers
+### Containers And Layout
 
-| Primitive | Purpose                                                 |
-| --------- | ------------------------------------------------------- |
-| `Card`    | Generic grouped container with optional header/footer   |
-| `Panel`   | Opinionated section container with title/actions chrome |
-| `Tabs`    | Accessible tablist with counts and panel content        |
+| Primitive | Purpose                                               |
+| --------- | ----------------------------------------------------- |
+| `Card`    | Generic grouped container with optional header/footer |
+| `Tabs`    | Accessible tablist with counts and panel content      |
+| `Stack`   | Tokenized vertical spacing                            |
+| `Inline`  | Tokenized horizontal spacing                          |
 
 ### Data Display
 
-| Primitive     | Purpose                                        |
-| ------------- | ---------------------------------------------- |
-| `Badge`       | Status and metadata chips                      |
-| `DetailField` | Label/value pair for settings and detail views |
-| `HeroStats`   | Compact stats row for dashboards and summaries |
-| `ProgressBar` | Determinate progress and workload indicators   |
-| `TagList`     | Tag/chip list with optional empty fallback     |
+| Primitive     | Purpose                                           |
+| ------------- | ------------------------------------------------- |
+| `Badge`       | Status and metadata chips                         |
+| `StatusRow`   | Row-level status with semantic dot and label      |
+| `DetailField` | Label/value pair for settings and detail views    |
+| `Icon`        | Lucide-backed icon wrapper with system sizing     |
+| `QRCode`      | Local-only QR rendering for sensitive setup flows |
+| `Table`       | Canonical tabular data layout                     |
+| `TagList`     | Tag/chip list with optional empty fallback        |
 
 ### Overlays
 
-| Primitive | Purpose                                           |
-| --------- | ------------------------------------------------- |
-| `Modal`   | Dialog shell for confirmations and forms          |
-| `Popover` | Anchored floating surface for filters and pickers |
-| `Tooltip` | Hover/focus explanation for dense controls        |
+| Primitive       | Purpose                                           |
+| --------------- | ------------------------------------------------- |
+| `Modal`         | Dialog shell for confirmations and forms          |
+| `ConfirmDialog` | Canonical confirmation flow on top of Modal       |
+| `Popover`       | Anchored floating surface for filters and pickers |
+| `Tooltip`       | Hover/focus explanation for dense controls        |
 
 ### Feedback
 
@@ -99,7 +115,7 @@ story `Primitives/<bucket>/<name>` to keep the navigation aligned.
 | `Spinner`       | Loading indicator (indeterminate)               |
 | `ThinkingDot`   | Agent-thinking indicator for streaming surfaces |
 | `EmptyState`    | No-data and zero-result placeholders            |
-| `DataState`     | Loading / empty / content tri-state wrapper     |
+| `Banner`        | Inline feedback for notices and warnings        |
 | `ErrorBoundary` | Render fallback UI when a subtree throws        |
 
 ## Adding a new primitive
@@ -111,4 +127,6 @@ story `Primitives/<bucket>/<name>` to keep the navigation aligned.
 5. Export from `src/components/ui/index.ts`.
 6. Add the row to the bucket table above.
 
-If a primitive lands in code but not in this inventory, the library docs are incomplete.
+The `design-system:audit` script fails when an exported primitive has no
+Storybook story. If a primitive lands in code but not in this inventory, the
+library docs are incomplete.

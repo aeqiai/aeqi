@@ -67,18 +67,19 @@ scripts/                   Install, deploy, and operator scripts
 
 ## Common Commands
 
-| Area                          | Command                                      |
-| ----------------------------- | -------------------------------------------- |
-| Build everything              | `cargo build --workspace`                    |
-| Run all Rust tests            | `cargo test --workspace`                     |
-| Lint Rust (warnings = errors) | `cargo clippy --workspace -- -D warnings`    |
-| Format Rust                   | `cargo fmt --all`                            |
-| UI dev server                 | `npm run ui:dev` (proxies `/api` to `:8400`) |
-| UI production build           | `npm run ui:build`                           |
-| UI type + format check        | `npm --prefix apps/ui run check`             |
-| UI full verify                | `npm --prefix apps/ui run verify`            |
-| UI tests                      | `npm --prefix apps/ui test`                  |
-| Public surface scan           | `scripts/public-surface-scan.sh`             |
+| Area                          | Command                                        |
+| ----------------------------- | ---------------------------------------------- |
+| Build everything              | `cargo build --workspace`                      |
+| Run all Rust tests            | `cargo test --workspace`                       |
+| Lint Rust (warnings = errors) | `cargo clippy --workspace -- -D warnings`      |
+| Format Rust                   | `cargo fmt --all`                              |
+| UI dev server                 | `npm run ui:dev` (proxies `/api` to `:8400`)   |
+| UI production build           | `npm run ui:build`                             |
+| UI type + format check        | `npm --prefix apps/ui run check`               |
+| UI full verify                | `npm --prefix apps/ui run verify`              |
+| UI design-system audit        | `npm --prefix apps/ui run design-system:audit` |
+| UI tests                      | `npm --prefix apps/ui test`                    |
+| Public surface scan           | `scripts/public-surface-scan.sh`               |
 
 ## Pre-commit Hook
 
