@@ -15,17 +15,20 @@ interface ConnectIntegrationModalProps {
 
 type Phase = "idle" | "starting" | "awaiting" | "complete" | "failed";
 
+function usesPlatformAgentGoogle(entry: IntegrationCatalogEntry, scope: { scope_kind: string }) {
+  return entry.provider === "google" && scope.scope_kind === "agent";
+}
+
 /**
  * Modal that drives the OAuth bootstrap loop:
  *
- *  1. POST /credentials/bootstrap → receive {handle, authorize_url}
+ *  1. Start the provider consent flow and receive an authorize URL.
  *  2. Open the authorize URL in a new tab.
- *  3. Poll GET /credentials/bootstrap/{handle} every 1.5s.
+ *  3. Poll the flow status every 1.5s.
  *  4. On `complete`, fire `onConnected()` and close.
  *
  * The new-tab UX (vs full-page redirect) means the dashboard never loses
- * its state — the user comes back to a refreshed integrations list. The
- * loopback callback runs server-side and emits a tiny success page.
+ * its state — the user comes back to a refreshed integrations list.
  */
 export function ConnectIntegrationModal({
   open,
@@ -55,12 +58,21 @@ export function ConnectIntegrationModal({
     setPhase("starting");
     setError(null);
 
-    integrationsApi
-      .bootstrap({
-        provider: entry.provider,
-        scope_kind: scope.scope_kind,
-        scope_id: scope.scope_id,
-      })
+    const platformAgentGoogle = usesPlatformAgentGoogle(entry, scope);
+    const start = platformAgentGoogle
+      ? integrationsApi.startAgentGoogle(scope.scope_id).then((res) => ({
+          authorize_url: res.authorize_url,
+          handle: null as string | null,
+        }))
+      : integrationsApi
+          .bootstrap({
+            provider: entry.provider,
+            scope_kind: scope.scope_kind,
+            scope_id: scope.scope_id,
+          })
+          .then((res) => ({ authorize_url: res.authorize_url, handle: res.handle }));
+
+    start
       .then((res) => {
         if (cancelled) return;
         handleRef.current = res.handle;
@@ -74,8 +86,17 @@ export function ConnectIntegrationModal({
           // ignore; user can click the manual link
         }
         pollTimer.current = setInterval(async () => {
-          if (!handleRef.current) return;
           try {
+            if (platformAgentGoogle) {
+              const status = await integrationsApi.getAgentGoogleStatus(scope.scope_id);
+              if (!status.connected) return;
+              if (pollTimer.current) clearInterval(pollTimer.current);
+              setPhase("complete");
+              onConnected();
+              return;
+            }
+
+            if (!handleRef.current) return;
             const status = await integrationsApi.bootstrapStatus(handleRef.current);
             if (status.status === "complete") {
               if (pollTimer.current) clearInterval(pollTimer.current);

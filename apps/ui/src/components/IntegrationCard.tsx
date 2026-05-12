@@ -38,6 +38,7 @@ export function IntegrationCard({
   const needsReconnect =
     credential != null &&
     (credential.status === "expired" || credential.status === "refresh_failed");
+  const unsupportedScope = scopeLabel === "global" && entry.per_agent;
 
   return (
     <div className="integration-card">
@@ -56,6 +57,10 @@ export function IntegrationCard({
           {entry.coming_soon ? (
             <Button variant="secondary" size="sm" disabled>
               Available later
+            </Button>
+          ) : unsupportedScope ? (
+            <Button variant="secondary" size="sm" disabled>
+              Agent only
             </Button>
           ) : isConnected ? (
             <>
@@ -130,6 +135,12 @@ export function IntegrationCard({
       {scopeLabel === "agent" && !entry.per_agent && (
         <p className="integration-card-warning">
           This pack is global only — connecting it here is treated as a workspace-wide credential.
+        </p>
+      )}
+
+      {unsupportedScope && (
+        <p className="integration-card-warning">
+          Connect this integration from an agent's Integrations tab.
         </p>
       )}
     </div>

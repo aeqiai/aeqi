@@ -68,6 +68,17 @@ export interface BootstrapStatusResponse {
   error: string | null;
 }
 
+export interface AgentGoogleStartResponse {
+  authorize_url: string;
+}
+
+export interface AgentGoogleStatusResponse {
+  connected: boolean;
+  scopes?: string[];
+  expires_at?: string | null;
+  account_email?: string | null;
+}
+
 // ── API ──────────────────────────────────────────────────────────────────
 
 export const integrationsApi = {
@@ -101,6 +112,14 @@ export const integrationsApi = {
 
   bootstrapStatus(handle: string): Promise<BootstrapStatusResponse> {
     return apiRequest(`/credentials/bootstrap/${encodeURIComponent(handle)}`);
+  },
+
+  startAgentGoogle(agentId: string): Promise<AgentGoogleStartResponse> {
+    return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/google/start`);
+  },
+
+  getAgentGoogleStatus(agentId: string): Promise<AgentGoogleStatusResponse> {
+    return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/google/status`);
   },
 
   refreshCredential(id: string): Promise<{ ok: boolean; credential: CredentialView }> {

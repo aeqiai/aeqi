@@ -54,6 +54,7 @@ describe("IntegrationCard", () => {
       <IntegrationCard
         entry={googleEntry}
         credentials={[]}
+        scopeLabel="agent"
         onConnect={onConnect}
         onRefresh={vi.fn()}
         onDisconnect={vi.fn()}
@@ -71,6 +72,7 @@ describe("IntegrationCard", () => {
       <IntegrationCard
         entry={googleEntry}
         credentials={[makeCredential({ status: "ok" })]}
+        scopeLabel="agent"
         onConnect={vi.fn()}
         onRefresh={onRefresh}
         onDisconnect={onDisconnect}
@@ -89,6 +91,7 @@ describe("IntegrationCard", () => {
       <IntegrationCard
         entry={googleEntry}
         credentials={[makeCredential({ status: "expired" })]}
+        scopeLabel="agent"
         onConnect={vi.fn()}
         onRefresh={vi.fn()}
         onDisconnect={vi.fn()}
@@ -120,6 +123,7 @@ describe("IntegrationCard", () => {
       <IntegrationCard
         entry={googleEntry}
         credentials={[githubCred]}
+        scopeLabel="agent"
         onConnect={vi.fn()}
         onRefresh={vi.fn()}
         onDisconnect={vi.fn()}
@@ -128,5 +132,23 @@ describe("IntegrationCard", () => {
     // Google card with a github credential = looks like nothing is connected.
     expect(screen.getByText("Not connected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+  });
+
+  it("disables per-agent packs on the global integrations page", () => {
+    const onConnect = vi.fn();
+    render(
+      <IntegrationCard
+        entry={googleEntry}
+        credentials={[]}
+        scopeLabel="global"
+        onConnect={onConnect}
+        onRefresh={vi.fn()}
+        onDisconnect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Agent only" })).toBeDisabled();
+    expect(
+      screen.getByText("Connect this integration from an agent's Integrations tab."),
+    ).toBeInTheDocument();
   });
 });
