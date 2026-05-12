@@ -1,11 +1,11 @@
 //! Passkey (WebAuthn) sign-up / log-in routes.
 
 use axum::{
+    Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
-    Router,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -14,7 +14,7 @@ use webauthn_rs::prelude::*;
 use crate::auth;
 use crate::server::AppState;
 
-use super::ensure_canonical_company_root;
+use super::ensure_account_wallet;
 
 #[derive(Deserialize)]
 pub struct RegisterBeginBody {
@@ -164,7 +164,11 @@ pub async fn register_finish_handler(
     };
     let user = match accounts
         .clone()
-        .create_user_async(synthetic_email.clone(), display_name.clone(), Uuid::new_v4().to_string())
+        .create_user_async(
+            synthetic_email.clone(),
+            display_name.clone(),
+            Uuid::new_v4().to_string(),
+        )
         .await
     {
         Ok(u) => u,
@@ -186,29 +190,13 @@ pub async fn register_finish_handler(
         tracing::error!(user_id = %user.id, error = %e, "failed to persist passkey credential");
     }
 
-    if let Err(e) = aeqi_wallets::ensure_primary_custodial_user_wallet(
-        &state.wallets.db,
-        state.wallets.kek.as_ref(),
-        &user.id,
-    )
-    .await
-    {
-        tracing::error!(user_id = %user.id, error = %e, "custodial wallet provisioning failed");
-    }
-
-    if let Err(e) = ensure_canonical_company_root(
-        &state,
-        accounts,
-        &user.id,
-        &display_name,
-        &synthetic_email,
-    )
-    .await
-    {
-        tracing::error!("passkey signup canonical root bootstrap failed: {e}");
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "passkey signup account wallet provisioning failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            axum::Json(serde_json::json!({"ok": false, "error": "failed to create company root"})),
+            axum::Json(
+                serde_json::json!({"ok": false, "error": "failed to provision account wallet"}),
+            ),
         )
             .into_response();
     }
@@ -354,7 +342,10 @@ pub async fn login_finish_handler(
         .await;
     }
 
-    let user = match state.accounts.as_ref().and_then(|s| s.get_user_by_id(&stored.user_id).ok().flatten())
+    let user = match state
+        .accounts
+        .as_ref()
+        .and_then(|s| s.get_user_by_id(&stored.user_id).ok().flatten())
     {
         Some(u) => u,
         None => {
@@ -367,15 +358,13 @@ pub async fn login_finish_handler(
         }
     };
 
-    if let Some(accounts) = state.accounts.as_ref()
-        && let Err(e) =
-            ensure_canonical_company_root(&state, accounts, &user.id, &user.name, &user.email)
-                .await
-    {
-        tracing::error!("passkey login canonical root bootstrap error: {e}");
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "passkey login account wallet provisioning failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            axum::Json(serde_json::json!({"ok": false, "error": "failed to create company root"})),
+            axum::Json(
+                serde_json::json!({"ok": false, "error": "failed to provision account wallet"}),
+            ),
         )
             .into_response();
     }

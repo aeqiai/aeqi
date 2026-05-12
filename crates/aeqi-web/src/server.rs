@@ -19,8 +19,8 @@ use tracing::info;
 
 use crate::accounts::AccountStore;
 use crate::auth;
-use crate::passkey::PasskeyContext;
 use crate::ipc::IpcClient;
+use crate::passkey::PasskeyContext;
 use crate::rate_limit;
 use crate::routes::{api_routes, auth as auth_routes, webhook_routes};
 use crate::security_middleware::{SecurityHeadersConfig, security_headers_middleware};
@@ -78,7 +78,10 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         &data_dir,
     )?);
     let passkeys = Arc::new(PasskeyContext::bootstrap(
-        web.auth.base_url.as_deref().unwrap_or("http://localhost:8400"),
+        web.auth
+            .base_url
+            .as_deref()
+            .unwrap_or("http://localhost:8400"),
     )?);
 
     // Initialize hosting provider.

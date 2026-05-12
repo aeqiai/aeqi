@@ -5,17 +5,15 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 
-use crate::accounts::AccountStore;
 use crate::server::AppState;
 use aeqi_core::config::AuthMode;
 
 mod github;
 mod google;
-mod passkey;
 mod local;
+mod passkey;
 mod wallet;
 
 // ── Request DTOs ──────────────────────────────────────────
@@ -89,76 +87,19 @@ pub fn accounts_routes() -> Router<AppState> {
         .merge(passkey::routes())
 }
 
-/// Return the canonical company/trust display name for first-time auth.
+/// Ensure the account has its embedded custodial wallet.
 ///
-/// We keep this deterministic and human-friendly so every auth path can
-/// bootstrap the same first trust surface without needing a separate wizard.
-pub(super) fn canonical_company_name(preferred_name: &str, email: &str) -> String {
-    let preferred = preferred_name.trim();
-    if !preferred.is_empty() {
-        return preferred.to_string();
-    }
-
-    let email_local = email.split('@').next().unwrap_or("").trim();
-    if !email_local.is_empty() {
-        return email_local.to_string();
-    }
-
-    "Company".to_string()
-}
-
-/// Ensure the authenticated user has a canonical company/trust root.
-///
-/// If the user already has at least one root, we reuse it. Otherwise we
-/// create a new company entity via the runtime IPC, then link the user to
-/// that entity id so subsequent sign-ins resolve the same trust.
-pub(super) async fn ensure_canonical_company_root(
-    state: &AppState,
-    accounts: &AccountStore,
-    user_id: &str,
-    preferred_name: &str,
-    email: &str,
-) -> Result<Option<String>> {
-    if let Ok(Some(user)) = accounts.get_user_by_id(user_id)
-        && let Some(roots) = user.roots
-        && let Some(root) = roots.into_iter().find(|r| !r.is_empty())
-    {
-        return Ok(Some(root));
-    }
-
-    let company_name = canonical_company_name(preferred_name, email);
-    let resp = state
-        .ipc
-        .cmd_with(
-            "create_entity",
-            serde_json::json!({
-                "name": company_name,
-                "type": "company",
-            }),
-        )
-        .await
-        .context("failed to create company entity for authenticated user")?;
-
-    if resp.get("ok") != Some(&serde_json::Value::Bool(true)) {
-        return Err(anyhow!(
-            "create_entity returned error: {}",
-            resp.get("error")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown error")
-        ));
-    }
-
-    let entity_id = resp
-        .get("id")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("create_entity response missing id"))?
-        .to_string();
-
-    accounts
-        .add_director(user_id, &entity_id)
-        .context("failed to link user to canonical company root")?;
-
-    Ok(Some(entity_id))
+/// Authentication creates or resolves a person account only. Company/TRUST
+/// creation happens later through blueprint provisioning after billing.
+pub(super) async fn ensure_account_wallet(state: &AppState, user_id: &str) -> anyhow::Result<()> {
+    aeqi_wallets::ensure_primary_custodial_user_wallet(
+        &state.wallets.db,
+        state.wallets.kek.as_ref(),
+        user_id,
+    )
+    .await
+    .map(|_| ())
+    .map_err(anyhow::Error::from)
 }
 
 // ── Shared helpers ────────────────────────────────────────

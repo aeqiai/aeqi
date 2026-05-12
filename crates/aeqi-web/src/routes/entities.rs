@@ -1,4 +1,6 @@
-use axum::{Json, Router, extract::State, response::IntoResponse, response::Response, routing::get};
+use axum::{
+    Json, Router, extract::State, response::IntoResponse, response::Response, routing::get,
+};
 
 use super::helpers::ipc_proxy;
 use crate::auth::Claims;
@@ -172,7 +174,10 @@ async fn create_root_legacy(
     if resp.get("ok") == Some(&serde_json::Value::Bool(true))
         && let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
         && let Some(user_id) = claims.user_id.as_deref()
-        && let Some(entity_id) = resp.get("entity_id").or_else(|| resp.get("id")).and_then(|v| v.as_str())
+        && let Some(entity_id) = resp
+            .get("entity_id")
+            .or_else(|| resp.get("id"))
+            .and_then(|v| v.as_str())
     {
         if let Err(err) = accounts.add_director(user_id, entity_id) {
             tracing::warn!(

@@ -1,11 +1,11 @@
 //! Wallet sign-in / sign-up routes (SIWE).
 
 use axum::{
+    Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
-    Router,
 };
 use rusqlite::params;
 use serde::Deserialize;
@@ -13,7 +13,7 @@ use serde::Deserialize;
 use crate::auth;
 use crate::server::AppState;
 
-use super::ensure_canonical_company_root;
+use super::ensure_account_wallet;
 
 #[derive(Deserialize)]
 pub struct WalletAuthBody {
@@ -74,7 +74,10 @@ pub async fn login_handler(
         }
     };
 
-    let user = match state.accounts.as_ref().and_then(|s| s.get_user_by_id(&user_id).ok().flatten())
+    let user = match state
+        .accounts
+        .as_ref()
+        .and_then(|s| s.get_user_by_id(&user_id).ok().flatten())
     {
         Some(u) => u,
         None => {
@@ -87,20 +90,21 @@ pub async fn login_handler(
         }
     };
 
-    if let Some(accounts) = state.accounts.as_ref()
-        && let Err(e) =
-            ensure_canonical_company_root(&state, accounts, &user.id, &user.name, &user.email)
-                .await
-    {
-        tracing::error!("wallet login canonical root bootstrap error: {e}");
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "wallet login account wallet provisioning failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            axum::Json(serde_json::json!({"ok": false, "error": "failed to create company root"})),
+            axum::Json(
+                serde_json::json!({"ok": false, "error": "failed to provision account wallet"}),
+            ),
         )
             .into_response();
     }
 
-    let user = match state.accounts.as_ref().and_then(|s| s.get_user_by_id(&user_id).ok().flatten())
+    let user = match state
+        .accounts
+        .as_ref()
+        .and_then(|s| s.get_user_by_id(&user_id).ok().flatten())
     {
         Some(u) => u,
         None => {
@@ -148,7 +152,10 @@ pub async fn signup_handler(
 
     let address_lower = address.as_hex();
 
-    if resolve_user_by_address(&state, &address_lower).await.is_some() {
+    if resolve_user_by_address(&state, &address_lower)
+        .await
+        .is_some()
+    {
         return (
             StatusCode::CONFLICT,
             axum::Json(serde_json::json!({
@@ -160,7 +167,8 @@ pub async fn signup_handler(
     }
 
     let invite_code = body.invite_code.as_deref().unwrap_or("").trim();
-    if state.auth_config.waitlist && (invite_code.is_empty() || !is_invite_valid(&state, invite_code))
+    if state.auth_config.waitlist
+        && (invite_code.is_empty() || !is_invite_valid(&state, invite_code))
     {
         return (
             StatusCode::BAD_REQUEST,
@@ -173,7 +181,10 @@ pub async fn signup_handler(
             .into_response();
     }
 
-    let synthetic_email = format!("wallet+{}@aeqi.ai", &address_lower[2..10.min(address_lower.len())]);
+    let synthetic_email = format!(
+        "wallet+{}@aeqi.ai",
+        &address_lower[2..10.min(address_lower.len())]
+    );
     let name = body
         .name
         .clone()
@@ -206,21 +217,13 @@ pub async fn signup_handler(
     if let Err(e) = link_external_primary_wallet(&state, &user.id, &address_lower).await {
         tracing::error!(user_id = %user.id, error = %e, "failed to link external wallet");
     }
-    if let Err(e) = aeqi_wallets::ensure_primary_custodial_user_wallet(
-        &state.wallets.db,
-        state.wallets.kek.as_ref(),
-        &user.id,
-    )
-    .await
-    {
-        tracing::error!(user_id = %user.id, error = %e, "custodial wallet provisioning failed");
-    }
-
-    if let Err(e) = ensure_canonical_company_root(&state, accounts, &user.id, &name, &synthetic_email).await {
-        tracing::error!("wallet signup canonical root bootstrap failed: {e}");
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "wallet signup account wallet provisioning failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            axum::Json(serde_json::json!({"ok": false, "error": "failed to create company root"})),
+            axum::Json(
+                serde_json::json!({"ok": false, "error": "failed to provision account wallet"}),
+            ),
         )
             .into_response();
     }

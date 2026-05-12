@@ -13,7 +13,7 @@ use aeqi_core::config::AuthMode;
 
 use super::{
     CheckInviteRequest, EmailLoginRequest, ResendCodeRequest, SignupRequest, VerifyEmailRequest,
-    WaitlistRequest, ensure_canonical_company_root, server_configuration_error,
+    WaitlistRequest, ensure_account_wallet, server_configuration_error,
 };
 
 // ── Route builder ─────────────────────────────────────────
@@ -267,20 +267,20 @@ async fn signup_handler(
         }
     };
 
-    if let Err(e) = ensure_canonical_company_root(&state, accounts, &user.id, name, email).await {
-        tracing::error!("signup canonical root bootstrap failed: {e}");
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "signup account wallet provisioning failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
                 "ok": false,
-                "error": "failed to create company root"
+                "error": "failed to provision account wallet"
             })),
         )
             .into_response();
     }
 
-    // Redeem invite code and generate new ones only after the trust root
-    // exists. That keeps a failed bootstrap from consuming the signup slot.
+    // Redeem invite code and generate new ones only after the account
+    // wallet exists. That keeps a failed signup from consuming the slot.
     if state.auth_config.waitlist && !invite_code.is_empty() {
         let _ = accounts.redeem_invite_code(invite_code, &user.id);
     }
@@ -383,46 +383,17 @@ async fn email_login_handler(
         }
     };
 
-    let user =
-        match ensure_canonical_company_root(&state, accounts, &user.id, &user.name, &user.email)
-            .await
-        {
-            Ok(_) => match accounts.get_user_by_id(&user.id) {
-                Ok(Some(user)) => user,
-                Ok(None) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "ok": false,
-                            "error": "failed to load account"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    tracing::error!("login reload error: {e}");
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "ok": false,
-                            "error": "failed to load account"
-                        })),
-                    )
-                        .into_response();
-                }
-            },
-            Err(e) => {
-                tracing::error!("login canonical root bootstrap failed: {e}");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({
-                        "ok": false,
-                        "error": "failed to create company root"
-                    })),
-                )
-                    .into_response();
-            }
-        };
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "login account wallet provisioning failed");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "failed to provision account wallet"
+            })),
+        )
+            .into_response();
+    }
 
     let signing_key = match auth::signing_secret(&state) {
         Ok(secret) => secret,
@@ -533,7 +504,16 @@ async fn me_handler(State(state): State<AppState>, req: Request) -> Response {
         return resp;
     }
     match accounts.get_user_by_id(&user_id) {
-        Ok(Some(user)) => Json(serde_json::json!(user)).into_response(),
+        Ok(Some(user)) => {
+            let mut value = serde_json::to_value(&user).unwrap_or_else(|_| serde_json::json!({}));
+            if let serde_json::Value::Object(ref mut obj) = value {
+                obj.insert(
+                    "auth_methods".to_string(),
+                    serde_json::Value::Array(auth_method_kinds_for_user(&state, &user).await),
+                );
+            }
+            Json(value).into_response()
+        }
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({
@@ -552,6 +532,59 @@ async fn me_handler(State(state): State<AppState>, req: Request) -> Response {
                 .into_response()
         }
     }
+}
+
+fn oauth_kind_from_provider_id(provider_id: &str) -> &'static str {
+    if provider_id.starts_with("github:") {
+        "github"
+    } else {
+        "google"
+    }
+}
+
+async fn auth_method_kinds_for_user(
+    state: &AppState,
+    user: &crate::accounts::User,
+) -> Vec<serde_json::Value> {
+    let mut kinds = Vec::<&'static str>::new();
+    if let Some(provider_id) = user.google_id.as_deref() {
+        kinds.push(oauth_kind_from_provider_id(provider_id));
+    }
+
+    let db = state.wallets.db.clone();
+    let user_id = user.id.clone();
+    let wallet_kinds = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<&'static str>> {
+        let conn = db.lock().expect("wallet db mutex poisoned");
+        let passkey_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM passkey_credentials WHERE user_id = ?1",
+            [&user_id],
+            |row| row.get(0),
+        )?;
+        let external_wallet_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM user_wallets WHERE user_id = ?1 AND custody_state = 'self_custody'",
+            [&user_id],
+            |row| row.get(0),
+        )?;
+        let mut out = Vec::new();
+        if passkey_count > 0 {
+            out.push("passkey");
+        }
+        if external_wallet_count > 0 {
+            out.push("wallet_siws");
+        }
+        Ok(out)
+    })
+    .await;
+
+    if let Ok(Ok(extra)) = wallet_kinds {
+        kinds.extend(extra);
+    }
+    kinds.sort_unstable();
+    kinds.dedup();
+    kinds
+        .into_iter()
+        .map(|kind| serde_json::json!({ "kind": kind }))
+        .collect()
 }
 
 async fn sessions_handler(State(state): State<AppState>, headers: HeaderMap) -> Response {
@@ -775,5 +808,16 @@ async fn my_invite_codes_handler(State(state): State<AppState>, req: Request) ->
             tracing::error!("invite codes error: {e}");
             (StatusCode::INTERNAL_SERVER_ERROR, "failed to fetch codes").into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oauth_kind_detects_provider_prefixes() {
+        assert_eq!(oauth_kind_from_provider_id("github:123"), "github");
+        assert_eq!(oauth_kind_from_provider_id("google-sub-123"), "google");
     }
 }

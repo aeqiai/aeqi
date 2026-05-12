@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::auth;
 use crate::server::AppState;
 
-use super::{ensure_canonical_company_root, server_configuration_error, urlencoding};
+use super::{ensure_account_wallet, server_configuration_error, urlencoding};
 
 // ── Route builder ─────────────────────────────────────────
 
@@ -209,12 +209,11 @@ async fn github_callback_handler(
         }
     };
 
-    if let Err(e) = ensure_canonical_company_root(&state, accounts, &user.id, &user.name, &email).await
-    {
-        tracing::error!("github oauth canonical root bootstrap error: {e}");
+    if let Err(e) = ensure_account_wallet(&state, &user.id).await {
+        tracing::error!(user_id = %user.id, error = %e, "github oauth account wallet provisioning failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to create company root",
+            "failed to provision account wallet",
         )
             .into_response();
     }
