@@ -1339,7 +1339,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card-subtle);
+  background: var(--color-card);
+  box-shadow: inset -1px 0 0 var(--border);
   border-radius: 0;
 }
 @media (max-width: 768px) {
@@ -2775,6 +2776,7 @@
   gap: var(--space-4);
   padding: var(--space-3) var(--space-6);
   background: var(--color-card);
+  box-shadow: inset 0 -1px 0 var(--border);
   flex-shrink: 0;
 }
 
