@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import type { BlockEditorProps } from "./BlockEditor";
 import { blockTreeToPlainText } from "./blockEditorContent";
+import { Textarea } from "../ui";
 
 /*
  * BlockEditor lives in its own chunk. The main bundle is already large
@@ -13,7 +14,7 @@ const BlockEditor = lazy(() => import("./BlockEditor"));
 
 /**
  * Suspense fallback. While the editor chunk is loading we render a
- * vanilla `<textarea>` showing the plaintext content so a slow network
+ * read-only Textarea showing the plaintext content so a slow network
  * still presents *something* readable, not a spinner. The textarea is
  * read-only — the user can't accidentally type into it and lose the
  * input on chunk arrival.
@@ -24,7 +25,8 @@ function Fallback({
 }: Pick<BlockEditorProps, "initialContent" | "placeholder">) {
   const text = blockTreeToPlainText(initialContent);
   return (
-    <textarea
+    <Textarea
+      bare
       className="block-editor-fallback"
       value={text}
       readOnly

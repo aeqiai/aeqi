@@ -193,6 +193,31 @@ function loadBaseline() {
   return JSON.parse(readFileSync(BASELINE_PATH, "utf-8"));
 }
 
+function designDebtLeaderboard(snapshot, limit = 5) {
+  return Object.entries(snapshot.rules)
+    .flatMap(([key, ruleResult]) => {
+      const rule = RULES.find((entry) => entry.key === key);
+      return ruleResult.topFiles.map((entry) => ({
+        ruleLabel: ruleResult.label,
+        file: entry.file,
+        count: entry.count,
+        guidance: rule?.guidance ?? "",
+      }));
+    })
+    .sort((a, b) => b.count - a.count || a.file.localeCompare(b.file))
+    .slice(0, limit);
+}
+
+function printDebtLeaderboard(snapshot) {
+  const rows = designDebtLeaderboard(snapshot);
+  if (rows.length === 0) return;
+  console.log("");
+  console.log("Top design debt targets:");
+  for (const row of rows) {
+    console.log(`  - ${row.file}: ${row.count} ${row.ruleLabel}. ${row.guidance}`);
+  }
+}
+
 function main() {
   const snapshot = currentSnapshot();
   const missingStories = missingPrimitiveStories();
@@ -239,6 +264,7 @@ function main() {
     console.error("[fail] apps/ui design-system audit failed");
     console.error("");
     for (const failure of failures) console.error(`  - ${failure}`);
+    printDebtLeaderboard(snapshot);
     console.error("");
     console.error("Reduce the drift, use primitives, or update the baseline only as part of");
     console.error("a deliberate design-system migration reviewed with the changed call sites.");
@@ -247,6 +273,7 @@ function main() {
 
   console.log("[ok] apps/ui design-system audit clean");
   for (const improvement of improvements) console.log(`  improved: ${improvement}`);
+  printDebtLeaderboard(snapshot);
 }
 
 main();

@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { launchPlanById } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "./BlockAvatar";
+import { Textarea } from "./ui";
 
 /**
  * `EntityHeroStrip` — top of every Company Overview surface.
@@ -241,7 +242,8 @@ export default function EntityHeroStrip({
         )}
 
         {!isPublicMode && editingTagline ? (
-          <textarea
+          <Textarea
+            bare
             ref={taglineInputRef}
             value={taglineDraft}
             onChange={(e) => setTaglineDraft(e.target.value)}

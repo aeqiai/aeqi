@@ -84,17 +84,8 @@
     },
     "rawTextarea": {
       "label": "raw <textarea>",
-      "count": 3,
-      "topFiles": [
-        {
-          "file": "apps/ui/src/components/editor/LazyBlockEditor.tsx",
-          "count": 2
-        },
-        {
-          "file": "apps/ui/src/components/EntityHeroStrip.tsx",
-          "count": 1
-        }
-      ]
+      "count": 0,
+      "topFiles": []
     },
     "inlineStyle": {
       "label": "inline style object",
