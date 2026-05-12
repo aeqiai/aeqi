@@ -11,6 +11,8 @@ import { isSingleBlueprint } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { Banner, Button, Card, EmptyState, Input, Spinner, Textarea } from "@/components/ui";
+import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
+import { BlueprintSeedCounts } from "@/components/blueprints/BlueprintSeedCounts";
 import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
 
@@ -112,6 +114,20 @@ export default function CompanySetupPage() {
     () => LAUNCH_PLANS.find((p) => p.id === plan) ?? LAUNCH_PLANS[0],
     [plan],
   );
+
+  const blueprintMode = useMemo(() => {
+    if (!blueprint) {
+      return { label: "Company", meta: "cap table · standard launch" };
+    }
+    const category = blueprint.category ?? "company";
+    if (category === "foundation") {
+      return { label: "Foundation", meta: "multisig · grant flows" };
+    }
+    if (category === "fund") {
+      return { label: "Fund", meta: "pro rata · tokenized capital" };
+    }
+    return { label: "Company", meta: "cap table · standard launch" };
+  }, [blueprint]);
 
   useEffect(() => {
     const spawnName = searchParams.get("spawn");
@@ -261,11 +277,10 @@ export default function CompanySetupPage() {
     <div className="launch-page">
       <header className="launch-head">
         <div className="launch-head-copy">
-          <p className="start-eyebrow">Launch · first organization</p>
-          <h1 className="page-title">Launch your first AI-native organization.</h1>
+          <p className="start-eyebrow">Launch</p>
+          <h1 className="page-title">Launch an organization.</h1>
           <p className="start-sub">
-            Give it a name, define its mission, and choose how much execution capacity it starts
-            with.
+            Give it a name, a mission, and the execution capacity it starts with.
           </p>
         </div>
       </header>
@@ -300,6 +315,10 @@ export default function CompanySetupPage() {
                   Change blueprint →
                 </span>
               </div>
+              <div className="launch-blueprint-meta">
+                <span className="launch-blueprint-pill">{blueprintMode.label}</span>
+                <span className="launch-blueprint-meta-text">{blueprintMode.meta}</span>
+              </div>
             </Card>
           </Link>
 
@@ -307,27 +326,27 @@ export default function CompanySetupPage() {
             <div className="launch-card-head">
               <div>
                 <p className="start-section-kicker">2. Define the organization</p>
-                <h3 className="start-section-title">Name it and give it a mission.</h3>
+                <h3 className="start-section-title">Name it. Give it a mission.</h3>
               </div>
             </div>
 
             <div className="launch-fields">
               <label className="launch-field">
-                <span className="launch-field-label">Organization name</span>
+                <span className="launch-field-label">Registered name</span>
                 <Input
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
-                  placeholder="Name your organization"
+                  placeholder="The name on the charter"
                 />
               </label>
 
               <label className="launch-field">
-                <span className="launch-field-label">Short mission</span>
+                <span className="launch-field-label">Mission</span>
                 <Textarea
                   value={mission}
                   onChange={(e) => setMission(e.target.value)}
                   rows={3}
-                  placeholder="What this organization exists to do"
+                  placeholder="What should this organization accomplish?"
                 />
               </label>
             </div>
@@ -373,7 +392,6 @@ export default function CompanySetupPage() {
                           : item.cadence}
                       </span>
                     </div>
-                    <p className="plan-card-blurb">{item.blurb}</p>
                     <div className="plan-card-features">
                       {item.features.map((feature) => (
                         <span key={feature} className="plan-card-feature">
@@ -385,6 +403,21 @@ export default function CompanySetupPage() {
                 );
               })}
             </div>
+          </Card>
+        </div>
+
+        <div className="launch-side">
+          <Card variant="default" padding="lg" className="launch-preview-card">
+            <div className="launch-preview-head">
+              <div>
+                <p className="start-section-kicker">Preview</p>
+                <h3 className="start-section-title">What launches.</h3>
+              </div>
+              <span className="launch-preview-type">{blueprintMode.label}</span>
+            </div>
+            <p className="start-sub launch-preview-sub">{blueprintMode.meta}</p>
+            <BlueprintSeedCounts template={blueprint} />
+            <BlueprintTreePreview template={blueprint} />
           </Card>
         </div>
       </section>
