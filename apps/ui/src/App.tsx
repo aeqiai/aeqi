@@ -230,31 +230,15 @@ export default function App() {
         <Route path="sessions/:sessionId" element={<SessionRedirect />} />
 
         {/* Account surface + every company at /trust/<addr>/... share
-            the same shell — AppLayout decides content from path. */}
+              the same shell — AppLayout decides content from path. */}
         <Route element={<AppLayout />}>
           <Route path="account" element={null} />
           <Route path="account/:tab" element={null} />
           <Route path="admin" element={null} />
           <Route path="launch" element={null} />
           <Route path="launch/:blueprintId" element={null} />
+          <Route path="c/*" element={<Navigate to="/launch" replace />} />
           <Route path="trust/:trustAddress" element={null}>
-            <Route index element={null} />
-            <Route path="agents/:agentId" element={null}>
-              <Route index element={null} />
-              <Route path="settings" element={null} />
-              <Route path="settings/:settingsTab" element={null} />
-              <Route path="settings/:settingsTab/:itemId" element={null} />
-              <Route path=":tab" element={null} />
-              <Route path=":tab/:itemId" element={null} />
-            </Route>
-            <Route path="roles/new" element={null} />
-            <Route path="roles/:roleId" element={null} />
-            <Route path="roles/:roleId/edit" element={null} />
-            <Route path="roles/:roleId/invite" element={null} />
-            <Route path=":tab" element={null} />
-            <Route path=":tab/:itemId" element={null} />
-          </Route>
-          <Route path="c/:entityId" element={null}>
             <Route index element={null} />
             <Route path="agents/:agentId" element={null}>
               <Route index element={null} />
