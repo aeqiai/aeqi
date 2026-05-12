@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::helpers::load_config;
 
@@ -35,10 +35,7 @@ struct ToolDef {
     input_schema: serde_json::Value,
 }
 
-fn ipc_request_sync(
-    sock_path: &std::path::Path,
-    request: &serde_json::Value,
-) -> Result<serde_json::Value> {
+fn ipc_request_sync(sock_path: &Path, request: &serde_json::Value) -> Result<serde_json::Value> {
     let stream = std::os::unix::net::UnixStream::connect(sock_path)?;
     let mut writer = io::BufWriter::new(&stream);
     let mut reader = io::BufReader::new(&stream);
@@ -54,13 +51,190 @@ fn ipc_request_sync(
     Ok(response)
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct McpActorContext {
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entity_id: Option<String>,
+    #[serde(default)]
+    roles: Vec<String>,
+    #[serde(default)]
+    grants: Vec<String>,
+    source: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct McpAuthContext {
+    mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    entity_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_id: Option<String>,
+    #[serde(default)]
+    allowed_roots: Vec<String>,
+    actor: McpActorContext,
+    runtime: serde_json::Value,
+}
+
+impl McpAuthContext {
+    fn from_platform_response(parsed: &serde_json::Value) -> Result<(Self, PathBuf)> {
+        let runtime = parsed
+            .get("runtime")
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("platform did not return runtime metadata"))?;
+        let socket = runtime
+            .get("socket")
+            .and_then(|s| s.as_str())
+            .ok_or_else(|| anyhow::anyhow!("platform did not return a runtime socket path"))?
+            .to_string();
+
+        let root = parsed
+            .get("root")
+            .or_else(|| parsed.get("company"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let entity_id = parsed
+            .get("entity_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or_else(|| root.clone());
+        let user_id = parsed
+            .get("user_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let allowed_roots = string_array(parsed.get("allowed_roots"))
+            .or_else(|| root.as_ref().map(|r| vec![r.clone()]))
+            .unwrap_or_default();
+
+        let actor_json = parsed.get("actor");
+        let actor = McpActorContext {
+            kind: actor_json
+                .and_then(|a| a.get("kind"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("user")
+                .to_string(),
+            user_id: actor_json
+                .and_then(|a| a.get("user_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .or_else(|| user_id.clone()),
+            entity_id: actor_json
+                .and_then(|a| a.get("entity_id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .or_else(|| entity_id.clone()),
+            roles: actor_json
+                .and_then(|a| string_array(a.get("roles")))
+                .or_else(|| string_array(parsed.get("roles")))
+                .unwrap_or_default(),
+            grants: actor_json
+                .and_then(|a| string_array(a.get("grants")))
+                .or_else(|| string_array(parsed.get("grants")))
+                .unwrap_or_default(),
+            source: "platform".to_string(),
+        };
+
+        Ok((
+            Self {
+                mode: "platform".to_string(),
+                root,
+                entity_id,
+                user_id,
+                allowed_roots,
+                actor,
+                runtime,
+            },
+            PathBuf::from(socket),
+        ))
+    }
+
+    fn local(sock_path: &Path, agent_name: Option<&str>) -> Self {
+        let root = std::env::var("AEQI_ROOT")
+            .ok()
+            .or_else(|| std::env::var("AEQI_ENTITY_ID").ok())
+            .or_else(|| agent_name.map(|s| s.to_string()));
+        let user_id = std::env::var("AEQI_USER_ID").ok();
+        let entity_id = root.clone();
+        let actor = McpActorContext {
+            kind: if user_id.is_some() {
+                "user".to_string()
+            } else {
+                "local_operator".to_string()
+            },
+            user_id: user_id.clone(),
+            entity_id: entity_id.clone(),
+            roles: if user_id.is_some() {
+                Vec::new()
+            } else {
+                vec!["local_admin".to_string()]
+            },
+            grants: if user_id.is_some() {
+                Vec::new()
+            } else {
+                vec!["*".to_string()]
+            },
+            source: "self_hosted_local".to_string(),
+        };
+        Self {
+            mode: "local".to_string(),
+            root,
+            entity_id,
+            user_id,
+            allowed_roots: Vec::new(),
+            actor,
+            runtime: serde_json::json!({
+                "type": "local",
+                "socket": sock_path.display().to_string(),
+            }),
+        }
+    }
+
+    fn apply_to_ipc(&self, request: &mut serde_json::Value, enforce_legacy_tenancy: bool) {
+        request["actor"] = serde_json::json!(self.actor);
+        if let Some(user_id) = self.user_id.as_deref() {
+            request["caller_user_id"] = serde_json::json!(user_id);
+        }
+        if let Some(entity_id) = self.entity_id.as_deref() {
+            request["caller_entity_id"] = serde_json::json!(entity_id);
+        }
+        if enforce_legacy_tenancy && !self.allowed_roots.is_empty() {
+            request["allowed_roots"] = serde_json::json!(self.allowed_roots);
+        }
+    }
+
+    fn public_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "ok": true,
+            "mode": self.mode,
+            "root": self.root,
+            "entity_id": self.entity_id,
+            "user_id": self.user_id,
+            "allowed_roots": self.allowed_roots,
+            "actor": self.actor,
+            "runtime": self.runtime,
+        })
+    }
+}
+
+fn string_array(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+    value.and_then(|v| v.as_array()).map(|arr| {
+        arr.iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect()
+    })
+}
+
 /// Validate keys against the platform and return the runtime socket path.
 /// secret_key (sk_) is required, api_key (ak_) is optional for analytics.
 fn validate_api_key(
     secret_key: &str,
     api_key: Option<&str>,
     platform_url: &str,
-) -> Result<PathBuf> {
+) -> Result<(McpAuthContext, PathBuf)> {
     let url = format!("{platform_url}/api/mcp/validate");
     let client = std::net::TcpStream::connect(
         url.trim_start_matches("http://")
@@ -129,19 +303,15 @@ fn validate_api_key(
         return Err(anyhow::anyhow!("API key validation failed: {error}"));
     }
 
-    let socket = parsed
-        .get("runtime")
-        .and_then(|r| r.get("socket"))
-        .and_then(|s| s.as_str())
-        .ok_or_else(|| anyhow::anyhow!("platform did not return a runtime socket path"))?;
+    let (auth, socket) = McpAuthContext::from_platform_response(&parsed)?;
+    eprintln!(
+        "[aeqi-mcp] authenticated actor kind={} user={} root={}",
+        auth.actor.kind,
+        auth.user_id.as_deref().unwrap_or("unknown"),
+        auth.root.as_deref().unwrap_or("unknown")
+    );
 
-    let root = parsed
-        .get("company")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
-    eprintln!("[aeqi-mcp] authenticated as root '{root}'");
-
-    Ok(PathBuf::from(socket))
+    Ok((auth, socket))
 }
 
 pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
@@ -154,30 +324,82 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         eprintln!("[aeqi-mcp] agent scope: {name}");
     }
 
-    // Prefer the local daemon socket when it is present. That keeps the
-    // MCP server usable for self-hosted and development runs even when
-    // hosted auth env vars are set in the shell. Only fall back to hosted
-    // validation when the local socket is absent.
+    // Hosted/platform keys get first chance so local dogfood and hosted
+    // SaaS share the same actor envelope. Self-hosted runtimes without a
+    // platform key still use the local socket as an operator boundary.
     let local_sock = config.data_dir().join("rm.sock");
-    let sock_path = if local_sock.exists() {
+    let hosted_auth = if let Ok(secret_key) = std::env::var("AEQI_SECRET_KEY") {
+        let api_key = std::env::var("AEQI_API_KEY").ok();
+        let platform_url = std::env::var("AEQI_PLATFORM_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
+        match validate_api_key(&secret_key, api_key.as_deref(), &platform_url) {
+            Ok(auth) => Some(auth),
+            Err(e) if local_sock.exists() => {
+                eprintln!(
+                    "[aeqi-mcp] platform validation failed; falling back to local socket: {e}"
+                );
+                None
+            }
+            Err(e) => return Err(e),
+        }
+    } else {
+        None
+    };
+
+    let (mut auth_context, sock_path) = if let Some(auth) = hosted_auth {
+        auth
+    } else if local_sock.exists() {
         eprintln!(
             "[aeqi-mcp] using local daemon socket {}",
             local_sock.display()
         );
-        local_sock
-    } else if let Ok(secret_key) = std::env::var("AEQI_SECRET_KEY") {
-        let api_key = std::env::var("AEQI_API_KEY").ok();
-        let platform_url = std::env::var("AEQI_PLATFORM_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
-        validate_api_key(&secret_key, api_key.as_deref(), &platform_url)?
+        (
+            McpAuthContext::local(&local_sock, agent_name.as_deref()),
+            local_sock,
+        )
     } else {
         anyhow::bail!(
             "no local daemon socket at {} and AEQI_SECRET_KEY is unset",
             local_sock.display()
         );
     };
+    if auth_context.mode == "platform" {
+        for project in &config.agent_spawns {
+            if !auth_context
+                .allowed_roots
+                .iter()
+                .any(|p| p == &project.name)
+            {
+                auth_context.allowed_roots.push(project.name.clone());
+            }
+        }
+    }
+
+    let call_ipc = |request: &serde_json::Value| -> Result<serde_json::Value> {
+        let mut request = request.clone();
+        let enforce_legacy_tenancy = matches!(
+            std::env::var("AEQI_MCP_ENFORCE_TENANCY").ok().as_deref(),
+            Some("1" | "true" | "yes")
+        );
+        auth_context.apply_to_ipc(&mut request, enforce_legacy_tenancy);
+        ipc_request_sync(&sock_path, &request)
+    };
 
     let tools = vec![
+        ToolDef {
+            name: "me".to_string(),
+            description: "Return the authenticated MCP actor, entity scope, runtime transport, and tenancy envelope. This is the canonical first call for checking whether MCP is acting as a user principal, local operator, or future agent principal.".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["profile", "permissions"],
+                        "description": "profile returns actor/runtime metadata. permissions returns the same envelope plus grants when available."
+                    }
+                }
+            }),
+        },
         // ── Ideas (unified: store | search | update | delete) ───────────────
         ToolDef {
             name: "ideas".to_string(),
@@ -356,6 +578,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         "version": "5.0.0",
                         "agent": agent_name.as_deref().unwrap_or("default"),
                         "agent_id": agent_id.as_deref().unwrap_or(""),
+                        "actor": auth_context.actor,
+                        "root": auth_context.root,
+                        "mode": auth_context.mode,
                     }
                 })),
                 error: None,
@@ -376,6 +601,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 let args = request.params.get("arguments").cloned().unwrap_or_default();
 
                 let result = match tool_name {
+                    "me" => {
+                        let _action = args
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("profile");
+                        Ok(auth_context.public_json())
+                    }
+
                     // ── Ideas (unified) ────────────────────────────
                     "ideas" => {
                         let action = args
@@ -391,7 +624,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 {
                                     ipc["agent_id"] = serde_json::json!(aid);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "search" => {
                                 let query =
@@ -422,7 +655,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(v) = args.get("include_superseded") {
                                     ipc["include_superseded"] = v.clone();
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "update" => {
                                 let mut ipc = serde_json::json!({
@@ -439,17 +672,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(tags) = args.get("tags") {
                                     ipc["tags"] = tags.clone();
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "delete" => {
                                 let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "delete_idea",
-                                        "id": id,
-                                    }),
-                                )
+                                call_ipc(&serde_json::json!({
+                                    "cmd": "delete_idea",
+                                    "id": id,
+                                }))
                             }
                             "link" => {
                                 // Programmatic typed-edge creation. Body-parsed
@@ -466,7 +696,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                                 // Recall cache lives daemon-side now; the daemon
                                 // invalidates it on any write (link_idea included).
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "feedback" => {
                                 let mut ipc = serde_json::json!({
@@ -483,7 +713,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(ref aid) = agent_id {
                                     ipc["agent_id"] = serde_json::json!(aid);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "walk" => {
                                 // Multi-hop graph traversal. The daemon
@@ -510,7 +740,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 {
                                     ipc["agent_id"] = serde_json::json!(aid);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             _ => Err(anyhow::anyhow!(
                                 "unknown ideas action: {action}. Use: store, search, update, delete, link, feedback, walk"
@@ -541,7 +771,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     ipc["depends_on"] =
                                         serde_json::json!([dep.as_str().unwrap_or("")]);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "list" => {
                                 let mut ipc = serde_json::json!({
@@ -557,16 +787,13 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 } else if let Some(ref aname) = agent_name {
                                     ipc["agent"] = serde_json::json!(aname);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
-                            "show" => ipc_request_sync(
-                                &sock_path,
-                                &serde_json::json!({
-                                    "cmd": "get_quest",
-                                    "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
-                                }),
-                            ),
+                            "show" => call_ipc(&serde_json::json!({
+                                "cmd": "get_quest",
+                                "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
+                                "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                            })),
                             "update" => {
                                 let mut ipc = serde_json::json!({
                                     "cmd": "update_quest",
@@ -579,7 +806,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(priority) = args.get("priority") {
                                     ipc["priority"] = priority.clone();
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "close" => {
                                 let _project = args
@@ -597,7 +824,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 ipc["cmd"] = serde_json::json!("close_quest");
 
                                 // Enrich: check if review was posted for this quest
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "cancel" => {
                                 let quest_id =
@@ -606,16 +833,13 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .get("reason")
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("Cancelled");
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "update_quest",
-                                        "quest_id": quest_id,
-                                        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
-                                        "status": "cancelled",
-                                        "reason": reason,
-                                    }),
-                                )
+                                call_ipc(&serde_json::json!({
+                                    "cmd": "update_quest",
+                                    "quest_id": quest_id,
+                                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                                    "status": "cancelled",
+                                    "reason": reason,
+                                }))
                             }
                             _ => Err(anyhow::anyhow!(
                                 "unknown quests action: {action}. Use: create, list, show, update, close, cancel"
@@ -637,29 +861,21 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                     .or(agent_name.as_deref())
                                     .unwrap_or("");
                                 // Fetch agent info.
-                                let agent_resp = ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "agent_info",
-                                        "name": agent_hint,
-                                    }),
-                                );
+                                let agent_resp = call_ipc(&serde_json::json!({
+                                    "cmd": "agent_info",
+                                    "name": agent_hint,
+                                }));
                                 // Fetch assembled ideas for on_session_start — reuses the
                                 // read-only trigger_event path (no record_fire, same as preflight).
                                 // The old "assemble_ideas" cmd never had a daemon handler, so this
                                 // field silently came back empty despite the tool advertising it.
-                                let ideas_resp = ipc_request_sync(
-                                    &sock_path,
-                                    &agents_get_context_ipc_request(agent_hint),
-                                );
+                                let ideas_resp =
+                                    call_ipc(&agents_get_context_ipc_request(agent_hint));
                                 // Fetch agent's events.
-                                let events_resp = ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "list_events",
-                                        "agent": agent_hint,
-                                    }),
-                                );
+                                let events_resp = call_ipc(&serde_json::json!({
+                                    "cmd": "list_events",
+                                    "agent": agent_hint,
+                                }));
                                 let mut result = agent_resp.unwrap_or_else(|_| {
                                     serde_json::json!({"ok": false, "error": "agent not found"})
                                 });
@@ -688,26 +904,23 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 {
                                     ipc["parent_agent_id"] = serde_json::json!(parent);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "retire" => {
                                 let agent_hint =
                                     args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "agent_set_status",
-                                        "name": agent_hint,
-                                        "status": "retired",
-                                    }),
-                                )
+                                call_ipc(&serde_json::json!({
+                                    "cmd": "agent_set_status",
+                                    "name": agent_hint,
+                                    "status": "retired",
+                                }))
                             }
                             "list" => {
                                 let mut ipc = serde_json::json!({"cmd": "agents_registry"});
                                 if let Some(status) = args.get("status").and_then(|v| v.as_str()) {
                                     ipc["status"] = serde_json::json!(status);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "projects" => {
                                 let projects: Vec<serde_json::Value> = config
@@ -772,7 +985,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(idea_ids) = args.get("idea_ids") {
                                     ipc["idea_ids"] = idea_ids.clone();
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "list" => {
                                 let mut ipc = serde_json::json!({"cmd": "list_events"});
@@ -781,30 +994,24 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 } else if let Some(ref aname) = agent_name {
                                     ipc["agent"] = serde_json::json!(aname);
                                 }
-                                ipc_request_sync(&sock_path, &ipc)
+                                call_ipc(&ipc)
                             }
                             "enable" | "disable" => {
                                 let event_id =
                                     args.get("event_id").and_then(|v| v.as_str()).unwrap_or("");
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "update_event",
-                                        "event_id": event_id,
-                                        "enabled": action == "enable",
-                                    }),
-                                )
+                                call_ipc(&serde_json::json!({
+                                    "cmd": "update_event",
+                                    "event_id": event_id,
+                                    "enabled": action == "enable",
+                                }))
                             }
                             "delete" => {
                                 let event_id =
                                     args.get("event_id").and_then(|v| v.as_str()).unwrap_or("");
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "delete_event",
-                                        "event_id": event_id,
-                                    }),
-                                )
+                                call_ipc(&serde_json::json!({
+                                    "cmd": "delete_event",
+                                    "event_id": event_id,
+                                }))
                             }
                             "trigger" => {
                                 let agent = args
@@ -823,14 +1030,11 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                         .unwrap_or("session:start")
                                         .to_string()
                                 };
-                                ipc_request_sync(
-                                    &sock_path,
-                                    &serde_json::json!({
-                                        "cmd": "trigger_event",
-                                        "agent": agent,
-                                        "pattern": pattern,
-                                    }),
-                                )
+                                call_ipc(&serde_json::json!({
+                                    "cmd": "trigger_event",
+                                    "agent": agent,
+                                    "pattern": pattern,
+                                }))
                             }
                             "trace" => {
                                 // Two modes:
@@ -839,13 +1043,10 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 if let Some(inv_id) =
                                     args.get("invocation_id").and_then(|v| v.as_i64())
                                 {
-                                    ipc_request_sync(
-                                        &sock_path,
-                                        &serde_json::json!({
-                                            "cmd": "trace_events",
-                                            "invocation_id": inv_id,
-                                        }),
-                                    )
+                                    call_ipc(&serde_json::json!({
+                                        "cmd": "trace_events",
+                                        "invocation_id": inv_id,
+                                    }))
                                 } else {
                                     let session_id = args
                                         .get("session_id")
@@ -853,14 +1054,11 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                         .unwrap_or("");
                                     let limit =
                                         args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50);
-                                    ipc_request_sync(
-                                        &sock_path,
-                                        &serde_json::json!({
-                                            "cmd": "trace_events",
-                                            "session_id": session_id,
-                                            "limit": limit,
-                                        }),
-                                    )
+                                    call_ipc(&serde_json::json!({
+                                        "cmd": "trace_events",
+                                        "session_id": session_id,
+                                        "limit": limit,
+                                    }))
                                 }
                             }
                             _ => Err(anyhow::anyhow!(
@@ -1194,5 +1392,102 @@ mod tests {
         assert_eq!(req["cmd"], "trigger_event");
         assert_eq!(req["pattern"], "session:start");
         assert_eq!(req["agent"], "worker-1");
+    }
+
+    #[test]
+    fn platform_auth_context_parses_current_validate_shape() {
+        let parsed = serde_json::json!({
+            "ok": true,
+            "root": "entity-1",
+            "user_id": "user-1",
+            "runtime": {
+                "type": "host",
+                "socket": "/tmp/aeqi.sock",
+                "host": "127.0.0.1",
+                "port": 8502
+            }
+        });
+
+        let (auth, socket) = McpAuthContext::from_platform_response(&parsed).unwrap();
+
+        assert_eq!(socket, PathBuf::from("/tmp/aeqi.sock"));
+        assert_eq!(auth.mode, "platform");
+        assert_eq!(auth.root.as_deref(), Some("entity-1"));
+        assert_eq!(auth.entity_id.as_deref(), Some("entity-1"));
+        assert_eq!(auth.user_id.as_deref(), Some("user-1"));
+        assert_eq!(auth.allowed_roots, vec!["entity-1"]);
+        assert_eq!(auth.actor.kind, "user");
+        assert_eq!(auth.actor.user_id.as_deref(), Some("user-1"));
+        assert_eq!(auth.actor.entity_id.as_deref(), Some("entity-1"));
+    }
+
+    #[test]
+    fn platform_auth_context_preserves_expanded_actor_shape() {
+        let parsed = serde_json::json!({
+            "ok": true,
+            "entity_id": "company-1",
+            "user_id": "user-1",
+            "allowed_roots": ["company-1", "project-a"],
+            "actor": {
+                "kind": "user",
+                "user_id": "user-1",
+                "entity_id": "company-1",
+                "roles": ["Director"],
+                "grants": ["*"]
+            },
+            "runtime": {
+                "type": "host",
+                "socket": "/tmp/aeqi.sock"
+            }
+        });
+
+        let (auth, _) = McpAuthContext::from_platform_response(&parsed).unwrap();
+
+        assert_eq!(auth.allowed_roots, vec!["company-1", "project-a"]);
+        assert_eq!(auth.actor.roles, vec!["Director"]);
+        assert_eq!(auth.actor.grants, vec!["*"]);
+    }
+
+    #[test]
+    fn auth_context_injects_actor_into_ipc_request() {
+        let parsed = serde_json::json!({
+            "ok": true,
+            "root": "entity-1",
+            "user_id": "user-1",
+            "runtime": {
+                "type": "host",
+                "socket": "/tmp/aeqi.sock"
+            }
+        });
+        let (auth, _) = McpAuthContext::from_platform_response(&parsed).unwrap();
+        let mut request = serde_json::json!({"cmd": "create_quest", "project": "aeqi"});
+
+        auth.apply_to_ipc(&mut request, true);
+
+        assert_eq!(request["caller_user_id"], "user-1");
+        assert_eq!(request["caller_entity_id"], "entity-1");
+        assert_eq!(request["allowed_roots"], serde_json::json!(["entity-1"]));
+        assert_eq!(request["actor"]["kind"], "user");
+        assert_eq!(request["actor"]["user_id"], "user-1");
+    }
+
+    #[test]
+    fn auth_context_leaves_legacy_tenancy_off_by_default() {
+        let parsed = serde_json::json!({
+            "ok": true,
+            "root": "entity-1",
+            "user_id": "user-1",
+            "runtime": {
+                "type": "host",
+                "socket": "/tmp/aeqi.sock"
+            }
+        });
+        let (auth, _) = McpAuthContext::from_platform_response(&parsed).unwrap();
+        let mut request = serde_json::json!({"cmd": "quests", "project": "aeqi"});
+
+        auth.apply_to_ipc(&mut request, false);
+
+        assert_eq!(request["actor"]["user_id"], "user-1");
+        assert!(request.get("allowed_roots").is_none());
     }
 }
