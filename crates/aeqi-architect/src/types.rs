@@ -20,9 +20,8 @@ pub struct Brief {
     /// orchestrator IPC layer, not here).
     pub text: String,
 
-    /// Caller-supplied hint about whether the founder wants a single
-    /// company or a multi-company stack. Phase 1 always produces
-    /// `kind = "single"`. Phase 2 uses this to bias the generator.
+    /// Caller-supplied hint about the desired output shape. Phase 1
+    /// always produces `kind = "single"`.
     #[serde(default)]
     pub target_kind: Option<TargetKind>,
 
@@ -38,8 +37,6 @@ pub struct Brief {
 pub enum TargetKind {
     /// One Blueprint → one Company.
     Single,
-    /// One StackBlueprint → many Companies + edges. Phase 2.
-    Stack,
 }
 
 /// What the architect returns. The `blueprint` field is a JSON document

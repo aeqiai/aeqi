@@ -6,8 +6,8 @@ import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import BlueprintsPage from "@/pages/BlueprintsPage";
 import BlueprintDetailPage from "@/pages/BlueprintDetailPage";
 import { api } from "@/lib/api";
-import type { SingleBlueprint, StackBlueprint } from "@/lib/types";
-import { isSingleBlueprint, isStackBlueprint } from "@/lib/types";
+import type { SingleBlueprint } from "@/lib/types";
+import { isSingleBlueprint } from "@/lib/types";
 
 const SOLO: SingleBlueprint = {
   slug: "solo-founder",
@@ -27,49 +27,16 @@ const SOLO: SingleBlueprint = {
   seed_quests: [{ subject: "Write the one-liner", priority: "high" }],
 };
 
-const STACK: StackBlueprint = {
-  kind: "stack",
-  id: "holdco-portfolio",
-  name: "Holdco Portfolio",
-  tagline: "Parent entity with two subsidiaries wired for treasury flows.",
-  description: "A holding company with two portfolio subsidiaries and governance edges.",
-  umbrella_slot: "holdco",
-  component_count: 3,
-  edge_count: 2,
-  components: [
-    { slot: "holdco", blueprint_id: "solo-founder", display_name_default: "HoldCo" },
-    { slot: "sub-a", blueprint_id: "solo-founder", display_name_default: "Sub Alpha" },
-    { slot: "sub-b", blueprint_id: "solo-founder", display_name_default: "Sub Beta" },
-  ],
-};
-
 // ── Type discriminator unit tests ────────────────────────────────────
 
 describe("Blueprint discriminated union", () => {
   it("isSingleBlueprint returns true for SingleBlueprint with no kind", () => {
     expect(isSingleBlueprint(SOLO)).toBe(true);
-    expect(isStackBlueprint(SOLO)).toBe(false);
   });
 
   it("isSingleBlueprint returns true for SingleBlueprint with kind='single'", () => {
     const withKind: SingleBlueprint = { ...SOLO, kind: "single" };
     expect(isSingleBlueprint(withKind)).toBe(true);
-    expect(isStackBlueprint(withKind)).toBe(false);
-  });
-
-  it("isStackBlueprint returns true for StackBlueprint with kind='stack'", () => {
-    expect(isStackBlueprint(STACK)).toBe(true);
-    expect(isSingleBlueprint(STACK)).toBe(false);
-  });
-
-  it("discriminator filters correctly over a mixed array", () => {
-    const mixed = [SOLO, STACK];
-    const singles = mixed.filter(isSingleBlueprint);
-    const stacks = mixed.filter(isStackBlueprint);
-    expect(singles).toHaveLength(1);
-    expect(stacks).toHaveLength(1);
-    expect(singles[0]).toMatchObject({ slug: "solo-founder" });
-    expect(stacks[0]).toMatchObject({ id: "holdco-portfolio" });
   });
 });
 

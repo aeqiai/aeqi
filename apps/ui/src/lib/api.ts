@@ -17,7 +17,6 @@ import type {
   RoleType,
   Quest,
   ScopeValue,
-  StackProvisionResult,
 } from "@/lib/types";
 import type { AllowedChat } from "@/api/channels";
 export { RateLimitedError };
@@ -714,20 +713,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ display_name }),
     }),
-
-  // Stack blueprint provisioning — spawns N companies in dependency order.
-  // `names` maps slot → display_name; falls back to component defaults.
-  // Partial success: ok:true even when some components fail. Check each
-  // component's status field. Requires active subscription or invite tier.
-  startStack: (data: { stack_id: string; names: Record<string, string> }) =>
-    request<StackProvisionResult>("/start/stack", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  // Fetch full stack blueprint detail by id (includes all components + edges).
-  getStack: (id: string) =>
-    request<{ ok: boolean; stack: unknown }>(`/stacks/${encodeURIComponent(id)}`),
 
   spawnAgent: (data: {
     name: string;

@@ -2,13 +2,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactEle
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
-import type { Blueprint, BlueprintCategory, SingleBlueprint, StackBlueprint } from "@/lib/types";
-import { isSingleBlueprint, isStackBlueprint } from "@/lib/types";
-import { Button, Card, Popover, Spinner, Tooltip } from "@/components/ui";
+import type { Blueprint, BlueprintCategory, SingleBlueprint } from "@/lib/types";
+import { isSingleBlueprint } from "@/lib/types";
+import { Button, Popover, Spinner, Tooltip } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { BlueprintCard } from "@/components/blueprints/BlueprintCard";
-import { StackWizard } from "@/components/StackWizard";
 import { parseTags, serializeTags } from "@/components/ideas/types";
 import "@/styles/templates.css";
 import "@/styles/blueprints-store.css";
@@ -90,8 +89,6 @@ export default function BlueprintsPage() {
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [wizardStack, setWizardStack] = useState<StackBlueprint | null>(null);
-
   const query = searchParams.get("q") || "";
   const sortRaw = searchParams.get("sort");
   const sort: Sort = SORT_VALUES.has(sortRaw as Sort) ? (sortRaw as Sort) : "recent";
@@ -186,8 +183,6 @@ export default function BlueprintsPage() {
     [query],
   );
 
-  // Separate stacks from singles up front.
-  const stackBlueprints = useMemo(() => blueprints.filter(isStackBlueprint), [blueprints]);
   const singleBlueprints = useMemo(
     () => blueprints.filter(isSingleBlueprint) as SingleBlueprint[],
     [blueprints],
@@ -213,7 +208,6 @@ export default function BlueprintsPage() {
   );
 
   // Global filtered list respecting search + tag + optional category filter.
-  // Operates on single blueprints only; stacks have their own section.
   const filtered = useMemo(() => {
     if (activeKind !== "companies") return [] as SingleBlueprint[];
     let out = singleBlueprints.filter(
@@ -427,10 +421,6 @@ export default function BlueprintsPage() {
             </div>
           ) : (
             <div className="bp-catalog-sections">
-              {/* Stack templates section — shown above category sections when stacks exist */}
-              {!isImportMode && stackBlueprints.length > 0 && (
-                <StackSection stacks={stackBlueprints} onLaunch={setWizardStack} />
-              )}
               {CATEGORY_ORDER.map((cat) => {
                 const bucket = grouped.get(cat) ?? [];
                 const isActiveFilter = activeCategory === cat;
@@ -451,14 +441,6 @@ export default function BlueprintsPage() {
           )}
         </div>
       </main>
-
-      {wizardStack && (
-        <StackWizard
-          stack={wizardStack}
-          open={!!wizardStack}
-          onClose={() => setWizardStack(null)}
-        />
-      )}
     </div>
   );
 }
@@ -544,85 +526,6 @@ function BlueprintCategorySection({
         </div>
       )}
     </section>
-  );
-}
-
-/* ── Stack section ────────────────────────────────────── */
-
-interface StackSectionProps {
-  stacks: StackBlueprint[];
-  onLaunch: (stack: StackBlueprint) => void;
-}
-
-function StackSection({ stacks, onLaunch }: StackSectionProps) {
-  return (
-    <section className="bp-category-section">
-      <header className="bp-category-header">
-        <div className="bp-category-header-main">
-          <span className="bp-category-name" style={{ cursor: "default" }}>
-            Multi-company stacks
-          </span>
-          <span className="bp-category-count">{stacks.length}</span>
-          <span className="bp-category-desc">
-            Deploy N companies + cross-company edges in one flow
-          </span>
-        </div>
-      </header>
-      <div className="bp-grid" role="list">
-        {stacks.map((s) => (
-          <StackCard key={s.id} stack={s} onLaunch={onLaunch} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-interface StackCardProps {
-  stack: StackBlueprint;
-  onLaunch: (stack: StackBlueprint) => void;
-}
-
-function StackCard({ stack, onLaunch }: StackCardProps) {
-  const componentLabel = `${stack.component_count} ${stack.component_count === 1 ? "company" : "companies"}`;
-  const edgeLabel =
-    stack.edge_count > 0
-      ? ` · ${stack.edge_count} ${stack.edge_count === 1 ? "edge" : "edges"}`
-      : "";
-
-  return (
-    <button
-      type="button"
-      className="bp-card-link bp-stack-card-btn"
-      role="listitem"
-      aria-label={`${stack.name} stack — ${stack.tagline}`}
-      onClick={() => onLaunch(stack)}
-    >
-      <Card variant="default" padding="md" interactive className="bp-card">
-        <h3 className="bp-card-name">{stack.name}</h3>
-        {stack.tagline && <p className="bp-card-tagline">{stack.tagline}</p>}
-        <div className="bp-card-inclusions">
-          <div className="bp-card-inclusion-row">
-            <span className="bp-card-inclusion-label">Contains</span>
-            <span className="bp-card-inclusion-value">
-              {componentLabel}
-              {edgeLabel}
-            </span>
-          </div>
-          {stack.components.length > 0 && (
-            <div className="bp-card-inclusion-row">
-              <span className="bp-card-inclusion-label">Layout</span>
-              <span className="bp-card-inclusion-value">
-                {stack.umbrella_slot && `${stack.umbrella_slot} → `}
-                {stack.components
-                  .filter((c) => c.slot !== stack.umbrella_slot)
-                  .map((c) => c.slot)
-                  .join(", ")}
-              </span>
-            </div>
-          )}
-        </div>
-      </Card>
-    </button>
   );
 }
 
