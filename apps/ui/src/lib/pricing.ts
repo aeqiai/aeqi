@@ -60,7 +60,12 @@ export const LAUNCH_PLANS: LaunchPlan[] = [
     cadence: "/mo",
     intro: "Launch month included.",
     blurb: "For a focused organization with one clear operating lane.",
-    features: ["1 organization", "Core agent runtime", "Ownership + governance"],
+    features: [
+      "1 organization",
+      "$25/mo inference credit",
+      "4 vCPU runtime",
+      "Ownership + governance",
+    ],
   },
   {
     id: "growth",
@@ -69,7 +74,12 @@ export const LAUNCH_PLANS: LaunchPlan[] = [
     cadence: "/mo",
     intro: "$69 first month.",
     blurb: "For heavier execution, more agents, and broader coordination.",
-    features: ["More agents", "Higher usage", "Priority execution"],
+    features: [
+      "Everything in Standard",
+      "8 vCPU runtime",
+      "Higher inference budget",
+      "Priority runs",
+    ],
     recommended: true,
   },
 ];

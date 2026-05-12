@@ -286,10 +286,26 @@
   flex-direction: column;
 }
 
+.launch-blueprint-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  background: linear-gradient(180deg, var(--color-card), var(--color-card-elevated));
+}
+
+.launch-blueprint-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 .launch-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  background: linear-gradient(180deg, var(--color-card), var(--color-card-elevated));
 }
 
 .launch-card-head {
@@ -346,12 +362,7 @@
 
 .launch-plan-card {
   text-align: left;
-}
-
-.launch-cta-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  min-height: 100%;
 }
 
 .launch-side-card {
@@ -362,6 +373,12 @@
   top: var(--space-6);
   background: linear-gradient(180deg, var(--color-card-elevated), var(--color-card));
   box-shadow: var(--shadow-sm);
+}
+
+.launch-side-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .launch-side-title {
@@ -413,25 +430,24 @@
   color: var(--color-text-primary);
 }
 
-.launch-side-actions {
+.launch-footer {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--color-card), var(--color-card-elevated));
+  box-shadow: var(--shadow-sm);
 }
 
-.launch-side-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  background: var(--color-background);
+.launch-footer .start-help {
+  max-width: 68ch;
+}
+
+.launch-footer .button {
+  min-width: 260px;
 }
 
 .launch-provisioning-card {
@@ -981,14 +997,17 @@
   text-align: left;
   cursor: pointer;
   transition: background 0.12s ease;
+  border: 1px solid var(--color-border);
 }
 .plan-card:hover {
   background: var(--color-card-elevated, var(--bg-surface));
 }
 .plan-card--selected {
   background: var(--color-card-elevated, var(--bg-surface));
-  outline: 2px solid var(--color-text-primary);
-  outline-offset: -2px;
+  border-color: var(--color-text-primary);
+  box-shadow:
+    0 0 0 1px var(--color-text-primary) inset,
+    0 16px 40px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 .plan-card-name {
   font-family: var(--font-sans);
@@ -998,9 +1017,10 @@
 }
 .plan-card-price {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-bottom: 0;
 }
 .plan-card-price-amount {
   font-family: var(--font-sans);
@@ -1015,15 +1035,26 @@
   color: var(--color-text-muted);
   text-transform: lowercase;
 }
+.plan-card-price-note {
+  margin: -2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.plan-card-price-note strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
 .plan-card-blurb {
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--color-text-secondary);
   line-height: 1.45;
+  margin: 0;
 }
 .plan-card-features {
   list-style: none;
-  margin: var(--space-2) 0 0;
+  margin: var(--space-1) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;

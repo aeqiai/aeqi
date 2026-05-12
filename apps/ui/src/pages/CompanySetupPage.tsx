@@ -4,7 +4,7 @@ import { api, ApiError } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
 import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
 import { entityPath } from "@/lib/entityPath";
-import { DEFAULT_LAUNCH_PLAN, LAUNCH_PLANS, type LaunchPlanId } from "@/lib/pricing";
+import { DEFAULT_LAUNCH_PLAN, LAUNCH_PLANS, RESOURCE_PACK, type LaunchPlanId } from "@/lib/pricing";
 import { RECOMMENDED_BLUEPRINTS } from "@/lib/recommendedBlueprints";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
@@ -277,17 +277,11 @@ export default function CompanySetupPage() {
     <div className="launch-page">
       <header className="launch-head">
         <div className="launch-head-copy">
-          <p className="start-eyebrow">Launch · {blueprint.name}</p>
-          <h1 className="page-title">Launch your organization.</h1>
+          <p className="start-eyebrow">Launch · first organization</p>
+          <h1 className="page-title">Launch your first AI-native organization.</h1>
           <p className="start-sub">
-            Name it, write the mission, pick Standard or Pro, then launch. Payment happens before
-            the organization is created.
+            Create the workspace where agents, ownership, treasury, and governance live together.
           </p>
-        </div>
-        <div className="launch-head-actions">
-          <Link to="/blueprints" className="start-secondary-link">
-            Browse blueprints
-          </Link>
         </div>
       </header>
 
@@ -305,19 +299,25 @@ export default function CompanySetupPage() {
 
       <section className="launch-grid">
         <div className="launch-main">
-          <Card variant="default" padding="lg" className="launch-card">
-            <div className="launch-card-head">
+          <Card variant="default" padding="lg" className="launch-blueprint-card">
+            <div className="launch-blueprint-head">
               <div>
-                <p className="start-section-kicker">Selected blueprint</p>
+                <p className="start-section-kicker">1. Selected blueprint</p>
                 <h2 className="start-section-title">{blueprint.name}</h2>
                 <p className="start-sub">{blueprint.tagline || blueprint.description || ""}</p>
               </div>
-              <Link
-                to={`/blueprints/${encodeURIComponent(blueprintId(blueprint))}`}
-                className="launch-blueprint-link"
-              >
-                Open blueprint →
+              <Link to="/blueprints" className="launch-blueprint-link">
+                Change blueprint
               </Link>
+            </div>
+          </Card>
+
+          <Card variant="default" padding="lg" className="launch-card">
+            <div className="launch-card-head">
+              <div>
+                <p className="start-section-kicker">2. Define the organization</p>
+                <h3 className="start-section-title">Name it and give it a mission.</h3>
+              </div>
             </div>
 
             <div className="launch-fields">
@@ -343,15 +343,18 @@ export default function CompanySetupPage() {
 
             <div className="launch-plan-head">
               <div>
-                <p className="start-section-kicker">Plan</p>
+                <p className="start-section-kicker">3. Choose your execution tier</p>
                 <h3 className="start-section-title">Pick the launch tier.</h3>
               </div>
-              <p className="start-help">Pro is recommended for the first launch.</p>
+              <p className="start-help">
+                Pro is recommended if you want more agents and higher execution from day one.
+              </p>
             </div>
 
             <div className="plan-grid launch-plan-grid" role="list" aria-label="Launch plans">
               {LAUNCH_PLANS.map((item) => {
                 const selected = item.id === plan;
+                const isGrowth = item.id === "growth";
                 return (
                   <button
                     key={item.id}
@@ -365,9 +368,19 @@ export default function CompanySetupPage() {
                     {item.recommended && <span className="plan-card-badge">Recommended</span>}
                     <div className="plan-card-name">{item.name}</div>
                     <div className="plan-card-price">
-                      <span className="plan-card-price-amount">{item.price}</span>
-                      <span className="plan-card-price-cadence">{item.cadence}</span>
+                      <span className="plan-card-price-amount">
+                        {isGrowth ? "$69" : item.price}
+                      </span>
+                      <span className="plan-card-price-cadence">
+                        {isGrowth ? "first month" : item.cadence}
+                      </span>
                     </div>
+                    {isGrowth && (
+                      <p className="plan-card-price-note">
+                        then <strong>{item.price}</strong>
+                        {item.cadence}
+                      </p>
+                    )}
                     <p className="plan-card-blurb">
                       {item.intro} {item.blurb}
                     </p>
@@ -385,13 +398,15 @@ export default function CompanySetupPage() {
 
         <aside className="launch-side">
           <Card variant="default" padding="lg" className="launch-side-card">
-            <p className="start-section-kicker">Launch preview</p>
-            <h2 className="launch-side-title">{organizationName.trim() || blueprint.name}</h2>
-            <p className="launch-side-sub">
-              {mission.trim() ||
-                blueprint.tagline ||
-                "This organization will be created from the selected blueprint."}
-            </p>
+            <div className="launch-side-head">
+              <p className="start-section-kicker">Launch summary</p>
+              <h2 className="launch-side-title">{organizationName.trim() || blueprint.name}</h2>
+              <p className="launch-side-sub">
+                {mission.trim() ||
+                  blueprint.tagline ||
+                  "This organization will be created from the selected blueprint."}
+              </p>
+            </div>
 
             <dl className="launch-summary">
               <div>
@@ -405,33 +420,48 @@ export default function CompanySetupPage() {
                 </dd>
               </div>
               <div>
-                <dt>Payment</dt>
-                <dd>Collected before the organization is created.</dd>
+                <dt>Due today</dt>
+                <dd>{selectedLaunchPlan.id === "growth" ? "$69" : "$49"}</dd>
+              </div>
+              <div>
+                <dt>Renews</dt>
+                <dd>{selectedLaunchPlan.id === "growth" ? "$149/mo" : "$49/mo"}</dd>
+              </div>
+              <div>
+                <dt>Inference</dt>
+                <dd>{RESOURCE_PACK.inferenceUsd} credit included</dd>
+              </div>
+              <div>
+                <dt>Runtime</dt>
+                <dd>
+                  {RESOURCE_PACK.cpu} · {RESOURCE_PACK.ram} · {RESOURCE_PACK.storage}
+                </dd>
+              </div>
+              <div>
+                <dt>State</dt>
+                <dd>Draft now, live after checkout succeeds.</dd>
               </div>
             </dl>
-
-            <div className="launch-side-actions">
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onClick={() => void handleLaunch()}
-                disabled={submitting || !organizationName.trim()}
-                loading={submitting}
-                loadingLabel="Launching"
-              >
-                {canSkipCheckout ? "Launch organization" : "Pay & launch organization"}
-              </Button>
-              <Link
-                to={`/blueprints/${encodeURIComponent(blueprintId(blueprint))}`}
-                className="launch-side-link"
-              >
-                Open blueprint →
-              </Link>
-            </div>
           </Card>
         </aside>
       </section>
+
+      <div className="launch-footer">
+        <p className="start-help">
+          No organization is created before payment succeeds. You can change tiers or switch
+          blueprints before launching.
+        </p>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => void handleLaunch()}
+          disabled={submitting || !organizationName.trim()}
+          loading={submitting}
+          loadingLabel="Launching"
+        >
+          {canSkipCheckout ? "Launch organization" : "Pay & launch organization"}
+        </Button>
+      </div>
     </div>
   );
 }
