@@ -48,7 +48,6 @@ const RESERVED_SLUGS = new Set([
   "start",
   "launch",
   "studio",
-  "economy",
   "blueprints",
   "signup",
   "login",
@@ -132,12 +131,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Wrapper for `/` (Economy front door) and `/blueprints` — both top-level
- * destinations that mount the app shell. Authed visitors hit the full
- * AppLayout, which dispatches the matching page from the URL. Unauthed
- * visitors bounce to /login — the public-marketing variants of these
- * surfaces are paused until they're production-ready; PublicLayout stays
- * in the tree for when we revive them.
+ * Wrapper for top-level app-shell destinations like `/launch` and
+ * `/blueprints`. Authed visitors hit the full AppLayout, which dispatches
+ * the matching page from the URL. Unauthed visitors bounce to /login — the
+ * public-marketing variants of these surfaces are paused until they're
+ * production-ready; PublicLayout stays in the tree for when we revive them.
  */
 function GatedAppShell() {
   const location = useLocation();
@@ -160,10 +158,10 @@ function GatedAppShell() {
  * the daily-action surface. Resolved at nav-time from the daemon
  * store: prefer the `host`-typed placement (the platform-owner
  * carve-out, per `architecture_user_account_is_company.md`); fall
- * back to `entities[0]`. Until entities load, render the Economy
- * shell so the user lands on something coherent rather than a
- * spinner. Unauthed visitors and `auth=none` mode see the
- * Economy/AppLayout dispatch via GatedAppShell.
+ * back to `entities[0]`. Until entities load, wait briefly rather than
+ * flashing another shell destination. If the user has no company yet,
+ * send them to the working launch flow. Unauthed visitors still bounce
+ * through the auth gate.
  */
 function RootRouteSwitch() {
   const authMode = useAuthStore((s) => s.authMode);
@@ -180,8 +178,8 @@ function RootRouteSwitch() {
   // The daemon store is normally hydrated by AppLayout's `fetchAll`
   // — but this branch fires BEFORE AppLayout mounts. Kick the
   // entities fetch ourselves so we can resolve a primary inbox URL
-  // for habitual users without falling through to the Economy front
-  // door first. No-op when entities are already cached.
+  // for habitual users without falling through to the launch surface first.
+  // No-op when entities are already cached.
   useEffect(() => {
     if (authMode && authMode !== "none" && token && !initialLoaded) {
       void fetchEntities();
@@ -196,11 +194,10 @@ function RootRouteSwitch() {
     if (primary) {
       return <Navigate to={entityPath(primary, "inbox")} replace />;
     }
-    // No entity yet — render the in-shell Economy front door so the
-    // user can pick / create one rather than dead-ending.
-    return <GatedAppShell />;
+    // No entity yet — MVP path is launch.
+    return <Navigate to="/launch" replace />;
   }
-  return <GatedAppShell />;
+  return <Navigate to="/launch" replace />;
 }
 
 // `/` is only the user-scope landing before an entity exists. Once an entity
@@ -315,20 +312,10 @@ export default function App() {
           {/* Public invitation accept page — no auth required to view */}
           <Route path="/invitations/:token" element={<InvitationAcceptPage />} />
 
-          {/* `/` is the Economy front door — rendered inside AppLayout
-              so the sidebar (with Economy lit) is always present. The
-              previous shell-rendered Inbox at `/` shifted to
-              `/trust/<addr>/inbox` (Phase-1 sidebar lock); authed
-              users hitting bare `/` resolve to their primary entity's
-              inbox via `RootRouteSwitch`. `/economy` is a public
-              surface (per project_public_app_surfaces.md) — it must
-              render for authed users too, NOT bounce to the inbox.
-              Mount it via GatedAppShell so unauthed visitors hit
-              /login and authed visitors land on the in-shell Economy
-              with the sidebar. */}
+          {/* Bare `/` resolves to the user's primary entity inbox when
+              they have one. Users without a company go straight to
+              `/launch`. */}
           <Route path="/" element={<RootRouteSwitch />} />
-          <Route path="/economy" element={<GatedAppShell />} />
-          <Route path="/economy/*" element={<GatedAppShell />} />
           <Route path="/studio" element={<Navigate to="/launch" replace />} />
           <Route path="/studio/*" element={<Navigate to="/launch" replace />} />
 

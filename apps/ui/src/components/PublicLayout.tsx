@@ -13,10 +13,11 @@ const iconProps = {
   strokeLinejoin: "round",
 } as const;
 
-const EconomyIcon = () => (
+const LaunchIcon = () => (
   <svg {...iconProps}>
-    <circle cx="8" cy="8" r="5.5" />
-    <path d="M8 8 L8 2.5 A5.5 5.5 0 0 1 13.5 8 Z" fill="currentColor" stroke="none" />
+    <path d="M3 12.5h10" />
+    <path d="M8 3v7" />
+    <path d="M5.5 7.5 8 10l2.5-2.5" />
   </svg>
 );
 
@@ -29,7 +30,7 @@ const PanelGlyph = () => (
 
 /**
  * Public shell for unauthed visitors. Mirrors LeftSidebar's silhouette:
- * wordmark in the company-switcher slot, Economy in the workspace nav,
+ * wordmark in the company-switcher slot, Launch in the workspace nav,
  * Log in / Sign up in the account slot. Same structure — no layout twitch
  * on the auth boundary.
  */
@@ -43,7 +44,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  const isEconomy = path === "/economy" || path.startsWith("/economy/");
+  const isLaunch = path === "/launch" || path.startsWith("/launch/");
 
   const here = location.pathname + location.search;
   const next = here === "/" ? "" : `?next=${encodeURIComponent(here)}`;
@@ -127,15 +128,15 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             </Tooltip>
           </div>
 
-          {/* ── Economy ── */}
+          {/* ── Launch ── */}
           <nav className="sidebar-surface-nav" aria-label="Platform">
             <Link
-              to="/economy"
-              className={`sidebar-nav-item ${isEconomy ? "active" : ""}`}
-              title="Economy"
+              to="/launch"
+              className={`sidebar-nav-item ${isLaunch ? "active" : ""}`}
+              title="Launch"
             >
-              <EconomyIcon />
-              <span className="sidebar-nav-label">Economy</span>
+              <LaunchIcon />
+              <span className="sidebar-nav-label">Launch</span>
             </Link>
           </nav>
 

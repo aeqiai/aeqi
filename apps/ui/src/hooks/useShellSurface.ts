@@ -8,15 +8,12 @@ import { useMemo } from "react";
  * inputs (path, tab), so a single `useMemo` is cheaper than the inline
  * derivations it replaces.
  *
- * Phase-1 sidebar lock: `/` is now the Economy front door and renders
- * inside this shell with the sidebar Economy row lit. Inbox moved to
- * `/c/<entity>/inbox` and routes through CompanyPage. The `isMyInbox`
- * flag is gone.
+ * Phase-1 sidebar lock: Inbox moved to `/c/<entity>/inbox` and routes
+ * through CompanyPage. The user-scope MVP entrypoint is now `/launch`.
  */
 export interface ShellSurface {
   /** True for all `/account/*` paths — ProfilePage dispatches further. */
   isAccount: boolean;
-  isEconomy: boolean;
   isBlueprints: boolean;
   /** `/launch` — company formation surface. Left composer + right canvas. */
   isLaunch: boolean;
@@ -24,7 +21,7 @@ export interface ShellSurface {
   isStart: boolean;
   /** True when the path doesn't match any known shell surface — drives the
    *  in-shell 404 dispatch. Stays false for `/me/...`, `/start`,
-   *  `/economy/...`, `/blueprints/...`, and `/c/:entityId/...`. */
+   *  `/launch/...`, `/blueprints/...`, and `/c/:entityId/...`. */
   isNotFound: boolean;
   /** `/admin` — operator dashboard. Backend gates on is_admin; the page
    *  itself returns null + bounces non-admins. */
@@ -41,11 +38,6 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     const isAdmin = path === "/admin" || path.startsWith("/admin/");
     // All /account/* paths are handled by ProfilePage.
     const isAccount = path === "/account" || path.startsWith("/account/");
-    // `/` is the canonical Economy URL — the front door of the app
-    // shell. `/economy` is kept as an alias and redirects to `/` in
-    // App.tsx, but the shell-side flag must match either path so the
-    // dispatch lands on EconomyPage in both cases.
-    const isEconomy = path === "/" || path === "/economy" || path.startsWith("/economy/");
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isLaunch = path === "/launch" || path.startsWith("/launch/");
     const isStart = path === "/start" || path.startsWith("/start/");
@@ -63,16 +55,14 @@ export function useShellSurface(path: string, tab: string | undefined): ShellSur
     // A path is "known" when it matches one of the registered shell
     // surfaces. Anything else is a 404 — including bogus top-level
     // segments (`/foo`) that would otherwise fall through to a stale
-    // active-entity render. `/` IS in this set: it's the Economy front
-    // door (isEconomy === true at `/`).
+    // active-entity render.
     const isCompanyRoute = /^\/c\/[^/]+(\/|$)/.test(path) || /^\/trust\/[^/]+(\/|$)/.test(path);
     const isKnownShellRoute =
-      isCompanyRoute || isAccount || isEconomy || isBlueprints || isLaunch || isStart || isAdmin;
+      isCompanyRoute || isAccount || isBlueprints || isLaunch || isStart || isAdmin;
     const isNotFound = !isKnownShellRoute;
 
     return {
       isAccount,
-      isEconomy,
       isBlueprints,
       isLaunch,
       isDrive,

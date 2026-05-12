@@ -67,14 +67,6 @@ const IdeasIcon = () => (
   </svg>
 );
 
-const EconomyIcon = () => (
-  <svg {...iconProps}>
-    <circle cx="8" cy="8" r="6" />
-    <ellipse cx="8" cy="8" rx="2.5" ry="6" />
-    <path d="M2 8h12" />
-  </svg>
-);
-
 // Stack of layered cards — Blueprints is the catalog of recipes, the
 // supply layer of the system. Three rounded rectangles, slightly offset.
 const BlueprintsIcon = () => (
@@ -214,7 +206,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
   const isCompanyOverview = !!base && path === base;
 
   // Top-level public rows.
-  const isDiscover = path === "/" || path === "/economy" || path.startsWith("/economy/");
   const isLaunch = path === "/launch" || path.startsWith("/launch/");
   const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isAdmin = path === "/admin" || path.startsWith("/admin/");
@@ -262,9 +253,9 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     );
   };
 
-  // Top-level (non-entity-scoped) row helper. Used for Economy /
-  // Blueprints / Account / Discover-anchor — paths that don't compose
-  // off `base`. Mirrors `navItem` but takes an explicit href.
+  // Top-level (non-entity-scoped) row helper. Used for Launch /
+  // Blueprints / Account — paths that don't compose off `base`.
+  // Mirrors `navItem` but takes an explicit href.
   const topLevelItem = (
     href: string,
     label: string,
@@ -344,20 +335,16 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Economy — sits ABOVE the CompanySwitcher. Public front
-            door at `/economy`. Search caps the row. The bare `/` resolves
-            via RootRouteSwitch to the user's inbox (authed) or login
-            (unauth) — that's why the sidebar links at `/economy` directly,
-            not at `/`, even though both render EconomyPage. ── */}
-        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Public">
-          {topLevelItem("/economy", "Economy", <EconomyIcon />, isDiscover, {
+        {/* ── Launch — MVP entrypoint above the CompanySwitcher.
+            Search caps the row so command discovery stays structural. ── */}
+        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Launch">
+          {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
-          {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch)}
         </nav>
 
-        {/* ── Workspace switcher — pivots between user-scope (Economy
-            row above) and the active company below. ── */}
+        {/* ── Workspace switcher — pivots between launch/user scope and
+            the active company below. ── */}
         <div className="sidebar-user-zone">
           <CompanySwitcher />
         </div>

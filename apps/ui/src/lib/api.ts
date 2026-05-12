@@ -644,24 +644,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Public economy discovery. Lists every Company with `public=true` on
-  // its placement — display_name + tagline + on-chain TRUST address. No
-  // auth required (this is the front door). Treasury / token / liquidity
-  // data is NOT returned today; the on-chain Solana modules backing those
-  // surfaces (aeqi_treasury, UniFutures, DEX adapter) are not deployed
-  // yet. When they ship, extend this payload.
-  listEconomy: () =>
-    request<{
-      entities: Array<{
-        entity_id: string;
-        agent_id: string | null;
-        display_name: string;
-        tagline: string | null;
-        trust_address: string | null;
-        created_at: string;
-      }>;
-    }>("/economy/list"),
-
   // Blueprints — pre-threaded company bundles. Spawn creates an entity
   // backed by a root agent today and returns the canonical entity id.
   getBlueprints: () => request<{ ok: boolean; blueprints: Blueprint[] }>("/blueprints"),

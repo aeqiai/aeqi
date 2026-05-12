@@ -316,8 +316,8 @@
      vertical inset (mirroring .content-column) so the profile row
      sits at the same y-coordinate as .content-card's top edge.
      Bottom 8px mirrors .sidebar-user-zone's own bottom inset so the
-     gap between profile and the Blueprints/Economy group below
-     matches the gap between every other group on the rail. */
+     gap between profile and the Launch group below matches the gap
+     between every other group on the rail. */
   padding: 0 8px 8px;
   box-sizing: border-box;
   flex-shrink: 0;
@@ -1073,7 +1073,7 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  /* 2px gap so adjacent hover boxes (Blueprints + Economy, or Inbox +
+  /* 2px gap so adjacent hover boxes (Launch + switcher, or Inbox +
      Settings) don't touch — without breathing room each row's hover
      bg merges into the next and the column reads as one solid block. */
   gap: 2px;
@@ -1184,8 +1184,8 @@
 }
 
 /* ── Public sidebar (unauthed) ──
-   Shares the rail's geometry: wordmark in the header, Blueprints +
-   Economy in the first nav zone, Sign in + Launch in a second zone
+   Shares the rail's geometry: wordmark in the header, Launch in the
+   first nav zone, Sign in / Sign up in the account zone
    (Sign in as a ghost row, Launch as the filled-graphite CTA that
    mirrors the landing page hero). Collapse toggle works the same as
    on the authed rail; collapsed state shows the brandmark on rest and
@@ -6348,7 +6348,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   border-radius: var(--radius-sm);
 }
 
-/* ── Bottom group — Economy + Account dropdown, pinned below the
+/* ── Bottom group — Blueprints + Account dropdown, pinned below the
    workspace nav. mt: auto pushes the group to the bottom of
    .left-sidebar-body so the chevron-up trigger always sits at the
    rail's foot regardless of how many workspace items are above. */
