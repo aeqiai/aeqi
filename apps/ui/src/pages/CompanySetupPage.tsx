@@ -317,23 +317,28 @@ export default function CompanySetupPage() {
           <Card variant="default" padding="lg" className="launch-card">
             <div className="launch-card-head">
               <div>
-                <p className="start-section-kicker">Name</p>
-                <h3 className="start-section-title">Give it a name and mission.</h3>
+                <p className="start-section-kicker">Identity</p>
+                <h3 className="start-section-title">Name it.</h3>
               </div>
             </div>
 
             <div className="launch-fields">
-              <label className="launch-field">
-                <span className="launch-field-label">Registered name</span>
+              <label className="launch-field launch-field--name">
+                <span className="launch-field-label">Organization name</span>
                 <Input
                   value={organizationName}
                   onChange={(e) => setOrganizationName(e.target.value)}
                   placeholder="The name on the charter"
+                  size="lg"
                 />
               </label>
 
+              <p className="launch-field-divider" aria-hidden="true">
+                Mission
+              </p>
+
               <label className="launch-field">
-                <span className="launch-field-label">Mission</span>
+                <span className="launch-field-label">What it is for</span>
                 <Textarea
                   value={mission}
                   onChange={(e) => setMission(e.target.value)}
@@ -341,54 +346,6 @@ export default function CompanySetupPage() {
                   placeholder="What should this organization accomplish?"
                 />
               </label>
-            </div>
-
-            <div className="launch-plan-head">
-              <div>
-                <p className="start-section-kicker">Capacity</p>
-                <h3 className="start-section-title">Standard or Pro.</h3>
-                <p className="start-sub">Pro gives 4x tokens and 4x runtime.</p>
-              </div>
-            </div>
-
-            <div className="plan-grid launch-plan-grid" role="list" aria-label="Launch plans">
-              {LAUNCH_PLANS.map((item) => {
-                const selected = item.id === plan;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`plan-card launch-plan-card ${selected ? "plan-card--selected" : ""} ${
-                      item.recommended ? "plan-card--popular" : ""
-                    }`}
-                    onClick={() => setPlan(item.id)}
-                    aria-pressed={selected}
-                  >
-                    {item.recommended && <span className="plan-card-badge">Recommended</span>}
-                    <div className="plan-card-top">
-                      <div className="plan-card-name">{item.name}</div>
-                      <span className="plan-card-check" aria-hidden="true">
-                        {selected ? "✓" : ""}
-                      </span>
-                    </div>
-                    <div className="plan-card-price">
-                      <span className="plan-card-price-amount">
-                        {item.id === "growth" ? item.dueToday : item.price}
-                      </span>
-                      <span className="plan-card-price-cadence">
-                        {item.id === "growth"
-                          ? `first month · then ${item.price}${item.cadence}`
-                          : item.cadence}
-                      </span>
-                    </div>
-                    <p className="plan-card-summary">
-                      {item.id === "growth"
-                        ? "4x tokens · 4x runtime"
-                        : "5M tokens · 2 vCPU runtime"}
-                    </p>
-                  </button>
-                );
-              })}
             </div>
           </Card>
         </div>
@@ -412,21 +369,50 @@ export default function CompanySetupPage() {
       </section>
 
       <div className="launch-footer">
-        <div className="launch-footer-copy">
-          <p className="launch-footer-note">Due today {selectedLaunchPlan.dueToday}</p>
+        <div className="launch-footer-plans" role="list" aria-label="Launch plans">
+          {LAUNCH_PLANS.map((item) => {
+            const selected = item.id === plan;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`plan-card launch-plan-card launch-plan-card--footer ${
+                  selected ? "plan-card--selected" : ""
+                } ${item.recommended ? "plan-card--popular" : ""}`}
+                onClick={() => setPlan(item.id)}
+                aria-pressed={selected}
+              >
+                {item.recommended && <span className="plan-card-badge">Recommended</span>}
+                <div className="plan-card-top">
+                  <div className="plan-card-name">{item.name}</div>
+                  <span className="plan-card-check" aria-hidden="true">
+                    {selected ? "✓" : ""}
+                  </span>
+                </div>
+                <p className="plan-card-summary">
+                  {item.id === "growth" ? "4x Standard" : "Standard capacity"}
+                </p>
+              </button>
+            );
+          })}
         </div>
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => void handleLaunch()}
-          disabled={submitting || !organizationName.trim()}
-          loading={submitting}
-          loadingLabel="Creating"
-        >
-          {canSkipCheckout
-            ? "Launch organization"
-            : `Pay ${selectedLaunchPlan.dueToday} and launch`}
-        </Button>
+        <div className="launch-footer-action">
+          <div className="launch-footer-copy">
+            <p className="launch-footer-note">Due today {selectedLaunchPlan.dueToday}</p>
+          </div>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => void handleLaunch()}
+            disabled={submitting || !organizationName.trim()}
+            loading={submitting}
+            loadingLabel="Creating"
+          >
+            {canSkipCheckout
+              ? "Launch organization"
+              : `Pay ${selectedLaunchPlan.dueToday} and launch`}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -388,6 +388,10 @@
   gap: var(--space-2);
 }
 
+.launch-field--name {
+  gap: var(--space-3);
+}
+
 .launch-field-label {
   font-family: var(--font-sans);
   font-size: 12px;
@@ -395,20 +399,36 @@
   color: var(--color-text-secondary);
 }
 
-.launch-plan-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
+.launch-field--name .launch-field-label {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
 
-.launch-plan-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+.launch-field--name input {
+  height: var(--input-h-lg);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.launch-field-divider {
+  margin: var(--space-1) 0 calc(var(--space-1) * -1);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .launch-plan-card {
   text-align: left;
   min-height: 100%;
+}
+
+.launch-plan-card--footer {
+  min-height: 0;
+  padding: var(--space-4);
 }
 
 .plan-card-summary {
@@ -451,7 +471,8 @@
   bottom: var(--space-4);
   z-index: 20;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
@@ -468,6 +489,12 @@
   min-width: 0;
 }
 
+.launch-footer-plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
 .launch-footer-note {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -475,6 +502,13 @@
   line-height: 1.45;
   color: var(--color-text-primary);
   max-width: 52ch;
+}
+
+.launch-footer-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .launch-footer .button {
@@ -514,6 +548,10 @@
   .launch-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .launch-footer-plans {
+    grid-template-columns: 1fr;
   }
 
   .launch-footer-note {
