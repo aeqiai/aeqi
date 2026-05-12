@@ -71,7 +71,13 @@ pub fn purchase_cost(
     if token_amount == 0 {
         return Some(0);
     }
-    let p_start = price_at(curve_type, start_price, end_price, max_supply, current_supply);
+    let p_start = price_at(
+        curve_type,
+        start_price,
+        end_price,
+        max_supply,
+        current_supply,
+    );
     let p_end = price_at(
         curve_type,
         start_price,
@@ -101,7 +107,13 @@ pub fn sale_return(
     }
     let new_supply = current_supply.checked_sub(token_amount)?;
     let p_end = price_at(curve_type, start_price, end_price, max_supply, new_supply);
-    let p_start = price_at(curve_type, start_price, end_price, max_supply, current_supply);
+    let p_start = price_at(
+        curve_type,
+        start_price,
+        end_price,
+        max_supply,
+        current_supply,
+    );
     let avg_price = p_end.checked_add(p_start)? / 2;
     let gross = token_amount.checked_mul(avg_price)?.checked_div(PRECISION)?;
     gross.checked_mul(reserve_ratio_ppm as u128)?.checked_div(1_000_000)
