@@ -516,6 +516,43 @@
   color: var(--color-text-secondary);
 }
 
+.launch-provisioning-steps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.launch-provisioning-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.launch-provisioning-step.is-active,
+.launch-provisioning-step.is-done {
+  color: var(--color-text);
+}
+
+.launch-provisioning-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+  flex: 0 0 auto;
+}
+
+.launch-provisioning-step.is-active .launch-provisioning-step-dot {
+  background: var(--color-accent);
+}
+
+.launch-provisioning-step.is-done .launch-provisioning-step-dot {
+  background: var(--color-success);
+}
+
 @media (max-width: 1040px) {
   .launch-head {
     flex-direction: column;

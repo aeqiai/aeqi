@@ -30,6 +30,12 @@ export interface Entity {
   public?: boolean;
   /** Per-Company billing plan ID (`free`, `starter`, `growth`). */
   plan?: string;
+  /** Current platform-side provisioning status for the placement. */
+  placement_status?: string;
+  /** Launch-progress state exposed while a new organization is being provisioned. */
+  launch_state?: string;
+  /** Launch-progress error exposed if provisioning fails. */
+  launch_error?: string;
 }
 
 export interface Agent {

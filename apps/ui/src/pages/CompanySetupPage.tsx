@@ -40,8 +40,10 @@ export default function CompanySetupPage() {
   const navigate = useNavigate();
   const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const launchId = searchParams.get("launch");
 
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
+  const entities = useDaemonStore((s) => s.entities);
   const subscriptionStatus = useAuthStore((s) => s.user?.subscription_status ?? null);
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
   const canSkipCheckout =
@@ -60,6 +62,10 @@ export default function CompanySetupPage() {
 
   const provisionHandled = useRef(false);
   const nameCheckSeq = useRef(0);
+  const activeLaunchEntity = useMemo(
+    () => (launchId ? (entities.find((entity) => entity.id === launchId) ?? null) : null),
+    [entities, launchId],
+  );
 
   useEffect(() => {
     document.title = blueprint?.name ? `Launch ${blueprint.name} · aeqi` : "Launch · aeqi";
@@ -208,8 +214,7 @@ export default function CompanySetupPage() {
   }, [organizationName]);
 
   useEffect(() => {
-    const spawnName = searchParams.get("spawn");
-    if (!spawnName || provisionHandled.current) return;
+    if (!launchId || provisionHandled.current) return;
 
     provisionHandled.current = true;
     setProvisioning(true);
@@ -222,13 +227,24 @@ export default function CompanySetupPage() {
       if (cancelled) return;
       try {
         await fetchEntities();
-        const match = useDaemonStore
-          .getState()
-          .entities.find((entity) => entity.name === spawnName);
+        const match = useDaemonStore.getState().entities.find((entity) => entity.id === launchId);
         if (match) {
-          setSearchParams(new URLSearchParams(), { replace: true });
-          navigate(entityPath(match), { replace: true });
-          return;
+          const launchState = match.launch_state ?? match.placement_status ?? "";
+          const isReady =
+            launchState === "complete" || launchState === "ready" || match.status === "active";
+          if (isReady) {
+            setSearchParams(new URLSearchParams(), { replace: true });
+            navigate(entityPath(match), { replace: true });
+            return;
+          }
+          if (launchState === "failed") {
+            setProvisioning(false);
+            setSubmitError(
+              match.launch_error ||
+                "Launch failed while provisioning. Refresh to keep watching the state.",
+            );
+            return;
+          }
         }
       } catch {
         // Keep polling through transient failures.
@@ -252,7 +268,7 @@ export default function CompanySetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [fetchEntities, navigate, searchParams, setSearchParams]);
+  }, [fetchEntities, launchId, navigate, setSearchParams]);
 
   const handleLaunch = useCallback(async () => {
     if (!blueprint) return;
@@ -346,15 +362,63 @@ export default function CompanySetupPage() {
   }
 
   if (provisioning) {
+    const launchState =
+      activeLaunchEntity?.launch_state ?? activeLaunchEntity?.placement_status ?? "";
+    const launchLabel =
+      launchState === "checkout_pending"
+        ? "Waiting for checkout"
+        : launchState === "checkout_completed"
+          ? "Payment confirmed"
+          : launchState === "trust_provisioning"
+            ? "Provisioning trust"
+            : launchState === "runtime_provisioning"
+              ? "Installing runtime"
+              : launchState === "complete" || launchState === "ready"
+                ? "Organization ready"
+                : "Provisioning";
+
+    const launchSteps = [
+      { key: "checkout_completed", label: "Payment received" },
+      { key: "trust_provisioning", label: "Trust provisioning" },
+      { key: "runtime_provisioning", label: "Runtime install" },
+      { key: "complete", label: "Organization ready" },
+    ];
+
     return (
       <div className="launch-page launch-page--provisioning">
         <Card variant="default" padding="lg" className="launch-provisioning-card">
           <p className="start-section-kicker">Provisioning</p>
           <h1 className="page-title">Your organization is being created.</h1>
-          <p className="start-sub">Stripe has cleared. AEQI is wiring the runtime now.</p>
+          <p className="start-sub">{launchLabel}. Refreshing the launch state.</p>
           <div className="launch-provisioning-status">
             <Spinner size="sm" /> Waiting for the organization to appear…
           </div>
+          <ol className="launch-provisioning-steps">
+            {launchSteps.map((step) => {
+              const active =
+                launchState === step.key ||
+                (step.key === "checkout_completed" && launchState === "checkout_pending");
+              const done =
+                launchState === "complete" ||
+                launchState === "ready" ||
+                (step.key === "checkout_completed" && launchState !== "checkout_pending") ||
+                (step.key === "trust_provisioning" &&
+                  ["runtime_provisioning", "complete", "ready"].includes(launchState)) ||
+                (step.key === "runtime_provisioning" &&
+                  ["complete", "ready"].includes(launchState));
+              return (
+                <li
+                  key={step.key}
+                  className={`launch-provisioning-step ${active ? "is-active" : ""} ${
+                    done ? "is-done" : ""
+                  }`}
+                >
+                  <span className="launch-provisioning-step-dot" aria-hidden="true" />
+                  <span>{step.label}</span>
+                </li>
+              );
+            })}
+          </ol>
         </Card>
       </div>
     );
