@@ -15,8 +15,10 @@ interface ConnectIntegrationModalProps {
 
 type Phase = "idle" | "starting" | "awaiting" | "complete" | "failed";
 
-function usesPlatformAgentGoogle(entry: IntegrationCatalogEntry, scope: { scope_kind: string }) {
-  return entry.provider === "google" && scope.scope_kind === "agent";
+function usesPlatformAgentOAuth(entry: IntegrationCatalogEntry, scope: { scope_kind: string }) {
+  return (
+    (entry.provider === "google" || entry.provider === "github") && scope.scope_kind === "agent"
+  );
 }
 
 /**
@@ -60,9 +62,12 @@ export function ConnectIntegrationModal({
     setPhase("starting");
     setError(null);
 
-    const platformAgentGoogle = usesPlatformAgentGoogle(entry, { scope_kind: scopeKind });
-    const start = platformAgentGoogle
-      ? integrationsApi.startAgentGoogle(scopeId).then((res) => ({
+    const platformAgentOAuth = usesPlatformAgentOAuth(entry, { scope_kind: scopeKind });
+    const start = platformAgentOAuth
+      ? (entry.provider === "github"
+          ? integrationsApi.startAgentGithub(scopeId)
+          : integrationsApi.startAgentGoogle(scopeId)
+        ).then((res) => ({
           authorize_url: res.authorize_url,
           handle: null as string | null,
         }))
@@ -89,8 +94,11 @@ export function ConnectIntegrationModal({
         }
         pollTimer.current = setInterval(async () => {
           try {
-            if (platformAgentGoogle) {
-              const status = await integrationsApi.getAgentGoogleStatus(scopeId);
+            if (platformAgentOAuth) {
+              const status =
+                entry.provider === "github"
+                  ? await integrationsApi.getAgentGithubStatus(scopeId)
+                  : await integrationsApi.getAgentGoogleStatus(scopeId);
               if (!status.connected) return;
               if (pollTimer.current) clearInterval(pollTimer.current);
               setPhase("complete");

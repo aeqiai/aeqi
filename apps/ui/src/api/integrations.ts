@@ -79,6 +79,9 @@ export interface AgentGoogleStatusResponse {
   account_email?: string | null;
 }
 
+export type AgentGithubStartResponse = AgentGoogleStartResponse;
+export type AgentGithubStatusResponse = AgentGoogleStatusResponse;
+
 // ── API ──────────────────────────────────────────────────────────────────
 
 export const integrationsApi = {
@@ -120,6 +123,14 @@ export const integrationsApi = {
 
   getAgentGoogleStatus(agentId: string): Promise<AgentGoogleStatusResponse> {
     return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/google/status`);
+  },
+
+  startAgentGithub(agentId: string): Promise<AgentGithubStartResponse> {
+    return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/github/start`);
+  },
+
+  getAgentGithubStatus(agentId: string): Promise<AgentGithubStatusResponse> {
+    return apiRequest(`/agents/${encodeURIComponent(agentId)}/integrations/github/status`);
   },
 
   refreshCredential(id: string): Promise<{ ok: boolean; credential: CredentialView }> {

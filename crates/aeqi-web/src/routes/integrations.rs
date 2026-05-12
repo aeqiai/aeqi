@@ -113,10 +113,10 @@ fn catalog() -> Vec<IntegrationCatalogEntry> {
         },
         IntegrationCatalogEntry {
             provider: "github",
-            name: "oauth_token",
+            name: "installation_token",
             label: "GitHub",
-            description: "Issues, pull requests, repository access. Lands with W2 (pack:github); the \
-                 substrate hooks are ready today.",
+            description: "Issues, pull requests, files, releases, and repository search via pack:github. \
+                 OAuth connects this agent to the repositories the operator grants.",
             lifecycle_kind: "oauth2",
             auth_url: Some("https://github.com/login/oauth/authorize"),
             token_url: Some("https://github.com/login/oauth/access_token"),
@@ -125,7 +125,7 @@ fn catalog() -> Vec<IntegrationCatalogEntry> {
             client_id_env: Some("AEQI_OAUTH_GITHUB_CLIENT_ID"),
             client_secret_env: Some("AEQI_OAUTH_GITHUB_CLIENT_SECRET"),
             per_agent: true,
-            coming_soon: true,
+            coming_soon: false,
         },
     ]
 }
@@ -957,10 +957,11 @@ mod tests {
     }
 
     #[test]
-    fn catalog_includes_github_as_coming_soon() {
+    fn catalog_includes_github_as_available_pack() {
         let entries = catalog();
         let github = entries.iter().find(|e| e.provider == "github").unwrap();
-        assert!(github.coming_soon);
+        assert_eq!(github.name, "installation_token");
+        assert!(!github.coming_soon);
     }
 
     #[test]

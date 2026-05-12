@@ -22,9 +22,20 @@ const googleEntry: IntegrationCatalogEntry = {
 const githubEntry: IntegrationCatalogEntry = {
   ...googleEntry,
   provider: "github",
+  name: "installation_token",
   label: "GitHub",
   description: "Issues + PRs",
   oauth_scopes: ["repo"],
+  client_id_env: "AEQI_OAUTH_GITHUB_CLIENT_ID",
+  client_secret_env: "AEQI_OAUTH_GITHUB_CLIENT_SECRET",
+  coming_soon: false,
+};
+
+const unavailableEntry: IntegrationCatalogEntry = {
+  ...googleEntry,
+  provider: "notion",
+  label: "Notion",
+  description: "Docs",
   coming_soon: true,
 };
 
@@ -104,7 +115,7 @@ describe("IntegrationCard", () => {
   it("disables CTA and shows 'Coming soon' for unavailable packs", () => {
     render(
       <IntegrationCard
-        entry={githubEntry}
+        entry={unavailableEntry}
         credentials={[]}
         onConnect={vi.fn()}
         onRefresh={vi.fn()}
@@ -116,9 +127,28 @@ describe("IntegrationCard", () => {
     expect(cta).toBeDisabled();
   });
 
+  it("shows GitHub as connectable", () => {
+    render(
+      <IntegrationCard
+        entry={githubEntry}
+        credentials={[]}
+        scopeLabel="agent"
+        onConnect={vi.fn()}
+        onRefresh={vi.fn()}
+        onDisconnect={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+  });
+
   it("ignores credentials for other providers", () => {
     // A github credential shouldn't show up on the google card.
-    const githubCred = makeCredential({ provider: "github", id: "cred-other" });
+    const githubCred = makeCredential({
+      provider: "github",
+      name: "installation_token",
+      id: "cred-other",
+    });
     render(
       <IntegrationCard
         entry={googleEntry}

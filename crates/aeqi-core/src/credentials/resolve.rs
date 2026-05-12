@@ -322,6 +322,10 @@ impl CredentialResolver {
                     .installation_id
                     .as_ref()
                     .map(|id| (ScopeKind::Installation, id.clone())),
+                scope
+                    .agent_id
+                    .as_ref()
+                    .map(|id| (ScopeKind::Agent, id.clone())),
             ],
         };
         for candidate in order.into_iter().flatten() {
