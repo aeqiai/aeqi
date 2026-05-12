@@ -93,6 +93,7 @@ mod tests {
             twilio_auth_token: None,
             data_dir,
             default_blueprint_slug: "aeqi".to_string(),
+            mcp_projects: Vec::new(),
             bootstrap_registry: std::sync::Arc::new(
                 crate::routes::integrations::BootstrapRegistry::new(),
             ),

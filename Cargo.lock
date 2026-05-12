@@ -460,6 +460,7 @@ name = "aeqi-web"
 version = "0.15.0"
 dependencies = [
  "aeqi-core",
+ "aeqi-graph",
  "aeqi-hosting",
  "aeqi-providers",
  "aeqi-quests",
@@ -469,6 +470,7 @@ dependencies = [
  "base64 0.22.1",
  "bcrypt",
  "chrono",
+ "dirs 6.0.0",
  "governor",
  "hex",
  "hmac",

@@ -27,7 +27,7 @@ use crate::security_middleware::{SecurityHeadersConfig, security_headers_middlew
 use crate::validation::{request_size_limit_middleware, validate_content_type_middleware};
 use crate::wallets::WalletContext;
 use crate::ws;
-use aeqi_core::config::SmtpConfig;
+use aeqi_core::config::{AgentSpawnConfig, SmtpConfig};
 use tower_governor::GovernorLayer;
 
 /// Shared application state.
@@ -52,6 +52,10 @@ pub struct AppState {
     /// chosen one explicitly. Sourced from `[blueprints] default` in
     /// `aeqi.toml`; defaults to the runtime's bundled fallback.
     pub default_blueprint_slug: String,
+    /// Project/repo map used by the HTTP MCP code graph tool. Mirrors the
+    /// runtime config's `[[projects]]` entries so HTTP MCP and stdio MCP expose
+    /// the same code intelligence surface.
+    pub mcp_projects: Vec<AgentSpawnConfig>,
     /// In-process registry of bootstrap handles keyed by uuid. Each entry
     /// tracks one in-flight OAuth2 loopback callback handshake. Pruned
     /// when polled past completion or when handles age out.
@@ -185,6 +189,7 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
         twilio_auth_token: web.twilio_auth_token.clone(),
         data_dir: data_dir.clone(),
         default_blueprint_slug: config.blueprints.default.clone(),
+        mcp_projects: config.agent_spawns.clone(),
         bootstrap_registry: Arc::new(crate::routes::integrations::BootstrapRegistry::new()),
     };
 
