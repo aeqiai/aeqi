@@ -30,7 +30,7 @@ describe("aeqi_funding", () => {
 
     await budgetProgram.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: budgetModulePda,
         payer: provider.wallet.publicKey,
@@ -64,7 +64,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
         null,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: budgetModulePda,
         budget: budgetPda,
@@ -78,7 +78,7 @@ describe("aeqi_funding", () => {
   it("init creates the funding module state", async () => {
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -116,7 +116,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(10_000), // asset_amount
         new anchor.BN(50_000), // target_quote
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -145,7 +145,7 @@ describe("aeqi_funding", () => {
 
     await budgetProgram.methods
       .freeze()
-      .accounts({
+      .accountsPartial({
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
       })
@@ -170,7 +170,7 @@ describe("aeqi_funding", () => {
             new anchor.BN(1),
             new anchor.BN(1),
           )
-          .accounts({
+          .accountsPartial({
             trust: fakeTrust,
             moduleState: modulePda,
             request: requestPda,
@@ -208,7 +208,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(5_000),
         new anchor.BN(20_000),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -220,7 +220,7 @@ describe("aeqi_funding", () => {
 
     await program.methods
       .cancelFundingRequest()
-      .accounts({
+      .accountsPartial({
         request: requestPda,
         creator: provider.wallet.publicKey,
       })
@@ -241,7 +241,7 @@ describe("aeqi_funding", () => {
     );
     await unifutures.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: unifModulePda,
         payer: provider.wallet.publicKey,
@@ -273,7 +273,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(1000),
         new anchor.BN(5000),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -298,7 +298,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(7500), // overflow_quote
         new anchor.BN(60 * 60 * 24 * 7),
       )
-      .accounts({
+      .accountsPartial({
         request: requestPda,
         budget: budgetPda,
         trust: fakeTrust,
@@ -360,7 +360,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
         new anchor.BN(0),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -387,7 +387,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(1_000_000), // max_supply
         500_000, // 50% reserve_ratio_ppm
       )
-      .accounts({
+      .accountsPartial({
         request: requestPda,
         budget: budgetPda,
         trust: fakeTrust,
@@ -443,7 +443,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
         new anchor.BN(0),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -468,7 +468,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(500_000), // total_supply_snapshot
         new anchor.BN(60 * 60 * 24 * 30), // 30 days
       )
-      .accounts({
+      .accountsPartial({
         request: requestPda,
         budget: budgetPda,
         trust: fakeTrust,
@@ -525,7 +525,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
         new anchor.BN(0),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -552,7 +552,7 @@ describe("aeqi_funding", () => {
             new anchor.BN(500_000),
             new anchor.BN(60 * 60 * 24 * 30),
           )
-          .accounts({
+          .accountsPartial({
             request: requestPda,
             budget: budgetPda,
             trust: fakeTrust,
@@ -595,7 +595,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(1),
         new anchor.BN(1),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -629,7 +629,7 @@ describe("aeqi_funding", () => {
           new anchor.BN(1000),
           500_000,
         )
-        .accounts({
+        .accountsPartial({
           request: requestPda,
           budget: budgetPda,
           trust: fakeTrust,
@@ -679,7 +679,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
         new anchor.BN(0),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -703,7 +703,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(200_000),
         new anchor.BN(60 * 60 * 24),
       )
-      .accounts({
+      .accountsPartial({
         request: requestPda,
         budget: budgetPda,
         trust: fakeTrust,
@@ -720,7 +720,7 @@ describe("aeqi_funding", () => {
 
     await program.methods
       .finalizeFundingRequest()
-      .accounts({
+      .accountsPartial({
         request: requestPda,
         creator: provider.wallet.publicKey,
       })
@@ -755,7 +755,7 @@ describe("aeqi_funding", () => {
         new anchor.BN(0),
         new anchor.BN(0),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
@@ -769,7 +769,7 @@ describe("aeqi_funding", () => {
     try {
       await program.methods
         .finalizeFundingRequest()
-        .accounts({
+        .accountsPartial({
           request: requestPda,
           creator: provider.wallet.publicKey,
         })
@@ -808,7 +808,7 @@ describe("aeqi_funding", () => {
           new anchor.BN(100),
           new anchor.BN(100),
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           request: requestPda,

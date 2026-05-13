@@ -20,7 +20,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -58,7 +58,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -108,7 +108,7 @@ describe("aeqi_role", () => {
         null, // no parent role
         Array.from(ipfsCid),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         roleType: rtPda,
         role: rolePda,
@@ -169,7 +169,7 @@ describe("aeqi_role", () => {
           Array.from(parentRoleId),
           Array.from(new Uint8Array(64)),
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           roleType: rtPda,
           role: childRolePda,
@@ -222,7 +222,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .assignRole(occupant)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: fakeTrust,
@@ -250,7 +250,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustA,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -289,7 +289,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustA,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -314,7 +314,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustA,
         roleType: rtPda,
         role: parentRolePda,
@@ -336,7 +336,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .assignRole(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         role: parentRolePda,
         roleType: rtPda,
         trust: trustA,
@@ -355,7 +355,7 @@ describe("aeqi_role", () => {
         Array.from(parentRoleId),
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustA,
         roleType: rtPda,
         role: childRolePda,
@@ -380,7 +380,7 @@ describe("aeqi_role", () => {
     try {
       await program.methods
         .assignRole(occupant)
-        .accounts({
+        .accountsPartial({
           role: childRolePda,
           roleType: rtPda,
           trust: trustA,
@@ -398,7 +398,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .assignRole(occupant)
-      .accounts({
+      .accountsPartial({
         role: childRolePda,
         roleType: rtPda,
         trust: trustA,
@@ -426,7 +426,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -452,7 +452,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -474,7 +474,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         roleType: rtPda,
         role: rolePda,
@@ -496,7 +496,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .assignRole(userA)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustR,
@@ -512,7 +512,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .resignRole()
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustR,
@@ -539,7 +539,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustT,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -566,7 +566,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustT,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -589,7 +589,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustT,
         roleType: rtPda,
         role: rolePda,
@@ -612,7 +612,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .assignRole(userA)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustT,
@@ -641,7 +641,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .transferRole(userB)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustT,
@@ -675,7 +675,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustD,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -705,7 +705,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustD,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -727,7 +727,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustD,
         roleType: rtPda,
         role: rolePda,
@@ -750,7 +750,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .assignRole(userA)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustD,
@@ -784,7 +784,7 @@ describe("aeqi_role", () => {
 
     await program.methods
       .delegateRole(userB)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         delegation: delegationPda,
@@ -809,7 +809,7 @@ describe("aeqi_role", () => {
     // Repeating the same delegation is a no-op, not another +1 vote.
     await program.methods
       .delegateRole(userB)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         delegation: delegationPda,
@@ -836,7 +836,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trust2,
         moduleState: moduleStatePda2,
         payer: provider.wallet.publicKey,
@@ -872,7 +872,7 @@ describe("aeqi_role", () => {
           severancePeriod: new anchor.BN(0),
           contribution: false,
         })
-        .accounts({
+        .accountsPartial({
           trust: trust2,
           roleType: pda,
           payer: provider.wallet.publicKey,
@@ -903,7 +903,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trust2,
         roleType: directorRtPda,
         role: founderPda,
@@ -925,7 +925,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .assignRole(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         role: founderPda,
         roleType: directorRtPda,
         trust: trust2,
@@ -955,7 +955,7 @@ describe("aeqi_role", () => {
         Array.from(founderId), // parent = founder
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trust2,
         roleType: ceoRtPda,
         role: ceoPda,
@@ -987,7 +987,7 @@ describe("aeqi_role", () => {
         Array.from(ceoRoleId), // parent = ceo
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trust2,
         roleType: engRtPda,
         role: engPda,
@@ -1018,7 +1018,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustN,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -1045,7 +1045,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustN,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -1067,7 +1067,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustN,
         roleType: rtPda,
         role: aPda,
@@ -1088,7 +1088,7 @@ describe("aeqi_role", () => {
     );
     await program.methods
       .assignRole(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         role: aPda,
         roleType: rtPda,
         trust: trustN,
@@ -1113,7 +1113,7 @@ describe("aeqi_role", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustN,
         roleType: rtPda,
         role: bPda,
@@ -1124,7 +1124,7 @@ describe("aeqi_role", () => {
       .rpc();
     await program.methods
       .assignRole(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         role: bPda,
         roleType: rtPda,
         trust: trustN,
@@ -1153,7 +1153,7 @@ describe("aeqi_role", () => {
           Array.from(aId), // parent = A
           Array.from(new Uint8Array(64)),
         )
-        .accounts({
+        .accountsPartial({
           trust: trustN,
           roleType: rtPda,
           role: xPda,
@@ -1196,7 +1196,7 @@ describe("aeqi_role", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         roleType: ceoPda,
         payer: provider.wallet.publicKey,

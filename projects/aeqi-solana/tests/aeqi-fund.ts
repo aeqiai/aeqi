@@ -32,7 +32,7 @@ describe("aeqi_fund", () => {
   it("init creates the fund module state", async () => {
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -76,7 +76,7 @@ describe("aeqi_fund", () => {
 
     await program.methods
       .createFund(Array.from(fundId), 2000) // 20% carry
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         fund: fundPda,
@@ -149,7 +149,7 @@ describe("aeqi_fund", () => {
     // First deposit: 5000 quote → 5000 shares (1:1)
     await program.methods
       .deposit(new anchor.BN(5000))
-      .accounts({
+      .accountsPartial({
         fund: fundPda,
         fundAuthority: fundAuthorityPda,
         quoteMint,
@@ -181,7 +181,7 @@ describe("aeqi_fund", () => {
     // shares = 3000 * 5000 / 5000 = 3000 (1:1 since no NAV growth yet)
     await program.methods
       .deposit(new anchor.BN(3000))
-      .accounts({
+      .accountsPartial({
         fund: fundPda,
         fundAuthority: fundAuthorityPda,
         quoteMint,
@@ -204,7 +204,7 @@ describe("aeqi_fund", () => {
     // Redeem 4000 shares: quote_out = 4000 * 8000 / 8000 = 4000
     await program.methods
       .redeem(new anchor.BN(4000))
-      .accounts({
+      .accountsPartial({
         fund: fundPda,
         fundAuthority: fundAuthorityPda,
         quoteMint,
@@ -282,7 +282,7 @@ describe("aeqi_fund", () => {
 
     await program.methods
       .createFund(Array.from(fundId), 0)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         fund: fundPda,
@@ -345,7 +345,7 @@ describe("aeqi_fund", () => {
     try {
       await program.methods
         .deposit(new anchor.BN(1))
-        .accounts({
+        .accountsPartial({
           fund: fundPda,
           fundAuthority: fundAuthorityPda,
           quoteMint: wrongQuoteMint,
@@ -407,7 +407,7 @@ describe("aeqi_fund", () => {
 
     await program.methods
       .createFund(Array.from(fundId), 2000) // 20% carry
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         fund: fundPda,
@@ -498,7 +498,7 @@ describe("aeqi_fund", () => {
     );
     await program.methods
       .deposit(new anchor.BN(1000))
-      .accounts({
+      .accountsPartial({
         fund: fundPda,
         fundAuthority: fundAuthorityPda,
         quoteMint,
@@ -530,7 +530,7 @@ describe("aeqi_fund", () => {
     // accrued_carry = 240, gross_nav = 1200 - 240 = 960, hwm = 960.
     await program.methods
       .updateNav(new anchor.BN(1200))
-      .accounts({
+      .accountsPartial({
         fund: fundPda,
         manager: manager.publicKey,
       })
@@ -546,7 +546,7 @@ describe("aeqi_fund", () => {
     // Manager claims the accrued carry — vault transfers 240 → manager TA.
     await program.methods
       .claimCarry()
-      .accounts({
+      .accountsPartial({
         fund: fundPda,
         fundAuthority: fundAuthorityPda,
         quoteMint,
@@ -593,7 +593,7 @@ describe("aeqi_fund", () => {
     try {
       await program.methods
         .updateNav(new anchor.BN(2000))
-        .accounts({
+        .accountsPartial({
           fund: fundPda,
           manager: provider.wallet.publicKey,
         })
@@ -634,7 +634,7 @@ describe("aeqi_fund", () => {
 
     await program.methods
       .createFund(Array.from(fundId), 2000)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         fund: fundPda,
@@ -648,7 +648,7 @@ describe("aeqi_fund", () => {
     // Down-mark from 0 to 0 (HWM stays 0) — carry must not accrue.
     await program.methods
       .updateNav(new anchor.BN(0))
-      .accounts({ fund: fundPda, manager: manager.publicKey })
+      .accountsPartial({ fund: fundPda, manager: manager.publicKey })
       .signers([manager])
       .rpc();
 

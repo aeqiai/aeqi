@@ -55,7 +55,7 @@ describe("aeqi_budget", () => {
 
     await roleProgram.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: roleModulePda,
         payer: provider.wallet.publicKey,
@@ -74,7 +74,7 @@ describe("aeqi_budget", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         roleType: roleTypePda,
         payer: provider.wallet.publicKey,
@@ -88,7 +88,7 @@ describe("aeqi_budget", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         roleType: roleTypePda,
         role: targetRolePda,
@@ -99,7 +99,7 @@ describe("aeqi_budget", () => {
       .rpc();
     await roleProgram.methods
       .assignRole(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         role: targetRolePda,
         roleType: roleTypePda,
         trust: fakeTrust,
@@ -114,7 +114,7 @@ describe("aeqi_budget", () => {
   it("init creates the budget module state", async () => {
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -144,7 +144,7 @@ describe("aeqi_budget", () => {
         new anchor.BN(0), // no expiry
         null, // no parent
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         budget: budgetPda,
@@ -161,7 +161,7 @@ describe("aeqi_budget", () => {
     // Record two spends: 10000 + 25000 = 35000
     await program.methods
       .recordSpend(new anchor.BN(10_000))
-      .accounts({
+      .accountsPartial({
         budget: budgetPda,
         spenderRole: targetRolePda,
         spender: provider.wallet.publicKey,
@@ -169,7 +169,7 @@ describe("aeqi_budget", () => {
       .rpc();
     await program.methods
       .recordSpend(new anchor.BN(25_000))
-      .accounts({
+      .accountsPartial({
         budget: budgetPda,
         spenderRole: targetRolePda,
         spender: provider.wallet.publicKey,
@@ -184,7 +184,7 @@ describe("aeqi_budget", () => {
     try {
       await program.methods
         .recordSpend(new anchor.BN(20_000))
-        .accounts({
+        .accountsPartial({
           budget: budgetPda,
           spenderRole: targetRolePda,
           spender: provider.wallet.publicKey,
@@ -214,7 +214,7 @@ describe("aeqi_budget", () => {
         new anchor.BN(0),
         null,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         budget: budgetPda,
@@ -229,7 +229,7 @@ describe("aeqi_budget", () => {
       async () =>
         program.methods
           .recordSpend(new anchor.BN(100))
-          .accounts({
+          .accountsPartial({
             budget: budgetPda,
             spenderRole: targetRolePda,
             spender: attacker.publicKey,
@@ -257,7 +257,7 @@ describe("aeqi_budget", () => {
         new anchor.BN(0),
         null,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         budget: budgetPda,
@@ -268,7 +268,7 @@ describe("aeqi_budget", () => {
 
     await program.methods
       .freeze()
-      .accounts({
+      .accountsPartial({
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
       })
@@ -278,7 +278,7 @@ describe("aeqi_budget", () => {
     try {
       await program.methods
         .recordSpend(new anchor.BN(100))
-        .accounts({
+        .accountsPartial({
           budget: budgetPda,
           spenderRole: targetRolePda,
           spender: provider.wallet.publicKey,
@@ -293,7 +293,7 @@ describe("aeqi_budget", () => {
     // Unfreeze + spend works
     await program.methods
       .unfreeze()
-      .accounts({
+      .accountsPartial({
         budget: budgetPda,
         grantor: provider.wallet.publicKey,
       })
@@ -301,7 +301,7 @@ describe("aeqi_budget", () => {
 
     await program.methods
       .recordSpend(new anchor.BN(100))
-      .accounts({
+      .accountsPartial({
         budget: budgetPda,
         spenderRole: targetRolePda,
         spender: provider.wallet.publicKey,
@@ -329,7 +329,7 @@ describe("aeqi_budget", () => {
         new anchor.BN(0),
         null,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         budget: budgetPda,
@@ -344,7 +344,7 @@ describe("aeqi_budget", () => {
       async () =>
         program.methods
           .freeze()
-          .accounts({
+          .accountsPartial({
             budget: budgetPda,
             grantor: attacker.publicKey,
           })

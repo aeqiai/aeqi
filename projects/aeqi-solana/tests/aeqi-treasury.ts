@@ -104,7 +104,7 @@ describe("aeqi_treasury", () => {
   it("init creates the treasury module with the configured authority", async () => {
     await program.methods
       .init(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -131,7 +131,7 @@ describe("aeqi_treasury", () => {
 
     await program.methods
       .withdraw(new anchor.BN(2000))
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         vaultAuthority,
@@ -189,7 +189,7 @@ describe("aeqi_treasury", () => {
 
     await program.methods
       .deposit(new anchor.BN(1500))
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         vaultAuthority,
@@ -225,7 +225,7 @@ describe("aeqi_treasury", () => {
       async () =>
         program.methods
           .withdraw(new anchor.BN(100))
-          .accounts({
+          .accountsPartial({
             trust: fakeTrust,
             moduleState: modulePda,
             vaultAuthority,

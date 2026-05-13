@@ -249,7 +249,7 @@ describe("aeqi_unifutures", () => {
   it("init creates the unifutures module state", async () => {
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -280,7 +280,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(1000), // max_supply
         900_000, // reserve_ratio = 90%
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         curve: curvePda,
@@ -324,7 +324,7 @@ describe("aeqi_unifutures", () => {
           new anchor.BN(0), // ZERO max_supply
           900_000,
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           curve: curvePda,
@@ -370,7 +370,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(1000),
         900_000,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         curve: curvePda,
@@ -507,7 +507,7 @@ describe("aeqi_unifutures", () => {
     // Execute the buy
     await program.methods
       .buyFromCurve(new anchor.BN(100), new anchor.BN(120)) // max_cost = 120
-      .accounts({
+      .accountsPartial({
         curve: curvePda,
         curveAuthority: curveAuthorityPda,
         assetMint,
@@ -594,7 +594,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(1000),
         900_000,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         curve: curvePda,
@@ -729,7 +729,7 @@ describe("aeqi_unifutures", () => {
     // Buy 100 (cost = 105) — sets supply=100, reserve=105
     await program.methods
       .buyFromCurve(new anchor.BN(100), new anchor.BN(120))
-      .accounts({
+      .accountsPartial({
         curve: curvePda,
         curveAuthority: curveAuthorityPda,
         assetMint,
@@ -746,7 +746,7 @@ describe("aeqi_unifutures", () => {
     // Now sell 50 back. Expected return = 47.
     await program.methods
       .sellToCurve(new anchor.BN(50), new anchor.BN(40)) // min_return = 40
-      .accounts({
+      .accountsPartial({
         curve: curvePda,
         curveAuthority: curveAuthorityPda,
         assetMint,
@@ -807,7 +807,7 @@ describe("aeqi_unifutures", () => {
   it("create_liquidity_pool initializes the internal pool shell", async () => {
     await program.methods
       .createLiquidityPool(Array.from(poolId), 30)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         pool: poolPda,
@@ -861,7 +861,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(10_000),
         new anchor.BN(10_000),
       )
-      .accounts({
+      .accountsPartial({
         pool: poolPda,
         poolAuthority: poolAuthorityPda,
         baseMint: baseMintPk,
@@ -923,7 +923,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(1_000),
         new anchor.BN(baseToQuote.amountOut.toString()),
       )
-      .accounts({
+      .accountsPartial({
         pool: poolPda,
         poolAuthority: poolAuthorityPda,
         baseMint: baseMintPk,
@@ -974,7 +974,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(500),
         new anchor.BN(quoteToBase.amountOut.toString()),
       )
-      .accounts({
+      .accountsPartial({
         pool: poolPda,
         poolAuthority: poolAuthorityPda,
         baseMint: baseMintPk,
@@ -1029,7 +1029,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(quoted.baseOut.toString()),
         new anchor.BN(quoted.quoteOut.toString()),
       )
-      .accounts({
+      .accountsPartial({
         pool: poolPda,
         poolAuthority: poolAuthorityPda,
         baseMint: baseMintPk,
@@ -1105,7 +1105,7 @@ describe("aeqi_unifutures", () => {
     try {
       await program.methods
         .createLiquidityPool(Array.from(badPoolId), 10_000)
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           pool: badPoolPda,
@@ -1144,7 +1144,7 @@ describe("aeqi_unifutures", () => {
           new anchor.BN(100),
           new anchor.BN((quote.amountOut + 1n).toString()),
         )
-        .accounts({
+        .accountsPartial({
           pool: poolPda,
           poolAuthority: poolAuthorityPda,
           baseMint: baseMintPk,
@@ -1187,7 +1187,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(OVERFLOW),
         new anchor.BN(DURATION),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         sale: salePda,
@@ -1228,7 +1228,7 @@ describe("aeqi_unifutures", () => {
           new anchor.BN(3000), // overflow < target — INVALID
           new anchor.BN(60 * 60 * 24),
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           sale: salePda,
@@ -1264,7 +1264,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(SUPPLY_SNAPSHOT),
         new anchor.BN(DURATION),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         exit: exitPda,
@@ -1310,7 +1310,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(7500),
         new anchor.BN(60 * 60 * 24 * 7),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         sale: salePda,
@@ -1394,7 +1394,7 @@ describe("aeqi_unifutures", () => {
     // First commit: 1500
     await program.methods
       .commitToSale(new anchor.BN(1500))
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         saleAuthority: saleAuthorityPda,
         quoteMint,
@@ -1426,7 +1426,7 @@ describe("aeqi_unifutures", () => {
     // Second commit: 500 (accumulates)
     await program.methods
       .commitToSale(new anchor.BN(500))
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         saleAuthority: saleAuthorityPda,
         quoteMint,
@@ -1493,7 +1493,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(SUPPLY_SNAPSHOT),
         new anchor.BN(60 * 60 * 24 * 30),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         exit: exitPda,
@@ -1611,7 +1611,7 @@ describe("aeqi_unifutures", () => {
     // Settle: creator deposits 10_000 into vault
     await program.methods
       .settleExit()
-      .accounts({
+      .accountsPartial({
         exit: exitPda,
         exitAuthority: exitAuthorityPda,
         quoteMint,
@@ -1636,7 +1636,7 @@ describe("aeqi_unifutures", () => {
     // Now claim_pro_rata: burn 100, expect share = 1000
     await program.methods
       .claimProRata(new anchor.BN(100))
-      .accounts({
+      .accountsPartial({
         exit: exitPda,
         exitAuthority: exitAuthorityPda,
         assetMint,
@@ -1708,7 +1708,7 @@ describe("aeqi_unifutures", () => {
         new anchor.BN(5000), // overflow
         new anchor.BN(60 * 60 * 24 * 7),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         sale: salePda,
@@ -1912,7 +1912,7 @@ describe("aeqi_unifutures", () => {
 
     await program.methods
       .commitToSale(new anchor.BN(3000))
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         saleAuthority: saleAuthorityPda,
         quoteMint,
@@ -1927,7 +1927,7 @@ describe("aeqi_unifutures", () => {
 
     await program.methods
       .commitToSale(new anchor.BN(2000))
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         saleAuthority: saleAuthorityPda,
         quoteMint,
@@ -1944,7 +1944,7 @@ describe("aeqi_unifutures", () => {
     // Creator early-finalizes (proceeds >= target)
     await program.methods
       .finalizeSale()
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         signer: provider.wallet.publicKey, // creator
       })
@@ -1956,7 +1956,7 @@ describe("aeqi_unifutures", () => {
     // Each buyer claims their pro-rata
     await program.methods
       .claimAllocation()
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         saleAuthority: saleAuthorityPda,
         assetMint,
@@ -1970,7 +1970,7 @@ describe("aeqi_unifutures", () => {
 
     await program.methods
       .claimAllocation()
-      .accounts({
+      .accountsPartial({
         sale: salePda,
         saleAuthority: saleAuthorityPda,
         assetMint,
@@ -2035,7 +2035,7 @@ describe("aeqi_unifutures", () => {
           new anchor.BN(1000),
           1_500_000, // > 1_000_000 (100%)
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           curve: curvePda,

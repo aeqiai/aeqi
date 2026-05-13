@@ -29,7 +29,7 @@ describe("aeqi_trust", () => {
   it("initializes a trust in creation mode", async () => {
     await program.methods
       .initialize(Array.from(trustId))
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -65,7 +65,7 @@ describe("aeqi_trust", () => {
         zeroHash,
         new anchor.BN(0xff), // grant the lower 8 ACL flags
       )
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         module: modulePda,
         authority: provider.wallet.publicKey,
@@ -113,7 +113,7 @@ describe("aeqi_trust", () => {
         version,
         Array.from(metadataHash),
       )
-      .accounts({
+      .accountsPartial({
         implementation: v2ImplementationPda,
         implementationProgram: upgradedProgram,
         provider: provider.wallet.publicKey,
@@ -151,7 +151,7 @@ describe("aeqi_trust", () => {
             zeroVersion,
             zeroHash,
           )
-          .accounts({
+          .accountsPartial({
             implementation: implementationPda,
             implementationProgram: program.programId,
             provider: provider.wallet.publicKey,
@@ -165,7 +165,7 @@ describe("aeqi_trust", () => {
   it("finalizes the trust (exits creation mode)", async () => {
     await program.methods
       .finalize()
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         authority: provider.wallet.publicKey,
       })
@@ -178,7 +178,7 @@ describe("aeqi_trust", () => {
   it("lets a finalized TRUST pull-upgrade one module implementation", async () => {
     await program.methods
       .adoptModuleImplementation(new anchor.BN(0x1ff))
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         module: modulePda,
         implementation: v2ImplementationPda,
@@ -218,7 +218,7 @@ describe("aeqi_trust", () => {
         inactiveVersion,
         zeroHash,
       )
-      .accounts({
+      .accountsPartial({
         implementation: inactiveImplPda,
         implementationProgram: program.programId,
         provider: provider.wallet.publicKey,
@@ -230,7 +230,7 @@ describe("aeqi_trust", () => {
       async () =>
         program.methods
           .setModuleImplementationActive(false)
-          .accounts({
+          .accountsPartial({
             implementation: inactiveImplPda,
             provider: attacker.publicKey,
           })
@@ -241,7 +241,7 @@ describe("aeqi_trust", () => {
 
     await program.methods
       .setModuleImplementationActive(false)
-      .accounts({
+      .accountsPartial({
         implementation: inactiveImplPda,
         provider: provider.wallet.publicKey,
       })
@@ -251,7 +251,7 @@ describe("aeqi_trust", () => {
       async () =>
         program.methods
           .adoptModuleImplementation(new anchor.BN(0x1ff))
-          .accounts({
+          .accountsPartial({
             trust: trustPda,
             module: modulePda,
             implementation: inactiveImplPda,
@@ -278,7 +278,7 @@ describe("aeqi_trust", () => {
         activeVersion,
         zeroHash,
       )
-      .accounts({
+      .accountsPartial({
         implementation: activeImplPda,
         implementationProgram: program.programId,
         provider: provider.wallet.publicKey,
@@ -290,7 +290,7 @@ describe("aeqi_trust", () => {
       async () =>
         program.methods
           .adoptModuleImplementation(new anchor.BN(0x1ff))
-          .accounts({
+          .accountsPartial({
             trust: trustPda,
             module: modulePda,
             implementation: activeImplPda,
@@ -322,7 +322,7 @@ describe("aeqi_trust", () => {
           zeroHash,
           new anchor.BN(0),
         )
-        .accounts({
+        .accountsPartial({
           trust: trustPda,
           module: modulePda,
           authority: provider.wallet.publicKey,
@@ -350,7 +350,7 @@ describe("aeqi_trust", () => {
       async () =>
         program.methods
           .setNumericConfig(Array.from(key), new anchor.BN(42))
-          .accounts({
+          .accountsPartial({
             trust: trustPda,
             config: configPda,
             sourceModule: modulePda,
@@ -368,7 +368,7 @@ describe("aeqi_trust", () => {
     try {
       await program.methods
         .finalize()
-        .accounts({
+        .accountsPartial({
           trust: trustPda,
           authority: provider.wallet.publicKey,
         })
@@ -391,7 +391,7 @@ describe("aeqi_trust", () => {
 
     await program.methods
       .initialize(Array.from(emptyTrustId))
-      .accounts({
+      .accountsPartial({
         trust: emptyTrustPda,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -402,7 +402,7 @@ describe("aeqi_trust", () => {
     try {
       await program.methods
         .finalize()
-        .accounts({
+        .accountsPartial({
           trust: emptyTrustPda,
           authority: provider.wallet.publicKey,
         })

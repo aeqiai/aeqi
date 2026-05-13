@@ -28,28 +28,19 @@ import { AeqiToken } from "../target/types/aeqi_token";
 import { AeqiGovernance } from "../target/types/aeqi_governance";
 import { AeqiTreasury } from "../target/types/aeqi_treasury";
 import { AeqiVesting } from "../target/types/aeqi_vesting";
+import { idFromHandle, templatePda } from "./factory-builders";
 
-// Stable template ids. The first three bytes encode an ASCII handle for
-// debug-readability; the remaining 29 bytes are zero. These are part of
-// the on-chain protocol surface. Do not change them without a migration.
-function templateIdFromHandle(handle: string): Uint8Array {
-  if (handle.length > 32) throw new Error("handle must be <= 32 bytes");
-  const id = new Uint8Array(32);
-  for (let i = 0; i < handle.length; i++) id[i] = handle.charCodeAt(i);
-  return id;
-}
-
-const BASIC_ID = templateIdFromHandle("BSC");
-const VENTURE_ID = templateIdFromHandle("VNT");
+const BASIC_ID = idFromHandle("BSC");
+const VENTURE_ID = idFromHandle("VNT");
 
 // Module-id sub-keys inside a template. Same scheme: three-byte handle,
 // padded. These names appear in the indexer + the bridge wizard, so keep
 // them in sync if you change them.
-const MODULE_ROLE = templateIdFromHandle("R");
-const MODULE_TOKEN = templateIdFromHandle("T");
-const MODULE_GOV = templateIdFromHandle("G");
-const MODULE_TREASURY = templateIdFromHandle("Y"); // 'Y' to avoid clash with token 'T'
-const MODULE_VESTING = templateIdFromHandle("V");
+const MODULE_ROLE = idFromHandle("R");
+const MODULE_TOKEN = idFromHandle("T");
+const MODULE_GOV = idFromHandle("G");
+const MODULE_TREASURY = idFromHandle("Y"); // 'Y' to avoid clash with token 'T'
+const MODULE_VESTING = idFromHandle("V");
 
 const FULL_ACL = new anchor.BN(0xff);
 
@@ -67,10 +58,7 @@ async function ensureTemplate(
   }[],
   admin: PublicKey,
 ): Promise<{ pda: PublicKey; created: boolean }> {
-  const [pda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("template"), Buffer.from(templateId)],
-    factory.programId,
-  );
+  const pda = templatePda(factory.programId, templateId);
 
   // Idempotency check: fetch the template; if it exists, skip.
   try {
@@ -208,14 +196,8 @@ async function main() {
   );
 
   console.log("\nDone. Templates resolvable at:");
-  const [basicPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("template"), Buffer.from(BASIC_ID)],
-    factory.programId,
-  );
-  const [venturePda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("template"), Buffer.from(VENTURE_ID)],
-    factory.programId,
-  );
+  const basicPda = templatePda(factory.programId, BASIC_ID);
+  const venturePda = templatePda(factory.programId, VENTURE_ID);
   console.log(`  BASIC   ${basicPda.toBase58()}`);
   console.log(`  VENTURE ${venturePda.toBase58()}`);
 }

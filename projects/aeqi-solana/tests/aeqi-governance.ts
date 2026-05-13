@@ -41,7 +41,7 @@ describe("aeqi_governance", () => {
 
     await trustProgram.methods
       .initialize(Array.from(trustId))
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -78,7 +78,7 @@ describe("aeqi_governance", () => {
 
     await tokenProgram.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: tokenModuleStatePda,
         payer: provider.wallet.publicKey,
@@ -87,7 +87,7 @@ describe("aeqi_governance", () => {
       .rpc();
     await tokenProgram.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -122,7 +122,7 @@ describe("aeqi_governance", () => {
     if (args.voteAmount > 0) {
       await tokenProgram.methods
         .mintTokens(new anchor.BN(args.voteAmount))
-        .accounts({
+        .accountsPartial({
           trust: trustPda,
           moduleState: tokenModuleStatePda,
           mintAuthority: mintAuthorityPda,
@@ -140,7 +140,7 @@ describe("aeqi_governance", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModulePda,
         payer: provider.wallet.publicKey,
@@ -161,7 +161,7 @@ describe("aeqi_governance", () => {
         executionDelay: new anchor.BN(args.executionDelay ?? 0),
         allowEarlyEnact: args.allowEarlyEnact ?? true,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModulePda,
         governanceConfig: cfgPda,
@@ -184,7 +184,7 @@ describe("aeqi_governance", () => {
         Array.from(args.cfgId),
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModulePda,
         proposal: proposalPda,
@@ -209,7 +209,7 @@ describe("aeqi_governance", () => {
     if (args.castVote ?? true) {
       await program.methods
         .castVoteToken(1)
-        .accounts({
+        .accountsPartial({
           proposal: proposalPda,
           vote: votePda,
           voterTokenAccount: voterAta,
@@ -234,7 +234,7 @@ describe("aeqi_governance", () => {
   it("init creates governance module state", async () => {
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -269,7 +269,7 @@ describe("aeqi_governance", () => {
         executionDelay: new anchor.BN(0),
         allowEarlyEnact: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         governanceConfig: cfgPda,
@@ -310,7 +310,7 @@ describe("aeqi_governance", () => {
         Array.from(tokenConfigId),
         Array.from(ipfsCid),
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         proposal: proposalPda,
@@ -355,7 +355,7 @@ describe("aeqi_governance", () => {
 
     await program.methods
       .castVote(1, new anchor.BN(1000))
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         vote: votePda,
         voter: provider.wallet.publicKey,
@@ -398,7 +398,7 @@ describe("aeqi_governance", () => {
     try {
       await program.methods
         .castVoteToken(0)
-        .accounts({
+        .accountsPartial({
           proposal: fixture.proposalPda,
           vote: fixture.votePda,
           voterTokenAccount: fixture.voterAta,
@@ -433,7 +433,7 @@ describe("aeqi_governance", () => {
         executionDelay: new anchor.BN(0),
         allowEarlyEnact: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         governanceConfig: cfgPda,
@@ -460,7 +460,7 @@ describe("aeqi_governance", () => {
           Array.from(wrongConfigId),
           Array.from(new Uint8Array(64)),
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           proposal: proposalPda,
@@ -497,7 +497,7 @@ describe("aeqi_governance", () => {
           Array.from(tokenConfigId),
           Array.from(new Uint8Array(64)),
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           proposal: proposalPda,
@@ -531,7 +531,7 @@ describe("aeqi_governance", () => {
     try {
       await program.methods
         .castVoteToken(1)
-        .accounts({
+        .accountsPartial({
           proposal: fixture.proposalPda,
           vote: fixture.votePda,
           voterTokenAccount: fixture.voterAta,
@@ -564,7 +564,7 @@ describe("aeqi_governance", () => {
     // Support: 100% For of 1000 decisive. Both thresholds met.
     await program.methods
       .executeProposal(new anchor.BN(1000))
-      .accounts({
+      .accountsPartial({
         proposal: fixture.proposalPda,
         executor: provider.wallet.publicKey,
       })
@@ -596,7 +596,7 @@ describe("aeqi_governance", () => {
     try {
       await program.methods
         .executeProposal(new anchor.BN(1_000_000))
-        .accounts({
+        .accountsPartial({
           proposal: fixture.proposalPda,
           executor: provider.wallet.publicKey,
         })
@@ -629,7 +629,7 @@ describe("aeqi_governance", () => {
     try {
       await program.methods
         .executeProposal(new anchor.BN(1000))
-        .accounts({
+        .accountsPartial({
           proposal: fixture.proposalPda,
           executor: provider.wallet.publicKey,
         })
@@ -661,7 +661,7 @@ describe("aeqi_governance", () => {
     try {
       await program.methods
         .executeProposal(new anchor.BN(1000))
-        .accounts({
+        .accountsPartial({
           proposal: fixture.proposalPda,
           executor: provider.wallet.publicKey,
         })
@@ -691,7 +691,7 @@ describe("aeqi_governance", () => {
     );
     await role.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         moduleState: roleModuleStatePda,
         payer: provider.wallet.publicKey,
@@ -720,7 +720,7 @@ describe("aeqi_governance", () => {
         severancePeriod: new anchor.BN(0),
         contribution: false,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         roleType: rtPda,
         payer: provider.wallet.publicKey,
@@ -743,7 +743,7 @@ describe("aeqi_governance", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         roleType: rtPda,
         role: rolePda,
@@ -765,7 +765,7 @@ describe("aeqi_governance", () => {
     );
     await role.methods
       .assignRole(voter)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustR,
@@ -783,7 +783,7 @@ describe("aeqi_governance", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         moduleState: govModulePda,
         payer: provider.wallet.publicKey,
@@ -808,7 +808,7 @@ describe("aeqi_governance", () => {
         executionDelay: new anchor.BN(0),
         allowEarlyEnact: true,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         moduleState: govModulePda,
         governanceConfig: cfgPda,
@@ -830,7 +830,7 @@ describe("aeqi_governance", () => {
         Array.from(directorTypeId),
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustR,
         moduleState: govModulePda,
         proposal: proposalPda,
@@ -855,7 +855,7 @@ describe("aeqi_governance", () => {
 
     await program.methods
       .castVoteRole(1) // For
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         vote: votePda,
         voterCheckpoint: checkpointPda,
@@ -886,7 +886,7 @@ describe("aeqi_governance", () => {
     );
     await trustProgram.methods
       .initialize(Array.from(trustId))
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -909,7 +909,7 @@ describe("aeqi_governance", () => {
 
     await aeqiToken.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         moduleState: tokenModuleStatePda,
         payer: provider.wallet.publicKey,
@@ -918,7 +918,7 @@ describe("aeqi_governance", () => {
       .rpc();
     await aeqiToken.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -951,7 +951,7 @@ describe("aeqi_governance", () => {
     );
     await aeqiToken.methods
       .mintTokens(new anchor.BN(1500))
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -969,7 +969,7 @@ describe("aeqi_governance", () => {
     );
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -991,7 +991,7 @@ describe("aeqi_governance", () => {
         executionDelay: new anchor.BN(0),
         allowEarlyEnact: true,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         moduleState: moduleStatePda,
         governanceConfig: cfgPda,
@@ -1012,7 +1012,7 @@ describe("aeqi_governance", () => {
         Array.from(tokenCfgId),
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustV,
         moduleState: moduleStatePda,
         proposal: proposalPda,
@@ -1036,7 +1036,7 @@ describe("aeqi_governance", () => {
 
     await program.methods
       .castVoteToken(1) // For
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         vote: votePda,
         voterTokenAccount: voterAta,
@@ -1074,7 +1074,7 @@ describe("aeqi_governance", () => {
           executionDelay: new anchor.BN(0),
           allowEarlyEnact: false,
         })
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           governanceConfig: cfgPda,

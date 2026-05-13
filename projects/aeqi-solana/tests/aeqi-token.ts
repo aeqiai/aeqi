@@ -32,7 +32,7 @@ describe("aeqi_token", () => {
 
     await trustProgram.methods
       .initialize(Array.from(trustId))
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         authority: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -55,7 +55,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -80,7 +80,7 @@ describe("aeqi_token", () => {
     // Init the module state first
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -99,7 +99,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -138,7 +138,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -147,7 +147,7 @@ describe("aeqi_token", () => {
       .rpc();
     await program.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -183,7 +183,7 @@ describe("aeqi_token", () => {
     // Mint 1000 tokens
     await program.methods
       .mintTokens(new anchor.BN(1000))
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -224,7 +224,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -233,7 +233,7 @@ describe("aeqi_token", () => {
       .rpc();
     await program.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -264,7 +264,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .mintTokens(new anchor.BN(5000))
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -285,7 +285,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .burnTokens(new anchor.BN(1500))
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mint: mintPda,
@@ -321,7 +321,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -330,7 +330,7 @@ describe("aeqi_token", () => {
       .rpc();
     await program.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -364,7 +364,7 @@ describe("aeqi_token", () => {
       async () =>
         program.methods
           .mintTokens(new anchor.BN(1))
-          .accounts({
+          .accountsPartial({
             trust: fakeTrust,
             moduleState: moduleStatePda,
             mintAuthority: mintAuthorityPda,
@@ -396,7 +396,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -406,7 +406,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -421,7 +421,7 @@ describe("aeqi_token", () => {
       async () =>
         program.methods
           .createMint(9)
-          .accounts({
+          .accountsPartial({
             trust: fakeTrust,
             moduleState: moduleStatePda,
             mintAuthority: mintAuthorityPda,
@@ -452,7 +452,7 @@ describe("aeqi_token", () => {
 
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: moduleStatePda,
         payer: provider.wallet.publicKey,
@@ -464,7 +464,7 @@ describe("aeqi_token", () => {
       async () =>
         program.methods
           .createMint(9)
-          .accounts({
+          .accountsPartial({
             trust: fakeTrust,
             moduleState: moduleStatePda,
             mintAuthority: mintAuthorityPda,

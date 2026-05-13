@@ -103,7 +103,7 @@ describe("aeqi_vesting", () => {
   it("init creates the vesting module state", async () => {
     await program.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         payer: provider.wallet.publicKey,
@@ -146,7 +146,7 @@ describe("aeqi_vesting", () => {
         new anchor.BN(0), // no contribution
         PublicKey.default,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         position: posPda,
@@ -163,7 +163,7 @@ describe("aeqi_vesting", () => {
     // Claim — fully vested → transfer all 10000
     await program.methods
       .claim()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         position: posPda,
         vaultAuthority,
@@ -190,7 +190,7 @@ describe("aeqi_vesting", () => {
     try {
       await program.methods
         .claim()
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           position: posPda,
           vaultAuthority,
@@ -240,7 +240,7 @@ describe("aeqi_vesting", () => {
         new anchor.BN(0),
         PublicKey.default,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         position: posPda,
@@ -255,7 +255,7 @@ describe("aeqi_vesting", () => {
     try {
       await program.methods
         .claim()
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           position: posPda,
           vaultAuthority,
@@ -295,7 +295,7 @@ describe("aeqi_vesting", () => {
     // Mark FDV milestone hit
     await program.methods
       .markFdvMilestone()
-      .accounts({
+      .accountsPartial({
         position: posPda,
         grantor: provider.wallet.publicKey,
       })
@@ -307,7 +307,7 @@ describe("aeqi_vesting", () => {
     // Claim — should now succeed with full 7777 amount
     await program.methods
       .claim()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         position: posPda,
         vaultAuthority,
@@ -336,7 +336,7 @@ describe("aeqi_vesting", () => {
     try {
       await program.methods
         .markFdvMilestone()
-        .accounts({
+        .accountsPartial({
           position: posPda,
           grantor: provider.wallet.publicKey,
         })
@@ -385,7 +385,7 @@ describe("aeqi_vesting", () => {
         new anchor.BN(CONTRIBUTION),
         mint,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         position: posPda,
@@ -413,7 +413,7 @@ describe("aeqi_vesting", () => {
     try {
       await program.methods
         .claim()
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           position: posPda,
           vaultAuthority,
@@ -452,7 +452,7 @@ describe("aeqi_vesting", () => {
     // Pay contribution (burns CONTRIBUTION tokens from recipientAta)
     await program.methods
       .payContribution()
-      .accounts({
+      .accountsPartial({
         position: posPda,
         contributionMint: mint,
         recipientContributionTa: recipientAta,
@@ -478,7 +478,7 @@ describe("aeqi_vesting", () => {
     // Now claim should succeed and transfer full TOTAL
     await program.methods
       .claim()
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         position: posPda,
         vaultAuthority,
@@ -531,7 +531,7 @@ describe("aeqi_vesting", () => {
           new anchor.BN(0),
           PublicKey.default,
         )
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           moduleState: modulePda,
           position: posPda,
@@ -577,7 +577,7 @@ describe("aeqi_vesting", () => {
         new anchor.BN(0),
         PublicKey.default,
       )
-      .accounts({
+      .accountsPartial({
         trust: fakeTrust,
         moduleState: modulePda,
         position: posPda,
@@ -591,7 +591,7 @@ describe("aeqi_vesting", () => {
     try {
       await program.methods
         .claim()
-        .accounts({
+        .accountsPartial({
           trust: fakeTrust,
           position: posPda,
           vaultAuthority,

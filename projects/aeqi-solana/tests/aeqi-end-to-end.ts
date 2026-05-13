@@ -109,7 +109,7 @@ describe("AEQI end-to-end spawn", () => {
           trustAcl: new anchor.BN(0xff),
         },
       ])
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         authority: provider.wallet.publicKey,
         aeqiTrustProgram: trust.programId,
@@ -144,7 +144,7 @@ describe("AEQI end-to-end spawn", () => {
     );
     await role.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: roleModuleStatePda,
         payer: provider.wallet.publicKey,
@@ -159,7 +159,7 @@ describe("AEQI end-to-end spawn", () => {
     );
     await token.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: tokenModuleStatePda,
         payer: provider.wallet.publicKey,
@@ -174,7 +174,7 @@ describe("AEQI end-to-end spawn", () => {
     );
     await governance.methods
       .init()
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModuleStatePda,
         payer: provider.wallet.publicKey,
@@ -227,7 +227,7 @@ describe("AEQI end-to-end spawn", () => {
           severancePeriod: new anchor.BN(0),
           contribution: false,
         })
-        .accounts({
+        .accountsPartial({
           trust: trustPda,
           roleType: pda,
           payer: provider.wallet.publicKey,
@@ -258,7 +258,7 @@ describe("AEQI end-to-end spawn", () => {
         executionDelay: new anchor.BN(0),
         allowEarlyEnact: true,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModuleStatePda,
         governanceConfig: cfgPda,
@@ -282,7 +282,7 @@ describe("AEQI end-to-end spawn", () => {
         Array.from(tokenCfgId),
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModuleStatePda,
         proposal: proposalPda,
@@ -309,7 +309,7 @@ describe("AEQI end-to-end spawn", () => {
 
     await token.methods
       .createMint(9)
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -343,7 +343,7 @@ describe("AEQI end-to-end spawn", () => {
 
     await token.methods
       .mintTokens(new anchor.BN(1000))
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: tokenModuleStatePda,
         mintAuthority: mintAuthorityPda,
@@ -366,7 +366,7 @@ describe("AEQI end-to-end spawn", () => {
     );
     await governance.methods
       .castVoteToken(1)
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         vote: votePda,
         voterTokenAccount: voterAta,
@@ -379,7 +379,7 @@ describe("AEQI end-to-end spawn", () => {
     // Execute (early enact, 1000 vs 1000 supply → 100% participation, 100% support)
     await governance.methods
       .executeProposal(new anchor.BN(1000))
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         executor: provider.wallet.publicKey,
       })
@@ -450,7 +450,7 @@ describe("AEQI end-to-end spawn", () => {
         null,
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         roleType: rtPda,
         role: rolePda,
@@ -484,7 +484,7 @@ describe("AEQI end-to-end spawn", () => {
     );
     await role.methods
       .assignRole(provider.wallet.publicKey)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustPda,
@@ -496,7 +496,7 @@ describe("AEQI end-to-end spawn", () => {
       .rpc();
     await role.methods
       .transferRole(alice.publicKey)
-      .accounts({
+      .accountsPartial({
         role: rolePda,
         roleType: rtPda,
         trust: trustPda,
@@ -531,7 +531,7 @@ describe("AEQI end-to-end spawn", () => {
         executionDelay: new anchor.BN(0),
         allowEarlyEnact: true,
       })
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModuleStatePda,
         governanceConfig: roleCfgPda,
@@ -554,7 +554,7 @@ describe("AEQI end-to-end spawn", () => {
         Array.from(directorTypeId),
         Array.from(new Uint8Array(64)),
       )
-      .accounts({
+      .accountsPartial({
         trust: trustPda,
         moduleState: govModuleStatePda,
         proposal: proposalPda,
@@ -581,7 +581,7 @@ describe("AEQI end-to-end spawn", () => {
     );
     await governance.methods
       .castVoteRole(1) // For
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         vote: votePda,
         voterCheckpoint: aliceCkptPda,
@@ -595,7 +595,7 @@ describe("AEQI end-to-end spawn", () => {
     // 1 supply = 100% participation, 100% support → passes 50/50 thresholds.
     await governance.methods
       .executeProposal(new anchor.BN(1))
-      .accounts({
+      .accountsPartial({
         proposal: proposalPda,
         executor: alice.publicKey,
       })
