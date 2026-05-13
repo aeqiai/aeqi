@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from "react";
-import { Popover } from "@/components/ui";
+import { Popover } from ".";
 
 export interface ToolbarRadioPopoverProps<T extends string> {
   label: string;
@@ -8,8 +8,17 @@ export interface ToolbarRadioPopoverProps<T extends string> {
   options: { id: T; label: string }[];
   value: T;
   onChange: (next: T) => void;
+  /** When true, the trigger renders an active-state dot — used by filter
+   * popovers to indicate that a non-resting selection is in play. */
+  indicator?: boolean;
 }
 
+/**
+ * Canonical toolbar popover: a `glyph`-only trigger that opens a radio list.
+ * Shared by every "sort/view/filter/status" toolbar slot across the app
+ * (Ideas, Blueprints, Agents, …). Previously each surface re-inlined a
+ * near-copy of this component; promoted to a single source 2026-05-13.
+ */
 export default function ToolbarRadioPopover<T extends string>({
   label,
   current,
@@ -17,6 +26,7 @@ export default function ToolbarRadioPopover<T extends string>({
   options,
   value,
   onChange,
+  indicator,
 }: ToolbarRadioPopoverProps<T>) {
   const [open, setOpen] = useState(false);
   return (
@@ -27,13 +37,14 @@ export default function ToolbarRadioPopover<T extends string>({
       trigger={
         <button
           type="button"
-          className={`ideas-toolbar-btn${open ? " open" : ""}`}
+          className={`ideas-toolbar-btn${indicator ? " active" : ""}${open ? " open" : ""}`}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={`${label}: ${current}`}
           title={`${label}: ${current}`}
         >
           {glyph}
+          {indicator && <span className="ideas-toolbar-btn-dot" aria-hidden />}
         </button>
       }
     >

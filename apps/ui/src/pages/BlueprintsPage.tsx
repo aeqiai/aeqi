@@ -25,7 +25,7 @@ import {
   type View,
 } from "./blueprints/constants";
 import BlueprintCategorySection from "./blueprints/BlueprintCategorySection";
-import ToolbarRadioPopover from "./blueprints/ToolbarRadioPopover";
+import { ToolbarRadioPopover } from "@/components/ui";
 import BlueprintsFilterPopover from "./blueprints/BlueprintsFilterPopover";
 
 /**

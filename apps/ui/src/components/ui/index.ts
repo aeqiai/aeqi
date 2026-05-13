@@ -110,3 +110,6 @@ export type {
 
 export { Table } from "./Table";
 export type { TableProps, TableColumn } from "./Table";
+
+export { default as ToolbarRadioPopover } from "./ToolbarRadioPopover";
+export type { ToolbarRadioPopoverProps } from "./ToolbarRadioPopover";
