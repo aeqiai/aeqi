@@ -14,6 +14,54 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "off",
       "no-console": "off",
+      /* Monolith guard. CLAUDE.md says "Components extracted to own files
+       * (no 500-line monoliths)" but the rule was never enforced. 600 lines
+       * (blank + comment lines stripped) is the soft ceiling; anything past
+       * that signals the file should be split. Warning, not error — warnings
+       * don't fail the gauntlet, so this doesn't break CI on existing
+       * offenders (WelcomePage 1392, api.ts 1270, AgentQuestsTab 1146,
+       * AdminPage 928, QuestCanvas 822, IdeaCanvas 794, EntityAgentsTab 791,
+       * Button.stories.tsx 717, IdeasListView 693, etc.). Each warning is a
+       * deferred TODO; new code that pushes a file over 600 lines surfaces
+       * the moment it lands. */
+      "max-lines": ["warn", { max: 600, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    /* Known monolith files awaiting extraction. CLAUDE.md says "no 500-line
+     * monoliths" — these predate the rule. Each is on the TODO list to
+     * split into smaller per-concern components; the override exempts them
+     * from `max-lines` until they're extracted. Don't add to this list —
+     * any new file >600 lines is a regression. Drop entries as files are
+     * refactored. Locked 2026-05-13 with line counts captured at that date:
+     *
+     *   - src/lib/api.ts                              1049
+     *   - src/pages/WelcomePage.tsx                   1212
+     *   - src/pages/AdminPage.tsx                      874
+     *   - src/pages/BlueprintsPage.tsx                 676
+     *   - src/components/QuestCanvas.tsx               736
+     *   - src/components/IdeaCanvas.tsx                640
+     *   - src/components/composer/Composer.tsx        639
+     *   - src/components/ideas/IdeasListView.tsx      631
+     *   - src/components/AgentQuestsTab.tsx          (>600, was 1146 raw)
+     *   - src/components/EntityAgentsTab.tsx         (>600, was 791 raw)
+     *   - src/components/ui/Button.stories.tsx         668  (stories — OK to stay big)
+     */
+    files: [
+      "src/lib/api.ts",
+      "src/pages/WelcomePage.tsx",
+      "src/pages/AdminPage.tsx",
+      "src/pages/BlueprintsPage.tsx",
+      "src/components/QuestCanvas.tsx",
+      "src/components/IdeaCanvas.tsx",
+      "src/components/composer/Composer.tsx",
+      "src/components/ideas/IdeasListView.tsx",
+      "src/components/AgentQuestsTab.tsx",
+      "src/components/EntityAgentsTab.tsx",
+      "src/components/ui/Button.stories.tsx",
+    ],
+    rules: {
+      "max-lines": "off",
     },
   },
   {
