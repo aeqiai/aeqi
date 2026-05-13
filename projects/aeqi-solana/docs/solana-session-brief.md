@@ -6,7 +6,7 @@ Use this file to start a fresh session on the Solana protocol work.
 
 - The Solana protocol stack is the canonical implementation target.
 - Governance is now explicit about loading config from `remaining_accounts`.
-- The full Anchor suite passed on the last run: `99 passing`.
+- The full Anchor suite passed on the last run: `102 passing`.
 - Anchor macro warning noise is intentionally suppressed at crate boundaries so
   real protocol warnings surface cleanly.
 
@@ -49,11 +49,20 @@ Use this file to start a fresh session on the Solana protocol work.
     to match the fund's configured quote mint.
   - wrong-mint deposit attempts are covered with an adversarial Token-2022
     account fixture.
+- `aeqi_budget`
+  - `record_spend` now requires the signer to hold the occupied
+    `aeqi_role::Role` account for the budget's target role.
+  - arbitrary signer quota-burning is covered with an adversarial spend test.
+- `aeqi_funding`
+  - funding requests and activation paths now require a real `aeqi_budget`
+    account matching the request's trust and budget id.
+  - frozen, expired, or under-capacity budgets reject request creation or
+    activation before a Unifutures primitive is created.
 
 ## What To Work On Next
 
-1. Fix remaining budget/funding accounting invariants: spend authority,
-   budget-backed funding activation, and creator/trust activation checks.
+1. Replace budget capacity checks with an actual budget spend/reservation CPI
+   once the settlement path is ready.
 2. Replace the temporary TRUST-authority mint bridge with a governance/module
    ACL mint execution path once proposal execution is wired to module actions.
 3. Keep the Solana code readable and audit-friendly.

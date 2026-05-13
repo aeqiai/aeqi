@@ -10,8 +10,8 @@
 //! Lifecycle (implemented incrementally):
 //!   1. `create_funding_request` — declares the intent, references a Budget
 //!      for the asset allocation
-//!   2. `activate` — draws from Budget, creates the corresponding Unifutures
-//!      primitive (CPIs into aeqi_unifutures) [pending]
+//!   2. `activate` — validates Budget capacity, creates the corresponding
+//!      Unifutures primitive (CPIs into aeqi_unifutures)
 //!   3. `on_tokens_claimed` — hook fired when Unifutures tokens are claimed,
 //!      creates vesting roles for buyers via aeqi_role + aeqi_vesting CPIs
 //!      [pending]
@@ -25,6 +25,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_budget::Budget;
 use aeqi_unifutures::cpi::accounts::{CreateCommitmentSale, CreateCurve, CreateExit};
 use aeqi_unifutures::program::AeqiUnifutures;
 use anchor_lang::prelude::*;
@@ -62,6 +63,12 @@ pub mod aeqi_funding {
             require!(asset_amount > 0, FundingError::ZeroAmount);
             require!(target_quote > 0, FundingError::ZeroAmount);
         }
+        require_budget_capacity(
+            &ctx.accounts.budget,
+            ctx.accounts.trust.key(),
+            budget_id,
+            if kind == 0 { asset_amount } else { 0 },
+        )?;
 
         let now = Clock::get()?.unix_timestamp;
         let r = &mut ctx.accounts.request;
@@ -107,6 +114,7 @@ pub mod aeqi_funding {
         let r = &mut ctx.accounts.request;
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
         require_keys_eq!(ctx.accounts.trust.key(), r.trust, FundingError::TrustMismatch);
+        require_budget_capacity(&ctx.accounts.budget, r.trust, r.budget_id, r.asset_amount)?;
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 0, FundingError::WrongKind);
 
@@ -152,6 +160,7 @@ pub mod aeqi_funding {
         let r = &mut ctx.accounts.request;
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
         require_keys_eq!(ctx.accounts.trust.key(), r.trust, FundingError::TrustMismatch);
+        require_budget_capacity(&ctx.accounts.budget, r.trust, r.budget_id, max_supply)?;
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 1, FundingError::WrongKind);
 
@@ -196,6 +205,7 @@ pub mod aeqi_funding {
         let r = &mut ctx.accounts.request;
         require_keys_eq!(ctx.accounts.creator.key(), r.creator, FundingError::Unauthorized);
         require_keys_eq!(ctx.accounts.trust.key(), r.trust, FundingError::TrustMismatch);
+        require_budget_capacity(&ctx.accounts.budget, r.trust, r.budget_id, exit_quote)?;
         require!(r.status == RequestStatus::Pending as u8, FundingError::CannotActivate);
         require!(r.kind == 2, FundingError::WrongKind);
 
@@ -290,6 +300,27 @@ pub struct FundingRequest {
     pub bump: u8,
 }
 
+fn require_budget_capacity(
+    budget: &Budget,
+    trust: Pubkey,
+    budget_id: [u8; 32],
+    required_amount: u64,
+) -> Result<()> {
+    require_keys_eq!(budget.trust, trust, FundingError::BudgetMismatch);
+    require!(budget.budget_id == budget_id, FundingError::BudgetMismatch);
+    require!(!budget.frozen, FundingError::BudgetUnavailable);
+    if budget.expiry != 0 {
+        let now = Clock::get()?.unix_timestamp;
+        require!(now < budget.expiry, FundingError::BudgetUnavailable);
+    }
+    if required_amount > 0 {
+        let remaining =
+            budget.amount.checked_sub(budget.spent).ok_or(error!(FundingError::MathOverflow))?;
+        require!(remaining >= required_amount, FundingError::BudgetCapacityExceeded);
+    }
+    Ok(())
+}
+
 #[derive(Accounts)]
 pub struct InitFunding<'info> {
     /// CHECK: trust pda
@@ -326,6 +357,7 @@ pub struct CreateFundingRequest<'info> {
         bump,
     )]
     pub request: Account<'info, FundingRequest>,
+    pub budget: Account<'info, Budget>,
     #[account(mut)]
     pub creator: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -339,6 +371,7 @@ pub struct ActivateCommitmentSale<'info> {
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
+    pub budget: Account<'info, Budget>,
     /// CHECK: trust pda — passed through to aeqi_unifutures CPI
     pub trust: UncheckedAccount<'info>,
     /// CHECK: aeqi_unifutures' module_state PDA — validated by the CPI
@@ -361,6 +394,7 @@ pub struct ActivateBondingCurve<'info> {
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
+    pub budget: Account<'info, Budget>,
     /// CHECK: trust pda
     pub trust: UncheckedAccount<'info>,
     /// CHECK: unifutures module_state
@@ -383,6 +417,7 @@ pub struct ActivateExit<'info> {
         bump = request.bump,
     )]
     pub request: Account<'info, FundingRequest>,
+    pub budget: Account<'info, Budget>,
     /// CHECK: trust pda
     pub trust: UncheckedAccount<'info>,
     /// CHECK: unifutures module_state
@@ -472,4 +507,10 @@ pub enum FundingError {
     CannotFinalize,
     #[msg("request kind doesn't match this activation ix (kind=0 for CommitmentSale)")]
     WrongKind,
+    #[msg("budget account does not match the funding request")]
+    BudgetMismatch,
+    #[msg("budget is frozen or expired")]
+    BudgetUnavailable,
+    #[msg("budget has insufficient remaining allocation")]
+    BudgetCapacityExceeded,
 }

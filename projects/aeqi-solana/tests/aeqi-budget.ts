@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiBudget } from "../target/types/aeqi_budget";
+import { AeqiRole } from "../target/types/aeqi_role";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import { expect } from "chai";
 import { expectTxFail, fundKeypair } from "./support";
@@ -10,15 +11,104 @@ describe("aeqi_budget", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiBudget as Program<AeqiBudget>;
+  const roleProgram = anchor.workspace.aeqiRole as Program<AeqiRole>;
 
   const fakeTrust = Keypair.generate().publicKey;
   let modulePda: PublicKey;
+  let targetRolePda: PublicKey;
 
-  before(() => {
+  const targetRoleTypeId = new Uint8Array(32);
+  targetRoleTypeId[0] = 0x65;
+  const targetRoleId = new Uint8Array(32);
+  targetRoleId[0] = 0x65;
+
+  before(async () => {
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("budget_module"), fakeTrust.toBuffer()],
       program.programId,
     );
+    const [roleModulePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role_module"), fakeTrust.toBuffer()],
+      roleProgram.programId,
+    );
+    const [roleTypePda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("role_type"),
+        fakeTrust.toBuffer(),
+        Buffer.from(targetRoleTypeId),
+      ],
+      roleProgram.programId,
+    );
+    [targetRolePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role"), fakeTrust.toBuffer(), Buffer.from(targetRoleId)],
+      roleProgram.programId,
+    );
+    const [checkpointPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("role_ckpt"),
+        fakeTrust.toBuffer(),
+        Buffer.from(targetRoleTypeId),
+        provider.wallet.publicKey.toBuffer(),
+      ],
+      roleProgram.programId,
+    );
+
+    await roleProgram.methods
+      .init()
+      .accounts({
+        trust: fakeTrust,
+        moduleState: roleModulePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+    await roleProgram.methods
+      .createRoleType(Array.from(targetRoleTypeId), 0, {
+        vesting: false,
+        vestingCliff: new anchor.BN(0),
+        vestingDuration: new anchor.BN(0),
+        fdv: false,
+        fdvStart: new anchor.BN(0),
+        fdvEnd: new anchor.BN(0),
+        probationaryPeriod: new anchor.BN(0),
+        severancePeriod: new anchor.BN(0),
+        contribution: false,
+      })
+      .accounts({
+        trust: fakeTrust,
+        roleType: roleTypePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+    await roleProgram.methods
+      .createRole(
+        Array.from(targetRoleId),
+        Array.from(targetRoleTypeId),
+        null,
+        Array.from(new Uint8Array(64)),
+      )
+      .accounts({
+        trust: fakeTrust,
+        roleType: roleTypePda,
+        role: targetRolePda,
+        callerRole: null,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+    await roleProgram.methods
+      .assignRole(provider.wallet.publicKey)
+      .accounts({
+        role: targetRolePda,
+        roleType: roleTypePda,
+        trust: fakeTrust,
+        callerRole: null,
+        checkpoint: checkpointPda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
   });
 
   it("init creates the budget module state", async () => {
@@ -40,9 +130,6 @@ describe("aeqi_budget", () => {
   it("create_budget + record_spend tracks allocation against cap", async () => {
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xb1;
-
-    const targetRoleId = new Uint8Array(32);
-    targetRoleId[0] = 0x65; // 'e' for eng
 
     const [budgetPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
@@ -76,6 +163,7 @@ describe("aeqi_budget", () => {
       .recordSpend(new anchor.BN(10_000))
       .accounts({
         budget: budgetPda,
+        spenderRole: targetRolePda,
         spender: provider.wallet.publicKey,
       })
       .rpc();
@@ -83,6 +171,7 @@ describe("aeqi_budget", () => {
       .recordSpend(new anchor.BN(25_000))
       .accounts({
         budget: budgetPda,
+        spenderRole: targetRolePda,
         spender: provider.wallet.publicKey,
       })
       .rpc();
@@ -97,6 +186,7 @@ describe("aeqi_budget", () => {
         .recordSpend(new anchor.BN(20_000))
         .accounts({
           budget: budgetPda,
+          spenderRole: targetRolePda,
           spender: provider.wallet.publicKey,
         })
         .rpc();
@@ -105,6 +195,49 @@ describe("aeqi_budget", () => {
       expect(e.toString()).to.match(/ExceedsAllocation/);
     }
     expect(threw).to.eq(true);
+  });
+
+  it("rejects record_spend from a signer that does not hold the target role", async () => {
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0xb4;
+
+    const [budgetPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      program.programId,
+    );
+
+    await program.methods
+      .createBudget(
+        Array.from(budgetId),
+        Array.from(targetRoleId),
+        new anchor.BN(1000),
+        new anchor.BN(0),
+        null,
+      )
+      .accounts({
+        trust: fakeTrust,
+        moduleState: modulePda,
+        budget: budgetPda,
+        grantor: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const attacker = await fundKeypair(provider);
+
+    await expectTxFail(
+      async () =>
+        program.methods
+          .recordSpend(new anchor.BN(100))
+          .accounts({
+            budget: budgetPda,
+            spenderRole: targetRolePda,
+            spender: attacker.publicKey,
+          })
+          .signers([attacker])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("freeze blocks further spends", async () => {
@@ -119,7 +252,7 @@ describe("aeqi_budget", () => {
     await program.methods
       .createBudget(
         Array.from(budgetId),
-        Array.from(new Uint8Array(32).fill(0x66)),
+        Array.from(targetRoleId),
         new anchor.BN(1000),
         new anchor.BN(0),
         null,
@@ -147,6 +280,7 @@ describe("aeqi_budget", () => {
         .recordSpend(new anchor.BN(100))
         .accounts({
           budget: budgetPda,
+          spenderRole: targetRolePda,
           spender: provider.wallet.publicKey,
         })
         .rpc();
@@ -169,6 +303,7 @@ describe("aeqi_budget", () => {
       .recordSpend(new anchor.BN(100))
       .accounts({
         budget: budgetPda,
+        spenderRole: targetRolePda,
         spender: provider.wallet.publicKey,
       })
       .rpc();

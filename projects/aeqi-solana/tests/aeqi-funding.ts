@@ -1,25 +1,79 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
+import { AeqiBudget } from "../target/types/aeqi_budget";
 import { AeqiFunding } from "../target/types/aeqi_funding";
 import { AeqiUnifutures } from "../target/types/aeqi_unifutures";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import { expect } from "chai";
+import { expectTxFail } from "./support";
 
 describe("aeqi_funding", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiFunding as Program<AeqiFunding>;
+  const budgetProgram = anchor.workspace.aeqiBudget as Program<AeqiBudget>;
 
   const fakeTrust = Keypair.generate().publicKey;
   let modulePda: PublicKey;
+  let budgetModulePda: PublicKey;
 
-  before(() => {
+  before(async () => {
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("funding_module"), fakeTrust.toBuffer()],
       program.programId,
     );
+    [budgetModulePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("budget_module"), fakeTrust.toBuffer()],
+      budgetProgram.programId,
+    );
+
+    await budgetProgram.methods
+      .init()
+      .accounts({
+        trust: fakeTrust,
+        moduleState: budgetModulePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
   });
+
+  async function ensureBudget(
+    budgetId: Uint8Array,
+    amount = 2_000_000,
+  ): Promise<PublicKey> {
+    const [budgetPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("budget"), fakeTrust.toBuffer(), Buffer.from(budgetId)],
+      budgetProgram.programId,
+    );
+    try {
+      await budgetProgram.account.budget.fetch(budgetPda);
+      return budgetPda;
+    } catch {
+      // Create below.
+    }
+
+    const targetRoleId = new Uint8Array(32);
+    targetRoleId[0] = 0x66;
+    await budgetProgram.methods
+      .createBudget(
+        Array.from(budgetId),
+        Array.from(targetRoleId),
+        new anchor.BN(amount),
+        new anchor.BN(0),
+        null,
+      )
+      .accounts({
+        trust: fakeTrust,
+        moduleState: budgetModulePda,
+        budget: budgetPda,
+        grantor: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+    return budgetPda;
+  }
 
   it("init creates the funding module state", async () => {
     await program.methods
@@ -43,6 +97,7 @@ describe("aeqi_funding", () => {
 
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xb1;
+    const budgetPda = await ensureBudget(budgetId, 2_000_000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -65,6 +120,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -78,12 +134,62 @@ describe("aeqi_funding", () => {
     expect(r.creator.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
   });
 
+  it("rejects create_funding_request against a frozen budget", async () => {
+    const requestId = new Uint8Array(32);
+    requestId[0] = 0x5f;
+
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0x5f;
+    budgetId[1] = 0xb0;
+    const budgetPda = await ensureBudget(budgetId, 1000);
+
+    await budgetProgram.methods
+      .freeze()
+      .accounts({
+        budget: budgetPda,
+        grantor: provider.wallet.publicKey,
+      })
+      .rpc();
+
+    const [requestPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("funding_request"),
+        fakeTrust.toBuffer(),
+        Buffer.from(requestId),
+      ],
+      program.programId,
+    );
+
+    await expectTxFail(
+      async () =>
+        program.methods
+          .createFundingRequest(
+            Array.from(requestId),
+            0,
+            Array.from(budgetId),
+            new anchor.BN(1),
+            new anchor.BN(1),
+          )
+          .accounts({
+            trust: fakeTrust,
+            moduleState: modulePda,
+            request: requestPda,
+            budget: budgetPda,
+            creator: provider.wallet.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .rpc(),
+      /BudgetUnavailable/,
+    );
+  });
+
   it("cancel_funding_request transitions Pending → Cancelled", async () => {
     const requestId = new Uint8Array(32);
     requestId[0] = 0x53;
 
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xb2;
+    const budgetPda = await ensureBudget(budgetId);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -106,6 +212,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -147,6 +254,7 @@ describe("aeqi_funding", () => {
     requestId[0] = 0xa0;
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xb0;
+    const budgetPda = await ensureBudget(budgetId, 1000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -169,6 +277,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -191,6 +300,7 @@ describe("aeqi_funding", () => {
       )
       .accounts({
         request: requestPda,
+        budget: budgetPda,
         trust: fakeTrust,
         unifuturesModuleState: unifModulePda,
         sale: salePda,
@@ -231,6 +341,7 @@ describe("aeqi_funding", () => {
     requestId[0] = 0xb0;
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xb1;
+    const budgetPda = await ensureBudget(budgetId, 1_000_000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -253,6 +364,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -277,6 +389,7 @@ describe("aeqi_funding", () => {
       )
       .accounts({
         request: requestPda,
+        budget: budgetPda,
         trust: fakeTrust,
         unifuturesModuleState: unifModulePda,
         curve: curvePda,
@@ -311,6 +424,7 @@ describe("aeqi_funding", () => {
     requestId[0] = 0xe0;
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xe1;
+    const budgetPda = await ensureBudget(budgetId, 100_000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -333,6 +447,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -355,6 +470,7 @@ describe("aeqi_funding", () => {
       )
       .accounts({
         request: requestPda,
+        budget: budgetPda,
         trust: fakeTrust,
         unifuturesModuleState: unifModulePda,
         exit: exitPda,
@@ -376,12 +492,91 @@ describe("aeqi_funding", () => {
     expect(e.status).to.eq(0); // Active
   });
 
+  it("activate_exit rejects when the bound budget lacks capacity", async () => {
+    const unifutures = anchor.workspace
+      .aeqiUnifutures as Program<AeqiUnifutures>;
+
+    const [unifModulePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
+      unifutures.programId,
+    );
+
+    const requestId = new Uint8Array(32);
+    requestId[0] = 0xe2;
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0xe2;
+    budgetId[1] = 0xb0;
+    const budgetPda = await ensureBudget(budgetId, 10);
+
+    const [requestPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("funding_request"),
+        fakeTrust.toBuffer(),
+        Buffer.from(requestId),
+      ],
+      program.programId,
+    );
+
+    await program.methods
+      .createFundingRequest(
+        Array.from(requestId),
+        2, // Exit
+        Array.from(budgetId),
+        new anchor.BN(0),
+        new anchor.BN(0),
+      )
+      .accounts({
+        trust: fakeTrust,
+        moduleState: modulePda,
+        request: requestPda,
+        budget: budgetPda,
+        creator: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const exitId = new Uint8Array(32);
+    exitId[0] = 0xe2;
+    exitId[1] = 0x17;
+    const [exitPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("exit"), fakeTrust.toBuffer(), Buffer.from(exitId)],
+      unifutures.programId,
+    );
+
+    await expectTxFail(
+      async () =>
+        program.methods
+          .activateExit(
+            Array.from(exitId),
+            new anchor.BN(100),
+            new anchor.BN(500_000),
+            new anchor.BN(60 * 60 * 24 * 30),
+          )
+          .accounts({
+            request: requestPda,
+            budget: budgetPda,
+            trust: fakeTrust,
+            unifuturesModuleState: unifModulePda,
+            exit: exitPda,
+            creator: provider.wallet.publicKey,
+            aeqiUnifuturesProgram: unifutures.programId,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .rpc(),
+      /BudgetCapacityExceeded/,
+    );
+  });
+
   it("activate_bonding_curve rejects wrong-kind request", async () => {
     // Reuse the CommitmentSale request from earlier in the suite — it has
     // status=Activated already, but more importantly kind=0. Even if we
     // create a fresh Pending CommitmentSale here, kind=0 ≠ 1 → WrongKind.
     const requestId = new Uint8Array(32);
     requestId[0] = 0x77;
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0x77;
+    budgetId[1] = 0xb0;
+    const budgetPda = await ensureBudget(budgetId, 1000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -396,7 +591,7 @@ describe("aeqi_funding", () => {
       .createFundingRequest(
         Array.from(requestId),
         0, // CommitmentSale (NOT BondingCurve)
-        Array.from(new Uint8Array(32)),
+        Array.from(budgetId),
         new anchor.BN(1),
         new anchor.BN(1),
       )
@@ -404,6 +599,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -435,6 +631,7 @@ describe("aeqi_funding", () => {
         )
         .accounts({
           request: requestPda,
+          budget: budgetPda,
           trust: fakeTrust,
           unifuturesModuleState: unifModulePda,
           curve: curvePda,
@@ -463,6 +660,7 @@ describe("aeqi_funding", () => {
     requestId[0] = 0xf0;
     const budgetId = new Uint8Array(32);
     budgetId[0] = 0xf1;
+    const budgetPda = await ensureBudget(budgetId, 50_000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -485,6 +683,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -506,6 +705,7 @@ describe("aeqi_funding", () => {
       )
       .accounts({
         request: requestPda,
+        budget: budgetPda,
         trust: fakeTrust,
         unifuturesModuleState: unifModulePda,
         exit: exitPda,
@@ -533,6 +733,10 @@ describe("aeqi_funding", () => {
   it("finalize_funding_request rejects Pending requests", async () => {
     const requestId = new Uint8Array(32);
     requestId[0] = 0xf3;
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0xf3;
+    budgetId[1] = 0xb0;
+    const budgetPda = await ensureBudget(budgetId, 50_000);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -547,7 +751,7 @@ describe("aeqi_funding", () => {
       .createFundingRequest(
         Array.from(requestId),
         2, // Exit (Pending)
-        Array.from(new Uint8Array(32)),
+        Array.from(budgetId),
         new anchor.BN(0),
         new anchor.BN(0),
       )
@@ -555,6 +759,7 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         request: requestPda,
+        budget: budgetPda,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -579,6 +784,10 @@ describe("aeqi_funding", () => {
   it("rejects invalid kind (>=3)", async () => {
     const requestId = new Uint8Array(32);
     requestId[0] = 0xee;
+    const budgetId = new Uint8Array(32);
+    budgetId[0] = 0xee;
+    budgetId[1] = 0xb0;
+    const budgetPda = await ensureBudget(budgetId, 100);
 
     const [requestPda] = PublicKey.findProgramAddressSync(
       [
@@ -595,7 +804,7 @@ describe("aeqi_funding", () => {
         .createFundingRequest(
           Array.from(requestId),
           5, // INVALID
-          Array.from(new Uint8Array(32)),
+          Array.from(budgetId),
           new anchor.BN(100),
           new anchor.BN(100),
         )
@@ -603,6 +812,7 @@ describe("aeqi_funding", () => {
           trust: fakeTrust,
           moduleState: modulePda,
           request: requestPda,
+          budget: budgetPda,
           creator: provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })

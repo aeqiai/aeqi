@@ -16,6 +16,7 @@ dependencies = [
 name = "aeqi-budget"
 version = "0.1.0"
 dependencies = [
+ "aeqi-role",
  "anchor-lang",
 ]
 
@@ -42,6 +43,7 @@ dependencies = [
 name = "aeqi-funding"
 version = "0.1.0"
 dependencies = [
+ "aeqi-budget",
  "aeqi-unifutures",
  "anchor-lang",
 ]

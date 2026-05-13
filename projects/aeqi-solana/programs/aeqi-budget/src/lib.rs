@@ -3,10 +3,8 @@
 //! Each budget allocates an `amount` to a
 //! `target_role_id`; spends decrement the budget's `spent` counter against
 //! the cap. Budgets can be frozen/unfrozen by their grantor, and have an
-//! optional expiry. Authorization to spend is gated by role authority —
-//! caller must hold a role that is the target_role itself or an ancestor
-//! (verified off-chain via the role DAG walk; this module just records
-//! the gate, not the walk).
+//! optional expiry. Authorization to spend is gated by an occupied
+//! `aeqi_role::Role` account for the budget's target role.
 //!
 //! Settlement of actual funds is delegated: a Budget records the *intent*
 //! to spend; the corresponding token transfer happens via `aeqi_treasury`
@@ -16,6 +14,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_role::{Role, RoleStatus};
 use anchor_lang::prelude::*;
 
 declare_id!("2XVZqURv6hVL7EEMd4BL1zyJhngSiAEV2q4yCgbQjASA");
@@ -74,13 +73,21 @@ pub mod aeqi_budget {
         Ok(())
     }
 
-    /// Record a spend against the budget. Caller must be a role-authorized
-    /// signer (verification of `caller` against role.account is the role
-    /// module's job and is enforced upstream by the calling module —
-    /// budget just enforces the cap + expiry + frozen flag).
+    /// Record a spend against the budget. Caller must hold the occupied
+    /// target role referenced by the budget, and budget enforces the cap,
+    /// expiry, and frozen flag.
     pub fn record_spend(ctx: Context<RecordSpend>, amount: u64) -> Result<()> {
         require!(amount > 0, BudgetError::ZeroAmount);
         let b = &mut ctx.accounts.budget;
+        let spender_role = &ctx.accounts.spender_role;
+        require!(spender_role.trust == b.trust, BudgetError::Unauthorized);
+        require!(spender_role.role_id == b.target_role_id, BudgetError::Unauthorized);
+        require!(spender_role.status == RoleStatus::Occupied as u8, BudgetError::Unauthorized);
+        require_keys_eq!(
+            spender_role.account,
+            ctx.accounts.spender.key(),
+            BudgetError::Unauthorized
+        );
         require!(!b.frozen, BudgetError::BudgetFrozen);
         if b.expiry != 0 {
             let now = Clock::get()?.unix_timestamp;
@@ -186,6 +193,7 @@ pub struct RecordSpend<'info> {
         bump = budget.bump,
     )]
     pub budget: Account<'info, Budget>,
+    pub spender_role: Account<'info, Role>,
     pub spender: Signer<'info>,
 }
 
@@ -244,6 +252,6 @@ pub enum BudgetError {
     ExceedsAllocation,
     #[msg("math overflow")]
     MathOverflow,
-    #[msg("caller is not the budget's grantor")]
+    #[msg("caller is not authorized for this budget")]
     Unauthorized,
 }
