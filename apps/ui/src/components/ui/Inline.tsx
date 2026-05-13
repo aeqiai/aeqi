@@ -17,7 +17,7 @@ export interface InlineProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Allow wrap. Default false. */
   wrap?: boolean;
   /** Render as a different element. Default `"div"`. */
-  as?: keyof React.JSX.IntrinsicElements;
+  as?: React.ElementType;
 }
 
 export const Inline = forwardRef<HTMLDivElement, InlineProps>(function Inline(
@@ -36,7 +36,6 @@ export const Inline = forwardRef<HTMLDivElement, InlineProps>(function Inline(
   const cls = [styles.inline, className].filter(Boolean).join(" ");
 
   return (
-    // @ts-expect-error — polymorphic `as` prop; ref type is intentionally widened to HTMLDivElement
     <As
       ref={ref}
       className={cls}

@@ -45,7 +45,6 @@ export default tseslint.config(
      * refactored. Locked 2026-05-13 with line counts captured at that date:
      *
      *   - src/lib/api.ts                              1049
-     *   - src/pages/WelcomePage.tsx                   1212
      *   - src/pages/AdminPage.tsx                      874
      *   - src/components/AgentQuestsTab.tsx          (>600, was 1146 raw)
      *   - src/components/EntityAgentsTab.tsx         (>600, was 791 raw)
@@ -64,10 +63,12 @@ export default tseslint.config(
      *     BlueprintCategorySection,BlueprintsFilterPopover,ToolbarRadioPopover}
      *   - 2026-05-13 Button.stories.tsx + future *.stories.tsx — permanent
      *     `**\/*.stories.tsx` glob exemption.
+     *   - 2026-05-13 src/pages/WelcomePage.tsx — 4 icons + 5 sub-views +
+     *     webauthn helpers + types → pages/welcome/{types,webauthn,icons,
+     *     SecretLogin,DoorView,CheckEmailView,views}.tsx
      */
     files: [
       "src/lib/api.ts",
-      "src/pages/WelcomePage.tsx",
       "src/pages/AdminPage.tsx",
       "src/components/AgentQuestsTab.tsx",
       "src/components/EntityAgentsTab.tsx",
