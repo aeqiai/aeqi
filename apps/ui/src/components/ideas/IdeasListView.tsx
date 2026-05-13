@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
-import { Button, Tooltip } from "../ui";
+import { Button } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { api } from "@/lib/api";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import { formatDateTime } from "@/lib/i18n";
 import { useAgentIdeasCache } from "@/queries/ideas";
-import { ImportMenu } from "@/components/blueprints/ImportMenu";
-import IdeasFilterPopover from "./IdeasFilterPopover";
-import IdeasSortPopover from "./IdeasSortPopover";
-import IdeasViewPopover from "./IdeasViewPopover";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
+import IdeasListToolbar from "./IdeasListToolbar";
+import IdeasListFilterChips from "./IdeasListFilterChips";
 import {
   type FilterState,
   type IdeasFilter,
@@ -282,104 +280,25 @@ export default function IdeasListView({
   return (
     <div className="ideas-list">
       <div className="ideas-list-head">
-        <div className="ideas-toolbar">
-          <span className="ideas-list-search-field">
-            <svg
-              className="ideas-list-search-glyph"
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <circle cx="5.2" cy="5.2" r="3.2" />
-              <path d="M7.6 7.6 L10 10" />
-            </svg>
-            <input
-              ref={searchRef}
-              className="ideas-list-search"
-              type="text"
-              placeholder="Search ideas"
-              value={filter.search}
-              onChange={(e) => onFilter({ search: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  if (filter.search) {
-                    onFilter({ search: "" });
-                  } else {
-                    (e.target as HTMLInputElement).blur();
-                  }
-                } else if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (filtered.length > 0) {
-                    goEntity(entityId, "ideas", ranked[0].id);
-                  } else if (noMatchTrimmed) {
-                    // Enter-to-create when the query matches nothing —
-                    // zero-cost capture for the most obvious next move.
-                    fireNew(noMatchTrimmed);
-                  }
-                } else if (e.key === "ArrowDown" && filtered.length > 0) {
-                  e.preventDefault();
-                  rowRefs.current[0]?.focus();
-                }
-              }}
-            />
-            {!filter.search && (
-              <kbd className="ideas-list-search-kbd" aria-hidden>
-                /
-              </kbd>
-            )}
-            {filter.search && (
-              <button
-                type="button"
-                className="ideas-list-search-clear"
-                onClick={() => onFilter({ search: "" })}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            )}
-          </span>
-          <IdeasSortPopover
-            sort={filter.sort}
-            disabled={searchActive}
-            onChange={(next) => onFilter({ sort: next })}
-          />
-          <IdeasFilterPopover
-            filter={filter}
-            scopeCounts={scopeCounts}
-            needsReviewCount={needsReviewCount}
-            onChange={onFilter}
-          />
-          <IdeasViewPopover view={view} onChange={onViewChange} />
-          <ImportMenu
-            entityId={entityId}
-            parts={["ideas"]}
-            blueprintTitle="Import ideas from a Blueprint"
-            onMarkdownPicked={(files) => void handleMarkdownImport(files)}
-            onBlueprintSpawned={() => void invalidateIdeas()}
-          />
-          <Tooltip content="New idea (N)">
-            <Button variant="primary" size="sm" onClick={() => fireNew()}>
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
-              New
-            </Button>
-          </Tooltip>
-        </div>
+        <IdeasListToolbar
+          filter={filter}
+          onFilter={onFilter}
+          view={view}
+          onViewChange={onViewChange}
+          searchActive={searchActive}
+          scopeCounts={scopeCounts}
+          needsReviewCount={needsReviewCount}
+          entityId={entityId}
+          filteredCount={filtered.length}
+          rankedFirstId={ranked[0]?.id ?? null}
+          noMatchTrimmed={noMatchTrimmed}
+          searchRef={searchRef}
+          rowRefs={rowRefs}
+          goEntity={(eid, scope, id) => goEntity(eid, scope as Parameters<typeof goEntity>[1], id)}
+          fireNew={fireNew}
+          onMarkdownPicked={(files) => void handleMarkdownImport(files)}
+          onBlueprintSpawned={() => void invalidateIdeas()}
+        />
       </div>
       {importError && (
         <div className="bp-error" role="alert">
@@ -387,68 +306,18 @@ export default function IdeasListView({
         </div>
       )}
       {(activeChips.length > 0 || tagCounts.length > 0) && (
-        <div className="ideas-tags-strip">
-          {activeChips.length > 0 && (
-            <div className="ideas-list-chips" role="list" aria-label="Active filters">
-              {activeChips.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  role="listitem"
-                  className="ideas-list-chip"
-                  onClick={c.onRemove}
-                  title={`Remove ${c.label}`}
-                >
-                  <span className="ideas-list-chip-label">{c.label}</span>
-                  <span className="ideas-list-chip-x" aria-hidden>
-                    ×
-                  </span>
-                </button>
-              ))}
-              <button type="button" className="ideas-list-chip-clear" onClick={clearAll}>
-                Clear all
-              </button>
-            </div>
-          )}
-          {tagCounts.length > 0 && (
-            <div className="ideas-list-tags">
-              {tagCounts.slice(0, visibleTagCount).map(([t, n]) => {
-                const isActive = filter.tags.includes(t);
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    aria-pressed={isActive}
-                    className={`ideas-tag-chip${isActive ? " active" : ""}`}
-                    onClick={() => toggleTag(t)}
-                  >
-                    #{t}
-                    <span className="ideas-tag-chip-count">{n}</span>
-                  </button>
-                );
-              })}
-              {hiddenTagCount > 0 && (
-                <button
-                  type="button"
-                  className="ideas-list-tag-more"
-                  onClick={() => setTagsExpanded(true)}
-                  aria-label={`Show ${hiddenTagCount} more tags`}
-                >
-                  +{hiddenTagCount} more
-                </button>
-              )}
-              {tagsExpanded && tagCounts.length > TAG_CHIP_LIMIT && (
-                <button
-                  type="button"
-                  className="ideas-list-tag-more"
-                  onClick={() => setTagsExpanded(false)}
-                >
-                  Show less
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <IdeasListFilterChips
+          activeChips={activeChips}
+          clearAll={clearAll}
+          tagCounts={tagCounts}
+          visibleTagCount={visibleTagCount}
+          hiddenTagCount={hiddenTagCount}
+          tagsExpanded={tagsExpanded}
+          setTagsExpanded={setTagsExpanded}
+          filter={filter}
+          toggleTag={toggleTag}
+          tagChipLimit={TAG_CHIP_LIMIT}
+        />
       )}
 
       <div className="ideas-list-body">
