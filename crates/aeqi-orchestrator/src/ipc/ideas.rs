@@ -28,7 +28,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use aeqi_core::traits::{IdeaStore, IdeaStoreCapability, StoreFull, UpdateFull};
-use aeqi_ideas::dedup::{DedupAction, DedupCandidate, DedupPipeline, SimilarIdea};
+use aeqi_ideas::dedup::{
+    DedupAction, DedupCandidate, DedupPipeline, SimilarIdea, lexical_similarity,
+};
 use aeqi_ideas::tag_policy::{EffectivePolicy, POLICY_TAG};
 
 use super::request_field;
@@ -382,10 +384,11 @@ async fn find_similar_for_dedup(
                 None => true,
             })
             .map(|idea| {
-                // `Idea::score` is a BM25-ish rank here; clamp to [0, 1]
-                // for the dedup pipeline. Real similarity lives in
-                // Agent R's explainable search.
-                let sim = (idea.score as f32).clamp(0.0, 1.0);
+                // `Idea::score` is a retrieval rank, not a duplicate
+                // probability. Use search only to find candidates, then
+                // compute a conservative bounded lexical similarity for
+                // the dedup gate.
+                let sim = lexical_similarity(name, content, &idea.name, &idea.content);
                 SimilarIdea {
                     id: idea.id,
                     name: idea.name,
@@ -2471,6 +2474,39 @@ mod tests {
         assert!(
             windowed.is_empty(),
             "1h window must drop a 25h-old row, got {windowed:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn store_dedup_scores_topical_search_hit_as_novel() {
+        use aeqi_ideas::SqliteIdeas;
+        use std::sync::Arc;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = SqliteIdeas::open(&dir.path().join("d.db"), 30.0).unwrap();
+        let store: Arc<dyn aeqi_core::traits::IdeaStore> = Arc::new(store);
+        store
+            .store(
+                "mcp-vector-verification-1778618251324",
+                "Vector embedding verification for Aeqi MCP ideas. Search should retrieve this by semantic phrase after embedding worker runs.",
+                &["mcp".to_string(), "vector".to_string(), "verification".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let similar = find_similar_for_dedup(
+            store.as_ref(),
+            "Clean worktree deploys for AEQI platform host runtime changes",
+            "Deploy AEQI platform/runtime binaries from clean worktrees based on remote main. Verify hosted MCP and code.index.",
+            None,
+            None,
+        )
+        .await;
+
+        assert!(
+            similar.iter().all(|hit| hit.similarity < 0.85),
+            "topical search hits must not become duplicate candidates: {similar:?}"
         );
     }
 }

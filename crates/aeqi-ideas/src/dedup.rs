@@ -8,6 +8,7 @@
 //! the decision for ambiguous cases.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,81 @@ impl DedupPipeline {
         // Novel enough.
         DedupAction::Create
     }
+}
+
+/// Lexical similarity for the store-time dedup gate.
+///
+/// Ranked search scores are retrieval signals, not duplicate probabilities.
+/// This helper maps candidate/existing text into a bounded similarity score
+/// that is intentionally conservative: exact names carry weight, but content
+/// token overlap must still be high for a near-duplicate decision.
+pub fn lexical_similarity(
+    candidate_name: &str,
+    candidate_content: &str,
+    existing_name: &str,
+    existing_content: &str,
+) -> f32 {
+    let name_score = if normalize_text(candidate_name) == normalize_text(existing_name) {
+        1.0
+    } else {
+        jaccard_tokens(candidate_name, existing_name)
+    };
+
+    let content_score = if normalize_text(candidate_content) == normalize_text(existing_content) {
+        1.0
+    } else {
+        jaccard_tokens(candidate_content, existing_content)
+    };
+
+    (0.35 * name_score) + (0.65 * content_score)
+}
+
+fn normalize_text(input: &str) -> String {
+    input
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn jaccard_tokens(a: &str, b: &str) -> f32 {
+    let a = token_set(a);
+    let b = token_set(b);
+    if a.is_empty() && b.is_empty() {
+        return 1.0;
+    }
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+
+    let intersection = a.intersection(&b).count() as f32;
+    let union = a.union(&b).count() as f32;
+    if union == 0.0 {
+        0.0
+    } else {
+        intersection / union
+    }
+}
+
+fn token_set(input: &str) -> HashSet<String> {
+    let mut tokens = HashSet::new();
+    let mut current = String::new();
+
+    for ch in input.chars().flat_map(char::to_lowercase) {
+        if ch.is_alphanumeric() {
+            current.push(ch);
+        } else if current.len() > 1 {
+            tokens.insert(std::mem::take(&mut current));
+        } else {
+            current.clear();
+        }
+    }
+
+    if current.len() > 1 {
+        tokens.insert(current);
+    }
+
+    tokens
 }
 
 // ── Contradiction Heuristic ─────────────────────────────────────────────────
@@ -382,5 +458,29 @@ mod tests {
             "The database is PostgreSQL",
             "We use PostgreSQL"
         ));
+    }
+
+    #[test]
+    fn lexical_similarity_keeps_exact_duplicate_high() {
+        let score = lexical_similarity(
+            "Clean worktree deploys",
+            "Deploy AEQI platform binaries from clean worktrees based on remote main.",
+            "clean worktree deploys",
+            "Deploy AEQI platform binaries from clean worktrees based on remote main.",
+        );
+
+        assert!(score >= 0.95, "score={score}");
+    }
+
+    #[test]
+    fn lexical_similarity_keeps_topical_but_distinct_low() {
+        let score = lexical_similarity(
+            "Clean worktree deploys for AEQI platform host runtime changes",
+            "Deploy AEQI platform/runtime binaries from clean worktrees based on remote main. Verify hosted MCP and code.index.",
+            "mcp-vector-verification-1778618251324",
+            "Vector embedding verification for Aeqi MCP ideas. Search should retrieve this by semantic phrase after embedding worker runs.",
+        );
+
+        assert!(score < 0.85, "score={score}");
     }
 }
