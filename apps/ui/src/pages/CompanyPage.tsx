@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AgentPage from "@/components/AgentPage";
+import WalletBoundary from "@/components/WalletBoundary";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 
 // EntityOverviewTab is the canonical bare-`/c/<id>/` landing — renders
@@ -108,7 +109,9 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
   if (tab === "treasury") {
     return (
       <Suspense>
-        <TreasuryPage entityId={entityId} />
+        <WalletBoundary>
+          <TreasuryPage entityId={entityId} />
+        </WalletBoundary>
       </Suspense>
     );
   }

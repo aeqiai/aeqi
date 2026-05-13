@@ -10,6 +10,7 @@ import ModelPicker from "@/components/ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 import AgentSurfaceHeader from "@/components/AgentSurfaceHeader";
 import { AGENT_RAIL_TABS } from "@/components/agentRailTabs";
+import WalletBoundary from "@/components/WalletBoundary";
 
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));
@@ -87,10 +88,12 @@ export default function AgentSettingsPage({ agentId }: { agentId: string }) {
         {activeTab === "ideas" && <AgentIdeasTab agentId={resolvedAgentId} />}
         {activeTab === "channels" && <AgentChannelsTab agentId={resolvedAgentId} />}
         {activeTab === "treasury" && (
-          <TreasuryPage
-            entityId={resolvedEntityId}
-            agentId={isDrilledAgent ? resolvedAgentId : undefined}
-          />
+          <WalletBoundary>
+            <TreasuryPage
+              entityId={resolvedEntityId}
+              agentId={isDrilledAgent ? resolvedAgentId : undefined}
+            />
+          </WalletBoundary>
         )}
         {activeTab === "tools" && (
           <ToolsDetail

@@ -1,4 +1,4 @@
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,11 +11,6 @@ import {
   writeConsent,
 } from "./lib/analytics";
 import "./styles/index.css";
-
-// WalletProvider is lazy-loaded so @rainbow-me/rainbowkit + wagmi + wagmiConfig
-// are excluded from the initial bundle. The wallet chunk loads in parallel with
-// first paint and is ready before any user action needs a wallet.
-const WalletProvider = lazy(() => import("./components/WalletProvider"));
 
 // Authed users have already accepted the privacy policy at signup, so
 // analytics defaults to on for them. Anonymous app visitors (rare —
@@ -55,21 +50,15 @@ const queryClient = new QueryClient();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <Suspense>
-        <WalletProvider>
-          <BrowserRouter>
-            <AnalyticsProvider
-              analytics={analytics}
-              initiallyEnabled={readConsent() === "all"}
-              subscribeConsent={(setEnabled) =>
-                onConsentChange((level) => setEnabled(level === "all"))
-              }
-            >
-              <App />
-            </AnalyticsProvider>
-          </BrowserRouter>
-        </WalletProvider>
-      </Suspense>
+      <BrowserRouter>
+        <AnalyticsProvider
+          analytics={analytics}
+          initiallyEnabled={readConsent() === "all"}
+          subscribeConsent={(setEnabled) => onConsentChange((level) => setEnabled(level === "all"))}
+        >
+          <App />
+        </AnalyticsProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
 );

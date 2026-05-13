@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useBalance } from "wagmi";
-import { anvil } from "wagmi/chains";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useTreasury } from "@/hooks/useTreasury";
@@ -102,23 +100,15 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
 
   // ── Numbers row: treasury balance + 7d net delta ────────────────────
   const { balances, transfers } = useTreasury(trustId);
-  const { data: ethBalance } = useBalance({
-    address: trustAddress as `0x${string}` | undefined,
-    chainId: anvil.id,
-    query: { enabled: Boolean(trustAddress) },
-  });
 
-  // Treasury display: total ERC-20 + native ETH count. We don't price-feed
-  // off-chain — show "X assets" for now (single source of truth for $$ is
-  // /treasury). When balances is null we're loading; render em-dash.
+  // Treasury display: indexed asset count. Native balance lives on the
+  // Treasury page so the default company Overview does not pull wallet SDKs.
   const treasuryDisplay = useMemo(() => {
     if (balances === null) return "—";
-    const tokens = balances.length;
-    const eth = ethBalance ? 1 : 0;
-    const total = tokens + eth;
+    const total = balances.length;
     if (total === 0) return "0 assets";
     return `${total} ${total === 1 ? "asset" : "assets"}`;
-  }, [balances, ethBalance]);
+  }, [balances]);
 
   // Recent transfer counts (in vs out) as a 7d-activity proxy. Direction-
   // only signal — the indexer returns hex amounts per-token without a USD

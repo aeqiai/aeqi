@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageRail from "@/components/PageRail";
 import { useAuthStore } from "@/store/auth";
 import { EmptyState, Spinner } from "@/components/ui";
+import WalletBoundary from "@/components/WalletBoundary";
 
 const ProfilePanel = lazy(() => import("@/pages/Settings/ProfilePanel"));
 const BillingPanel = lazy(() => import("@/pages/Settings/BillingPanel"));
@@ -66,7 +67,11 @@ export default function ProfilePage() {
           {activeTab === "profile" && <ProfilePanel />}
           {activeTab === "billing" && <BillingPanel />}
           {activeTab === "security" && <SecurityPanel />}
-          {activeTab === "wallets" && <WalletsPanel />}
+          {activeTab === "wallets" && (
+            <WalletBoundary>
+              <WalletsPanel />
+            </WalletBoundary>
+          )}
           {activeTab === "devices" && <DevicesPanel />}
           {activeTab === "integrations" && <SettingsIntegrationsPage />}
           {activeTab === "api" && <ApiKeyPanel />}

@@ -4,10 +4,9 @@ import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/lib/wagmiConfig";
 import "@rainbow-me/rainbowkit/styles.css";
 
-// This module is lazy-loaded (React.lazy in main.tsx) so the entire
-// rainbowkit + wagmi + wagmiConfig tree is excluded from the initial bundle.
-// The wallet stack hydrates in parallel with the React tree — it's ready
-// before any user action that needs a wallet.
+// This module is lazy-loaded by WalletBoundary so the entire rainbowkit +
+// wagmi + wagmiConfig tree is excluded from the app shell. Mount it only
+// around surfaces that actually call wallet hooks.
 //
 // QueryClientProvider stays in main.tsx (not here) because react-query
 // hooks are used throughout the app outside the wallet context.
