@@ -87,7 +87,11 @@ describe("aeqi_role", () => {
     roleId[2] = 0x55; // 'U'
 
     const [rtPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_type"), fakeTrust.toBuffer(), Buffer.from(directorTypeId)],
+      [
+        Buffer.from("role_type"),
+        fakeTrust.toBuffer(),
+        Buffer.from(directorTypeId),
+      ],
       program.programId,
     );
     const [rolePda] = PublicKey.findProgramAddressSync(
@@ -108,7 +112,7 @@ describe("aeqi_role", () => {
         trust: fakeTrust,
         roleType: rtPda,
         role: rolePda,
-        callerRole: null, // permissionless skeleton path
+        callerRole: null, // first root role bootstrap
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -128,6 +132,59 @@ describe("aeqi_role", () => {
     expect(rt.roleCount).to.eq(1);
   });
 
+  it("create_role rejects child role creation without an authorized caller role", async () => {
+    const directorTypeId = new Uint8Array(32);
+    directorTypeId[0] = 0x44;
+    directorTypeId[1] = 0x49;
+    directorTypeId[2] = 0x52;
+
+    const parentRoleId = new Uint8Array(32);
+    parentRoleId[0] = 0x46;
+    parentRoleId[1] = 0x4f;
+    parentRoleId[2] = 0x55;
+
+    const childRoleId = new Uint8Array(32);
+    childRoleId[0] = 0x46;
+    childRoleId[1] = 0x0c;
+
+    const [rtPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("role_type"),
+        fakeTrust.toBuffer(),
+        Buffer.from(directorTypeId),
+      ],
+      program.programId,
+    );
+    const [childRolePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role"), fakeTrust.toBuffer(), Buffer.from(childRoleId)],
+      program.programId,
+    );
+
+    let threw = false;
+    try {
+      await program.methods
+        .createRole(
+          Array.from(childRoleId),
+          Array.from(directorTypeId),
+          Array.from(parentRoleId),
+          Array.from(new Uint8Array(64)),
+        )
+        .accounts({
+          trust: fakeTrust,
+          roleType: rtPda,
+          role: childRolePda,
+          callerRole: null,
+          payer: provider.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/Unauthorized/);
+    }
+    expect(threw).to.eq(true);
+  });
+
   it("assign_role transitions Vacant → Occupied + bumps checkpoint", async () => {
     const directorTypeId = new Uint8Array(32);
     directorTypeId[0] = 0x44;
@@ -140,7 +197,11 @@ describe("aeqi_role", () => {
     roleId[2] = 0x55;
 
     const [rtPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_type"), fakeTrust.toBuffer(), Buffer.from(directorTypeId)],
+      [
+        Buffer.from("role_type"),
+        fakeTrust.toBuffer(),
+        Buffer.from(directorTypeId),
+      ],
       program.programId,
     );
     const [rolePda] = PublicKey.findProgramAddressSync(
@@ -447,7 +508,11 @@ describe("aeqi_role", () => {
     const directorTypeId = new Uint8Array(32);
     directorTypeId[0] = 0xd2;
     const [rtPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_type"), trustD.toBuffer(), Buffer.from(directorTypeId)],
+      [
+        Buffer.from("role_type"),
+        trustD.toBuffer(),
+        Buffer.from(directorTypeId),
+      ],
       program.programId,
     );
     await program.methods
@@ -631,7 +696,11 @@ describe("aeqi_role", () => {
       program.programId,
     );
     const [directorRtPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("role_type"), trust2.toBuffer(), Buffer.from(types.director)],
+      [
+        Buffer.from("role_type"),
+        trust2.toBuffer(),
+        Buffer.from(types.director),
+      ],
       program.programId,
     );
     await program.methods
@@ -673,7 +742,7 @@ describe("aeqi_role", () => {
       })
       .rpc();
 
-    // Create ceo1 with parent = founder. Skeleton path: callerRole = null.
+    // Create ceo1 with parent = founder. Founder authorizes its child role.
     const ceoRoleId = new Uint8Array(32);
     ceoRoleId[0] = 0xc1;
     ceoRoleId[1] = 0x01;
@@ -696,7 +765,7 @@ describe("aeqi_role", () => {
         trust: trust2,
         roleType: ceoRtPda,
         role: ceoPda,
-        callerRole: null, // skeleton — no walk
+        callerRole: founderPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -835,7 +904,7 @@ describe("aeqi_role", () => {
       })
       .rpc();
 
-    // role B (no parent) — UNRELATED to A; assigned to user
+    // role B (no parent) — UNRELATED to A; created by A, then assigned to user
     const bId = new Uint8Array(32);
     bId[0] = 0xb1;
     const [bPda] = PublicKey.findProgramAddressSync(
@@ -853,12 +922,22 @@ describe("aeqi_role", () => {
         trust: trustN,
         roleType: rtPda,
         role: bPda,
-        callerRole: null,
+        callerRole: aPda,
         payer: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
-    // (no need to assign B for the walk test — only need role state)
+    await program.methods
+      .assignRole(provider.wallet.publicKey)
+      .accounts({
+        role: bPda,
+        roleType: rtPda,
+        trust: trustN,
+        checkpoint: aCkpt,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
 
     // Now try to create role X with parent = A, but pass callerRole = B.
     // B is not in A's ancestor chain → walk MUST fail.
@@ -932,6 +1011,8 @@ describe("aeqi_role", () => {
     const ceo = await program.account.roleType.fetch(ceoPda);
     expect(ceo.hierarchy).to.eq(1);
     expect(ceo.config.vesting).to.eq(true);
-    expect(ceo.config.vestingDuration.toString()).to.eq(String(60 * 60 * 24 * 365 * 4));
+    expect(ceo.config.vestingDuration.toString()).to.eq(
+      String(60 * 60 * 24 * 365 * 4),
+    );
   });
 });

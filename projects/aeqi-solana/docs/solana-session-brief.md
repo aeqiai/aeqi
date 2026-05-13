@@ -6,7 +6,7 @@ Use this file to start a fresh session on the Solana protocol work.
 
 - The Solana protocol stack is the canonical implementation target.
 - Governance is now explicit about loading config from `remaining_accounts`.
-- The full Anchor suite passed on the last run: `95 passing`.
+- The full Anchor suite passed on the last run: `96 passing`.
 - Anchor macro warning noise is intentionally suppressed at crate boundaries so
   real protocol warnings surface cleanly.
 
@@ -28,13 +28,23 @@ Use this file to start a fresh session on the Solana protocol work.
 - `aeqi_token`
   - token CPI entrypoints now require the Token-2022 program explicitly.
   - `create_mint` rejects the legacy SPL Token program with `InvalidTokenProgram`.
+- `aeqi_role`
+  - `create_role` no longer permits arbitrary child-role creation without an
+    occupied caller role.
+  - root-role bootstrap without `caller_role` is limited to the first role for
+    that role type.
+  - caller roles must be occupied, held by the payer, and bound to the same
+    trust before their authority walk can create child roles.
 
 ## What To Work On Next
 
-1. Tighten trust / factory / governance invariants if any new drift appears.
-2. Add more adversarial tests only where they compound coverage.
-3. Review remaining token mint edge cases: authority mismatch, mint mismatch,
-   and duplicate/manual creation paths.
+1. Gate `aeqi_token::mint_tokens`; current code can still mint via PDA signer
+   without a trust/governance/module authority surface.
+2. Disable or replace generic `aeqi_governance::cast_vote(choice, weight)`;
+   typed token/role vote paths are safer than caller-supplied weight.
+3. Fix budget/fund/funding accounting invariants: quote-mint binding, spend
+   authority, budget-backed funding activation, and creator/trust activation
+   checks.
 4. Keep the Solana code readable and audit-friendly.
 
 ## Working Rules

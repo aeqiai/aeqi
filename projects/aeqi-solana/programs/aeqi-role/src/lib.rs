@@ -82,16 +82,14 @@ pub mod aeqi_role {
         parent_role_id: Option<[u8; 32]>,
         ipfs_cid: [u8; 64],
     ) -> Result<()> {
-        // Authority gate (live mode): if caller_role is provided, walk the
-        // role DAG to confirm caller has authority over `parent_role_id`.
-        // Permissionless when caller_role is omitted — gated upstream by the
-        // factory or trust authority via the parent transaction signing.
-        if let Some(caller_role) = ctx.accounts.caller_role.as_ref() {
-            require!(caller_role.account == ctx.accounts.payer.key(), AeqiRoleError::Unauthorized);
-            if let Some(parent) = parent_role_id {
-                check_authority_walk(caller_role, &parent, ctx.remaining_accounts)?;
-            }
-        }
+        gate_role_creation(
+            ctx.accounts.trust.key(),
+            &ctx.accounts.role_type,
+            ctx.accounts.caller_role.as_ref(),
+            ctx.accounts.payer.key(),
+            parent_role_id.as_ref(),
+            ctx.remaining_accounts,
+        )?;
 
         let role = &mut ctx.accounts.role;
         role.trust = ctx.accounts.trust.key();
@@ -279,6 +277,32 @@ fn check_authority_walk<'info>(
         }
     }
     err!(AeqiRoleError::AuthorityNotFound)
+}
+
+fn gate_role_creation<'info>(
+    trust: Pubkey,
+    role_type: &Account<'info, RoleType>,
+    caller_role: Option<&Account<'info, Role>>,
+    payer: Pubkey,
+    parent_role_id: Option<&[u8; 32]>,
+    remaining: &'info [AccountInfo<'info>],
+) -> Result<()> {
+    match caller_role {
+        Some(caller_role) => {
+            require!(caller_role.trust == trust, AeqiRoleError::Unauthorized);
+            require!(caller_role.status == RoleStatus::Occupied as u8, AeqiRoleError::Unauthorized);
+            require_keys_eq!(caller_role.account, payer, AeqiRoleError::Unauthorized);
+            if let Some(parent) = parent_role_id {
+                check_authority_walk(caller_role, parent, remaining)?;
+            }
+            Ok(())
+        }
+        None => {
+            require!(parent_role_id.is_none(), AeqiRoleError::Unauthorized);
+            require!(role_type.role_count == 0, AeqiRoleError::Unauthorized);
+            Ok(())
+        }
+    }
 }
 
 fn bump_checkpoint(
