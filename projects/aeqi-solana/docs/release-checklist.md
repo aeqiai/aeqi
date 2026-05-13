@@ -16,6 +16,7 @@ complete for the exact commit being shipped.
 
 ## Security Review
 
+- compare the release against `docs/solana-protocol-benchmark.md`
 - review all authority checks on mutable instructions
 - review PDA seed constraints against `docs/deployments.md`
 - review arithmetic bounds for token, treasury, budget, funding, fund, vesting,

@@ -61,3 +61,6 @@ pub fn finalize(ctx: Context<FinalizeModule>, config: Vec<u8>) -> Result<()>;
 ## Audit
 
 Three Solana-native firms targeted: OtterSec / Neodyme / Sec3. Budget $25-35k. RFP in WS-S5.
+
+The professional benchmark for audit, release, SDK, and DAO-framework quality
+lives in [`docs/solana-protocol-benchmark.md`](docs/solana-protocol-benchmark.md).
