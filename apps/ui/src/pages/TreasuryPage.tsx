@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { indexerEnabled } from "@/lib/indexer";
+import { formatInteger, formatMediumDate, formatShortDate } from "@/lib/i18n";
 import { formatCents, launchPlanById, launchPlanResourceItems } from "@/lib/pricing";
 import { useTreasury, type TreasuryTransfer, type TokenBalance } from "@/hooks/useTreasury";
 import { useDaemonStore } from "@/store/daemon";
@@ -373,7 +374,7 @@ function TransfersSection({
       header: "Block",
       width: "20%",
       align: "end",
-      cell: (row) => <span className={styles.cellMuted}>{row.block.toLocaleString()}</span>,
+      cell: (row) => <span className={styles.cellMuted}>{formatInteger(row.block)}</span>,
     },
   ];
 
@@ -406,13 +407,7 @@ interface BillingCardProps {
 
 function BillingCard({ billing, paymentLast4, onManage, portalBusy }: BillingCardProps) {
   const plan = launchPlanById(billing.plan);
-  const nextCharge = billing.next_charge_at
-    ? new Date(billing.next_charge_at).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : "—";
+  const nextCharge = billing.next_charge_at ? formatMediumDate(billing.next_charge_at) : "—";
 
   return (
     <PageSection className={styles.billingCard}>
@@ -518,7 +513,7 @@ function InferenceZone({ agentId }: { agentId: string }) {
       align: "end",
       cell: (row) => (
         <span className={styles.cellMono}>
-          {row.prompt_tokens.toLocaleString()} / {row.completion_tokens.toLocaleString()}
+          {formatInteger(row.prompt_tokens)} / {formatInteger(row.completion_tokens)}
         </span>
       ),
     },
@@ -554,7 +549,7 @@ function InferenceZone({ agentId }: { agentId: string }) {
         <MetricCard
           label="Tokens"
           value={
-            <span className={styles.metricMonoValueCompact}>{totalTokens.toLocaleString()}</span>
+            <span className={styles.metricMonoValueCompact}>{formatInteger(totalTokens)}</span>
           }
         />
       </MetricGrid>
@@ -614,7 +609,7 @@ function formatRelativeTime(iso: string): string {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
   if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d`;
-  return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatShortDate(t);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

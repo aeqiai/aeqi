@@ -1,3 +1,5 @@
+import { formatShortDate } from "./i18n";
+
 /** Relative time string from an ISO timestamp — long form for prose
  *  rendering (`5m ago` / `3h ago`). Use `timeShort` for tight UI columns. */
 export function timeAgo(iso: string | undefined | null): string {
@@ -29,10 +31,7 @@ export function timeShort(iso: string | undefined | null): string {
   const day = Math.floor(hr / 24);
   if (day < 7) return `${day}d`;
   // > 1 week — show short calendar date.
-  return new Date(target).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  return formatShortDate(target);
 }
 
 /** Linear-style due-date relative label. Returns:
@@ -83,10 +82,7 @@ export function dueLabel(iso: string | undefined | null): string {
   }
   if (dayDelta === 1) return "tomorrow";
   if (dayDelta < 7) return `in ${dayDelta}d`;
-  return new Date(target).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  return formatShortDate(target);
 }
 
 /** True iff the due-date is strictly in the past. Used by chip renderers

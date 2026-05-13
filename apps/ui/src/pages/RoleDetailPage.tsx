@@ -2,6 +2,7 @@ import { useMemo, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
+import { formatMediumDate } from "@/lib/i18n";
 import type { Role, RoleInvitation } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
@@ -350,7 +351,7 @@ function InvitationRow({
     }
   };
 
-  const expiresAt = new Date(invitation.expires_at).toLocaleDateString();
+  const expiresAt = formatMediumDate(invitation.expires_at);
   const target =
     invitation.target_kind === "email"
       ? (invitation.target_email ?? "—")

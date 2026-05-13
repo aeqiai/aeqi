@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Spinner } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { timeAgo } from "@/lib/format";
+import { formatInteger } from "@/lib/i18n";
 
 interface EmptyStateProps {
   agentId: string;
@@ -71,7 +72,7 @@ export default function EmptyState({
   }
   if (agent?.session_count != null && agent.session_count > 0) {
     segments.push(
-      `${agent.session_count.toLocaleString()} ${agent.session_count === 1 ? "session" : "sessions"}`,
+      `${formatInteger(agent.session_count)} ${agent.session_count === 1 ? "session" : "sessions"}`,
     );
   }
   if (agent?.last_active) {

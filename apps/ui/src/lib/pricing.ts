@@ -9,6 +9,8 @@
  *  normalize those to Standard so existing customers do not render as Pro.
  */
 
+import { formatCurrency } from "./i18n";
+
 export const STANDARD_MONTHLY = 49;
 export const PRO_MONTHLY = 149;
 export const PRO_FIRST_MONTH = 69;
@@ -152,9 +154,7 @@ export function launchPlanResourceItems(planId?: string | null): LaunchPlanResou
 
 /** Format integer cents as a localized currency string. */
 export function formatCents(cents: number, currency: string = "usd"): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
+  return formatCurrency(cents / 100, currency, {
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
-  }).format(cents / 100);
+  });
 }

@@ -5,6 +5,7 @@ import {
   normalizeLaunchPlanId,
   type LaunchPlanId,
 } from "@/lib/pricing";
+import { formatMediumDate } from "@/lib/i18n";
 import { Badge, Button, Card, type BadgeVariant } from "@/components/ui";
 
 export type Company = {
@@ -38,14 +39,7 @@ const STATUS_BADGE: Record<Company["status"], { variant: BadgeVariant; label: st
 };
 
 function formatNextCharge(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  return formatMediumDate(iso);
 }
 
 /**

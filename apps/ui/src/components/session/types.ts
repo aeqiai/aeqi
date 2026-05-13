@@ -1,3 +1,5 @@
+import { formatShortTime } from "@/lib/i18n";
+
 export interface ToolEvent {
   type: "start" | "complete" | "step" | "status";
   name: string;
@@ -190,10 +192,7 @@ export function formatDuration(startMs: number, endMs: number): string {
 }
 
 export function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatShortTime(ts, { fallback: "" });
 }
 
 export const TOOL_LABELS: Record<string, string> = {
