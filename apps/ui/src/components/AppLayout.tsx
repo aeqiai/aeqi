@@ -1,14 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import CommandPalette from "./CommandPalette";
-import AgentPage, { AGENT_RAIL_TABS } from "./AgentPage";
 import LeftSidebar from "./shell/LeftSidebar";
-import SessionsRail from "./shell/SessionsRail";
 import PageRail from "./PageRail";
-import ComposerRow from "./shell/ComposerRow";
 import BootLoader from "./shell/BootLoader";
-import ShortcutsOverlay from "./ShortcutsOverlay";
 import { useDaemonStore } from "@/store/daemon";
 import { activityKeys, agentKeys, entityKeys, questKeys, runtimeKeys } from "@/queries/keys";
 import { useUIStore } from "@/store/ui";
@@ -19,7 +14,13 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { AGENT_RAIL_TABS } from "@/components/agentRailTabs";
 
+const CommandPalette = lazy(() => import("./CommandPalette"));
+const AgentPage = lazy(() => import("./AgentPage"));
+const SessionsRail = lazy(() => import("./shell/SessionsRail"));
+const ComposerRow = lazy(() => import("./shell/ComposerRow"));
+const ShortcutsOverlay = lazy(() => import("./ShortcutsOverlay"));
 const DrivePage = lazy(() => import("@/pages/DrivePage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
@@ -431,7 +432,9 @@ export default function AppLayout() {
                 )}
                 {showSessionsRail && (
                   <aside className="sessions-rail-col">
-                    <SessionsRail />
+                    <Suspense fallback={null}>
+                      <SessionsRail />
+                    </Suspense>
                   </aside>
                 )}
                 <main id="main-content" className="content-main-col">
@@ -439,11 +442,13 @@ export default function AppLayout() {
                     <Suspense fallback={null}>{mainContent}</Suspense>
                   </div>
                   {showComposer && (
-                    <ComposerRow
-                      agentId={activeAgentId || null}
-                      base={base}
-                      sessionsMounted={sessionsMounted}
-                    />
+                    <Suspense fallback={null}>
+                      <ComposerRow
+                        agentId={activeAgentId || null}
+                        base={base}
+                        sessionsMounted={sessionsMounted}
+                      />
+                    </Suspense>
                   )}
                 </main>
               </div>
@@ -452,8 +457,16 @@ export default function AppLayout() {
           <RateLimitBanner />
         </div>
       </div>
-      <CommandPalette open={searching} onClose={closeSearch} />
-      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {searching && (
+        <Suspense fallback={null}>
+          <CommandPalette open onClose={closeSearch} />
+        </Suspense>
+      )}
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsOverlay open onClose={() => setShortcutsOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 }

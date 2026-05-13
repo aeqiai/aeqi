@@ -6,33 +6,6 @@ const AgentSessionView = lazy(() => import("./AgentSessionView"));
 const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
 
 /**
- * Agent rail tabs — the SETTINGS sub-surface rail. Drilled-into-an-agent
- * default URL (`/c/<entity>/agents/<agent>/`) shows the inbox/chat
- * shape with no rail; settings (`/c/<entity>/agents/<agent>/settings`)
- * is where the rail lives.
- *
- * Inbox is dropped from the rail (now the default agent surface).
- * Settings is the rail's container, not a tab inside it.
- *
- * Rail order: Overview · Quests · Events · Ideas · Channels ·
- * Treasury · Tools · Integrations.
- *
- * Personality was dropped 2026-05-08 — Ideas (HOW per the four
- * W-primitives) defines the agent's identity/instructions/memories;
- * a separate Personality tab duplicated what Ideas already does.
- */
-export const AGENT_RAIL_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "quests", label: "Quests" },
-  { id: "events", label: "Events" },
-  { id: "ideas", label: "Ideas" },
-  { id: "channels", label: "Channels" },
-  { id: "treasury", label: "Treasury" },
-  { id: "tools", label: "Tools" },
-  { id: "integrations", label: "Integrations" },
-];
-
-/**
  * Default drilled-agent surface (`/c/<entity>/agents/<agent>/[inbox/<sid>]`).
  *
  * No rail. A header (back-to-Agents · agent name · New session ·
@@ -71,7 +44,7 @@ export default function AgentPage({
   const resolvedAgentId = agent?.id || agentId;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div className="agent-page">
       <Suspense fallback={null}>
         <AgentSurfaceHeader agentId={resolvedAgentId} />
         <div className="agent-page-chat">

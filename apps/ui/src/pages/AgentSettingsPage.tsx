@@ -9,7 +9,7 @@ import { Button } from "@/components/ui";
 import ModelPicker from "@/components/ModelPicker";
 import { ALL_TOOLS, TOOL_BY_ID } from "@/lib/tools";
 import AgentSurfaceHeader from "@/components/AgentSurfaceHeader";
-import { AGENT_RAIL_TABS } from "@/components/AgentPage";
+import { AGENT_RAIL_TABS } from "@/components/agentRailTabs";
 
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentChannelsTab = lazy(() => import("@/components/AgentChannelsTab"));

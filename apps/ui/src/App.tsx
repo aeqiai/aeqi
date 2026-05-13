@@ -9,7 +9,7 @@ import AppLayout from "@/components/AppLayout";
 import SessionRedirect from "@/components/SessionRedirect";
 import { entityPath } from "@/lib/entityPath";
 
-// Auth pages -- loaded eagerly since they gate entry.
+// Primary auth page -- loaded eagerly since it gates entry.
 //
 // `/login`, `/signup`, and `/welcome` all render `<WelcomePage />` with
 // different `mode` props. Per the canonical "every user = a Company"
@@ -20,16 +20,16 @@ import { entityPath } from "@/lib/entityPath";
 // landing (`/welcome`) all land on the same flow with subtly different
 // copy framings.
 import WelcomePage from "@/pages/WelcomePage";
-import VerifyEmailPage from "@/pages/VerifyEmailPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
-import MagicLinkPage from "@/pages/MagicLinkPage";
-import InvitationAcceptPage from "@/pages/InvitationAcceptPage";
 
 // App pages -- lazy-loaded for route-level code splitting
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
+const InvitationAcceptPage = lazy(() => import("@/pages/InvitationAcceptPage"));
+const MagicLinkPage = lazy(() => import("@/pages/MagicLinkPage"));
 const PublicProfilePage = lazy(() => import("@/pages/PublicProfilePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const VerifyEmailPage = lazy(() => import("@/pages/VerifyEmailPage"));
 
 /**
  * Top-level URL segments that must NEVER resolve to a public profile.
@@ -82,17 +82,7 @@ function PublicProfileRoute({ protectedFallback }: { protectedFallback: ReactNod
 }
 
 const LoadingSpinner = () => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      minHeight: "100vh",
-      color: "var(--color-text-muted)",
-      fontSize: 13,
-    }}
-  >
+  <div className="app-loading">
     <Spinner size="sm" />
     Loading…
   </div>
