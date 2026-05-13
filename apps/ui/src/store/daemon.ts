@@ -88,6 +88,26 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       // genuinely has no companies; commit the empty list.
       if (nextEntities.length === 0 && !Array.isArray(data.entities)) return;
       set({ entities: nextEntities, initialLoaded: true });
+      // Mirror trust_address → entity_id so module-level helpers
+      // (`getScopedEntity` in particular, which runs without React
+      // context to compute the `X-Entity` header for every API call
+      // and the WS routing key) can resolve `/trust/<addr>/...` URL
+      // slugs into the canonical entity_id the platform proxy expects.
+      // The platform `extract_entity_id` only accepts UUIDs ("slug
+      // fallback chain is gone" per `src/routes/proxy.rs`) — without
+      // this mirror every entity-scoped fetch from a `/trust/<addr>/...`
+      // route 404s. Stable JSON shape: `{ <trust_address>: <entity_id> }`.
+      try {
+        const map: Record<string, string> = {};
+        for (const e of nextEntities) {
+          if (e.trust_address) map[e.trust_address] = e.id;
+        }
+        localStorage.setItem("aeqi_trust_to_entity", JSON.stringify(map));
+      } catch {
+        // localStorage can fail in private-mode or quota-exceeded —
+        // resolution falls back to the raw URL slug, which is the
+        // pre-fix behavior. Don't block the entity hydration.
+      }
     } catch {
       // Keep existing entities on transient failure.
     }
