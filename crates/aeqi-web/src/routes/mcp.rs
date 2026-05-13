@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::State,
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -13,7 +13,12 @@ use crate::{auth::UserScope, extractors::Scope, server::AppState};
 struct McpRequest {
     jsonrpc: String,
     id: Option<serde_json::Value>,
-    method: String,
+    #[serde(default)]
+    method: Option<String>,
+    #[serde(default)]
+    result: Option<serde_json::Value>,
+    #[serde(default)]
+    error: Option<serde_json::Value>,
     #[serde(default)]
     params: serde_json::Value,
 }
@@ -50,11 +55,42 @@ struct McpHttpContext {
     agent_id: Option<String>,
 }
 
+const MCP_PROTOCOL_LATEST: &str = "2025-06-18";
+const MCP_PROTOCOL_FALLBACK: &str = "2025-03-26";
+const MCP_PROTOCOL_LEGACY: &str = "2024-11-05";
+
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/mcp", post(mcp_handler))
+    Router::new().route("/mcp", post(mcp_post).get(mcp_get).delete(mcp_delete))
 }
 
-async fn mcp_handler(
+async fn mcp_get(headers: HeaderMap) -> Response {
+    if !accepts(&headers, "text/event-stream") {
+        return StatusCode::NOT_ACCEPTABLE.into_response();
+    }
+
+    Response::builder()
+        .status(StatusCode::METHOD_NOT_ALLOWED)
+        .header(header::ALLOW, "POST")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(axum::body::Body::from(
+            serde_json::json!({
+                "ok": false,
+                "error": "server-initiated MCP SSE streams are not supported yet"
+            })
+            .to_string(),
+        ))
+        .unwrap_or_else(|_| StatusCode::METHOD_NOT_ALLOWED.into_response())
+}
+
+async fn mcp_delete() -> Response {
+    Response::builder()
+        .status(StatusCode::METHOD_NOT_ALLOWED)
+        .header(header::ALLOW, "POST")
+        .body(axum::body::Body::empty())
+        .unwrap_or_else(|_| StatusCode::METHOD_NOT_ALLOWED.into_response())
+}
+
+async fn mcp_post(
     State(state): State<AppState>,
     Scope(scope): Scope,
     headers: HeaderMap,
@@ -73,14 +109,39 @@ async fn mcp_handler(
         .into_response();
     }
 
+    if let Err(response) = validate_protocol_header(&headers) {
+        return response;
+    }
+
+    if request.method.is_none() {
+        if request.id.is_some() || request.result.is_some() || request.error.is_some() {
+            return StatusCode::ACCEPTED.into_response();
+        }
+        return Json(McpResponse {
+            jsonrpc: "2.0".to_string(),
+            id: request.id.unwrap_or(serde_json::Value::Null),
+            result: None,
+            error: Some(serde_json::json!({
+                "code": -32600,
+                "message": "invalid JSON-RPC message"
+            })),
+        })
+        .into_response();
+    }
+
+    if request.id.is_none() {
+        return StatusCode::ACCEPTED.into_response();
+    }
+
     let ctx = mcp_context(scope.as_ref(), &headers);
     let id = request.id.clone().unwrap_or(serde_json::Value::Null);
-    let response = match request.method.as_str() {
+    let method = request.method.as_deref().unwrap_or_default();
+    let response = match method {
         "initialize" => McpResponse {
             jsonrpc: "2.0".to_string(),
             id,
             result: Some(serde_json::json!({
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": negotiated_protocol(&request.params),
                 "capabilities": {"tools": {}},
                 "serverInfo": {
                     "name": "aeqi",
@@ -93,12 +154,6 @@ async fn mcp_handler(
                     "mode": if scope.is_some() { "http_scoped" } else { "self_hosted_local" },
                 }
             })),
-            error: None,
-        },
-        "notifications/initialized" => McpResponse {
-            jsonrpc: "2.0".to_string(),
-            id,
-            result: Some(serde_json::json!({})),
             error: None,
         },
         "tools/list" => McpResponse {
@@ -144,12 +199,55 @@ async fn mcp_handler(
             result: None,
             error: Some(serde_json::json!({
                 "code": -32601,
-                "message": format!("unknown method: {}", request.method),
+                "message": format!("unknown method: {method}"),
             })),
         },
     };
 
     Json(response).into_response()
+}
+
+fn negotiated_protocol(params: &serde_json::Value) -> &'static str {
+    match params.get("protocolVersion").and_then(|v| v.as_str()) {
+        Some(MCP_PROTOCOL_LATEST) => MCP_PROTOCOL_LATEST,
+        Some(MCP_PROTOCOL_FALLBACK) => MCP_PROTOCOL_FALLBACK,
+        Some(MCP_PROTOCOL_LEGACY) => MCP_PROTOCOL_LEGACY,
+        _ => MCP_PROTOCOL_LATEST,
+    }
+}
+
+fn validate_protocol_header(headers: &HeaderMap) -> Result<(), Response> {
+    match headers
+        .get("mcp-protocol-version")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        None
+        | Some(MCP_PROTOCOL_LATEST)
+        | Some(MCP_PROTOCOL_FALLBACK)
+        | Some(MCP_PROTOCOL_LEGACY) => Ok(()),
+        Some(version) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("unsupported MCP-Protocol-Version: {version}")
+            })),
+        )
+            .into_response()),
+    }
+}
+
+fn accepts(headers: &HeaderMap, media_type: &str) -> bool {
+    headers
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .map(|accept| {
+            accept
+                .split(',')
+                .map(|part| part.split(';').next().unwrap_or("").trim())
+                .any(|part| part == media_type || part == "*/*")
+        })
+        .unwrap_or(false)
 }
 
 fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext {
@@ -846,5 +944,43 @@ mod tests {
         assert_eq!(ctx.actor.kind, "user");
         assert_eq!(ctx.actor.user_id.as_deref(), Some("user-1"));
         assert_eq!(ctx.actor.entity_id.as_deref(), Some("entity-1"));
+    }
+
+    #[test]
+    fn http_mcp_negotiates_supported_protocol_versions() {
+        assert_eq!(
+            negotiated_protocol(&serde_json::json!({"protocolVersion": "2025-06-18"})),
+            "2025-06-18"
+        );
+        assert_eq!(
+            negotiated_protocol(&serde_json::json!({"protocolVersion": "2025-03-26"})),
+            "2025-03-26"
+        );
+        assert_eq!(
+            negotiated_protocol(&serde_json::json!({"protocolVersion": "2024-11-05"})),
+            "2024-11-05"
+        );
+        assert_eq!(negotiated_protocol(&serde_json::json!({})), "2025-06-18");
+    }
+
+    #[test]
+    fn http_mcp_rejects_unsupported_protocol_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("mcp-protocol-version", "1999-01-01".parse().unwrap());
+
+        assert!(validate_protocol_header(&headers).is_err());
+    }
+
+    #[test]
+    fn http_mcp_accepts_event_stream_media_type() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::ACCEPT,
+            "application/json, text/event-stream".parse().unwrap(),
+        );
+
+        assert!(accepts(&headers, "text/event-stream"));
+        assert!(accepts(&headers, "application/json"));
+        assert!(!accepts(&headers, "text/plain"));
     }
 }
