@@ -16,6 +16,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::program_pack::Pack;
+use anchor_spl::token_2022;
 use anchor_spl::token_interface::{
     burn, mint_to, Burn, InitializeMint2, Mint, MintTo, TokenAccount, TokenInterface,
 };
@@ -113,6 +114,7 @@ pub mod aeqi_token {
     /// Used for redemption, exit, buyback, vesting clawback (when the vault
     /// is owned by a vesting PDA).
     pub fn burn_tokens(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
+        require_token_2022(ctx.accounts.token_program.key())?;
         let module = &ctx.accounts.module_state;
         require!(module.mint == ctx.accounts.mint.key(), TokenError::MintMismatch);
 
@@ -141,6 +143,7 @@ pub mod aeqi_token {
     /// total supply is checked against the cap (cap=0 means "uncapped",
     /// the pre-finalize default).
     pub fn mint_tokens(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
+        require_token_2022(ctx.accounts.token_program.key())?;
         let module = &ctx.accounts.module_state;
         require!(module.mint == ctx.accounts.mint.key(), TokenError::MintMismatch);
 
@@ -182,6 +185,7 @@ pub mod aeqi_token {
     /// `[b"token_authority", trust]`, owned by this program — only this
     /// program can mint or freeze.
     pub fn create_mint(ctx: Context<CreateMint>, decimals: u8) -> Result<()> {
+        require_token_2022(ctx.accounts.token_program.key())?;
         let module = &mut ctx.accounts.module_state;
         // Mint creation is valid post-init *and* post-finalize. The factory
         // pipeline finalizes the module before user-driven create_mint runs,
@@ -226,6 +230,11 @@ pub mod aeqi_token {
         emit!(MintCreated { trust: module.trust, mint: module.mint, decimals });
         Ok(())
     }
+}
+
+fn require_token_2022(token_program: Pubkey) -> Result<()> {
+    require_keys_eq!(token_program, token_2022::ID, TokenError::InvalidTokenProgram);
+    Ok(())
 }
 
 #[account]
@@ -394,4 +403,6 @@ pub enum TokenError {
     InvalidConfig,
     #[msg("mint would exceed max_supply_cap from TokenInitConfig")]
     SupplyCapExceeded,
+    #[msg("token program must be Token-2022")]
+    InvalidTokenProgram,
 }

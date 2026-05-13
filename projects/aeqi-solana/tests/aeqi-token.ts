@@ -4,6 +4,7 @@ import { AeqiToken } from "../target/types/aeqi_token";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
@@ -331,6 +332,49 @@ describe("aeqi_token", () => {
           })
           .rpc(),
       /MintAlreadyCreated/,
+    );
+  });
+
+  it("create_mint rejects the legacy SPL Token program", async () => {
+    const fakeTrust = Keypair.generate().publicKey;
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("token_module"), fakeTrust.toBuffer()],
+      program.programId,
+    );
+    const [mintAuthorityPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("token_authority"), fakeTrust.toBuffer()],
+      program.programId,
+    );
+    const [mintPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("mint"), fakeTrust.toBuffer()],
+      program.programId,
+    );
+
+    await program.methods
+      .init()
+      .accounts({
+        trust: fakeTrust,
+        moduleState: moduleStatePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    await expectTxFail(
+      async () =>
+        program.methods
+          .createMint(9)
+          .accounts({
+            trust: fakeTrust,
+            moduleState: moduleStatePda,
+            mintAuthority: mintAuthorityPda,
+            mint: mintPda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            payer: provider.wallet.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .rpc(),
+      /InvalidTokenProgram/,
     );
   });
 

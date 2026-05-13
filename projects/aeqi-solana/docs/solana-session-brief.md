@@ -6,7 +6,7 @@ Use this file to start a fresh session on the Solana protocol work.
 
 - The Solana protocol stack is the canonical implementation target.
 - Governance is now explicit about loading config from `remaining_accounts`.
-- The full Anchor suite passed on the last run: `94 passing`.
+- The full Anchor suite passed on the last run: `95 passing`.
 - Anchor macro warning noise is intentionally suppressed at crate boundaries so
   real protocol warnings surface cleanly.
 
@@ -25,13 +25,16 @@ Use this file to start a fresh session on the Solana protocol work.
     `execute_proposal`.
   - Rust loader tests cover wrong discriminator, truncated body, and embedded
     trust mismatch.
+- `aeqi_token`
+  - token CPI entrypoints now require the Token-2022 program explicitly.
+  - `create_mint` rejects the legacy SPL Token program with `InvalidTokenProgram`.
 
 ## What To Work On Next
 
 1. Tighten trust / factory / governance invariants if any new drift appears.
 2. Add more adversarial tests only where they compound coverage.
-3. Review token mint edge cases: pre-created mint PDA, wrong token program,
-   authority mismatch, and duplicate creation paths.
+3. Review remaining token mint edge cases: authority mismatch, mint mismatch,
+   and duplicate/manual creation paths.
 4. Keep the Solana code readable and audit-friendly.
 
 ## Working Rules
