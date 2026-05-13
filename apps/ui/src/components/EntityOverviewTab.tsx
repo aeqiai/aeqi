@@ -334,6 +334,13 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
           <span className="entity-overview-stat-value">
             {trustsCount === null ? "—" : trustsCount}
           </span>
+          {trustAddress ? (
+            <span className="entity-overview-stat-delta" title={trustAddress}>
+              {trustAddress.length > 12
+                ? `${trustAddress.slice(0, 6)}…${trustAddress.slice(-4)}`
+                : trustAddress}
+            </span>
+          ) : null}
         </Link>
 
         <Link to={`${basePath}/agents`} className="entity-overview-stat">
