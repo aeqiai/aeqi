@@ -10,6 +10,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// Similarity above which two ideas may be considered near-identical.
+///
+/// This is intentionally not enough by itself to skip a write: the decision
+/// also requires an exact normalized name or content match so topical overlap
+/// does not discard distinct operational memories.
+pub const NEAR_DUPLICATE_THRESHOLD: f32 = 0.95;
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 /// Action the pipeline recommends for a candidate idea.
@@ -114,8 +121,13 @@ impl DedupPipeline {
             return DedupAction::Create;
         };
 
-        // Near-duplicate: skip.
-        if top.similarity > 0.95 {
+        // Near-duplicate: skip only with a hard identity anchor. High lexical
+        // overlap alone is not enough; distinct memories can share a lot of
+        // vocabulary when they describe the same subsystem or incident.
+        if top.similarity > NEAR_DUPLICATE_THRESHOLD
+            && (normalize_text(&candidate.name) == normalize_text(&top.name)
+                || normalize_text(&candidate.content) == normalize_text(&top.content))
+        {
             return DedupAction::Skip;
         }
 
@@ -482,5 +494,23 @@ mod tests {
         );
 
         assert!(score < 0.85, "score={score}");
+    }
+
+    #[test]
+    fn high_overlap_without_identity_anchor_creates() {
+        let p = pipeline();
+        let c = candidate(
+            "mcp/dedup-operating-policy",
+            "AEQI MCP ideas.store should preserve distinct operational lessons even when they mention MCP, vector search, quests, and code graph reliability.",
+        );
+        let existing = vec![similar(
+            "mem-1",
+            "mcp/vector-verification",
+            "AEQI MCP vector search should retrieve ideas that mention MCP, vector search, quests, and code graph reliability.",
+            0.98,
+        )];
+
+        let action = p.decide(&c, &existing);
+        assert_eq!(action, DedupAction::Create);
     }
 }

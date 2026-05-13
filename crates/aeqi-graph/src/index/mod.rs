@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
@@ -184,6 +185,7 @@ impl Indexer {
         {
             store.set_meta("last_commit", &commit)?;
         }
+        store.set_meta("dirty_files", &dirty_worktree_files(project_dir).join("\n"))?;
 
         let stats = store.stats()?;
         info!(
@@ -258,6 +260,7 @@ impl Indexer {
     /// Falls back to full index if no previous commit is stored.
     pub fn index_incremental(&self, project_dir: &Path, store: &GraphStore) -> Result<IndexResult> {
         let last_commit = store.get_meta("last_commit")?;
+        let previous_dirty = parse_file_list_meta(store.get_meta("dirty_files")?.as_deref());
 
         // Get current HEAD
         let head = std::process::Command::new("git")
@@ -283,44 +286,24 @@ impl Indexer {
             _ => return self.index(project_dir, store), // No previous index, full
         };
 
-        if last == head_commit {
+        let committed_changes = if last == head_commit {
+            Vec::new()
+        } else {
+            // Get changed files since last indexed commit
+            match git_lines(project_dir, &["diff", "--name-only", last, head_commit]) {
+                Some(files) => files,
+                None => return self.index(project_dir, store), // diff failed, full index
+            }
+        };
+        let current_dirty = dirty_worktree_files(project_dir);
+        let changed_files = changed_file_set(&committed_changes, &current_dirty, &previous_dirty);
+
+        if changed_files.is_empty() {
             info!(
                 "graph is current (commit {}), skipping re-index",
                 head_commit
             );
-            let stats = store.stats()?;
-            return Ok(IndexResult {
-                files_parsed: 0,
-                parse_errors: 0,
-                nodes: stats.node_count as usize,
-                edges: stats.edge_count as usize,
-                communities: 0,
-                processes: 0,
-                unresolved: 0,
-            });
-        }
-
-        // Get changed files since last indexed commit
-        let diff_output = std::process::Command::new("git")
-            .args(["diff", "--name-only", last, head_commit])
-            .current_dir(project_dir)
-            .output()
-            .ok()
-            .and_then(|o| {
-                if o.status.success() {
-                    Some(String::from_utf8_lossy(&o.stdout).to_string())
-                } else {
-                    None
-                }
-            });
-
-        let changed_files: Vec<String> = match diff_output {
-            Some(output) => output.lines().map(String::from).collect(),
-            None => return self.index(project_dir, store), // diff failed, full index
-        };
-
-        if changed_files.is_empty() {
-            store.set_meta("last_commit", head_commit)?;
+            store.set_meta("dirty_files", "")?;
             let stats = store.stats()?;
             return Ok(IndexResult {
                 files_parsed: 0,
@@ -337,6 +320,8 @@ impl Indexer {
             changed = changed_files.len(),
             from = last,
             to = head_commit,
+            dirty = current_dirty.len(),
+            previous_dirty = previous_dirty.len(),
             "incremental index"
         );
 
@@ -406,6 +391,7 @@ impl Indexer {
         store.batch_insert(&new_nodes, &resolved)?;
 
         store.set_meta("last_commit", head_commit)?;
+        store.set_meta("dirty_files", &current_dirty.join("\n"))?;
         store.set_meta("indexed_at", &chrono::Utc::now().to_rfc3339())?;
 
         let stats = store.stats()?;
@@ -513,6 +499,112 @@ impl Indexer {
             changed_symbols,
             affected,
         })
+    }
+}
+
+fn git_lines(project_dir: &Path, args: &[&str]) -> Option<Vec<String>> {
+    std::process::Command::new("git")
+        .args(args)
+        .current_dir(project_dir)
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(
+                    String::from_utf8_lossy(&o.stdout)
+                        .lines()
+                        .map(str::trim)
+                        .filter(|line| !line.is_empty())
+                        .map(ToOwned::to_owned)
+                        .collect(),
+                )
+            } else {
+                None
+            }
+        })
+}
+
+fn dirty_worktree_files(project_dir: &Path) -> Vec<String> {
+    let mut dirty = git_lines(project_dir, &["diff", "--name-only", "HEAD"]).unwrap_or_default();
+    dirty.extend(
+        git_lines(project_dir, &["ls-files", "--others", "--exclude-standard"]).unwrap_or_default(),
+    );
+    normalize_file_set(dirty)
+}
+
+fn parse_file_list_meta(value: Option<&str>) -> Vec<String> {
+    normalize_file_set(
+        value
+            .unwrap_or("")
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+    )
+}
+
+fn changed_file_set(
+    committed_changes: &[String],
+    current_dirty: &[String],
+    previous_dirty: &[String],
+) -> Vec<String> {
+    normalize_file_set(
+        committed_changes
+            .iter()
+            .chain(current_dirty)
+            .chain(previous_dirty)
+            .cloned()
+            .collect(),
+    )
+}
+
+fn normalize_file_set(files: Vec<String>) -> Vec<String> {
+    files
+        .into_iter()
+        .filter(|file| is_supported_source_path(file))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn is_supported_source_path(file: &str) -> bool {
+    matches!(
+        Path::new(file).extension().and_then(|ext| ext.to_str()),
+        Some("rs" | "ts" | "tsx" | "js" | "jsx" | "sol")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn changed_file_set_includes_current_and_previous_dirty_sources() {
+        let committed = vec!["src/lib.rs".to_string(), "README.md".to_string()];
+        let current_dirty = vec!["apps/ui/src/App.tsx".to_string()];
+        let previous_dirty = vec!["old/dirty.sol".to_string(), "notes.txt".to_string()];
+
+        let changed = changed_file_set(&committed, &current_dirty, &previous_dirty);
+
+        assert_eq!(
+            changed,
+            vec![
+                "apps/ui/src/App.tsx".to_string(),
+                "old/dirty.sol".to_string(),
+                "src/lib.rs".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_file_list_meta_dedups_and_filters_non_sources() {
+        let parsed = parse_file_list_meta(Some("src/lib.rs\nsrc/lib.rs\nREADME.md\nx/test.ts\n"));
+
+        assert_eq!(
+            parsed,
+            vec!["src/lib.rs".to_string(), "x/test.ts".to_string()]
+        );
     }
 }
 

@@ -29,7 +29,8 @@ use std::sync::Arc;
 
 use aeqi_core::traits::{IdeaStore, IdeaStoreCapability, StoreFull, UpdateFull};
 use aeqi_ideas::dedup::{
-    DedupAction, DedupCandidate, DedupPipeline, SimilarIdea, lexical_similarity,
+    DedupAction, DedupCandidate, DedupPipeline, NEAR_DUPLICATE_THRESHOLD, SimilarIdea,
+    lexical_similarity,
 };
 use aeqi_ideas::tag_policy::{EffectivePolicy, POLICY_TAG};
 
@@ -115,25 +116,6 @@ pub async fn handle_store_idea(
     // Redact secrets before anything persists or feeds the embedder.
     let redacted_content = aeqi_ideas::redact::redact_secrets(&input.content);
 
-    // ── Fix #6 (Option A) ─────────────────────────────────────────────
-    // Pre-dedup active-row short-circuit. The partial unique index on
-    // `(COALESCE(agent_id,''), name) WHERE status='active'` means an
-    // INSERT with the same key will trip UNIQUE. Catching it here keeps
-    // bulk re-imports (M's 333-markdown smoke) fast: one cheap lookup
-    // instead of the full dedup + search + error-path round-trip. The
-    // race between this check and INSERT is covered by the downstream
-    // Option-B safety net inside `dispatch_create`.
-    if let Ok(Some(existing_id)) = idea_store
-        .get_active_id_by_name(&input.name, input.agent_id.as_deref())
-        .await
-    {
-        return serde_json::json!({
-            "ok": true,
-            "id": existing_id,
-            "action": "skip",
-        });
-    }
-
     // Resolve tag policies. Empty → defaults are synthesised inside
     // `TagPolicyCache::resolve` so the merge always has something to
     // fold over.
@@ -142,6 +124,67 @@ pub async fn handle_store_idea(
         .resolve(idea_store.as_ref(), &input.tags)
         .await;
     let effective = aeqi_ideas::tag_policy::merge_policies(&policies);
+
+    // Same-name active-row fast path. The partial unique index on
+    // `(COALESCE(agent_id,''), name) WHERE status='active'` means a second
+    // insert with the same name cannot create a sibling row. Older behavior
+    // skipped every same-name write here, which lost materially distinct
+    // follow-up lessons. Keep the fast exact/near-duplicate skip, but merge
+    // changed content so the memory improves instead of disappearing.
+    if let Ok(Some(existing_id)) = idea_store
+        .get_active_id_by_name(&input.name, input.agent_id.as_deref())
+        .await
+    {
+        if let Some(existing) = idea_store
+            .get_by_ids(std::slice::from_ref(&existing_id))
+            .await
+            .ok()
+            .and_then(|mut rows| rows.pop())
+        {
+            let similarity = lexical_similarity(
+                &input.name,
+                &redacted_content,
+                &existing.name,
+                &existing.content,
+            );
+            let top = SimilarIdea {
+                id: existing_id.clone(),
+                name: existing.name.clone(),
+                content: existing.content.clone(),
+                similarity,
+            };
+
+            if similarity > NEAR_DUPLICATE_THRESHOLD {
+                return serde_json::json!({
+                    "ok": true,
+                    "id": existing_id,
+                    "action": "skip",
+                    "dedup": dedup_report("same_name_near_duplicate", Some(&top), 1),
+                });
+            }
+
+            let response = dispatch_merge(
+                ctx,
+                idea_store,
+                &existing_id,
+                &input,
+                &effective,
+                &redacted_content,
+            )
+            .await;
+            return with_dedup_report(
+                response,
+                dedup_report("same_name_changed_content_merge", Some(&top), 1),
+            );
+        }
+
+        return serde_json::json!({
+            "ok": true,
+            "id": existing_id,
+            "action": "skip",
+            "dedup": dedup_report("same_name_existing_unavailable", None, 1),
+        });
+    }
 
     // Find similar candidates. Retrieval-side scoring lives in Agent R;
     // the dedup helper stays BM25-only for now so we don't block on
@@ -170,10 +213,27 @@ pub async fn handle_store_idea(
     };
     let action = DedupPipeline::default().decide(&candidate, &similar);
 
+    let dedup = dedup_report(
+        match &action {
+            DedupAction::Skip => "near_duplicate",
+            DedupAction::Create => {
+                if similar.is_empty() {
+                    "no_candidate"
+                } else {
+                    "novel_enough"
+                }
+            }
+            DedupAction::Merge(_) => "same_name_similarity_merge",
+            DedupAction::Supersede(_) => "contradiction_supersede",
+        },
+        top_similar(&similar),
+        similar.len(),
+    );
+
     let response = match action {
         DedupAction::Skip => serde_json::json!({
             "ok": true,
-            "id": similar.first().map(|s| s.id.clone()).unwrap_or_default(),
+            "id": top_similar(&similar).map(|s| s.id.clone()).unwrap_or_default(),
             "action": "skip",
         }),
         DedupAction::Create => {
@@ -202,6 +262,7 @@ pub async fn handle_store_idea(
             .await
         }
     };
+    let response = with_dedup_report(response, dedup);
 
     // Invalidate the policy cache when the new row carries `meta:tag-policy`.
     if input
@@ -243,6 +304,45 @@ pub async fn handle_store_idea(
         }
     }
 
+    response
+}
+
+fn top_similar(similar: &[SimilarIdea]) -> Option<&SimilarIdea> {
+    similar.iter().max_by(|a, b| {
+        a.similarity
+            .partial_cmp(&b.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
+}
+
+fn dedup_report(
+    reason: &'static str,
+    top: Option<&SimilarIdea>,
+    candidate_count: usize,
+) -> serde_json::Value {
+    let top_candidate = top.map(|hit| {
+        serde_json::json!({
+            "id": hit.id.clone(),
+            "name": hit.name.clone(),
+            "similarity": hit.similarity,
+        })
+    });
+
+    serde_json::json!({
+        "reason": reason,
+        "candidate_count": candidate_count,
+        "top_candidate": top_candidate,
+        "near_duplicate_threshold": NEAR_DUPLICATE_THRESHOLD,
+    })
+}
+
+fn with_dedup_report(
+    mut response: serde_json::Value,
+    dedup: serde_json::Value,
+) -> serde_json::Value {
+    if let Some(obj) = response.as_object_mut() {
+        obj.insert("dedup".to_string(), dedup);
+    }
     response
 }
 
@@ -3318,6 +3418,70 @@ mod wave2_tests {
             .find(|m| m.content == "created")
             .expect("a 'created' system row must exist");
         assert_eq!(created.metadata.as_ref().unwrap()["kind"], "idea_created");
+    }
+
+    #[tokio::test]
+    async fn same_name_store_with_changed_content_merges_instead_of_skipping() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store(
+                "mcp/dedup-policy",
+                "Store exact duplicate memory writes only once.",
+                &["mcp".to_string(), "memory".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "name": "mcp/dedup-policy",
+            "content": "When the same idea name carries materially new operational context, merge it so the lesson is not lost.",
+            "tags": ["mcp", "memory", "workflow"],
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        assert_eq!(resp["id"], idea_id);
+        assert_eq!(resp["action"], "merge");
+        assert_eq!(resp["dedup"]["reason"], "same_name_changed_content_merge");
+
+        let idea = idea_store
+            .get_by_ids(std::slice::from_ref(&idea_id))
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        assert!(idea.content.contains("Store exact duplicate"));
+        assert!(idea.content.contains("materially new operational context"));
+        assert!(idea.tags.iter().any(|tag| tag == "workflow"));
+    }
+
+    #[tokio::test]
+    async fn same_name_store_with_near_duplicate_content_skips_with_diagnostics() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let idea_id = idea_store
+            .store(
+                "mcp/dedup-exact",
+                "AEQI MCP dedup should skip exact duplicate memory writes.",
+                &["mcp".to_string()],
+                None,
+            )
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "name": "mcp/dedup-exact",
+            "content": "AEQI MCP dedup should skip exact duplicate memory writes.",
+            "tags": ["mcp"],
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        assert_eq!(resp["id"], idea_id);
+        assert_eq!(resp["action"], "skip");
+        assert_eq!(resp["dedup"]["reason"], "same_name_near_duplicate");
+        assert_eq!(resp["dedup"]["candidate_count"], 1);
     }
 
     #[tokio::test]

@@ -441,11 +441,11 @@ async fn call_quests(
         .unwrap_or("list");
     match action {
         "create" => {
-            let req = quests_create_ipc_request(&args);
+            let req = quests_create_ipc_request(&args, default_mcp_project(state));
             ipc(state, ctx, req).await
         }
         "list" => {
-            let req = quests_list_ipc_request(&args);
+            let req = quests_list_ipc_request(&args, default_mcp_project(state));
             ipc(state, ctx, req).await
         }
         "show" => {
@@ -455,7 +455,7 @@ async fn call_quests(
                 serde_json::json!({
                     "cmd": "get_quest",
                     "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_mcp_project(state)),
                 }),
             )
             .await
@@ -464,7 +464,7 @@ async fn call_quests(
             let mut req = serde_json::json!({
                 "cmd": "update_quest",
                 "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_mcp_project(state)),
             });
             copy_fields(&args, &mut req, &["status", "priority"]);
             ipc(state, ctx, req).await
@@ -481,7 +481,7 @@ async fn call_quests(
                 serde_json::json!({
                     "cmd": "update_quest",
                     "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_mcp_project(state)),
                     "status": "cancelled",
                     "reason": args.get("reason").and_then(|v| v.as_str()).unwrap_or("Cancelled"),
                 }),
@@ -748,6 +748,7 @@ async fn call_code(
         "stats" => {
             let store = aeqi_graph::GraphStore::open(&db_path)?;
             let stats = store.stats()?;
+            let dirty_files = graph_dirty_files(&store)?;
             Ok(serde_json::json!({
                 "ok": true,
                 "project": project,
@@ -755,6 +756,9 @@ async fn call_code(
                 "edges": stats.edge_count,
                 "files": stats.file_count,
                 "indexed_at": store.get_meta("indexed_at")?.unwrap_or_default(),
+                "last_commit": store.get_meta("last_commit")?.unwrap_or_default(),
+                "dirty_files": dirty_files.len(),
+                "dirty_file_paths": dirty_files,
             }))
         }
         "diff_impact" => {
@@ -795,8 +799,11 @@ async fn call_code(
                 "project": project,
                 "result": result.to_string(),
                 "files": result.files_parsed,
+                "parse_errors": result.parse_errors,
                 "nodes": result.nodes,
                 "edges": result.edges,
+                "unresolved": result.unresolved,
+                "dirty_files": graph_dirty_files(&store)?,
             }))
         }
         "synthesize" => anyhow::bail!(
@@ -804,6 +811,17 @@ async fn call_code(
         ),
         _ => anyhow::bail!("unknown code action: {action}"),
     }
+}
+
+fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<String>> {
+    Ok(store
+        .get_meta("dirty_files")?
+        .unwrap_or_default()
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .collect())
 }
 
 fn default_agent_name(ctx: &McpHttpContext, req: &mut serde_json::Value) {
@@ -814,9 +832,17 @@ fn default_agent_name(ctx: &McpHttpContext, req: &mut serde_json::Value) {
     }
 }
 
-fn quests_create_ipc_request(args: &serde_json::Value) -> serde_json::Value {
+fn quests_create_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
     let mut req = args.clone();
     req["cmd"] = serde_json::json!("create_quest");
+    if req
+        .get("project")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .is_empty()
+    {
+        req["project"] = serde_json::json!(default_project);
+    }
     if let Some(dep) = req.get("depends_on").cloned()
         && dep.is_string()
     {
@@ -825,13 +851,21 @@ fn quests_create_ipc_request(args: &serde_json::Value) -> serde_json::Value {
     req
 }
 
-fn quests_list_ipc_request(args: &serde_json::Value) -> serde_json::Value {
+fn quests_list_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
     let mut req = serde_json::json!({
         "cmd": "quests",
-        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(""),
+        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_project),
     });
     copy_fields(args, &mut req, &["status", "agent"]);
     req
+}
+
+fn default_mcp_project(state: &AppState) -> &str {
+    state
+        .mcp_projects
+        .first()
+        .map(|project| project.name.as_str())
+        .unwrap_or("aeqi")
 }
 
 fn copy_fields(from: &serde_json::Value, to: &mut serde_json::Value, fields: &[&str]) {
@@ -946,7 +980,7 @@ fn tool_defs() -> serde_json::Value {
                         "enum": ["create", "list", "show", "update", "close", "cancel"],
                         "description": "create makes a quest; list shows quests; show returns details; update changes status/priority; close records a done outcome; cancel marks work cancelled."
                     },
-                    "project": {"type": "string", "description": "Project name, for example aeqi or aeqi-platform."},
+                    "project": {"type": "string", "description": "Project name, for example aeqi or aeqi-platform. Optional in MCP clients; defaults to the runtime's first configured project."},
                     "quest_id": {"type": "string", "description": "Quest ID for show, update, close, or cancel."},
                     "subject": {"type": "string", "description": "Quest subject for create. Prefix with 'claim:' for atomic resource locking."},
                     "description": {"type": "string", "description": "Quest description for create."},
@@ -968,7 +1002,7 @@ fn tool_defs() -> serde_json::Value {
                     "result": {"type": "string", "description": "Completion result for close."},
                     "reason": {"type": "string", "description": "Cancellation reason for cancel."}
                 },
-                "required": ["action", "project"]
+                "required": ["action"]
             }
         },
         {
@@ -1076,31 +1110,54 @@ mod tests {
 
     #[test]
     fn http_mcp_quest_create_does_not_invent_agent_scope() {
-        let req = quests_create_ipc_request(&serde_json::json!({
-            "project": "aeqi",
-            "subject": "Fix MCP quest scope",
-            "depends_on": "67-026"
-        }));
+        let req = quests_create_ipc_request(
+            &serde_json::json!({
+                "project": "aeqi",
+                "subject": "Fix MCP quest scope",
+                "depends_on": "67-026"
+            }),
+            "default-project",
+        );
 
         assert_eq!(req["cmd"], "create_quest");
+        assert_eq!(req["project"], "aeqi");
         assert_eq!(req["depends_on"], serde_json::json!(["67-026"]));
         assert!(req.get("agent").is_none());
     }
 
     #[test]
+    fn http_mcp_quest_create_defaults_project_for_clients() {
+        let req = quests_create_ipc_request(
+            &serde_json::json!({
+                "subject": "Track MCP work"
+            }),
+            "aeqi",
+        );
+
+        assert_eq!(req["cmd"], "create_quest");
+        assert_eq!(req["project"], "aeqi");
+    }
+
+    #[test]
     fn http_mcp_quest_list_only_filters_explicit_agent() {
-        let unfiltered = quests_list_ipc_request(&serde_json::json!({
-            "project": "aeqi",
-            "status": "todo"
-        }));
+        let unfiltered = quests_list_ipc_request(
+            &serde_json::json!({
+                "project": "aeqi",
+                "status": "todo"
+            }),
+            "default-project",
+        );
         assert_eq!(unfiltered["cmd"], "quests");
         assert_eq!(unfiltered["status"], "todo");
         assert!(unfiltered.get("agent").is_none());
 
-        let filtered = quests_list_ipc_request(&serde_json::json!({
-            "project": "aeqi",
-            "agent": "operator"
-        }));
+        let filtered = quests_list_ipc_request(
+            &serde_json::json!({
+                "project": "aeqi",
+                "agent": "operator"
+            }),
+            "default-project",
+        );
         assert_eq!(filtered["agent"], "operator");
     }
 
