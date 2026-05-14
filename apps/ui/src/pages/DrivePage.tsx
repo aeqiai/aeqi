@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/i18n";
 import { Button, EmptyState, Spinner } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
+import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 
 interface DriveFile {
   id: string;
@@ -15,10 +16,23 @@ interface DriveFile {
   uploaded_at: string;
 }
 
-/** Resolve the entity that owns this agent — the canonical drive scope. */
-function findRootId(agents: { id: string; name: string; entity_id?: string | null }[], id: string) {
-  const found = agents.find((a) => a.id === id) || agents.find((a) => a.name === id);
-  return found?.entity_id || found?.id || id;
+function resolveDriveAgentId(
+  agents: { id: string; name: string; entity_id?: string | null }[],
+  routeAgentId: string,
+  entityId?: string | null,
+  entityAgentId?: string | null,
+) {
+  if (entityAgentId) return entityAgentId;
+  if (entityId) {
+    const rootAgent = agents.find((a) => a.entity_id === entityId);
+    if (rootAgent) return rootAgent.id;
+  }
+  if (routeAgentId) {
+    const found =
+      agents.find((a) => a.id === routeAgentId) || agents.find((a) => a.name === routeAgentId);
+    return found?.id || routeAgentId;
+  }
+  return "";
 }
 
 function formatBytes(n: number): string {
@@ -34,7 +48,8 @@ function formatDate(iso: string): string {
 export default function DrivePage() {
   const { agentId = "" } = useParams<{ agentId?: string }>();
   const agents = useDaemonStore((s) => s.agents);
-  const rootId = findRootId(agents, agentId);
+  const { entity } = useCurrentCompany();
+  const driveAgentId = resolveDriveAgentId(agents, agentId, entity?.id, entity?.agent_id);
 
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,11 +59,14 @@ export default function DrivePage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadFiles = useCallback(async () => {
-    if (!rootId) return;
+    if (!driveAgentId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await api.listDriveFiles(rootId);
+      const res = await api.listDriveFiles(driveAgentId);
       if (res.ok) setFiles(res.files);
       else setError("Failed to load files");
     } catch (e) {
@@ -56,7 +74,7 @@ export default function DrivePage() {
     } finally {
       setLoading(false);
     }
-  }, [rootId]);
+  }, [driveAgentId]);
 
   useEffect(() => {
     loadFiles();
@@ -64,7 +82,7 @@ export default function DrivePage() {
 
   const handleUpload = useCallback(
     async (fileList: FileList | File[]) => {
-      if (!rootId) return;
+      if (!driveAgentId) return;
       const arr = Array.from(fileList);
       if (arr.length === 0) return;
       setUploading(true);
@@ -75,7 +93,7 @@ export default function DrivePage() {
             setError(`${f.name} is larger than 25 MB`);
             continue;
           }
-          const res = await api.uploadDriveFile(rootId, f);
+          const res = await api.uploadDriveFile(driveAgentId, f);
           if (!res.ok) {
             setError(res.error || `Upload failed: ${f.name}`);
           }
@@ -87,7 +105,7 @@ export default function DrivePage() {
         setUploading(false);
       }
     },
-    [rootId, loadFiles],
+    [driveAgentId, loadFiles],
   );
 
   const handleDelete = useCallback(async (fid: string, name: string) => {

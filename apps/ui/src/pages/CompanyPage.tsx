@@ -12,6 +12,7 @@ const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 const OwnershipPage = lazy(() => import("@/pages/OwnershipPage"));
 const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
 const GovernancePage = lazy(() => import("@/pages/GovernancePage"));
+const LibraryPage = lazy(() => import("@/pages/LibraryPage"));
 // Entity-scope primitive tabs. `EntityAgentsTab` is entity-typed (takes
 // entityId, filters the directory). The remaining three render the
 // agent-scoped tab against the entity's ROOT agent. Without these explicit branches,
@@ -48,6 +49,7 @@ interface CompanyPageProps {
  *   /c/:entityId/events        → AgentEventsTab(rootAgent)
  *   /c/:entityId/quests        → AgentQuestsTab(rootAgent)
  *   /c/:entityId/ideas         → AgentIdeasTab(rootAgent)
+ *   /c/:entityId/library       → LibraryPage
  *
  * The former `/c/:entityId/settings` tab was retired — workspace label,
  * tagline, public toggle, and plan link now live in the EntityHeroStrip
@@ -119,6 +121,13 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
     return (
       <Suspense>
         <GovernancePage entityId={entityId} />
+      </Suspense>
+    );
+  }
+  if (tab === "library") {
+    return (
+      <Suspense>
+        <LibraryPage entity={entity} />
       </Suspense>
     );
   }

@@ -8,6 +8,9 @@ This document defines the product language AEQI should use everywhere that users
 - `idea` = what the system should remember or inject
 - `event` = when something should happen
 - `quest` = what durable work needs to be done
+- `project` = mission container linking people, agents, repos, library items, quests, and outcomes
+- `repository` = durable versioned code asset owned by the company
+- `library item` = typed company artifact or knowledge object: folder, file, note, link, idea, decision, spec, contract, image, or evidence
 - `session` = persistent runtime context
 - `execution` = the live run inside a session
 - `step` = the internal loop boundary inside an execution
@@ -22,6 +25,7 @@ This document defines the product language AEQI should use everywhere that users
 - Queued inputs should coalesce before injection.
 - Events can inject ideas.
 - Files are just another source of ideas or context.
+- Projects are not repositories. A project can complete while its linked repositories and library items remain active company assets.
 
 ## UX Rules
 
