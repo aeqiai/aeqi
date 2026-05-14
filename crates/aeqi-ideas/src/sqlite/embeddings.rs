@@ -110,7 +110,7 @@ impl SqliteIdeas {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
-        format!("{:x}", hasher.finalize())
+        hex::encode(hasher.finalize())
     }
 
     /// Look up a cached embedding by content hash within the active vector

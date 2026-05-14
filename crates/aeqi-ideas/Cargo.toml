@@ -30,4 +30,5 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 rusqlite = { workspace = true }
 sha2 = { workspace = true }
+hex = { workspace = true }
 sqlite-vec = { version = "0.1.9", optional = true }

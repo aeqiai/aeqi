@@ -129,7 +129,7 @@ impl SqliteIdeas {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
-        let hash = format!("{:x}", hasher.finalize());
+        let hash = hex::encode(hasher.finalize());
 
         let cutoff = (Utc::now() - chrono::Duration::hours(hours as i64)).to_rfc3339();
 

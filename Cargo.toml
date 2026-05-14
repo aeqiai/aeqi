@@ -52,7 +52,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "str
 axum = { version = "0.8", features = ["ws"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
-jsonwebtoken = "10"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 urlencoding = "2.1"
 
 # CLI
@@ -75,7 +75,7 @@ rand = "0.9"
 base64 = "0.22"
 sha1 = "0.11"
 sha2 = "0.11"
-hmac = "0.12"
+hmac = "0.13"
 hex = "0.4"
 bcrypt = "0.17"
 

@@ -51,7 +51,7 @@ fn validate_twilio_signature(
     signature: &str,
 ) -> bool {
     use base64::Engine;
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha1::Sha1;
 
     // Build the data string: URL + sorted key-value pairs appended directly.
