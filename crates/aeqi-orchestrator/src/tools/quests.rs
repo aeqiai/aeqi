@@ -711,7 +711,7 @@ mod tests {
     fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
         aeqi_quests::Quest {
             id: aeqi_quests::QuestId(id.to_string()),
-            idea_id: Some(format!("idea-{id}")),
+            idea_id: format!("idea-{id}"),
             idea: None,
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),

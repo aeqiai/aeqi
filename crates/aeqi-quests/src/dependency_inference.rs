@@ -188,7 +188,7 @@ mod tests {
         };
         Quest {
             id: QuestId(id.to_string()),
-            idea_id: Some(idea.id.clone()),
+            idea_id: idea.id.clone(),
             idea: Some(idea),
             status: QuestStatus::Todo,
             priority: Priority::Normal,

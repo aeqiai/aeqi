@@ -69,7 +69,11 @@ pub async fn handle_quests(
                         .unwrap_or(true),
                 })
                 .collect();
-            let idea_ids: Vec<String> = visible.iter().filter_map(|q| q.idea_id.clone()).collect();
+            let idea_ids: Vec<String> = visible
+                .iter()
+                .map(|q| q.idea_id.clone())
+                .filter(|id| !id.is_empty())
+                .collect();
             let ideas: std::collections::HashMap<String, aeqi_core::traits::Idea> =
                 if idea_ids.is_empty() {
                     Default::default()
@@ -88,7 +92,11 @@ pub async fn handle_quests(
             let all_quests: Vec<serde_json::Value> = visible
                 .iter()
                 .map(|quest| {
-                    let idea = quest.idea_id.as_deref().and_then(|id| ideas.get(id));
+                    let idea = if quest.idea_id.is_empty() {
+                        None
+                    } else {
+                        ideas.get(quest.idea_id.as_str())
+                    };
                     serde_json::json!({
                         "id": quest.id.0,
                         "idea_id": quest.idea_id,
@@ -373,11 +381,9 @@ pub async fn handle_create_quest(
             // request supplied one separately. Idea reference updates flow
             // through the idea API, not the quest, so this is the same
             // path the legacy preset-with-acceptance flow takes today.
-            if let (Some(ac), Some(id), Some(store)) = (
-                acceptance_criteria.as_ref(),
-                quest.idea_id.as_ref(),
-                ctx.idea_store.as_ref(),
-            ) && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(id)).await
+            if let (Some(ac), Some(store)) = (acceptance_criteria.as_ref(), ctx.idea_store.as_ref())
+                && !quest.idea_id.is_empty()
+                && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(&quest.idea_id)).await
                 && let Some(existing) = ideas.pop()
             {
                 let mut content = existing.content.trim_end().to_string();
@@ -386,14 +392,16 @@ pub async fn handle_create_quest(
                 }
                 content.push_str("## Acceptance\n");
                 content.push_str(ac);
-                let _ = store.update(id, None, Some(&content), None).await;
+                let _ = store
+                    .update(&quest.idea_id, None, Some(&content), None)
+                    .await;
             }
 
             // Fetch the linked idea body so the response can carry it
             // inline (UI routes to the new quest without a follow-up GET).
-            let inline_idea = match (&quest.idea_id, ctx.idea_store.as_ref()) {
-                (Some(id), Some(store)) => store
-                    .get_by_ids(std::slice::from_ref(id))
+            let inline_idea = match ctx.idea_store.as_ref() {
+                Some(store) if !quest.idea_id.is_empty() => store
+                    .get_by_ids(std::slice::from_ref(&quest.idea_id))
                     .await
                     .ok()
                     .and_then(|mut v| v.pop()),
@@ -496,16 +504,16 @@ pub async fn handle_get_quest(
             // without a follow-up fetch. Also surface a sibling-quest count
             // so the front-end can show the "Shared spec · N quests" badge
             // without needing its own RPC.
-            let (inline_idea, sibling_quests) = match (&quest.idea_id, ctx.idea_store.as_ref()) {
-                (Some(idea_id), Some(store)) => {
+            let (inline_idea, sibling_quests) = match ctx.idea_store.as_ref() {
+                Some(store) if !quest.idea_id.is_empty() => {
                     let idea = store
-                        .get_by_ids(std::slice::from_ref(idea_id))
+                        .get_by_ids(std::slice::from_ref(&quest.idea_id))
                         .await
                         .ok()
                         .and_then(|mut v| v.pop());
                     let siblings = ctx
                         .agent_registry
-                        .find_quests_by_idea_id(idea_id)
+                        .find_quests_by_idea_id(&quest.idea_id)
                         .await
                         .unwrap_or_default()
                         .into_iter()
@@ -688,9 +696,9 @@ pub async fn handle_update_quest(
         Ok(quest) => {
             // Editorial fields live on the linked idea — fetch it lazily
             // for the response so the UI can refresh without a 2nd RPC.
-            let idea = match (&quest.idea_id, ctx.idea_store.as_ref()) {
-                (Some(id), Some(store)) => store
-                    .get_by_ids(std::slice::from_ref(id))
+            let idea = match ctx.idea_store.as_ref() {
+                Some(store) if !quest.idea_id.is_empty() => store
+                    .get_by_ids(std::slice::from_ref(&quest.idea_id))
                     .await
                     .ok()
                     .and_then(|mut v| v.pop()),
@@ -1098,7 +1106,7 @@ mod tests {
     fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
         aeqi_quests::Quest {
             id: aeqi_quests::QuestId(id.to_string()),
-            idea_id: Some(format!("idea-{id}")),
+            idea_id: format!("idea-{id}"),
             idea: None,
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),

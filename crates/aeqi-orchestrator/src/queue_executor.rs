@@ -457,8 +457,8 @@ impl SessionExecutor for QueueExecutor {
             {
                 let quest_for_subject = self.agent_registry.get_task(quest_id).await.ok().flatten();
                 let subject = match (&quest_for_subject, self.idea_store.as_ref()) {
-                    (Some(q), Some(store)) if q.idea_id.is_some() => {
-                        let id = q.idea_id.as_ref().unwrap();
+                    (Some(q), Some(store)) if !q.idea_id.is_empty() => {
+                        let id = &q.idea_id;
                         store
                             .get_by_ids(std::slice::from_ref(id))
                             .await
@@ -499,7 +499,8 @@ impl SessionExecutor for QueueExecutor {
                         .await
                         .ok()
                         .flatten()
-                        .and_then(|q| q.idea_id);
+                        .map(|q| q.idea_id)
+                        .filter(|id| !id.is_empty());
                     if let (Some(id), Some(store)) = (enrich_target, self.idea_store.as_ref())
                         && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(&id)).await
                         && let Some(existing) = ideas.pop()
@@ -743,7 +744,7 @@ mod tests {
     fn stub_quest(id: &str, agent_id: Option<&str>) -> aeqi_quests::Quest {
         aeqi_quests::Quest {
             id: aeqi_quests::QuestId(id.to_string()),
-            idea_id: Some(format!("idea-{id}")),
+            idea_id: format!("idea-{id}"),
             idea: None,
             status: aeqi_quests::QuestStatus::Done,
             priority: Default::default(),

@@ -1455,7 +1455,8 @@ impl MessageRouter {
             .await
             .ok()
             .flatten()
-            .and_then(|q| q.idea_id);
+            .map(|q| q.idea_id)
+            .filter(|id| !id.is_empty());
         if let (Some(idea_id), Some(store)) = (council_idea_id, idea_store.as_ref())
             && let Ok(mut ideas) = store.get_by_ids(std::slice::from_ref(&idea_id)).await
             && let Some(existing) = ideas.pop()

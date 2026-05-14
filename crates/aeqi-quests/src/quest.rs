@@ -174,12 +174,11 @@ impl QuestOutcomeRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Quest {
     pub id: QuestId,
-    /// FK to the idea that owns this quest's editorial body. Always set
-    /// post-phase 3 — the SQL column is `NOT NULL`. The Option lives on
-    /// for in-memory construction patterns (test stubs build quests
-    /// before linking) but every persisted row carries a real idea id.
-    #[serde(default)]
-    pub idea_id: Option<String>,
+    /// FK to the idea that owns this quest's editorial body. NOT NULL at
+    /// the SQL layer since Phase 3 of the quest ↔ idea unification; the
+    /// in-memory shape mirrors that invariant. Every Quest carries a
+    /// real idea id at construction.
+    pub idea_id: String,
     /// In-memory snapshot of the linked idea, attached at read time so
     /// the worker / API / log lines can render the title without a
     /// follow-up store fetch. Not serialised on the wire — the API
@@ -243,16 +242,17 @@ pub struct Quest {
 }
 
 impl Quest {
-    /// Create a new quest with minimal fields. The `_subject` argument is a
-    /// historical alias that callers still pass; it's accepted but ignored,
-    /// since editorial content lives on the linked idea now.
-    pub fn new(id: QuestId, _subject: impl Into<String>) -> Self {
-        Self::with_agent(id, _subject, None)
+    /// Create a new quest with minimal fields. `idea_id` is the FK to the
+    /// idea that owns the quest's editorial body; it's required at
+    /// construction so the schema invariant (`idea_id NOT NULL`) is also a
+    /// type-level invariant.
+    pub fn new(id: QuestId, idea_id: impl Into<String>) -> Self {
+        Self::with_agent(id, idea_id, None)
     }
 
     /// Create a new quest bound to a specific agent.
-    pub fn with_agent(id: QuestId, _subject: impl Into<String>, agent_id: Option<&str>) -> Self {
-        let _ = _subject.into();
+    pub fn with_agent(id: QuestId, idea_id: impl Into<String>, agent_id: Option<&str>) -> Self {
+        let idea_id = idea_id.into();
         let scope = if agent_id.is_none() {
             Scope::Global
         } else {
@@ -260,7 +260,7 @@ impl Quest {
         };
         Self {
             id,
-            idea_id: None,
+            idea_id,
             idea: None,
             status: QuestStatus::Todo,
             priority: Priority::Normal,
@@ -486,10 +486,10 @@ mod tests {
 
     #[test]
     fn quest_new_defaults() {
-        let quest = Quest::new(QuestId::from("t-001"), "Test quest");
+        let quest = Quest::new(QuestId::from("t-001"), "idea-001");
         assert_eq!(quest.title(), "");
         assert_eq!(quest.body(), "");
-        assert!(quest.idea_id.is_none());
+        assert_eq!(quest.idea_id, "idea-001");
         assert_eq!(quest.status, QuestStatus::Todo);
         assert_eq!(quest.priority, Priority::Normal);
         assert!(quest.agent_id.is_none());
@@ -498,7 +498,7 @@ mod tests {
 
     #[test]
     fn quest_with_agent_binds_agent() {
-        let quest = Quest::with_agent(QuestId::from("t-001"), "Bound", Some("agent-42"));
+        let quest = Quest::with_agent(QuestId::from("t-001"), "idea-001", Some("agent-42"));
         assert_eq!(quest.agent_id.as_deref(), Some("agent-42"));
         assert!(quest.is_agent_bound());
 

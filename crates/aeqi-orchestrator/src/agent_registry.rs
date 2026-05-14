@@ -3135,10 +3135,10 @@ impl AgentRegistry {
 
         let mut quest = aeqi_quests::Quest::with_agent(
             aeqi_quests::QuestId(quest_id.clone()),
-            subject,
+            idea_id.clone(),
             Some(agent_id),
         );
-        quest.idea_id = Some(idea_id.clone());
+        let _ = subject;
         quest.scope = scope;
         quest.created_at = now;
 
@@ -3227,10 +3227,9 @@ impl AgentRegistry {
 
         let mut quest = aeqi_quests::Quest::with_agent(
             aeqi_quests::QuestId(quest_id.clone()),
-            "",
+            idea_id.to_string(),
             Some(agent_id),
         );
-        quest.idea_id = Some(idea_id.to_string());
         quest.depends_on = depends_on.to_vec();
         quest.scope = scope;
         quest.created_at = now;
@@ -3290,9 +3289,12 @@ impl AgentRegistry {
 
         let now = chrono::Utc::now();
         let deps_json = serde_json::to_string(depends_on)?;
-        let mut quest =
-            aeqi_quests::Quest::with_agent(aeqi_quests::QuestId(quest_id.clone()), subject, None);
-        quest.idea_id = Some(idea_id.clone());
+        let mut quest = aeqi_quests::Quest::with_agent(
+            aeqi_quests::QuestId(quest_id.clone()),
+            idea_id.clone(),
+            None,
+        );
+        let _ = subject;
         quest.depends_on = depends_on.to_vec();
         quest.scope = Scope::Global;
         quest.created_at = now;
@@ -3432,10 +3434,10 @@ impl AgentRegistry {
 
         let mut quest = aeqi_quests::Quest::with_agent(
             aeqi_quests::QuestId(quest_id.clone()),
-            subject,
+            idea_id.clone(),
             Some(agent_id),
         );
-        quest.idea_id = Some(idea_id.clone());
+        let _ = subject;
         quest.depends_on = depends_on.to_vec();
         quest.scope = scope;
         quest.created_at = now;
@@ -3572,9 +3574,10 @@ impl AgentRegistry {
     /// `quest.idea_tags()` after a fetch without standing up the full
     /// `IdeaStore` plumbing.
     pub async fn hydrate_quest_idea(&self, quest: &mut aeqi_quests::Quest) -> Result<()> {
-        let Some(ref idea_id) = quest.idea_id.clone() else {
+        let idea_id = quest.idea_id.clone();
+        if idea_id.is_empty() {
             return Ok(());
-        };
+        }
         let db = self.db.lock().await;
         let idea = db
             .query_row(
@@ -3645,7 +3648,7 @@ impl AgentRegistry {
     ) -> Result<aeqi_quests::Quest> {
         let new_id = idea_id.to_string();
         self.update_task(quest_id, |quest| {
-            quest.idea_id = Some(new_id);
+            quest.idea_id = new_id;
         })
         .await
     }
@@ -4403,7 +4406,7 @@ fn row_to_task(row: &rusqlite::Row) -> aeqi_quests::Quest {
 
     aeqi_quests::Quest {
         id: aeqi_quests::QuestId(row.get("id").unwrap_or_default()),
-        idea_id: row.get::<_, Option<String>>("idea_id").unwrap_or(None),
+        idea_id: row.get::<_, String>("idea_id").unwrap_or_default(),
         idea: None,
         status,
         priority,
@@ -5172,7 +5175,7 @@ mod tests {
         let stored = reg.get_task(&quest.id.0).await.unwrap().unwrap();
         assert_eq!(stored.agent_id, None);
         assert_eq!(stored.scope, Scope::Global);
-        assert!(stored.idea_id.is_some());
+        assert!(!stored.idea_id.is_empty());
     }
 
     #[tokio::test]
@@ -5534,18 +5537,18 @@ mod tests {
 
         // Round-trips correctly via the closure form …
         reg.update_task(&task.id.0, |quest| {
-            quest.idea_id = Some("idea-abc".to_string());
+            quest.idea_id = "idea-abc".to_string();
         })
         .await
         .unwrap();
         let after_update = reg.get_task(&task.id.0).await.unwrap().unwrap();
-        assert_eq!(after_update.idea_id.as_deref(), Some("idea-abc"));
+        assert_eq!(after_update.idea_id, "idea-abc");
 
         // … and via the dedicated setter used by the create-quest IPC.
         let after_set = reg.set_quest_idea_id(&task.id.0, "idea-xyz").await.unwrap();
-        assert_eq!(after_set.idea_id.as_deref(), Some("idea-xyz"));
+        assert_eq!(after_set.idea_id, "idea-xyz");
         let refetched = reg.get_task(&task.id.0).await.unwrap().unwrap();
-        assert_eq!(refetched.idea_id.as_deref(), Some("idea-xyz"));
+        assert_eq!(refetched.idea_id, "idea-xyz");
     }
 
     #[tokio::test]
