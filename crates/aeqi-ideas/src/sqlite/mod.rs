@@ -887,16 +887,10 @@ mod tests {
             .unwrap();
         assert_eq!(embedder.calls(), 1, "first store should call embedder");
 
-        // Store second memory with IDENTICAL content — should NOT call embedder (cache hit).
-        // Note: has_recent_duplicate will skip this since content is the same within 24h.
-        // So we need slightly different keys but same content.
-        // Actually, has_recent_duplicate checks content equality — it will skip the second store entirely.
-        // We need to use different content to test the embedding cache properly.
-        // Let's test with content that bypasses the duplicate check but has same hash.
-
-        // Actually the duplicate check returns empty string early. Let's verify the cache
-        // works when content is stored across different DB instances (simulating restart).
-        // Instead, let's directly test the hash lookup mechanism.
+        // The legacy 24h same-name+same-content dedup in `store_impl` was
+        // retired (quest 67-147). Same-name collisions on active rows now
+        // trip the partial unique index, so this test verifies the hash
+        // lookup mechanism directly rather than racing the dedup gate.
         {
             let conn = mem.conn.lock().unwrap();
             let hash = SqliteIdeas::content_hash("identical content for embedding");

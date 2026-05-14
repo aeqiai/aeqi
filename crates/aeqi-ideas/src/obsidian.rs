@@ -207,17 +207,18 @@ pub async fn import(store: &SqliteIdeas, vault_dir: &Path) -> Result<(usize, usi
             .store(&mem.name, &mem.content, &tags, mem.agent_id.as_deref())
             .await
         {
-            Ok(id) if id.is_empty() => {
-                debug!(name = %mem.name, "skipped (duplicate)");
-                skipped += 1;
-            }
             Ok(id) => {
                 debug!(name = %mem.name, id = %id, "imported");
                 key_to_id.insert(mem.name.clone(), id);
                 imported += 1;
             }
+            // The fallback path no longer carries a 24h dedup; an active
+            // row with the same (agent_id, name) trips the partial unique
+            // index. Treat that as a skip (re-imports are idempotent),
+            // and only escalate other errors. Daemon-routed imports go
+            // through DedupPipeline and never hit this path.
             Err(e) => {
-                warn!(name = %mem.name, err = %e, "failed to import");
+                debug!(name = %mem.name, err = %e, "skipped (already exists or store error)");
                 skipped += 1;
             }
         }

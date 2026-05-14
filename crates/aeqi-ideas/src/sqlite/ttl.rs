@@ -1,8 +1,8 @@
-//! SQLite-side TTL and short-window dedup queries.
+//! SQLite-side TTL queries.
 //!
 //! Pure temporal filtering lives in [`crate::temporal_filter`]. This module
-//! owns the queries that touch the `ideas` table: expired-entry cleanup,
-//! prefix search on names, and the 24h-window checks used by the write path.
+//! owns the queries that touch the `ideas` table for expired-entry cleanup
+//! and prefix search on names.
 
 use super::SqliteIdeas;
 use aeqi_core::traits::Idea;
@@ -97,58 +97,5 @@ impl SqliteIdeas {
 
         debug!(count, "cleaned up expired ideas");
         Ok(count)
-    }
-
-    /// Check if an idea with the same name was stored within the given time window.
-    /// When agent_id is provided, scopes the check to that agent only.
-    pub fn has_recent_name(&self, name: &str, agent_id: Option<&str>, hours: u32) -> bool {
-        let cutoff = (Utc::now() - chrono::Duration::hours(hours as i64)).to_rfc3339();
-        let conn = match self.conn.lock() {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-        let count: i64 = if let Some(aid) = agent_id {
-            conn.query_row(
-                "SELECT COUNT(*) FROM ideas WHERE name = ?1 AND agent_id = ?2 AND created_at > ?3",
-                rusqlite::params![name, aid, cutoff],
-                |row| row.get(0),
-            )
-            .unwrap_or(0)
-        } else {
-            conn.query_row(
-                "SELECT COUNT(*) FROM ideas WHERE name = ?1 AND agent_id IS NULL AND created_at > ?2",
-                rusqlite::params![name, cutoff],
-                |row| row.get(0),
-            )
-            .unwrap_or(0)
-        };
-        count > 0
-    }
-
-    pub fn has_recent_duplicate(&self, content: &str, hours: u32) -> bool {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
-        let hash = hex::encode(hasher.finalize());
-
-        let cutoff = (Utc::now() - chrono::Duration::hours(hours as i64)).to_rfc3339();
-
-        let conn = match self.conn.lock() {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM ideas WHERE content = ?1 AND created_at > ?2",
-                rusqlite::params![content, cutoff],
-                |row| row.get(0),
-            )
-            .unwrap_or(0);
-
-        if count > 0 {
-            debug!(hash = %hash, "duplicate memory detected within {hours}h window");
-        }
-        count > 0
     }
 }

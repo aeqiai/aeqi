@@ -1,17 +1,16 @@
 //! Write path for the SQLite idea store.
 //!
 //! Owns the end-to-end store/update/delete lifecycle: redact secrets,
-//! hand-off to the embedder (with a content-hash cache), mutate the
-//! `ideas` and `idea_embeddings` rows, and maintain the idea_tags junction.
-//! `store_with_ttl` and `store_with_scope` layer expiry and visibility on
-//! top of the base `store` path. `reassign_agent` is the bulk ownership
-//! mutation used when agents are renamed.
+//! mutate the `ideas` and `idea_embeddings` rows, and maintain the
+//! `idea_tags` junction. `store_with_ttl` and `store_with_scope` layer
+//! expiry and visibility on top of the base `store` path. `reassign_agent`
+//! is the bulk ownership mutation used when agents are renamed.
 //!
 //! The provenance-rich path (`store_full_impl`, `update_full_impl`,
 //! `set_status_impl`, `set_embedding_impl`, `count_by_tag_since_impl`) is
-//! the real underlying writer; the plainer entry points are thin wrappers
-//! that fill missing fields with defaults. Agents R and W in Round 3 will
-//! route their write paths through `store_full_impl`.
+//! the real underlying writer; the plainer entry points (`store_impl`,
+//! `store_with_ttl_impl`, `store_with_scope_impl`) are thin wrappers that
+//! fill missing fields with defaults and funnel through `store_full_impl`.
 
 use super::{EmbeddingProfile, EmbeddingRebuildSummary, SqliteIdeas};
 use crate::vector::vec_to_bytes;
@@ -98,6 +97,23 @@ fn insert_full_row_on_conn(
 }
 
 impl SqliteIdeas {
+    /// Plain entry point for the `IdeaStore::store` trait method. Builds a
+    /// `StoreFull` payload with default provenance and routes through the
+    /// canonical `store_full_impl` writer, then runs inline embedding when
+    /// an embedder is configured.
+    ///
+    /// Dedup is the caller's responsibility: the orchestrator's
+    /// `DedupPipeline` (`aeqi_orchestrator::ipc::ideas`) is the canonical
+    /// dedup gate for IPC writers. Same-name collisions on active rows are
+    /// rejected by the partial unique index on `(COALESCE(agent_id, ''),
+    /// name) WHERE status='active'`; callers that need short-window dedup
+    /// must layer it above this method instead of relying on a silent
+    /// return-empty-id skip.
+    ///
+    /// Embedding is inline: when an embedder is attached, the call returns
+    /// only after the embedding has been computed (cache-hit or fresh) and
+    /// `embedding_pending` flipped to 0. Embedder-less stores leave the
+    /// row with `embedding_pending=1` for the `embed_worker` to pick up.
     pub(super) async fn store_impl(
         &self,
         name: &str,
@@ -105,70 +121,21 @@ impl SqliteIdeas {
         tags: &[String],
         agent_id: Option<&str>,
     ) -> Result<String> {
-        // Strip credentials before any persistence path: the content ends up in
-        // the DB row, the embedding input, and the FTS index. Over-redacting a
-        // note is always preferable to leaking a token.
         let redacted = crate::redact::redact_secrets(content);
+        let mut input = StoreFull::new(name, redacted.clone());
+        input.tags = tags.to_vec();
+        input.agent_id = agent_id.map(|s| s.to_string());
+        let id = self.store_full_impl(input).await?;
 
-        // Dedup + insert in spawn_blocking to avoid blocking tokio.
-        let name_owned = name.to_string();
-        let content_owned = redacted.clone();
-        let tags_owned = Self::normalize_tags(tags.iter().cloned());
-        let agent_id_owned = agent_id.map(|s| s.to_string());
-        let this = self.clone();
-
-        let id = tokio::task::spawn_blocking(move || -> Result<String> {
-            if this.has_recent_duplicate(&content_owned, 24) {
-                debug!(name = %name_owned, "skipping duplicate idea (exact content match within 24h)");
-                return Ok(String::new());
-            }
-            if this.has_recent_name(&name_owned, agent_id_owned.as_deref(), 24) {
-                debug!(name = %name_owned, "skipping duplicate idea (same name within 24h)");
-                return Ok(String::new());
-            }
-
-            let id = uuid::Uuid::new_v4().to_string();
-            let now = Utc::now().to_rfc3339();
-            let initial_hash = Self::content_hash(&content_owned);
-
-            let conn = this.conn.lock().map_err(|e| anyhow::anyhow!("lock: {e}"))?;
-            conn.execute(
-                "INSERT INTO ideas (id, name, content, agent_id, created_at, content_hash)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                rusqlite::params![
-                    id,
-                    name_owned,
-                    content_owned,
-                    agent_id_owned,
-                    now,
-                    initial_hash
-                ],
-            )?;
-
-            // Insert all tags into the junction table.
-            for tag in &tags_owned {
-                conn.execute(
-                    "INSERT OR IGNORE INTO idea_tags (idea_id, tag) VALUES (?1, ?2)",
-                    rusqlite::params![id, tag],
-                )?;
-            }
-
-            debug!(id = %id, name = %name_owned, agent_id = ?agent_id_owned, "idea stored");
-            Ok(id)
-        })
-        .await
-        .map_err(|e| anyhow::anyhow!("spawn_blocking join: {e}"))??;
-
-        if id.is_empty() {
-            return Ok(id);
-        }
-
-        // Embedding phase: async embed, then sync store.
+        // Inline embedding phase — preserves the synchronous "store +
+        // embed" contract that the plain `IdeaStore::store` callers (and
+        // unit tests) rely on. Daemon writers that route through
+        // `store_full` directly let the async `embed_worker` flush
+        // `embedding_pending=1` rows later.
         if let Some(ref embedder) = self.embedder {
             let profile = self.active_embedding_profile();
             let hash = Self::content_hash(&redacted);
 
-            // Check cache in spawn_blocking.
             let cached = {
                 let conn = self.conn.clone();
                 let hash_c = hash.clone();
@@ -209,7 +176,7 @@ impl SqliteIdeas {
 
             if let Some(bytes) = embed_bytes {
                 let conn = self.conn.clone();
-                let id = id.clone();
+                let id_c = id.clone();
                 let dims = self.embedding_dimensions;
                 let provider = self.embedding_provider.clone();
                 let model = self.embedding_model.clone();
@@ -217,20 +184,20 @@ impl SqliteIdeas {
                     if let Ok(conn) = conn.lock()
                         && let Err(e) = conn
                             .execute(
-                            "INSERT OR REPLACE INTO idea_embeddings \
-                                 (idea_id, embedding, dimensions, content_hash, embedding_provider, embedding_model) \
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                                rusqlite::params![&id, bytes, dims as i64, hash, provider, model],
+                                "INSERT OR REPLACE INTO idea_embeddings \
+                                     (idea_id, embedding, dimensions, content_hash, embedding_provider, embedding_model) \
+                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                                rusqlite::params![&id_c, bytes, dims as i64, hash, provider, model],
                             )
                             .and_then(|_| {
                                 conn.execute(
                                     "UPDATE ideas SET embedding_pending = 0 WHERE id = ?1",
-                                    rusqlite::params![&id],
+                                    rusqlite::params![&id_c],
                                 )
                             })
                     {
-                            warn!(id = %id, "failed to store embedding: {e}");
-                        }
+                        warn!(id = %id_c, "failed to store embedding: {e}");
+                    }
                 })
                 .await;
             }
@@ -443,9 +410,6 @@ impl SqliteIdeas {
         ttl_secs: Option<u64>,
     ) -> Result<String> {
         let id = self.store_impl(name, content, tags, agent_id).await?;
-        if id.is_empty() {
-            return Ok(id);
-        }
         if let Some(ttl) = ttl_secs {
             let id_c = id.clone();
             self.blocking(move |conn| {
@@ -471,7 +435,7 @@ impl SqliteIdeas {
         scope: aeqi_core::Scope,
     ) -> Result<String> {
         let id = self.store_impl(name, content, tags, agent_id).await?;
-        if id.is_empty() || scope == aeqi_core::Scope::SelfScope {
+        if scope == aeqi_core::Scope::SelfScope {
             return Ok(id);
         }
         let id_c = id.clone();
@@ -506,13 +470,20 @@ impl SqliteIdeas {
 
     // ── Round 2 provenance-rich write path ──────────────────────────────
 
-    /// Provenance-rich store. This is the canonical writer for rows that
-    /// carry any non-default lifecycle / provenance / validity data.
+    /// Provenance-rich store. The canonical writer for the SQLite backend:
+    /// every store path on this store (`store_impl`, `store_with_ttl_impl`,
+    /// `store_with_scope_impl`, and direct `IdeaStore::store_full` callers)
+    /// funnels through here.
     ///
-    /// Skips the 24h name+content dedup entirely — callers that need dedup
-    /// should route through `store_impl` (which Agent W will refactor into
-    /// the dispatch in Round 3). Embedding is *not* queued here; callers
-    /// set `embedding_pending` and `set_embedding` completes the flow.
+    /// Performs no dedup of its own; the partial unique index on
+    /// `(COALESCE(agent_id, ''), name) WHERE status='active'` is the schema-
+    /// level guard against same-name active duplicates. Callers that need
+    /// short-window content dedup (the orchestrator's `DedupPipeline`,
+    /// importers' pre-check, etc.) layer it above this method.
+    ///
+    /// Embedding is *not* queued here; callers (typically `embed_worker`)
+    /// honour the `embedding_pending=1` flag set by `insert_full_row_on_conn`
+    /// and complete the flow via `set_embedding`.
     pub(super) async fn store_full_impl(&self, input: StoreFull) -> Result<String> {
         // Same secret scrubbing as the plain path — the content lands in the
         // FTS index and the embedding input, so over-redaction is safer than

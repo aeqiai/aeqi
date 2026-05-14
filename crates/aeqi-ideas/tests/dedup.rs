@@ -36,8 +36,9 @@ fn store_full(name: &str, content: &str, tags: &[&str]) -> StoreFull {
 
 // ── 1. Same name + agent → Merge semantics (at the dispatch level) ─────
 //
-// The plain `IdeaStore::store` path carries a 24-hour dedup that returns
-// empty on a same-name second write — that's how the MCP sees "skip". The
+// Dedup is no longer a property of the SQLite store — quest 67-147 retired
+// the 24h same-name+same-content skip in `store_impl`. The orchestrator's
+// `DedupPipeline` (`ipc::ideas`) is the canonical dedup gate. The
 // higher-level Merge dispatch (Agent W's `dispatch_merge`) bumps confidence
 // +0.1 via `update_full`. This test verifies the primitives that dispatch
 // uses so the full IPC roundtrip can compose them.
@@ -217,9 +218,10 @@ async fn partial_unique_index_rejects_two_active_rows_with_same_name() {
     let db = dir.path().join("unique.db");
     let _ideas = SqliteIdeas::open(&db, 30.0).unwrap();
 
-    // Poke the DB directly via rusqlite — the trait path goes through
-    // `store_impl` which has its own 24h name dedup. We want to verify
-    // the schema's UNIQUE constraint itself.
+    // Poke the DB directly via rusqlite — the trait path routes through
+    // `store_full_impl` which lets the schema's partial unique index
+    // surface as a constraint error. We want to verify the index itself
+    // rather than the route-through behaviour.
     let conn = Connection::open(&db).unwrap();
     let now = chrono::Utc::now().to_rfc3339();
     let hash = "dummyhash".to_string();
