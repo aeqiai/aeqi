@@ -433,7 +433,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         ToolDef {
             name: "quests".to_string(),
             title: "AEQI Quests".to_string(),
-            description: "Task ledger for company work. Use quests to create, list, show, update, close, or cancel work even when no AEQI runtime agent is assigned. By default, unqualified MCP quests are user/entity scoped global quests; AEQI_AGENT only labels the MCP client. Pass agent or agent_id explicitly when you want to delegate to or filter for a specific AEQI agent.".to_string(),
+            description: "Task ledger for company work. Use quests to create, list, show, update, close, or cancel work even when no AEQI runtime agent is assigned. `list` with no `project`/`agent` returns all quests visible to the calling entity, including global (scope:\"global\", agent_id:null) quests — pass `project` or `agent` to narrow. `create` defaults to the runtime's first configured project unless `agent` is set. AEQI_AGENT only labels the MCP client and does not automatically own or filter quests.".to_string(),
             annotations: serde_json::json!({"title": "AEQI Quests", "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false, "openWorldHint": false}),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -443,7 +443,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         "enum": ["create", "list", "show", "update", "close", "cancel"],
                         "description": "create: new quest (needs subject). list: show quests (optional status, explicit agent). show: details (needs quest_id). update: change status/priority (needs quest_id). close: complete (needs quest_id, result). cancel: abort (needs quest_id). AEQI_AGENT labels the MCP client and does not automatically own or filter quests."
                     },
-                    "project": {"type": "string", "description": "Project name. Optional in MCP clients; defaults to the runtime's first configured project."},
+                    "project": {"type": "string", "description": "Project name. For `list`, omit to see all entity-visible quests (including globals); pass to narrow to a specific project's agent. For `create`, defaults to the runtime's first configured project when omitted."},
                     "quest_id": {"type": "string", "description": "Quest ID (for show/update/close/cancel)"},
                     "subject": {"type": "string", "description": "Quest subject (for create). Prefix with 'claim:' for atomic resource locking."},
                     "description": {"type": "string", "description": "Quest description (for create)"},
@@ -459,7 +459,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                         "description": "Quest ID(s) that must complete first (for create)"
                     },
                     "parent": {"type": "string", "description": "Parent quest ID — makes this a child quest (for create)"},
-                    "status": {"type": "string", "enum": ["pending", "in_progress", "done", "blocked", "cancelled"], "description": "Filter or new status (for list, update)"},
+                    "status": {"type": "string", "enum": ["backlog", "todo", "in_progress", "done", "cancelled"], "description": "Filter or new status (for list, update). Lifecycle: backlog → todo → in_progress → done | cancelled."},
                     "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)"},
                     "result": {"type": "string", "description": "Completion result (for close)"},
                     "reason": {"type": "string", "description": "Cancellation reason (for cancel)"},
@@ -1380,16 +1380,24 @@ fn quests_create_ipc_request(args: &serde_json::Value, default_project: &str) ->
     ipc
 }
 
-fn quests_list_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
-    let mut ipc = serde_json::json!({
-        "cmd": "quests",
-        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_project),
-    });
+fn quests_list_ipc_request(args: &serde_json::Value, _default_project: &str) -> serde_json::Value {
+    // Do NOT default `project` on list. The daemon resolves `project` to an
+    // agent_id and SQL-filters quests by it, which silently drops every
+    // scope:"global" quest (agent_id IS NULL). Callers who want a narrowed
+    // list pass `project` (or `agent`/`agent_id`) explicitly; absent those,
+    // the daemon returns the entity-visible set including globals.
+    let mut ipc = serde_json::json!({ "cmd": "quests" });
+    if let Some(project) = args.get("project") {
+        ipc["project"] = project.clone();
+    }
     if let Some(status) = args.get("status") {
         ipc["status"] = status.clone();
     }
     if let Some(agent) = args.get("agent") {
         ipc["agent"] = agent.clone();
+    }
+    if let Some(agent_id) = args.get("agent_id") {
+        ipc["agent_id"] = agent_id.clone();
     }
     ipc
 }
@@ -1468,6 +1476,36 @@ mod tests {
             "default-project",
         );
         assert_eq!(filtered["agent"], "operator");
+    }
+
+    #[test]
+    fn quests_list_request_does_not_default_project() {
+        // When the caller passes no `project`, the IPC must NOT inject the
+        // default project. The daemon resolves `project` to an agent_id and
+        // SQL-filters quests by it, which silently drops every scope:"global"
+        // quest. An absent `project` is the only way to see the entity-wide
+        // list including globals.
+        let req = quests_list_ipc_request(&serde_json::json!({}), "aeqi");
+        assert_eq!(req["cmd"], "quests");
+        assert!(
+            req.get("project").is_none(),
+            "list must not auto-inject default project: {req}"
+        );
+        assert!(req.get("status").is_none());
+        assert!(req.get("agent").is_none());
+        assert!(req.get("agent_id").is_none());
+    }
+
+    #[test]
+    fn quests_list_request_forwards_agent_id() {
+        let req = quests_list_ipc_request(
+            &serde_json::json!({
+                "agent_id": "a6107b6a-1959-45f9-901c-77fa1f333cbe",
+            }),
+            "default-project",
+        );
+        assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
+        assert!(req.get("project").is_none());
     }
 
     #[test]
