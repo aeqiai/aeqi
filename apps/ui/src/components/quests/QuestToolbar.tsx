@@ -91,38 +91,50 @@ export default function QuestToolbar({
   return (
     <div className="ideas-toolbar ideas-canvas-toolbar">
       <Tooltip content="Back to quests">
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 13 13"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M8 3 L4.5 6.5 L8 10" />
-          </svg>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onBack}
+          leadingIcon={
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M8 3 L4.5 6.5 L8 10" />
+            </svg>
+          }
+        >
           Quests
         </Button>
       </Tooltip>
       {onNew && (
         <Tooltip content="New quest (N)">
-          <Button variant="primary" size="sm" onClick={onNew}>
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M6.5 2.5v8M2.5 6.5h8" />
-            </svg>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onNew}
+            leadingIcon={
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+            }
+          >
             New
           </Button>
         </Tooltip>
@@ -192,37 +204,50 @@ export default function QuestToolbar({
       {showCancelSave && (
         <>
           <Tooltip content={cancelTitle}>
-            <Button variant="secondary" size="sm" onClick={onCancel}>
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-              </svg>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onCancel}
+              leadingIcon={
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                </svg>
+              }
+            >
               {cancelLabel}
             </Button>
           </Tooltip>
           <Tooltip content={saveTitle}>
-            <Button variant="primary" size="sm" onClick={onSave} disabled={saveDisabled}>
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-              </svg>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onSave}
+              disabled={saveDisabled}
+              leadingIcon={
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                </svg>
+              }
+            >
               {saveLabel}
             </Button>
           </Tooltip>

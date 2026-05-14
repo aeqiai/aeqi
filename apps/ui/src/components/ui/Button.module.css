@@ -224,11 +224,30 @@
   }
 }
 
+/* Leading icon — sits before the label. Reads as part of the action ("+ New idea").
+   Uses .content's inherited gap (var(--space-2)) for icon→label spacing — no
+   extra margin, so the icon feels integrated with the label rather than offset. */
+.leadingIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 /* Trailing icon — positioned to the right with gap, animates on hover */
 .trailingIcon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   margin-left: var(--space-2-5);
+}
+
+/* svg children render as block to kill the inline-baseline gap that pushes
+   stroked icons ~1px off the text optical center across sizes/variants. */
+.leadingIcon > svg,
+.trailingIcon > svg {
+  display: block;
 }
 
 .button:not(:disabled):not([aria-disabled="true"]) .trailingIcon {

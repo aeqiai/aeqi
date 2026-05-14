@@ -86,4 +86,29 @@ describe("Button", () => {
     const btn = screen.getByTestId("cta");
     expect(btn).toHaveAttribute("aria-describedby", "hint-1");
   });
+
+  it("renders leadingIcon before the label and marks it decorative", () => {
+    render(<Button leadingIcon={<span data-testid="lead">+</span>}>New idea</Button>);
+    const lead = screen.getByTestId("lead");
+    // Wrapper span owns the decorative role; the icon itself is just a child.
+    expect(lead.parentElement).toHaveAttribute("aria-hidden", "true");
+    // DOM order: leading icon precedes the label text.
+    const btn = screen.getByRole("button", { name: "New idea" });
+    const labelNode = Array.from(btn.querySelectorAll("span")).find(
+      (s) => s.textContent === "New idea",
+    );
+    expect(labelNode).toBeTruthy();
+    expect(lead.parentElement!.compareDocumentPosition(labelNode!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("hides leadingIcon while loading (spinner takes the slot)", () => {
+    render(
+      <Button loading leadingIcon={<span data-testid="lead">+</span>}>
+        Saving
+      </Button>,
+    );
+    expect(screen.queryByTestId("lead")).toBeNull();
+  });
 });

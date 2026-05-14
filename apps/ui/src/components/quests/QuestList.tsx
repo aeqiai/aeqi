@@ -65,20 +65,26 @@ export default function QuestList({
               ? "Try a different search, or start a new quest."
               : "Create the first quest to populate this board."}
           </p>
-          <Button variant="primary" size="sm" onClick={onNew}>
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M6.5 2.5v8M2.5 6.5h8" />
-            </svg>
-            <span>New quest</span>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onNew}
+            leadingIcon={
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+            }
+          >
+            New quest
           </Button>
         </div>
       </div>

@@ -167,19 +167,25 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
           </Tooltip>
           {!readOnly && !event.pattern.startsWith("session:") && (
             <Tooltip content="Delete event">
-              <Button variant="danger" size="sm" onClick={onDelete}>
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-                </svg>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={onDelete}
+                leadingIcon={
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 13 13"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    aria-hidden
+                  >
+                    <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                  </svg>
+                }
+              >
                 Delete
               </Button>
             </Tooltip>
@@ -187,19 +193,26 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
           {dirty && !readOnly && (
             <>
               <Tooltip content="Cancel">
-                <Button variant="secondary" size="sm" onClick={handleReset} disabled={saving}>
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 13 13"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    aria-hidden
-                  >
-                    <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-                  </svg>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={saving}
+                  leadingIcon={
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      aria-hidden
+                    >
+                      <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                    </svg>
+                  }
+                >
                   Cancel
                 </Button>
               </Tooltip>
@@ -210,20 +223,22 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
                   onClick={handleSave}
                   loading={saving}
                   disabled={saving}
+                  leadingIcon={
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                    </svg>
+                  }
                 >
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 13 13"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-                  </svg>
                   Save
                 </Button>
               </Tooltip>

@@ -8,6 +8,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean;
   /** Stretch to fill the container width (auth forms, modal CTAs). */
   fullWidth?: boolean;
+  /** Icon rendered to the LEFT of the label. Stays put on hover (no animation).
+      Reads as part of the action ("+ New idea"). For decorative forward motion
+      ("Continue →"), use `trailingIcon`. Pass a stroked SVG sized to match the
+      button (sm: 13px, md/lg: 14px, xl: 16px). Hidden while `loading`. */
+  leadingIcon?: ReactNode;
   /** Icon or element rendered to the right of the label. Animated on hover with translate-x. */
   trailingIcon?: ReactNode;
   /** Screen-reader label for the loading spinner. Prevents double-announce when button label
@@ -22,6 +27,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     size = "md",
     loading = false,
     fullWidth = false,
+    leadingIcon,
     trailingIcon,
     loadingLabel = "Loading",
     className,
@@ -50,6 +56,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         </span>
       )}
       <span className={styles.content}>
+        {leadingIcon && !loading && (
+          <span className={styles.leadingIcon} aria-hidden="true">
+            {leadingIcon}
+          </span>
+        )}
         <span className={styles.label}>{children}</span>
         {trailingIcon && (
           <span className={styles.trailingIcon} aria-hidden="true">

@@ -41,38 +41,50 @@ export default function IdeaCanvasToolbar({
   return (
     <div className="ideas-toolbar ideas-canvas-toolbar">
       <Tooltip content="Back to ideas">
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 13 13"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M8 3 L4.5 6.5 L8 10" />
-          </svg>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onBack}
+          leadingIcon={
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M8 3 L4.5 6.5 L8 10" />
+            </svg>
+          }
+        >
           Ideas
         </Button>
       </Tooltip>
       {!showCompose && (
         <Tooltip content="New idea (N)">
-          <Button variant="primary" size="sm" onClick={onNew}>
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M6.5 2.5v8M2.5 6.5h8" />
-            </svg>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onNew}
+            leadingIcon={
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M6.5 2.5v8M2.5 6.5h8" />
+              </svg>
+            }
+          >
             New
           </Button>
         </Tooltip>
@@ -85,20 +97,26 @@ export default function IdeaCanvasToolbar({
       <div className="ideas-toolbar-spacer" aria-hidden />
       {isEdit && idea && (
         <Tooltip content="Track this idea as a quest">
-          <Button variant="secondary" size="sm" onClick={onTrackAsQuest}>
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M2.5 6.5h8M6.5 2.5v8" />
-            </svg>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onTrackAsQuest}
+            leadingIcon={
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M2.5 6.5h8M6.5 2.5v8" />
+              </svg>
+            }
+          >
             Track as quest
           </Button>
         </Tooltip>
@@ -110,19 +128,21 @@ export default function IdeaCanvasToolbar({
             size="sm"
             onClick={onDeleteClick}
             onBlur={() => setDeleteArmed(false)}
+            leadingIcon={
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 13 13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+              </svg>
+            }
           >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 13 13"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-            </svg>
             {deleteArmed ? "Confirm" : "Delete"}
           </Button>
         </Tooltip>
@@ -130,19 +150,25 @@ export default function IdeaCanvasToolbar({
       {(showCompose || dirty) && (
         <>
           <Tooltip content="Cancel">
-            <Button variant="secondary" size="sm" onClick={onCancel}>
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
-              </svg>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onCancel}
+              leadingIcon={
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M3.2 3.2 L9.8 9.8 M9.8 3.2 L3.2 9.8" />
+                </svg>
+              }
+            >
               Cancel
             </Button>
           </Tooltip>
@@ -153,20 +179,22 @@ export default function IdeaCanvasToolbar({
               onClick={onSave}
               disabled={saveState === "saving"}
               loading={saveState === "saving"}
+              leadingIcon={
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
+                </svg>
+              }
             >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M2.8 6.6 L5.4 9.2 L10.2 4" />
-              </svg>
               Save
             </Button>
           </Tooltip>

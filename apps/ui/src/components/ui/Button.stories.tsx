@@ -144,17 +144,24 @@ export const AgentToolbar: Story = {
         borderBottom: "1px solid rgba(0,0,0,0.08)",
       }}
     >
-      <Button variant="primary" size="sm">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path d="M7 1v12M1 7h12" />
-        </svg>
+      <Button
+        variant="primary"
+        size="sm"
+        leadingIcon={
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 13 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="M6.5 2.5v8M2.5 6.5h8" />
+          </svg>
+        }
+      >
         New Quest
       </Button>
       <Button variant="secondary" size="sm">
@@ -312,6 +319,84 @@ export const LightVariant: Story = {
       description: {
         story:
           "White button for use on dark or accent surfaces (e.g., footer with accent background). Maintains contrast and inverts the primary variant.",
+      },
+    },
+  },
+};
+
+export const WithLeadingIcon: Story = {
+  name: "With Leading Icon",
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <p style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", margin: "0 0 8px" }}>
+          + New (canonical toolbar CTA, sm)
+        </p>
+        <Button
+          variant="primary"
+          size="sm"
+          leadingIcon={
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 13 13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6.5 2.5v8M2.5 6.5h8" />
+            </svg>
+          }
+        >
+          New idea
+        </Button>
+      </div>
+      <div>
+        <p style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", margin: "0 0 8px" }}>
+          Sizes — icon scales 13 / 14 / 14 / 16 with the button
+        </p>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {(
+            [
+              ["sm", 13],
+              ["md", 14],
+              ["lg", 14],
+              ["xl", 16],
+            ] as const
+          ).map(([sz, px]) => (
+            <Button
+              key={sz}
+              variant="secondary"
+              size={sz}
+              leadingIcon={
+                <svg
+                  width={px}
+                  height={px}
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M6.5 2.5v8M2.5 6.5h8" />
+                </svg>
+              }
+            >
+              {sz}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Leading icon rendered to the left of the label. Stays put on hover — reads as part of the action (`+ New idea`), not a decorative accent. For forward motion (`Continue →`), use `trailingIcon`. The icon→label gap is the button's standard `--space-2` (8px). Pair sizes: sm → 13px, md/lg → 14px, xl → 16px stroked SVGs.",
       },
     },
   },
