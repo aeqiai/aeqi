@@ -58,9 +58,7 @@ impl Sink {
             "#,
         )
         .context("applying sqlite pragmas")?;
-        Ok(Self {
-            conn: Mutex::new(conn),
-        })
+        Ok(Self { conn: Mutex::new(conn) })
     }
 
     pub fn record_event(
@@ -115,22 +113,19 @@ mod tests {
         let path = dir.path().join("test.db");
         let sink = Sink::open(&path).unwrap();
 
-        let inserted = sink
-            .record_event("aeqi_trust", "TrustInitialized", 100, "sigA", "b64A")
-            .unwrap();
+        let inserted =
+            sink.record_event("aeqi_trust", "TrustInitialized", 100, "sigA", "b64A").unwrap();
         assert!(inserted);
 
         // Replay — same tuple should be a no-op.
-        let inserted_again = sink
-            .record_event("aeqi_trust", "TrustInitialized", 100, "sigA", "b64A")
-            .unwrap();
+        let inserted_again =
+            sink.record_event("aeqi_trust", "TrustInitialized", 100, "sigA", "b64A").unwrap();
         assert!(!inserted_again);
 
         // Different event_type with same sig is allowed (one tx can emit
         // multiple events).
-        let other = sink
-            .record_event("aeqi_trust", "ModuleRegistered", 100, "sigA", "b64B")
-            .unwrap();
+        let other =
+            sink.record_event("aeqi_trust", "ModuleRegistered", 100, "sigA", "b64B").unwrap();
         assert!(other);
 
         assert_eq!(sink.event_count().unwrap(), 2);

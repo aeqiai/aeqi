@@ -42,9 +42,7 @@ pub async fn backfill_program(
             limit: Some(PAGE_LIMIT),
             commitment: Some(CommitmentConfig::finalized()),
         };
-        let page = rpc
-            .get_signatures_for_address_with_config(program_id, cfg)
-            .await?;
+        let page = rpc.get_signatures_for_address_with_config(program_id, cfg).await?;
         if page.is_empty() {
             break;
         }
@@ -85,10 +83,9 @@ pub async fn backfill_program(
 
             for line in &logs {
                 if let Some(rest) = line.strip_prefix("Program data: ") {
-                    if let Ok(bytes) = base64::Engine::decode(
-                        &base64::engine::general_purpose::STANDARD,
-                        rest,
-                    ) {
+                    if let Ok(bytes) =
+                        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, rest)
+                    {
                         if bytes.len() >= 8 {
                             if let Some(meta) = registry::lookup(program_id, &bytes[..8]) {
                                 match sink.record_event(

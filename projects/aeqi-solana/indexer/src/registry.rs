@@ -2,7 +2,7 @@
 //!
 //! Anchor encodes events as `Program data: base64(disc || borsh)` where
 //! `disc = sha256("event:" + EventName)[..8]`. We pre-compute the
-//! discriminators for every event our 7 programs emit so the live tail can
+//! discriminators for every event our 11 programs emit so the live tail can
 //! print typed names (and the DB sink can route to typed columns).
 
 use once_cell::sync::Lazy;
@@ -40,12 +40,7 @@ const EVENTS: &[(&str, &str, &[&str])] = &[
     (
         "aeqi_factory",
         "3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv",
-        &[
-            "CompanyCreated",
-            "CompanySpawned",
-            "TemplateRegistered",
-            "TemplateInstantiated",
-        ],
+        &["CompanyCreated", "CompanySpawned", "TemplateRegistered", "TemplateInstantiated"],
     ),
     (
         "aeqi_role",
@@ -62,22 +57,12 @@ const EVENTS: &[(&str, &str, &[&str])] = &[
     (
         "aeqi_governance",
         "5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq",
-        &[
-            "ConfigRegistered",
-            "ProposalCreated",
-            "VoteCast",
-            "ProposalExecuted",
-        ],
+        &["ConfigRegistered", "ProposalCreated", "VoteCast", "ProposalExecuted"],
     ),
     (
         "aeqi_token",
         "AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh",
-        &[
-            "TokenModuleInitialized",
-            "MintCreated",
-            "TokensMinted",
-            "TokensBurned",
-        ],
+        &["TokenModuleInitialized", "MintCreated", "TokensMinted", "TokensBurned"],
     ),
     (
         "aeqi_treasury",
@@ -89,6 +74,46 @@ const EVENTS: &[(&str, &str, &[&str])] = &[
         "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y",
         &["PositionCreated", "Claimed"],
     ),
+    (
+        "aeqi_budget",
+        "5PbDxvaYD9shSGxE2pQyUTqCqe6FXUMDciXSEGevFE5G",
+        &["BudgetCreated", "BudgetSpent", "BudgetFrozen", "BudgetUnfrozen"],
+    ),
+    (
+        "aeqi_fund",
+        "DaFpZcqMaL4rmAemJ2WBeUth42PMmHxNg9t6j9h9p7YP",
+        &["FundCreated", "FundDeposited", "FundRedeemed", "NavUpdated", "CarryClaimed"],
+    ),
+    (
+        "aeqi_funding",
+        "8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U",
+        &[
+            "FundingRequestCreated",
+            "FundingRequestCancelled",
+            "FundingRequestActivated",
+            "FundingRequestFinalized",
+        ],
+    ),
+    (
+        "aeqi_unifutures",
+        "CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF",
+        &[
+            "CurveCreated",
+            "CurveBuy",
+            "CurveSell",
+            "LiquidityPoolCreated",
+            "LiquidityAdded",
+            "LiquidityRemoved",
+            "SwapExecuted",
+            "SaleCreated",
+            "ExitCreated",
+            "SaleCommitted",
+            "SaleFinalized",
+            "AllocationClaimed",
+            "ExitSettled",
+            "ProRataClaimed",
+        ],
+    ),
 ];
 
 pub static REGISTRY: Lazy<HashMap<(Pubkey, [u8; 8]), EventMeta>> = Lazy::new(|| {
@@ -96,10 +121,7 @@ pub static REGISTRY: Lazy<HashMap<(Pubkey, [u8; 8]), EventMeta>> = Lazy::new(|| 
     for (program, pid, events) in EVENTS {
         let pk = Pubkey::from_str(pid).expect("hardcoded program id parses");
         for ev in events.iter() {
-            m.insert(
-                (pk, anchor_event_disc(ev)),
-                EventMeta { program, event: ev },
-            );
+            m.insert((pk, anchor_event_disc(ev)), EventMeta { program, event: ev });
         }
     }
     m
@@ -116,4 +138,25 @@ pub fn lookup(program_id: &Pubkey, disc: &[u8]) -> Option<EventMeta> {
 
 pub fn event_count() -> usize {
     REGISTRY.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_covers_all_emitted_events() {
+        let declared_events = EVENTS.iter().map(|(_, _, events)| events.len()).sum::<usize>();
+        assert_eq!(event_count(), declared_events);
+        assert_eq!(event_count(), 54);
+    }
+
+    #[test]
+    fn lookup_resolves_unifutures_capital_events() {
+        let program_id = Pubkey::from_str("CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF").unwrap();
+        let disc = anchor_event_disc("SaleCommitted");
+        let meta = lookup(&program_id, &disc).unwrap();
+        assert_eq!(meta.program, "aeqi_unifutures");
+        assert_eq!(meta.event, "SaleCommitted");
+    }
 }

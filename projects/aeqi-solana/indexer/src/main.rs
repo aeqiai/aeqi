@@ -1,9 +1,8 @@
 //! aeqi-indexer — Solana indexer for the AEQI protocol.
 //!
-//! Subscribes to logs of all 7 AEQI programs via `logsSubscribe` (WS) and
+//! Subscribes to logs of all 11 AEQI programs via `logsSubscribe` (WS) and
 //! decodes Anchor events from the `Program data:` lines via a pre-computed
-//! discriminator registry. Projects events into a sink (stdout for now;
-//! SQLite next iteration).
+//! discriminator registry. Projects events into an idempotent SQLite sink.
 //!
 //! Architecture: hits a public Solana RPC (Helius / Triton / Solana
 //! Foundation), per `feedback_use_public_solana_rpc.md` — we run the
@@ -31,6 +30,10 @@ const PROGRAMS: &[(&str, &str)] = &[
     ("aeqi_token", "AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh"),
     ("aeqi_treasury", "2KBH4dhAM8fvix5sB44f55Hy6mE4HgeMMbm3htZTJNm7"),
     ("aeqi_vesting", "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"),
+    ("aeqi_budget", "5PbDxvaYD9shSGxE2pQyUTqCqe6FXUMDciXSEGevFE5G"),
+    ("aeqi_fund", "DaFpZcqMaL4rmAemJ2WBeUth42PMmHxNg9t6j9h9p7YP"),
+    ("aeqi_funding", "8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U"),
+    ("aeqi_unifutures", "CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF"),
 ];
 
 #[derive(Parser, Debug)]
@@ -61,8 +64,7 @@ struct Args {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 

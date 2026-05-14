@@ -4,20 +4,20 @@ Solana log indexer for the AEQI protocol. Replaces the EVM event indexer that pr
 
 ## What it does
 
-- WebSocket-subscribes to logs of all 7 AEQI programs via `logsSubscribe`
+- WebSocket-subscribes to logs of all 11 AEQI programs via `logsSubscribe`
 - Decodes Anchor events from `Program data:` lines (base64 of `8-byte discriminator || borsh payload`)
 - Projects events into a SQLite DB matching the existing `aeqi-indexer` schema (so the runtime / UI doesn't notice the chain swap)
 
 ## Skeleton (this iteration)
 
 - ✅ Connect to RPC + WS
-- ✅ Subscribe to all 7 program log streams in parallel
+- ✅ Subscribe to all 11 program log streams in parallel
 - ✅ Decode Anchor `Program data:` lines
-- 🟡 Print decoded events to stdout (DB writes pending)
-- 🔴 `getSignaturesForAddress` backfill
+- ✅ Persist decoded events to SQLite with idempotent replay protection
+- ✅ `getSignaturesForAddress` backfill
 - 🔴 Two-tier projection (finalized for trust mutations, confirmed for UI optimism)
-- 🔴 Idempotent crash recovery keyed by `(program_id, slot, sig)`
-- 🔴 Discriminator → typed event registry (per-program decoders)
+- ✅ Idempotent crash recovery keyed by `(signature, program, event_type)`
+- ✅ Discriminator → typed event registry (per-program decoders)
 
 ## Run
 
@@ -40,10 +40,14 @@ Production: **public RPC** (Helius / Triton / Solana Foundation public). Per `fe
 
 | Program | ID |
 |---|---|
-| aeqi_trust | `AF9cqzwiGCf2XHtLXyKJwToPaJghmEaHa9VQJ1zjoUHs` |
-| aeqi_factory | `7rX3fnJUy7tDSpo1EGCnUhs1XnxxbsQzXXNDCTh64v6n` |
-| aeqi_role | `HFqh9bPLS7EwirMsz9MpNT96SN5v2JBeKTdnUpSVyuVe` |
-| aeqi_governance | `528PTeSk8M3pKMMhc5vitbcwMGUMcHMzg6G5XpX8iVBn` |
-| aeqi_token | `V9WiXaeayA8KTyVAEEG1rAuPQ28G6NEwzSCmzZNZv6z` |
-| aeqi_treasury | `CQ7TGZFmkoZh61xgKnbjcj9Uomht38LqeihMNsY4p9KC` |
-| aeqi_vesting | `24mJEeCHs492NGCJADvfb9zWDcqoDWNCpCYC2xAE2VBs` |
+| aeqi_trust | `CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV` |
+| aeqi_factory | `3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv` |
+| aeqi_role | `4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB` |
+| aeqi_governance | `5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq` |
+| aeqi_token | `AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh` |
+| aeqi_treasury | `2KBH4dhAM8fvix5sB44f55Hy6mE4HgeMMbm3htZTJNm7` |
+| aeqi_vesting | `DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y` |
+| aeqi_budget | `5PbDxvaYD9shSGxE2pQyUTqCqe6FXUMDciXSEGevFE5G` |
+| aeqi_fund | `DaFpZcqMaL4rmAemJ2WBeUth42PMmHxNg9t6j9h9p7YP` |
+| aeqi_funding | `8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U` |
+| aeqi_unifutures | `CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF` |
