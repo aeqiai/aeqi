@@ -252,6 +252,14 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
 
     // ── Loose tier ────────────────────────────────────────
     // Everything authenticated (the full /api surface).
+    //
+    // Layer-order invariant: `route_layer(require_auth)` runs BEFORE
+    // `layer(GovernorLayer)`. In axum, `layer()` is outer / later, so
+    // the request actually hits rate-limit FIRST, then auth. That's
+    // safe today because `loose_tier` keys on IP via
+    // `SmartIpKeyExtractor` (header-only, no user_id required). If a
+    // future tier keys on user_id, the limiter must move to a
+    // `route_layer` AFTER auth or it'll panic on missing identity.
     let protected = api_routes().route_layer(middleware::from_fn_with_state(
         state.clone(),
         auth::require_auth,
