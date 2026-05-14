@@ -26,25 +26,10 @@ use std::sync::Arc;
 
 use crate::activity_log::ActivityLog;
 
-/// Static tags appended to every persona idea. The dynamic
-/// `personality:<agent_id>` tag is added by `persona_idea_tags()` so the
-/// agent rail's Personality tab can resolve the idea by tag without a
-/// name-prefix scan.
-pub(crate) const PERSONA_IDEA_STATIC_TAGS: &[&str] = &["identity", "evergreen"];
-
-/// Build the full tag list for an agent's persona idea: the static tags
-/// (`identity`, `evergreen`) plus the per-agent `personality:<id>` handle.
-/// The personality tag is the deterministic lookup key the UI's
-/// Personality tab reads from. Co-existing with `identity` keeps the
-/// existing session:start tag-policy assembly path unchanged.
-pub(crate) fn persona_idea_tags(agent_id: &str) -> Vec<String> {
-    let mut tags: Vec<String> = PERSONA_IDEA_STATIC_TAGS
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    tags.insert(0, format!("personality:{agent_id}"));
-    tags
-}
+// Persona-tag helpers moved to [`crate::reserved_tags`] (2026-05-14, Ideas
+// steward Wave 2). Re-exported here so existing callers inside the
+// orchestrator keep their import paths.
+pub(crate) use crate::reserved_tags::persona_idea_tags;
 
 // ===================================================================
 // SHELL TOOL — sandboxed shell execution

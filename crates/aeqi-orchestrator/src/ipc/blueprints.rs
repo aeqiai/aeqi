@@ -464,8 +464,16 @@ pub async fn spawn_blueprint(
                 }
             }
         } else if !blueprint.seed_ideas.is_empty() {
-            warnings.push(format!(
-                "idea store unavailable; skipped {} seed_ideas",
+            // Fail loud (2026-05-14, Ideas steward Wave 2). A blueprint that
+            // declares seed ideas but lands on a runtime without an idea
+            // store would silently ship persona-less agents. That is
+            // unrecoverable at the user level — there is no observable
+            // signal that the persona was supposed to load. Refuse the
+            // spawn so the operator gets a deterministic configuration
+            // error instead.
+            return Err(anyhow::anyhow!(
+                "blueprint '{}' declares {} seed_ideas but no idea store is wired; refusing to spawn persona-less agents",
+                blueprint.slug,
                 blueprint.seed_ideas.len(),
             ));
         }
@@ -1386,12 +1394,57 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn spawn_blueprint_tolerates_missing_idea_store() {
+    async fn spawn_blueprint_refuses_missing_idea_store_when_seeds_declared() {
+        // Behaviour locked 2026-05-14 (Ideas steward Wave 2). A blueprint
+        // that declares `seed_ideas` and runs against a runtime without an
+        // idea store must fail loud — silently dropping the seeds shipped
+        // persona-less agents with no observable signal. See
+        // `crates/aeqi-orchestrator/src/ipc/blueprints.rs::spawn_blueprint`
+        // for the matching error site.
         let registry = test_registry().await;
         let event_store = EventHandlerStore::new(registry.db());
         let role_registry = crate::role_registry::RoleRegistry::open(registry.db());
 
         let blueprint = fixture_blueprint();
+        assert!(
+            !blueprint.seed_ideas.is_empty(),
+            "fixture should declare seed_ideas for this case to be meaningful",
+        );
+
+        let err = spawn_blueprint(
+            &blueprint,
+            None,
+            None,
+            None,
+            &BlueprintPart::ALL,
+            &registry,
+            &event_store,
+            None,
+            &role_registry,
+            &[],
+        )
+        .await
+        .expect_err("spawn must fail when seed_ideas declared but no idea store wired");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("seed_ideas") && msg.contains("no idea store"),
+            "error should name the cause; got: {msg}",
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_blueprint_succeeds_without_idea_store_when_no_seeds() {
+        // Counterpart to the refuses_… test above: a blueprint that
+        // declares zero seed_ideas should still spawn cleanly without an
+        // idea store. The fail-loud rule only fires when seeds would have
+        // been dropped.
+        let registry = test_registry().await;
+        let event_store = EventHandlerStore::new(registry.db());
+        let role_registry = crate::role_registry::RoleRegistry::open(registry.db());
+
+        let mut blueprint = fixture_blueprint();
+        blueprint.seed_ideas.clear();
+
         let outcome = spawn_blueprint(
             &blueprint,
             None,
@@ -1405,21 +1458,10 @@ mod tests {
             &[],
         )
         .await
-        .expect("spawn should succeed without idea store");
+        .expect("spawn should succeed without idea store when no seeds");
 
-        // Agents, events, quests still land; ideas are skipped with a warning.
         assert_eq!(outcome.spawned_agents.len(), 3);
-        assert_eq!(outcome.created_events, 2);
         assert_eq!(outcome.created_ideas, 0);
-        assert_eq!(outcome.created_quests, 2);
-        assert!(
-            outcome
-                .warnings
-                .iter()
-                .any(|w| w.contains("idea store unavailable")),
-            "expected idea store warning; got {:?}",
-            outcome.warnings,
-        );
     }
 
     #[tokio::test]

@@ -1,7 +1,9 @@
 //! Idea seeding IPC handler.
 //!
 //! Stores ideas via `store()`, spawns agents, and creates `on_session_start`
-//! events referencing the ideas directly. No injection_mode involved.
+//! events referencing the ideas directly. There is no `injection_mode`
+//! column — activation is event-driven through tag-policy assembly at
+//! `session:start`. See `docs/concepts/ideas.md` "Activation".
 
 /// Seed ideas into a tenant's idea store + spawn agents + wire events.
 /// Called by the platform after root agent provisioning.

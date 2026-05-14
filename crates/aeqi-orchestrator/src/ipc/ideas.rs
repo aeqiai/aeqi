@@ -1184,6 +1184,12 @@ pub async fn handle_delete_idea(
     // protects the unification invariant ("a quest's idea cannot vanish").
     // Returning the conflicting quest ids lets the UI render a "Used by N
     // quests · Detach or delete those first" modal — see WS-7.
+    //
+    // Fail closed on lookup error (2026-05-14, Ideas steward Wave 2): the
+    // previous warn-and-proceed behaviour silently let a transient sqlite
+    // lock orphan quests forever. The cost of an unnecessary 503 here is
+    // strictly less than an undetectable FK violation across two databases —
+    // there is no way to repair an orphan after the fact.
     match ctx.agent_registry.find_quests_by_idea_id(id).await {
         Ok(quest_ids) if !quest_ids.is_empty() => {
             return serde_json::json!({
@@ -1194,11 +1200,16 @@ pub async fn handle_delete_idea(
         }
         Ok(_) => {}
         Err(e) => {
-            tracing::warn!(
+            tracing::error!(
                 idea = %id,
                 error = %e,
-                "delete_idea pre-flight failed; proceeding with delete"
+                "delete_idea pre-flight failed; refusing delete to protect cross-DB FK"
             );
+            return serde_json::json!({
+                "ok": false,
+                "error": "in_use_check_failed",
+                "message": "Could not verify whether any quests reference this idea. Try again.",
+            });
         }
     }
 

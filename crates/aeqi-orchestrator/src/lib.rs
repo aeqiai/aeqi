@@ -48,6 +48,7 @@ pub mod prompt_cache;
 pub mod quest_context;
 pub mod quest_enqueuer;
 pub mod queue_executor;
+pub mod reserved_tags;
 pub mod role_registry;
 pub mod runtime;
 pub mod runtime_tools;
