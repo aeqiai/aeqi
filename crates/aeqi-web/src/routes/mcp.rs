@@ -463,12 +463,7 @@ async fn call_quests(
             .await
         }
         "update" => {
-            let mut req = serde_json::json!({
-                "cmd": "update_quest",
-                "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_mcp_project(state)),
-            });
-            copy_fields(&args, &mut req, &["status", "priority"]);
+            let req = quests_update_ipc_request(&args, default_mcp_project(state));
             ipc(state, ctx, req).await
         }
         "close" => {
@@ -587,7 +582,11 @@ async fn call_events(
                 "name": args.get("name").and_then(|v| v.as_str()).unwrap_or(""),
                 "pattern": event_pattern(&args, "session:start"),
             });
-            copy_fields(&args, &mut req, &["agent_id", "cooldown_secs", "idea_ids"]);
+            copy_fields(
+                &args,
+                &mut req,
+                &["agent_id", "cooldown_secs", "idea_ids", "tool_calls"],
+            );
             ipc(state, ctx, req).await
         }
         "list" => {
@@ -855,12 +854,30 @@ fn quests_create_ipc_request(args: &serde_json::Value, default_project: &str) ->
     req
 }
 
-fn quests_list_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
+fn quests_list_ipc_request(args: &serde_json::Value, _default_project: &str) -> serde_json::Value {
+    // Do NOT default `project` on list. The daemon resolves `project` to an
+    // agent_id and SQL-filters quests by it, which silently drops every
+    // scope:"global" quest (agent_id IS NULL). Callers who want a narrowed
+    // list pass `project` (or `agent`/`agent_id`) explicitly; absent those,
+    // the daemon returns the entity-visible set including globals.
+    let mut req = serde_json::json!({ "cmd": "quests" });
+    copy_fields(args, &mut req, &["project", "status", "agent", "agent_id"]);
+    req
+}
+
+fn quests_update_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
     let mut req = serde_json::json!({
-        "cmd": "quests",
+        "cmd": "update_quest",
+        "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
         "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_project),
     });
-    copy_fields(args, &mut req, &["status", "agent"]);
+    copy_fields(
+        args,
+        &mut req,
+        &[
+            "status", "priority", "agent_id", "scope", "assignee", "due_at",
+        ],
+    );
     req
 }
 
@@ -968,7 +985,7 @@ fn tool_defs() -> serde_json::Value {
         {
             "name": "quests",
             "title": "AEQI Quests",
-            "description": "Task ledger for company work. Use quests to create, list, show, update, close, or cancel work even when no AEQI runtime agent is assigned. By default, unqualified MCP quests are user/entity scoped global quests; AEQI_AGENT only labels the MCP client. Pass agent or agent_id explicitly when you want to delegate to or filter for a specific AEQI agent.",
+            "description": "Task ledger for company work. Use quests to create, list, show, update, close, or cancel work even when no AEQI runtime agent is assigned. `list` with no `project`/`agent` returns all quests visible to the calling entity, including global (scope:\"global\", agent_id:null) quests; pass `project`, `agent`, or `agent_id` to narrow. `create` defaults to the runtime's first configured project unless `agent` is set. AEQI_AGENT only labels the MCP client and does not automatically own or filter quests.",
             "annotations": {
                 "title": "AEQI Quests",
                 "readOnlyHint": false,
@@ -982,7 +999,7 @@ fn tool_defs() -> serde_json::Value {
                     "action": {
                         "type": "string",
                         "enum": ["create", "list", "show", "update", "close", "cancel"],
-                        "description": "create makes a quest; list shows quests; show returns details; update changes status/priority; close records a done outcome; cancel marks work cancelled."
+                        "description": "create makes a quest; list shows quests; show returns details; update changes status, priority, assignee, due_at, agent_id, or scope; close records a done outcome; cancel marks work cancelled."
                     },
                     "project": {"type": "string", "description": "Project name, for example aeqi or aeqi-platform. Optional in MCP clients; defaults to the runtime's first configured project."},
                     "quest_id": {"type": "string", "description": "Quest ID for show, update, close, or cancel."},
@@ -990,6 +1007,14 @@ fn tool_defs() -> serde_json::Value {
                     "description": {"type": "string", "description": "Quest description for create."},
                     "agent": {"type": "string", "description": "Optional explicit agent name or hint for delegated/agent-scoped work. Omit for user/entity global quests."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent ID for delegated/agent-scoped work."},
+                    "assignee": {
+                        "oneOf": [
+                            {"type": "string", "description": "Assignee token, for example agent:<id> or user:<id>."},
+                            {"type": "null", "description": "Clear the assignee."}
+                        ],
+                        "description": "Quest assignee for update. Omit to leave unchanged; null or empty string clears it."
+                    },
+                    "scope": {"type": "string", "enum": ["self", "siblings", "children", "branch", "global"], "description": "Quest visibility scope for create or update."},
                     "idea_id": {"type": "string", "description": "Existing idea ID to attach to a new quest."},
                     "idea": {"type": "object", "description": "Embedded idea to mint and attach while creating a quest; accepts name, content, tags, scope, and optional agent_id."},
                     "labels": {"type": "array", "items": {"type": "string"}, "description": "Quest labels/tags for create."},
@@ -1003,6 +1028,14 @@ fn tool_defs() -> serde_json::Value {
                     "parent": {"type": "string", "description": "Parent quest ID for child quest creation."},
                     "status": {"type": "string", "enum": ["todo", "in_progress", "done", "backlog", "cancelled", "pending", "blocked"], "description": "Filter for list or new status for update."},
                     "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority for create or update."},
+                    "due_at": {
+                        "oneOf": [
+                            {"type": "string", "description": "RFC3339 due timestamp."},
+                            {"type": "number", "description": "Unix timestamp in seconds."},
+                            {"type": "null", "description": "Clear the due date."}
+                        ],
+                        "description": "Due date for update. Omit to leave unchanged; null or empty string clears it."
+                    },
                     "result": {"type": "string", "description": "Completion result for close."},
                     "reason": {"type": "string", "description": "Cancellation reason for cancel."}
                 },
@@ -1047,7 +1080,7 @@ fn tool_defs() -> serde_json::Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "action": {"type": "string", "enum": ["create", "list", "enable", "disable", "delete", "trigger", "trace"], "description": "create/list/enable/disable/delete manage handlers; trigger fires a lifecycle event; trace inspects invocations."},
+                    "action": {"type": "string", "enum": ["create", "list", "enable", "disable", "delete", "trigger", "trace"], "description": "create/list/enable/disable/delete manage handlers; create accepts optional tool_calls; trigger fires a lifecycle event; trace inspects invocations."},
                     "agent": {"type": "string", "description": "Optional agent name or ID for agent-scoped event context."},
                     "agent_id": {"type": "string", "description": "Explicit agent ID. Required for schedule:* events unless `agent` resolves to an active agent."},
                     "name": {"type": "string", "description": "Event handler name for create."},
@@ -1055,6 +1088,7 @@ fn tool_defs() -> serde_json::Value {
                     "schedule": {"type": "string", "description": "Cron expression shorthand for schedule:<expr>."},
                     "event_pattern": {"type": "string", "description": "Session event shorthand, for example start, quest_start, quest_end, or quest_result."},
                     "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs referenced by a handler."},
+                    "tool_calls": {"type": "array", "items": {"type": "object"}, "description": "Event tool calls to execute when the handler fires, e.g. session.spawn or ideas.search."},
                     "event_id": {"type": "string", "description": "Event handler ID for enable, disable, or delete."},
                     "session_id": {"type": "string", "description": "Session ID for trace list."},
                     "invocation_id": {"type": "integer", "description": "Invocation ID for detailed trace."},
@@ -1167,6 +1201,58 @@ mod tests {
     }
 
     #[test]
+    fn http_mcp_quest_list_does_not_default_project() {
+        // When the caller passes no `project`, the IPC must NOT inject the
+        // default project. The daemon resolves `project` to an agent_id and
+        // SQL-filters quests by it, which silently drops every scope:"global"
+        // quest. An absent `project` is the only way to see the entity-wide
+        // list including globals.
+        let req = quests_list_ipc_request(&serde_json::json!({}), "aeqi");
+        assert_eq!(req["cmd"], "quests");
+        assert!(
+            req.get("project").is_none(),
+            "list must not auto-inject default project: {req}"
+        );
+        assert!(req.get("status").is_none());
+        assert!(req.get("agent").is_none());
+        assert!(req.get("agent_id").is_none());
+    }
+
+    #[test]
+    fn http_mcp_quest_list_forwards_agent_id() {
+        let req = quests_list_ipc_request(
+            &serde_json::json!({
+                "agent_id": "a6107b6a-1959-45f9-901c-77fa1f333cbe",
+            }),
+            "default-project",
+        );
+        assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
+        assert!(req.get("project").is_none());
+    }
+
+    #[test]
+    fn http_mcp_quest_update_forwards_assignment_fields() {
+        let req = quests_update_ipc_request(
+            &serde_json::json!({
+                "quest_id": "67-160",
+                "assignee": "user:6708630a-69c4-42fa-a8a7-5a00412a61cf",
+                "agent_id": "a6107b6a-1959-45f9-901c-77fa1f333cbe",
+                "scope": "global",
+                "due_at": null,
+            }),
+            "aeqi",
+        );
+
+        assert_eq!(req["cmd"], "update_quest");
+        assert_eq!(req["quest_id"], "67-160");
+        assert_eq!(req["project"], "aeqi");
+        assert_eq!(req["assignee"], "user:6708630a-69c4-42fa-a8a7-5a00412a61cf");
+        assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
+        assert_eq!(req["scope"], "global");
+        assert!(req["due_at"].is_null());
+    }
+
+    #[test]
     fn http_mcp_tool_contracts_explain_user_workflow() {
         let tools = tool_defs().as_array().cloned().unwrap();
         let by_name = |name: &str| {
@@ -1183,7 +1269,7 @@ mod tests {
             quests["description"]
                 .as_str()
                 .unwrap()
-                .contains("AEQI_AGENT only labels the MCP client")
+                .contains("list` with no `project`/`agent` returns all quests visible")
         );
         assert_eq!(quests["annotations"]["openWorldHint"], false);
         assert!(

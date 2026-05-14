@@ -456,7 +456,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
         ToolDef {
             name: "quests".to_string(),
             title: "AEQI Quests".to_string(),
-            description: "Task ledger for company work. Use quests to create, list, show, update, close, or cancel work even when no AEQI runtime agent is assigned. `list` with no `project`/`agent` returns all quests visible to the calling entity, including global (scope:\"global\", agent_id:null) quests — pass `project` or `agent` to narrow. `create` defaults to the runtime's first configured project unless `agent` is set. AEQI_AGENT only labels the MCP client and does not automatically own or filter quests.".to_string(),
+            description: "Task ledger for company work. Use quests to create, list, show, update, close, or cancel work even when no AEQI runtime agent is assigned. `list` with no `project`/`agent` returns all quests visible to the calling entity, including global (scope:\"global\", agent_id:null) quests — pass `project`, `agent`, or `agent_id` to narrow. `create` defaults to the runtime's first configured project unless `agent` is set. AEQI_AGENT only labels the MCP client and does not automatically own or filter quests.".to_string(),
             annotations: serde_json::json!({"title": "AEQI Quests", "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false, "openWorldHint": false}),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -464,7 +464,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "action": {
                         "type": "string",
                         "enum": ["create", "list", "show", "update", "close", "cancel"],
-                        "description": "create: new quest (needs subject). list: show quests (optional status, explicit agent). show: details (needs quest_id). update: change status/priority (needs quest_id). close: complete (needs quest_id, result). cancel: abort (needs quest_id). AEQI_AGENT labels the MCP client and does not automatically own or filter quests."
+                        "description": "create: new quest (needs subject). list: show quests (optional status, explicit agent). show: details (needs quest_id). update: change status, priority, assignee, due_at, agent_id, or scope (needs quest_id). close: complete (needs quest_id, result). cancel: abort (needs quest_id). AEQI_AGENT labels the MCP client and does not automatically own or filter quests."
                     },
                     "project": {"type": "string", "description": "Project name. For `list`, omit to see all entity-visible quests (including globals); pass to narrow to a specific project's agent. For `create`, defaults to the runtime's first configured project when omitted."},
                     "quest_id": {"type": "string", "description": "Quest ID (for show/update/close/cancel)"},
@@ -472,6 +472,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "description": {"type": "string", "description": "Quest description (for create)"},
                     "agent": {"type": "string", "description": "Optional explicit agent name or hint for delegated/agent-scoped work. Omit for user/entity global quests."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent ID for delegated/agent-scoped work."},
+                    "assignee": {
+                        "oneOf": [
+                            {"type": "string", "description": "Assignee token, for example agent:<id> or user:<id>."},
+                            {"type": "null", "description": "Clear the assignee."}
+                        ],
+                        "description": "Quest assignee for update. Omit to leave unchanged; null or empty string clears it."
+                    },
+                    "scope": {"type": "string", "enum": ["self", "siblings", "children", "branch", "global"], "description": "Quest visibility scope (for create/update)."},
                     "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
                     "labels": {"type": "array", "items": {"type": "string"}, "description": "Tags for categorization (for create)"},
                     "depends_on": {
@@ -484,6 +492,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "parent": {"type": "string", "description": "Parent quest ID — makes this a child quest (for create)"},
                     "status": {"type": "string", "enum": ["backlog", "todo", "in_progress", "done", "cancelled"], "description": "Filter or new status (for list, update). Lifecycle: backlog → todo → in_progress → done | cancelled."},
                     "priority": {"type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)"},
+                    "due_at": {
+                        "oneOf": [
+                            {"type": "string", "description": "RFC3339 due timestamp."},
+                            {"type": "number", "description": "Unix timestamp in seconds."},
+                            {"type": "null", "description": "Clear the due date."}
+                        ],
+                        "description": "Due date for update. Omit to leave unchanged; null or empty string clears it."
+                    },
                     "result": {"type": "string", "description": "Completion result (for close)"},
                     "reason": {"type": "string", "description": "Cancellation reason (for cancel)"},
                     "finalize": {"type": "string", "enum": ["merge", "commit", "discard"], "description": "What to do with the quest's worktree on close. merge (default): commit + merge to main. commit: commit but keep branch. discard: throw away changes."}
@@ -525,7 +541,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "action": {
                         "type": "string",
                         "enum": ["create", "list", "enable", "disable", "delete", "trigger", "trace"],
-                        "description": "create: new handler (needs name, pattern or schedule, idea_ids). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start). trace: query event invocation history — pass session_id + optional limit to list invocations, or invocation_id for full step detail."
+                        "description": "create: new handler (needs name plus pattern or schedule; optional tool_calls/idea_ids). list: show handlers. enable/disable: toggle (needs event_id). delete: remove (needs event_id). trigger: fire an event pattern and return the assembled ideas context — same context the runtime injects during its lifecycle (optional pattern, defaults to session:start). trace: query event invocation history — pass session_id + optional limit to list invocations, or invocation_id for full step detail."
                     },
                     "agent": {"type": "string", "description": "Agent name or ID"},
                     "agent_id": {"type": "string", "description": "Explicit agent ID. Required for schedule:* events unless `agent` resolves to an active agent."},
@@ -535,6 +551,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "event_pattern": {"type": "string", "description": "Session event — shorthand for pattern 'session:<event>' (e.g. 'start', 'quest_start', 'quest_end', 'quest_result')"},
                     "cooldown_secs": {"type": "integer", "description": "Minimum seconds between fires"},
                     "idea_ids": {"type": "array", "items": {"type": "string"}, "description": "Idea IDs to reference (for create)"},
+                    "tool_calls": {"type": "array", "items": {"type": "object"}, "description": "Event tool calls to execute when the handler fires, e.g. session.spawn or ideas.search."},
                     "event_id": {"type": "string", "description": "Event handler ID (for enable/disable/delete)"},
                     "session_id": {"type": "string", "description": "Session ID — list invocations for this session (for trace)"},
                     "invocation_id": {"type": "integer", "description": "Invocation ID — fetch full step detail (for trace)"},
@@ -780,17 +797,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_project),
                             })),
                             "update" => {
-                                let mut ipc = serde_json::json!({
-                                    "cmd": "update_quest",
-                                    "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
-                                    "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_project),
-                                });
-                                if let Some(status) = args.get("status") {
-                                    ipc["status"] = status.clone();
-                                }
-                                if let Some(priority) = args.get("priority") {
-                                    ipc["priority"] = priority.clone();
-                                }
+                                let ipc = quests_update_ipc_request(&args, default_project);
                                 call_ipc(&ipc)
                             }
                             "close" => {
@@ -972,6 +979,9 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }
                                 if let Some(idea_ids) = args.get("idea_ids") {
                                     ipc["idea_ids"] = idea_ids.clone();
+                                }
+                                if let Some(tool_calls) = args.get("tool_calls") {
+                                    ipc["tool_calls"] = tool_calls.clone();
                                 }
                                 call_ipc(&ipc)
                             }
@@ -1425,6 +1435,22 @@ fn quests_list_ipc_request(args: &serde_json::Value, _default_project: &str) -> 
     ipc
 }
 
+fn quests_update_ipc_request(args: &serde_json::Value, default_project: &str) -> serde_json::Value {
+    let mut ipc = serde_json::json!({
+        "cmd": "update_quest",
+        "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
+        "project": args.get("project").and_then(|v| v.as_str()).unwrap_or(default_project),
+    });
+    for field in [
+        "status", "priority", "agent_id", "scope", "assignee", "due_at",
+    ] {
+        if let Some(value) = args.get(field) {
+            ipc[field] = value.clone();
+        }
+    }
+    ipc
+}
+
 fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<String>> {
     Ok(store
         .get_meta("dirty_files")?
@@ -1551,6 +1577,28 @@ mod tests {
         );
         assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
         assert!(req.get("project").is_none());
+    }
+
+    #[test]
+    fn quests_update_request_forwards_assignment_fields() {
+        let req = quests_update_ipc_request(
+            &serde_json::json!({
+                "quest_id": "67-160",
+                "assignee": "user:6708630a-69c4-42fa-a8a7-5a00412a61cf",
+                "agent_id": "a6107b6a-1959-45f9-901c-77fa1f333cbe",
+                "scope": "global",
+                "due_at": null,
+            }),
+            "aeqi",
+        );
+
+        assert_eq!(req["cmd"], "update_quest");
+        assert_eq!(req["quest_id"], "67-160");
+        assert_eq!(req["project"], "aeqi");
+        assert_eq!(req["assignee"], "user:6708630a-69c4-42fa-a8a7-5a00412a61cf");
+        assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
+        assert_eq!(req["scope"], "global");
+        assert!(req["due_at"].is_null());
     }
 
     #[test]
