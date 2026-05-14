@@ -53,6 +53,15 @@ interface PlacementRow {
   target_host?: string | null;
   target_port: number | null;
   runtime_id?: string | null;
+  runtime_control?: string | null;
+  runtime_operational_status?: string | null;
+  runtime_action_required?: string | null;
+  runtime_restart_supported?: boolean | null;
+  runtime_running?: boolean | null;
+  runtime_reachable?: boolean | null;
+  runtime_health_checked?: boolean | null;
+  runtime_endpoint?: string | null;
+  runtime_checked_at?: string | null;
   plan: string;
   service_name: string | null;
   stripe_subscription_id: string | null;
@@ -99,8 +108,10 @@ interface AdminHealth {
     placements_total?: number;
     by_type?: Record<string, number>;
     by_status?: Record<string, number>;
+    by_operational_status?: Record<string, number>;
     missing_target?: string[];
     failed?: string[];
+    live_attention?: string[];
   };
   postgres?: {
     enabled?: boolean;
@@ -151,6 +162,23 @@ function placementStatus(p: PlacementRow): string {
   return p.placement_status || p.status || "unknown";
 }
 
+function runtimeStatus(p: PlacementRow): string {
+  return p.runtime_operational_status || placementStatus(p);
+}
+
+function runtimeEndpoint(p: PlacementRow): string {
+  return (
+    p.runtime_endpoint ||
+    (p.target_host && p.target_port ? `${p.target_host}:${p.target_port}` : "—")
+  );
+}
+
+function runtimeDetail(p: PlacementRow): string {
+  if (p.runtime_action_required) return labelize(p.runtime_action_required);
+  if (p.runtime_control) return labelize(p.runtime_control);
+  return "—";
+}
+
 function compactAddress(s: string | null | undefined): string {
   if (!s) return "—";
   return s.length <= 18 ? s : `${s.slice(0, 8)}…${s.slice(-6)}`;
@@ -159,10 +187,18 @@ function compactAddress(s: string | null | undefined): string {
 function statusVariant(status: string | null | undefined): BadgeVariant {
   if (!status) return "muted";
   const normalized = status.toLowerCase();
-  if (["active", "confirmed", "used", "paid", "ok"].includes(normalized)) return "success";
-  if (["pending", "trialing", "invited"].includes(normalized)) return "neutral";
-  if (["failed", "error", "blocked"].includes(normalized)) return "error";
-  if (["expired", "past_due", "unpaid"].includes(normalized)) return "warning";
+  if (["active", "confirmed", "used", "paid", "ok", "healthy", "running"].includes(normalized)) {
+    return "success";
+  }
+  if (["pending", "trialing", "invited", "provisioning", "unknown"].includes(normalized)) {
+    return "neutral";
+  }
+  if (
+    ["failed", "error", "blocked", "stopped", "unhealthy", "missing_target"].includes(normalized)
+  ) {
+    return "error";
+  }
+  if (["expired", "past_due", "unpaid", "unreachable"].includes(normalized)) return "warning";
   if (["cancelled", "canceled", "inactive", "paused"].includes(normalized)) return "muted";
   return "neutral";
 }
@@ -267,11 +303,15 @@ export default function AdminPage() {
             p.owner_email,
             p.placement_type,
             placementStatus(p),
+            runtimeStatus(p),
+            p.runtime_control,
+            p.runtime_action_required,
             p.org_lifecycle,
             p.trust_status,
             p.trust_address,
             p.target_host,
             p.target_port,
+            p.runtime_endpoint,
             p.plan,
             p.service_name,
             p.stripe_subscription_id,
@@ -311,6 +351,9 @@ export default function AdminPage() {
     }
     const admins = data.users.filter((u) => u.is_admin).length;
     const activePlacements = data.placements.filter((p) => p.org_lifecycle === "active").length;
+    const healthyRuntimes =
+      data.health?.runtime?.by_operational_status?.healthy ??
+      data.placements.filter((p) => runtimeStatus(p) === "healthy").length;
     const trustActive =
       data.health?.trust?.active ??
       data.placements.filter((p) => p.trust_status === "active").length;
@@ -322,6 +365,11 @@ export default function AdminPage() {
         label: "Organizations",
         value: String(data.placements.length),
         detail: `${activePlacements} active`,
+      },
+      {
+        label: "Runtime",
+        value: String(healthyRuntimes),
+        detail: `${data.health?.runtime?.live_attention?.length ?? 0} need attention`,
       },
       {
         label: "Trust",
@@ -450,22 +498,23 @@ export default function AdminPage() {
       {
         key: "runtime",
         header: "Runtime",
-        cell: (p) => <StatusPill value={placementStatus(p)} />,
-        width: "120px",
+        cell: (p) => (
+          <div className="admin-runtime-cell">
+            <StatusPill value={runtimeStatus(p)} />
+            <span className="admin-runtime-detail">{runtimeDetail(p)}</span>
+          </div>
+        ),
+        width: "170px",
         sortable: true,
-        sortAccessor: (p) => placementStatus(p),
+        sortAccessor: (p) => runtimeStatus(p),
       },
       {
         key: "host",
         header: "Target",
-        cell: (p) => (
-          <span className="admin-mono-cell">
-            {p.target_host && p.target_port ? `${p.target_host}:${p.target_port}` : "—"}
-          </span>
-        ),
+        cell: (p) => <span className="admin-mono-cell">{runtimeEndpoint(p)}</span>,
         width: "172px",
         sortable: true,
-        sortAccessor: (p) => `${p.target_host ?? ""}:${p.target_port ?? ""}`,
+        sortAccessor: (p) => runtimeEndpoint(p),
       },
       {
         key: "service",
@@ -762,7 +811,10 @@ function ProtocolHealth({
   const overall = health?.overall ?? "unknown";
   const lifecycle = health?.placement?.by_lifecycle ?? countBy(placements, (p) => p.org_lifecycle);
   const runtimeTypes = health?.runtime?.by_type ?? countBy(placements, (p) => p.placement_type);
-  const runtimeStatuses = health?.runtime?.by_status ?? countBy(placements, placementStatus);
+  const runtimeStatuses =
+    health?.runtime?.by_operational_status ??
+    health?.runtime?.by_status ??
+    countBy(placements, runtimeStatus);
   const warnings = [
     ...(health?.trust?.active_without_trust ?? []).map((id) => ({
       code: "active_without_trust",
@@ -778,6 +830,11 @@ function ProtocolHealth({
       code: "runtime_failed",
       entity: id,
       severity: "warning" as const,
+    })),
+    ...(health?.runtime?.live_attention ?? []).map((id) => ({
+      code: "runtime_needs_operator",
+      entity: id,
+      severity: "critical" as const,
     })),
   ];
 
@@ -828,7 +885,7 @@ function ProtocolHealth({
 
       <div className="admin-health-status">
         <div className="admin-health-status-row">
-          <span>Runtime status</span>
+          <span>Runtime operations</span>
           <span>{formatMap(runtimeStatuses)}</span>
         </div>
         <div className="admin-health-status-row">
