@@ -9,7 +9,6 @@ description = "Kubo HTTP-API client for IPFS content-addressed storage — pin, 
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 reqwest = { workspace = true, features = ["multipart"] }

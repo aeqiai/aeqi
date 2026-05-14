@@ -192,7 +192,6 @@ dependencies = [
 name = "aeqi-ipfs"
 version = "0.15.0"
 dependencies = [
- "anyhow",
  "axum",
  "reqwest",
  "serde",
