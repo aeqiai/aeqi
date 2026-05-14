@@ -380,6 +380,13 @@ struct StoreRequest {
     /// Tables-in-Ideas Phase 2: schema-less property bag. The IPC accepts
     /// any JSON object; non-objects are rejected upstream.
     properties: Option<serde_json::Value>,
+    /// Wave 5 — Lane C: the session the caller was inside when the idea was
+    /// created. When set on a Create or Supersede that lands a new row,
+    /// `finalize_write` writes an `idea → session` `link` edge so the graph
+    /// records provenance. The receiving idea's own conversation session
+    /// (lazy-created on first activity) is distinct and tracked in
+    /// `ideas.session_id`.
+    created_in_session_id: Option<String>,
 }
 
 fn parse_store_request(request: &serde_json::Value) -> std::result::Result<StoreRequest, String> {
@@ -429,6 +436,9 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
     let properties: Option<serde_json::Value> = request
         .get("properties")
         .and_then(|v| if v.is_object() { Some(v.clone()) } else { None });
+    let created_in_session_id = request_field(request, "created_in_session_id")
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
 
     Ok(StoreRequest {
         name: name.to_string(),
@@ -441,6 +451,7 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
         authored_by,
         parent_idea_id,
         properties,
+        created_in_session_id,
     })
 }
 
@@ -772,6 +783,27 @@ async fn finalize_write(
                 1.0,
             )
             .await;
+    }
+
+    // Wave 5 — Lane C: record session provenance for ideas created inside a
+    // live session. Direction matches the migration-v11 convention
+    // (`idea → session`, `link` relation) so the existing `idea_edges.links`
+    // surface picks it up without further plumbing. Skipped silently when the
+    // caller didn't carry a session — globals + non-session writes are still
+    // valid. Best-effort: an edge-write failure is logged but doesn't roll
+    // back the idea.
+    if let Some(ref sid) = input.created_in_session_id
+        && let Err(e) = idea_store
+            .store_entity_edge("idea", id, "session", sid, "link", 1.0)
+            .await
+    {
+        tracing::warn!(
+            idea = %id,
+            session = %sid,
+            action = action,
+            error = %e,
+            "session provenance edge write failed"
+        );
     }
 
     // Inline body-parsed edges (mentions/embeds + typed prefixes).
@@ -3432,6 +3464,81 @@ mod wave2_tests {
             .find(|m| m.content == "created")
             .expect("a 'created' system row must exist");
         assert_eq!(created.metadata.as_ref().unwrap()["kind"], "idea_created");
+    }
+
+    // ── Wave 5 — Lane C: session provenance edge ─────────────────────────
+
+    #[tokio::test]
+    async fn store_idea_with_created_in_session_writes_provenance_edge() {
+        let (ctx, ss, idea_store, _dir) = wave2_ctx().await;
+
+        // The session the caller was inside when authoring the idea. Distinct
+        // from the idea's own lazy-created conversation session.
+        let caller_session = ss
+            .create_standalone_session("caller-session", "agent")
+            .await
+            .unwrap();
+
+        let req = serde_json::json!({
+            "name": "wave5-provenance",
+            "content": "idea authored from inside a live session",
+            "created_in_session_id": caller_session,
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        assert_eq!(resp["action"], "create");
+        let idea_id = resp["id"].as_str().unwrap().to_string();
+
+        let edges = idea_store.idea_edges(&idea_id).await.unwrap_or_default();
+        let provenance = edges.links.iter().find(|e| {
+            e.other_kind == "session" && e.other_id == caller_session && e.relation == "link"
+        });
+        assert!(
+            provenance.is_some(),
+            "idea→session provenance edge must be present; links: {:?}",
+            edges.links
+        );
+
+        // The idea's own conversation session is still distinct from the
+        // caller-provenance session — confirming the two roles don't collide.
+        let idea = idea_store
+            .get_by_ids(&[idea_id])
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        let own_session = idea
+            .session_id
+            .expect("store_idea still lazy-creates the idea's own session");
+        assert_ne!(
+            own_session, caller_session,
+            "the idea's own session must not be the caller's session"
+        );
+    }
+
+    #[tokio::test]
+    async fn store_idea_without_created_in_session_writes_no_provenance_edge() {
+        let (ctx, _ss, idea_store, _dir) = wave2_ctx().await;
+
+        let req = serde_json::json!({
+            "name": "wave5-no-provenance",
+            "content": "no caller session attached",
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        let idea_id = resp["id"].as_str().unwrap().to_string();
+
+        let edges = idea_store.idea_edges(&idea_id).await.unwrap_or_default();
+        let session_links: Vec<_> = edges
+            .links
+            .iter()
+            .filter(|e| e.other_kind == "session")
+            .collect();
+        assert!(
+            session_links.is_empty(),
+            "no session edge expected without created_in_session_id; got: {session_links:?}"
+        );
     }
 
     #[tokio::test]
