@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { api } from "@/lib/api";
 import { logError } from "@/lib/logging";
 import * as ideasApi from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
@@ -318,7 +317,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       if (pendingRefs.length > 0) {
         void Promise.all(
           pendingRefs.map((r) =>
-            api
+            ideasApi
               .addIdeaEdge(res.id, r.target_id, "adjacent")
               .catch((e) => logError("idea-canvas.add-adjacent-edge", e)),
           ),

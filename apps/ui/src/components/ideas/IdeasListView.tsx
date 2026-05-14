@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useNav } from "@/hooks/useNav";
 import { Button } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
-import { api } from "@/lib/api";
+import { storeIdea } from "@/api/ideas";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import { formatDateTime } from "@/lib/i18n";
 import { useAgentIdeasCache } from "@/queries/ideas";
@@ -175,7 +175,7 @@ export default function IdeasListView({
         // duplicated in the body — the Idea schema has no `summary` field.
         const content =
           summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
-        await api.storeIdea({
+        await storeIdea({
           name,
           content,
           tags,

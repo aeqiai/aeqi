@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { getIdeaGraph } from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
-import { api } from "@/lib/api";
 import { useAgentIdeas } from "@/queries/ideas";
 import type { Idea } from "@/lib/types";
 import type { GraphNode, GraphEdge } from "./IdeaGraph";
@@ -225,8 +225,7 @@ export default function AgentIdeasTab({ agentId }: { agentId: string }) {
   useEffect(() => {
     if (view !== "graph") return;
     setGraphLoading(true);
-    api
-      .getIdeaGraph({ agent_id: agentId, limit: 200 })
+    getIdeaGraph({ agent_id: agentId, limit: 200 })
       .then((d) => {
         setGraphData({
           nodes: ((d.nodes || []) as GraphNode[]).map((n) => ({

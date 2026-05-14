@@ -1,5 +1,5 @@
 import { apiRequest } from "@/api/client";
-import type { Idea, ScopeValue } from "@/lib/types";
+import type { Idea, IdeaEdges, ScopeValue } from "@/lib/types";
 
 export interface IdeasResponse {
   ideas: Idea[];
@@ -58,7 +58,25 @@ export function deleteIdea(
   );
 }
 
-// ── Tables-in-Ideas Phase 2 ────────────────────────────────────────────
+export function getIdeaGraph(params?: {
+  agent_id?: string;
+  limit?: number;
+}): Promise<Record<string, unknown>> {
+  const q = new URLSearchParams();
+  if (params?.agent_id) q.set("agent_id", params.agent_id);
+  if (params?.limit) q.set("limit", String(params.limit));
+  const qs = q.toString();
+  return apiRequest<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);
+}
+
+export function getIdeaProfile(params?: { root?: string }): Promise<Record<string, unknown>> {
+  const q = new URLSearchParams();
+  if (params?.root) q.set("root", params.root);
+  const qs = q.toString();
+  return apiRequest<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
+}
+
+// Tables-in-Ideas Phase 2.
 
 /** Direct children of an Idea, newest first. */
 export function listIdeaChildren(id: string): Promise<IdeasResponse> {
@@ -81,4 +99,35 @@ export function setIdeaProperties(
       body: JSON.stringify(properties),
     },
   );
+}
+
+// Idea graph edges.
+
+/** Edges + backlinks for a single idea (outgoing links, incoming refs). */
+export function getIdeaEdges(id: string): Promise<IdeaEdges> {
+  return apiRequest<IdeaEdges>(`/ideas/${encodeURIComponent(id)}/edges`);
+}
+
+/** Create a typed edge from one idea to another. */
+export function addIdeaEdge(
+  sourceId: string,
+  targetId: string,
+  relation: string = "adjacent",
+): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
+    method: "POST",
+    body: JSON.stringify({ target_id: targetId, relation }),
+  });
+}
+
+/** Remove a typed edge. Omit `relation` to drop all edges to the target. */
+export function removeIdeaEdge(
+  sourceId: string,
+  targetId: string,
+  relation?: string,
+): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
+    method: "DELETE",
+    body: JSON.stringify(relation ? { target_id: targetId, relation } : { target_id: targetId }),
+  });
 }

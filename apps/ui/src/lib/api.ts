@@ -466,65 +466,7 @@ export const api = {
     ),
   getChannelSessions: (agentId: string) =>
     request<Record<string, unknown>>(`/channel-sessions?agent_id=${encodeURIComponent(agentId)}`),
-  updateIdea: (id: string, body: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/ideas/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
-
-  getIdeaGraph: (params?: { agent_id?: string; limit?: number }) => {
-    const q = new URLSearchParams();
-    if (params?.agent_id) q.set("agent_id", params.agent_id);
-    if (params?.limit) q.set("limit", String(params.limit));
-    const qs = q.toString();
-    return request<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);
-  },
-
-  getIdeaProfile: (params?: { root?: string }) => {
-    const q = new URLSearchParams();
-    if (params?.root) q.set("root", params.root);
-    const qs = q.toString();
-    return request<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
-  },
-
-  storeIdea: (data: {
-    name: string;
-    content: string;
-    tags?: string[];
-    agent_id?: string;
-    scope?: ScopeValue;
-    links?: string[];
-  }) =>
-    request<{ ok: boolean; id: string }>("/ideas", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  // Returns `{ ok: false, error: "in_use", quest_ids }` (HTTP 200) when
-  // the idea is FK'd from one or more quests — the cross-DB pre-flight
-  // can't translate to a real 4xx without breaking the existing
-  // ipc_proxy contract, so the caller checks `error === "in_use"`.
-  deleteIdea: (id: string) =>
-    request<{ ok: boolean; error?: string; quest_ids?: string[] }>(
-      `/ideas/${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    ),
-
-  // Idea edges: outgoing links + incoming backlinks for a single idea.
-  getIdeaEdges: (id: string) =>
-    request<import("./types").IdeaEdges>(`/ideas/${encodeURIComponent(id)}/edges`),
-
-  addIdeaEdge: (sourceId: string, targetId: string, relation: string = "adjacent") =>
-    request<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
-      method: "POST",
-      body: JSON.stringify({ target_id: targetId, relation }),
-    }),
-
-  removeIdeaEdge: (sourceId: string, targetId: string, relation?: string) =>
-    request<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
-      method: "DELETE",
-      body: JSON.stringify(relation ? { target_id: targetId, relation } : { target_id: targetId }),
-    }),
+  // Idea CRUD, graph, and edges live in `@/api/ideas`.
 
   getAgentIdentity: (name: string) => request<Record<string, unknown>>(`/agents/${name}/identity`),
   saveAgentFile: (name: string, filename: string, content: string) =>

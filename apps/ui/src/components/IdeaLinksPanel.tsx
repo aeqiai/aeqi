@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/api";
+import { addIdeaEdge, getIdeaEdges, removeIdeaEdge } from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas } from "@/queries/ideas";
 import type { Idea, IdeaEdges, IdeaLink } from "@/lib/types";
@@ -23,7 +23,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
   const loadEdges = useMemo(
     () => async () => {
       try {
-        const res = await api.getIdeaEdges(ideaId);
+        const res = await getIdeaEdges(ideaId);
         setEdges(res ?? NO_EDGES);
       } catch {
         setEdges(NO_EDGES);
@@ -58,7 +58,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const handleAdd = async (target: Idea) => {
     try {
-      await api.addIdeaEdge(ideaId, target.id, "adjacent");
+      await addIdeaEdge(ideaId, target.id, "adjacent");
       await loadEdges();
     } catch {
       /* user retries via picker */
@@ -68,7 +68,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
   const handleRemove = async ({ target_id, relation }: { target_id: string; relation: string }) => {
     if (relation !== "adjacent") return;
     try {
-      await api.removeIdeaEdge(ideaId, target_id, relation);
+      await removeIdeaEdge(ideaId, target_id, relation);
       await loadEdges();
     } catch {
       /* leave chip — user can retry */
