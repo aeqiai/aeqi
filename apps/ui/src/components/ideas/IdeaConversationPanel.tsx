@@ -46,8 +46,13 @@ function SubscribeBar({ subscribed, onSubscribe, disabled, busy }: SubscribeBarP
     return (
       <div className="idea-convo-subscribe-bar">
         <Tooltip content="Unsubscribe coming soon">
-          <Button variant="secondary" size="sm" disabled aria-pressed="true">
-            <CheckIcon />
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled
+            aria-pressed="true"
+            leadingIcon={<CheckIcon />}
+          >
             Subscribed
           </Button>
         </Tooltip>
@@ -61,9 +66,9 @@ function SubscribeBar({ subscribed, onSubscribe, disabled, busy }: SubscribeBarP
         size="sm"
         onClick={onSubscribe}
         disabled={disabled || busy}
+        loading={busy}
         aria-pressed="false"
       >
-        {busy ? <Spinner size="sm" /> : null}
         Subscribe
       </Button>
     </div>

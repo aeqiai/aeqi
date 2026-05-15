@@ -3815,7 +3815,7 @@
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -4616,7 +4616,7 @@
   color: var(--color-text-muted);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 .ideas-list-search-clear:hover {

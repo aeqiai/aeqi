@@ -35,23 +35,25 @@ export default function IdeasScopePopover({
           aria-expanded={open}
           aria-controls={popoverId}
           title={locked ? "Scope (set at creation)" : `Scope: ${SCOPE_LABEL[scope]}`}
+          leadingIcon={<span className={`scope-dot scope-dot--${scope}`} />}
+          trailingIcon={
+            <svg
+              className="ideas-scope-btn-chevron"
+              width="9"
+              height="9"
+              viewBox="0 0 9 9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M2 3.5 L4.5 6 L7 3.5" />
+            </svg>
+          }
         >
-          <span className={`scope-dot scope-dot--${scope}`} aria-hidden />
           {SCOPE_LABEL[scope]}
-          <svg
-            className="ideas-scope-btn-chevron"
-            width="9"
-            height="9"
-            viewBox="0 0 9 9"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M2 3.5 L4.5 6 L7 3.5" />
-          </svg>
         </Button>
       }
     >
