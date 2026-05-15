@@ -681,7 +681,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     .unwrap_or("");
                 let args = request.params.get("arguments").cloned().unwrap_or_default();
 
-                let result = match tool_name {
+                let result: Result<serde_json::Value> = (|| match tool_name {
                     "me" => {
                         let _action = args
                             .get("action")
@@ -1387,7 +1387,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     }
 
                     _ => Err(anyhow::anyhow!("unknown tool: {tool_name}")),
-                };
+                })();
 
                 match result {
                     Ok(data) => McpResponse {
