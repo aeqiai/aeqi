@@ -166,7 +166,8 @@ export async function getIdeaActivity(ideaId: string): Promise<ActivityRow[]> {
         summary: formatted.summary,
         event_type:
           item.kind === "log"
-            ? (formatted.eventType ?? (typeof payload?.kind === "string" ? payload.kind : "activity"))
+            ? (formatted.eventType ??
+              (typeof payload?.kind === "string" ? payload.kind : "activity"))
             : undefined,
       };
     });
