@@ -8,9 +8,39 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
+
+use crate::suppression::{Channel as NotificationChannel, NotificationSuppression};
 
 const TELEGRAM_API: &str = "https://api.telegram.org";
+
+/// Notification-suppression commands the poll loop intercepts. See quest 67-189.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Command {
+    Stop,
+    Resume,
+}
+
+/// Parse a Telegram message body into a known suppression command, or `None`
+/// if the message is not a command. Recognises:
+///
+/// - `/stop` and `/resume` as bare commands.
+/// - `/stop@BotName` per Telegram convention (groups disambiguate by suffix).
+/// - Trailing whitespace or arguments (e.g. `/stop please`) — the suffix is
+///   ignored. Commands MUST start at column 0.
+fn parse_command(text: &str) -> Option<Command> {
+    // Strip leading whitespace; Telegram clients sometimes send a BOM or
+    // ZWSP before the slash, so trim before the prefix check.
+    let trimmed = text.trim_start();
+    let head = trimmed.split_whitespace().next()?;
+    // `/stop` or `/stop@BotName` — split on the optional bot suffix.
+    let cmd = head.split('@').next()?;
+    match cmd {
+        "/stop" => Some(Command::Stop),
+        "/resume" => Some(Command::Resume),
+        _ => None,
+    }
+}
 
 /// Telegram Bot API channel.
 pub struct TelegramChannel {
@@ -18,6 +48,12 @@ pub struct TelegramChannel {
     token: String,
     /// Chat IDs allowed to interact (empty = all).
     allowed_chats: Vec<i64>,
+    /// Optional STOP-path primitive (quest 67-189). When set, the poll loop
+    /// intercepts `/stop` and `/resume` commands before the mention-gate and
+    /// drives the suppression layer. When `None`, the channel behaves as
+    /// before — useful for tests and for any deployment that hasn't wired
+    /// the suppression store yet.
+    suppression: Option<Arc<dyn NotificationSuppression>>,
     shutdown: tokio::sync::watch::Sender<bool>,
     shutdown_rx: tokio::sync::watch::Receiver<bool>,
 }
@@ -29,9 +65,18 @@ impl TelegramChannel {
             client: Client::new(),
             token,
             allowed_chats,
+            suppression: None,
             shutdown,
             shutdown_rx,
         }
+    }
+
+    /// Attach a notification-suppression store. Once set, the poll loop will
+    /// intercept `/stop` and `/resume` commands and never forward them as
+    /// `IncomingMessage` events.
+    pub fn with_suppression(mut self, suppression: Arc<dyn NotificationSuppression>) -> Self {
+        self.suppression = Some(suppression);
+        self
     }
 
     fn api_url(&self, method: &str) -> String {
@@ -196,6 +241,7 @@ impl Channel for TelegramChannel {
         let client = self.client.clone();
         let token = self.token.clone();
         let allowed_chats = self.allowed_chats.clone();
+        let suppression = self.suppression.clone();
         let mut shutdown_rx = self.shutdown_rx.clone();
 
         // Mention-gate setup: resolve our @username via getMe so we can
@@ -256,6 +302,80 @@ impl Channel for TelegramChannel {
                                                 "ignoring message from unauthorized chat"
                                             );
                                             continue;
+                                        }
+
+                                        // STOP-path intercept (quest 67-189). Bypasses the
+                                        // mention-gate so /stop works in groups without
+                                        // having to address the bot — opting out must be
+                                        // frictionless. The intercept consumes the message
+                                        // and never forwards it as an IncomingMessage.
+                                        if let Some(sup) = suppression.as_ref()
+                                            && let Some(text) = msg.text.as_deref()
+                                            && let Some(cmd) = parse_command(text)
+                                        {
+                                            let chat_id = msg.chat.id;
+                                            let address = chat_id.to_string();
+                                            match cmd {
+                                                Command::Stop => {
+                                                    if let Err(e) = sup
+                                                        .suppress(
+                                                            NotificationChannel::Telegram,
+                                                            &address,
+                                                            None,
+                                                        )
+                                                        .await
+                                                    {
+                                                        warn!(error = %e, chat_id, "suppress failed");
+                                                    } else {
+                                                        info!(
+                                                            chat_id,
+                                                            event = "genesis.activation.stop",
+                                                            "telegram /stop applied"
+                                                        );
+                                                        let _ = client
+                                                            .post(format!(
+                                                                "{}/bot{}/sendMessage",
+                                                                TELEGRAM_API, token
+                                                            ))
+                                                            .json(&serde_json::json!({
+                                                                "chat_id": chat_id,
+                                                                "text": "Won't message you about your TRUST(s) again. Type /resume to re-enable.",
+                                                            }))
+                                                            .send()
+                                                            .await;
+                                                    }
+                                                    continue;
+                                                }
+                                                Command::Resume => {
+                                                    if let Err(e) = sup
+                                                        .resume(
+                                                            NotificationChannel::Telegram,
+                                                            &address,
+                                                        )
+                                                        .await
+                                                    {
+                                                        warn!(error = %e, chat_id, "resume failed");
+                                                    } else {
+                                                        info!(
+                                                            chat_id,
+                                                            event = "genesis.activation.resume",
+                                                            "telegram /resume applied"
+                                                        );
+                                                        let _ = client
+                                                            .post(format!(
+                                                                "{}/bot{}/sendMessage",
+                                                                TELEGRAM_API, token
+                                                            ))
+                                                            .json(&serde_json::json!({
+                                                                "chat_id": chat_id,
+                                                                "text": "Notifications re-enabled. You'll hear from your TRUST again.",
+                                                            }))
+                                                            .send()
+                                                            .await;
+                                                    }
+                                                    continue;
+                                                }
+                                            }
                                         }
 
                                         // Mention-gate: in groups, only act when our
@@ -534,6 +654,58 @@ mod tests {
     fn channel_name_is_telegram() {
         let ch = TelegramChannel::new("tok".to_string(), vec![]);
         assert_eq!(ch.name(), "telegram");
+    }
+
+    // ── /stop /resume parser (quest 67-189) ──
+
+    #[test]
+    fn parse_command_recognises_bare_stop_and_resume() {
+        assert_eq!(parse_command("/stop"), Some(Command::Stop));
+        assert_eq!(parse_command("/resume"), Some(Command::Resume));
+    }
+
+    #[test]
+    fn parse_command_strips_bot_suffix() {
+        assert_eq!(parse_command("/stop@MyBot"), Some(Command::Stop));
+        assert_eq!(parse_command("/resume@MyBot"), Some(Command::Resume));
+    }
+
+    #[test]
+    fn parse_command_ignores_trailing_args() {
+        assert_eq!(parse_command("/stop please"), Some(Command::Stop));
+        assert_eq!(parse_command("/resume now"), Some(Command::Resume));
+    }
+
+    #[test]
+    fn parse_command_strips_leading_whitespace() {
+        assert_eq!(parse_command("  /stop"), Some(Command::Stop));
+    }
+
+    #[test]
+    fn parse_command_returns_none_for_unrelated_text() {
+        assert_eq!(parse_command("hello"), None);
+        assert_eq!(parse_command("/help"), None);
+        assert_eq!(parse_command("not /stop"), None);
+        assert_eq!(parse_command(""), None);
+    }
+
+    #[test]
+    fn parse_command_does_not_match_embedded_stop() {
+        // "/stopping" must not be a /stop command — substring matching
+        // would suppress users whose message happens to start with that
+        // letter sequence.
+        assert_eq!(parse_command("/stopping"), None);
+    }
+
+    #[test]
+    fn with_suppression_attaches_the_store() {
+        use crate::suppression::SqliteNotificationSuppression;
+        use std::sync::Arc;
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sup = Arc::new(SqliteNotificationSuppression::open(tmp.path()).unwrap());
+        let ch = TelegramChannel::new("tok".to_string(), vec![])
+            .with_suppression(sup as Arc<dyn NotificationSuppression>);
+        assert!(ch.suppression.is_some());
     }
 
     // ── SendMessage serialization ──

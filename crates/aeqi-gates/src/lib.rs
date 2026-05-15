@@ -9,6 +9,7 @@
 pub mod bridge;
 pub mod discord;
 pub mod slack;
+pub mod suppression;
 pub mod telegram;
 pub mod whatsapp;
 pub mod whatsapp_baileys;
@@ -16,6 +17,9 @@ pub mod whatsapp_baileys;
 pub use bridge::{BridgeClient, BridgeEvent};
 pub use discord::DiscordChannel;
 pub use slack::SlackChannel;
+pub use suppression::{
+    Binding, Channel as NotificationChannel, NotificationSuppression, SqliteNotificationSuppression,
+};
 pub use telegram::{TelegramChannel, TelegramGateway};
 pub use whatsapp::WhatsAppChannel;
 pub use whatsapp_baileys::{
