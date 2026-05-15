@@ -65,8 +65,8 @@ mod tests {
     fn company_blueprint_lookup_returns_default_full_spec() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert_eq!(default.name, "aeqi");
-        assert_eq!(default.seed_agents.len(), 1);
-        assert_eq!(default.seed_quests.len(), 1);
+        assert_eq!(default.seed_agents.len(), 0);
+        assert_eq!(default.seed_quests.len(), 8);
     }
 
     #[test]

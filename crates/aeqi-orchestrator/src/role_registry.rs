@@ -669,7 +669,7 @@ impl RoleRegistry {
             let existing = db
                 .query_row(
                     "SELECT id, entity_id, title, occupant_kind, occupant_id,
-                            role_type, founder, created_at, updated_at
+                            role_type, founder, created_at, updated_at, description_idea_id
                      FROM roles
                      WHERE entity_id = ?1
                        AND role_type = 'director'

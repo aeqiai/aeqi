@@ -24,7 +24,7 @@ import "@/styles/overview.css";
  * Three blocks:
  *   1. Hero strip — name, tagline, public toggle (kept; already shipped)
  *   2. Pulse band — three side-by-side cards:
- *        a) Active quests   — top in-flight work in this Company subtree
+ *        a) Next steps      — seeded onboarding and in-flight work
  *        b) Awaiting decisions — entity-scoped inbox (kind=decision_request)
  *        c) Last 24h activity — compact agent activity stream
  *   3. Slim numbers row — 4 stat tiles:
@@ -88,18 +88,20 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
     [subtreeAgents],
   );
 
-  // ── Pulse: active quests ────────────────────────────────────────────
-  const activeQuests = useMemo(
+  // ── Pulse: next steps ───────────────────────────────────────────────
+  const nextStepQuests = useMemo(
     () =>
       quests
         .filter(
           (q) =>
-            q.status === "in_progress" &&
+            (q.status === "in_progress" || q.status === "todo" || q.status === "backlog") &&
             ((q.agent_id && subtreeIds.has(q.agent_id)) || q.agent_id === entityId),
         )
-        .sort(
-          (a, b) => parseTs(b.updated_at ?? b.created_at) - parseTs(a.updated_at ?? a.created_at),
-        )
+        .sort((a, b) => {
+          const statusDelta = questStatusRank(a.status) - questStatusRank(b.status);
+          if (statusDelta !== 0) return statusDelta;
+          return parseTs(b.updated_at ?? b.created_at) - parseTs(a.updated_at ?? a.created_at);
+        })
         .slice(0, 5),
     [quests, subtreeIds, entityId],
   );
@@ -184,28 +186,28 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
 
       {/* ── Pulse band ── */}
       <div className="entity-overview-pulse">
-        {/* a) Active quests */}
+        {/* a) Next steps */}
         <section className="entity-overview-pulse-card" aria-labelledby="pulse-quests">
           <div className="entity-overview-pulse-head">
             <h2 id="pulse-quests" className="entity-overview-pulse-title">
-              Active quests
+              Next steps
             </h2>
-            {activeQuests.length > 0 && (
+            {nextStepQuests.length > 0 && (
               <Link to={`${basePath}/quests`} className="entity-overview-pulse-link">
                 View all →
               </Link>
             )}
           </div>
-          {activeQuests.length === 0 ? (
+          {nextStepQuests.length === 0 ? (
             <p className="entity-overview-pulse-empty">
-              No active quests ·{" "}
+              No queued next steps ·{" "}
               <Link to={`${basePath}/quests`} className="entity-overview-pulse-empty-link">
                 start one →
               </Link>
             </p>
           ) : (
             <ul className="entity-overview-pulse-list" role="list">
-              {activeQuests.map((q) => {
+              {nextStepQuests.map((q) => {
                 const agent = q.agent_id ? agents.find((a) => a.id === q.agent_id) : null;
                 const agentName = agent?.name ?? "Agent";
                 return (
@@ -382,6 +384,13 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+function questStatusRank(status: Quest["status"]): number {
+  if (status === "in_progress") return 0;
+  if (status === "todo") return 1;
+  if (status === "backlog") return 2;
+  return 3;
+}
 
 function parseTs(value: string | undefined): number {
   if (!value) return 0;

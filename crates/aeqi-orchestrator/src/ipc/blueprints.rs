@@ -825,9 +825,10 @@ async fn seed_one_greeting(
     content: &str,
     creator_user_id: &str,
 ) {
-    // Subject is the agent's name — the inbox row reads "<Agent Name>:
-    // <preview>". One row per agent keeps the inbox legible at a glance.
-    let subject = agent_name.to_string();
+    // Prefer the first question in the greeting as the awaiting subject.
+    // The detail pane already identifies the sender; the rail should tell
+    // the founder what this agent wants next.
+    let subject = greeting_subject(agent_name, content);
     let dm_name = format!("DM — {agent_name}");
 
     // 1. Mint an agent-bound DM session. `create_session` writes
@@ -891,6 +892,24 @@ async fn seed_one_greeting(
         creator_user_id,
         "proactive greeting seeded",
     );
+}
+
+fn greeting_subject(agent_name: &str, content: &str) -> String {
+    const MAX_SUBJECT_CHARS: usize = 120;
+
+    let question = content
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && line.ends_with('?'));
+
+    let raw = question.unwrap_or(agent_name).trim();
+    if raw.chars().count() <= MAX_SUBJECT_CHARS {
+        return raw.to_string();
+    }
+
+    let mut out: String = raw.chars().take(MAX_SUBJECT_CHARS - 1).collect();
+    out.push('…');
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -1307,6 +1326,27 @@ mod tests {
         let db_path = dir.path().join("ideas.db");
         std::mem::forget(dir);
         Arc::new(aeqi_ideas::SqliteIdeas::open(&db_path, 30.0).unwrap())
+    }
+
+    #[test]
+    fn greeting_subject_uses_first_question() {
+        let subject = greeting_subject(
+            "Janus",
+            "Your Company is alive.\n\nStart with one sentence: what should this Company make true?\n\nI will turn it into quests.",
+        );
+
+        assert_eq!(
+            subject,
+            "Start with one sentence: what should this Company make true?"
+        );
+    }
+
+    #[test]
+    fn greeting_subject_falls_back_to_agent_name() {
+        assert_eq!(
+            greeting_subject("Janus", "Your Company is alive.\nNo question yet."),
+            "Janus"
+        );
     }
 
     #[tokio::test]
