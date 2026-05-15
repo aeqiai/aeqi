@@ -10,6 +10,49 @@ use crate::quest_assignee::{
     QuestCallerPrincipal, auto_assignee_for_in_progress, validate_assignee_update,
 };
 
+/// Read the canonical GitHub-issue URL attached to a quest (quest 67-218).
+///
+/// Stored in `quest.metadata.github_issue_url`. Returns `None` if absent or
+/// non-string. Centralised so the read shape stays consistent — the close
+/// mirror path (filed as 67-218.1) will call this same helper.
+pub(crate) fn quest_github_issue_url(quest: &aeqi_quests::Quest) -> Option<&str> {
+    quest
+        .metadata
+        .get("github_issue_url")
+        .and_then(|v| v.as_str())
+}
+
+/// Validate a `https://github.com/<owner>/<repo>/issues/<n>` URL shape.
+///
+/// Returns `Ok(())` on the canonical issue URL; otherwise a short error
+/// describing the rejection. Intentionally strict: only accepts the public
+/// github.com host (not enterprise GitHub) and the `/issues/<n>` path; PRs,
+/// commits, and project URLs are rejected so the attach surface has a single
+/// well-defined target type.
+pub(crate) fn validate_github_issue_url(url: &str) -> Result<(), String> {
+    // Cheap structural check first — avoid a regex/URL-parse dependency for
+    // what is fundamentally a fixed prefix + integer suffix.
+    let rest = url
+        .strip_prefix("https://github.com/")
+        .ok_or_else(|| "URL must start with https://github.com/".to_string())?;
+    let mut parts = rest.split('/');
+    let owner = parts.next().filter(|s| !s.is_empty());
+    let repo = parts.next().filter(|s| !s.is_empty());
+    let kind = parts.next();
+    let number = parts.next().filter(|s| !s.is_empty());
+    let extra = parts.next();
+    match (owner, repo, kind, number, extra) {
+        (Some(_), Some(_), Some("issues"), Some(n), None)
+            if n.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            Ok(())
+        }
+        _ => Err(format!(
+            "URL must match https://github.com/<owner>/<repo>/issues/<n>, got: {url}"
+        )),
+    }
+}
+
 /// Format an `aeqi_quests::Quest` into a human-readable detail string.
 pub(crate) fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
     let mut out = format!(
@@ -24,6 +67,9 @@ pub(crate) fn format_quest_detail(quest: &aeqi_quests::Quest) -> String {
     }
     if let Some(ref agent_id) = quest.agent_id {
         out.push_str(&format!("Agent: {}\n", agent_id));
+    }
+    if let Some(url) = quest_github_issue_url(quest) {
+        out.push_str(&format!("GitHub: {}\n", url));
     }
     if let Some(outcome) = quest.quest_outcome() {
         out.push_str(&format!("Outcome: {}\n", outcome.kind));
@@ -555,6 +601,77 @@ impl QuestsTool {
         }
     }
 
+    /// Attach a GitHub issue URL to a quest (quest 67-218).
+    ///
+    /// Idempotent: re-attaching the same URL is a no-op. Attaching a
+    /// different URL overwrites and emits a `tracing::warn!` so an operator
+    /// scanning logs can spot accidental retargeting. The close-time mirror
+    /// (post-comment + close-issue) is a follow-up — see quest 67-218.1.
+    async fn action_attach_github_issue(&self, args: &serde_json::Value) -> Result<ToolResult> {
+        let quest_id = args
+            .get("quest_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing quest_id"))?;
+        let url = args
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing url"))?;
+
+        if let Err(e) = validate_github_issue_url(url) {
+            return Ok(ToolResult::error(e));
+        }
+
+        // Resolve current URL (if any) BEFORE the update so we can branch on
+        // no-op / overwrite without a second fetch.
+        let existing = match self.agent_registry.get_task(quest_id).await {
+            Ok(Some(q)) => quest_github_issue_url(&q).map(|s| s.to_owned()),
+            Ok(None) => return Ok(ToolResult::error(format!("Quest not found: {quest_id}"))),
+            Err(e) => return Ok(ToolResult::error(format!("Failed to get quest: {e}"))),
+        };
+
+        match existing.as_deref() {
+            Some(current) if current == url => {
+                return Ok(ToolResult::success(format!(
+                    "Quest {quest_id} already attached to {url}"
+                )));
+            }
+            Some(current) => {
+                tracing::warn!(
+                    quest_id,
+                    previous = current,
+                    new = url,
+                    "github_issue_url overwritten on attach"
+                );
+            }
+            None => {}
+        }
+
+        let url_owned = url.to_owned();
+        if let Err(e) = self
+            .agent_registry
+            .update_task(quest_id, |q| {
+                if !q.metadata.is_object() {
+                    q.metadata = serde_json::json!({});
+                }
+                if let Some(map) = q.metadata.as_object_mut() {
+                    map.insert(
+                        "github_issue_url".to_string(),
+                        serde_json::Value::String(url_owned.clone()),
+                    );
+                }
+            })
+            .await
+        {
+            return Ok(ToolResult::error(format!(
+                "Failed to attach github issue to quest {quest_id}: {e}"
+            )));
+        }
+
+        Ok(ToolResult::success(format!(
+            "Quest {quest_id} attached to {url}"
+        )))
+    }
+
     async fn action_cancel(&self, args: &serde_json::Value) -> Result<ToolResult> {
         let quest_id = args
             .get("quest_id")
@@ -600,8 +717,9 @@ impl Tool for QuestsTool {
             "update" => self.action_update(&args).await,
             "close" => self.action_close(&args).await,
             "cancel" => self.action_cancel(&args).await,
+            "attach_github_issue" => self.action_attach_github_issue(&args).await,
             other => Ok(ToolResult::error(format!(
-                "Unknown action: {other}. Use: create, list, show, update, close, cancel"
+                "Unknown action: {other}. Use: create, list, show, update, close, cancel, attach_github_issue"
             ))),
         }
     }
@@ -609,16 +727,16 @@ impl Tool for QuestsTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "quests".to_string(),
-            description: "Manage quests: create, list, show details, update status/priority/assignee, close with result, or cancel. list returns all quests visible to this agent.".to_string(),
+            description: "Manage quests: create, list, show details, update status/priority/assignee, close with result, cancel, or attach a GitHub issue URL. list returns all quests visible to this agent.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "list", "show", "update", "close", "cancel"],
-                        "description": "create: make a new quest (needs subject). list: show quests (optional status, agent). show: quest details (needs quest_id). update: change status/priority/assignee (needs quest_id). close: complete with result (needs quest_id, result). cancel: abort (needs quest_id)."
+                        "enum": ["create", "list", "show", "update", "close", "cancel", "attach_github_issue"],
+                        "description": "create: make a new quest (needs subject). list: show quests (optional status, agent). show: quest details (needs quest_id). update: change status/priority/assignee (needs quest_id). close: complete with result (needs quest_id, result). cancel: abort (needs quest_id). attach_github_issue: link a https://github.com/<owner>/<repo>/issues/<n> URL to a quest (needs quest_id, url)."
                     },
-                    "quest_id": { "type": "string", "description": "Quest ID (for show/update/close/cancel)" },
+                    "quest_id": { "type": "string", "description": "Quest ID (for show/update/close/cancel/attach_github_issue)" },
                     "subject": { "type": "string", "description": "Quest subject (for create)" },
                     "description": { "type": "string", "description": "Quest description (for create)" },
                     "agent": { "type": "string", "description": "Target agent name (for create, list)" },
@@ -632,7 +750,8 @@ impl Tool for QuestsTool {
                     "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)" },
                     "assignee": { "type": ["string", "null"], "description": "Polymorphic assignee for update: agent:<id>, user:<id>, empty string, or null to unassign" },
                     "result": { "type": "string", "description": "Completion result (for close)" },
-                    "reason": { "type": "string", "description": "Cancellation reason (for cancel)" }
+                    "reason": { "type": "string", "description": "Cancellation reason (for cancel)" },
+                    "url": { "type": "string", "description": "GitHub issue URL (for attach_github_issue). Must match https://github.com/<owner>/<repo>/issues/<n>." }
                 },
                 "required": ["action"]
             }),
@@ -925,5 +1044,83 @@ mod tests {
         let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
         assert_eq!(stored.status, aeqi_quests::QuestStatus::InProgress);
         assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+    }
+
+    // ── quest 67-218: GitHub issue URL validator + attach helpers ──
+
+    #[test]
+    fn validate_github_issue_url_accepts_canonical() {
+        assert!(validate_github_issue_url("https://github.com/aeqi-ai/aeqi/issues/42").is_ok());
+        assert!(validate_github_issue_url("https://github.com/owner/repo-name/issues/1").is_ok());
+        assert!(validate_github_issue_url("https://github.com/o/r/issues/999999").is_ok());
+    }
+
+    #[test]
+    fn validate_github_issue_url_rejects_pull_request() {
+        let err = validate_github_issue_url("https://github.com/aeqi-ai/aeqi/pull/42").unwrap_err();
+        assert!(err.contains("issues/<n>"), "{err}");
+    }
+
+    #[test]
+    fn validate_github_issue_url_rejects_non_github_host() {
+        assert!(validate_github_issue_url("https://gitlab.com/o/r/issues/1").is_err());
+        // GitHub Enterprise is intentionally rejected for now — out of scope.
+        assert!(validate_github_issue_url("https://github.example.com/o/r/issues/1").is_err());
+        assert!(validate_github_issue_url("http://github.com/o/r/issues/1").is_err());
+    }
+
+    #[test]
+    fn validate_github_issue_url_rejects_non_numeric_issue() {
+        let err = validate_github_issue_url("https://github.com/o/r/issues/abc").unwrap_err();
+        assert!(err.contains("issues/<n>"), "{err}");
+    }
+
+    #[test]
+    fn validate_github_issue_url_rejects_trailing_segments() {
+        // Comments, sub-paths, etc. are not the canonical issue URL.
+        assert!(validate_github_issue_url("https://github.com/o/r/issues/1/comments").is_err());
+        assert!(validate_github_issue_url("https://github.com/o/r/issues").is_err());
+    }
+
+    #[test]
+    fn quest_github_issue_url_reads_metadata() {
+        let mut q = stub_quest("q1", None);
+        assert_eq!(quest_github_issue_url(&q), None);
+
+        q.metadata = serde_json::json!({
+            "github_issue_url": "https://github.com/o/r/issues/7",
+            "other": "ignored",
+        });
+        assert_eq!(
+            quest_github_issue_url(&q),
+            Some("https://github.com/o/r/issues/7")
+        );
+    }
+
+    #[test]
+    fn quest_github_issue_url_ignores_non_string_metadata() {
+        let mut q = stub_quest("q2", None);
+        q.metadata = serde_json::json!({ "github_issue_url": 123 });
+        assert_eq!(quest_github_issue_url(&q), None);
+    }
+
+    #[test]
+    fn format_quest_detail_includes_github_url_when_attached() {
+        let mut q = stub_quest("q3", None);
+        q.metadata = serde_json::json!({
+            "github_issue_url": "https://github.com/aeqi-ai/aeqi/issues/200",
+        });
+        let rendered = format_quest_detail(&q);
+        assert!(
+            rendered.contains("GitHub: https://github.com/aeqi-ai/aeqi/issues/200"),
+            "rendered:\n{rendered}"
+        );
+    }
+
+    #[test]
+    fn format_quest_detail_omits_github_when_absent() {
+        let q = stub_quest("q4", None);
+        let rendered = format_quest_detail(&q);
+        assert!(!rendered.contains("GitHub:"), "rendered:\n{rendered}");
     }
 }

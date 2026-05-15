@@ -1671,6 +1671,10 @@ impl Daemon {
                 "close_quest" => {
                     crate::ipc::quests::handle_close_quest(&ctx, &request, &allowed_roots).await
                 }
+                "attach_github_issue" => {
+                    crate::ipc::quests::handle_attach_github_issue(&ctx, &request, &allowed_roots)
+                        .await
+                }
                 "quest_traces" => {
                     crate::ipc::quests::handle_quest_traces(&ctx, &request, &allowed_roots).await
                 }

@@ -488,6 +488,18 @@ async fn call_quests(
             )
             .await
         }
+        "attach_github_issue" => {
+            ipc(
+                state,
+                ctx,
+                serde_json::json!({
+                    "cmd": "attach_github_issue",
+                    "quest_id": args.get("quest_id").and_then(|v| v.as_str()).unwrap_or(""),
+                    "url": args.get("url").and_then(|v| v.as_str()).unwrap_or(""),
+                }),
+            )
+            .await
+        }
         _ => anyhow::bail!("unknown quests action: {action}"),
     }
 }
@@ -1091,8 +1103,8 @@ fn tool_defs() -> serde_json::Value {
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "list", "show", "update", "close", "cancel"],
-                        "description": "create makes a quest; list shows quests; show returns details; update changes status, priority, assignee, due_at, agent_id, or scope; close records a done outcome; cancel marks work cancelled."
+                        "enum": ["create", "list", "show", "update", "close", "cancel", "attach_github_issue"],
+                        "description": "create makes a quest; list shows quests; show returns details; update changes status, priority, assignee, due_at, agent_id, or scope; close records a done outcome; cancel marks work cancelled; attach_github_issue links a https://github.com/<owner>/<repo>/issues/<n> URL to a quest (close-time mirror is filed separately as quest 67-218.1)."
                     },
                     "project": {"type": "string", "description": "Project name, for example aeqi or aeqi-platform. Optional in MCP clients; defaults to the runtime's first configured project."},
                     "quest_id": {"type": "string", "description": "Quest ID for show, update, close, or cancel."},
@@ -1130,7 +1142,8 @@ fn tool_defs() -> serde_json::Value {
                         "description": "Due date for update. Omit to leave unchanged; null or empty string clears it."
                     },
                     "result": {"type": "string", "description": "Completion result for close."},
-                    "reason": {"type": "string", "description": "Cancellation reason for cancel."}
+                    "reason": {"type": "string", "description": "Cancellation reason for cancel."},
+                    "url": {"type": "string", "description": "GitHub issue URL for attach_github_issue. Must match https://github.com/<owner>/<repo>/issues/<n>."}
                 },
                 "required": ["action"]
             }

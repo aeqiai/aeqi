@@ -1051,6 +1051,98 @@ pub async fn handle_close_quest(
     }
 }
 
+/// Attach a GitHub issue URL to a quest (quest 67-218).
+///
+/// Persists to `quest.metadata.github_issue_url`. Idempotent re-attach with
+/// the same URL is a no-op; a different URL overwrites the previous binding
+/// and emits a `tracing::warn!`. The close-time mirror (post comment + close
+/// issue) is a separate quest, 67-218.1.
+pub async fn handle_attach_github_issue(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> serde_json::Value {
+    let quest_id = request
+        .get("quest_id")
+        .or_else(|| request.get("id"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if quest_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "quest_id is required"});
+    }
+    let url = request.get("url").and_then(|v| v.as_str()).unwrap_or("");
+    if url.is_empty() {
+        return serde_json::json!({"ok": false, "error": "url is required"});
+    }
+
+    if let Err(e) = crate::tools::quests::validate_github_issue_url(url) {
+        return serde_json::json!({"ok": false, "error": e});
+    }
+
+    let existing = match ctx.agent_registry.get_task(quest_id).await {
+        Ok(Some(q)) => q,
+        Ok(None) => return serde_json::json!({"ok": false, "error": "quest not found"}),
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+
+    if allowed.is_some() {
+        let ok = match existing.agent_id.as_deref() {
+            Some(aid) => check_agent_access(&ctx.agent_registry, allowed, aid).await,
+            None => true,
+        };
+        if !ok {
+            return serde_json::json!({"ok": false, "error": "access denied"});
+        }
+    }
+
+    let prev = crate::tools::quests::quest_github_issue_url(&existing).map(|s| s.to_owned());
+    match prev.as_deref() {
+        Some(current) if current == url => {
+            return serde_json::json!({
+                "ok": true,
+                "quest_id": quest_id,
+                "github_issue_url": url,
+                "changed": false,
+            });
+        }
+        Some(current) => {
+            tracing::warn!(
+                quest_id,
+                previous = current,
+                new = url,
+                "github_issue_url overwritten on attach (ipc)"
+            );
+        }
+        None => {}
+    }
+
+    let url_owned = url.to_owned();
+    if let Err(e) = ctx
+        .agent_registry
+        .update_task(quest_id, |q| {
+            if !q.metadata.is_object() {
+                q.metadata = serde_json::json!({});
+            }
+            if let Some(map) = q.metadata.as_object_mut() {
+                map.insert(
+                    "github_issue_url".to_string(),
+                    serde_json::Value::String(url_owned.clone()),
+                );
+            }
+        })
+        .await
+    {
+        return serde_json::json!({"ok": false, "error": e.to_string()});
+    }
+
+    serde_json::json!({
+        "ok": true,
+        "quest_id": quest_id,
+        "github_issue_url": url,
+        "changed": true,
+    })
+}
+
 /// Return every `tool_complete` trace captured across sessions bound to a quest.
 ///
 /// This is the read-side of the closed learning loop (quest `lu-005`): it
