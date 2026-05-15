@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
-import AppLayout from "@/components/AppLayout";
+import AppLayout, { resolveCompanyRootAgent } from "@/components/AppLayout";
 import LeftSidebar from "@/components/shell/LeftSidebar";
 import ComposerRow from "@/components/shell/ComposerRow";
 import BootLoader from "@/components/shell/BootLoader";
@@ -267,6 +267,40 @@ describe("shell components smoke", () => {
       </StrictMode>,
     );
     expect(errors.find(isLoopError)).toBeUndefined();
+  });
+
+  it("resolves the company root agent from the platform placement agent id", () => {
+    const root = resolveCompanyRootAgent(
+      [
+        {
+          id: "agent-root",
+          name: "Root",
+          status: "active",
+          entity_id: "runtime-local-entity",
+        },
+      ],
+      { agent_id: "agent-root" },
+      "platform-entity",
+    );
+
+    expect(root?.id).toBe("agent-root");
+  });
+
+  it("falls back to the legacy agent entity_id match", () => {
+    const root = resolveCompanyRootAgent(
+      [
+        {
+          id: "legacy-root",
+          name: "Root",
+          status: "active",
+          entity_id: "platform-entity",
+        },
+      ],
+      null,
+      "platform-entity",
+    );
+
+    expect(root?.id).toBe("legacy-root");
   });
 });
 

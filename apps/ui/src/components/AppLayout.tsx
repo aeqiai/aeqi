@@ -15,6 +15,7 @@ import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import { AGENT_RAIL_TABS } from "@/components/agentRailTabs";
+import type { Agent, Entity } from "@/lib/types";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
@@ -79,6 +80,21 @@ const COMPANY_PAGE_TABS = new Set([
   "ideas",
 ]);
 
+export function resolveCompanyRootAgent(
+  agents: Agent[],
+  entity: Pick<Entity, "agent_id"> | null,
+  effectiveRouteEntityId: string,
+): Agent | null {
+  if (entity?.agent_id) {
+    const agent = agents.find((a) => a.id === entity.agent_id);
+    if (agent) return agent;
+  }
+
+  return effectiveRouteEntityId
+    ? (agents.find((a) => a.entity_id === effectiveRouteEntityId) ?? null)
+    : null;
+}
+
 export default function AppLayout() {
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -109,21 +125,17 @@ export default function AppLayout() {
   const surface = useShellSurface(path, tab);
 
   // Resolve entity from the canonical trust route and return a stable id.
-  const { entityId: resolvedEntityId } = useCurrentCompany();
+  const { entity, entityId: resolvedEntityId } = useCurrentCompany();
   // The effective route entity id — prefer the resolved id from the trust
   // route and fall back to any raw route token only if one was somehow present.
   const effectiveRouteEntityId = resolvedEntityId || routeEntityId;
 
-  // The entity's root-agent record is the placeholder we synthesize from
-  // `/api/entities` — its `entity_id` matches the route token. Every
-  // company surface (`/trust/<addr>/quests`, `/trust/<addr>/events`, …)
-  // resolves through this record.
+  // Prefer the platform placement's root-agent id from `/api/entities`.
+  // Some hosted runtimes carry a runtime-local `agent.entity_id`, so the
+  // older `agent.entity_id === entityId` match is only a fallback.
   const rootAgent = useMemo(
-    () =>
-      effectiveRouteEntityId
-        ? (agents.find((a) => a.entity_id === effectiveRouteEntityId) ?? null)
-        : null,
-    [agents, effectiveRouteEntityId],
+    () => resolveCompanyRootAgent(agents, entity, effectiveRouteEntityId),
+    [agents, entity, effectiveRouteEntityId],
   );
 
   // When `/trust/<addr>/agents/<agent>/...` is open, the inner agentId
