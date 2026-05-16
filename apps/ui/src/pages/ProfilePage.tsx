@@ -13,6 +13,7 @@ const SettingsIntegrationsPage = lazy(() => import("@/pages/Settings/Integration
 const ApiKeyPanel = lazy(() => import("@/pages/Settings/ApiKeyPanel"));
 const InvitesPanel = lazy(() => import("@/pages/Settings/InvitesPanel"));
 const WalletsPanel = lazy(() => import("@/pages/Settings/WalletsPanel"));
+const NotificationsPanel = lazy(() => import("@/pages/Settings/NotificationsPanel"));
 
 const BASE_TABS = [
   { id: "profile", label: "Profile" },
@@ -20,6 +21,7 @@ const BASE_TABS = [
   { id: "security", label: "Security" },
   { id: "wallets", label: "Wallets" },
   { id: "devices", label: "Devices" },
+  { id: "notifications", label: "Notifications" },
   { id: "integrations", label: "Integrations" },
   { id: "api", label: "API keys" },
 ];
@@ -73,6 +75,7 @@ export default function ProfilePage() {
             </WalletBoundary>
           )}
           {activeTab === "devices" && <DevicesPanel />}
+          {activeTab === "notifications" && <NotificationsPanel />}
           {activeTab === "integrations" && <SettingsIntegrationsPage />}
           {activeTab === "api" && <ApiKeyPanel />}
           {activeTab === "invites" && <InvitesPanel />}

@@ -934,6 +934,27 @@ export const api = {
       stripe_subscription_id: string | null;
     }>(`/billing/companies/${encodeURIComponent(rootName)}`),
 
+  // Notification suppression preferences (quest 67-189.2.1). Lists each
+  // channel's status; stop/resume flip the binding. Today the only channel
+  // exposed is `email`, keyed by the user's primary `users.email`.
+  getAccountNotifications: () =>
+    request<{
+      ok: boolean;
+      channels: Array<{ channel: string; address: string; suppressed: boolean }>;
+    }>("/account/notifications"),
+
+  stopAccountNotification: (channel: string) =>
+    request<{ ok: boolean; channel: string; address: string; suppressed: boolean }>(
+      "/account/notifications/stop",
+      { method: "POST", body: JSON.stringify({ channel }) },
+    ),
+
+  resumeAccountNotification: (channel: string) =>
+    request<{ ok: boolean; channel: string; address: string; suppressed: boolean }>(
+      "/account/notifications/resume",
+      { method: "POST", body: JSON.stringify({ channel }) },
+    ),
+
   getInbox: () => request<{ ok: boolean; items: InboxItem[] }>("/inbox"),
 
   answerInbox: (sessionId: string, answer: string) =>
