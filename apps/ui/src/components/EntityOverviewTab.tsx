@@ -100,7 +100,9 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
         .sort((a, b) => {
           const statusDelta = questStatusRank(a.status) - questStatusRank(b.status);
           if (statusDelta !== 0) return statusDelta;
-          return parseTs(b.updated_at ?? b.created_at) - parseTs(a.updated_at ?? a.created_at);
+          const priorityDelta = questPriorityRank(a.priority) - questPriorityRank(b.priority);
+          if (priorityDelta !== 0) return priorityDelta;
+          return parseTs(a.created_at) - parseTs(b.created_at);
         })
         .slice(0, 5),
     [quests, subtreeIds, entityId],
@@ -390,6 +392,14 @@ function questStatusRank(status: Quest["status"]): number {
   if (status === "todo") return 1;
   if (status === "backlog") return 2;
   return 3;
+}
+
+function questPriorityRank(priority: Quest["priority"]): number {
+  if (priority === "critical") return 0;
+  if (priority === "high") return 1;
+  if (priority === "normal") return 2;
+  if (priority === "low") return 3;
+  return 4;
 }
 
 function parseTs(value: string | undefined): number {
