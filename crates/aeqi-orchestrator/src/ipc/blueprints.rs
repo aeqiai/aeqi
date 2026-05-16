@@ -46,6 +46,16 @@ pub struct RootAgentSpec {
     /// one inbox row per operationally-relevant agent.
     #[serde(default)]
     pub proactive_greeting: Option<String>,
+    /// Additional spawn-time messages appended to the SAME DM session as
+    /// `proactive_greeting`, posted as separate `assistant` turns after the
+    /// opener. Lets the founder see a multi-beat reveal ("welcome → TRUST
+    /// address → first quest → curve offer → co-founder prompt") in one
+    /// thread rather than a wall of text. The inbox row subject is derived
+    /// from the opener only (via `greeting_subject`), so put the key
+    /// question in `proactive_greeting` and use these for follow-ups.
+    /// Empty by default — single-message agents keep working unchanged.
+    #[serde(default)]
+    pub seed_messages: Vec<SeedMessageSpec>,
 }
 
 /// Child agent. `owner` is always "root" for seed_agents — they sit directly
@@ -67,6 +77,25 @@ pub struct SeedAgentSpec {
     /// Optional spawn-time greeting — see [`RootAgentSpec::proactive_greeting`].
     #[serde(default)]
     pub proactive_greeting: Option<String>,
+    /// Additional spawn-time messages — see [`RootAgentSpec::seed_messages`].
+    #[serde(default)]
+    pub seed_messages: Vec<SeedMessageSpec>,
+}
+
+/// One additional `assistant` message posted to an agent's spawn-time DM
+/// session, after its `proactive_greeting`. The opener carries the key
+/// question for inbox routing; these are the follow-up beats.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SeedMessageSpec {
+    /// The message body — appended as an `assistant` turn from the owning
+    /// agent on the same session created for `proactive_greeting`.
+    pub body: String,
+    /// Optional `session_messages.event_type` discriminator (defaults to
+    /// `"message"` server-side when None). Most seed messages should leave
+    /// this unset; pass `Some("status_update")` etc. only for structured
+    /// payloads downstream consumers gate on.
+    #[serde(default)]
+    pub payload_kind: Option<String>,
 }
 
 fn default_owner_root() -> String {
@@ -782,13 +811,16 @@ async fn seed_proactive_greetings(
     // Walk every agent the blueprint declares — root + seeds — and pair its
     // declared greeting with the just-spawned agent_id by name. The root's
     // id is on the outcome under `root_agent_id`; seed agent ids land in
-    // `outcome.spawned_agents` keyed by name.
-    let mut greetings: Vec<(String, String, String)> = Vec::new();
+    // `outcome.spawned_agents` keyed by name. `seed_messages` rides
+    // alongside each greeting so a multi-beat reveal posts to the SAME DM
+    // session that carries the opener.
+    let mut greetings: Vec<(String, String, String, Vec<SeedMessageSpec>)> = Vec::new();
     if let Some(ref content) = blueprint.root.proactive_greeting {
         greetings.push((
             outcome.root_agent_id.clone(),
             blueprint.root.name.clone(),
             content.clone(),
+            blueprint.root.seed_messages.clone(),
         ));
     }
     for seed in &blueprint.seed_agents {
@@ -796,9 +828,12 @@ async fn seed_proactive_greetings(
             continue;
         };
         match outcome.spawned_agents.iter().find(|a| a.name == seed.name) {
-            Some(spawned) => {
-                greetings.push((spawned.id.clone(), seed.name.clone(), content.clone()))
-            }
+            Some(spawned) => greetings.push((
+                spawned.id.clone(),
+                seed.name.clone(),
+                content.clone(),
+                seed.seed_messages.clone(),
+            )),
             None => tracing::warn!(
                 seed = %seed.name,
                 "proactive greeting: seed agent not present in spawn outcome; skipping",
@@ -806,12 +841,13 @@ async fn seed_proactive_greetings(
         }
     }
 
-    for (agent_id, agent_name, content) in greetings {
+    for (agent_id, agent_name, content, extras) in greetings {
         seed_one_greeting(
             session_store,
             &agent_id,
             &agent_name,
             &content,
+            &extras,
             creator_user_id,
         )
         .await;
@@ -823,11 +859,14 @@ async fn seed_one_greeting(
     agent_id: &str,
     agent_name: &str,
     content: &str,
+    extras: &[SeedMessageSpec],
     creator_user_id: &str,
 ) {
     // Prefer the first question in the greeting as the awaiting subject.
     // The detail pane already identifies the sender; the rail should tell
-    // the founder what this agent wants next.
+    // the founder what this agent wants next. `extras` are intentionally
+    // not consulted here — the opener carries the question; the rest are
+    // follow-up beats that should not steal subject billing.
     let subject = greeting_subject(agent_name, content);
     let dm_name = format!("DM — {agent_name}");
 
@@ -874,6 +913,28 @@ async fn seed_one_greeting(
     {
         tracing::warn!(error = %e, session_id, "proactive greeting: failed to append message");
         return;
+    }
+
+    // 3b. Append any `seed_messages` as additional `assistant` turns on the
+    //     same DM session. Each one becomes its own message row in the
+    //     thread; the inbox row's awaiting subject still tracks the opener.
+    //     Partial-failure tolerance matches step 3: if one extra fails, log
+    //     and keep going so the founder still sees as much of the reveal as
+    //     possible.
+    for msg in extras {
+        if let Err(e) = session_store
+            .append_message_from(
+                &session_id,
+                "assistant",
+                &msg.body,
+                "agent",
+                Some(agent_id),
+                msg.payload_kind.as_deref(),
+            )
+            .await
+        {
+            tracing::warn!(error = %e, session_id, "proactive greeting: failed to append seed message");
+        }
     }
 
     // 4. Stamp `awaiting_at` so the row surfaces in the founder's inbox
@@ -1243,6 +1304,7 @@ mod tests {
                 avatar: None,
                 system_prompt: Some("You are the director.".to_string()),
                 proactive_greeting: None,
+                seed_messages: Vec::new(),
             },
             seed_agents: vec![
                 SeedAgentSpec {
@@ -1253,6 +1315,7 @@ mod tests {
                     avatar: None,
                     system_prompt: Some("You are the editor.".to_string()),
                     proactive_greeting: None,
+                    seed_messages: Vec::new(),
                 },
                 SeedAgentSpec {
                     owner: "root".to_string(),
@@ -1262,6 +1325,7 @@ mod tests {
                     avatar: None,
                     system_prompt: None,
                     proactive_greeting: None,
+                    seed_messages: Vec::new(),
                 },
             ],
             seed_events: vec![
@@ -1619,6 +1683,7 @@ mod tests {
                 avatar: None,
                 system_prompt: None,
                 proactive_greeting: None,
+                seed_messages: Vec::new(),
             },
             seed_agents: vec![SeedAgentSpec {
                 owner: "root".to_string(),
@@ -1628,6 +1693,7 @@ mod tests {
                 avatar: None,
                 system_prompt: None,
                 proactive_greeting: None,
+                seed_messages: Vec::new(),
             }],
             seed_events: Vec::new(),
             seed_ideas: Vec::new(),
