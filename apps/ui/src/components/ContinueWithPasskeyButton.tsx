@@ -5,14 +5,15 @@ import { loginOrRegisterWithPasskey } from "@/lib/passkeyAuth";
 
 const PasskeyIcon = () => (
   <svg
-    width="16"
-    height="16"
+    width="14"
+    height="14"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="2"
+    strokeWidth="1.8"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
   >
     <circle cx="7.5" cy="15.5" r="5.5" />
     <path d="m21 2-9.6 9.6" />
@@ -60,8 +61,16 @@ export default function ContinueWithPasskeyButton({ onAuthenticated }: Props) {
 
   return (
     <>
-      <Button variant="secondary" size="lg" fullWidth type="button" onClick={go} loading={busy}>
-        <PasskeyIcon /> Passkey
+      <Button
+        variant="secondary"
+        size="lg"
+        fullWidth
+        type="button"
+        onClick={go}
+        loading={busy}
+        leadingIcon={<PasskeyIcon />}
+      >
+        Passkey
       </Button>
       {error && (
         <div className="auth-error" role="alert">

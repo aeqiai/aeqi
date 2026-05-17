@@ -241,19 +241,21 @@ export default function EntityRolesTab({ entityId }: { entityId: string }) {
               variant="primary"
               size="sm"
               onClick={() => navigate(entityPathFromId(entities, entityId, "roles", "new"))}
+              leadingIcon={
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M6.5 2.5v8M2.5 6.5h8" />
+                </svg>
+              }
             >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
               New
             </Button>
           </Tooltip>

@@ -66,19 +66,47 @@ export default function DoorView({
         <p className="auth-oauth-recess-label">Or</p>
         <div className="auth-oauth-group">
           <div className="auth-oauth-row">
-            <Button variant="secondary" size="lg" fullWidth onClick={onGoogle} type="button">
-              <GoogleIcon /> Google
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={onGoogle}
+              type="button"
+              leadingIcon={<GoogleIcon size={14} />}
+            >
+              Google
             </Button>
-            <Button variant="secondary" size="lg" fullWidth onClick={onGithub} type="button">
-              <GithubIcon /> GitHub
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={onGithub}
+              type="button"
+              leadingIcon={<GithubIcon size={14} />}
+            >
+              GitHub
             </Button>
           </div>
           <div className="auth-oauth-row">
-            <Button variant="secondary" size="lg" fullWidth onClick={onPasskey} type="button">
-              <PasskeyIcon /> {passkeyAvailable ? "Passkey" : "Security key"}
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={onPasskey}
+              type="button"
+              leadingIcon={<PasskeyIcon size={14} />}
+            >
+              {passkeyAvailable ? "Passkey" : "Security key"}
             </Button>
-            <Button variant="secondary" size="lg" fullWidth onClick={onWallet} type="button">
-              <SolanaIcon /> {walletDetected?.name ?? "Wallet"}
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              onClick={onWallet}
+              type="button"
+              leadingIcon={<SolanaIcon size={14} />}
+            >
+              {walletDetected?.name ?? "Wallet"}
             </Button>
           </div>
         </div>

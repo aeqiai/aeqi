@@ -7,14 +7,15 @@ import { buildSiweMessage, fetchNonce, loginOrSignupWithWallet } from "@/lib/wal
 
 const WalletIcon = () => (
   <svg
-    width="16"
-    height="16"
+    width="14"
+    height="14"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="2"
+    strokeWidth="1.8"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden="true"
   >
     <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
     <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
@@ -105,8 +106,9 @@ export default function ConnectWalletButton({ onAuthenticated }: Props) {
         type="button"
         onClick={handleClick}
         loading={signing}
+        leadingIcon={<WalletIcon />}
       >
-        <WalletIcon /> Wallet
+        Wallet
       </Button>
       {error && (
         <div className="auth-error" role="alert">

@@ -110,20 +110,26 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
       <div className="ideas-list-head ideas-canvas-head">
         <div className="ideas-toolbar ideas-canvas-toolbar">
           <Tooltip content="Back to events">
-            <Button variant="secondary" size="sm" onClick={() => navigate(backHref)}>
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M8 3 L4.5 6.5 L8 10" />
-              </svg>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(backHref)}
+              leadingIcon={
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M8 3 L4.5 6.5 L8 10" />
+                </svg>
+              }
+            >
               Events
             </Button>
           </Tooltip>
