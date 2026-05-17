@@ -18,11 +18,6 @@ const GovernancePage = lazy(() => import("@/pages/GovernancePage"));
 // data so sibling-agent work remains visible on `/trust/<addr>/...`.
 const EntityAgentsTab = lazy(() => import("@/components/EntityAgentsTab"));
 const EntityRolesTab = lazy(() => import("@/components/EntityRolesTab"));
-const EntityGoalsTab = lazy(() => import("@/components/EntityGoalsTab"));
-const EntityGoalDetailPage = lazy(() => import("@/components/EntityGoalDetailPage"));
-const EntityProjectsTab = lazy(() => import("@/components/EntityProjectsTab"));
-const EntityProjectDetailPage = lazy(() => import("@/components/EntityProjectDetailPage"));
-const EntityRoadmapTab = lazy(() => import("@/components/EntityRoadmapTab"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
@@ -192,42 +187,6 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
       </Suspense>
     );
   }
-  if (tab === "goals") {
-    if (itemId) {
-      return (
-        <Suspense>
-          <EntityGoalDetailPage entityId={entityId} goalId={itemId} />
-        </Suspense>
-      );
-    }
-    return (
-      <Suspense>
-        <EntityGoalsTab entityId={entityId} />
-      </Suspense>
-    );
-  }
-  if (tab === "projects") {
-    if (itemId) {
-      return (
-        <Suspense>
-          <EntityProjectDetailPage entityId={entityId} projectId={itemId} />
-        </Suspense>
-      );
-    }
-    return (
-      <Suspense>
-        <EntityProjectsTab entityId={entityId} />
-      </Suspense>
-    );
-  }
-  if (tab === "roadmap") {
-    return (
-      <Suspense>
-        <EntityRoadmapTab entityId={entityId} />
-      </Suspense>
-    );
-  }
-
   // Any unknown tab falls through to the root agent's chat surface.
   // AgentPage's tab prop is a no-op since 2026-05-08 — every entity-scope
   // tab MUST have an explicit branch above. New tabs go above this line.

@@ -122,32 +122,6 @@ const RolesIcon = () => (
   </svg>
 );
 
-// Goals — concentric target rings, the "where are we aiming" cue.
-const GoalsIcon = () => (
-  <svg {...iconProps}>
-    <circle cx="8" cy="8" r="6" />
-    <circle cx="8" cy="8" r="3.5" />
-    <circle cx="8" cy="8" r="1" fill="currentColor" />
-  </svg>
-);
-
-// Projects — stacked horizontal bars (a roadmap micro-chart).
-const ProjectsIcon = () => (
-  <svg {...iconProps}>
-    <rect x="2" y="3" width="9" height="2.5" rx="0.5" />
-    <rect x="4" y="7" width="10" height="2.5" rx="0.5" />
-    <rect x="3" y="11" width="7" height="2.5" rx="0.5" />
-  </svg>
-);
-
-// Roadmap — calendar-grid silhouette with a today marker.
-const RoadmapIcon = () => (
-  <svg {...iconProps}>
-    <rect x="2" y="3" width="12" height="10" rx="0.5" />
-    <path d="M2 6h12M8 6v7" />
-  </svg>
-);
-
 // Admin — shield silhouette.
 const AdminIcon = () => (
   <svg {...iconProps}>
@@ -400,9 +374,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
 
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
               <div className="sidebar-section-label">Workspace</div>
-              {navItem("goals", "Goals", <GoalsIcon />)}
-              {navItem("projects", "Projects", <ProjectsIcon />)}
-              {navItem("roadmap", "Roadmap", <RoadmapIcon />)}
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("events", "Events", <EventsIcon />, {
                 action: rowAction("New event", <PlusIcon />, () => {
