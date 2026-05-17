@@ -74,6 +74,71 @@ impl OpenRouterProvider {
         &self.default_model
     }
 
+    async fn post_chat_request(
+        &self,
+        api_request: &ApiRequest,
+        send_context: &str,
+    ) -> Result<reqwest::Response> {
+        let response = self
+            .client
+            .post(self.api_url())
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("HTTP-Referer", "https://aeqi.dev")
+            .header("X-Title", "System Agent")
+            .json(api_request)
+            .send()
+            .await
+            .with_context(|| send_context.to_string())?;
+
+        if response.status().is_success() {
+            return Ok(response);
+        }
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .context("failed to read OpenRouter error response body")?;
+
+        if status.as_u16() == 402
+            && let Some(affordable) = affordable_max_tokens_from_body(&body)
+            && affordable < api_request.max_tokens
+        {
+            let mut retry_request = api_request.clone();
+            retry_request.max_tokens = affordable.max(1);
+            tracing::warn!(
+                model = %retry_request.model,
+                requested_max_tokens = api_request.max_tokens,
+                retry_max_tokens = retry_request.max_tokens,
+                "retrying OpenRouter request with provider-affordable max_tokens after 402"
+            );
+
+            let retry_response = self
+                .client
+                .post(self.api_url())
+                .header("Authorization", format!("Bearer {}", self.api_key))
+                .header("HTTP-Referer", "https://aeqi.dev")
+                .header("X-Title", "System Agent")
+                .json(&retry_request)
+                .send()
+                .await
+                .with_context(|| send_context.to_string())?;
+
+            if retry_response.status().is_success() {
+                return Ok(retry_response);
+            }
+
+            let retry_status = retry_response.status();
+            let retry_body = retry_response
+                .text()
+                .await
+                .context("failed to read OpenRouter retry error response body")?;
+            return Err(openrouter_api_error(retry_status, &retry_body));
+        }
+
+        Err(openrouter_api_error(status, &body))
+    }
+
     /// Generate an image via OpenRouter using `modalities: ["image"]`.
     /// Returns raw PNG bytes decoded from the base64 response.
     pub async fn generate_image(&self, prompt: &str, model: &str) -> Result<Vec<u8>> {
@@ -169,7 +234,7 @@ impl OpenRouterProvider {
 
 // --- OpenRouter API types ---
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct ApiRequest {
     model: String,
     messages: Vec<serde_json::Value>,
@@ -193,7 +258,7 @@ struct ApiRequest {
     stream_options: Option<StreamOptions>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct StreamOptions {
     include_usage: bool,
 }
@@ -254,7 +319,7 @@ struct ToolCallAccum {
     start_emitted: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct ProviderRouting {
     /// Disable fallback to alternative providers on the OpenRouter side.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -335,6 +400,38 @@ struct ApiErrorDetail {
     message: String,
     #[serde(default)]
     code: Option<String>,
+}
+
+fn openrouter_api_error(status: reqwest::StatusCode, body: &str) -> anyhow::Error {
+    if let Ok(err) = serde_json::from_str::<ApiError>(body) {
+        anyhow::anyhow!(
+            "OpenRouter API error ({}): {}",
+            err.error.code.unwrap_or_default(),
+            err.error.message
+        )
+    } else {
+        anyhow::anyhow!("OpenRouter API error ({}): {}", status, body)
+    }
+}
+
+fn affordable_max_tokens_from_body(body: &str) -> Option<u32> {
+    serde_json::from_str::<ApiError>(body)
+        .ok()
+        .and_then(|err| affordable_max_tokens_from_text(&err.error.message))
+        .or_else(|| affordable_max_tokens_from_text(body))
+}
+
+fn affordable_max_tokens_from_text(text: &str) -> Option<u32> {
+    let lower = text.to_ascii_lowercase();
+    let marker = "can only afford";
+    let start = lower.find(marker)? + marker.len();
+    let tail = &text[start..];
+    let digits: String = tail
+        .chars()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    digits.parse::<u32>().ok().filter(|n| *n > 0)
 }
 
 // --- Conversion helpers ---
@@ -576,32 +673,12 @@ impl Provider for OpenRouterProvider {
         );
 
         let response = self
-            .client
-            .post(self.api_url())
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("HTTP-Referer", "https://aeqi.dev")
-            .header("X-Title", "System Agent")
-            .json(&api_request)
-            .send()
-            .await
-            .context("failed to send request to OpenRouter")?;
-
-        let status = response.status();
+            .post_chat_request(&api_request, "failed to send request to OpenRouter")
+            .await?;
         let body = response
             .text()
             .await
             .context("failed to read response body")?;
-
-        if !status.is_success() {
-            if let Ok(err) = serde_json::from_str::<ApiError>(&body) {
-                anyhow::bail!(
-                    "OpenRouter API error ({}): {}",
-                    err.error.code.unwrap_or_default(),
-                    err.error.message
-                );
-            }
-            anyhow::bail!("OpenRouter API error ({}): {}", status, body);
-        }
 
         let api_response: ApiResponse =
             serde_json::from_str(&body).context("failed to parse OpenRouter response")?;
@@ -718,28 +795,11 @@ impl Provider for OpenRouterProvider {
         );
 
         let response = self
-            .client
-            .post(self.api_url())
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("HTTP-Referer", "https://aeqi.dev")
-            .header("X-Title", "System Agent")
-            .json(&api_request)
-            .send()
-            .await
-            .context("failed to send streaming request to OpenRouter")?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await?;
-            if let Ok(err) = serde_json::from_str::<ApiError>(&body) {
-                anyhow::bail!(
-                    "OpenRouter API error ({}): {}",
-                    err.error.code.unwrap_or_default(),
-                    err.error.message
-                );
-            }
-            anyhow::bail!("OpenRouter API error ({}): {}", status, body);
-        }
+            .post_chat_request(
+                &api_request,
+                "failed to send streaming request to OpenRouter",
+            )
+            .await?;
 
         // State accumulators for assembling the final ChatResponse on done.
         let mut accum_text = String::new();
@@ -952,5 +1012,29 @@ mod cache_control_tests {
             Some("marked plain"),
             "OpenRouter joins parts into a single text block",
         );
+    }
+
+    #[test]
+    fn parses_openrouter_affordable_token_count_from_json_error() {
+        let body = r#"{
+            "error": {
+                "code": "402",
+                "message": "This request requires more credits. You requested up to 8192 tokens, but can only afford 260 tokens."
+            }
+        }"#;
+
+        assert_eq!(affordable_max_tokens_from_body(body), Some(260));
+    }
+
+    #[test]
+    fn ignores_unrelated_openrouter_errors_for_budget_retry() {
+        let body = r#"{
+            "error": {
+                "code": "401",
+                "message": "Missing Authentication header"
+            }
+        }"#;
+
+        assert_eq!(affordable_max_tokens_from_body(body), None);
     }
 }
