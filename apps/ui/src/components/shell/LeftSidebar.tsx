@@ -149,6 +149,14 @@ const ProjectsIcon = () => (
   </svg>
 );
 
+// Roadmap — calendar-grid silhouette with a today marker.
+const RoadmapIcon = () => (
+  <svg {...iconProps}>
+    <rect x="2" y="3" width="12" height="10" rx="0.5" />
+    <path d="M2 6h12M8 6v7" />
+  </svg>
+);
+
 // Admin — shield silhouette.
 const AdminIcon = () => (
   <svg {...iconProps}>
@@ -414,6 +422,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               <div className="sidebar-section-label">Workspace</div>
               {navItem("goals", "Goals", <GoalsIcon />)}
               {navItem("projects", "Projects", <ProjectsIcon />)}
+              {navItem("roadmap", "Roadmap", <RoadmapIcon />)}
               {navItem("agents", "Agents", <AgentsIcon />)}
               {navItem("events", "Events", <EventsIcon />, {
                 action: rowAction("New event", <PlusIcon />, () => {

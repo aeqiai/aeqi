@@ -21,6 +21,7 @@ const EntityAgentsTab = lazy(() => import("@/components/EntityAgentsTab"));
 const EntityRolesTab = lazy(() => import("@/components/EntityRolesTab"));
 const EntityGoalsTab = lazy(() => import("@/components/EntityGoalsTab"));
 const EntityProjectsTab = lazy(() => import("@/components/EntityProjectsTab"));
+const EntityRoadmapTab = lazy(() => import("@/components/EntityRoadmapTab"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
@@ -201,6 +202,13 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
     return (
       <Suspense>
         <EntityProjectsTab entityId={entityId} />
+      </Suspense>
+    );
+  }
+  if (tab === "roadmap") {
+    return (
+      <Suspense>
+        <EntityRoadmapTab entityId={entityId} />
       </Suspense>
     );
   }

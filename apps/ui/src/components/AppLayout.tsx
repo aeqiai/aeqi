@@ -74,6 +74,7 @@ const COMPANY_PAGE_TABS = new Set([
   "health",
   "goals",
   "projects",
+  "roadmap",
   "roles",
   "ownership",
   "treasury",
