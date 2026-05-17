@@ -648,6 +648,25 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
             Err(_) => continue,
         };
 
+        if current_exe_has_been_replaced() {
+            let response = McpResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id.unwrap_or(serde_json::Value::Null),
+                result: None,
+                error: Some(serde_json::json!({
+                    "code": -32090,
+                    "message": "aeqi mcp executable was replaced; restarting stdio server"
+                })),
+            };
+            let resp_json = serde_json::to_string(&response)?;
+            writeln!(stdout, "{resp_json}")?;
+            stdout.flush()?;
+            eprintln!(
+                "[aeqi-mcp] executable has been replaced on disk; exiting so the client can reconnect"
+            );
+            break;
+        }
+
         let response = match request.method.as_str() {
             "initialize" => McpResponse {
                 jsonrpc: "2.0".to_string(),
@@ -1424,6 +1443,16 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+fn current_exe_has_been_replaced() -> bool {
+    std::fs::read_link("/proc/self/exe")
+        .ok()
+        .is_some_and(|path| exe_link_target_is_deleted(&path))
+}
+
+fn exe_link_target_is_deleted(path: &Path) -> bool {
+    path.to_string_lossy().ends_with(" (deleted)")
+}
+
 fn agents_get_context_ipc_request(agent_hint: &str) -> serde_json::Value {
     serde_json::json!({
         "cmd": "trigger_event",
@@ -1647,6 +1676,16 @@ mod tests {
         let stream = connect_with_retry(&sock_path).expect("connect should ride the retry");
         drop(stream);
         let _listener = handle.join().expect("bind thread joined");
+    }
+
+    #[test]
+    fn detects_deleted_proc_exe_target() {
+        assert!(exe_link_target_is_deleted(Path::new(
+            "/home/me/aeqi/target/release/aeqi (deleted)"
+        )));
+        assert!(!exe_link_target_is_deleted(Path::new(
+            "/home/me/aeqi/target/release/aeqi"
+        )));
     }
 
     #[test]

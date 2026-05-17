@@ -11,6 +11,7 @@ use anyhow::{Result, bail};
 use chrono::Utc;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 
 use crate::helpers::{
@@ -201,6 +202,15 @@ pub(crate) async fn cmd_doctor(
                 );
             }
 
+            if config.agent_spawns.is_empty() {
+                t.report(
+                    Severity::Optional,
+                    "No [[projects]] entries configured — code graph MCP tools need \
+                     repo_path on every call or a discoverable local checkout. Add \
+                     explicit projects for stable stdio/HTTP MCP repo resolution.",
+                );
+            }
+
             for pcfg in &config.agent_spawns {
                 let runtime = config.runtime_for_project(&pcfg.name);
                 let mode = config.execution_mode_for_project(&pcfg.name);
@@ -290,6 +300,41 @@ pub(crate) async fn cmd_doctor(
                             pcfg.name
                         ),
                     ),
+                }
+            }
+
+            let stale_mcp = stale_deleted_mcp_processes();
+            if !stale_mcp.is_empty() {
+                let pids = stale_mcp
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if fix {
+                    let mut killed = 0usize;
+                    for pid in stale_mcp {
+                        if Command::new("kill")
+                            .arg("-TERM")
+                            .arg(pid.to_string())
+                            .status()
+                            .is_ok_and(|status| status.success())
+                        {
+                            killed += 1;
+                        }
+                    }
+                    if killed > 0 {
+                        t.fixed(format!(
+                            "Sent SIGTERM to {killed} stale deleted `aeqi mcp` process(es)"
+                        ));
+                    }
+                } else {
+                    t.report(
+                        Severity::Optional,
+                        format!(
+                            "Stale deleted `aeqi mcp` process(es): {pids}. They are \
+                             still serving the old binary after a deploy."
+                        ),
+                    );
                 }
             }
 
@@ -570,4 +615,76 @@ fn classify_row(
         return CredentialReasonCode::Expired;
     }
     CredentialReasonCode::Ok
+}
+
+fn stale_deleted_mcp_processes() -> Vec<u32> {
+    let current_pid = std::process::id();
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return Vec::new();
+    };
+
+    entries
+        .flatten()
+        .filter_map(|entry| {
+            let pid = entry.file_name().to_string_lossy().parse::<u32>().ok()?;
+            if pid == current_pid {
+                return None;
+            }
+
+            let proc_dir = entry.path();
+            let exe = std::fs::read_link(proc_dir.join("exe")).ok()?;
+            if !proc_exe_target_is_deleted(&exe) {
+                return None;
+            }
+
+            let cmdline = std::fs::read(proc_dir.join("cmdline")).ok()?;
+            if proc_cmdline_is_aeqi_mcp(&cmdline) {
+                Some(pid)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn proc_exe_target_is_deleted(path: &Path) -> bool {
+    path.to_string_lossy().ends_with(" (deleted)")
+}
+
+fn proc_cmdline_is_aeqi_mcp(cmdline: &[u8]) -> bool {
+    let parts = cmdline
+        .split(|byte| *byte == 0)
+        .filter(|part| !part.is_empty())
+        .map(|part| String::from_utf8_lossy(part))
+        .collect::<Vec<_>>();
+
+    parts
+        .first()
+        .is_some_and(|cmd| cmd.ends_with("/aeqi") || cmd.as_ref() == "aeqi")
+        && parts.iter().skip(1).any(|arg| arg.as_ref() == "mcp")
+}
+
+#[cfg(test)]
+mod stale_mcp_tests {
+    use super::*;
+
+    #[test]
+    fn detects_deleted_proc_exe_target() {
+        assert!(proc_exe_target_is_deleted(Path::new(
+            "/home/me/aeqi/target/release/aeqi (deleted)"
+        )));
+        assert!(!proc_exe_target_is_deleted(Path::new(
+            "/home/me/aeqi/target/release/aeqi"
+        )));
+    }
+
+    #[test]
+    fn detects_aeqi_mcp_cmdline() {
+        assert!(proc_cmdline_is_aeqi_mcp(
+            b"/home/me/aeqi/target/release/aeqi\0mcp\0"
+        ));
+        assert!(proc_cmdline_is_aeqi_mcp(b"aeqi\0--config\0x\0mcp\0"));
+        assert!(!proc_cmdline_is_aeqi_mcp(b"/home/me/aeqi\0start\0"));
+        assert!(!proc_cmdline_is_aeqi_mcp(b"/usr/bin/bash\0-c\0aeqi mcp\0"));
+    }
 }
