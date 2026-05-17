@@ -186,7 +186,7 @@ impl Default for AgentConfig {
         Self {
             model: "anthropic/claude-sonnet-4.6".to_string(),
             max_iterations: 20,
-            max_tokens: 8192,
+            max_tokens: 4_096,
             temperature: 0.0,
             name: "agent".to_string(),
             agent_id: None,
@@ -2195,7 +2195,7 @@ mod tests {
         assert_eq!(config.max_tool_results_per_step, 200_000);
         assert_eq!(config.max_retries, 0);
         assert_eq!(config.max_output_recovery, 3);
-        assert_eq!(config.max_tokens, 8192);
+        assert_eq!(config.max_tokens, 4_096);
         assert!(config.fallback_model.is_none());
         assert!(config.persist_dir.is_none());
         assert!((config.compact_threshold - 0.80).abs() < f32::EPSILON);

@@ -128,9 +128,7 @@ describe("aeqi_governance", () => {
   async function waitPastSnapshotSlot(proposalPda: PublicKey) {
     const p = await program.account.proposal.fetch(proposalPda);
     const target = BigInt(p.snapshotSlot.toString());
-    while (
-      BigInt(await provider.connection.getSlot("processed")) <= target
-    ) {
+    while (BigInt(await provider.connection.getSlot("processed")) <= target) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   }
@@ -346,10 +344,7 @@ describe("aeqi_governance", () => {
       { holder: voter, balance: BigInt(args.voteAmount) },
     ];
     const tree = buildMerkleTree(snapshotEntries);
-    const totalSupply = snapshotEntries.reduce(
-      (acc, e) => acc + e.balance,
-      0n,
-    );
+    const totalSupply = snapshotEntries.reduce((acc, e) => acc + e.balance, 0n);
 
     if (!(args.skipSnapshotCommit ?? false)) {
       // commit_snapshot_root requires current_slot > proposal.snapshot_slot.

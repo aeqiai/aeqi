@@ -175,7 +175,7 @@ pub const SUMMARY_BUDGET_MIN: u32 = 256;
 
 /// Maximum tokens the compactor is allowed for its summary. Caps the formula
 /// so a giant input doesn't authorize a runaway LLM call.
-pub const SUMMARY_BUDGET_MAX: u32 = 4_096;
+pub const SUMMARY_BUDGET_MAX: u32 = 1_024;
 
 /// Compute the `max_tokens` budget for a compactor session given the input
 /// character count. Pure function — testable without any LLM/runtime context.

@@ -73,7 +73,7 @@ fn resolve_spawn_max_tokens(kind: &str, input_chars: usize) -> u32 {
         aeqi_core::agent::compaction::compute_summary_max_tokens(input_chars)
     } else {
         // Inherit the AgentConfig default for non-compactor spawns. The
-        // default ships at 8192; surfacing the constant here keeps the call
+        // default ships at 4096; surfacing the constant here keeps the call
         // sites honest if the default ever changes.
         aeqi_core::AgentConfig::default().max_tokens
     }

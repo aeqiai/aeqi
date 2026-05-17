@@ -390,9 +390,8 @@ describe("AEQI end-to-end spawn", () => {
     );
     const tree = buildMerkleTree([{ holder: voter, balance: 1000n }]);
     // Wait until the cluster advances past proposal.snapshot_slot.
-    const proposalForSlot = await governance.account.proposal.fetch(
-      proposalPda,
-    );
+    const proposalForSlot =
+      await governance.account.proposal.fetch(proposalPda);
     const targetSlot = BigInt(proposalForSlot.snapshotSlot.toString());
     while (
       BigInt(await provider.connection.getSlot("processed")) <= targetSlot
