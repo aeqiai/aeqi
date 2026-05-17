@@ -2,9 +2,10 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiBudget } from "../target/types/aeqi_budget";
 import { AeqiRole } from "../target/types/aeqi_role";
-import { PublicKey, Keypair } from "@solana/web3.js";
+import { AeqiTrust } from "../target/types/aeqi_trust";
+import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
-import { expectTxFail, fundKeypair } from "./support";
+import { createTrust, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_budget", () => {
   const provider = anchor.AnchorProvider.env();
@@ -12,8 +13,9 @@ describe("aeqi_budget", () => {
 
   const program = anchor.workspace.aeqiBudget as Program<AeqiBudget>;
   const roleProgram = anchor.workspace.aeqiRole as Program<AeqiRole>;
+  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
   let modulePda: PublicKey;
   let targetRolePda: PublicKey;
 
@@ -23,6 +25,8 @@ describe("aeqi_budget", () => {
   targetRoleId[0] = 0x65;
 
   before(async () => {
+    fakeTrust = await createTrust(provider, trustProgram, "aeqi-budget");
+
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("budget_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -125,6 +129,34 @@ describe("aeqi_budget", () => {
     const m = await program.account.budgetModuleState.fetch(modulePda);
     expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
     expect(m.budgetCount.toString()).to.eq("0");
+  });
+
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-budget-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("budget_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("create_budget + record_spend tracks allocation against cap", async () => {

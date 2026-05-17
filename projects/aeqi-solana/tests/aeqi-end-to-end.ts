@@ -1,10 +1,9 @@
 /**
  * AEQI end-to-end spawn — the full architecture proof.
  *
- * Spawns an AEQI TRUST via aeqi_factory.create_with_modules, then initializes
- * the role / token / governance modules under it, registers role types and a
- * governance config, runs a proposal lifecycle (propose → vote → execute) end
- * to end. Exercises every program in one tx graph.
+ * Spawns an AEQI TRUST via aeqi_factory.create_company_full, registers and
+ * initializes the role / token / governance modules under it, then runs role,
+ * token, and governance flows end to end.
  */
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
@@ -96,7 +95,7 @@ describe("AEQI end-to-end spawn", () => {
       .rpc();
   }
 
-  it("step 1: factory.create_with_modules spawns AEQI trust + registers 3 modules + finalizes", async () => {
+  it("step 1: factory.create_company_full spawns AEQI trust + registers/inits 3 modules + finalizes", async () => {
     const [roleModulePda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("module"),
@@ -121,45 +120,57 @@ describe("AEQI end-to-end spawn", () => {
       ],
       trust.programId,
     );
+    const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role_module"), trustPda.toBuffer()],
+      role.programId,
+    );
+    const [tokenModuleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("token_module"), trustPda.toBuffer()],
+      token.programId,
+    );
+    const [govModuleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("gov_module"), trustPda.toBuffer()],
+      governance.programId,
+    );
+    const tokenConfigKey = new Uint8Array(32);
+    tokenConfigKey[0] = 1;
+    const [tokenBytesConfigPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("cfg_bytes"),
+        trustPda.toBuffer(),
+        Buffer.from(tokenConfigKey),
+      ],
+      trust.programId,
+    );
 
     await factory.methods
-      .createWithModules(Array.from(trustId), [
-        {
-          moduleId: Array.from(roleModuleIdBytes),
-          programId: role.programId,
-          provider: provider.wallet.publicKey,
-          implementationVersion: new anchor.BN(1),
-          implementationMetadataHash: Array.from(new Uint8Array(32)),
-          trustAcl: new anchor.BN(0xff),
-        },
-        {
-          moduleId: Array.from(tokenModuleIdBytes),
-          programId: token.programId,
-          provider: provider.wallet.publicKey,
-          implementationVersion: new anchor.BN(1),
-          implementationMetadataHash: Array.from(new Uint8Array(32)),
-          trustAcl: new anchor.BN(0xff),
-        },
-        {
-          moduleId: Array.from(govModuleIdBytes),
-          programId: governance.programId,
-          provider: provider.wallet.publicKey,
-          implementationVersion: new anchor.BN(1),
-          implementationMetadataHash: Array.from(new Uint8Array(32)),
-          trustAcl: new anchor.BN(0xff),
-        },
-      ])
+      .createCompanyFull(
+        Array.from(trustId),
+        Array.from(roleModuleIdBytes),
+        Array.from(tokenModuleIdBytes),
+        Array.from(govModuleIdBytes),
+        new anchor.BN(0xff),
+        new anchor.BN(0xff),
+        new anchor.BN(0xff),
+        9,
+        new anchor.BN(0),
+      )
       .accountsPartial({
         trust: trustPda,
+        roleModule: roleModulePda,
+        tokenModule: tokenModulePda,
+        govModule: govModulePda,
+        roleModuleState: roleModuleStatePda,
+        tokenModuleState: tokenModuleStatePda,
+        govModuleState: govModuleStatePda,
+        tokenBytesConfig: tokenBytesConfigPda,
         authority: provider.wallet.publicKey,
         aeqiTrustProgram: trust.programId,
+        aeqiRoleProgram: role.programId,
+        aeqiTokenProgram: token.programId,
+        aeqiGovernanceProgram: governance.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
-      .remainingAccounts([
-        { pubkey: roleModulePda, isWritable: true, isSigner: false },
-        { pubkey: tokenModulePda, isWritable: true, isSigner: false },
-        { pubkey: govModulePda, isWritable: true, isSigner: false },
-      ])
       .rpc();
 
     const t = await trust.account.trust.fetch(trustPda);
@@ -176,52 +187,21 @@ describe("AEQI end-to-end spawn", () => {
     expect(g.programId.toBase58()).to.eq(governance.programId.toBase58());
   });
 
-  it("step 2: init each module under the AEQI trust (role, token, governance)", async () => {
-    // role.init
+  it("step 2: verifies factory-initialized module state under the AEQI trust", async () => {
     const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustPda.toBuffer()],
       role.programId,
     );
-    await role.methods
-      .init()
-      .accountsPartial({
-        trust: trustPda,
-        moduleState: roleModuleStatePda,
-        payer: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
 
-    // token.init
     const [tokenModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_module"), trustPda.toBuffer()],
       token.programId,
     );
-    await token.methods
-      .init()
-      .accountsPartial({
-        trust: trustPda,
-        moduleState: tokenModuleStatePda,
-        payer: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
-    await finalizeTokenModule(tokenModuleStatePda);
 
-    // governance.init
     const [govModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("gov_module"), trustPda.toBuffer()],
       governance.programId,
     );
-    await governance.methods
-      .init()
-      .accountsPartial({
-        trust: trustPda,
-        moduleState: govModuleStatePda,
-        payer: provider.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
 
     // All three module-state PDAs exist + bound to the AEQI trust
     const rs = await role.account.roleModuleState.fetch(roleModuleStatePda);

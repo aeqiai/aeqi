@@ -11,6 +11,11 @@ import {
   createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 import { expect } from "chai";
+import {
+  createTrust as createTestTrust,
+  expectTxFail,
+  fundKeypair,
+} from "./support";
 
 describe("aeqi_governance", () => {
   const provider = anchor.AnchorProvider.env();
@@ -20,10 +25,16 @@ describe("aeqi_governance", () => {
   const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
   const tokenProgram = anchor.workspace.aeqiToken as Program<AeqiToken>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
   let modulePda: PublicKey;
 
-  before(() => {
+  before(async () => {
+    fakeTrust = await createTestTrust(
+      provider,
+      trustProgram,
+      "aeqi-governance",
+    );
+
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("gov_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -333,6 +344,34 @@ describe("aeqi_governance", () => {
     expect(m.configCount).to.eq(0);
   });
 
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTestTrust(
+      provider,
+      trustProgram,
+      "aeqi-governance-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("gov_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
+  });
+
   it("registers a token-voting governance config", async () => {
     const tokenConfigId = new Uint8Array(32); // [0; 32] = token mode
 
@@ -367,6 +406,58 @@ describe("aeqi_governance", () => {
     expect(cfg.quorumBps).to.eq(4000);
     expect(cfg.supportBps).to.eq(5000);
     expect(cfg.votingPeriod.toString()).to.eq("432000");
+  });
+
+  it("register_config rejects a payer that is not the trust authority", async () => {
+    const trust = await createTestTrust(
+      provider,
+      trustProgram,
+      "aeqi-governance-unauthorized-register-config",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("gov_module"), trust.toBuffer()],
+      program.programId,
+    );
+    await program.methods
+      .init()
+      .accountsPartial({
+        trust,
+        moduleState: moduleStatePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const cfgId = new Uint8Array(32);
+    cfgId[0] = 0x51;
+    const [cfgPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("gov_config"), trust.toBuffer(), Buffer.from(cfgId)],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .registerConfig(Array.from(cfgId), {
+            proposalThreshold: new anchor.BN(0),
+            quorumBps: 4000,
+            supportBps: 5000,
+            votingPeriod: new anchor.BN(60),
+            executionDelay: new anchor.BN(0),
+            allowEarlyEnact: false,
+          })
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            governanceConfig: cfgPda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("propose creates a Proposal PDA bound to the config", async () => {
@@ -790,16 +881,16 @@ describe("aeqi_governance", () => {
 
   it("cast_vote_role reads weight from RoleVoteCheckpoint owned by aeqi_role", async () => {
     // Need an actual RoleVoteCheckpoint PDA — set one up by spinning up
-    // aeqi_role on a fresh fake trust, creating + assigning a role.
+    // aeqi_role on a fresh trust, creating + assigning a role.
     const role = anchor.workspace.aeqiRole as anchor.Program<
       import("../target/types/aeqi_role").AeqiRole
     >;
 
-    const trustR = Keypair.generate().publicKey;
+    const trustR = await createTrust(0xee);
     const directorTypeId = new Uint8Array(32);
     directorTypeId[0] = 0xc7;
 
-    // 1. init aeqi_role module on fake trust
+    // 1. init aeqi_role module on the trust
     const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustR.toBuffer()],
       role.programId,

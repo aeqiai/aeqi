@@ -44,11 +44,7 @@ pub mod aeqi_fund {
     pub fn init(ctx: Context<InitFund>) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, FundError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            FundError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, FundError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();

@@ -21,6 +21,13 @@ describe("aeqi_token", () => {
   const program = anchor.workspace.aeqiToken as Program<AeqiToken>;
   const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
+  function encodeTokenInitConfig(decimals: number, maxSupplyCap = 0) {
+    const data = Buffer.alloc(9);
+    data.writeUInt8(decimals, 0);
+    data.writeBigUInt64LE(BigInt(maxSupplyCap), 1);
+    return data;
+  }
+
   async function createTrust(seed0: number, seed1 = 0) {
     const trustId = new Uint8Array(32);
     trustId[0] = seed0;
@@ -42,11 +49,48 @@ describe("aeqi_token", () => {
     return trustPda;
   }
 
+  async function finalizeTokenModule(
+    trustPda: PublicKey,
+    tokenModuleStatePda: PublicKey,
+    decimals = 9,
+  ) {
+    const tokenConfigKey = new Uint8Array(32);
+    tokenConfigKey[0] = 1;
+    const [tokenBytesConfigPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("cfg_bytes"),
+        trustPda.toBuffer(),
+        Buffer.from(tokenConfigKey),
+      ],
+      trustProgram.programId,
+    );
+
+    await trustProgram.methods
+      .setBytesConfig(
+        Array.from(tokenConfigKey),
+        encodeTokenInitConfig(decimals),
+      )
+      .accountsPartial({
+        trust: trustPda,
+        config: tokenBytesConfigPda,
+        sourceModule: null,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    await program.methods
+      .finalize()
+      .accountsPartial({
+        trust: trustPda,
+        moduleState: tokenModuleStatePda,
+        bytesConfig: tokenBytesConfigPda,
+      })
+      .rpc();
+  }
+
   it("init creates a TokenModuleState PDA bound to a trust", async () => {
-    // Use a synthetic trust pubkey — for this isolated test the trust PDA
-    // doesn't need to be a real aeqi_trust account; the module just records
-    // its address.
-    const fakeTrust = Keypair.generate().publicKey;
+    const fakeTrust = await createTrust(0xa0);
 
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_module"), fakeTrust.toBuffer()],
@@ -69,8 +113,32 @@ describe("aeqi_token", () => {
     expect(state.mint.toBase58()).to.eq(PublicKey.default.toBase58());
   });
 
+  it("init rejects a payer that is not the trust authority", async () => {
+    const fakeTrust = await createTrust(0xa0, 0xff);
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("token_module"), fakeTrust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust: fakeTrust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
+  });
+
   it("create_mint creates a Token-2022 mint as a PDA", async () => {
-    const fakeTrust = Keypair.generate().publicKey;
+    const fakeTrust = await createTrust(0xa0, 1);
 
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_module"), fakeTrust.toBuffer()],
@@ -87,6 +155,7 @@ describe("aeqi_token", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(fakeTrust, moduleStatePda);
 
     const [mintAuthorityPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_authority"), fakeTrust.toBuffer()],
@@ -145,6 +214,7 @@ describe("aeqi_token", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(fakeTrust, moduleStatePda);
     await program.methods
       .createMint(9)
       .accountsPartial({
@@ -231,6 +301,7 @@ describe("aeqi_token", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(fakeTrust, moduleStatePda);
     await program.methods
       .createMint(9)
       .accountsPartial({
@@ -328,6 +399,7 @@ describe("aeqi_token", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(fakeTrust, moduleStatePda);
     await program.methods
       .createMint(9)
       .accountsPartial({
@@ -380,7 +452,7 @@ describe("aeqi_token", () => {
   });
 
   it("create_mint rejects a second mint for the same trust", async () => {
-    const fakeTrust = Keypair.generate().publicKey;
+    const fakeTrust = await createTrust(0xa3, 1);
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -403,6 +475,7 @@ describe("aeqi_token", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(fakeTrust, moduleStatePda);
 
     await program.methods
       .createMint(9)
@@ -436,7 +509,7 @@ describe("aeqi_token", () => {
   });
 
   it("create_mint rejects the legacy SPL Token program", async () => {
-    const fakeTrust = Keypair.generate().publicKey;
+    const fakeTrust = await createTrust(0xa3, 2);
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("token_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -459,6 +532,7 @@ describe("aeqi_token", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(fakeTrust, moduleStatePda);
 
     await expectTxFail(
       async () =>

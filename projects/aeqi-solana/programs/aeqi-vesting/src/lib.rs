@@ -37,11 +37,7 @@ pub mod aeqi_vesting {
     pub fn init(ctx: Context<InitVesting>) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, VestingError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            VestingError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, VestingError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();

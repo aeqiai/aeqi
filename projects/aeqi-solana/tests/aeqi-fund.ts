@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiFund } from "../target/types/aeqi_fund";
+import { AeqiTrust } from "../target/types/aeqi_trust";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
@@ -12,17 +13,21 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
+import { createTrust, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_fund", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiFund as Program<AeqiFund>;
+  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
   let modulePda: PublicKey;
 
-  before(() => {
+  before(async () => {
+    fakeTrust = await createTrust(provider, trustProgram, "aeqi-fund");
+
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("fund_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -43,6 +48,34 @@ describe("aeqi_fund", () => {
     const m = await program.account.fundModuleState.fetch(modulePda);
     expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
     expect(m.fundCount.toString()).to.eq("0");
+  });
+
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-fund-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("fund_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("create_fund + deposit + redeem — full LP cycle", async () => {

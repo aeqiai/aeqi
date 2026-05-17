@@ -44,11 +44,7 @@ pub mod aeqi_unifutures {
     pub fn init(ctx: Context<InitUnifutures>) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, UnifuturesError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            UnifuturesError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, UnifuturesError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();

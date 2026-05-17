@@ -2,6 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiBudget } from "../target/types/aeqi_budget";
 import { AeqiFunding } from "../target/types/aeqi_funding";
+import { AeqiTrust } from "../target/types/aeqi_trust";
 import { AeqiUnifutures } from "../target/types/aeqi_unifutures";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
@@ -13,7 +14,7 @@ import {
   mintTo,
 } from "@solana/spl-token";
 import { expect } from "chai";
-import { expectTxFail } from "./support";
+import { createTrust, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_funding", () => {
   const provider = anchor.AnchorProvider.env();
@@ -21,12 +22,15 @@ describe("aeqi_funding", () => {
 
   const program = anchor.workspace.aeqiFunding as Program<AeqiFunding>;
   const budgetProgram = anchor.workspace.aeqiBudget as Program<AeqiBudget>;
+  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
   let modulePda: PublicKey;
   let budgetModulePda: PublicKey;
 
   before(async () => {
+    fakeTrust = await createTrust(provider, trustProgram, "aeqi-funding");
+
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("funding_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -146,6 +150,34 @@ describe("aeqi_funding", () => {
     const m = await program.account.fundingModuleState.fetch(modulePda);
     expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
     expect(m.requestCount.toString()).to.eq("0");
+  });
+
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-funding-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("funding_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("create_funding_request stores a Pending FundingRequest PDA", async () => {

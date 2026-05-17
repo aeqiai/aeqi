@@ -1,16 +1,23 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiRole } from "../target/types/aeqi_role";
+import { AeqiTrust } from "../target/types/aeqi_trust";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import { expect } from "chai";
+import { createTrust, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_role", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiRole as Program<AeqiRole>;
+  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
+
+  before(async () => {
+    fakeTrust = await createTrust(provider, trustProgram, "aeqi-role-main");
+  });
 
   it("init creates the role module state", async () => {
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
@@ -31,6 +38,34 @@ describe("aeqi_role", () => {
     const m = await program.account.roleModuleState.fetch(moduleStatePda);
     expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
     expect(m.initialized).to.eq(true);
+  });
+
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("create_role_type stores a RoleType PDA", async () => {
@@ -243,7 +278,11 @@ describe("aeqi_role", () => {
   });
 
   it("assign_role rejects child assignment without an authorized caller role", async () => {
-    const trustA = Keypair.generate().publicKey;
+    const trustA = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-assign-child",
+    );
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustA.toBuffer()],
       program.programId,
@@ -418,7 +457,11 @@ describe("aeqi_role", () => {
   });
 
   it("resign_role transitions Occupied → Resigned + decrements checkpoint", async () => {
-    const trustR = Keypair.generate().publicKey;
+    const trustR = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-resign",
+    );
 
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustR.toBuffer()],
@@ -530,7 +573,11 @@ describe("aeqi_role", () => {
   });
 
   it("transfer_role hands off the role + moves the vote checkpoint", async () => {
-    const trustT = Keypair.generate().publicKey;
+    const trustT = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-transfer",
+    );
 
     // init module
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
@@ -667,7 +714,11 @@ describe("aeqi_role", () => {
 
   it("delegate_role transfers vote-power from self to a delegatee", async () => {
     // Fresh trust so PDAs don't collide with previous tests
-    const trustD = Keypair.generate().publicKey;
+    const trustD = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-delegate",
+    );
 
     const [moduleStatePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("role_module"), trustD.toBuffer()],
@@ -827,7 +878,11 @@ describe("aeqi_role", () => {
 
   it("authority walk authorizes ancestor over deep descendant", async () => {
     // Use a fresh trust so PDAs don't collide with previous tests.
-    const trust2 = Keypair.generate().publicKey;
+    const trust2 = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-authority-walk",
+    );
 
     // role_module init for trust2
     const [moduleStatePda2] = PublicKey.findProgramAddressSync(
@@ -1009,7 +1064,11 @@ describe("aeqi_role", () => {
   });
 
   it("authority walk REJECTS unrelated caller (not in target's ancestor chain)", async () => {
-    const trustN = Keypair.generate().publicKey;
+    const trustN = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-role-authority-reject",
+    );
 
     // init module
     const [moduleStatePda] = PublicKey.findProgramAddressSync(

@@ -34,11 +34,7 @@ pub mod aeqi_budget {
     pub fn init(ctx: Context<InitBudget>) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, BudgetError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            BudgetError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, BudgetError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
@@ -73,11 +69,7 @@ pub mod aeqi_budget {
         // trust authority to sign. Parent-budget-sourced delegation is
         // out of scope until the role-walk + governance plumbing lands.
         let trust = &ctx.accounts.trust;
-        require_keys_eq!(
-            ctx.accounts.grantor.key(),
-            trust.authority,
-            BudgetError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.grantor.key(), trust.authority, BudgetError::Unauthorized);
 
         let b = &mut ctx.accounts.budget;
         b.trust = ctx.accounts.trust.key();

@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { AeqiTreasury } from "../target/types/aeqi_treasury";
+import { AeqiTrust } from "../target/types/aeqi_trust";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
@@ -12,15 +13,16 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
-import { expectTxFail, fundKeypair } from "./support";
+import { createTrust, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_treasury", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiTreasury as Program<AeqiTreasury>;
+  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
   let modulePda: PublicKey;
   let vaultAuthority: PublicKey;
   let mint: PublicKey;
@@ -28,6 +30,8 @@ describe("aeqi_treasury", () => {
   let recipientAta: PublicKey;
 
   before(async () => {
+    fakeTrust = await createTrust(provider, trustProgram, "aeqi-treasury");
+
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("treasury_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -116,6 +120,34 @@ describe("aeqi_treasury", () => {
     expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
     expect(m.treasuryAuthority.toBase58()).to.eq(
       provider.wallet.publicKey.toBase58(),
+    );
+  });
+
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-treasury-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("treasury_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init(provider.wallet.publicKey)
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
     );
   });
 

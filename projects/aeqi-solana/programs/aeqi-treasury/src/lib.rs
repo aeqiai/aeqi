@@ -38,11 +38,7 @@ pub mod aeqi_treasury {
     pub fn init(ctx: Context<InitTreasury>, treasury_authority: Pubkey) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, TreasuryError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            TreasuryError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, TreasuryError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();

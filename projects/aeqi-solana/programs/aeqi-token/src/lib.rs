@@ -71,11 +71,7 @@ pub mod aeqi_token {
     pub fn init(ctx: Context<InitToken>) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, TokenError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            TokenError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, TokenError::Unauthorized);
 
         let module = &mut ctx.accounts.module_state;
         module.trust = ctx.accounts.trust.key();

@@ -1,5 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
+import { AeqiTrust } from "../target/types/aeqi_trust";
 import { AeqiUnifutures } from "../target/types/aeqi_unifutures";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import {
@@ -12,14 +13,16 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
+import { createTrust, expectTxFail, fundKeypair } from "./support";
 
 describe("aeqi_unifutures", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.aeqiUnifutures as Program<AeqiUnifutures>;
+  const trustProgram = anchor.workspace.aeqiTrust as Program<AeqiTrust>;
 
-  const fakeTrust = Keypair.generate().publicKey;
+  let fakeTrust: PublicKey;
   let modulePda: PublicKey;
 
   // PRECISION = 1e18
@@ -116,6 +119,8 @@ describe("aeqi_unifutures", () => {
   };
 
   before(async () => {
+    fakeTrust = await createTrust(provider, trustProgram, "aeqi-unifutures");
+
     [modulePda] = PublicKey.findProgramAddressSync(
       [Buffer.from("unifutures_module"), fakeTrust.toBuffer()],
       program.programId,
@@ -260,6 +265,34 @@ describe("aeqi_unifutures", () => {
     const m = await program.account.unifuturesModuleState.fetch(modulePda);
     expect(m.trust.toBase58()).to.eq(fakeTrust.toBase58());
     expect(m.curveCount.toString()).to.eq("0");
+  });
+
+  it("init rejects a payer that is not the trust authority", async () => {
+    const trust = await createTrust(
+      provider,
+      trustProgram,
+      "aeqi-unifutures-unauthorized-init",
+    );
+    const [moduleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("unifutures_module"), trust.toBuffer()],
+      program.programId,
+    );
+    const payer = await fundKeypair(provider);
+
+    await expectTxFail(
+      () =>
+        program.methods
+          .init()
+          .accountsPartial({
+            trust,
+            moduleState: moduleStatePda,
+            payer: payer.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([payer])
+          .rpc(),
+      /Unauthorized/,
+    );
   });
 
   it("create_curve stores a BondingCurve PDA (linear, 1e18→2e18, max 1000)", async () => {
