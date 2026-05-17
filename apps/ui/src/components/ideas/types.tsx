@@ -35,12 +35,32 @@ export const SORT_LABELS: Record<SortMode, string> = {
   alpha: "A → Z",
 };
 
+/**
+ * Kind discriminator for filter chips. `all` shows every kind; the
+ * specific values map to `Idea.kind` per design canon
+ * `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`.
+ */
+export type KindFilter = "all" | "note" | "file" | "goal";
+export const KIND_FILTER_VALUES: KindFilter[] = ["all", "note", "file", "goal"];
+export const KIND_FILTER_LABELS: Record<KindFilter, string> = {
+  all: "All",
+  note: "Notes",
+  file: "Files",
+  goal: "Goals",
+};
+
+export function parseKind(raw: string | null): KindFilter {
+  if (!raw) return "all";
+  return (KIND_FILTER_VALUES as string[]).includes(raw) ? (raw as KindFilter) : "all";
+}
+
 export type FilterState = {
   scope: IdeasFilter;
   search: string;
   tags: string[];
   sort: SortMode;
   needsReview: boolean;
+  kind: KindFilter;
 };
 
 // Tags are stored in the URL as a single comma-separated `?tags=a,b,c`
