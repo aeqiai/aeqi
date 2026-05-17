@@ -30,6 +30,7 @@ use aeqi_trust::state::Trust;
 use aeqi_unifutures::cpi::accounts::{CreateCommitmentSale, CreateCurve, CreateExit};
 use aeqi_unifutures::program::AeqiUnifutures;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::Mint;
 
 declare_id!("8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U");
 
@@ -180,6 +181,8 @@ pub mod aeqi_funding {
             trust: ctx.accounts.trust.to_account_info(),
             module_state: ctx.accounts.unifutures_module_state.to_account_info(),
             curve: ctx.accounts.curve.to_account_info(),
+            asset_mint: ctx.accounts.asset_mint.to_account_info(),
+            quote_mint: ctx.accounts.quote_mint.to_account_info(),
             creator: ctx.accounts.creator.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
         };
@@ -421,6 +424,8 @@ pub struct ActivateBondingCurve<'info> {
     /// CHECK: aeqi_unifutures inits the BondingCurve PDA
     #[account(mut)]
     pub curve: UncheckedAccount<'info>,
+    pub asset_mint: InterfaceAccount<'info, Mint>,
+    pub quote_mint: InterfaceAccount<'info, Mint>,
     #[account(mut)]
     pub creator: Signer<'info>,
     pub aeqi_unifutures_program: Program<'info, AeqiUnifutures>,

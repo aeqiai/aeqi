@@ -317,6 +317,8 @@ describe("aeqi_unifutures", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         curve: curvePda,
+        assetMint: baseMintPk,
+        quoteMint: quoteMintPk,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
@@ -332,6 +334,8 @@ describe("aeqi_unifutures", () => {
     expect(c.currentSupply.toString()).to.eq("0");
     expect(c.reserveRatioPpm).to.eq(900_000);
     expect(c.creator.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
+    expect(c.assetMint.toBase58()).to.eq(baseMintPk.toBase58());
+    expect(c.quoteMint.toBase58()).to.eq(quoteMintPk.toBase58());
 
     const m = await program.account.unifuturesModuleState.fetch(modulePda);
     expect(m.curveCount.toString()).to.eq("1");
@@ -361,6 +365,8 @@ describe("aeqi_unifutures", () => {
           trust: fakeTrust,
           moduleState: modulePda,
           curve: curvePda,
+          assetMint: baseMintPk,
+          quoteMint: quoteMintPk,
           creator: provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })
@@ -393,7 +399,30 @@ describe("aeqi_unifutures", () => {
       program.programId,
     );
 
-    // Create the curve
+    // Two Token-2022 mints — asset (cap-table) + quote (USDC-like)
+    const assetMint = await createMint(
+      provider.connection,
+      (provider.wallet as anchor.Wallet).payer,
+      provider.wallet.publicKey,
+      null,
+      0, // 0 decimals so amount math is integer-clean
+      Keypair.generate(),
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+    );
+
+    const quoteMint = await createMint(
+      provider.connection,
+      (provider.wallet as anchor.Wallet).payer,
+      provider.wallet.publicKey,
+      null,
+      0,
+      Keypair.generate(),
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+    );
+
+    // Create the curve after mint creation so it can pin its canonical mints.
     await program.methods
       .createCurve(
         Array.from(curveId),
@@ -407,32 +436,12 @@ describe("aeqi_unifutures", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         curve: curvePda,
+        assetMint,
+        quoteMint,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
-
-    // Two Token-2022 mints — asset (cap-table) + quote (USDC-like)
-    const assetMint = await createMint(
-      provider.connection,
-      (provider.wallet as anchor.Wallet).payer,
-      provider.wallet.publicKey,
-      null,
-      0, // 0 decimals so amount math is integer-clean
-      Keypair.generate(),
-      undefined,
-      TOKEN_2022_PROGRAM_ID,
-    );
-    const quoteMint = await createMint(
-      provider.connection,
-      (provider.wallet as anchor.Wallet).payer,
-      provider.wallet.publicKey,
-      null,
-      0,
-      Keypair.generate(),
-      undefined,
-      TOKEN_2022_PROGRAM_ID,
-    );
 
     // Curve vaults — owned by curveAuthorityPda
     const curveAssetVault = getAssociatedTokenAddressSync(
@@ -618,6 +627,29 @@ describe("aeqi_unifutures", () => {
       program.programId,
     );
 
+    // Two mints
+    const assetMint = await createMint(
+      provider.connection,
+      (provider.wallet as anchor.Wallet).payer,
+      provider.wallet.publicKey,
+      null,
+      0,
+      Keypair.generate(),
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+    );
+
+    const quoteMint = await createMint(
+      provider.connection,
+      (provider.wallet as anchor.Wallet).payer,
+      provider.wallet.publicKey,
+      null,
+      0,
+      Keypair.generate(),
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+    );
+
     await program.methods
       .createCurve(
         Array.from(curveId),
@@ -631,32 +663,12 @@ describe("aeqi_unifutures", () => {
         trust: fakeTrust,
         moduleState: modulePda,
         curve: curvePda,
+        assetMint,
+        quoteMint,
         creator: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
-
-    // Two mints
-    const assetMint = await createMint(
-      provider.connection,
-      (provider.wallet as anchor.Wallet).payer,
-      provider.wallet.publicKey,
-      null,
-      0,
-      Keypair.generate(),
-      undefined,
-      TOKEN_2022_PROGRAM_ID,
-    );
-    const quoteMint = await createMint(
-      provider.connection,
-      (provider.wallet as anchor.Wallet).payer,
-      provider.wallet.publicKey,
-      null,
-      0,
-      Keypair.generate(),
-      undefined,
-      TOKEN_2022_PROGRAM_ID,
-    );
 
     // Curve vaults
     const curveAssetVault = getAssociatedTokenAddressSync(
@@ -2275,6 +2287,8 @@ describe("aeqi_unifutures", () => {
           trust: fakeTrust,
           moduleState: modulePda,
           curve: curvePda,
+          assetMint: baseMintPk,
+          quoteMint: quoteMintPk,
           creator: provider.wallet.publicKey,
           systemProgram: anchor.web3.SystemProgram.programId,
         })

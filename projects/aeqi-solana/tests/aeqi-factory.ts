@@ -7,6 +7,7 @@ import { AeqiToken } from "../target/types/aeqi_token";
 import { AeqiGovernance } from "../target/types/aeqi_governance";
 import { AeqiTreasury } from "../target/types/aeqi_treasury";
 import { AeqiVesting } from "../target/types/aeqi_vesting";
+import { AeqiUnifutures } from "../target/types/aeqi_unifutures";
 import { PublicKey } from "@solana/web3.js";
 import { expect } from "chai";
 import { expectTxFail } from "./support";
@@ -28,6 +29,7 @@ describe("aeqi_factory", () => {
   const governance = anchor.workspace.aeqiGovernance as Program<AeqiGovernance>;
   const treasury = anchor.workspace.aeqiTreasury as Program<AeqiTreasury>;
   const vesting = anchor.workspace.aeqiVesting as Program<AeqiVesting>;
+  const unifutures = anchor.workspace.aeqiUnifutures as Program<AeqiUnifutures>;
   const zeroHash = Array.from(new Uint8Array(32));
 
   async function publishImplementation(
@@ -885,8 +887,9 @@ describe("aeqi_factory", () => {
   // Canonical templates registry: prove that the on-chain factory supports
   // multiple distinct named templates registered side-by-side, each with a
   // different module set. BASIC = role + token + governance (the baseline
-  // entity shape). VENTURE = BASIC + treasury + vesting (the cap-table-company
-  // shape that holds funds + has time-vested grants).
+  // entity shape). VENTURE = BASIC + treasury + vesting + unifutures (the
+  // cap-table-company shape that can hold funds, vest grants, and open a
+  // continuous curve).
   //
   // What `instantiate_template` ships today: trust.initialize +
   // provider-published implementation validation + register_module per
@@ -921,12 +924,15 @@ describe("aeqi_factory", () => {
     moduleIdY[0] = 0x59; // 'Y' treasury (no 'T' clash)
     const moduleIdV = new Uint8Array(32);
     moduleIdV[0] = 0x56; // 'V' vesting
+    const moduleIdU = new Uint8Array(32);
+    moduleIdU[0] = 0x55; // 'U' UniFutures
 
     await publishImplementation(moduleIdR, role.programId);
     await publishImplementation(moduleIdT, token.programId);
     await publishImplementation(moduleIdG, governance.programId);
     await publishImplementation(moduleIdY, treasury.programId);
     await publishImplementation(moduleIdV, vesting.programId);
+    await publishImplementation(moduleIdU, unifutures.programId);
 
     // BASIC: role + token + governance
     const [basicPda] = PublicKey.findProgramAddressSync(
@@ -1020,6 +1026,14 @@ describe("aeqi_factory", () => {
             implementationMetadataHash: zeroHash,
             trustAcl: new anchor.BN(0xff),
           },
+          {
+            moduleId: Array.from(moduleIdU),
+            programId: unifutures.programId,
+            provider: provider.wallet.publicKey,
+            implementationVersion: new anchor.BN(1),
+            implementationMetadataHash: zeroHash,
+            trustAcl: new anchor.BN(0xff),
+          },
         ],
         [],
       )
@@ -1033,7 +1047,7 @@ describe("aeqi_factory", () => {
     const basic = await factory.account.template.fetch(basicPda);
     expect(basic.modules.length).to.eq(3);
     const venture = await factory.account.template.fetch(venturePda);
-    expect(venture.modules.length).to.eq(5);
+    expect(venture.modules.length).to.eq(6);
 
     // Instantiate BASIC against a fresh trust.
     const trustIdBasic = new Uint8Array(32);
@@ -1136,6 +1150,11 @@ describe("aeqi_factory", () => {
           provider: provider.wallet.publicKey,
           implementationVersion: new anchor.BN(1),
         },
+        {
+          moduleId: moduleIdU,
+          provider: provider.wallet.publicKey,
+          implementationVersion: new anchor.BN(1),
+        },
       ],
     });
     await factory.methods
@@ -1146,7 +1165,7 @@ describe("aeqi_factory", () => {
 
     const tVent = await trust.account.trust.fetch(ventureAccounts.trust);
     expect(tVent.creationMode).to.eq(true);
-    expect(tVent.moduleCount).to.eq(5);
+    expect(tVent.moduleCount).to.eq(6);
     expect(
       (
         await trust.account.module.fetch(ventureRemaining.modulePdas[3])
@@ -1157,6 +1176,11 @@ describe("aeqi_factory", () => {
         await trust.account.module.fetch(ventureRemaining.modulePdas[4])
       ).programId.toBase58(),
     ).to.eq(vesting.programId.toBase58());
+    expect(
+      (
+        await trust.account.module.fetch(ventureRemaining.modulePdas[5])
+      ).programId.toBase58(),
+    ).to.eq(unifutures.programId.toBase58());
   });
 
   // ─── Lifecycle invariant — pins the "factory finalizes too early" bug class extinct

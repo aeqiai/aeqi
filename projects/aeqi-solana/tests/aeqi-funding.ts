@@ -466,6 +466,8 @@ describe("aeqi_funding", () => {
       [Buffer.from("curve"), fakeTrust.toBuffer(), Buffer.from(curveId)],
       unifutures.programId,
     );
+    const assetMint = await createMintWithSupply(0);
+    const quoteMint = await createMintWithSupply(0);
 
     await program.methods
       .activateBondingCurve(
@@ -482,6 +484,8 @@ describe("aeqi_funding", () => {
         trust: fakeTrust,
         unifuturesModuleState: unifModulePda,
         curve: curvePda,
+        assetMint,
+        quoteMint,
         creator: provider.wallet.publicKey,
         aeqiUnifuturesProgram: unifutures.programId,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -498,6 +502,8 @@ describe("aeqi_funding", () => {
     expect(c.maxSupply.toString()).to.eq("1000000");
     expect(c.curveType).to.eq(0);
     expect(c.reserveRatioPpm).to.eq(500_000);
+    expect(c.assetMint.toBase58()).to.eq(assetMint.toBase58());
+    expect(c.quoteMint.toBase58()).to.eq(quoteMint.toBase58());
   });
 
   it("activate_exit CPIs into aeqi_unifutures.create_exit", async () => {
@@ -715,6 +721,8 @@ describe("aeqi_funding", () => {
       [Buffer.from("curve"), fakeTrust.toBuffer(), Buffer.from(curveId)],
       unifutures.programId,
     );
+    const assetMint = await createMintWithSupply(0);
+    const quoteMint = await createMintWithSupply(0);
 
     let threw = false;
     try {
@@ -733,6 +741,8 @@ describe("aeqi_funding", () => {
           trust: fakeTrust,
           unifuturesModuleState: unifModulePda,
           curve: curvePda,
+          assetMint,
+          quoteMint,
           creator: provider.wallet.publicKey,
           aeqiUnifuturesProgram: unifutures.programId,
           systemProgram: anchor.web3.SystemProgram.programId,

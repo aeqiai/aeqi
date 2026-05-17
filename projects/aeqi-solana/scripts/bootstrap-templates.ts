@@ -13,7 +13,7 @@
  *
  * Adds:
  *   - BASIC   = role + token + governance         (AEQI-shape, 3 modules)
- *   - VENTURE = BASIC + treasury + vesting         (cap-table company, 5)
+ *   - VENTURE = BASIC + treasury + vesting + UniFutures (cap-table company, 6)
  *
  * Template ids are stable byte arrays: the same id produces the same PDA on
  * every chain, so the platform can resolve "BASIC" / "VENTURE" without
@@ -28,6 +28,7 @@ import { AeqiToken } from "../target/types/aeqi_token";
 import { AeqiGovernance } from "../target/types/aeqi_governance";
 import { AeqiTreasury } from "../target/types/aeqi_treasury";
 import { AeqiVesting } from "../target/types/aeqi_vesting";
+import { AeqiUnifutures } from "../target/types/aeqi_unifutures";
 import { idFromHandle, templatePda } from "./factory-builders";
 
 const BASIC_ID = idFromHandle("BSC");
@@ -41,6 +42,7 @@ const MODULE_TOKEN = idFromHandle("T");
 const MODULE_GOV = idFromHandle("G");
 const MODULE_TREASURY = idFromHandle("Y"); // 'Y' to avoid clash with token 'T'
 const MODULE_VESTING = idFromHandle("V");
+const MODULE_UNIFUTURES = idFromHandle("U");
 
 const FULL_ACL = new anchor.BN(0xff);
 
@@ -109,6 +111,7 @@ async function main() {
   const governance = anchor.workspace.aeqiGovernance as Program<AeqiGovernance>;
   const treasury = anchor.workspace.aeqiTreasury as Program<AeqiTreasury>;
   const vesting = anchor.workspace.aeqiVesting as Program<AeqiVesting>;
+  const unifutures = anchor.workspace.aeqiUnifutures as Program<AeqiUnifutures>;
 
   console.log(`RPC:    ${provider.connection.rpcEndpoint}`);
   console.log(`Wallet: ${provider.wallet.publicKey.toBase58()}\n`);
@@ -187,6 +190,14 @@ async function main() {
         moduleId: MODULE_VESTING,
         programId: vesting.programId,
         provider: vesting.programId,
+        implementationVersion: new anchor.BN(1),
+        implementationMetadataHash: Array.from(new Uint8Array(32)),
+        trustAcl: FULL_ACL,
+      },
+      {
+        moduleId: MODULE_UNIFUTURES,
+        programId: unifutures.programId,
+        provider: unifutures.programId,
         implementationVersion: new anchor.BN(1),
         implementationMetadataHash: Array.from(new Uint8Array(32)),
         trustAcl: FULL_ACL,

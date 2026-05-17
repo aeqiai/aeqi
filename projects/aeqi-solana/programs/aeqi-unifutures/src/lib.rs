@@ -68,6 +68,10 @@ pub mod aeqi_unifutures {
     ) -> Result<()> {
         require!(max_supply > 0, UnifuturesError::ZeroMaxSupply);
         require!(reserve_ratio_ppm <= 1_000_000, UnifuturesError::InvalidReserveRatio);
+        require!(
+            ctx.accounts.asset_mint.key() != ctx.accounts.quote_mint.key(),
+            UnifuturesError::IdenticalMints
+        );
         let _ct = CurveType::from_u8(curve_type)
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
 
@@ -75,6 +79,8 @@ pub mod aeqi_unifutures {
         c.trust = ctx.accounts.trust.key();
         c.curve_id = curve_id;
         c.creator = ctx.accounts.creator.key();
+        c.asset_mint = ctx.accounts.asset_mint.key();
+        c.quote_mint = ctx.accounts.quote_mint.key();
         c.curve_type = curve_type;
         c.start_price = start_price;
         c.end_price = end_price;
@@ -93,6 +99,8 @@ pub mod aeqi_unifutures {
             trust: c.trust,
             curve_id,
             creator: c.creator,
+            asset_mint: c.asset_mint,
+            quote_mint: c.quote_mint,
             curve_type,
             start_price,
             end_price,
@@ -837,6 +845,16 @@ pub mod aeqi_unifutures {
         let c = &mut ctx.accounts.curve;
         let ct = CurveType::from_u8(c.curve_type)
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
+        require_keys_eq!(
+            ctx.accounts.asset_mint.key(),
+            c.asset_mint,
+            UnifuturesError::AssetMintMismatch
+        );
+        require_keys_eq!(
+            ctx.accounts.quote_mint.key(),
+            c.quote_mint,
+            UnifuturesError::QuoteMintMismatch
+        );
 
         require!(
             c.current_supply
@@ -930,6 +948,16 @@ pub mod aeqi_unifutures {
         let c = &mut ctx.accounts.curve;
         let ct = CurveType::from_u8(c.curve_type)
             .ok_or_else(|| error!(UnifuturesError::InvalidCurveType))?;
+        require_keys_eq!(
+            ctx.accounts.asset_mint.key(),
+            c.asset_mint,
+            UnifuturesError::AssetMintMismatch
+        );
+        require_keys_eq!(
+            ctx.accounts.quote_mint.key(),
+            c.quote_mint,
+            UnifuturesError::QuoteMintMismatch
+        );
 
         require!(token_amount <= c.current_supply, UnifuturesError::ExceedsSupply);
 
@@ -1122,6 +1150,12 @@ pub struct BondingCurve {
     pub trust: Pubkey,
     pub curve_id: [u8; 32],
     pub creator: Pubkey,
+    /// Canonical asset mint sold by this curve. Buy/sell reject any other
+    /// asset mint so callers cannot route a TRUST curve through a worthless
+    /// substitute token.
+    pub asset_mint: Pubkey,
+    /// Canonical quote mint accepted by this curve, typically USDC.
+    pub quote_mint: Pubkey,
     pub curve_type: u8, // 0=linear, 1=exponential
     pub start_price: u128,
     pub end_price: u128,
@@ -1178,6 +1212,8 @@ pub struct CreateCurve<'info> {
         bump,
     )]
     pub curve: Account<'info, BondingCurve>,
+    pub asset_mint: InterfaceAccount<'info, Mint>,
+    pub quote_mint: InterfaceAccount<'info, Mint>,
     #[account(mut)]
     pub creator: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -1562,6 +1598,8 @@ pub struct CurveCreated {
     pub trust: Pubkey,
     pub curve_id: [u8; 32],
     pub creator: Pubkey,
+    pub asset_mint: Pubkey,
+    pub quote_mint: Pubkey,
     pub curve_type: u8,
     pub start_price: u128,
     pub end_price: u128,
@@ -1752,6 +1790,8 @@ pub enum UnifuturesError {
     TrustNotInCreationMode,
     #[msg("asset_mint does not match the exit's canonical asset mint")]
     AssetMintMismatch,
+    #[msg("quote_mint does not match the curve's canonical quote mint")]
+    QuoteMintMismatch,
     #[msg("total_supply_snapshot must equal asset_mint.supply at create time")]
     SupplySnapshotMismatch,
 }

@@ -49,6 +49,7 @@ dependencies = [
  "aeqi-trust",
  "aeqi-unifutures",
  "anchor-lang",
+ "anchor-spl",
 ]
 
 [[package]]
