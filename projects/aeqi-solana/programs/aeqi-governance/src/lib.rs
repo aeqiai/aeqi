@@ -19,6 +19,9 @@
 
 use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::spl_token_2022::{
+    extension::StateWithExtensions, state::Mint as SplMint,
+};
 use anchor_spl::token_interface::{Mint, TokenAccount};
 
 declare_id!("5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq");
@@ -39,6 +42,34 @@ pub const AEQI_ROLE_ID: Pubkey =
 /// under aeqi_token, so callers can't substitute an unrelated mint.
 pub const AEQI_TOKEN_ID: Pubkey =
     anchor_lang::pubkey!("AxyYnv99gnKJ3VMYbyVjz4BxP8LA34CUnhHGVifrc3Kh");
+
+pub const TOKEN_VOTING_CONFIG_ID: [u8; 32] = [0u8; 32];
+const BPS_DENOMINATOR: u128 = 10_000;
+
+#[derive(AnchorDeserialize, AnchorSerialize, Clone)]
+pub struct RoleTypeConfigData {
+    pub vesting: bool,
+    pub vesting_cliff: i64,
+    pub vesting_duration: i64,
+    pub fdv: bool,
+    pub fdv_start: u128,
+    pub fdv_end: u128,
+    pub probationary_period: i64,
+    pub severance_period: i64,
+    pub contribution: bool,
+}
+
+/// Same memory layout as `aeqi_role::RoleType`. Used to read the canonical
+/// role supply for per-role governance without accepting caller input.
+#[derive(AnchorDeserialize, AnchorSerialize, Clone)]
+pub struct RoleTypeData {
+    pub trust: Pubkey,
+    pub role_type_id: [u8; 32],
+    pub hierarchy: u32,
+    pub config: RoleTypeConfigData,
+    pub role_count: u32,
+    pub bump: u8,
+}
 
 /// Same memory layout as `aeqi_role::RoleVoteCheckpoint`. Used for borsh
 /// deserialization of the cross-program account data; the `#[account]`
@@ -62,11 +93,7 @@ pub mod aeqi_governance {
     pub fn init(ctx: Context<InitGovernance>) -> Result<()> {
         let trust = &ctx.accounts.trust;
         require!(trust.creation_mode, GovernanceError::TrustNotInCreationMode);
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            GovernanceError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, GovernanceError::Unauthorized);
 
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
@@ -90,11 +117,7 @@ pub mod aeqi_governance {
         config: GovernanceConfigInput,
     ) -> Result<()> {
         let trust = &ctx.accounts.trust;
-        require_keys_eq!(
-            ctx.accounts.payer.key(),
-            trust.authority,
-            GovernanceError::Unauthorized
-        );
+        require_keys_eq!(ctx.accounts.payer.key(), trust.authority, GovernanceError::Unauthorized);
 
         require!(config.quorum_bps <= 10_000, GovernanceError::InvalidBpsValue);
         require!(config.support_bps <= 10_000, GovernanceError::InvalidBpsValue);
@@ -127,25 +150,30 @@ pub mod aeqi_governance {
 
     /// Execute a proposal that has succeeded. Validates:
     ///   - voting period has ended (or early enact + thresholds met)
-    ///   - quorum: (for + abstain) ≥ totalVoteSupply * quorum_bps / 10000
-    ///   - support: for ≥ (for + against) * support_bps / 10000
+    ///   - quorum: (for + abstain) ≥ ceil(totalVoteSupply * quorum_bps / 10000)
+    ///   - support: for ≥ ceil((for + against) * support_bps / 10000)
     ///
-    /// `total_vote_supply` is passed in; the next iteration replaces it with
-    /// a CPI to aeqi_token::total_supply (token mode) or
-    /// aeqi_role::role_count(role_type) (per-role multisig).
+    /// Remaining accounts:
+    ///   0. `GovernanceConfig` PDA matching `proposal.governance_config_id`
+    ///   1. vote supply source:
+    ///      - token mode (`[0; 32]` config): canonical cap-table mint PDA
+    ///      - role mode: canonical `aeqi_role::RoleType` PDA
     ///
     /// On-chain ix dispatch (running the proposed action via remaining_accounts)
     /// is reserved for a follow-up — this iteration just transitions
     /// Proposal.executed → true after threshold gate.
-    pub fn execute_proposal(ctx: Context<ExecuteProposal>, total_vote_supply: u128) -> Result<()> {
+    pub fn execute_proposal(ctx: Context<ExecuteProposal>) -> Result<()> {
         let p = &mut ctx.accounts.proposal;
         require!(!p.executed, GovernanceError::ProposalAlreadyExecuted);
         require!(!p.canceled, GovernanceError::ProposalCanceled);
 
-        let cfg_acct =
-            ctx.remaining_accounts.first().ok_or(error!(GovernanceError::ConfigMismatch))?;
+        let mut remaining_accounts = ctx.remaining_accounts.iter();
+        let cfg_acct = remaining_accounts.next().ok_or(error!(GovernanceError::ConfigMismatch))?;
         let cfg =
             load_governance_config(cfg_acct, &p.trust, &p.governance_config_id, ctx.program_id)?;
+        let vote_supply_acct =
+            remaining_accounts.next().ok_or(error!(GovernanceError::MissingVoteSupplyAccount))?;
+        let total_vote_supply = load_total_vote_supply(p, vote_supply_acct)?;
 
         let now = Clock::get()?.unix_timestamp;
         let vote_end = proposal_vote_end(p)?;
@@ -155,29 +183,21 @@ pub mod aeqi_governance {
         let early_ok = cfg.allow_early_enact;
         require!(voting_ended || early_ok, GovernanceError::VotingNotClosed);
 
-        // Quorum: (for + abstain) ≥ supply * quorum_bps / 10000
+        // Quorum: (for + abstain) ≥ ceil(supply * quorum_bps / 10000)
         let participating = p
             .for_votes
             .checked_add(p.abstain_votes)
             .ok_or(error!(GovernanceError::MathOverflow))?;
-        let quorum_required = total_vote_supply
-            .checked_mul(cfg.quorum_bps as u128)
-            .ok_or(error!(GovernanceError::MathOverflow))?
-            .checked_div(10_000)
-            .ok_or(error!(GovernanceError::MathOverflow))?;
+        let quorum_required = checked_bps_ceil(total_vote_supply, cfg.quorum_bps)?;
         require!(participating >= quorum_required, GovernanceError::QuorumNotMet);
 
-        // Support: for ≥ (for + against) * support_bps / 10000
+        // Support: for ≥ ceil((for + against) * support_bps / 10000)
         let decisive = p
             .for_votes
             .checked_add(p.against_votes)
             .ok_or(error!(GovernanceError::MathOverflow))?;
         require!(decisive > 0, GovernanceError::NoDecisiveVotes);
-        let support_required = decisive
-            .checked_mul(cfg.support_bps as u128)
-            .ok_or(error!(GovernanceError::MathOverflow))?
-            .checked_div(10_000)
-            .ok_or(error!(GovernanceError::MathOverflow))?;
+        let support_required = checked_bps_ceil(decisive, cfg.support_bps)?;
         require!(p.for_votes >= support_required, GovernanceError::SupportNotMet);
 
         // Optional execution delay: enforce now ≥ vote_end + execution_delay
@@ -319,6 +339,75 @@ pub mod aeqi_governance {
 
 fn proposal_vote_end(p: &Proposal) -> Result<i64> {
     p.vote_start.checked_add(p.vote_duration).ok_or(error!(GovernanceError::MathOverflow))
+}
+
+fn checked_bps_ceil(value: u128, bps: u16) -> Result<u128> {
+    let numerator = value.checked_mul(bps as u128).ok_or(error!(GovernanceError::MathOverflow))?;
+    numerator
+        .checked_add(BPS_DENOMINATOR - 1)
+        .ok_or(error!(GovernanceError::MathOverflow))?
+        .checked_div(BPS_DENOMINATOR)
+        .ok_or(error!(GovernanceError::MathOverflow))
+}
+
+fn load_total_vote_supply(proposal: &Proposal, vote_supply_acct: &AccountInfo) -> Result<u128> {
+    if proposal.governance_config_id == TOKEN_VOTING_CONFIG_ID {
+        load_token_vote_supply(proposal, vote_supply_acct)
+    } else {
+        load_role_vote_supply(proposal, vote_supply_acct)
+    }
+}
+
+fn load_token_vote_supply(proposal: &Proposal, mint_acct: &AccountInfo) -> Result<u128> {
+    let (expected_mint, _) =
+        Pubkey::find_program_address(&[b"mint", proposal.trust.as_ref()], &AEQI_TOKEN_ID);
+    require_keys_eq!(mint_acct.key(), expected_mint, GovernanceError::VoteSupplyAccountMismatch);
+    require!(
+        *mint_acct.owner == anchor_spl::token::ID || *mint_acct.owner == anchor_spl::token_2022::ID,
+        GovernanceError::InvalidVoteSupplyAccount
+    );
+
+    let data = mint_acct
+        .try_borrow_data()
+        .map_err(|_| error!(GovernanceError::InvalidVoteSupplyAccount))?;
+    let mint = StateWithExtensions::<SplMint>::unpack(&data)
+        .map_err(|_| error!(GovernanceError::InvalidVoteSupplyAccount))?;
+    let supply = mint.base.supply as u128;
+    require!(supply > 0, GovernanceError::ZeroVoteSupply);
+    Ok(supply)
+}
+
+fn load_role_vote_supply(proposal: &Proposal, role_type_acct: &AccountInfo) -> Result<u128> {
+    let (expected_role_type, _) = Pubkey::find_program_address(
+        &[b"role_type", proposal.trust.as_ref(), proposal.governance_config_id.as_ref()],
+        &AEQI_ROLE_ID,
+    );
+    require_keys_eq!(
+        role_type_acct.key(),
+        expected_role_type,
+        GovernanceError::VoteSupplyAccountMismatch
+    );
+    require_keys_eq!(
+        *role_type_acct.owner,
+        AEQI_ROLE_ID,
+        GovernanceError::InvalidVoteSupplyAccount
+    );
+
+    let data = role_type_acct
+        .try_borrow_data()
+        .map_err(|_| error!(GovernanceError::InvalidVoteSupplyAccount))?;
+    require!(data.len() >= 8, GovernanceError::InvalidVoteSupplyAccount);
+    let role_type = RoleTypeData::try_from_slice(&data[8..])
+        .map_err(|_| error!(GovernanceError::InvalidVoteSupplyAccount))?;
+    require_keys_eq!(role_type.trust, proposal.trust, GovernanceError::VoteSupplyAccountMismatch);
+    require!(
+        role_type.role_type_id == proposal.governance_config_id,
+        GovernanceError::VoteSupplyAccountMismatch
+    );
+
+    let supply = role_type.role_count as u128;
+    require!(supply > 0, GovernanceError::ZeroVoteSupply);
+    Ok(supply)
 }
 
 fn require_vote_open(p: &Proposal, now: i64) -> Result<()> {
@@ -736,6 +825,14 @@ pub enum GovernanceError {
     CheckpointVoterMismatch,
     #[msg("voter_checkpoint is not owned by aeqi_role or has invalid layout")]
     InvalidCheckpoint,
+    #[msg("execute_proposal requires a canonical vote supply account")]
+    MissingVoteSupplyAccount,
+    #[msg("vote supply account does not match the proposal voting mode")]
+    VoteSupplyAccountMismatch,
+    #[msg("vote supply account has invalid owner or layout")]
+    InvalidVoteSupplyAccount,
+    #[msg("vote supply must be > 0")]
+    ZeroVoteSupply,
     #[msg("math overflow")]
     MathOverflow,
     #[msg("caller is not authorized for this trust")]
@@ -774,6 +871,13 @@ mod tests {
             Ok(_) => panic!("expected ConfigMismatch"),
             Err(err) => assert!(err.to_string().contains("ConfigMismatch"), "{err}"),
         }
+    }
+
+    #[test]
+    fn checked_bps_ceil_rounds_fractional_thresholds_up() {
+        assert_eq!(checked_bps_ceil(1, 5000).unwrap(), 1);
+        assert_eq!(checked_bps_ceil(3, 3334).unwrap(), 2);
+        assert_eq!(checked_bps_ceil(1_000_000, 4000).unwrap(), 400_000);
     }
 
     #[test]

@@ -56,6 +56,46 @@ describe("AEQI end-to-end spawn", () => {
     govModuleIdBytes[0] = 0x47; // 'G'
   });
 
+  function encodeTokenInitConfig(decimals: number, maxSupplyCap = 0) {
+    const data = Buffer.alloc(9);
+    data.writeUInt8(decimals, 0);
+    data.writeBigUInt64LE(BigInt(maxSupplyCap), 1);
+    return data;
+  }
+
+  async function finalizeTokenModule(tokenModuleStatePda: PublicKey) {
+    const tokenConfigKey = new Uint8Array(32);
+    tokenConfigKey[0] = 1;
+    const [tokenBytesConfigPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("cfg_bytes"),
+        trustPda.toBuffer(),
+        Buffer.from(tokenConfigKey),
+      ],
+      trust.programId,
+    );
+
+    await trust.methods
+      .setBytesConfig(Array.from(tokenConfigKey), encodeTokenInitConfig(9))
+      .accountsPartial({
+        trust: trustPda,
+        config: tokenBytesConfigPda,
+        sourceModule: null,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    await token.methods
+      .finalize()
+      .accountsPartial({
+        trust: trustPda,
+        moduleState: tokenModuleStatePda,
+        bytesConfig: tokenBytesConfigPda,
+      })
+      .rpc();
+  }
+
   it("step 1: factory.create_with_modules spawns AEQI trust + registers 3 modules + finalizes", async () => {
     const [roleModulePda] = PublicKey.findProgramAddressSync(
       [
@@ -166,6 +206,7 @@ describe("AEQI end-to-end spawn", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    await finalizeTokenModule(tokenModuleStatePda);
 
     // governance.init
     const [govModuleStatePda] = PublicKey.findProgramAddressSync(
@@ -378,13 +419,14 @@ describe("AEQI end-to-end spawn", () => {
 
     // Execute (early enact, 1000 vs 1000 supply → 100% participation, 100% support)
     await governance.methods
-      .executeProposal(new anchor.BN(1000))
+      .executeProposal()
       .accountsPartial({
         proposal: proposalPda,
         executor: provider.wallet.publicKey,
       })
       .remainingAccounts([
         { pubkey: cfgPda, isSigner: false, isWritable: false },
+        { pubkey: mintPda, isSigner: false, isWritable: false },
       ])
       .rpc();
 
@@ -591,16 +633,17 @@ describe("AEQI end-to-end spawn", () => {
       .signers([alice])
       .rpc();
 
-    // Execute — total_role_supply = 1 (one director seat). 1 For-vote ÷
+    // Execute — role_type.role_count = 1 (one director seat). 1 For-vote ÷
     // 1 supply = 100% participation, 100% support → passes 50/50 thresholds.
     await governance.methods
-      .executeProposal(new anchor.BN(1))
+      .executeProposal()
       .accountsPartial({
         proposal: proposalPda,
         executor: alice.publicKey,
       })
       .remainingAccounts([
         { pubkey: roleCfgPda, isSigner: false, isWritable: false },
+        { pubkey: rtPda, isSigner: false, isWritable: false },
       ])
       .signers([alice])
       .rpc();
