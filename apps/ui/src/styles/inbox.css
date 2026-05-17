@@ -121,6 +121,7 @@
   min-width: 0;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .session-detail--empty {
@@ -311,6 +312,38 @@
 
 .session-detail-empty-hint {
   font-size: var(--font-size-2xs);
+}
+
+/* "↓ N new" pill — shown when messages arrive while the user has scrolled
+   up. Lands above the composer, centered, on the same z-tier as toasts. */
+.session-detail-jump {
+  position: absolute;
+  bottom: calc(var(--inbox-composer-height, var(--composer-height, 96px)) + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-ink-primary);
+  color: var(--color-bg-base);
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  transition: opacity var(--transition-fast);
+}
+
+.session-detail-jump:hover {
+  opacity: var(--action-hover-opacity);
+}
+
+.session-detail-jump:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* Open-button + back-button (composed by MeInboxPage as headerExtras).

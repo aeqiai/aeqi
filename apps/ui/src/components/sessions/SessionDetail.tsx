@@ -105,6 +105,11 @@ export interface SessionDetailProps {
   hideComposer?: boolean;
 }
 
+// Distance (px) from the bottom of the thread within which the user is still
+// considered "stuck to bottom" — small jitter from sub-pixel scroll positions
+// or short fade-gradient slop shouldn't detach the auto-scroll.
+const SCROLL_BOTTOM_TOLERANCE = 32;
+
 export default function SessionDetail({
   sessionId,
   entityId,
@@ -143,20 +148,62 @@ export default function SessionDetail({
   const scrollRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef<number>(0);
+  // Whether the thread is currently pinned at (or very near) the bottom.
+  // Driven by the scroll handler; consulted by the messages effect to decide
+  // whether to auto-scroll new arrivals or surface a "↓ N new" jump button.
+  const stuckRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
+  const [unreadWhileDetached, setUnreadWhileDetached] = useState(0);
   const [body, setBody] = useState("");
 
-  // Reset per-session draft when selection changes.
+  // Reset per-session draft + scroll posture when selection changes.
+  // Pin to bottom on session switch — a fresh thread should land at the
+  // newest message, not whatever scroll position the previous session held.
   useEffect(() => {
     setBody("");
+    stuckRef.current = true;
+    prevMessageCountRef.current = messages.length;
+    setUnreadWhileDetached(0);
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  // Scroll thread to bottom when messages update — same idiom as the
-  // shipped agent surface, scoped to the primitive's own scroll element.
+  // New messages: auto-scroll only when the user was already at the bottom.
+  // If they had scrolled up, leave them alone and count arrivals so the jump
+  // button can surface "↓ N new". Same idiom every mature chat app uses.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    const prevLen = prevMessageCountRef.current;
+    const newLen = messages.length;
+    prevMessageCountRef.current = newLen;
+
+    if (stuckRef.current) {
+      el.scrollTop = el.scrollHeight;
+      setUnreadWhileDetached((c) => (c === 0 ? c : 0));
+    } else if (newLen > prevLen) {
+      setUnreadWhileDetached((c) => c + (newLen - prevLen));
+    }
+  }, [messages]);
+
+  const handleThreadScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nowStuck = distance <= SCROLL_BOTTOM_TOLERANCE;
+    if (nowStuck === stuckRef.current) return;
+    stuckRef.current = nowStuck;
+    if (nowStuck) setUnreadWhileDetached(0);
+  };
+
+  const jumpToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, sessionId]);
+    stuckRef.current = true;
+    setUnreadWhileDetached(0);
+  };
 
   // Publish the composer's live height as `--inbox-composer-height` on
   // the enclosing `.inbox-pane-detail` so the thread's bottom padding
@@ -242,7 +289,7 @@ export default function SessionDetail({
 
       {preThreadSlot}
 
-      <div className="session-detail-thread" ref={scrollRef}>
+      <div className="session-detail-thread" ref={scrollRef} onScroll={handleThreadScroll}>
         {messages.length === 0 && !threadTrailingSlot ? (
           <div className="session-detail-empty">
             {emptyTitle && <div className="session-detail-empty-title">{emptyTitle}</div>}
@@ -264,6 +311,17 @@ export default function SessionDetail({
           </>
         )}
       </div>
+
+      {unreadWhileDetached > 0 && (
+        <button
+          type="button"
+          className="session-detail-jump"
+          onClick={jumpToBottom}
+          aria-label={`Jump to bottom — ${unreadWhileDetached} new ${unreadWhileDetached === 1 ? "message" : "messages"}`}
+        >
+          <span aria-hidden>↓</span> {unreadWhileDetached} new
+        </button>
+      )}
 
       {!hideComposer && (
         <div className="inbox-composer-wrap" ref={wrapRef}>
