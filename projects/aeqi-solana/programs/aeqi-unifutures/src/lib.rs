@@ -15,6 +15,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{
@@ -28,12 +29,27 @@ pub use curve::CurveType;
 
 declare_id!("CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF");
 
+/// aeqi_trust program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
+
 #[program]
 pub mod aeqi_unifutures {
     use super::*;
 
     /// Module init — creates UnifuturesModuleState PDA bound to a trust.
+    /// Gated to the trust authority during creation mode so the
+    /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitUnifutures>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, UnifuturesError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            UnifuturesError::Unauthorized
+        );
+
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
         m.curve_count = 0;
@@ -1090,8 +1106,13 @@ pub struct BondingCurve {
 
 #[derive(Accounts)]
 pub struct InitUnifutures<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -1684,4 +1705,6 @@ pub enum UnifuturesError {
     SaleNotCompleted,
     #[msg("commitment already claimed")]
     AlreadyClaimed,
+    #[msg("trust must be in creation mode to initialize the unifutures module")]
+    TrustNotInCreationMode,
 }

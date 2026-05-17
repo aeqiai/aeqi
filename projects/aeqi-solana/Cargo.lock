@@ -17,6 +17,7 @@ name = "aeqi-budget"
 version = "0.1.0"
 dependencies = [
  "aeqi-role",
+ "aeqi-trust",
  "anchor-lang",
 ]
 
@@ -35,6 +36,7 @@ dependencies = [
 name = "aeqi-fund"
 version = "0.1.0"
 dependencies = [
+ "aeqi-trust",
  "anchor-lang",
  "anchor-spl",
 ]
@@ -44,6 +46,7 @@ name = "aeqi-funding"
 version = "0.1.0"
 dependencies = [
  "aeqi-budget",
+ "aeqi-trust",
  "aeqi-unifutures",
  "anchor-lang",
 ]
@@ -52,6 +55,7 @@ dependencies = [
 name = "aeqi-governance"
 version = "0.1.0"
 dependencies = [
+ "aeqi-trust",
  "anchor-lang",
  "anchor-spl",
 ]
@@ -78,6 +82,7 @@ dependencies = [
 name = "aeqi-treasury"
 version = "0.1.0"
 dependencies = [
+ "aeqi-trust",
  "anchor-lang",
  "anchor-spl",
 ]
@@ -93,6 +98,7 @@ dependencies = [
 name = "aeqi-unifutures"
 version = "0.1.0"
 dependencies = [
+ "aeqi-trust",
  "anchor-lang",
  "anchor-spl",
 ]
@@ -101,6 +107,7 @@ dependencies = [
 name = "aeqi-vesting"
 version = "0.1.0"
 dependencies = [
+ "aeqi-trust",
  "anchor-lang",
  "anchor-spl",
 ]

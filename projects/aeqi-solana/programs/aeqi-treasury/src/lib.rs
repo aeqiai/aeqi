@@ -11,6 +11,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -18,11 +19,31 @@ use anchor_spl::token_interface::{
 
 declare_id!("2KBH4dhAM8fvix5sB44f55Hy6mE4HgeMMbm3htZTJNm7");
 
+/// aeqi_trust program id — used for cross-program PDA derivation of the
+/// trust account so module setup paths cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
+
 #[program]
 pub mod aeqi_treasury {
     use super::*;
 
+    /// Module init — called by the trust authority during the trust's
+    /// creation mode. Gating:
+    ///   - `trust` PDA must be derived under aeqi_trust and decoded (no fake
+    ///     pubkeys / no PDA squatting on attacker-owned accounts).
+    ///   - signer (`payer`) must equal `trust.authority`.
+    ///   - trust must still be in creation mode — module slots are not
+    ///     reconfigurable once the trust goes live in this iteration.
     pub fn init(ctx: Context<InitTreasury>, treasury_authority: Pubkey) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, TreasuryError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            TreasuryError::Unauthorized
+        );
+
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
         m.treasury_authority = treasury_authority;
@@ -101,8 +122,16 @@ pub struct TreasuryModuleState {
 
 #[derive(Accounts)]
 pub struct InitTreasury<'info> {
-    /// CHECK: trust pda — used as seed namespace.
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// `seeds::program` binds derivation to the aeqi_trust program ID; the
+    /// `Account<Trust>` typing forces deserialization, so attackers can't
+    /// substitute an arbitrary keypair to PDA-squat the module_state slot.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -177,4 +206,6 @@ pub struct TreasuryDeposited {
 pub enum TreasuryError {
     #[msg("caller is not the configured treasury authority")]
     Unauthorized,
+    #[msg("trust must be in creation mode to initialize the treasury module")]
+    TrustNotInCreationMode,
 }

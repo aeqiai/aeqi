@@ -24,4 +24,6 @@ pub enum AeqiRoleError {
     RoleTypeMismatch,
     #[msg("math overflow")]
     MathOverflow,
+    #[msg("trust must be in creation mode to initialize the role module")]
+    TrustNotInCreationMode,
 }

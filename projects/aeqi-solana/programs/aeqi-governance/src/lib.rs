@@ -17,10 +17,16 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount};
 
 declare_id!("5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq");
+
+/// aeqi_trust program id — used for cross-program PDA derivation so module
+/// setup paths (init, register_config) cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 /// Hardcoded aeqi_role program ID — used to validate the PDA derivation +
 /// account ownership of `voter_checkpoint` in `cast_vote_role`. Avoids a
@@ -51,7 +57,17 @@ pub mod aeqi_governance {
     use super::*;
 
     /// Module init — creates GovernanceModuleState PDA bound to a trust.
+    /// Gated to the trust authority during creation mode so the
+    /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitGovernance>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, GovernanceError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            GovernanceError::Unauthorized
+        );
+
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
         m.proposal_count = 0;
@@ -65,11 +81,21 @@ pub mod aeqi_governance {
     }
 
     /// Register a governance config (one per voting mode the trust supports).
+    /// Authority gate: only the trust authority can register configs in this
+    /// iteration. Once live-mode governance lands, ratified config changes
+    /// will flow through `execute_proposal`.
     pub fn register_config(
         ctx: Context<RegisterConfig>,
         governance_config_id: [u8; 32],
         config: GovernanceConfigInput,
     ) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            GovernanceError::Unauthorized
+        );
+
         require!(config.quorum_bps <= 10_000, GovernanceError::InvalidBpsValue);
         require!(config.support_bps <= 10_000, GovernanceError::InvalidBpsValue);
         require!(config.quorum_bps > 0, GovernanceError::InvalidBpsValue);
@@ -452,8 +478,13 @@ pub struct Proposal {
 
 #[derive(Accounts)]
 pub struct InitGovernance<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -476,8 +507,13 @@ pub struct FinalizeGovernance<'info> {
 #[derive(Accounts)]
 #[instruction(governance_config_id: [u8; 32])]
 pub struct RegisterConfig<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         mut,
         seeds = [b"gov_module", trust.key().as_ref()],
@@ -702,6 +738,10 @@ pub enum GovernanceError {
     InvalidCheckpoint,
     #[msg("math overflow")]
     MathOverflow,
+    #[msg("caller is not authorized for this trust")]
+    Unauthorized,
+    #[msg("trust must be in creation mode to initialize the governance module")]
+    TrustNotInCreationMode,
 }
 
 #[cfg(test)]

@@ -22,6 +22,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -29,11 +30,26 @@ use anchor_spl::token_interface::{
 
 declare_id!("DaFpZcqMaL4rmAemJ2WBeUth42PMmHxNg9t6j9h9p7YP");
 
+/// aeqi_trust program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
+
 #[program]
 pub mod aeqi_fund {
     use super::*;
 
+    /// Module init — gated to the trust authority during creation mode so
+    /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitFund>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, FundError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            FundError::Unauthorized
+        );
+
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
         m.fund_count = 0;
@@ -310,8 +326,13 @@ pub struct LpShare {
 
 #[derive(Accounts)]
 pub struct InitFund<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -507,4 +528,6 @@ pub enum FundError {
     NoCarry,
     #[msg("quote mint does not match the fund's configured quote mint")]
     QuoteMintMismatch,
+    #[msg("trust must be in creation mode to initialize the fund module")]
+    TrustNotInCreationMode,
 }

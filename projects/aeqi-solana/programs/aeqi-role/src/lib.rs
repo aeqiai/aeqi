@@ -16,6 +16,7 @@
 // lints. Keep this crate's warning output focused on protocol code.
 #![allow(deprecated, unexpected_cfgs)]
 
+use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
 
 declare_id!("4GSrvANBi1yrn3w4VgoxvVz7pH9BdR8MeyUpH4ZcGXpB");
@@ -28,13 +29,28 @@ pub use state::*;
 
 pub const MAX_AUTHORITY_WALK: usize = 8;
 
+/// aeqi_trust program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
+
 #[program]
 pub mod aeqi_role {
     use super::*;
 
     /// Module init — called by `aeqi_factory` during template instantiation.
     /// Stores the parent TRUST and initializes the module state PDA.
+    /// Gated to the trust authority during creation mode so the
+    /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitModule>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, AeqiRoleError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            AeqiRoleError::Unauthorized
+        );
+
         let module = &mut ctx.accounts.module_state;
         module.trust = ctx.accounts.trust.key();
         module.initialized = true;
@@ -406,13 +422,18 @@ fn bump_role_count(role_type: &mut Account<RoleType>) -> Result<()> {
 // Account contexts (skeleton — full set lands with implementation)
 // -----------------------------------------------------------------------------
 
-/// CHECK on `trust`: validated structurally via aeqi_trust seeds. The role
-/// module assumes the trust account is well-formed because the factory created
-/// it; we read `creation_mode` and `key` only.
 #[derive(Accounts)]
 pub struct InitModule<'info> {
-    /// CHECK: cross-program account, validated by seeds + the factory flow.
-    pub trust: AccountInfo<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    /// `seeds::program` binds derivation to the aeqi_trust program ID and
+    /// the `Account<Trust>` typing forces deserialization, preventing PDA
+    /// squatting / fake-trust attacks on the module_state slot.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,

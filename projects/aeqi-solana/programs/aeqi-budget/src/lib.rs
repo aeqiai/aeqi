@@ -15,15 +15,31 @@
 #![allow(deprecated, unexpected_cfgs)]
 
 use aeqi_role::{Role, RoleStatus};
+use aeqi_trust::state::Trust;
 use anchor_lang::prelude::*;
 
 declare_id!("5PbDxvaYD9shSGxE2pQyUTqCqe6FXUMDciXSEGevFE5G");
+
+/// aeqi_trust program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
 
 #[program]
 pub mod aeqi_budget {
     use super::*;
 
+    /// Module init — gated to the trust authority during creation mode so
+    /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitBudget>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, BudgetError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            BudgetError::Unauthorized
+        );
+
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
         m.budget_count = 0;
@@ -35,6 +51,12 @@ pub mod aeqi_budget {
     /// treasury authority or governance signer) signs to lock the
     /// allocation. A budget can be sourced from TRUST (no parent) or from
     /// a parent budget (which the grantor must control).
+    ///
+    /// Authority gate: in this iteration, only the trust authority can
+    /// originate budgets (i.e. budgets sourced directly from TRUST). Once
+    /// governance + role-walk capability lands, child budgets sourced from
+    /// a parent budget will be gated on the parent budget's grantor / role
+    /// instead.
     pub fn create_budget(
         ctx: Context<CreateBudget>,
         budget_id: [u8; 32],
@@ -46,6 +68,16 @@ pub mod aeqi_budget {
         require!(amount > 0, BudgetError::ZeroAmount);
         let now = Clock::get()?.unix_timestamp;
         require!(expiry == 0 || expiry > now, BudgetError::InvalidExpiry);
+
+        // Module-setup authority: budgets sourced from TRUST require the
+        // trust authority to sign. Parent-budget-sourced delegation is
+        // out of scope until the role-walk + governance plumbing lands.
+        let trust = &ctx.accounts.trust;
+        require_keys_eq!(
+            ctx.accounts.grantor.key(),
+            trust.authority,
+            BudgetError::Unauthorized
+        );
 
         let b = &mut ctx.accounts.budget;
         b.trust = ctx.accounts.trust.key();
@@ -146,8 +178,13 @@ pub struct Budget {
 
 #[derive(Accounts)]
 pub struct InitBudget<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -164,8 +201,13 @@ pub struct InitBudget<'info> {
 #[derive(Accounts)]
 #[instruction(budget_id: [u8; 32])]
 pub struct CreateBudget<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         mut,
         seeds = [b"budget_module", trust.key().as_ref()],
@@ -254,4 +296,6 @@ pub enum BudgetError {
     MathOverflow,
     #[msg("caller is not authorized for this budget")]
     Unauthorized,
+    #[msg("trust must be in creation mode to initialize the budget module")]
+    TrustNotInCreationMode,
 }

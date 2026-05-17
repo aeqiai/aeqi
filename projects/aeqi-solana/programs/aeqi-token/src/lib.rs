@@ -66,7 +66,17 @@ pub mod aeqi_token {
     /// Module init — called by the factory (or directly by the user during
     /// company spawn). Creates the TokenModuleState PDA that anchors all
     /// subsequent token operations to this trust.
+    /// Gated to the trust authority during creation mode so the
+    /// module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitToken>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, TokenError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            TokenError::Unauthorized
+        );
+
         let module = &mut ctx.accounts.module_state;
         module.trust = ctx.accounts.trust.key();
         module.mint = Pubkey::default(); // set by create_mint
@@ -272,10 +282,13 @@ pub enum ModuleInitState {
 
 #[derive(Accounts)]
 pub struct InitToken<'info> {
-    /// CHECK: structurally validated by the parent trust PDA derivation; this
-    /// module just records the trust key so subsequent ix can authorize against
-    /// it.
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -432,4 +445,8 @@ pub enum TokenError {
     ZeroAmount,
     #[msg("mint decimals must match finalized token config")]
     DecimalsMismatch,
+    #[msg("caller is not authorized for this trust")]
+    Unauthorized,
+    #[msg("trust must be in creation mode to initialize the token module")]
+    TrustNotInCreationMode,
 }

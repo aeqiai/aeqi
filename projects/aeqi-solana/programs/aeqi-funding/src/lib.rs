@@ -26,17 +26,33 @@
 #![allow(deprecated, unexpected_cfgs)]
 
 use aeqi_budget::Budget;
+use aeqi_trust::state::Trust;
 use aeqi_unifutures::cpi::accounts::{CreateCommitmentSale, CreateCurve, CreateExit};
 use aeqi_unifutures::program::AeqiUnifutures;
 use anchor_lang::prelude::*;
 
 declare_id!("8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U");
 
+/// aeqi_trust program id — used for cross-program PDA derivation so module
+/// setup paths cannot accept arbitrary trust pubkeys.
+pub const AEQI_TRUST_ID: Pubkey =
+    anchor_lang::pubkey!("CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV");
+
 #[program]
 pub mod aeqi_funding {
     use super::*;
 
+    /// Module init — gated to the trust authority during creation mode so
+    /// the module_state PDA cannot be squatted by an attacker.
     pub fn init(ctx: Context<InitFunding>) -> Result<()> {
+        let trust = &ctx.accounts.trust;
+        require!(trust.creation_mode, FundingError::TrustNotInCreationMode);
+        require_keys_eq!(
+            ctx.accounts.payer.key(),
+            trust.authority,
+            FundingError::Unauthorized
+        );
+
         let m = &mut ctx.accounts.module_state;
         m.trust = ctx.accounts.trust.key();
         m.request_count = 0;
@@ -323,8 +339,13 @@ fn require_budget_capacity(
 
 #[derive(Accounts)]
 pub struct InitFunding<'info> {
-    /// CHECK: trust pda
-    pub trust: UncheckedAccount<'info>,
+    /// Trust PDA — must be a real Trust account owned by aeqi_trust.
+    #[account(
+        seeds = [b"trust", trust.trust_id.as_ref()],
+        bump = trust.bump,
+        seeds::program = AEQI_TRUST_ID,
+    )]
+    pub trust: Account<'info, Trust>,
     #[account(
         init,
         payer = payer,
@@ -513,4 +534,6 @@ pub enum FundingError {
     BudgetUnavailable,
     #[msg("budget has insufficient remaining allocation")]
     BudgetCapacityExceeded,
+    #[msg("trust must be in creation mode to initialize the funding module")]
+    TrustNotInCreationMode,
 }
