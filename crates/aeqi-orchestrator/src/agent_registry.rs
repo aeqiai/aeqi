@@ -2223,8 +2223,11 @@ impl AgentRegistry {
         Ok(agents)
     }
 
-    /// Ideas visible to an agent. Scope rule:
-    ///   self + any descendant + any global (`agent_id IS NULL`).
+    /// Ideas visible to an agent. Visibility is anchored to concrete agent IDs,
+    /// not role titles or role classes: two agents occupying roles with the same
+    /// title do not inherit each other's ideas. The current list surface exposes
+    /// self + any descendant + any global (`agent_id IS NULL`).
+    ///
     /// Parents do NOT flow down (covered by the descendant leg from the parent's
     /// own view), so a child never sees private ideas of its parent.
     pub async fn list_ideas_visible_to(
@@ -5345,6 +5348,44 @@ mod tests {
         let paused = reg.list(None, Some(AgentStatus::Paused)).await.unwrap();
         assert_eq!(paused.len(), 1);
         assert_eq!(paused[0].name, "a");
+    }
+
+    #[tokio::test]
+    async fn list_ideas_visible_to_does_not_propagate_by_role_title() {
+        let reg = test_registry().await;
+        let root = reg.spawn("director", None, None).await.unwrap();
+        let alice_cto = reg.spawn("cto", Some(&root.id), None).await.unwrap();
+        let bob_cto = reg.spawn("cto", Some(&root.id), None).await.unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        {
+            let db = reg.db.lock().await;
+            db.execute(
+                "INSERT INTO ideas (id, name, content, scope, agent_id, created_at, status)
+                 VALUES ('idea-alice-cto', 'cto-private-plan', 'private to one CTO role holder',
+                         'self', ?1, ?2, 'active')",
+                params![alice_cto.id, now],
+            )
+            .unwrap();
+        }
+
+        let alice_visible = reg.list_ideas_visible_to(&alice_cto.id).await.unwrap();
+        assert!(
+            alice_visible.iter().any(|i| i.id == "idea-alice-cto"),
+            "the anchoring agent must see its own idea"
+        );
+
+        let bob_visible = reg.list_ideas_visible_to(&bob_cto.id).await.unwrap();
+        assert!(
+            !bob_visible.iter().any(|i| i.id == "idea-alice-cto"),
+            "matching role titles must not confer idea visibility"
+        );
+
+        let director_visible = reg.list_ideas_visible_to(&root.id).await.unwrap();
+        assert!(
+            director_visible.iter().any(|i| i.id == "idea-alice-cto"),
+            "the explicit role DAG still lets a parent view descendant ideas"
+        );
     }
 
     #[tokio::test]
