@@ -439,6 +439,7 @@ fn is_openrouter_budget_error(status: reqwest::StatusCode, body: &str) -> bool {
 
     text.contains("can only afford")
         || text.contains("prompt tokens limit exceeded")
+        || text.contains("insufficient credits")
         || text.contains("weekly limit")
         || text.contains("more credits")
 }
@@ -1066,6 +1067,21 @@ mod cache_control_tests {
             "error": {
                 "code": 402,
                 "message": "Prompt tokens limit exceeded: 12772 > 780. To increase, adjust the key's weekly limit"
+            }
+        }"#;
+
+        assert!(is_openrouter_budget_error(
+            reqwest::StatusCode::PAYMENT_REQUIRED,
+            body,
+        ));
+    }
+
+    #[test]
+    fn recognizes_insufficient_credits_402_for_free_model_fallback() {
+        let body = r#"{
+            "error": {
+                "code": 402,
+                "message": "Insufficient credits. Add more using https://openrouter.ai/settings/credits"
             }
         }"#;
 
