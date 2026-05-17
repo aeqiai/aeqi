@@ -92,6 +92,46 @@ pub async fn handle_files_upload(
         return serde_json::json!({"ok": false, "error": e.to_string()});
     }
 
+    // Phase 2.6 of ae-002 — Drive becomes a saved view over Ideas[kind=file].
+    // Every upload now mints a companion Idea row pointing at the file blob
+    // via `idea.file_id`, so files appear in the Ideas tree alongside notes
+    // and goals. The file itself stays in the `files` table (binary storage
+    // needs and access patterns differ from Ideas); the Idea row carries
+    // hierarchy + tags + search.
+    //
+    // Failure is non-fatal: the file is already on disk and in the files
+    // table. We log and proceed — Drive still works, just without Ideas-tree
+    // visibility for this row until a future backfill.
+    if let Some(ref idea_store) = ctx.idea_store {
+        let idea_content = format!(
+            "File: {} ({} bytes, {})",
+            name,
+            bytes.len(),
+            mime
+        );
+        match idea_store
+            .store(name, &idea_content, &["file".to_string()], Some(agent_id))
+            .await
+        {
+            Ok(idea_id) => {
+                if let Err(e) = idea_store.set_kind(&idea_id, "file", Some(&id)).await {
+                    tracing::warn!(
+                        file_id = %id,
+                        error = %e,
+                        "files_upload: companion Idea created but set_kind failed; will appear as kind=note in tree"
+                    );
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    file_id = %id,
+                    error = %e,
+                    "files_upload: failed to create companion Idea; file is uploaded but won't appear in Ideas tree until backfill"
+                );
+            }
+        }
+    }
+
     match ctx.agent_registry.get_file(&id).await {
         Ok(Some(meta)) => serde_json::json!({"ok": true, "file": meta}),
         Ok(None) => serde_json::json!({"ok": false, "error": "file vanished after insert"}),
@@ -147,7 +187,38 @@ pub async fn handle_files_delete(
     }
     let files_dir = ctx.agent_registry.files_dir();
     let _ = file_store::delete_blob(&files_dir, id);
-    match ctx.agent_registry.delete_file(id).await {
+    let delete_result = ctx.agent_registry.delete_file(id).await;
+
+    // Phase 2.6 — clean up the companion Idea[kind=file] row so the tree
+    // doesn't keep showing a phantom entry after deletion. Best-effort:
+    // find the Idea by its `file_id` and delete it. If the lookup fails or
+    // no companion exists, log and proceed — the file is gone regardless.
+    if let Some(ref idea_store) = ctx.idea_store {
+        match idea_store.find_by_file_id(id).await {
+            Ok(Some(idea_id)) => {
+                if let Err(e) = idea_store.delete(&idea_id).await {
+                    tracing::warn!(
+                        file_id = %id,
+                        idea_id = %idea_id,
+                        error = %e,
+                        "files_delete: blob deleted but companion Idea delete failed"
+                    );
+                }
+            }
+            Ok(None) => {
+                // Pre-Phase-2.6 files have no companion Idea — silent skip.
+            }
+            Err(e) => {
+                tracing::warn!(
+                    file_id = %id,
+                    error = %e,
+                    "files_delete: companion-Idea lookup failed; tree may show phantom entry until next refresh"
+                );
+            }
+        }
+    }
+
+    match delete_result {
         Ok(deleted) => serde_json::json!({"ok": true, "deleted": deleted}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }

@@ -216,6 +216,10 @@ impl IdeaStore for SqliteIdeas {
             .await
     }
 
+    async fn find_by_file_id(&self, file_id: &str) -> Result<Option<String>> {
+        self.find_by_file_id_impl(file_id).await
+    }
+
     fn search_by_prefix(&self, prefix: &str, limit: usize) -> Result<Vec<Idea>> {
         // Delegate to inherent method.
         SqliteIdeas::search_by_prefix(self, prefix, limit)

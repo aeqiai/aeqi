@@ -269,6 +269,28 @@ impl SqliteIdeas {
         .await
     }
 
+    /// Find an Idea by its `file_id` column. Returns the Idea's id if a
+    /// matching row exists, else `None`. Single SQL lookup, no fanciness.
+    pub(super) async fn find_by_file_id_impl(
+        &self,
+        file_id: &str,
+    ) -> Result<Option<String>> {
+        let fid = file_id.to_string();
+        self.blocking(move |conn| {
+            let result: Option<String> = match conn.query_row(
+                "SELECT id FROM ideas WHERE file_id = ?1 LIMIT 1",
+                rusqlite::params![fid],
+                |row| row.get::<_, String>(0),
+            ) {
+                Ok(id) => Some(id),
+                Err(rusqlite::Error::QueryReturnedNoRows) => None,
+                Err(other) => return Err(other.into()),
+            };
+            Ok(result)
+        })
+        .await
+    }
+
     /// Tables-in-Ideas Phase 2: set the parent_idea_id column. `None`
     /// detaches the row to root. The migration v15 column is SET NULL on
     /// parent delete, so a vanished parent leaves children intact.

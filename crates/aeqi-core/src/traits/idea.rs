@@ -446,6 +446,16 @@ pub trait IdeaStore: Send + Sync {
         anyhow::bail!("update not supported by this store")
     }
 
+    /// Find an Idea by its `file_id` column. Returns the Idea's id if a
+    /// row exists with the given file_id, or `None` otherwise. Used by
+    /// the Drive → Ideas integration (Phase 2.6 of ae-002) to locate the
+    /// companion Idea when a file is deleted. Default returns `None` so
+    /// non-aeqi-ideas implementations don't have to plumb this.
+    async fn find_by_file_id(&self, file_id: &str) -> anyhow::Result<Option<String>> {
+        let _ = file_id;
+        Ok(None)
+    }
+
     /// Set the structural `kind` (and optional `file_id`) of an existing idea.
     ///
     /// Canonical kinds for Ideas: `note` (default), `file` (with file_id),
