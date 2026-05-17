@@ -326,6 +326,17 @@ impl EventHandlerStore {
         Ok(())
     }
 
+    /// Refresh the cooldown anchor without incrementing fire_count.
+    pub async fn record_cooldown(&self, id: &str) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+        let db = self.db.lock().await;
+        db.execute(
+            "UPDATE events SET last_fired = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
     /// Get enabled events matching a pattern for an agent: its own + globals.
     pub async fn get_events_for_pattern(&self, agent_id: &str, pattern: &str) -> Vec<Event> {
         let db = self.db.lock().await;
@@ -1429,6 +1440,27 @@ mod tests {
         let updated = store.get(&event.id).await.unwrap().unwrap();
         assert_eq!(updated.fire_count, 2);
         assert!((updated.total_cost_usd - 0.8).abs() < 0.01);
+        assert!(updated.last_fired.is_some());
+    }
+
+    #[tokio::test]
+    async fn record_cooldown_updates_last_fired_without_incrementing_fire_count() {
+        let store = test_store().await;
+        let event = store
+            .create(&NewEvent {
+                agent_id: Some("a1".into()),
+                name: "cooldown-anchor".into(),
+                pattern: "schedule:every 5m".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+
+        store.record_cooldown(&event.id).await.unwrap();
+
+        let updated = store.get(&event.id).await.unwrap().unwrap();
+        assert_eq!(updated.fire_count, 0);
+        assert_eq!(updated.total_cost_usd, 0.0);
         assert!(updated.last_fired.is_some());
     }
 

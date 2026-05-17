@@ -139,6 +139,7 @@ async fn record_assistant_complete(
 struct SessionSendAccumulators {
     step_text: String,
     full_text: String,
+    stop_reason: String,
     iterations: u32,
     prompt_tokens: u32,
     completion_tokens: u32,
@@ -295,6 +296,7 @@ async fn handle_session_send_event(
             }
         }
         aeqi_core::ChatStreamEvent::Complete {
+            stop_reason,
             total_prompt_tokens: pt,
             total_completion_tokens: ct,
             iterations: it,
@@ -317,6 +319,7 @@ async fn handle_session_send_event(
                 }
                 acc.step_text.clear();
             }
+            acc.stop_reason = stop_reason.clone();
             acc.prompt_tokens = *pt;
             acc.completion_tokens = *ct;
             acc.iterations = *it;
@@ -2481,6 +2484,7 @@ impl Daemon {
 
                                     let SessionSendAccumulators {
                                         full_text,
+                                        stop_reason,
                                         iterations,
                                         prompt_tokens,
                                         completion_tokens,
@@ -2513,6 +2517,28 @@ impl Daemon {
                                             iterations,
                                         )
                                         .await;
+                                    if crate::llm_health::is_empty_completion_failure(
+                                        completion_tokens,
+                                        &stop_reason,
+                                    ) {
+                                        let _ = ipc_ctx
+                                            .activity_log
+                                            .emit(
+                                                crate::llm_health::EMPTY_COMPLETION_EVENT,
+                                                Some(&agent_hint),
+                                                Some(&resolved_session_id),
+                                                None,
+                                                &serde_json::json!({
+                                                    "model": default_model,
+                                                    "prompt_tokens": prompt_tokens,
+                                                    "completion_tokens": completion_tokens,
+                                                    "iterations": iterations,
+                                                    "stop_reason": stop_reason,
+                                                    "transport": "ipc.session_send",
+                                                }),
+                                            )
+                                            .await;
+                                    }
 
                                     if stream_mode {
                                         let done = serde_json::json!({

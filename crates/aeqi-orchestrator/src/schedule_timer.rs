@@ -4,7 +4,9 @@
 //! Events inject ideas. The runtime just spawns the session.
 
 use chrono::Utc;
+use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::activity_log::ActivityLog;
@@ -20,6 +22,7 @@ pub struct ScheduleTimer {
     session_manager: Arc<SessionManager>,
     execution_registry: Arc<ExecutionRegistry>,
     default_provider: Option<Arc<dyn aeqi_core::traits::Provider>>,
+    empty_completion_cooldowns: Arc<Mutex<HashMap<String, chrono::DateTime<Utc>>>>,
 }
 
 impl ScheduleTimer {
@@ -37,6 +40,7 @@ impl ScheduleTimer {
             session_manager,
             execution_registry,
             default_provider,
+            empty_completion_cooldowns: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -55,6 +59,10 @@ impl ScheduleTimer {
             for event in &schedules {
                 let expr = event.pattern.strip_prefix("schedule:").unwrap_or("");
                 if expr.is_empty() {
+                    continue;
+                }
+
+                if self.is_empty_completion_cooling_down(&event.id).await {
                     continue;
                 }
 
@@ -142,7 +150,14 @@ impl ScheduleTimer {
                 // drive the join in a detached task so it clears itself from
                 // the registry when the run completes.
                 let exec_reg = self.execution_registry.clone();
+                let activity_log = self.activity_log.clone();
+                let cooldowns = self.empty_completion_cooldowns.clone();
                 let sandbox = spawned.sandbox.clone();
+                let event_id = event.id.clone();
+                let event_name = event.name.clone();
+                let event_pattern = event.pattern.clone();
+                let event_cooldown_secs = event.cooldown_secs;
+                let agent_id_for_cooldown = spawned.agent_id.clone();
                 exec_reg
                     .register(ExecutionHandle {
                         session_id: spawned.session_id.clone(),
@@ -160,7 +175,35 @@ impl ScheduleTimer {
                 }
                 let sid = spawned.session_id.clone();
                 tokio::spawn(async move {
-                    let _ = spawned.join_handle.await;
+                    let join_result = spawned.join_handle.await;
+                    if let Ok(Ok(ref result)) = join_result
+                        && crate::llm_health::is_empty_completion_failure_result(result)
+                    {
+                        let cooldown_secs = empty_completion_cooldown_secs(event_cooldown_secs);
+                        let until = Utc::now() + chrono::Duration::seconds(cooldown_secs as i64);
+                        cooldowns.lock().await.insert(event_id.clone(), until);
+                        let stop_reason = format!("{:?}", result.stop_reason);
+                        let _ = activity_log
+                            .emit(
+                                "schedule.empty_completion_cooldown",
+                                Some(&agent_id_for_cooldown),
+                                Some(&sid),
+                                None,
+                                &serde_json::json!({
+                                    "event_id": event_id,
+                                    "event_name": event_name,
+                                    "event_pattern": event_pattern,
+                                    "cooldown_secs": cooldown_secs,
+                                    "cooldown_until": until.to_rfc3339(),
+                                    "model": result.model.as_str(),
+                                    "prompt_tokens": result.total_prompt_tokens,
+                                    "completion_tokens": result.total_completion_tokens,
+                                    "iterations": result.iterations,
+                                    "stop_reason": stop_reason,
+                                }),
+                            )
+                            .await;
+                    }
                     exec_reg.unregister(&sid).await;
                     drop(sandbox);
                 });
@@ -169,6 +212,19 @@ impl ScheduleTimer {
                 warn!(event = %event.name, error = %e, "failed to spawn session from schedule");
             }
         }
+    }
+
+    async fn is_empty_completion_cooling_down(&self, event_id: &str) -> bool {
+        let now = Utc::now();
+        let mut cooldowns = self.empty_completion_cooldowns.lock().await;
+        if cooldowns
+            .get(event_id)
+            .is_some_and(|cooldown_until| *cooldown_until > now)
+        {
+            return true;
+        }
+        cooldowns.remove(event_id);
+        false
     }
 }
 
@@ -198,6 +254,10 @@ fn is_schedule_due(expr: &str, last_fired: Option<&chrono::DateTime<Utc>>) -> bo
     }
 
     false
+}
+
+fn empty_completion_cooldown_secs(configured_cooldown_secs: u64) -> u64 {
+    configured_cooldown_secs.max(crate::llm_health::EMPTY_COMPLETION_SCHEDULE_COOLDOWN_SECS)
 }
 
 fn parse_interval(s: &str) -> Option<chrono::Duration> {
@@ -345,5 +405,19 @@ mod tests {
     #[test]
     fn unknown_pattern_not_due() {
         assert!(!is_schedule_due("garbage", None));
+    }
+
+    #[test]
+    fn empty_completion_cooldown_uses_default_when_event_has_no_cooldown() {
+        assert_eq!(
+            empty_completion_cooldown_secs(0),
+            crate::llm_health::EMPTY_COMPLETION_SCHEDULE_COOLDOWN_SECS
+        );
+    }
+
+    #[test]
+    fn empty_completion_cooldown_preserves_longer_event_cooldown() {
+        let configured = crate::llm_health::EMPTY_COMPLETION_SCHEDULE_COOLDOWN_SECS + 60;
+        assert_eq!(empty_completion_cooldown_secs(configured), configured);
     }
 }

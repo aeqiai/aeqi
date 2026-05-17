@@ -1789,6 +1789,29 @@ impl SessionManager {
             // spawn_session call for the same session_id.
             let _exec_guard = exec_guard;
             let result = agent.run(&input_owned).await;
+            if let Ok(r) = &result
+                && crate::llm_health::is_empty_completion_failure_result(r)
+            {
+                let stop_reason = format!("{:?}", r.stop_reason);
+                let agent_for_event =
+                    (!agent_id_clone.is_empty()).then_some(agent_id_clone.as_str());
+                let _ = al_clone
+                    .emit(
+                        crate::llm_health::EMPTY_COMPLETION_EVENT,
+                        agent_for_event,
+                        Some(&sid_clone),
+                        None,
+                        &serde_json::json!({
+                            "model": r.model.as_str(),
+                            "prompt_tokens": r.total_prompt_tokens,
+                            "completion_tokens": r.total_completion_tokens,
+                            "iterations": r.iterations,
+                            "stop_reason": stop_reason,
+                            "transport": spawn_transport.as_deref().unwrap_or("internal"),
+                        }),
+                    )
+                    .await;
+            }
             // On completion, record result and close session (unless Interactive — those
             // stay open until explicitly closed).
             if !is_interactive_spawn && let (Some(ss), Ok(r)) = (&ss_clone, &result) {

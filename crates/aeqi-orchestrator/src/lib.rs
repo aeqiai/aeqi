@@ -34,6 +34,7 @@ pub mod gateway_manager;
 pub mod hook;
 pub mod idea_assembly;
 pub mod ipc;
+pub mod llm_health;
 pub mod mcp_bootstrap;
 pub mod mentions;
 pub mod message_router;
