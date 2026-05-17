@@ -18,8 +18,8 @@ pub enum BillingOutcome {
     /// Request is cleared to proceed; attach the billing context to the request
     /// so the post-response handler can debit the actual cost.
     Approved {
-        /// Unique identifier for the billing subject (entity_id for sub/treasury,
-        /// entity_id for subscription.
+        /// Unique identifier for the billing subject (trust_id for sub/treasury,
+        /// trust_id for subscription.
         subject: String,
         /// Lane that approved the request.
         lane: BillingLane,

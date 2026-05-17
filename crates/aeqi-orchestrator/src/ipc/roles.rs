@@ -28,11 +28,11 @@ fn caller_user_id(request: &serde_json::Value) -> &str {
         .unwrap_or("")
 }
 
-/// Check that the caller holds `roles.manage` at `entity_id`.
+/// Check that the caller holds `roles.manage` at `trust_id`.
 /// Returns `Some(error_json)` when the check fails, `None` when it passes.
 async fn require_roles_manage(
     ctx: &super::CommandContext,
-    entity_id: &str,
+    trust_id: &str,
     caller_id: &str,
 ) -> Option<serde_json::Value> {
     if caller_id.is_empty() {
@@ -41,7 +41,7 @@ async fn require_roles_manage(
     match ctx
         .role_registry
         .user_has_grant(
-            entity_id,
+            trust_id,
             caller_id,
             crate::role_registry::GRANT_ROLES_MANAGE,
         )
@@ -62,18 +62,18 @@ pub async fn handle_list_roles(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let entity_id = match super::request_field(request, "entity_id") {
+    let trust_id = match super::request_field(request, "trust_id") {
         Some(s) if !s.is_empty() => s.to_string(),
-        _ => return serde_json::json!({"ok": false, "error": "entity_id is required"}),
+        _ => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
     };
 
-    if allowed.is_some() && !is_allowed(allowed, &entity_id) {
+    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
     let (roles, edges) = match ctx
         .role_registry
-        .list_for_entity_with_grants(&entity_id)
+        .list_for_entity_with_grants(&trust_id)
         .await
     {
         Ok(v) => v,
@@ -107,8 +107,8 @@ pub async fn handle_get_role(
     };
 
     // Fetch parent and child role ids.
-    let entity_id = role.entity_id.clone();
-    let edges = match ctx.role_registry.list_edges_for_entity(&entity_id).await {
+    let trust_id = role.trust_id.clone();
+    let edges = match ctx.role_registry.list_edges_for_entity(&trust_id).await {
         Ok(v) => v,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
@@ -137,22 +137,22 @@ pub async fn handle_user_grants(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let entity_id = match super::request_field(request, "entity_id") {
+    let trust_id = match super::request_field(request, "trust_id") {
         Some(s) if !s.is_empty() => s.to_string(),
-        _ => return serde_json::json!({"ok": false, "error": "entity_id is required"}),
+        _ => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
     };
     let user_id = match super::request_field(request, "user_id") {
         Some(s) if !s.is_empty() => s.to_string(),
         _ => return serde_json::json!({"ok": false, "error": "user_id is required"}),
     };
 
-    if allowed.is_some() && !is_allowed(allowed, &entity_id) {
+    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
     match ctx
         .role_registry
-        .user_grants_for_entity(&entity_id, &user_id)
+        .user_grants_for_entity(&trust_id, &user_id)
         .await
     {
         Ok(grants) => serde_json::json!({"ok": true, "grants": grants}),
@@ -167,17 +167,17 @@ pub async fn handle_create_role(
     request: &serde_json::Value,
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let entity_id = match super::request_field(request, "entity_id") {
+    let trust_id = match super::request_field(request, "trust_id") {
         Some(s) if !s.is_empty() => s.to_string(),
-        _ => return serde_json::json!({"ok": false, "error": "entity_id is required"}),
+        _ => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
     };
-    if allowed.is_some() && !is_allowed(allowed, &entity_id) {
+    if allowed.is_some() && !is_allowed(allowed, &trust_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
     // Gate on roles.manage.
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &entity_id, &caller_id).await {
+    if let Some(err) = require_roles_manage(ctx, &trust_id, &caller_id).await {
         return err;
     }
 
@@ -221,7 +221,7 @@ pub async fn handle_create_role(
     // of minting a second one.  Update its title, role_type, and grants so the
     // caller's intent wins, then wire the edge as normal.
     let role = if let Some(occ_id) = occupant_id.as_deref() {
-        match ctx.role_registry.get_by_occupant(&entity_id, occ_id).await {
+        match ctx.role_registry.get_by_occupant(&trust_id, occ_id).await {
             Ok(Some(existing)) => {
                 let effective_grants = match grants {
                     Some(ref g) if !g.is_empty() => g.clone(),
@@ -250,7 +250,7 @@ pub async fn handle_create_role(
             Ok(None) => match ctx
                 .role_registry
                 .create_with_type(
-                    &entity_id,
+                    &trust_id,
                     &title,
                     kind,
                     Some(occ_id),
@@ -268,7 +268,7 @@ pub async fn handle_create_role(
     } else {
         match ctx
             .role_registry
-            .create_with_type(&entity_id, &title, kind, None, role_type, founder, grants)
+            .create_with_type(&trust_id, &title, kind, None, role_type, founder, grants)
             .await
         {
             Ok(r) => r,
@@ -353,9 +353,9 @@ pub async fn handle_update_role(
         _ => return serde_json::json!({"ok": false, "error": "role_id is required"}),
     };
 
-    // We need the entity_id to do the grant check.
-    let entity_id = match ctx.role_registry.get(&role_id).await {
-        Ok(Some(r)) => r.entity_id,
+    // We need the trust_id to do the grant check.
+    let trust_id = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(r)) => r.trust_id,
         Ok(None) => {
             return serde_json::json!({"ok": false, "error": "role not found", "code": "not_found"});
         }
@@ -363,7 +363,7 @@ pub async fn handle_update_role(
     };
 
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &entity_id, &caller_id).await {
+    if let Some(err) = require_roles_manage(ctx, &trust_id, &caller_id).await {
         return err;
     }
 
@@ -429,8 +429,8 @@ pub async fn handle_archive_role(
         _ => return serde_json::json!({"ok": false, "error": "role_id is required"}),
     };
 
-    let entity_id = match ctx.role_registry.get(&role_id).await {
-        Ok(Some(r)) => r.entity_id,
+    let trust_id = match ctx.role_registry.get(&role_id).await {
+        Ok(Some(r)) => r.trust_id,
         Ok(None) => {
             return serde_json::json!({"ok": false, "error": "role not found", "code": "not_found"});
         }
@@ -438,7 +438,7 @@ pub async fn handle_archive_role(
     };
 
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &entity_id, &caller_id).await {
+    if let Some(err) = require_roles_manage(ctx, &trust_id, &caller_id).await {
         return err;
     }
 
@@ -490,7 +490,7 @@ pub async fn handle_change_occupant(
         });
     }
 
-    // Fetch the current (old) occupant before the update; also get entity_id for grant check.
+    // Fetch the current (old) occupant before the update; also get trust_id for grant check.
     let role = match ctx.role_registry.get(&role_id).await {
         Ok(Some(r)) => r,
         Ok(None) => return serde_json::json!({"ok": false, "error": "role not found"}),
@@ -499,7 +499,7 @@ pub async fn handle_change_occupant(
 
     // Gate on roles.manage.
     let caller_id = caller_user_id(request).to_string();
-    if let Some(err) = require_roles_manage(ctx, &role.entity_id, &caller_id).await {
+    if let Some(err) = require_roles_manage(ctx, &role.trust_id, &caller_id).await {
         return err;
     }
 
@@ -635,7 +635,7 @@ mod tests {
     }
 
     /// Create an entity with a Director-occupied role for the given user, then
-    /// return the entity_id so tests can create additional roles.
+    /// return the trust_id so tests can create additional roles.
     async fn make_entity_with_director(ctx: &CommandContext, user_id: &str) -> String {
         let entity = ctx
             .entity_registry
@@ -665,11 +665,11 @@ mod tests {
 
     /// Create an entity + agent-occupied role in the given ctx.
     async fn make_occupied_role(ctx: &CommandContext, agent_id: &str) -> (String, String) {
-        let entity_id = make_entity_with_director(ctx, "owner-user").await;
+        let trust_id = make_entity_with_director(ctx, "owner-user").await;
         let role = ctx
             .role_registry
             .create_with_type(
-                &entity_id,
+                &trust_id,
                 "CEO",
                 OccupantKind::Agent,
                 Some(agent_id),
@@ -679,7 +679,7 @@ mod tests {
             )
             .await
             .unwrap();
-        (role.id, entity_id)
+        (role.id, trust_id)
     }
 
     #[tokio::test]
@@ -787,11 +787,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _ss) = build_test_ctx(dir.path()).await;
 
-        let entity_id = make_entity_with_director(&ctx, "owner-user").await;
+        let trust_id = make_entity_with_director(&ctx, "owner-user").await;
         let role = ctx
             .role_registry
             .create_with_type(
-                &entity_id,
+                &trust_id,
                 "Ops",
                 OccupantKind::Agent,
                 Some("agent-z"),
@@ -818,10 +818,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _ss) = build_test_ctx(dir.path()).await;
 
-        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let trust_id = make_entity_with_director(&ctx, "owner").await;
 
         let req = serde_json::json!({
-            "entity_id": entity_id,
+            "trust_id": trust_id,
             "title": "Advisor",
             "occupant_kind": "vacant",
             "role_type": "advisor",
@@ -838,10 +838,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _ss) = build_test_ctx(dir.path()).await;
 
-        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let trust_id = make_entity_with_director(&ctx, "owner").await;
         let role = ctx
             .role_registry
-            .create(&entity_id, "Old Title", OccupantKind::Vacant, None)
+            .create(&trust_id, "Old Title", OccupantKind::Vacant, None)
             .await
             .unwrap();
 
@@ -860,10 +860,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _ss) = build_test_ctx(dir.path()).await;
 
-        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let trust_id = make_entity_with_director(&ctx, "owner").await;
         let role = ctx
             .role_registry
-            .create(&entity_id, "Temp", OccupantKind::Vacant, None)
+            .create(&trust_id, "Temp", OccupantKind::Vacant, None)
             .await
             .unwrap();
 
@@ -884,9 +884,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _ss) = build_test_ctx(dir.path()).await;
 
-        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let trust_id = make_entity_with_director(&ctx, "owner").await;
 
-        let req = serde_json::json!({"entity_id": entity_id, "user_id": "owner"});
+        let req = serde_json::json!({"trust_id": trust_id, "user_id": "owner"});
         let resp = handle_user_grants(&ctx, &req, &None).await;
         assert_eq!(resp["ok"], true, "{resp}");
         let grants = resp["grants"].as_array().unwrap();
@@ -905,11 +905,11 @@ mod tests {
     async fn description_idea_id_round_trips() {
         let dir = tempfile::tempdir().unwrap();
         let (ctx, _ss) = build_test_ctx(dir.path()).await;
-        let entity_id = make_entity_with_director(&ctx, "owner").await;
+        let trust_id = make_entity_with_director(&ctx, "owner").await;
 
         // Create with a description_idea_id present.
         let create_req = serde_json::json!({
-            "entity_id": entity_id,
+            "trust_id": trust_id,
             "title": "CFO",
             "occupant_kind": "vacant",
             "role_type": "director",

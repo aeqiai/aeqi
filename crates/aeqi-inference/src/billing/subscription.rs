@@ -3,13 +3,13 @@
 //! Tower [`Layer`] / [`Service`] stub for the subscription lane.
 //!
 //! **Current state (skeleton):** The middleware checks that `Authorization:
-//! Bearer <token>` is present and that `X-Entity` is non-empty. No real JWT
+//! Bearer <token>` is present and that `X-Trust` is non-empty. No real JWT
 //! validation occurs — that is deferred to Phase 1 implementation which will
 //! verify signatures against aeqi-platform's JWT secret.
 //!
 //! **Phase 1 TODO:**
 //! - Decode and verify the JWT (HS256 or RS256 depending on platform key type).
-//! - Resolve `entity_id` from the `sub` claim.
+//! - Resolve `trust_id` from the `sub` claim.
 //! - Read `inference_balance_cents` from an LRU-backed SQLite cache.
 //! - Return 402 if balance == 0 and no Stripe top-up credit available.
 //! - After response streams, debit `tokens_to_cents(usage, model)` from balance.
@@ -24,7 +24,7 @@ use axum::http::{Request, Response, StatusCode};
 use futures::future::BoxFuture;
 use tower::{Layer, Service};
 
-/// In-memory stub balance store. Keyed by entity_id.
+/// In-memory stub balance store. Keyed by trust_id.
 ///
 /// Phase 1 replacement: LRU cache backed by `inference_balance_cents` column
 /// in platform SQLite.
@@ -38,18 +38,18 @@ impl BalanceStore {
         Self::default()
     }
 
-    /// Return the current balance in cents for `entity_id`.
+    /// Return the current balance in cents for `trust_id`.
     /// Returns `None` if the entity has no record (treated as zero).
-    pub fn get(&self, entity_id: &str) -> Option<i64> {
-        self.inner.lock().unwrap().get(entity_id).copied()
+    pub fn get(&self, trust_id: &str) -> Option<i64> {
+        self.inner.lock().unwrap().get(trust_id).copied()
     }
 
-    /// Set the balance for `entity_id` (used in tests).
-    pub fn set(&self, entity_id: &str, cents: i64) {
+    /// Set the balance for `trust_id` (used in tests).
+    pub fn set(&self, trust_id: &str, cents: i64) {
         self.inner
             .lock()
             .unwrap()
-            .insert(entity_id.to_owned(), cents);
+            .insert(trust_id.to_owned(), cents);
     }
 }
 
@@ -104,7 +104,7 @@ where
             .get("authorization")
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_owned());
-        let entity_id = req
+        let trust_id = req
             .headers()
             .get("x-entity")
             .and_then(|v| v.to_str().ok())
@@ -126,11 +126,11 @@ where
 
         // --- Stub balance check ---
         // Phase 1: replace with real LRU-cached SQLite read.
-        let entity_id = entity_id.unwrap_or_else(|| "unknown".to_owned());
-        let balance = self.store.get(&entity_id).unwrap_or(0);
+        let trust_id = trust_id.unwrap_or_else(|| "unknown".to_owned());
+        let balance = self.store.get(&trust_id).unwrap_or(0);
 
         if balance <= 0 {
-            tracing::warn!(entity_id, "subscription balance exhausted — returning 402");
+            tracing::warn!(trust_id, "subscription balance exhausted — returning 402");
             return Box::pin(async move {
                 let mut res = Response::new(ResBody::default());
                 *res.status_mut() = StatusCode::PAYMENT_REQUIRED;
@@ -138,7 +138,7 @@ where
             });
         }
 
-        tracing::debug!(entity_id, balance, "subscription check passed");
+        tracing::debug!(trust_id, balance, "subscription check passed");
 
         let mut inner = self.inner.clone();
         Box::pin(async move { inner.call(req).await })

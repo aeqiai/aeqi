@@ -6,7 +6,7 @@
 //! 1. Demo signup (`POST /api/auth/signup` with `mode: "demo"`)
 //! 2. Verify the issued JWT carries a session
 //! 3. Launch a Company from the default blueprint (`POST /api/start/launch`)
-//! 4. Poll for genesis reveal (`GET /api/start/launch/status/{entity_id}`)
+//! 4. Poll for genesis reveal (`GET /api/start/launch/status/{trust_id}`)
 //! 5. Poll for the first quest visible on the public trust endpoint
 //! 6. Hit `GET /trust/<address>` (the SPA route) for a 200
 //!
@@ -355,14 +355,14 @@ async fn run_one_walk_inner(platform_url: &str, force_fail: bool) -> Result<Walk
     }
     let launch_body: serde_json::Value =
         launch.json().await.context("step 3: parse launch body")?;
-    let entity_id = launch_body
-        .get("entity_id")
+    let trust_id = launch_body
+        .get("trust_id")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("step 3 (launch) response missing entity_id"))?
+        .ok_or_else(|| anyhow!("step 3 (launch) response missing trust_id"))?
         .to_string();
 
     // Step 4: poll launch-status until genesis reveal (trust_address set).
-    let trust_address = poll_for_genesis(&client, platform_url, &token, &entity_id).await?;
+    let trust_address = poll_for_genesis(&client, platform_url, &token, &trust_id).await?;
 
     // Step 5: poll the public TRUST endpoint until quest count > 0 OR
     // until the timeout — first-quest visibility is the weaker signal,
@@ -396,13 +396,13 @@ async fn poll_for_genesis(
     client: &reqwest::Client,
     platform_url: &str,
     token: &str,
-    entity_id: &str,
+    trust_id: &str,
 ) -> Result<String> {
     let deadline = Instant::now() + LAUNCH_POLL_MAX;
     loop {
         let resp = client
             .get(format!(
-                "{platform_url}/api/start/launch/status/{entity_id}"
+                "{platform_url}/api/start/launch/status/{trust_id}"
             ))
             .bearer_auth(token)
             .send()

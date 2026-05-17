@@ -16,7 +16,7 @@
 //! Authority is anchored on the **calling agent** — `agent_id` is
 //! closure-captured by the tool instance at registration time so the LLM
 //! cannot forge identity via args. The trust the agent acts in is read
-//! from the agent's `entity_id`.
+//! from the agent's `trust_id`.
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
 use anyhow::Result;
@@ -50,7 +50,7 @@ impl RolesTool {
         }
     }
 
-    /// Resolve the trust (entity_id) the calling agent acts in.
+    /// Resolve the trust (trust_id) the calling agent acts in.
     async fn resolve_trust(&self) -> Result<String> {
         let agent = self
             .agent_registry
@@ -58,7 +58,7 @@ impl RolesTool {
             .await?
             .ok_or_else(|| anyhow::anyhow!("calling agent not found: {}", self.agent_id))?;
         agent
-            .entity_id
+            .trust_id
             .ok_or_else(|| anyhow::anyhow!("agent has no entity (cannot act in any trust)"))
     }
 

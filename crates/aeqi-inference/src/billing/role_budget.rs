@@ -13,7 +13,7 @@
 //! ## Wire shape
 //!
 //! Headers (read on every `/v1/*` request):
-//! - `X-Entity`: trust id (already extracted by the subscription layer).
+//! - `X-Trust`: trust id (already extracted by the subscription layer).
 //! - `X-Role-Id`: role the calling agent is acting as. Required when
 //!   role gating is active for the workspace; ignored when the gate is
 //!   the no-op variant.
@@ -138,7 +138,7 @@ pub type SharedBudgetGate = Arc<dyn BudgetGate>;
 /// on the same request id, and by the audit log so events line up
 /// with upstream provider traces.
 ///
-/// `workspace_id`: stable per-tenant id (the trust id from `X-Entity`).
+/// `workspace_id`: stable per-tenant id (the trust id from `X-Trust`).
 /// `request_id`: a per-call identifier — typically the response's
 ///               `id` from the upstream provider's chat-completion
 ///               envelope. Falls back to a uuid if absent.

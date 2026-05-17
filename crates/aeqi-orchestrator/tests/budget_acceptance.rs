@@ -48,7 +48,7 @@ use serde_json::json;
 /// CTO and IC are operational roles.
 struct Scene {
     h: TestHarness,
-    entity_id: String,
+    trust_id: String,
     ceo_role: String,
     cto_role: String,
     ic_role: String,
@@ -64,12 +64,12 @@ impl Scene {
         // Spawn an agent so the entity row is created via the canonical
         // path. Then carve up the org chart with three humans.
         let agent = h.registry().spawn("budget-co", None, None).await.unwrap();
-        let entity_id = agent.entity_id.expect("agent must own entity");
+        let trust_id = agent.trust_id.expect("agent must own entity");
 
         let ceo_role = ctx
             .role_registry
             .create_with_type(
-                &entity_id,
+                &trust_id,
                 "CEO",
                 OccupantKind::Human,
                 Some("user-ceo"),
@@ -82,7 +82,7 @@ impl Scene {
         let cto_role = ctx
             .role_registry
             .create_with_type(
-                &entity_id,
+                &trust_id,
                 "CTO",
                 OccupantKind::Human,
                 Some("user-cto"),
@@ -95,7 +95,7 @@ impl Scene {
         let ic_role = ctx
             .role_registry
             .create_with_type(
-                &entity_id,
+                &trust_id,
                 "Senior Engineer",
                 OccupantKind::Human,
                 Some("user-ic"),
@@ -120,7 +120,7 @@ impl Scene {
         let resp = handle_init_treasury_config(
             &ctx,
             &json!({
-                "trust_id": entity_id,
+                "trust_id": trust_id,
                 "inference_gateway": "agent-gateway",
                 "admin_role_id": ceo_role.id,
                 "caller_user_id": "user-ceo",
@@ -132,7 +132,7 @@ impl Scene {
 
         Self {
             h,
-            entity_id,
+            trust_id,
             ceo_role: ceo_role.id,
             cto_role: cto_role.id,
             ic_role: ic_role.id,
@@ -151,7 +151,7 @@ async fn step_01_bootstrap_root_budget_and_policy() {
     let create = handle_create_budget(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "owner_role_id": s.ceo_role,
             "name": "Operating FY26",
             "kind": "operating",
@@ -208,7 +208,7 @@ async fn step_02_ceo_suballocates_to_primary() {
     let list = handle_list_budgets(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "owner_role_id": s.ceo_role,
             "caller_user_id": s.ceo_user,
         }),
@@ -287,7 +287,7 @@ async fn step_03_special_project_skips_org_chart() {
     let create = handle_create_budget(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "parent_budget_id": root,
             "owner_role_id": s.ic_role,
             "name": "Special Project",
@@ -318,7 +318,7 @@ async fn step_03_special_project_skips_org_chart() {
     // descendant of any role-tree node.
     let tree = handle_budget_tree(
         &ctx,
-        &json!({"trust_id": s.entity_id, "caller_user_id": s.ceo_user}),
+        &json!({"trust_id": s.trust_id, "caller_user_id": s.ceo_user}),
         &None,
     )
     .await;
@@ -419,7 +419,7 @@ async fn step_04_atomic_hire_creates_role_budget_allocation() {
     // Role edge wired.
     let edges = ctx
         .role_registry
-        .list_edges_for_entity(&s.entity_id)
+        .list_edges_for_entity(&s.trust_id)
         .await
         .unwrap();
     assert!(
@@ -551,7 +551,7 @@ async fn step_07_multi_role_disambiguation() {
     let bad = handle_create_budget(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "parent_budget_id": root,
             "owner_role_id": s.cto_role,
             "name": "Eng Operating",
@@ -572,7 +572,7 @@ async fn step_07_multi_role_disambiguation() {
     let ok = handle_create_budget(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "parent_budget_id": root,
             "owner_role_id": s.cto_role,
             "name": "Eng Operating",
@@ -628,7 +628,7 @@ async fn step_09_vacant_owner_cannot_spend_treasury() {
     let cfo_role = ctx
         .role_registry
         .create_with_type(
-            &s.entity_id,
+            &s.trust_id,
             "CFO",
             OccupantKind::Vacant,
             None,
@@ -800,7 +800,7 @@ async fn step_11_pause_halts_mutations_unpause_restores() {
     let pause = handle_pause_treasury(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "paused": true,
             "caller_user_id": s.ceo_user,
         }),
@@ -837,7 +837,7 @@ async fn step_11_pause_halts_mutations_unpause_restores() {
     let unpause = handle_pause_treasury(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "paused": false,
             "caller_user_id": s.ceo_user,
         }),
@@ -857,7 +857,7 @@ async fn step_12_dissolve_rejects_non_zero_then_works_when_drained() {
     let create = handle_create_budget(
         &ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "parent_budget_id": root,
             "owner_role_id": s.cto_role,
             "name": "Eng Q3",
@@ -920,7 +920,7 @@ async fn create_root_budget_capped(
     let create = handle_create_budget(
         ctx,
         &json!({
-            "trust_id": s.entity_id,
+            "trust_id": s.trust_id,
             "owner_role_id": s.ceo_role,
             "name": "Operating FY26",
             "kind": "operating",

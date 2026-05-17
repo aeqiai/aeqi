@@ -75,7 +75,7 @@ pub async fn handle_inbox(
     json!({"ok": true, "items": items})
 }
 
-/// Enrich the awaiting-session row with agent name and owning entity_id.
+/// Enrich the awaiting-session row with agent name and owning trust_id.
 /// The entity is the canonical tenancy anchor — walking the position DAG
 /// adds nothing the inbox UI uses today (it just wants "which company is
 /// this from").
@@ -85,18 +85,18 @@ async fn enrich_row(
 ) -> Value {
     let agent_id = row.agent_id.clone();
     let mut agent_name: Option<String> = None;
-    let mut entity_id: Option<String> = None;
+    let mut trust_id: Option<String> = None;
     if let Some(ref id) = agent_id
         && let Ok(Some(agent)) = agent_registry.get(id).await
     {
         agent_name = Some(agent.name.clone());
-        entity_id = agent.entity_id.clone();
+        trust_id = agent.trust_id.clone();
     }
     json!({
         "session_id": row.session_id,
         "agent_id": agent_id,
         "agent_name": agent_name,
-        "entity_id": entity_id,
+        "trust_id": trust_id,
         "session_name": row.session_name,
         "awaiting_subject": row.awaiting_subject,
         "awaiting_at": row.awaiting_at,

@@ -446,7 +446,7 @@ async fn platform_get_json(
     api_url: &str,
     api_key: &str,
     path: &str,
-    entity_id: Option<&str>,
+    trust_id: Option<&str>,
 ) -> Result<serde_json::Value> {
     let url = format!(
         "{}/{}",
@@ -454,8 +454,8 @@ async fn platform_get_json(
         path.trim_start_matches('/')
     );
     let mut request = client.get(url).bearer_auth(api_key);
-    if let Some(entity_id) = entity_id {
-        request = request.header("x-entity", entity_id);
+    if let Some(trust_id) = trust_id {
+        request = request.header("x-entity", trust_id);
     }
     let response = request.send().await?.error_for_status()?;
     Ok(response.json().await?)
@@ -487,7 +487,7 @@ fn choose_json_item<'a>(
         let label = json_label(item, label_keys, "(unnamed)");
         let id = item
             .get("id")
-            .or_else(|| item.get("entity_id"))
+            .or_else(|| item.get("trust_id"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
         if id.is_empty() {
@@ -512,7 +512,7 @@ fn choose_json_item<'a>(
             .iter()
             .position(|item| {
                 item.get("id")
-                    .or_else(|| item.get("entity_id"))
+                    .or_else(|| item.get("trust_id"))
                     .and_then(|v| v.as_str())
                     .map(|id| id == choice)
                     .unwrap_or(false)
@@ -523,7 +523,7 @@ fn choose_json_item<'a>(
     Ok(items.get(idx))
 }
 
-fn websocket_url(api_url: &str, entity_id: &str) -> String {
+fn websocket_url(api_url: &str, trust_id: &str) -> String {
     let mut base = api_url.trim_end_matches('/').to_string();
     if let Some(rest) = base.strip_prefix("https://") {
         base = format!("wss://{rest}");
@@ -531,8 +531,8 @@ fn websocket_url(api_url: &str, entity_id: &str) -> String {
         base = format!("ws://{rest}");
     }
     format!(
-        "{base}/api/chat/stream?entity_id={}",
-        urlencoding::encode(entity_id)
+        "{base}/api/chat/stream?trust_id={}",
+        urlencoding::encode(trust_id)
     )
 }
 
@@ -554,14 +554,14 @@ async fn run_remote_chat(
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    let entity_id = if let Some(entity) = entity {
+    let trust_id = if let Some(entity) = entity {
         entity.to_string()
     } else {
         let selected = choose_json_item("Companies", &entities, &["display_name", "name"])?
             .context("no companies available for this account")?;
         selected
             .get("id")
-            .or_else(|| selected.get("entity_id"))
+            .or_else(|| selected.get("trust_id"))
             .and_then(|v| v.as_str())
             .context("selected company has no id")?
             .to_string()
@@ -576,8 +576,8 @@ async fn run_remote_chat(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    let roles_path = format!("/api/roles?entity_id={}", urlencoding::encode(&entity_id));
-    let roles_json = platform_get_json(&client, &api_url, &api_key, &roles_path, Some(&entity_id))
+    let roles_path = format!("/api/roles?trust_id={}", urlencoding::encode(&trust_id));
+    let roles_json = platform_get_json(&client, &api_url, &api_key, &roles_path, Some(&trust_id))
         .await
         .unwrap_or_else(|_| serde_json::json!({"roles": []}));
     let mut roles = roles_json
@@ -607,7 +607,7 @@ async fn run_remote_chat(
     };
 
     let agents_json =
-        platform_get_json(&client, &api_url, &api_key, "/api/agents", Some(&entity_id))
+        platform_get_json(&client, &api_url, &api_key, "/api/agents", Some(&trust_id))
             .await
             .context("list platform agents")?;
     let agents_all = agents_json
@@ -671,12 +671,12 @@ async fn run_remote_chat(
     let (event_tx, event_rx) = mpsc::channel::<ChatStreamEvent>();
     let (cmd_tx, cmd_rx) = mpsc::channel::<WsCommand>();
     let ws_handle = Some(spawn_ws_thread(
-        websocket_url(&api_url, &entity_id),
+        websocket_url(&api_url, &trust_id),
         vec![("authorization".to_string(), format!("Bearer {api_key}"))],
         cmd_rx,
         event_tx,
     ));
-    eprintln!("  \x1b[90m(connected to {api_url}, company {entity_id})\x1b[0m");
+    eprintln!("  \x1b[90m(connected to {api_url}, company {trust_id})\x1b[0m");
     if let Some(ref role_id) = acting_role_id {
         eprintln!("  \x1b[90m(acting role: {role_id})\x1b[0m");
     }

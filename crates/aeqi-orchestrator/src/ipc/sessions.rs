@@ -132,7 +132,7 @@ pub async fn handle_close_session(
 /// `list_channels_for_entity` — return all in-app, Slack-style channels owned
 /// by a Company. Phase-1 of the in-aeqi Channels surface.
 ///
-/// Channels are sessions with `session_type='channel'` and `entity_id` set.
+/// Channels are sessions with `session_type='channel'` and `trust_id` set.
 /// They are distinct from the gateway-channel rows surfaced by
 /// `list_channel_sessions` (which are Telegram / WhatsApp / Slack-app
 /// transport bindings, not chat surfaces).
@@ -141,14 +141,14 @@ pub async fn handle_list_channels_for_entity(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let entity_id = request_field(request, "entity_id").unwrap_or("");
-    if entity_id.is_empty() {
-        return serde_json::json!({"ok": false, "error": "entity_id is required"});
+    let trust_id = request_field(request, "trust_id").unwrap_or("");
+    if trust_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "trust_id is required"});
     }
     let Some(ref ss) = ctx.session_store else {
         return serde_json::json!({"ok": false, "error": "session store not available"});
     };
-    match ss.list_channels_for_entity(entity_id).await {
+    match ss.list_channels_for_entity(trust_id).await {
         Ok(rows) => serde_json::json!({"ok": true, "channels": rows}),
         Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
     }
@@ -159,7 +159,7 @@ pub async fn handle_list_channels_for_entity(
 /// Request shape:
 /// ```json
 /// {
-///   "entity_id":    "<uuid>",
+///   "trust_id":    "<uuid>",
 ///   "name":         "<channel name>",
 ///   "participants": [{ "kind": "user|agent|position", "id": "<id>" }]
 /// }
@@ -174,9 +174,9 @@ pub async fn handle_create_channel(
     request: &serde_json::Value,
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
-    let entity_id = request_field(request, "entity_id").unwrap_or("");
-    if entity_id.is_empty() {
-        return serde_json::json!({"ok": false, "error": "entity_id is required"});
+    let trust_id = request_field(request, "trust_id").unwrap_or("");
+    if trust_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "trust_id is required"});
     }
     let name = request_field(request, "name").unwrap_or("").trim();
     if name.is_empty() {
@@ -186,7 +186,7 @@ pub async fn handle_create_channel(
         return serde_json::json!({"ok": false, "error": "session store not available"});
     };
 
-    let session_id = match ss.create_entity_channel(entity_id, name).await {
+    let session_id = match ss.create_entity_channel(trust_id, name).await {
         Ok(id) => id,
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };

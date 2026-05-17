@@ -1,8 +1,8 @@
 //! Tool-layer write/read protection for sensitive host paths.
 //!
-//! Defense-in-depth layer for host-tier runtimes (`aeqi-host-<entity_id>.service`)
+//! Defense-in-depth layer for host-tier runtimes (`aeqi-host-<trust_id>.service`)
 //! that don't carry a bwrap allowlist mount. Sandbox-tier runtimes
-//! (`aeqi-sandbox-<entity_id>.service`) are already structurally protected
+//! (`aeqi-sandbox-<trust_id>.service`) are already structurally protected
 //! by the bwrap mount in `aeqi-platform/src/sandbox.rs::SandboxManager`;
 //! this module is the equivalent guard at the tool-call layer for the
 //! shell tool, which calls `Command::new("bash")` directly with no mount.

@@ -1,6 +1,6 @@
 //! Agent Registry — agent identities, scoped to entities.
 //!
-//! An agent is an identity owned by exactly one entity (`agents.entity_id`).
+//! An agent is an identity owned by exactly one entity (`agents.trust_id`).
 //! Hierarchy lives in the position DAG (`positions` + `position_edges`):
 //! every agent that participates in an org chart is the occupant of one or
 //! more positions, and authority/delegation queries walk `position_edges`.
@@ -101,7 +101,7 @@ pub struct Agent {
     /// Human-readable label (NOT unique — multiple agents can share a name).
     pub name: String,
     /// Owning entity UUID. Every agent belongs to exactly one entity.
-    pub entity_id: Option<String>,
+    pub trust_id: Option<String>,
     /// Preferred model. None = inherit from the agent's position-DAG ancestry.
     pub model: Option<String>,
     /// Agent status.
@@ -744,8 +744,8 @@ fn ensure_inference_calls_table(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Idempotent migration: ensures the `entity_id` column exists on the `agents`
-/// table and is indexed. Backfill of `entity_id` for legacy rows is handled
+/// Idempotent migration: ensures the `trust_id` column exists on the `agents`
+/// table and is indexed. Backfill of `trust_id` for legacy rows is handled
 /// by the parent_id-walk path inside `bootstrap_legacy_hierarchy_carryover`,
 /// which runs before this column is dropped of its lineage source.
 ///
@@ -771,6 +771,35 @@ fn ensure_entity_public_columns(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Idempotent ALTER TABLE … RENAME COLUMN for the ae-062 phase-B
+/// `entity_id → trust_id` sweep. No-op if `table` is missing, if `from`
+/// is absent, or if `to` is already present.
+fn rename_legacy_column(
+    conn: &Connection,
+    table: &str,
+    from: &str,
+    to: &str,
+) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if cols.is_empty() {
+        return Ok(());
+    }
+    let has_from = cols.iter().any(|c| c == from);
+    let has_to = cols.iter().any(|c| c == to);
+    if has_from && !has_to {
+        conn.execute(
+            &format!("ALTER TABLE {table} RENAME COLUMN {from} TO {to}"),
+            [],
+        )?;
+    }
+    Ok(())
+}
+
 fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
     let cols: Vec<String> = {
         let mut stmt = conn.prepare("PRAGMA table_info(agents)")?;
@@ -778,14 +807,20 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
             .filter_map(|r| r.ok())
             .collect()
     };
-    if !cols.iter().any(|c| c == "entity_id") {
-        conn.execute_batch(
-            "ALTER TABLE agents ADD COLUMN entity_id TEXT REFERENCES entities(id) ON DELETE SET NULL;
-             CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(entity_id);",
+    let has_legacy = cols.iter().any(|c| c == "entity_id");
+    let has_canonical = cols.iter().any(|c| c == "trust_id");
+    if has_legacy && !has_canonical {
+        // Live-DB carryover from before the ae-062 phase-B rename.
+        conn.execute(
+            "ALTER TABLE agents RENAME COLUMN entity_id TO trust_id",
+            [],
         )?;
-    } else {
-        conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(entity_id);")?;
+    } else if !has_canonical {
+        conn.execute_batch(
+            "ALTER TABLE agents ADD COLUMN trust_id TEXT REFERENCES entities(id) ON DELETE SET NULL;",
+        )?;
     }
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_agents_entity ON agents(trust_id);")?;
     Ok(())
 }
 
@@ -794,10 +829,14 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
 /// vacant. Authority is resolved by transitive closure over `role_edges`
 /// (DAG — flat boards at the top are first-class).
 fn bootstrap_role_tables(conn: &Connection) -> rusqlite::Result<()> {
+    // ae-062 phase B: rename legacy `entity_id` → `trust_id` on live DBs.
+    // CREATE TABLE IF NOT EXISTS below uses the new name, so reconcile first.
+    rename_legacy_column(conn, "roles", "entity_id", "trust_id")?;
+
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS roles (
              id TEXT PRIMARY KEY,
-             entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+             trust_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
              title TEXT NOT NULL DEFAULT '',
              occupant_kind TEXT NOT NULL CHECK (occupant_kind IN ('human','agent','vacant')),
              occupant_id TEXT,
@@ -808,7 +847,7 @@ fn bootstrap_role_tables(conn: &Connection) -> rusqlite::Result<()> {
                  OR (occupant_kind IN ('human','agent') AND occupant_id IS NOT NULL)
              )
          );
-         CREATE INDEX IF NOT EXISTS idx_roles_entity ON roles(entity_id);
+         CREATE INDEX IF NOT EXISTS idx_roles_entity ON roles(trust_id);
          CREATE INDEX IF NOT EXISTS idx_roles_occupant
              ON roles(occupant_kind, occupant_id);
 
@@ -927,7 +966,7 @@ fn ensure_role_rename(conn: &Connection) -> rusqlite::Result<()> {
     )?;
     // Create new canonical indexes.
     conn.execute_batch(
-        "CREATE INDEX IF NOT EXISTS idx_roles_entity ON roles(entity_id);
+        "CREATE INDEX IF NOT EXISTS idx_roles_entity ON roles(trust_id);
          CREATE INDEX IF NOT EXISTS idx_roles_occupant ON roles(occupant_kind, occupant_id);
          CREATE INDEX IF NOT EXISTS idx_role_edges_child ON role_edges(child_role_id);",
     )?;
@@ -945,7 +984,7 @@ fn ensure_role_rename(conn: &Connection) -> rusqlite::Result<()> {
 /// - Every agent gets a position (`position.id == agent.id` for legacy rows;
 ///   fresh agents minted after Phase 4 get distinct UUIDs).
 /// - Every legacy `agents.parent_id` edge becomes a `position_edges` row.
-/// - Every agent's `entity_id` is filled in by walking the `parent_id` chain
+/// - Every agent's `trust_id` is filled in by walking the `parent_id` chain
 ///   up to the root.
 ///
 /// Idempotent: safe to call on every boot, no-op once the legacy columns and
@@ -971,7 +1010,7 @@ fn legacy_hierarchy_carryover(conn: &Connection) -> rusqlite::Result<()> {
          ON CONFLICT(id) DO NOTHING;",
     )?;
 
-    // 2. Walk `parent_id` chain to populate `agents.entity_id` for legacy
+    // 2. Walk `parent_id` chain to populate `agents.trust_id` for legacy
     //    rows. Uses a recursive CTE so we don't depend on `agent_ancestry`.
     conn.execute_batch(
         "WITH RECURSIVE ancestors(id, root_id) AS (
@@ -981,16 +1020,16 @@ fn legacy_hierarchy_carryover(conn: &Connection) -> rusqlite::Result<()> {
              FROM agents a JOIN ancestors anc ON a.parent_id = anc.id
          )
          UPDATE agents
-         SET entity_id = (SELECT root_id FROM ancestors WHERE ancestors.id = agents.id)
-         WHERE entity_id IS NULL;",
+         SET trust_id = (SELECT root_id FROM ancestors WHERE ancestors.id = agents.id)
+         WHERE trust_id IS NULL;",
     )?;
 
     // 3. Backfill roles: one per agent inside its entity.
     conn.execute_batch(
-        "INSERT INTO roles (id, entity_id, title, occupant_kind, occupant_id, created_at)
-         SELECT a.id, a.entity_id, a.name, 'agent', a.id, a.created_at
+        "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id, created_at)
+         SELECT a.id, a.trust_id, a.name, 'agent', a.id, a.created_at
          FROM agents a
-         WHERE a.entity_id IS NOT NULL
+         WHERE a.trust_id IS NOT NULL
          ON CONFLICT(id) DO NOTHING;",
     )?;
 
@@ -1000,7 +1039,7 @@ fn legacy_hierarchy_carryover(conn: &Connection) -> rusqlite::Result<()> {
          SELECT a.parent_id, a.id
          FROM agents a
          WHERE a.parent_id IS NOT NULL
-           AND a.entity_id IS NOT NULL
+           AND a.trust_id IS NOT NULL
            AND EXISTS (SELECT 1 FROM roles WHERE id = a.parent_id)
            AND EXISTS (SELECT 1 FROM roles WHERE id = a.id)
          ON CONFLICT(parent_role_id, child_role_id) DO NOTHING;",
@@ -1013,7 +1052,7 @@ fn legacy_hierarchy_carryover(conn: &Connection) -> rusqlite::Result<()> {
 ///
 /// - Drop the `agent_ancestry` closure table (`position_edges` + recursive
 ///   CTEs replace it).
-/// - Drop the trigger that auto-fills `entity_id` from `parent_id`
+/// - Drop the trigger that auto-fills `trust_id` from `parent_id`
 ///   (Phase-4 spawn does this explicitly).
 /// - Drop the `parent_id` column from `agents`.
 /// - Drop the `agent_directors` table on legacy DBs (the runtime never
@@ -1049,7 +1088,7 @@ fn retire_legacy_hierarchy_storage(conn: &Connection) -> rusqlite::Result<()> {
 /// One-shot, idempotent migration that decouples entity UUIDs from the agent
 /// UUIDs they shared in the Phase-1 backfill. For every entity whose `id`
 /// equals an agent's `id`, mint a fresh entity UUID, copy the entity row to
-/// the new id, re-point all FKs (`agents.entity_id`, `positions.entity_id`,
+/// the new id, re-point all FKs (`agents.trust_id`, `positions.trust_id`,
 /// `entities.parent_entity_id`), then delete the old entity row. Optionally
 /// fans out to the platform's `runtime_placements.agent_id` column when the
 /// platform DB sits at the standard path.
@@ -1099,11 +1138,11 @@ fn decouple_entity_uuids_from_agent_uuids(conn: &Connection) -> rusqlite::Result
             params![new_id, old_id],
         )?;
         conn.execute(
-            "UPDATE agents SET entity_id = ?1 WHERE entity_id = ?2",
+            "UPDATE agents SET trust_id = ?1 WHERE trust_id = ?2",
             params![new_id, old_id],
         )?;
         conn.execute(
-            "UPDATE roles SET entity_id = ?1 WHERE entity_id = ?2",
+            "UPDATE roles SET trust_id = ?1 WHERE trust_id = ?2",
             params![new_id, old_id],
         )?;
 
@@ -1480,8 +1519,8 @@ impl AgentRegistry {
 
         // ── Entity primitive — Phase A ───────────────────────────────────────
         // Bootstrap the entities table, backfill root agents → entity rows,
-        // add agents.entity_id column, backfill via ancestry walk, and install
-        // the trigger that auto-fills entity_id on future INSERTs. All
+        // add agents.trust_id column, backfill via ancestry walk, and install
+        // the trigger that auto-fills trust_id on future INSERTs. All
         // operations are idempotent (IF NOT EXISTS / ON CONFLICT DO NOTHING /
         // PRAGMA-guarded ALTER TABLE) so re-running on every daemon start is safe.
 
@@ -1509,7 +1548,7 @@ impl AgentRegistry {
         //     on Overview owns these. Idempotent ALTER guarded by PRAGMA.
         ensure_entity_public_columns(&conn)?;
 
-        // 2. Add agents.entity_id column (guarded by PRAGMA table_info check).
+        // 2. Add agents.trust_id column (guarded by PRAGMA table_info check).
         ensure_agent_entity_id_column(&conn)?;
 
         // 3a. Rename legacy positions → roles (idempotent; no-op on fresh DBs).
@@ -1527,7 +1566,7 @@ impl AgentRegistry {
         crate::budget_registry::bootstrap_budget_tables(&conn)?;
 
         // 4. Legacy carryover — only fires while `agents.parent_id` still
-        //    exists on disk. Backfills entities, agents.entity_id,
+        //    exists on disk. Backfills entities, agents.trust_id,
         //    roles, and role_edges from the legacy parent_id chain.
         legacy_hierarchy_carryover(&conn)?;
 
@@ -1778,11 +1817,11 @@ impl AgentRegistry {
             .await
     }
 
-    /// Spawn variant that lets the caller supply the `entity_id` for the
+    /// Spawn variant that lets the caller supply the `trust_id` for the
     /// fresh-root case. Used by the platform-driven `/start/launch` path:
     /// the platform mints the canonical UUID and passes it through. No-op
     /// when `parent_agent_id` is `Some` (child spawns always reuse the
-    /// parent's entity_id).
+    /// parent's trust_id).
     ///
     /// `entity_slug_override` decouples the `entities.slug` column from the
     /// root agent's `canonical_name`. Blueprints carry their own brand slug
@@ -1809,26 +1848,26 @@ impl AgentRegistry {
 
         // Resolve entity (and parent role when relevant). Three distinct
         // IDs for fresh root spawns; reused entity for child spawns.
-        let (entity_id, parent_role_id): (String, Option<String>) = if let Some(pid) =
+        let (trust_id, parent_role_id): (String, Option<String>) = if let Some(pid) =
             parent_agent_id
         {
             let parent_entity_id: String = db
                 .query_row(
-                    "SELECT entity_id FROM agents WHERE id = ?1",
+                    "SELECT trust_id FROM agents WHERE id = ?1",
                     params![pid],
                     |row| row.get::<_, Option<String>>(0),
                 )
                 .optional()?
                 .flatten()
                 .ok_or_else(|| {
-                    anyhow::anyhow!("parent agent '{pid}' has no entity_id; cannot attach child")
+                    anyhow::anyhow!("parent agent '{pid}' has no trust_id; cannot attach child")
                 })?;
 
             // Look up the parent's primary role inside this entity.
             let parent_pos: Option<String> = db
                 .query_row(
                     "SELECT id FROM roles
-                         WHERE entity_id = ?1 AND occupant_kind = 'agent' AND occupant_id = ?2
+                         WHERE trust_id = ?1 AND occupant_kind = 'agent' AND occupant_id = ?2
                          ORDER BY created_at ASC
                          LIMIT 1",
                     params![parent_entity_id, pid],
@@ -1881,7 +1920,7 @@ impl AgentRegistry {
         let agent = Agent {
             id: agent_id.clone(),
             name: canonical_name.clone(),
-            entity_id: Some(entity_id.clone()),
+            trust_id: Some(trust_id.clone()),
             model: model.map(|s| s.to_string()),
             status: AgentStatus::Active,
             created_at: now,
@@ -1908,7 +1947,7 @@ impl AgentRegistry {
         };
 
         db.execute(
-            "INSERT INTO agents (id, name, display_name, model, status, created_at, session_id, entity_id)
+            "INSERT INTO agents (id, name, display_name, model, status, created_at, session_id, trust_id)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 agent.id,
@@ -1918,17 +1957,17 @@ impl AgentRegistry {
                 agent.status.to_string(),
                 agent.created_at.to_rfc3339(),
                 session_id,
-                entity_id,
+                trust_id,
             ],
         )?;
 
         // Mint the role and (when this is a child spawn) the DAG edge.
         db.execute(
-            "INSERT INTO roles (id, entity_id, title, occupant_kind, occupant_id, created_at)
+            "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id, created_at)
              VALUES (?1, ?2, ?3, 'agent', ?4, ?5)",
             params![
                 role_id,
-                entity_id,
+                trust_id,
                 canonical_name,
                 agent.id,
                 now.to_rfc3339(),
@@ -1945,7 +1984,7 @@ impl AgentRegistry {
 
         info!(
             agent_id = %agent.id,
-            entity_id = %entity_id,
+            trust_id = %trust_id,
             role_id = %role_id,
             parent_agent_id = ?parent_agent_id,
             "agent spawned"
@@ -2160,19 +2199,19 @@ impl AgentRegistry {
         .map_err(Into::into)
     }
 
-    /// List all agents, optionally filtered by status. Optional `entity_id`
+    /// List all agents, optionally filtered by status. Optional `trust_id`
     /// restricts the result to a single entity's agent set.
     pub async fn list(
         &self,
-        entity_id: Option<&str>,
+        trust_id: Option<&str>,
         status: Option<AgentStatus>,
     ) -> Result<Vec<Agent>> {
         let db = self.db.lock().await;
         let mut sql = "SELECT * FROM agents WHERE 1=1".to_string();
         let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-        if let Some(eid) = entity_id {
-            sql.push_str(" AND entity_id = ?");
+        if let Some(eid) = trust_id {
+            sql.push_str(" AND trust_id = ?");
             params_vec.push(Box::new(eid.to_string()));
         }
         if let Some(s) = status {
@@ -2804,7 +2843,7 @@ impl AgentRegistry {
                 }
             }
 
-            // Delete the agent — `ON DELETE CASCADE` on roles.entity_id
+            // Delete the agent — `ON DELETE CASCADE` on roles.trust_id
             // is not what we want here; roles for this agent get
             // dropped explicitly so any other entity references stay clean.
             for role in &agent_role_ids {
@@ -4653,7 +4692,7 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
     Agent {
         id: row.get("id").unwrap_or_default(),
         name: row.get("name").unwrap_or_default(),
-        entity_id: row.get("entity_id").ok(),
+        trust_id: row.get("trust_id").ok(),
         model: row.get("model").ok(),
         status,
         created_at: row
@@ -5186,8 +5225,8 @@ mod tests {
     /// - `agents.parent_id` column is gone.
     /// - `agent_ancestry` and `agent_directors` tables are gone.
     /// - The entity has a fresh UUID, distinct from the agent UUID.
-    /// - `agents.entity_id` is rewritten to point at the fresh UUID.
-    /// - `positions.entity_id` is rewritten to the fresh UUID.
+    /// - `agents.trust_id` is rewritten to point at the fresh UUID.
+    /// - `positions.trust_id` is rewritten to the fresh UUID.
     /// - The migration is idempotent — running open() a second time is a no-op.
     #[tokio::test]
     async fn phase4_migration_decouples_legacy_uuids() {
@@ -5203,7 +5242,7 @@ mod tests {
                      id TEXT PRIMARY KEY,
                      name TEXT NOT NULL,
                      parent_id TEXT,
-                     entity_id TEXT,
+                     trust_id TEXT,
                      status TEXT NOT NULL DEFAULT 'active',
                      created_at TEXT NOT NULL,
                      last_active TEXT,
@@ -5238,7 +5277,7 @@ mod tests {
             // Single root agent, just like the live Luca Eich entry.
             let shared_id = "1b6bcf4e-79f0-4d8e-9a55-501e87149836";
             conn.execute(
-                "INSERT INTO agents (id, name, parent_id, entity_id, created_at)
+                "INSERT INTO agents (id, name, parent_id, trust_id, created_at)
                  VALUES (?1, 'Luca Eich', NULL, ?1, '2026-04-01T00:00:00Z')",
                 params![shared_id],
             )
@@ -5287,7 +5326,7 @@ mod tests {
         let agent_id = "1b6bcf4e-79f0-4d8e-9a55-501e87149836";
         let agent_entity_id: String = conn
             .query_row(
-                "SELECT entity_id FROM agents WHERE id = ?1",
+                "SELECT trust_id FROM agents WHERE id = ?1",
                 params![agent_id],
                 |row| row.get(0),
             )
@@ -5321,7 +5360,7 @@ mod tests {
         // 4. Role re-pointed.
         let role_entity_id: String = conn
             .query_row(
-                "SELECT entity_id FROM roles WHERE occupant_id = ?1",
+                "SELECT trust_id FROM roles WHERE occupant_id = ?1",
                 params![agent_id],
                 |row| row.get(0),
             )
@@ -5355,11 +5394,11 @@ mod tests {
 
         assert_eq!(agent.name, "Shadow");
         assert!(
-            agent.entity_id.is_some(),
+            agent.trust_id.is_some(),
             "spawned agent must own an entity"
         );
         assert_ne!(
-            agent.entity_id.as_deref(),
+            agent.trust_id.as_deref(),
             Some(agent.id.as_str()),
             "entity UUID must be distinct from agent UUID"
         );
@@ -5647,8 +5686,8 @@ mod tests {
         let all = reg.list(None, None).await.unwrap();
         assert_eq!(all.len(), 3);
 
-        let entity_id = root.entity_id.as_deref().unwrap();
-        let entity_agents = reg.list(Some(entity_id), None).await.unwrap();
+        let trust_id = root.trust_id.as_deref().unwrap();
+        let entity_agents = reg.list(Some(trust_id), None).await.unwrap();
         assert_eq!(entity_agents.len(), 3);
 
         let entity_agents = reg.list_entity_agents().await.unwrap();
@@ -5656,7 +5695,7 @@ mod tests {
         assert_eq!(entity_agents[0].name, "root");
 
         let active_in_entity = reg
-            .list(Some(entity_id), Some(AgentStatus::Active))
+            .list(Some(trust_id), Some(AgentStatus::Active))
             .await
             .unwrap();
         assert_eq!(active_in_entity.len(), 2);

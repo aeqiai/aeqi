@@ -302,7 +302,7 @@ pub struct Blueprint {
 #[derive(Debug, Clone, Serialize)]
 pub struct SpawnOutcome {
     /// The entity (company) that was just minted. Distinct from any agent UUID.
-    pub entity_id: String,
+    pub trust_id: String,
     pub default_agent_id: String,
     pub default_agent_name: String,
     pub spawned_agents: Vec<SpawnedAgent>,
@@ -655,8 +655,8 @@ pub async fn spawn_blueprint(
         }
     }
 
-    let entity_id = default_agent.entity_id.clone().ok_or_else(|| {
-        anyhow::anyhow!("spawned default agent has no entity_id (post-Phase-4 invariant)")
+    let trust_id = default_agent.trust_id.clone().ok_or_else(|| {
+        anyhow::anyhow!("spawned default agent has no trust_id (post-Phase-4 invariant)")
     })?;
 
     // Install declared roles when the blueprint provides them. The
@@ -668,7 +668,7 @@ pub async fn spawn_blueprint(
     if !blueprint.seed_roles.is_empty()
         && let Err(err) = install_declared_roles(
             role_registry,
-            &entity_id,
+            &trust_id,
             &blueprint.seed_roles,
             &blueprint.seed_role_edges,
             &owner_to_agent_id,
@@ -681,7 +681,7 @@ pub async fn spawn_blueprint(
     }
 
     Ok(SpawnOutcome {
-        entity_id,
+        trust_id,
         default_agent_id: default_agent.id.clone(),
         default_agent_name: default_agent.name.clone(),
         spawned_agents,
@@ -692,14 +692,14 @@ pub async fn spawn_blueprint(
     })
 }
 
-/// Replace every auto-created position for `entity_id` with the
+/// Replace every auto-created position for `trust_id` with the
 /// declared role structure. Operator overrides take precedence over
 /// the blueprint's `default_occupant_agent`. Unknown role keys in
 /// overrides become warnings (the spawn still proceeds).
 #[allow(clippy::too_many_arguments)]
 async fn install_declared_roles(
     role_registry: &crate::role_registry::RoleRegistry,
-    entity_id: &str,
+    trust_id: &str,
     seed_roles: &[SeedRoleSpec],
     seed_role_edges: &[SeedRoleEdgeSpec],
     owner_to_agent_id: &std::collections::HashMap<String, String>,
@@ -727,7 +727,7 @@ async fn install_declared_roles(
 
     // Wipe the auto-position residue. Single transaction underneath —
     // edges first (FK to positions), then positions.
-    role_registry.delete_for_entity(entity_id).await?;
+    role_registry.delete_for_entity(trust_id).await?;
 
     // Mint declared roles; map role_key → fresh role_id so
     // `seed_role_edges` can reference them.
@@ -771,7 +771,7 @@ async fn install_declared_roles(
             .unwrap_or(crate::role_registry::RoleType::Operational);
         let created_role = role_registry
             .create_with_type(
-                entity_id,
+                trust_id,
                 &role_spec.title,
                 kind,
                 occupant_id.as_deref(),
@@ -1113,10 +1113,10 @@ pub async fn handle_spawn_blueprint(
 
     // `display_name` is the canonical override key (mirrors `/start/launch`).
     let display_name = super::request_field(request, "display_name").map(str::to_string);
-    // Optional platform-supplied entity_id (UUID). When present, the
+    // Optional platform-supplied trust_id (UUID). When present, the
     // runtime adopts it instead of minting its own — the canonical
     // `/start/launch` path.
-    let entity_id_override = super::request_field(request, "entity_id").map(str::to_string);
+    let entity_id_override = super::request_field(request, "trust_id").map(str::to_string);
     // The platform-side user UUID for the creator. Injected by the web
     // route when a JWT is present. Used to auto-create the founding Director
     // role; absent for scope/proxy tokens that have no user context.
@@ -1199,18 +1199,18 @@ pub async fn handle_spawn_blueprint(
             if let Some(ref uid) = creator_user_id {
                 match ctx
                     .role_registry
-                    .ensure_founding_director(&outcome.entity_id, uid)
+                    .ensure_founding_director(&outcome.trust_id, uid)
                     .await
                 {
                     Ok(role) => tracing::info!(
                         role_id = %role.id,
-                        entity_id = %outcome.entity_id,
+                        trust_id = %outcome.trust_id,
                         user_id = %uid,
                         "auto-created founding Director role",
                     ),
                     Err(e) => tracing::error!(
                         error = %e,
-                        entity_id = %outcome.entity_id,
+                        trust_id = %outcome.trust_id,
                         user_id = %uid,
                         "failed to auto-create founding Director role",
                     ),
@@ -1225,7 +1225,7 @@ pub async fn handle_spawn_blueprint(
             }
             serde_json::json!({
                 "ok": true,
-                "entity_id": outcome.entity_id,
+                "trust_id": outcome.trust_id,
                 "default_agent_id": outcome.default_agent_id,
                 "default_agent_name": outcome.default_agent_name,
                 "spawned_agents": outcome.spawned_agents,
@@ -1256,13 +1256,13 @@ pub async fn handle_spawn_blueprint_into_entity(
     if slug.is_empty() {
         return serde_json::json!({"ok": false, "error": "blueprint is required"});
     }
-    let entity_id = super::request_field(request, "entity_id").unwrap_or("");
-    if entity_id.is_empty() {
-        return serde_json::json!({"ok": false, "error": "entity_id is required"});
+    let trust_id = super::request_field(request, "trust_id").unwrap_or("");
+    if trust_id.is_empty() {
+        return serde_json::json!({"ok": false, "error": "trust_id is required"});
     }
 
     // Tenancy: the entity must be inside the caller's allowed scope.
-    if !super::tenancy::is_allowed(allowed, entity_id) {
+    if !super::tenancy::is_allowed(allowed, trust_id) {
         return serde_json::json!({"ok": false, "error": "access denied"});
     }
 
@@ -1284,13 +1284,13 @@ pub async fn handle_spawn_blueprint_into_entity(
     let entity_default_agent = match ctx.agent_registry.list_entity_agents().await {
         Ok(agents) => agents
             .into_iter()
-            .find(|a| a.entity_id.as_deref() == Some(entity_id)),
+            .find(|a| a.trust_id.as_deref() == Some(trust_id)),
         Err(err) => return serde_json::json!({"ok": false, "error": err.to_string()}),
     };
     let Some(parent) = entity_default_agent else {
         return serde_json::json!({
             "ok": false,
-            "error": format!("entity '{entity_id}' has no default agent"),
+            "error": format!("entity '{trust_id}' has no default agent"),
             "code": "not_found",
         });
     };
@@ -1322,7 +1322,7 @@ pub async fn handle_spawn_blueprint_into_entity(
     {
         Ok(outcome) => serde_json::json!({
             "ok": true,
-            "entity_id": outcome.entity_id,
+            "trust_id": outcome.trust_id,
             "default_agent_id": outcome.default_agent_id,
             "default_agent_name": outcome.default_agent_name,
             // Counts (not the SpawnedAgent array) so the import-flow
@@ -1801,7 +1801,7 @@ mod tests {
         .await
         .expect("host spawn should succeed");
         let host_default_agent_id = host.default_agent_id.clone();
-        let host_entity_id = host.entity_id.clone();
+        let host_entity_id = host.trust_id.clone();
 
         // Now import a second blueprint into that entity.
         let imported_blueprint = Blueprint {
@@ -1856,7 +1856,7 @@ mod tests {
         .expect("import spawn should succeed");
 
         // Imported blueprint reuses the host entity, not a fresh one.
-        assert_eq!(imported.entity_id, host_entity_id);
+        assert_eq!(imported.trust_id, host_entity_id);
         assert_eq!(imported.spawned_agents.len(), 2);
 
         // Imported default agent is now a descendant of the host's.

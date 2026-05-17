@@ -468,9 +468,9 @@ mod tests {
         let draft = generate(&brief).expect("generate succeeds");
         assert_eq!(draft.kind, "single");
         assert_eq!(draft.blueprint["slug"], "architect-foundation");
-        // STUB_TEMPLATE is "entity" per generator.rs — the on-chain foundation
+        // STUB_TEMPLATE is "trust" per generator.rs — the on-chain foundation
         // module is not registered against the Beacon yet (97085207).
-        assert_eq!(draft.blueprint["template"], "entity");
+        assert_eq!(draft.blueprint["template"], "trust");
         // Round-trip through the synthetic draft id helper.
         let id = synthetic_draft_id(&draft);
         assert!(id.starts_with("draft-architect-foundation-"));

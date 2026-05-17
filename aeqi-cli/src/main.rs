@@ -58,10 +58,10 @@ async fn main() -> Result<()> {
             )
             .await
         }
-        Some(Commands::Start { bind, entity_id }) => {
-            if let Some(eid) = entity_id.as_ref() {
+        Some(Commands::Start { bind, trust_id }) => {
+            if let Some(eid) = trust_id.as_ref() {
                 // Surface to the daemon process so its agent_registry can
-                // honor the platform-supplied entity_id when minting the
+                // honor the platform-supplied trust_id when minting the
                 // entity row on first boot.
                 // SAFETY: set_var is single-threaded (we're pre-tokio-spawn).
                 unsafe {

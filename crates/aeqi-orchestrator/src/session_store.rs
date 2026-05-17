@@ -455,10 +455,14 @@ fn ensure_sessions_target_role_id(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Idempotent migration that adds a nullable `entity_id TEXT` column to
+/// Idempotent migration that adds a nullable `trust_id TEXT` column to
 /// `sessions`. Used by in-app channels (`session_type='channel'`) to bind a
 /// channel to the company that owns it. Indexed for the
 /// `list_channels_for_entity` IPC verb.
+///
+/// Also handles the post-rename world: live DBs from before the
+/// `entity_id → trust_id` sweep (ae-062 phase B) carry the legacy column;
+/// rename it in place rather than dropping data.
 fn ensure_sessions_entity_id(conn: &Connection) -> rusqlite::Result<()> {
     let cols: std::collections::HashSet<String> = {
         let mut stmt = conn.prepare("PRAGMA table_info(sessions)")?;
@@ -466,13 +470,23 @@ fn ensure_sessions_entity_id(conn: &Connection) -> rusqlite::Result<()> {
             .filter_map(|r| r.ok())
             .collect()
     };
-    if !cols.contains("entity_id") {
-        conn.execute("ALTER TABLE sessions ADD COLUMN entity_id TEXT", [])?;
+    if cols.contains("entity_id") && !cols.contains("trust_id") {
+        conn.execute(
+            "ALTER TABLE sessions RENAME COLUMN entity_id TO trust_id",
+            [],
+        )?;
+    } else if !cols.contains("trust_id") {
+        conn.execute("ALTER TABLE sessions ADD COLUMN trust_id TEXT", [])?;
     }
+    // The legacy index referenced `entity_id` and may still exist; drop it
+    // before recreating under the new column name. SQLite's auto-rename
+    // covers the column inside the index expression on RENAME COLUMN, but
+    // the index NAME stays `idx_sess_entity_type` so the IF NOT EXISTS
+    // below is a no-op on already-migrated DBs.
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_sess_entity_type \
-         ON sessions(entity_id, session_type) \
-         WHERE entity_id IS NOT NULL",
+         ON sessions(trust_id, session_type) \
+         WHERE trust_id IS NOT NULL",
         [],
     )?;
     Ok(())
@@ -707,7 +721,7 @@ impl SessionStore {
             .context("failed to ensure gateway_channel_id column on sessions")?;
         ensure_sessions_target_role_id(conn)
             .context("failed to ensure target_role_id column on sessions")?;
-        ensure_sessions_entity_id(conn).context("failed to ensure entity_id column on sessions")?;
+        ensure_sessions_entity_id(conn).context("failed to ensure trust_id column on sessions")?;
         Ok(())
     }
 
@@ -2543,19 +2557,19 @@ impl SessionStore {
     /// Channels are multi-participant sessions bound to a Company; the participant
     /// roster is empty on creation — callers add humans + agents via
     /// `add_session_participant`.
-    pub async fn create_entity_channel(&self, entity_id: &str, name: &str) -> Result<String> {
+    pub async fn create_entity_channel(&self, trust_id: &str, name: &str) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO sessions (id, session_type, name, status, entity_id) \
+            "INSERT INTO sessions (id, session_type, name, status, trust_id) \
              VALUES (?1, 'channel', ?2, 'active', ?3)",
-            params![id, name, entity_id],
+            params![id, name, trust_id],
         )?;
         Ok(id)
     }
 
     /// List Slack-style channels for an entity. Returns one row per active
-    /// `session_type='channel'` session bound to `entity_id`, ordered most-recent
+    /// `session_type='channel'` session bound to `trust_id`, ordered most-recent
     /// activity first.
     ///
     /// `last_message_at` and `last_message_preview` come from the latest
@@ -2563,7 +2577,7 @@ impl SessionStore {
     /// `session_participants` join. The list is ordered by
     /// `COALESCE(last_message_at, created_at) DESC` so empty channels still
     /// surface near the top.
-    pub async fn list_channels_for_entity(&self, entity_id: &str) -> Result<Vec<ChannelListRow>> {
+    pub async fn list_channels_for_entity(&self, trust_id: &str) -> Result<Vec<ChannelListRow>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT s.id, s.name, s.created_at, \
@@ -2575,7 +2589,7 @@ impl SessionStore {
                      WHERE m.session_id = s.id \
                      ORDER BY m.timestamp DESC, m.id DESC LIMIT 1) AS last_message_preview \
              FROM sessions s \
-             WHERE s.entity_id = ?1 \
+             WHERE s.trust_id = ?1 \
                AND s.session_type = 'channel' \
                AND s.status = 'active' \
              ORDER BY COALESCE( \
@@ -2585,7 +2599,7 @@ impl SessionStore {
              ) DESC",
         )?;
         let rows = stmt
-            .query_map(params![entity_id], |row| {
+            .query_map(params![trust_id], |row| {
                 Ok(ChannelListRow {
                     session_id: row.get(0)?,
                     name: row.get(1)?,

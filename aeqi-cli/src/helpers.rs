@@ -439,19 +439,6 @@ pub(crate) fn open_ideas_with_embedder(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::is_proxy_api_key;
-
-    #[test]
-    fn proxy_api_key_detection_is_case_and_space_insensitive() {
-        assert!(is_proxy_api_key("proxy"));
-        assert!(is_proxy_api_key(" Proxy "));
-        assert!(!is_proxy_api_key("sk-or-real"));
-        assert!(!is_proxy_api_key(""));
-    }
-}
-
 pub(crate) fn format_project_org_hint(_config: &AEQIConfig, _project_name: &str) -> String {
     String::new()
 }
@@ -537,5 +524,18 @@ pub(crate) async fn daemon_ipc_request(
     {
         let _ = request;
         anyhow::bail!("IPC socket queries not supported on this platform");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_proxy_api_key;
+
+    #[test]
+    fn proxy_api_key_detection_is_case_and_space_insensitive() {
+        assert!(is_proxy_api_key("proxy"));
+        assert!(is_proxy_api_key(" Proxy "));
+        assert!(!is_proxy_api_key("sk-or-real"));
+        assert!(!is_proxy_api_key(""));
     }
 }

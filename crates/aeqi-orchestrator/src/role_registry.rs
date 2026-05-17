@@ -125,7 +125,7 @@ pub fn default_grants_for_type(role_type: RoleType) -> Vec<String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Role {
     pub id: String,
-    pub entity_id: String,
+    pub trust_id: String,
     pub title: String,
     pub occupant_kind: OccupantKind,
     pub occupant_id: Option<String>,
@@ -153,7 +153,7 @@ pub struct RoleEdge {
 fn row_to_role(row: &rusqlite::Row<'_>) -> rusqlite::Result<Role> {
     Ok(Role {
         id: row.get(0)?,
-        entity_id: row.get(1)?,
+        trust_id: row.get(1)?,
         title: row.get(2)?,
         occupant_kind: {
             let s: String = row.get(3)?;
@@ -198,17 +198,17 @@ impl RoleRegistry {
     /// All roles in the entity, ordered by creation time.
     /// Grants are NOT populated — use `list_for_entity_with_grants` when you
     /// need them.
-    pub async fn list_for_entity(&self, entity_id: &str) -> Result<Vec<Role>> {
+    pub async fn list_for_entity(&self, trust_id: &str) -> Result<Vec<Role>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
-            "SELECT id, entity_id, title, occupant_kind, occupant_id,
+            "SELECT id, trust_id, title, occupant_kind, occupant_id,
                     role_type, founder, created_at, updated_at, description_idea_id
              FROM roles
-             WHERE entity_id = ?1
+             WHERE trust_id = ?1
              ORDER BY created_at ASC",
         )?;
         let rows = stmt
-            .query_map(params![entity_id], row_to_role)?
+            .query_map(params![trust_id], row_to_role)?
             .filter_map(|r| r.ok())
             .collect();
         Ok(rows)
@@ -217,20 +217,20 @@ impl RoleRegistry {
     /// All roles + edges for an entity, with grants populated on each role.
     pub async fn list_for_entity_with_grants(
         &self,
-        entity_id: &str,
+        trust_id: &str,
     ) -> Result<(Vec<Role>, Vec<RoleEdge>)> {
         let db = self.db.lock().await;
 
         let mut roles: Vec<Role> = {
             let mut stmt = db.prepare(
-                "SELECT r.id, r.entity_id, r.title, r.occupant_kind, r.occupant_id,
+                "SELECT r.id, r.trust_id, r.title, r.occupant_kind, r.occupant_id,
                         r.role_type, r.founder, r.created_at, r.updated_at,
                         r.description_idea_id
                  FROM roles r
-                 WHERE r.entity_id = ?1
+                 WHERE r.trust_id = ?1
                  ORDER BY r.created_at ASC",
             )?;
-            stmt.query_map(params![entity_id], row_to_role)?
+            stmt.query_map(params![trust_id], row_to_role)?
                 .filter_map(|r| r.ok())
                 .collect()
         };
@@ -241,9 +241,9 @@ impl RoleRegistry {
                 "SELECT g.role_id, g.grant
                  FROM role_grants g
                  JOIN roles r ON r.id = g.role_id
-                 WHERE r.entity_id = ?1",
+                 WHERE r.trust_id = ?1",
             )?;
-            stmt.query_map(params![entity_id], |row| {
+            stmt.query_map(params![trust_id], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             })?
             .filter_map(|r| r.ok())
@@ -262,9 +262,9 @@ impl RoleRegistry {
                 "SELECT e.parent_role_id, e.child_role_id
                  FROM role_edges e
                  JOIN roles r ON r.id = e.parent_role_id
-                 WHERE r.entity_id = ?1",
+                 WHERE r.trust_id = ?1",
             )?;
-            stmt.query_map(params![entity_id], row_to_edge)?
+            stmt.query_map(params![trust_id], row_to_edge)?
                 .filter_map(|r| r.ok())
                 .collect()
         };
@@ -273,17 +273,17 @@ impl RoleRegistry {
     }
 
     /// All edges between roles in this entity (filtered by parent's
-    /// entity_id; edges only ever connect roles inside the same entity).
-    pub async fn list_edges_for_entity(&self, entity_id: &str) -> Result<Vec<RoleEdge>> {
+    /// trust_id; edges only ever connect roles inside the same entity).
+    pub async fn list_edges_for_entity(&self, trust_id: &str) -> Result<Vec<RoleEdge>> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT e.parent_role_id, e.child_role_id
              FROM role_edges e
              JOIN roles r ON r.id = e.parent_role_id
-             WHERE r.entity_id = ?1",
+             WHERE r.trust_id = ?1",
         )?;
         let rows = stmt
-            .query_map(params![entity_id], row_to_edge)?
+            .query_map(params![trust_id], row_to_edge)?
             .filter_map(|r| r.ok())
             .collect();
         Ok(rows)
@@ -294,7 +294,7 @@ impl RoleRegistry {
         let db = self.db.lock().await;
         let result = db
             .query_row(
-                "SELECT id, entity_id, title, occupant_kind, occupant_id,
+                "SELECT id, trust_id, title, occupant_kind, occupant_id,
                         role_type, founder, created_at, updated_at, description_idea_id
                  FROM roles WHERE id = ?1",
                 params![role_id],
@@ -321,19 +321,19 @@ impl RoleRegistry {
     /// role_type, and org-chart edge.
     pub async fn get_by_occupant(
         &self,
-        entity_id: &str,
+        trust_id: &str,
         occupant_id: &str,
     ) -> Result<Option<Role>> {
         let db = self.db.lock().await;
         let result = db
             .query_row(
-                "SELECT id, entity_id, title, occupant_kind, occupant_id,
+                "SELECT id, trust_id, title, occupant_kind, occupant_id,
                         role_type, founder, created_at, updated_at, description_idea_id
                  FROM roles
-                 WHERE entity_id = ?1 AND occupant_id = ?2
+                 WHERE trust_id = ?1 AND occupant_id = ?2
                  ORDER BY created_at ASC
                  LIMIT 1",
-                params![entity_id, occupant_id],
+                params![trust_id, occupant_id],
                 row_to_role,
             )
             .optional()?;
@@ -352,10 +352,10 @@ impl RoleRegistry {
 
     // ── Grant queries ─────────────────────────────────────────────────────────
 
-    /// Return the union of grants across all roles a given user holds at `entity_id`.
+    /// Return the union of grants across all roles a given user holds at `trust_id`.
     pub async fn user_grants_for_entity(
         &self,
-        entity_id: &str,
+        trust_id: &str,
         user_id: &str,
     ) -> Result<Vec<String>> {
         let db = self.db.lock().await;
@@ -363,27 +363,27 @@ impl RoleRegistry {
             "SELECT DISTINCT g.grant
              FROM role_grants g
              JOIN roles r ON r.id = g.role_id
-             WHERE r.entity_id = ?1
+             WHERE r.trust_id = ?1
                AND r.occupant_kind = 'human'
                AND r.occupant_id = ?2
              ORDER BY g.grant",
         )?;
         let grants = stmt
-            .query_map(params![entity_id, user_id], |row| row.get::<_, String>(0))?
+            .query_map(params![trust_id, user_id], |row| row.get::<_, String>(0))?
             .filter_map(|r| r.ok())
             .collect();
         Ok(grants)
     }
 
-    /// Returns true iff the user holds at least one role at `entity_id` that
+    /// Returns true iff the user holds at least one role at `trust_id` that
     /// carries `grant`.
     pub async fn user_has_grant(
         &self,
-        entity_id: &str,
+        trust_id: &str,
         user_id: &str,
         grant: &str,
     ) -> Result<bool> {
-        let grants = self.user_grants_for_entity(entity_id, user_id).await?;
+        let grants = self.user_grants_for_entity(trust_id, user_id).await?;
         Ok(grants.iter().any(|g| g == grant))
     }
 
@@ -406,7 +406,7 @@ impl RoleRegistry {
     pub async fn upsert(
         &self,
         id: &str,
-        entity_id: &str,
+        trust_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant_id: Option<&str>,
@@ -414,11 +414,11 @@ impl RoleRegistry {
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO roles (id, entity_id, title, occupant_kind, occupant_id,
+            "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id,
                                 role_type, founder, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, 'operational', 0, ?6)
              ON CONFLICT(id) DO NOTHING",
-            params![id, entity_id, title, kind.as_db(), occupant_id, now],
+            params![id, trust_id, title, kind.as_db(), occupant_id, now],
         )?;
         Ok(())
     }
@@ -428,13 +428,13 @@ impl RoleRegistry {
     /// grants=default for Operational.
     pub async fn create(
         &self,
-        entity_id: &str,
+        trust_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant_id: Option<&str>,
     ) -> Result<Role> {
         self.create_with_type(
-            entity_id,
+            trust_id,
             title,
             kind,
             occupant_id,
@@ -449,7 +449,7 @@ impl RoleRegistry {
     /// If `grants` is `None` or empty, defaults for the type are used.
     pub async fn create_with_type(
         &self,
-        entity_id: &str,
+        trust_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant_id: Option<&str>,
@@ -466,12 +466,12 @@ impl RoleRegistry {
 
         let db = self.db.lock().await;
         db.execute(
-            "INSERT INTO roles (id, entity_id, title, occupant_kind, occupant_id,
+            "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id,
                                 role_type, founder, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 id,
-                entity_id,
+                trust_id,
                 title,
                 kind.as_db(),
                 occupant_id,
@@ -492,7 +492,7 @@ impl RoleRegistry {
 
         let mut role = db
             .query_row(
-                "SELECT id, entity_id, title, occupant_kind, occupant_id,
+                "SELECT id, trust_id, title, occupant_kind, occupant_id,
                         role_type, founder, created_at, updated_at, description_idea_id
                  FROM roles WHERE id = ?1",
                 params![id],
@@ -642,15 +642,15 @@ impl RoleRegistry {
     /// the agent_registry's spawn-time auto-roles get cleared so the
     /// declared structure can be installed fresh, in a single transaction
     /// with the redeclaration. Edges go first (FK to roles).
-    pub async fn delete_for_entity(&self, entity_id: &str) -> Result<()> {
+    pub async fn delete_for_entity(&self, trust_id: &str) -> Result<()> {
         let db = self.db.lock().await;
         db.execute(
             "DELETE FROM role_edges
-             WHERE parent_role_id IN (SELECT id FROM roles WHERE entity_id = ?1)
-                OR child_role_id IN (SELECT id FROM roles WHERE entity_id = ?1)",
-            params![entity_id],
+             WHERE parent_role_id IN (SELECT id FROM roles WHERE trust_id = ?1)
+                OR child_role_id IN (SELECT id FROM roles WHERE trust_id = ?1)",
+            params![trust_id],
         )?;
-        db.execute("DELETE FROM roles WHERE entity_id = ?1", params![entity_id])?;
+        db.execute("DELETE FROM roles WHERE trust_id = ?1", params![trust_id])?;
         Ok(())
     }
 
@@ -658,24 +658,24 @@ impl RoleRegistry {
     /// doesn't already exist. Used by both the spawn flow (always invoked)
     /// and a one-shot endpoint for migrating pre-rework entities.
     ///
-    /// A founding Director is defined as: `entity_id = ? AND role_type =
+    /// A founding Director is defined as: `trust_id = ? AND role_type =
     /// 'director' AND founder = 1`. If one already exists, the existing role
     /// is returned unchanged. Otherwise, a new Director role with all 6
     /// default grants is created with `user_id` as the occupant.
-    pub async fn ensure_founding_director(&self, entity_id: &str, user_id: &str) -> Result<Role> {
+    pub async fn ensure_founding_director(&self, trust_id: &str, user_id: &str) -> Result<Role> {
         // Check for an existing founding Director before acquiring the write lock.
         {
             let db = self.db.lock().await;
             let existing = db
                 .query_row(
-                    "SELECT id, entity_id, title, occupant_kind, occupant_id,
+                    "SELECT id, trust_id, title, occupant_kind, occupant_id,
                             role_type, founder, created_at, updated_at, description_idea_id
                      FROM roles
-                     WHERE entity_id = ?1
+                     WHERE trust_id = ?1
                        AND role_type = 'director'
                        AND founder = 1
                      LIMIT 1",
-                    params![entity_id],
+                    params![trust_id],
                     row_to_role,
                 )
                 .optional()?;
@@ -692,7 +692,7 @@ impl RoleRegistry {
         }
         // No founding Director — create one.
         self.create_with_type(
-            entity_id,
+            trust_id,
             "Director",
             OccupantKind::Human,
             Some(user_id),

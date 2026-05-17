@@ -124,7 +124,7 @@ struct McpActorContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    entity_id: Option<String>,
+    trust_id: Option<String>,
     #[serde(default)]
     roles: Vec<String>,
     #[serde(default)]
@@ -138,7 +138,7 @@ struct McpAuthContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     root: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    entity_id: Option<String>,
+    trust_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     user_id: Option<String>,
     #[serde(default)]
@@ -164,8 +164,8 @@ impl McpAuthContext {
             .or_else(|| parsed.get("company"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        let entity_id = parsed
-            .get("entity_id")
+        let trust_id = parsed
+            .get("trust_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .or_else(|| root.clone());
@@ -189,11 +189,11 @@ impl McpAuthContext {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
                 .or_else(|| user_id.clone()),
-            entity_id: actor_json
-                .and_then(|a| a.get("entity_id"))
+            trust_id: actor_json
+                .and_then(|a| a.get("trust_id"))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
-                .or_else(|| entity_id.clone()),
+                .or_else(|| trust_id.clone()),
             roles: actor_json
                 .and_then(|a| string_array(a.get("roles")))
                 .or_else(|| string_array(parsed.get("roles")))
@@ -209,7 +209,7 @@ impl McpAuthContext {
             Self {
                 mode: "platform".to_string(),
                 root,
-                entity_id,
+                trust_id,
                 user_id,
                 allowed_roots,
                 actor,
@@ -225,7 +225,7 @@ impl McpAuthContext {
             .or_else(|| std::env::var("AEQI_ENTITY_ID").ok())
             .or_else(|| agent_name.map(|s| s.to_string()));
         let user_id = std::env::var("AEQI_USER_ID").ok();
-        let entity_id = root.clone();
+        let trust_id = root.clone();
         let actor = McpActorContext {
             kind: if user_id.is_some() {
                 "user".to_string()
@@ -233,7 +233,7 @@ impl McpAuthContext {
                 "local_operator".to_string()
             },
             user_id: user_id.clone(),
-            entity_id: entity_id.clone(),
+            trust_id: trust_id.clone(),
             roles: if user_id.is_some() {
                 Vec::new()
             } else {
@@ -249,7 +249,7 @@ impl McpAuthContext {
         Self {
             mode: "local".to_string(),
             root,
-            entity_id,
+            trust_id,
             user_id,
             allowed_roots: Vec::new(),
             actor,
@@ -265,8 +265,8 @@ impl McpAuthContext {
         if let Some(user_id) = self.user_id.as_deref() {
             request["caller_user_id"] = serde_json::json!(user_id);
         }
-        if let Some(entity_id) = self.entity_id.as_deref() {
-            request["caller_entity_id"] = serde_json::json!(entity_id);
+        if let Some(trust_id) = self.trust_id.as_deref() {
+            request["caller_entity_id"] = serde_json::json!(trust_id);
         }
     }
 
@@ -275,7 +275,7 @@ impl McpAuthContext {
             "ok": true,
             "mode": self.mode,
             "root": self.root,
-            "entity_id": self.entity_id,
+            "trust_id": self.trust_id,
             "user_id": self.user_id,
             "allowed_roots": self.allowed_roots,
             "actor": self.actor,
@@ -1914,25 +1914,25 @@ name = "test"
         assert_eq!(socket, PathBuf::from("/tmp/aeqi.sock"));
         assert_eq!(auth.mode, "platform");
         assert_eq!(auth.root.as_deref(), Some("entity-1"));
-        assert_eq!(auth.entity_id.as_deref(), Some("entity-1"));
+        assert_eq!(auth.trust_id.as_deref(), Some("entity-1"));
         assert_eq!(auth.user_id.as_deref(), Some("user-1"));
         assert_eq!(auth.allowed_roots, vec!["entity-1"]);
         assert_eq!(auth.actor.kind, "user");
         assert_eq!(auth.actor.user_id.as_deref(), Some("user-1"));
-        assert_eq!(auth.actor.entity_id.as_deref(), Some("entity-1"));
+        assert_eq!(auth.actor.trust_id.as_deref(), Some("entity-1"));
     }
 
     #[test]
     fn platform_auth_context_preserves_expanded_actor_shape() {
         let parsed = serde_json::json!({
             "ok": true,
-            "entity_id": "company-1",
+            "trust_id": "company-1",
             "user_id": "user-1",
             "allowed_roots": ["company-1", "project-a"],
             "actor": {
                 "kind": "user",
                 "user_id": "user-1",
-                "entity_id": "company-1",
+                "trust_id": "company-1",
                 "roles": ["Director"],
                 "grants": ["*"]
             },

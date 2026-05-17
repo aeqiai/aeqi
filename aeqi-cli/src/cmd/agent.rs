@@ -61,7 +61,7 @@ pub(crate) async fn cmd_agent(
             println!("  Name:    {}", agent.name);
             println!(
                 "  Entity:  {}",
-                agent.entity_id.as_deref().unwrap_or("(none)")
+                agent.trust_id.as_deref().unwrap_or("(none)")
             );
             println!(
                 "  Model:   {}",
@@ -80,7 +80,7 @@ pub(crate) async fn cmd_agent(
             for a in &agents {
                 println!("Agent: {} ({})", a.name, a.id);
                 println!("  Status:   {}", a.status);
-                println!("  Entity:   {}", a.entity_id.as_deref().unwrap_or("(none)"));
+                println!("  Entity:   {}", a.trust_id.as_deref().unwrap_or("(none)"));
                 println!("  Model:    {}", a.model.as_deref().unwrap_or("(default)"));
                 println!("  Sessions: {}", a.session_count);
                 println!("  Tokens:   {}", a.total_tokens);
@@ -138,7 +138,7 @@ pub(crate) async fn cmd_agent(
                     "{:<20} {:<10} {:<36} {:<10} {:<8}",
                     a.name,
                     a.status.to_string(),
-                    a.entity_id.as_deref().unwrap_or("(none)"),
+                    a.trust_id.as_deref().unwrap_or("(none)"),
                     a.session_count,
                     a.total_tokens,
                 );

@@ -18,7 +18,7 @@
 //!
 //! ## TRUST id mapping
 //!
-//! Off-chain (this layer) uses `entity_id` everywhere a TRUST id appears
+//! Off-chain (this layer) uses `trust_id` everywhere a TRUST id appears
 //! in the brief. Every entity is a TRUST in the off-chain canonical
 //! model; the chain port (WS-B7) replaces this column with the on-chain
 //! TRUST address.
@@ -342,6 +342,12 @@ pub const EV_TREASURY_PAUSED: &str = "treasury_paused";
 /// Idempotent. Called from [`AgentRegistry::open`] right after the role
 /// tables are bootstrapped, before the connection pool is built.
 pub fn bootstrap_budget_tables(conn: &Connection) -> rusqlite::Result<()> {
+    // ae-062 phase B: rename legacy `entity_id` columns to canonical
+    // `trust_id` on live DBs. CREATE TABLE IF NOT EXISTS below uses the
+    // new column names, so we must reconcile any pre-rename DB first.
+    rename_legacy_entity_id(conn, "budgets")?;
+    rename_legacy_entity_id(conn, "treasury_config")?;
+
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS budgets (
              id                 TEXT PRIMARY KEY,
@@ -418,6 +424,31 @@ pub fn bootstrap_budget_tables(conn: &Connection) -> rusqlite::Result<()> {
              updated_at         TEXT NOT NULL
          );",
     )?;
+    Ok(())
+}
+
+/// Idempotent: if `table` exists on disk with a legacy `entity_id` column,
+/// rename it to `trust_id`. No-op if the table does not exist, or if the
+/// rename has already run. Skips if `trust_id` is already present (the table
+/// was created fresh under the new column name).
+fn rename_legacy_entity_id(conn: &Connection, table: &str) -> rusqlite::Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if cols.is_empty() {
+        return Ok(());
+    }
+    let has_legacy = cols.iter().any(|c| c == "entity_id");
+    let has_canonical = cols.iter().any(|c| c == "trust_id");
+    if has_legacy && !has_canonical {
+        conn.execute(
+            &format!("ALTER TABLE {table} RENAME COLUMN entity_id TO trust_id"),
+            [],
+        )?;
+    }
     Ok(())
 }
 
@@ -779,7 +810,7 @@ impl BudgetRegistry {
         let trust_id: String = {
             let db = self.db.lock().await;
             db.query_row(
-                "SELECT entity_id FROM roles WHERE id = ?1",
+                "SELECT trust_id FROM roles WHERE id = ?1",
                 params![role_id],
                 |row| row.get::<_, String>(0),
             )?
@@ -1335,7 +1366,7 @@ impl BudgetRegistry {
 
             // 1. Insert the new role row. Mirrors RoleRegistry::create_with_type.
             tx.execute(
-                "INSERT INTO roles (id, entity_id, title, occupant_kind, occupant_id, \
+                "INSERT INTO roles (id, trust_id, title, occupant_kind, occupant_id, \
                                     role_type, founder, created_at) \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)",
                 params![
@@ -1857,14 +1888,14 @@ impl BudgetRegistry {
 
     async fn assert_owner_role_in_trust(&self, role_id: &str, trust_id: &str) -> Result<()> {
         let db = self.db.lock().await;
-        let entity_id: Option<String> = db
+        let role_trust_id: Option<String> = db
             .query_row(
-                "SELECT entity_id FROM roles WHERE id = ?1",
+                "SELECT trust_id FROM roles WHERE id = ?1",
                 params![role_id],
                 |row| row.get::<_, String>(0),
             )
             .optional()?;
-        match entity_id {
+        match role_trust_id {
             Some(e) if e == trust_id => Ok(()),
             _ => Err(BudgetError::EOwnerRoleNotInTrust {
                 role: role_id.to_string(),
@@ -2055,14 +2086,14 @@ mod tests {
 
     async fn make_role(
         roles: &RoleRegistry,
-        entity_id: &str,
+        trust_id: &str,
         title: &str,
         kind: OccupantKind,
         occupant: Option<&str>,
     ) -> String {
         roles
             .create_with_type(
-                entity_id,
+                trust_id,
                 title,
                 kind,
                 occupant,
@@ -2087,7 +2118,7 @@ mod tests {
         conn.execute_batch(
             "CREATE TABLE entities (id TEXT PRIMARY KEY, slug TEXT, type TEXT, \
                                     name TEXT, created_at TEXT NOT NULL);
-             CREATE TABLE roles (id TEXT PRIMARY KEY, entity_id TEXT, title TEXT, \
+             CREATE TABLE roles (id TEXT PRIMARY KEY, trust_id TEXT, title TEXT, \
                                  occupant_kind TEXT, occupant_id TEXT, \
                                  role_type TEXT, founder INTEGER, \
                                  created_at TEXT NOT NULL, updated_at TEXT);",

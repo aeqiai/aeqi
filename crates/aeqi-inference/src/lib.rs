@@ -5,7 +5,7 @@
 //! ```text
 //! caller
 //!   │  Authorization: Bearer <JWT>
-//!   │  X-Entity: <entity_id>          (subscription lane only)
+//!   │  X-Trust: <trust_id>          (subscription lane only)
 //!   ▼
 //! billing middleware (Tower layer, lane selected by auth header shape)
 //!   ├── SubscriptionLayer  — JWT + dollar-balance debit

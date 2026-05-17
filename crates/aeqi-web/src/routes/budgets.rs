@@ -58,7 +58,6 @@ pub fn routes() -> Router<AppState> {
 #[derive(serde::Deserialize)]
 struct ListQuery {
     trust_id: Option<String>,
-    entity_id: Option<String>,
     owner_role_id: Option<String>,
     parent_budget_id: Option<String>,
     is_primary: Option<bool>,
@@ -69,7 +68,7 @@ async fn list_budgets(
     scope: Scope,
     Query(q): Query<ListQuery>,
 ) -> Response {
-    let trust_id = q.trust_id.or(q.entity_id).unwrap_or_default();
+    let trust_id = q.trust_id.unwrap_or_default();
     let mut body = serde_json::json!({"trust_id": trust_id});
     if let Some(o) = q.owner_role_id {
         body["owner_role_id"] = serde_json::Value::String(o);
@@ -86,7 +85,6 @@ async fn list_budgets(
 #[derive(serde::Deserialize)]
 struct TreeQuery {
     trust_id: Option<String>,
-    entity_id: Option<String>,
 }
 
 async fn budget_tree(
@@ -94,7 +92,7 @@ async fn budget_tree(
     scope: Scope,
     Query(q): Query<TreeQuery>,
 ) -> Response {
-    let trust_id = q.trust_id.or(q.entity_id).unwrap_or_default();
+    let trust_id = q.trust_id.unwrap_or_default();
     ipc_proxy(
         state,
         scope.as_ref(),

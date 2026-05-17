@@ -15,7 +15,7 @@
 //! - **Mutations** require the caller to occupy the budget's owner role
 //!   (or, for `pause_treasury` / `init_treasury_config`, the trust's
 //!   `admin_role`). The caller's role is resolved by walking
-//!   `roles WHERE entity_id = trust AND occupant_kind = 'human' AND occupant_id = caller_user_id`.
+//!   `roles WHERE trust_id = trust AND occupant_kind = 'human' AND occupant_id = caller_user_id`.
 //!   When the caller occupies multiple roles in this trust the request
 //!   must include `as_role_id` to disambiguate.
 //! - `spend_inference` is reserved for the `treasury_config.inference_gateway`
@@ -139,7 +139,7 @@ async fn resolve_caller_role(
 
 async fn require_treasury_read(
     ctx: &super::CommandContext,
-    entity_id: &str,
+    trust_id: &str,
     caller_id: &str,
 ) -> Option<serde_json::Value> {
     if caller_id.is_empty() {
@@ -151,7 +151,7 @@ async fn require_treasury_read(
     }
     match ctx
         .role_registry
-        .user_has_grant(entity_id, caller_id, GRANT_TREASURY_READ)
+        .user_has_grant(trust_id, caller_id, GRANT_TREASURY_READ)
         .await
     {
         Ok(true) => None,
@@ -184,7 +184,7 @@ pub async fn handle_list_budgets(
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "entity_id"))
+        .or_else(|| super::request_field(request, "trust_id"))
     {
         Some(s) => s.to_string(),
         None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
@@ -261,7 +261,7 @@ pub async fn handle_budget_tree(
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "entity_id"))
+        .or_else(|| super::request_field(request, "trust_id"))
     {
         Some(s) => s.to_string(),
         None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
@@ -358,7 +358,7 @@ pub async fn handle_create_budget(
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "entity_id"))
+        .or_else(|| super::request_field(request, "trust_id"))
     {
         Some(s) => s.to_string(),
         None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
@@ -764,7 +764,7 @@ pub async fn handle_pause_treasury(
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "entity_id"))
+        .or_else(|| super::request_field(request, "trust_id"))
     {
         Some(s) => s.to_string(),
         None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),
@@ -796,7 +796,7 @@ pub async fn handle_init_treasury_config(
     allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let trust_id = match super::request_field(request, "trust_id")
-        .or_else(|| super::request_field(request, "entity_id"))
+        .or_else(|| super::request_field(request, "trust_id"))
     {
         Some(s) => s.to_string(),
         None => return serde_json::json!({"ok": false, "error": "trust_id is required"}),

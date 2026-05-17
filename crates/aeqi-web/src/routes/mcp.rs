@@ -39,7 +39,7 @@ struct McpActorContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    entity_id: Option<String>,
+    trust_id: Option<String>,
     #[serde(default)]
     roles: Vec<String>,
     #[serde(default)]
@@ -257,7 +257,7 @@ fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext
     let agent = header_string(headers, "x-aeqi-agent");
     let agent_id = header_string(headers, "x-aeqi-agent-id");
     let allowed_roots = scope.map(|s| s.roots.clone()).unwrap_or_default();
-    let entity_id = scope.and_then(|_| allowed_roots.first().cloned());
+    let trust_id = scope.and_then(|_| allowed_roots.first().cloned());
     let user_id = scope.and_then(|s| s.user_id.clone());
 
     let actor = McpActorContext {
@@ -267,7 +267,7 @@ fn mcp_context(scope: Option<&UserScope>, headers: &HeaderMap) -> McpHttpContext
             "local_operator".to_string()
         },
         user_id,
-        entity_id,
+        trust_id,
         roles: Vec::new(),
         grants: if scope.is_none() {
             vec!["*".to_string()]
@@ -306,8 +306,8 @@ fn apply_actor(ctx: &McpHttpContext, request: &mut serde_json::Value) {
     if let Some(agent_id) = ctx.agent_id.as_deref() {
         request["caller_agent_id"] = serde_json::json!(agent_id);
     }
-    if let Some(entity_id) = ctx.actor.entity_id.as_deref() {
-        request["caller_entity_id"] = serde_json::json!(entity_id);
+    if let Some(trust_id) = ctx.actor.trust_id.as_deref() {
+        request["caller_entity_id"] = serde_json::json!(trust_id);
     }
 }
 
@@ -331,7 +331,7 @@ async fn call_tool(
             "ok": true,
             "mode": if ctx.allowed_roots.is_empty() { "self_hosted_local" } else { "http_scoped" },
             "root": ctx.allowed_roots.first(),
-            "entity_id": ctx.actor.entity_id,
+            "trust_id": ctx.actor.trust_id,
             "user_id": ctx.actor.user_id,
             "allowed_roots": ctx.allowed_roots,
             "actor": ctx.actor,
@@ -1277,7 +1277,7 @@ mod tests {
 
         assert_eq!(ctx.actor.kind, "user");
         assert_eq!(ctx.actor.user_id.as_deref(), Some("user-1"));
-        assert_eq!(ctx.actor.entity_id.as_deref(), Some("entity-1"));
+        assert_eq!(ctx.actor.trust_id.as_deref(), Some("entity-1"));
         assert_eq!(ctx.agent.as_deref(), Some("architect"));
         assert_eq!(ctx.allowed_roots, vec!["entity-1"]);
     }
@@ -1515,7 +1515,7 @@ mod tests {
         assert_eq!(ctx.actor.kind, "local_operator");
         assert_eq!(ctx.actor.source, "self_hosted_local");
         assert_eq!(ctx.actor.user_id, None);
-        assert_eq!(ctx.actor.entity_id, None);
+        assert_eq!(ctx.actor.trust_id, None);
         assert_eq!(ctx.actor.grants, vec!["*"]);
         assert!(ctx.allowed_roots.is_empty());
     }
@@ -1534,7 +1534,7 @@ mod tests {
 
         assert_eq!(ctx.actor.kind, "user");
         assert_eq!(ctx.actor.user_id.as_deref(), Some("user-1"));
-        assert_eq!(ctx.actor.entity_id.as_deref(), Some("entity-1"));
+        assert_eq!(ctx.actor.trust_id.as_deref(), Some("entity-1"));
     }
 
     #[test]

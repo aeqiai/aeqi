@@ -115,12 +115,12 @@ impl AgentsTool {
 
         // Emit child_removed under the agent's entity (the canonical
         // tenancy anchor; position-DAG ancestors aren't needed here).
-        if let Some(ref entity_id) = agent.entity_id {
+        if let Some(ref trust_id) = agent.trust_id {
             let _ = self
                 .activity_log
                 .emit(
                     "child_removed",
-                    Some(entity_id),
+                    Some(trust_id),
                     None,
                     None,
                     &serde_json::json!({"child_name": agent.name, "child_id": agent.id}),
@@ -230,7 +230,7 @@ impl AgentsTool {
             result.insert(
                 "tree".to_string(),
                 serde_json::json!({
-                    "entity_id": agent.entity_id,
+                    "trust_id": agent.trust_id,
                     "ancestors": parent_chain,
                     "children": children_list,
                 }),

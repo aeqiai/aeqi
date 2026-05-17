@@ -45,7 +45,7 @@ pub async fn handle_entities(
     for entity in &entities {
         let backing_agent = all_default_agents
             .iter()
-            .find(|a| a.entity_id.as_deref() == Some(&entity.id))
+            .find(|a| a.trust_id.as_deref() == Some(&entity.id))
             .map(|a| a.id.clone());
 
         // Aggregate quest counts across every agent owned by this entity.
@@ -140,12 +140,12 @@ pub async fn handle_create_entity(
     // agent surface stays consistent and quest counts work immediately. The
     // spawn path mints a fresh entity UUID alongside the agent UUID; the
     // entity is the canonical identifier exposed on the wire.
-    let (entity_id, agent_spawned) = if type_ == EntityType::Company {
+    let (trust_id, agent_spawned) = if type_ == EntityType::Company {
         match ctx.agent_registry.spawn(name, None, None).await {
             Ok(agent) => {
-                let eid = agent.entity_id.ok_or_else(|| {
+                let eid = agent.trust_id.ok_or_else(|| {
                     anyhow::anyhow!(
-                        "spawned company agent has no entity_id (post-Phase-4 invariant)",
+                        "spawned company agent has no trust_id (post-Phase-4 invariant)",
                     )
                 });
                 match eid {
@@ -176,9 +176,9 @@ pub async fn handle_create_entity(
 
     serde_json::json!({
         "ok": true,
-        "id": entity_id,
-        "entity": {
-            "id": entity_id,
+        "id": trust_id,
+        "trust": {
+            "id": trust_id,
             "name": name,
             "type": type_str,
             "slug": slug,
@@ -275,7 +275,7 @@ pub async fn handle_update_entity(
         && let Ok(agents) = ctx.agent_registry.list_entity_agents().await
         && let Some(default_agent) = agents
             .into_iter()
-            .find(|a| a.entity_id.as_deref() == Some(&entity.id))
+            .find(|a| a.trust_id.as_deref() == Some(&entity.id))
     {
         let _ = ctx
             .agent_registry

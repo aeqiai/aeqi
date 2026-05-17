@@ -5,19 +5,17 @@ use crate::cli::TrustAction;
 
 pub(crate) async fn cmd_trust(_config_path: &Option<PathBuf>, action: TrustAction) -> Result<()> {
     match action {
-        TrustAction::Derive { entity_id, json } => {
-            let binding = aeqi_trust::TrustBinding::new(entity_id);
+        TrustAction::Derive { trust_id, json } => {
+            let derived = aeqi_trust::TrustId::from_trust_id(&trust_id);
             if json {
-                println!("{}", serde_json::to_string_pretty(&binding)?);
+                let payload = serde_json::json!({
+                    "trust_id": trust_id,
+                    "derived": derived.to_hex(),
+                });
+                println!("{}", serde_json::to_string_pretty(&payload)?);
             } else {
-                println!("entity_id: {}", binding.entity_id);
-                println!("trust_id: {}", binding.trust_id);
-                if let Some(addr) = binding.trust_address.as_deref() {
-                    println!("trust_address: {}", addr);
-                }
-                if let Some(addr) = binding.authority_address.as_deref() {
-                    println!("authority_address: {}", addr);
-                }
+                println!("trust_id: {}", trust_id);
+                println!("derived:  {}", derived.to_hex());
             }
             Ok(())
         }

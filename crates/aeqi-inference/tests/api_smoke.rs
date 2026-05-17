@@ -20,7 +20,7 @@ fn test_state() -> AppState {
     AppState::new(InferenceRouter::new(), BalanceStore::new())
 }
 
-/// Build a test AppState where `entity_id = "test-entity"` has 1000 cents balance.
+/// Build a test AppState where `trust_id = "test-entity"` has 1000 cents balance.
 fn test_state_with_balance() -> AppState {
     let store = BalanceStore::new();
     store.set("test-entity", 1000);

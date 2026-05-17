@@ -122,7 +122,7 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_agent_wallets_address
             ON agent_wallets(address);
 
-        -- ed25519 / Solana custodial wallets, keyed by Company entity_id.
+        -- ed25519 / Solana custodial wallets, keyed by Company trust_id.
         -- Reflects the canonical "every user = a Company, no separate user
         -- account" model — auth methods map to a `company_id`, this table
         -- holds the on-chain authority pubkey + KEK-encrypted seed for that

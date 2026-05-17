@@ -42,12 +42,12 @@ pub async fn handle_quests(
                     .await
                     .unwrap_or_default();
                 // Tenancy maps to entity, not parent_id. An agent is in
-                // scope iff its entity_id (or own name/id) hits the allowed list.
+                // scope iff its trust_id (or own name/id) hits the allowed list.
                 Some(
                     all_agents
                         .iter()
                         .filter(|a| {
-                            a.entity_id
+                            a.trust_id
                                 .as_deref()
                                 .map(|eid| is_allowed(allowed, eid))
                                 .unwrap_or(false)

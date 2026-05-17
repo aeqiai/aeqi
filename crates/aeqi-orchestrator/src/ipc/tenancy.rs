@@ -28,7 +28,7 @@ pub fn check_project(
 }
 
 /// Check whether the agent is reachable from the allowed scope. The agent's
-/// owning entity (`agents.entity_id`) is the canonical tenancy anchor;
+/// owning entity (`agents.trust_id`) is the canonical tenancy anchor;
 /// allowing an entity grants access to every agent inside it. The legacy
 /// shape (allowed contains agent names) is supported by also matching the
 /// agent's own name/id directly.
@@ -44,7 +44,7 @@ pub async fn check_agent_access(
 
     match registry.get(agent_id).await {
         Ok(Some(agent)) => {
-            if let Some(eid) = agent.entity_id.as_deref()
+            if let Some(eid) = agent.trust_id.as_deref()
                 && allowed.iter().any(|c| c == eid)
             {
                 return true;
@@ -70,7 +70,7 @@ pub async fn allowed_agent_ids(
         all_agents
             .iter()
             .filter(|a| {
-                a.entity_id
+                a.trust_id
                     .as_deref()
                     .map(|eid| allowed.iter().any(|c| c == eid))
                     .unwrap_or(false)

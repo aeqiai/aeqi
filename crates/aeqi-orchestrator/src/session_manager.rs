@@ -1125,9 +1125,9 @@ impl SessionManager {
             let dispatcher_for_ask = pattern_dispatcher.clone();
             let agent_id_for_ask = agent_id.clone();
             let agent_name_for_ask = agent_name.clone();
-            // Capture entity_id + agent_registry so the closure can resolve
+            // Capture trust_id + agent_registry so the closure can resolve
             // the owning user at execution time.
-            let entity_id_for_ask = agent_opt.as_ref().and_then(|a| a.entity_id.clone());
+            let entity_id_for_ask = agent_opt.as_ref().and_then(|a| a.trust_id.clone());
             let agent_registry_for_ask = agent_registry.clone();
             let ask_fn: crate::runtime_tools::AskFn =
                 Arc::new(move |req: crate::runtime_tools::AskRequest| {
@@ -1137,14 +1137,14 @@ impl SessionManager {
                     let session_id = session_id_for_ask.clone();
                     let agent_id = agent_id_for_ask.clone();
                     let agent_name = agent_name_for_ask.clone();
-                    let entity_id = entity_id_for_ask.clone();
+                    let trust_id = entity_id_for_ask.clone();
                     let agent_registry = agent_registry_for_ask.clone();
                     Box::pin(async move {
                         // 1. Resolve the owning user for this agent's entity.
                         //    Fall back to a plain transcript record on the current
                         //    session when the entity or owner is not set (bare-CLI,
                         //    test, legacy runs).
-                        let owner_user_id: Option<String> = if let Some(ref eid) = entity_id {
+                        let owner_user_id: Option<String> = if let Some(ref eid) = trust_id {
                             let db = agent_registry.db();
                             let conn = db.lock().await;
                             let eid_clone = eid.clone();

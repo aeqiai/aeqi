@@ -50,7 +50,7 @@ struct ChannelKeyInfo {
 struct AgentInfo {
     id: String,
     name: String,
-    entity_id: Option<String>,
+    trust_id: Option<String>,
     workdir: Option<String>,
     can_self_delegate: bool,
     can_ask_director: bool,
@@ -187,7 +187,7 @@ impl Tool for SessionInfoTool {
             agent: agent.map(|a| AgentInfo {
                 id: a.id,
                 name: a.name,
-                entity_id: a.entity_id,
+                trust_id: a.trust_id,
                 workdir: a.workdir,
                 can_self_delegate: a.can_self_delegate,
                 can_ask_director: a.can_ask_director,

@@ -1,7 +1,7 @@
 //! Entity Registry — first-class entity primitive.
 //!
 //! An entity is the organisational unit that owns agents. Every agent
-//! belongs to exactly one entity (`agents.entity_id`). Entities mint fresh
+//! belongs to exactly one entity (`agents.trust_id`). Entities mint fresh
 //! UUIDs at creation, distinct from any agent UUID.
 //!
 //! The registry borrows its connection-pool shape from [`AgentRegistry`]:
@@ -547,13 +547,13 @@ mod tests {
         let (agent_reg, er) = test_registry().await;
         let agent = agent_reg.spawn("my-company", None, None).await.unwrap();
 
-        let entity_id = agent.entity_id.clone().expect("agent must own an entity");
+        let trust_id = agent.trust_id.clone().expect("agent must own an entity");
         assert_ne!(
-            entity_id, agent.id,
+            trust_id, agent.id,
             "entity UUID must differ from agent UUID"
         );
 
-        let entity = er.get(&entity_id).await.unwrap().expect("entity row");
+        let entity = er.get(&trust_id).await.unwrap().expect("entity row");
         assert_eq!(entity.type_, EntityType::Company);
         assert_eq!(entity.name, "my-company");
     }
@@ -568,8 +568,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            child.entity_id, root.entity_id,
-            "child agent must inherit the root's entity_id"
+            child.trust_id, root.trust_id,
+            "child agent must inherit the root's trust_id"
         );
     }
 }

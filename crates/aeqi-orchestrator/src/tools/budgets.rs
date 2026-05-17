@@ -20,7 +20,7 @@
 //! Authority is anchored on the **calling agent**: `agent_id` is
 //! closure-captured at registration time so the LLM cannot forge identity
 //! via args. The trust the agent acts in is read from the agent's
-//! `entity_id`.
+//! `trust_id`.
 
 use aeqi_core::traits::{Tool, ToolResult, ToolSpec};
 use anyhow::Result;
@@ -66,7 +66,7 @@ impl BudgetsTool {
             .await?
             .ok_or_else(|| anyhow::anyhow!("calling agent not found: {}", self.agent_id))?;
         agent
-            .entity_id
+            .trust_id
             .ok_or_else(|| anyhow::anyhow!("agent has no entity (cannot act in any trust)"))
     }
 

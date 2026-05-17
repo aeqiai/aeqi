@@ -18,7 +18,7 @@ pub fn routes() -> Router<AppState> {
         // Distinct from `/channels/*` which routes transport channels
         // (Telegram / WhatsApp / Slack-app webhook bindings).
         .route(
-            "/entities/{entity_id}/channels",
+            "/entities/{trust_id}/channels",
             get(list_entity_channels).post(create_entity_channel),
         )
 }
@@ -26,13 +26,13 @@ pub fn routes() -> Router<AppState> {
 async fn list_entity_channels(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(entity_id): axum::extract::Path<String>,
+    axum::extract::Path(trust_id): axum::extract::Path<String>,
 ) -> Response {
     ipc_proxy(
         state,
         scope.as_ref(),
         "list_channels_for_entity",
-        serde_json::json!({"entity_id": entity_id}),
+        serde_json::json!({"trust_id": trust_id}),
     )
     .await
 }
@@ -40,11 +40,11 @@ async fn list_entity_channels(
 async fn create_entity_channel(
     State(state): State<AppState>,
     scope: Scope,
-    axum::extract::Path(entity_id): axum::extract::Path<String>,
+    axum::extract::Path(trust_id): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     let mut params = body;
-    params["entity_id"] = serde_json::Value::String(entity_id);
+    params["trust_id"] = serde_json::Value::String(trust_id);
     ipc_proxy(state, scope.as_ref(), "create_channel", params).await
 }
 
@@ -94,12 +94,12 @@ async fn create_entity(
     if resp.get("ok") == Some(&serde_json::Value::Bool(true))
         && let (Some(accounts), Some(claims)) = (&state.accounts, &claims)
         && let Some(user_id) = claims.user_id.as_deref()
-        && let Some(entity_id) = resp.get("id").and_then(|v| v.as_str())
-        && let Err(err) = accounts.add_director(user_id, entity_id)
+        && let Some(trust_id) = resp.get("id").and_then(|v| v.as_str())
+        && let Err(err) = accounts.add_director(user_id, trust_id)
     {
         tracing::warn!(
             user_id,
-            entity_id,
+            trust_id,
             "create_entity: failed to link entity to user: {err}"
         );
     }

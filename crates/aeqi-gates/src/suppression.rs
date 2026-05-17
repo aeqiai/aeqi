@@ -51,7 +51,7 @@ impl Channel {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Binding {
     pub id: String,
-    pub entity_id: Option<String>,
+    pub trust_id: Option<String>,
     pub channel: String,
     pub address: String,
     pub signer_address: Option<String>,
@@ -106,10 +106,11 @@ impl SqliteNotificationSuppression {
         let conn = Connection::open(&path)
             .with_context(|| format!("open notifications.db at {}", path.display()))?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")?;
+        rename_legacy_entity_id(&conn, "notification_bindings")?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS notification_bindings (
                 id              TEXT PRIMARY KEY,
-                entity_id       TEXT,
+                trust_id       TEXT,
                 channel         TEXT NOT NULL,
                 address         TEXT NOT NULL,
                 signer_address  TEXT,
@@ -132,10 +133,11 @@ impl SqliteNotificationSuppression {
     /// Open from an existing connection — useful in tests when sharing a
     /// `:memory:` DB across components.
     pub fn from_connection(conn: Connection) -> Result<Self> {
+        rename_legacy_entity_id(&conn, "notification_bindings")?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS notification_bindings (
                 id              TEXT PRIMARY KEY,
-                entity_id       TEXT,
+                trust_id       TEXT,
                 channel         TEXT NOT NULL,
                 address         TEXT NOT NULL,
                 signer_address  TEXT,
@@ -149,6 +151,30 @@ impl SqliteNotificationSuppression {
             conn: Mutex::new(conn),
         })
     }
+}
+
+/// ae-062 phase B: rename legacy `entity_id` → `trust_id` on live DBs.
+/// No-op if the table is missing, the legacy column is absent, or the
+/// canonical column is already present.
+fn rename_legacy_entity_id(conn: &Connection, table: &str) -> Result<()> {
+    let cols: Vec<String> = {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        stmt.query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    if cols.is_empty() {
+        return Ok(());
+    }
+    let has_legacy = cols.iter().any(|c| c == "entity_id");
+    let has_canonical = cols.iter().any(|c| c == "trust_id");
+    if has_legacy && !has_canonical {
+        conn.execute(
+            &format!("ALTER TABLE {table} RENAME COLUMN entity_id TO trust_id"),
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 #[async_trait]
@@ -187,7 +213,7 @@ impl NotificationSuppression for SqliteNotificationSuppression {
         // timestamp so we can tell when the most recent /stop landed.
         conn.execute(
             "INSERT INTO notification_bindings
-                (id, entity_id, channel, address, signer_address, suppressed_at, created_at, updated_at)
+                (id, trust_id, channel, address, signer_address, suppressed_at, created_at, updated_at)
              VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?5, ?5)
              ON CONFLICT(channel, address) DO UPDATE SET
                 suppressed_at = excluded.suppressed_at,
@@ -220,7 +246,7 @@ impl NotificationSuppression for SqliteNotificationSuppression {
             .map_err(|e| anyhow::anyhow!("poisoned: {e}"))?;
         let row = conn
             .query_row(
-                "SELECT id, entity_id, channel, address, signer_address,
+                "SELECT id, trust_id, channel, address, signer_address,
                         suppressed_at, created_at, updated_at
                  FROM notification_bindings
                  WHERE channel = ?1 AND address = ?2",
@@ -228,7 +254,7 @@ impl NotificationSuppression for SqliteNotificationSuppression {
                 |row| {
                     Ok(Binding {
                         id: row.get(0)?,
-                        entity_id: row.get(1)?,
+                        trust_id: row.get(1)?,
                         channel: row.get(2)?,
                         address: row.get(3)?,
                         signer_address: row.get(4)?,
