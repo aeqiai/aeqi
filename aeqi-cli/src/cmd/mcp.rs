@@ -470,6 +470,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                     "name": {"type": "string", "description": "Short slug name, e.g. 'auth/jwt-rotation' (for store, update)."},
                     "content": {"type": "string", "description": "The knowledge to store or replace (for store, update)"},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to classify the idea. Common: fact, procedure, preference, context, evergreen, skill, architecture. Multiple tags supported. On search, becomes a hard filter."},
+                    "kind": {"type": "string", "description": "Structural identity for store. Canonical: note (default), file, goal. Custom kinds may use custom:<name>."},
+                    "file_id": {"type": "string", "description": "Optional blob/file row id when storing an idea with kind=file."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent scope. Omit for entity/global memory owned by the authenticated user/company context."},
                     "query": {"type": "string", "description": "Natural language search query (for search). Uses tag-routed BM25 + vector similarity with MMR diversification."},
                     "limit": {"type": "integer", "description": "Max results (for search, default: 5)"},

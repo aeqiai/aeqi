@@ -1077,6 +1077,8 @@ fn tool_defs() -> serde_json::Value {
                     "name": {"type": "string", "description": "Short human-readable idea name for store/update, for example 'mcp/user-principal-quests'."},
                     "content": {"type": "string", "description": "Durable knowledge body to store or replace."},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags for classification and hard-filtered search, for example architecture, decision, procedure, bug, mcp, codegraph."},
+                    "kind": {"type": "string", "description": "Structural identity for store. Canonical: note (default), file, goal. Custom kinds may use custom:<name>."},
+                    "file_id": {"type": "string", "description": "Optional blob/file row id when storing an idea with kind=file."},
                     "query": {"type": "string", "description": "Natural language search query for search."},
                     "limit": {"type": "integer", "description": "Maximum search/walk results. Defaults to the runtime action default."},
                     "agent_id": {"type": "string", "description": "Optional explicit agent scope. Omit for entity/global memory owned by the authenticated user/company context."},

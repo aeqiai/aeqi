@@ -118,7 +118,7 @@ impl SqliteIdeas {
                 (0..tags.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
                 "SELECT DISTINCT i.id, i.name, i.content, i.agent_id, i.session_id, i.created_at, \
-                        i.scope \
+                        i.scope, i.kind, i.file_id \
                  FROM ideas i \
                  JOIN idea_tags t ON t.idea_id = i.id \
                  WHERE LOWER(t.tag) IN ({}) \
@@ -168,8 +168,8 @@ impl SqliteIdeas {
                         tool_deny: Vec::new(),
                         parent_idea_id: None,
                         properties: None,
-                        kind: "note".to_string(),
-                        file_id: None,
+                        kind: row.get(7)?,
+                        file_id: row.get(8)?,
                     })
                 })?
                 .filter_map(|r| r.ok())

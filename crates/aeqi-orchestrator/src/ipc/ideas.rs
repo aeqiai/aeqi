@@ -302,6 +302,18 @@ pub async fn handle_store_idea(
         if let Some(props) = input.properties.clone() {
             let _ = idea_store.set_properties(&target_id, Some(props)).await;
         }
+        if let Some(kind) = input.kind.as_deref()
+            && let Err(e) = idea_store
+                .set_kind(&target_id, kind, input.file_id.as_deref())
+                .await
+        {
+            return serde_json::json!({
+                "ok": false,
+                "id": target_id,
+                "action": response.get("action").cloned().unwrap_or(serde_json::Value::Null),
+                "error": format!("stored idea but failed to set kind={kind:?}: {e}"),
+            });
+        }
     }
 
     response
@@ -380,6 +392,11 @@ struct StoreRequest {
     /// Tables-in-Ideas Phase 2: schema-less property bag. The IPC accepts
     /// any JSON object; non-objects are rejected upstream.
     properties: Option<serde_json::Value>,
+    /// Structural identity discriminator for the idea row. `None` preserves
+    /// the store default (`note`).
+    kind: Option<String>,
+    /// Optional blob/file reference for `kind="file"` rows.
+    file_id: Option<String>,
     /// Wave 5 — Lane C: the session the caller was inside when the idea was
     /// created. When set on a Create or Supersede that lands a new row,
     /// `finalize_write` writes an `idea → session` `link` edge so the graph
@@ -436,6 +453,25 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
     let properties: Option<serde_json::Value> = request
         .get("properties")
         .and_then(|v| if v.is_object() { Some(v.clone()) } else { None });
+    let kind = request_field(request, "kind")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            const CANONICAL_IDEA_KINDS: &[&str] = &["note", "file", "goal"];
+            if CANONICAL_IDEA_KINDS.contains(&s) || s.starts_with("custom:") {
+                Ok(s.to_string())
+            } else {
+                Err(format!(
+                    "invalid kind {s:?}; canonical Idea kinds: {} (or `custom:<name>` for company-specific kinds)",
+                    CANONICAL_IDEA_KINDS.join(", ")
+                ))
+            }
+        })
+        .transpose()?;
+    let file_id = request_field(request, "file_id")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
     let created_in_session_id = request_field(request, "created_in_session_id")
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
@@ -451,6 +487,8 @@ fn parse_store_request(request: &serde_json::Value) -> std::result::Result<Store
         authored_by,
         parent_idea_id,
         properties,
+        kind,
+        file_id,
         created_in_session_id,
     })
 }
@@ -1847,6 +1885,8 @@ fn idea_to_json(idea: &aeqi_core::traits::Idea) -> serde_json::Value {
         // Tables-in-Ideas Phase 2.
         "parent_idea_id": idea.parent_idea_id,
         "properties": idea.properties,
+        "kind": idea.kind,
+        "file_id": idea.file_id,
     })
 }
 
@@ -3491,6 +3531,61 @@ mod wave2_tests {
             .find(|m| m.content == "created")
             .expect("a 'created' system row must exist");
         assert_eq!(created.metadata.as_ref().unwrap()["kind"], "idea_created");
+    }
+
+    #[tokio::test]
+    async fn handle_store_idea_persists_requested_kind() {
+        let (ctx, _ss, idea_store, dir) = wave2_ctx().await;
+
+        let req = serde_json::json!({
+            "name": "goal-kind-test",
+            "content": "ship the goal discriminator",
+            "tags": ["goal", "regression"],
+            "kind": "goal",
+        });
+        let resp = handle_store_idea(&ctx, &req, &None).await;
+        assert_eq!(resp["ok"], true, "store: {resp}");
+        assert_eq!(resp["action"], "create");
+        let idea_id = resp["id"].as_str().unwrap().to_string();
+
+        let conn = rusqlite::Connection::open(dir.path().join("aeqi.db")).unwrap();
+        let stored_kind: String = conn
+            .query_row(
+                "SELECT kind FROM ideas WHERE id = ?1",
+                rusqlite::params![idea_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored_kind, "goal");
+
+        let hydrated = idea_store
+            .get_by_name("goal-kind-test", None)
+            .await
+            .unwrap()
+            .expect("stored idea must hydrate");
+        assert_eq!(hydrated.kind, "goal");
+    }
+
+    #[tokio::test]
+    async fn handle_store_idea_rejects_unknown_kind() {
+        let (ctx, _ss, _idea_store, _dir) = wave2_ctx().await;
+
+        let resp = handle_store_idea(
+            &ctx,
+            &serde_json::json!({
+                "name": "bad-kind-test",
+                "content": "invalid kind",
+                "kind": "project",
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(resp["ok"], false, "store should reject bad kind: {resp}");
+        assert!(
+            resp["error"].as_str().unwrap().contains("invalid kind"),
+            "unexpected error: {resp}"
+        );
     }
 
     // ── Wave 5 — Lane C: session provenance edge ─────────────────────────

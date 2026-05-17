@@ -2360,7 +2360,7 @@ impl AgentRegistry {
         &self,
         agent_id: &str,
     ) -> Result<Vec<aeqi_core::traits::Idea>> {
-        // Tuple of (id, name, content, agent_id, session_id, created_at, scope).
+        // Tuple of (id, name, content, agent_id, session_id, created_at, scope, ...).
         // Local to this method so the row shape doesn't leak into the module.
         //
         // NOTE: The `inheritance`, `tool_allow`, `tool_deny` columns were
@@ -2380,13 +2380,15 @@ impl AgentRegistry {
             String,
             Option<String>,
             Option<String>,
+            String,
+            Option<String>,
         );
 
         let db = self.db.lock().await;
         let rows: Vec<IdeaRow> = {
             let mut stmt = db.prepare(
                 "SELECT id, name, content, agent_id, session_id, created_at, scope, \
-                        parent_idea_id, properties
+                        parent_idea_id, properties, kind, file_id
                  FROM ideas
                  WHERE agent_id IS NULL
                     OR agent_id = ?1
@@ -2417,6 +2419,9 @@ impl AgentRegistry {
                         .unwrap_or_else(|_| "self".to_string()),
                     row.get::<_, Option<String>>(7).ok().flatten(),
                     row.get::<_, Option<String>>(8).ok().flatten(),
+                    row.get::<_, String>(9)
+                        .unwrap_or_else(|_| "note".to_string()),
+                    row.get::<_, Option<String>>(10).ok().flatten(),
                 ))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?
@@ -2434,6 +2439,8 @@ impl AgentRegistry {
             scope_str,
             parent_idea_id,
             props_json,
+            kind,
+            file_id,
         ) in rows
         {
             let properties: Option<serde_json::Value> = props_json
@@ -2472,8 +2479,8 @@ impl AgentRegistry {
                 tool_deny: Vec::new(),
                 parent_idea_id,
                 properties,
-                kind: "note".to_string(),
-                file_id: None,
+                kind,
+                file_id,
             });
         }
         Ok(out)
@@ -3765,7 +3772,7 @@ impl AgentRegistry {
         let db = self.db.lock().await;
         let idea = db
             .query_row(
-                "SELECT id, name, content, scope, agent_id, session_id, created_at
+                "SELECT id, name, content, scope, agent_id, session_id, created_at, kind, file_id
                  FROM ideas WHERE id = ?1",
                 params![idea_id],
                 |row| {
@@ -3790,8 +3797,8 @@ impl AgentRegistry {
                         parent_idea_id: None,
                         properties: None,
                         created_at,
-                        kind: "note".to_string(),
-                        file_id: None,
+                        kind: row.get::<_, String>(7)?,
+                        file_id: row.get(8)?,
                     })
                 },
             )

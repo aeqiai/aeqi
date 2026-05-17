@@ -58,7 +58,7 @@ impl SqliteIdeas {
         }
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, agent_id, session_id, created_at, scope \
+                "SELECT id, name, content, agent_id, session_id, created_at, scope, kind, file_id \
                  FROM ideas \
                  WHERE agent_id IS NULL \
                  ORDER BY created_at DESC \
@@ -88,8 +88,8 @@ impl SqliteIdeas {
                         tool_deny: Vec::new(),
                         parent_idea_id: None,
                         properties: None,
-                        kind: "note".to_string(),
-                        file_id: None,
+                        kind: row.get(7)?,
+                        file_id: row.get(8)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -108,7 +108,7 @@ impl SqliteIdeas {
         self.blocking(move |conn| {
             let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
             let sql = format!(
-                "SELECT id, name, content, agent_id, created_at, session_id, scope
+                "SELECT id, name, content, agent_id, created_at, session_id, scope, kind, file_id
                  FROM ideas WHERE id IN ({})",
                 placeholders.join(", ")
             );
@@ -151,8 +151,8 @@ impl SqliteIdeas {
                         tool_deny: Vec::new(),
                         parent_idea_id: None,
                         properties: None,
-                        kind: "note".to_string(),
-                        file_id: None,
+                        kind: row.get(7)?,
+                        file_id: row.get(8)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
@@ -172,10 +172,10 @@ impl SqliteIdeas {
         let agent_id = agent_id.map(|s| s.to_string());
         self.blocking(move |conn| {
             let sql = if agent_id.is_some() {
-                "SELECT id, name, content, agent_id, created_at, session_id, scope
+                "SELECT id, name, content, agent_id, created_at, session_id, scope, kind, file_id
                  FROM ideas WHERE name = ?1 AND agent_id = ?2 LIMIT 1"
             } else {
-                "SELECT id, name, content, agent_id, created_at, session_id, scope
+                "SELECT id, name, content, agent_id, created_at, session_id, scope, kind, file_id
                  FROM ideas WHERE name = ?1 AND agent_id IS NULL LIMIT 1"
             };
             let mut stmt = conn.prepare(sql)?;
@@ -212,8 +212,8 @@ impl SqliteIdeas {
                     tool_deny: Vec::new(),
                     parent_idea_id: None,
                     properties: None,
-                    kind: "note".to_string(),
-                    file_id: None,
+                    kind: row.get(7)?,
+                    file_id: row.get(8)?,
                 })
             };
             let mut entries: Vec<Idea> = match agent_id.as_deref() {
@@ -390,7 +390,7 @@ impl SqliteIdeas {
         let pid = parent_id.to_string();
         self.blocking(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, content, agent_id, created_at, session_id, scope, properties
+                "SELECT id, name, content, agent_id, created_at, session_id, scope, properties, kind, file_id
                  FROM ideas
                  WHERE parent_idea_id = ?1
                  ORDER BY created_at DESC",
@@ -435,8 +435,8 @@ impl SqliteIdeas {
                         tool_deny: Vec::new(),
                         parent_idea_id: None,
                         properties: props,
-                        kind: "note".to_string(),
-                        file_id: None,
+                        kind: row.get(8)?,
+                        file_id: row.get(9)?,
                     })
                 })?
                 .filter_map(|r| r.ok())
