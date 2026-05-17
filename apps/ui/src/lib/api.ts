@@ -255,7 +255,7 @@ export const api = {
       ok: boolean;
       roles: Role[];
       edges: RoleEdge[];
-    }>(`/roles?trust_id=${encodeURIComponent(trustId)}`);
+    }>(`/roles?entity_id=${encodeURIComponent(trustId)}`);
     return {
       ok: r.ok,
       roles: r.roles,
@@ -313,7 +313,7 @@ export const api = {
 
   getUserGrants: (trustId: string, userId: string) =>
     request<{ ok: boolean; grants: string[] }>(
-      `/roles/grants?trust_id=${encodeURIComponent(trustId)}&user_id=${encodeURIComponent(userId)}`,
+      `/roles/grants?entity_id=${encodeURIComponent(trustId)}&user_id=${encodeURIComponent(userId)}`,
     ),
 
   // Invitation endpoints — platform-side, no entity scope in the path
@@ -970,7 +970,7 @@ export const api = {
 
   getBudgetTree: (trustId: string) =>
     request<{ ok: boolean; tree: { nodes: Budget[]; edges: [string, string][] } }>(
-      `/budgets/tree?trust_id=${encodeURIComponent(trustId)}`,
+      `/budgets/tree?entity_id=${encodeURIComponent(trustId)}`,
     ),
 
   getBudgetAllowance: (budgetId: string) =>
