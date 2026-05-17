@@ -1262,6 +1262,282 @@ describe("aeqi_governance", () => {
     expect(v.choice).to.eq(1);
   });
 
+  it("cast_vote_role rejects checkpoints created after proposal.snapshot_slot", async () => {
+    // ae-003 regression: closes the role-governance checkpoint
+    // vulnerability documented in idea
+    // design/aeqi-governance-proposal-start-snapshots. Sequence:
+    //   1. Set up a role, assign to voter (checkpoint at slot S1 with count=1).
+    //   2. Create proposal (snapshot_slot = S2, S2 >= S1).
+    //   3. Wait until the cluster moves PAST S2.
+    //   4. Create a second role of the same type, assign to the same voter —
+    //      this bumps the SAME checkpoint PDA (count=2) at slot S3 > S2.
+    //   5. cast_vote_role must reject with CheckpointAfterSnapshot.
+    const role = anchor.workspace.aeqiRole as anchor.Program<
+      import("../target/types/aeqi_role").AeqiRole
+    >;
+
+    const trustR = await createTrust(0xee, 0x03);
+    const directorTypeId = new Uint8Array(32);
+    directorTypeId[0] = 0xc8;
+
+    const [roleModuleStatePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role_module"), trustR.toBuffer()],
+      role.programId,
+    );
+    await role.methods
+      .init()
+      .accountsPartial({
+        trust: trustR,
+        moduleState: roleModuleStatePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const [rtPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("role_type"),
+        trustR.toBuffer(),
+        Buffer.from(directorTypeId),
+      ],
+      role.programId,
+    );
+    await role.methods
+      .createRoleType(Array.from(directorTypeId), 0, {
+        vesting: false,
+        vestingCliff: new anchor.BN(0),
+        vestingDuration: new anchor.BN(0),
+        fdv: false,
+        fdvStart: new anchor.BN(0),
+        fdvEnd: new anchor.BN(0),
+        probationaryPeriod: new anchor.BN(0),
+        severancePeriod: new anchor.BN(0),
+        contribution: false,
+      })
+      .accountsPartial({
+        trust: trustR,
+        roleType: rtPda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    // Role 1: voter takes the role-type's only seat (role_count = 1 path).
+    const roleId1 = new Uint8Array(32);
+    roleId1[0] = 0xc8;
+    roleId1[1] = 0x01;
+    const [rolePda1] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role"), trustR.toBuffer(), Buffer.from(roleId1)],
+      role.programId,
+    );
+    await role.methods
+      .createRole(
+        Array.from(roleId1),
+        Array.from(directorTypeId),
+        null,
+        Array.from(new Uint8Array(64)),
+      )
+      .accountsPartial({
+        trust: trustR,
+        roleType: rtPda,
+        role: rolePda1,
+        callerRole: null,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const voter = provider.wallet.publicKey;
+    const [checkpointPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("role_ckpt"),
+        trustR.toBuffer(),
+        Buffer.from(directorTypeId),
+        voter.toBuffer(),
+      ],
+      role.programId,
+    );
+    await role.methods
+      .assignRole(voter)
+      .accountsPartial({
+        role: rolePda1,
+        roleType: rtPda,
+        trust: trustR,
+        callerRole: null,
+        checkpoint: checkpointPda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    // Governance setup — config_id = directorTypeId.
+    const [govModulePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("gov_module"), trustR.toBuffer()],
+      program.programId,
+    );
+    await program.methods
+      .init()
+      .accountsPartial({
+        trust: trustR,
+        moduleState: govModulePda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const [cfgPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("gov_config"),
+        trustR.toBuffer(),
+        Buffer.from(directorTypeId),
+      ],
+      program.programId,
+    );
+    await program.methods
+      .registerConfig(Array.from(directorTypeId), {
+        proposalThreshold: new anchor.BN(0),
+        quorumBps: 4000,
+        supportBps: 5000,
+        votingPeriod: new anchor.BN(60),
+        executionDelay: new anchor.BN(0),
+        allowEarlyEnact: true,
+      })
+      .accountsPartial({
+        trust: trustR,
+        moduleState: govModulePda,
+        governanceConfig: cfgPda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const proposalId = new Uint8Array(32);
+    proposalId[0] = 0xc8;
+    proposalId[1] = 0x03;
+    const [proposalPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("proposal"), trustR.toBuffer(), Buffer.from(proposalId)],
+      program.programId,
+    );
+    await program.methods
+      .propose(
+        Array.from(proposalId),
+        Array.from(directorTypeId),
+        Array.from(new Uint8Array(64)),
+      )
+      .accountsPartial({
+        trust: trustR,
+        moduleState: govModulePda,
+        proposal: proposalPda,
+        proposer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .remainingAccounts([
+        { pubkey: cfgPda, isSigner: false, isWritable: false },
+      ])
+      .rpc();
+
+    const proposalAfter = await program.account.proposal.fetch(proposalPda);
+    const snapshotSlot = BigInt(proposalAfter.snapshotSlot.toString());
+
+    // Wait for the cluster to advance past snapshot_slot so the next
+    // assign_role lands on a strictly newer slot. Localnet runs ~2.5 slots/s.
+    while (
+      BigInt(await provider.connection.getSlot("processed")) <= snapshotSlot
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    // Role 2: same role type, second seat. createRole bumps role_count to 2,
+    // so a "no caller_role" path is NOT permitted by gate_role_assignment
+    // (which requires role_count == 1 for the implicit-authority branch).
+    // Use the existing role as caller_role: the voter, who occupies role1,
+    // is its own authority via require_keys_eq!(caller_role.account, payer).
+    const roleId2 = new Uint8Array(32);
+    roleId2[0] = 0xc8;
+    roleId2[1] = 0x02;
+    const [rolePda2] = PublicKey.findProgramAddressSync(
+      [Buffer.from("role"), trustR.toBuffer(), Buffer.from(roleId2)],
+      role.programId,
+    );
+    await role.methods
+      .createRole(
+        Array.from(roleId2),
+        Array.from(directorTypeId),
+        Array.from(roleId1), // parent_role_id = role1 (the voter holds it)
+        Array.from(new Uint8Array(64)),
+      )
+      .accountsPartial({
+        trust: trustR,
+        roleType: rtPda,
+        role: rolePda2,
+        callerRole: rolePda1,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    await role.methods
+      .assignRole(voter)
+      .accountsPartial({
+        role: rolePda2,
+        roleType: rtPda,
+        trust: trustR,
+        callerRole: rolePda1,
+        checkpoint: checkpointPda,
+        payer: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    // Sanity-check: checkpoint slot now exceeds proposal.snapshot_slot, and
+    // count grew to 2.
+    const ckptInfo = await provider.connection.getAccountInfo(checkpointPda);
+    expect(ckptInfo, "checkpoint must exist").to.not.eq(null);
+    // RoleVoteCheckpoint layout: [8 disc][32 pubkey][32 role_type_id][8 slot u64][8 count u64][1 bump]
+    const ckptSlot = ckptInfo!.data.readBigUInt64LE(8 + 32 + 32);
+    const ckptCount = ckptInfo!.data.readBigUInt64LE(8 + 32 + 32 + 8);
+    expect(ckptCount.toString()).to.eq("2");
+    expect(ckptSlot > snapshotSlot).to.eq(
+      true,
+      `expected checkpoint slot ${ckptSlot} > snapshot_slot ${snapshotSlot}`,
+    );
+
+    // The actual regression assertion.
+    const [votePda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("vote"),
+        trustR.toBuffer(),
+        Buffer.from(proposalId),
+        voter.toBuffer(),
+      ],
+      program.programId,
+    );
+
+    let threw = false;
+    try {
+      await program.methods
+        .castVoteRole(1)
+        .accountsPartial({
+          proposal: proposalPda,
+          vote: votePda,
+          voterCheckpoint: checkpointPda,
+          voter,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+    } catch (e: any) {
+      threw = true;
+      expect(e.toString()).to.match(/CheckpointAfterSnapshot/);
+    }
+    expect(threw, "cast_vote_role must reject stale-snapshot checkpoint").to.eq(
+      true,
+    );
+
+    // No VoteRecord should have been created.
+    const voteInfo = await provider.connection.getAccountInfo(votePda);
+    expect(voteInfo).to.eq(null);
+  });
+
   it("rejects register_config with invalid bps", async () => {
     const cfgId = new Uint8Array(32);
     cfgId[0] = 0xff; // distinct from previous tests' 0xee/0xed

@@ -247,6 +247,18 @@ pub mod aeqi_governance {
             ckpt.role_type_id == ctx.accounts.proposal.governance_config_id,
             GovernanceError::ConfigMismatch
         );
+        // Snapshot guard: the checkpoint must be no newer than the proposal's
+        // snapshot slot. Without this, a voter could accumulate role
+        // delegations AFTER the proposal started and replay the freshest
+        // checkpoint, inflating their weight beyond what they held at
+        // snapshot time. Mirrors `aeqi_role::get_past_role_votes(query_slot)`
+        // but enforced directly at the cast_vote consumer (which previously
+        // skipped that helper). See idea
+        // design/aeqi-governance-proposal-start-snapshots.
+        require!(
+            ckpt.slot <= ctx.accounts.proposal.snapshot_slot,
+            GovernanceError::CheckpointAfterSnapshot
+        );
 
         let weight = ckpt.count as u128;
         require!(weight > 0, GovernanceError::ZeroWeight);
@@ -303,7 +315,8 @@ pub mod aeqi_governance {
             ctx.program_id,
         )?;
 
-        let now = Clock::get()?.unix_timestamp;
+        let clock = Clock::get()?;
+        let now = clock.unix_timestamp;
         let p = &mut ctx.accounts.proposal;
         p.trust = ctx.accounts.trust.key();
         p.proposal_id = proposal_id;
@@ -311,6 +324,12 @@ pub mod aeqi_governance {
         p.proposer = ctx.accounts.proposer.key();
         p.ipfs_cid = ipfs_cid;
         p.vote_start = now;
+        // snapshot_slot bounds the maximum role checkpoint slot that
+        // cast_vote_role will accept. Set at proposal creation so vote power
+        // is fixed to delegations held when voting opened, not whatever
+        // accumulates while voting is live. Phase 2 (token Merkle snapshot,
+        // ae-008) layers token weight onto the same slot.
+        p.snapshot_slot = clock.slot;
         p.vote_duration = cfg.voting_period;
         p.execution_delay = cfg.execution_delay;
         p.for_votes = 0;
@@ -552,6 +571,12 @@ pub struct Proposal {
     pub vote_start: i64,
     pub vote_duration: i64,
     pub execution_delay: i64,
+    /// Solana slot captured at `propose()` time. `cast_vote_role` rejects
+    /// any RoleVoteCheckpoint whose `slot` is greater than this — locking
+    /// vote power to delegations held when the proposal opened. Phase 1
+    /// of design/aeqi-governance-proposal-start-snapshots; Phase 2 (ae-008)
+    /// reuses the same slot for token Merkle snapshots.
+    pub snapshot_slot: u64,
     pub for_votes: u128,
     pub against_votes: u128,
     pub abstain_votes: u128,
@@ -825,6 +850,8 @@ pub enum GovernanceError {
     CheckpointVoterMismatch,
     #[msg("voter_checkpoint is not owned by aeqi_role or has invalid layout")]
     InvalidCheckpoint,
+    #[msg("voter_checkpoint.slot is newer than proposal.snapshot_slot")]
+    CheckpointAfterSnapshot,
     #[msg("execute_proposal requires a canonical vote supply account")]
     MissingVoteSupplyAccount,
     #[msg("vote supply account does not match the proposal voting mode")]
