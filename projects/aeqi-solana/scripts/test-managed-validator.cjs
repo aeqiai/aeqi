@@ -131,15 +131,20 @@ function parseProgramIds() {
     if (match) programIds[match[1]] = match[2];
   }
 
-  const missing = Object.keys(PROGRAM_SO_NAMES).filter((name) => !programIds[name]);
+  const missing = Object.keys(PROGRAM_SO_NAMES).filter(
+    (name) => !programIds[name],
+  );
   if (missing.length > 0) {
-    throw new Error(`Missing [programs.localnet] IDs for: ${missing.join(", ")}`);
+    throw new Error(
+      `Missing [programs.localnet] IDs for: ${missing.join(", ")}`,
+    );
   }
   return programIds;
 }
 
 async function findPorts(opts) {
-  const requestedBase = opts.basePort ?? (opts.rpcPort ? opts.rpcPort - 1 : undefined);
+  const requestedBase =
+    opts.basePort ?? (opts.rpcPort ? opts.rpcPort - 1 : undefined);
   const start = requestedBase ?? 20_000 + Math.floor(Math.random() * 1_000);
 
   for (let base = start; base < start + 2_000; base += 100) {
@@ -195,7 +200,9 @@ function runChecked(command, args, env = {}) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} exited with ${result.status}`);
+    throw new Error(
+      `${command} ${args.join(" ")} exited with ${result.status}`,
+    );
   }
 }
 
@@ -207,9 +214,60 @@ function runCapture(command, args) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`);
+    throw new Error(
+      `${command} ${args.join(" ")} failed: ${result.stderr.trim()}`,
+    );
   }
   return result.stdout.trim();
+}
+
+function latestMtimeMs(dir) {
+  let latest = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      latest = Math.max(latest, latestMtimeMs(fullPath));
+    } else if (entry.isFile()) {
+      latest = Math.max(latest, fs.statSync(fullPath).mtimeMs);
+    }
+  }
+  return latest;
+}
+
+function assertSkipBuildArtifactsFresh() {
+  const stale = [];
+
+  for (const [name, soName] of Object.entries(PROGRAM_SO_NAMES)) {
+    const programDir = path.join(ROOT, "programs", name.replaceAll("_", "-"));
+    const sourceMtime = latestMtimeMs(path.join(programDir, "src"));
+    const artifacts = [
+      path.join(ROOT, "target", "deploy", soName),
+      path.join(ROOT, "target", "idl", `${name}.json`),
+      path.join(ROOT, "target", "types", `${name}.ts`),
+    ];
+
+    for (const artifact of artifacts) {
+      if (!fs.existsSync(artifact)) {
+        stale.push(`${path.relative(ROOT, artifact)} is missing`);
+        continue;
+      }
+      if (fs.statSync(artifact).mtimeMs + 1_000 < sourceMtime) {
+        stale.push(
+          `${path.relative(ROOT, artifact)} is older than ${path.relative(ROOT, programDir)}/src`,
+        );
+      }
+    }
+  }
+
+  if (stale.length > 0) {
+    throw new Error(
+      [
+        "--skip-build requested but generated Solana artifacts are missing or stale:",
+        ...stale.map((line) => `  - ${line}`),
+        "Run `anchor build` or omit `--skip-build` before running managed tests.",
+      ].join(os.EOL),
+    );
+  }
 }
 
 function validatorArgs(programIds, ports, ledger) {
@@ -222,7 +280,11 @@ function validatorArgs(programIds, ports, ledger) {
   ];
 
   for (const [name, programId] of Object.entries(programIds)) {
-    args.push("--bpf-program", programId, path.join("target", "deploy", PROGRAM_SO_NAMES[name]));
+    args.push(
+      "--bpf-program",
+      programId,
+      path.join("target", "deploy", PROGRAM_SO_NAMES[name]),
+    );
   }
 
   args.push(
@@ -309,13 +371,18 @@ async function stopProcess(child) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const tests = opts.tests.length > 0 ? opts.tests : DEFAULT_TESTS;
-  const ledger = path.resolve(ROOT, opts.ledger ?? path.join(".anchor", "managed-test-ledger"));
+  const ledger = path.resolve(
+    ROOT,
+    opts.ledger ?? path.join(".anchor", "managed-test-ledger"),
+  );
   const validatorOutput = `${ledger}.output.log`;
   const programIds = parseProgramIds();
   const ports = await findPorts(opts);
 
   if (!opts.skipBuild) {
     runChecked("anchor", ["build"]);
+  } else {
+    assertSkipBuildArtifactsFresh();
   }
 
   fs.rmSync(ledger, { recursive: true, force: true });
@@ -335,10 +402,14 @@ async function main() {
   );
 
   const validatorLog = fs.createWriteStream(validatorOutput, { flags: "w" });
-  const validator = spawn("solana-test-validator", validatorArgs(programIds, ports, ledger), {
-    cwd: ROOT,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const validator = spawn(
+    "solana-test-validator",
+    validatorArgs(programIds, ports, ledger),
+    {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 
   validator.stdout.on("data", (chunk) => {
     validatorLog.write(chunk);
@@ -376,7 +447,8 @@ async function main() {
           ...process.env,
           ANCHOR_PROVIDER_URL: `http://127.0.0.1:${ports.rpc}`,
           ANCHOR_WALLET:
-            process.env.ANCHOR_WALLET ?? path.join(os.homedir(), ".config", "solana", "id.json"),
+            process.env.ANCHOR_WALLET ??
+            path.join(os.homedir(), ".config", "solana", "id.json"),
         },
         stdio: "inherit",
       },
