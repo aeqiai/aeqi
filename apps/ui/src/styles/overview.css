@@ -221,6 +221,73 @@
   border-radius: 2px;
 }
 
+/* ── Genesis curve ───────────────────────────────────────────────────── */
+
+.entity-overview-genesis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.entity-overview-genesis-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+}
+
+.entity-overview-genesis-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.entity-overview-genesis-label {
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: lowercase;
+}
+
+.entity-overview-genesis-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+}
+
+.entity-overview-genesis-sub,
+.entity-overview-genesis-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.entity-overview-genesis-error {
+  color: var(--color-error);
+}
+
+.entity-overview-genesis-buy {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.entity-overview-genesis-buy:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 /* ── Avatar dot in pulse rows ─────────────────────────────────────────── */
 
 .entity-overview-pulse-avatar {
@@ -282,6 +349,11 @@
 
   .entity-overview-numbers {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .entity-overview-genesis-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

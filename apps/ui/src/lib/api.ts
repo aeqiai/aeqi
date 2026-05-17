@@ -680,7 +680,30 @@ export const api = {
         loading_roles: { reached: boolean; at: string | null };
         spawning_agent: { reached: boolean; at: string | null };
       };
+      unifutures: {
+        asset_mint: string;
+        quote_mint: string;
+        curve: string;
+        curve_asset_vault: string;
+        curve_quote_vault: string;
+        buy_amount: number;
+        max_cost: number;
+      } | null;
     }>(`/start/launch/status/${encodeURIComponent(trustId)}`),
+
+  tryUnifuturesFirstBuy: (data: { entity_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      buyer_pubkey_b58: string;
+      buyer_asset_ta_b58: string;
+      buyer_quote_ta_b58: string;
+      asset_amount: number;
+      max_cost: number;
+    }>("/solana/first-buy", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   spawnAgent: (data: {
     name: string;

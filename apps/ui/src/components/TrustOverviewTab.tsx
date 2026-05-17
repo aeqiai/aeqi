@@ -4,6 +4,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useTreasury } from "@/hooks/useTreasury";
 import { fetchTrust } from "@/lib/indexer";
+import { api } from "@/lib/api";
 import { formatShortDate } from "@/lib/i18n";
 import type { Quest } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -19,6 +20,9 @@ import "@/styles/overview.css";
 // initial Overview chunk small; the Health hook pulls a deeper
 // activity tail on mount.
 const HealthBlock = lazy(() => import("@/pages/HealthPage"));
+
+type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
+type GenesisCurveState = NonNullable<LaunchStatus["unifutures"]>;
 
 /**
  * `/trust/<addr>/overview` — TRUST cockpit.
@@ -156,6 +160,11 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
 
   // ── Numbers row: TRUST signers count ────────────────────────────────
   const [trustsCount, setTrustsCount] = useState<number | null>(null);
+  const [genesisCurve, setGenesisCurve] = useState<GenesisCurveState | null>(null);
+  const [curveError, setCurveError] = useState<string | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyResult, setBuyResult] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (!trustAddress) {
@@ -176,6 +185,30 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
     };
   }, [trustAddress]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!trustAddress) {
+      setGenesisCurve(null);
+      setCurveError(null);
+      return;
+    }
+    api
+      .getLaunchStatus(trustId)
+      .then((status) => {
+        if (cancelled) return;
+        setGenesisCurve(status.unifutures);
+        setCurveError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setGenesisCurve(null);
+        setCurveError(err instanceof Error ? err.message : "Curve state unavailable.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trustId, trustAddress]);
+
   // ── Numbers row: active agents (status=running/active/online) ───────
   const activeAgentsCount = useMemo(
     () =>
@@ -190,6 +223,20 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
   // signers stat tile to read clearly.
   const basePath = entity ? entityBasePath(entity) : "/launch";
   const trustPath = basePath;
+
+  const handleFirstBuy = async () => {
+    setBuying(true);
+    setBuyError(null);
+    setBuyResult(null);
+    try {
+      const result = await api.tryUnifuturesFirstBuy({ entity_id: trustId });
+      setBuyResult(result.signature_b58);
+    } catch (err) {
+      setBuyError(err instanceof Error ? err.message : "Buy failed.");
+    } finally {
+      setBuying(false);
+    }
+  };
 
   return (
     <div className="entity-overview">
@@ -391,6 +438,50 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
         </Link>
       </div>
 
+      <section className="entity-overview-genesis" aria-labelledby="overview-genesis">
+        <div className="entity-overview-section-head">
+          <h2 id="overview-genesis" className="entity-overview-section-title">
+            Genesis curve
+          </h2>
+          <p className="entity-overview-section-sub">UniFutures first buy</p>
+        </div>
+        <div className="entity-overview-genesis-row">
+          <div className="entity-overview-genesis-main">
+            <span className="entity-overview-genesis-label">Curve</span>
+            <span className="entity-overview-genesis-value">
+              {genesisCurve
+                ? compactAddress(genesisCurve.curve)
+                : curveError
+                  ? "unavailable"
+                  : "loading"}
+            </span>
+            {genesisCurve && (
+              <span className="entity-overview-genesis-sub">
+                Asset {compactAddress(genesisCurve.asset_mint)} · USDC{" "}
+                {compactAddress(genesisCurve.quote_mint)}
+              </span>
+            )}
+            {!genesisCurve && curveError && (
+              <span className="entity-overview-genesis-sub">{curveError}</span>
+            )}
+            {buyResult && (
+              <span className="entity-overview-genesis-sub">
+                Settled {compactAddress(buyResult)}
+              </span>
+            )}
+            {buyError && <span className="entity-overview-genesis-error">{buyError}</span>}
+          </div>
+          <button
+            type="button"
+            className="entity-overview-genesis-buy"
+            onClick={() => void handleFirstBuy()}
+            disabled={!genesisCurve || buying}
+          >
+            {buying ? "Buying" : "Try $1 USDC buy"}
+          </button>
+        </div>
+      </section>
+
       {/* ── Health block — substrate compounding ── */}
       <section className="entity-overview-health" aria-labelledby="overview-health">
         <header className="entity-overview-section-head">
@@ -439,6 +530,11 @@ function relativeTime(iso: string | undefined): string {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
   return formatShortDate(ts);
+}
+
+function compactAddress(value: string): string {
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
 
 function netDeltaValue(delta: { inCount: number; outCount: number } | null): string {
