@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::activity_log::ActivityLog;
 use crate::agent_registry::AgentRegistry;
 use crate::quest_assignee::{
-    QuestCallerPrincipal, auto_assignee_for_in_progress, validate_assignee_update,
+    QuestCallerPrincipal, auto_assignee_for_status, validate_assignee_update,
 };
 
 /// Read the canonical GitHub-issue URL attached to a quest (quest 67-218).
@@ -552,8 +552,14 @@ impl QuestsTool {
             }
             None => None,
         };
-        let assignee_update = match auto_assignee_for_in_progress(
+        let existing = match self.agent_registry.get_task(quest_id).await {
+            Ok(Some(q)) => q,
+            Ok(None) => return Ok(ToolResult::error(format!("Quest not found: {quest_id}"))),
+            Err(e) => return Ok(ToolResult::error(format!("Failed to get quest: {e}"))),
+        };
+        let assignee_update = match auto_assignee_for_status(
             status,
+            existing.assignee.as_deref(),
             assignee_update,
             Some(QuestCallerPrincipal::Agent(self.agent_id.clone())),
         ) {
@@ -566,33 +572,41 @@ impl QuestsTool {
                 Err(e) => return Ok(ToolResult::error(e)),
             };
 
-        if let Some(new_status) = status
-            && let Err(e) = self
-                .agent_registry
-                .update_task_status(quest_id, new_status)
-                .await
-        {
-            return Ok(ToolResult::error(format!(
-                "Failed to update quest {quest_id} status: {e}"
-            )));
-        }
+        let updated = self
+            .agent_registry
+            .update_task(quest_id, |q| {
+                if let Some(new_status) = status {
+                    q.status = new_status;
+                    if matches!(
+                        q.status,
+                        aeqi_quests::QuestStatus::Done | aeqi_quests::QuestStatus::Cancelled
+                    ) {
+                        q.closed_at = Some(chrono::Utc::now());
+                    }
+                }
+                if let Some(new_priority) = priority {
+                    q.priority = new_priority;
+                }
+                if let Some(next_assignee) = assignee_update.clone() {
+                    q.assignee = next_assignee;
+                }
+            })
+            .await;
 
-        if (priority.is_some() || assignee_update.is_some())
-            && let Err(e) = self
-                .agent_registry
-                .update_task(quest_id, |q| {
-                    if let Some(new_priority) = priority {
-                        q.priority = new_priority;
-                    }
-                    if let Some(next_assignee) = assignee_update.clone() {
-                        q.assignee = next_assignee;
-                    }
-                })
-                .await
+        let quest = match updated {
+            Ok(q) => q,
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "Failed to update quest {quest_id}: {e}"
+                )));
+            }
+        };
+
+        if existing.status != aeqi_quests::QuestStatus::Done
+            && quest.status == aeqi_quests::QuestStatus::Done
         {
-            return Ok(ToolResult::error(format!(
-                "Failed to update quest {quest_id} priority: {e}"
-            )));
+            self.emit_quest_completed_activity(&quest, "llm_update")
+                .await;
         }
 
         let mut msg = format!("Quest {quest_id} updated:");
@@ -618,6 +632,26 @@ impl QuestsTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("missing result"))?;
 
+        let existing = match self.agent_registry.get_task(quest_id).await {
+            Ok(Some(q)) => q,
+            Ok(None) => return Ok(ToolResult::error(format!("Quest not found: {quest_id}"))),
+            Err(e) => return Ok(ToolResult::error(format!("Failed to get quest: {e}"))),
+        };
+        let assignee_update = match auto_assignee_for_status(
+            Some(aeqi_quests::QuestStatus::Done),
+            existing.assignee.as_deref(),
+            None,
+            Some(QuestCallerPrincipal::Agent(self.agent_id.clone())),
+        ) {
+            Ok(update) => update,
+            Err(e) => return Ok(ToolResult::error(e)),
+        };
+        let assignee_update =
+            match validate_assignee_update(&self.agent_registry, assignee_update).await {
+                Ok(update) => update,
+                Err(e) => return Ok(ToolResult::error(e)),
+            };
+
         let result_owned = result.to_string();
         match self
             .agent_registry
@@ -627,10 +661,18 @@ impl QuestsTool {
                     aeqi_quests::QuestOutcomeKind::Done,
                     &result_owned,
                 ));
+                if let Some(next_assignee) = assignee_update.clone() {
+                    q.assignee = next_assignee;
+                }
             })
             .await
         {
             Ok(quest) => {
+                if existing.status != aeqi_quests::QuestStatus::Done {
+                    self.emit_quest_completed_activity(&quest, "llm_close")
+                        .await;
+                }
+
                 // Mirror to the linked GitHub issue (quest 67-218.1) — best
                 // effort, logs on failure, never blocks the close.
                 let comment = format!("Closed via AEQI quest {quest_id}: {result_owned}");
@@ -661,6 +703,33 @@ impl QuestsTool {
             Err(e) => Ok(ToolResult::error(format!(
                 "Failed to close quest {quest_id}: {e}"
             ))),
+        }
+    }
+
+    async fn emit_quest_completed_activity(&self, quest: &aeqi_quests::Quest, source: &str) {
+        let content = serde_json::json!({
+            "source": source,
+            "outcome": "done",
+            "assignee": quest.assignee.clone(),
+            "caller_kind": "agent",
+            "caller_id": self.agent_id.clone(),
+        });
+        if let Err(e) = self
+            .activity_log
+            .emit(
+                "quest_completed",
+                Some(&self.agent_id),
+                self.session_id.as_deref(),
+                Some(&quest.id.0),
+                &content,
+            )
+            .await
+        {
+            tracing::warn!(
+                quest = %quest.id.0,
+                error = %e,
+                "emit_quest_completed_activity failed"
+            );
         }
     }
 
@@ -1094,7 +1163,7 @@ mod tests {
         let tool = QuestsTool::new(
             Arc::clone(&registry),
             agent.id,
-            Arc::new(ActivityLog::new(registry.db())),
+            Arc::new(ActivityLog::new(registry.sessions_db())),
         );
         (tool, registry, quest, dir)
     }
@@ -1153,6 +1222,81 @@ mod tests {
         let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
         assert_eq!(stored.status, aeqi_quests::QuestStatus::InProgress);
         assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+    }
+
+    #[tokio::test]
+    async fn llm_update_done_auto_binds_calling_agent_and_emits_completed_activity() {
+        let (tool, registry, quest, _dir) = quest_tool_fixture().await;
+        let expected = format!("agent:{}", tool.agent_id);
+
+        let result = tool
+            .action_update(&serde_json::json!({
+                "quest_id": quest.id.0,
+                "status": "done",
+            }))
+            .await
+            .unwrap();
+
+        assert!(!result.is_error, "result: {}", result.output);
+        let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(stored.status, aeqi_quests::QuestStatus::Done);
+        assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+        assert!(stored.closed_at.is_some());
+
+        let events = tool
+            .activity_log
+            .query(
+                &crate::activity_log::EventFilter {
+                    event_type: Some("quest_completed".to_string()),
+                    quest_id: Some(quest.id.0.clone()),
+                    ..Default::default()
+                },
+                10,
+                0,
+            )
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].agent_id.as_deref(), Some(tool.agent_id.as_str()));
+        assert_eq!(events[0].content["source"], "llm_update");
+        assert_eq!(events[0].content["assignee"], expected);
+    }
+
+    #[tokio::test]
+    async fn llm_close_auto_binds_calling_agent_and_emits_completed_activity() {
+        let (tool, registry, quest, _dir) = quest_tool_fixture().await;
+        let expected = format!("agent:{}", tool.agent_id);
+
+        let result = tool
+            .action_close(&serde_json::json!({
+                "quest_id": quest.id.0,
+                "result": "finished",
+            }))
+            .await
+            .unwrap();
+
+        assert!(!result.is_error, "result: {}", result.output);
+        let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(stored.status, aeqi_quests::QuestStatus::Done);
+        assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+
+        let events = tool
+            .activity_log
+            .query(
+                &crate::activity_log::EventFilter {
+                    event_type: Some("quest_completed".to_string()),
+                    quest_id: Some(quest.id.0.clone()),
+                    ..Default::default()
+                },
+                10,
+                0,
+            )
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].agent_id.as_deref(), Some(tool.agent_id.as_str()));
+        assert_eq!(events[0].content["source"], "llm_close");
+        assert_eq!(events[0].content["assignee"], expected);
     }
 
     // ── quest 67-218: GitHub issue URL validator + attach helpers ──

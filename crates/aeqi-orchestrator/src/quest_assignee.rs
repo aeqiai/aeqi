@@ -37,14 +37,42 @@ pub fn auto_assignee_for_in_progress(
     assignee_update: Option<Option<String>>,
     caller: Option<QuestCallerPrincipal>,
 ) -> Result<Option<Option<String>>, String> {
-    if assignee_update.is_none() && matches!(status, Some(aeqi_quests::QuestStatus::InProgress)) {
-        let principal = caller.ok_or_else(|| {
-            "status=in_progress requires an assignee or authenticated caller principal".to_string()
-        })?;
-        return Ok(Some(Some(principal.assignee())));
+    auto_assignee_for_status(status, None, assignee_update, caller)
+}
+
+pub fn auto_assignee_for_status(
+    status: Option<aeqi_quests::QuestStatus>,
+    current_assignee: Option<&str>,
+    assignee_update: Option<Option<String>>,
+    caller: Option<QuestCallerPrincipal>,
+) -> Result<Option<Option<String>>, String> {
+    let Some(status) = status else {
+        return Ok(assignee_update);
+    };
+    if !matches!(
+        status,
+        aeqi_quests::QuestStatus::InProgress | aeqi_quests::QuestStatus::Done
+    ) {
+        return Ok(assignee_update);
     }
 
-    Ok(assignee_update)
+    match assignee_update {
+        Some(Some(_)) => Ok(assignee_update),
+        Some(None) => Err(format!(
+            "status={} requires an assignee or authenticated caller principal",
+            status
+        )),
+        None if current_assignee.is_some() => Ok(None),
+        None => {
+            let principal = caller.ok_or_else(|| {
+                format!(
+                    "status={} requires an assignee or authenticated caller principal",
+                    status
+                )
+            })?;
+            Ok(Some(Some(principal.assignee())))
+        }
+    }
 }
 
 pub async fn validate_assignee_update(

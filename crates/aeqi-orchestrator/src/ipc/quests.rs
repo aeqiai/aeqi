@@ -3,7 +3,8 @@
 use aeqi_core::Scope;
 
 use crate::quest_assignee::{
-    auto_assignee_for_in_progress, caller_principal_from_request, validate_assignee_update,
+    QuestCallerPrincipal, auto_assignee_for_status, caller_principal_from_request,
+    validate_assignee_update,
 };
 
 use super::tenancy::{check_agent_access, is_allowed};
@@ -675,10 +676,12 @@ pub async fn handle_update_quest(
         _ => aeqi_quests::Priority::Normal,
     });
 
-    let assignee_update = match auto_assignee_for_in_progress(
+    let caller_principal = caller_principal_from_request(request);
+    let assignee_update = match auto_assignee_for_status(
         status,
+        previous.assignee.as_deref(),
         assignee_update,
-        caller_principal_from_request(request),
+        caller_principal.clone(),
     ) {
         Ok(update) => update,
         Err(e) => return serde_json::json!({"ok": false, "error": e}),
@@ -722,6 +725,11 @@ pub async fn handle_update_quest(
         Ok(quest) => {
             let changes = quest_activity_changes(&previous, &quest);
             emit_quest_update_activity(ctx, &quest, &changes).await;
+            if previous.status != aeqi_quests::QuestStatus::Done
+                && quest.status == aeqi_quests::QuestStatus::Done
+            {
+                emit_quest_completed_activity(ctx, &quest, caller_principal, "ipc_update").await;
+            }
 
             // Editorial fields live on the linked idea — fetch it lazily
             // for the response so the UI can refresh without a 2nd RPC.
@@ -893,6 +901,45 @@ async fn emit_quest_update_activity(
     }
 }
 
+async fn emit_quest_completed_activity(
+    ctx: &super::CommandContext,
+    quest: &aeqi_quests::Quest,
+    caller: Option<QuestCallerPrincipal>,
+    source: &str,
+) {
+    let (caller_kind, caller_id, caller_agent_id) = match caller {
+        Some(QuestCallerPrincipal::User(id)) => ("user", Some(id), None),
+        Some(QuestCallerPrincipal::Agent(id)) => ("agent", Some(id.clone()), Some(id)),
+        None => ("unknown", None, None),
+    };
+    let agent_id = caller_agent_id.or_else(|| quest.agent_id.clone());
+    let content = serde_json::json!({
+        "source": source,
+        "outcome": "done",
+        "assignee": quest.assignee.clone(),
+        "caller_kind": caller_kind,
+        "caller_id": caller_id,
+    });
+
+    if let Err(e) = ctx
+        .activity_log
+        .emit(
+            "quest_completed",
+            agent_id.as_deref(),
+            None,
+            Some(&quest.id.0),
+            &content,
+        )
+        .await
+    {
+        tracing::warn!(
+            quest = %quest.id.0,
+            error = %e,
+            "emit_quest_completed_activity failed"
+        );
+    }
+}
+
 pub async fn handle_close_quest(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -930,12 +977,30 @@ pub async fn handle_close_quest(
         }
     }
 
-    // Fetch quest before closing to get worktree info.
-    let quest_before = ctx.agent_registry.get_task(quest_id).await.ok().flatten();
-    let worktree_path = quest_before.as_ref().and_then(|q| q.worktree_path.clone());
-    let worktree_branch = quest_before
-        .as_ref()
-        .and_then(|q| q.worktree_branch.clone());
+    // Fetch quest before closing to get worktree info and ownership state.
+    let quest_before = match ctx.agent_registry.get_task(quest_id).await {
+        Ok(Some(q)) => q,
+        Ok(None) => return serde_json::json!({"ok": false, "error": "quest not found"}),
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+    let caller_principal = caller_principal_from_request(request);
+    let assignee_update = match auto_assignee_for_status(
+        Some(aeqi_quests::QuestStatus::Done),
+        quest_before.assignee.as_deref(),
+        None,
+        caller_principal.clone(),
+    ) {
+        Ok(update) => update,
+        Err(e) => return serde_json::json!({"ok": false, "error": e}),
+    };
+    let assignee_update = match validate_assignee_update(&ctx.agent_registry, assignee_update).await
+    {
+        Ok(update) => update,
+        Err(e) => return serde_json::json!({"ok": false, "error": e}),
+    };
+    let was_done = quest_before.status == aeqi_quests::QuestStatus::Done;
+    let worktree_path = quest_before.worktree_path.clone();
+    let worktree_branch = quest_before.worktree_branch.clone();
 
     // Finalize worktree if quest has one.
     let mut merge_result: Option<serde_json::Value> = None;
@@ -1009,6 +1074,9 @@ pub async fn handle_close_quest(
                 aeqi_quests::QuestOutcomeKind::Done,
                 reason,
             ));
+            if let Some(next_assignee) = assignee_update.clone() {
+                quest.assignee = next_assignee;
+            }
             // Clear worktree fields after finalization.
             if merge_result.is_some() {
                 quest.worktree_path = None;
@@ -1018,6 +1086,10 @@ pub async fn handle_close_quest(
         .await
     {
         Ok(quest) => {
+            if !was_done {
+                emit_quest_completed_activity(ctx, &quest, caller_principal, "ipc_close").await;
+            }
+
             // Mirror to the linked GitHub issue (quest 67-218.1). Best-effort
             // — the local close is already durable; a failed mirror logs warn
             // and returns to here without touching the response shape.
@@ -1428,7 +1500,9 @@ mod tests {
         let (embed_queue, _rx) = aeqi_ideas::embed_worker::EmbedQueue::channel(8);
         let ctx = crate::ipc::CommandContext {
             metrics: Arc::new(crate::metrics::AEQIMetrics::new()),
-            activity_log: Arc::new(crate::activity_log::ActivityLog::new(registry.db())),
+            activity_log: Arc::new(crate::activity_log::ActivityLog::new(
+                registry.sessions_db(),
+            )),
             session_store: Some(Arc::clone(&session_store)),
             event_handler_store: None,
             agent_registry: Arc::clone(&registry),
@@ -1651,5 +1725,98 @@ mod tests {
         let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
         assert_eq!(stored.status, aeqi_quests::QuestStatus::InProgress);
         assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+    }
+
+    #[tokio::test]
+    async fn update_quest_done_auto_binds_caller_and_emits_completed_activity() {
+        let (ctx, registry, _session_store, _idea_store, _dir) = quest_update_ctx().await;
+        let agent = registry.spawn("Quest Tester", None, None).await.unwrap();
+        let quest = registry
+            .create_task(&agent.id, "Track lifecycle", "body", &[], &[])
+            .await
+            .unwrap();
+        let user_id = uuid::Uuid::new_v4().to_string();
+        let expected = format!("user:{user_id}");
+
+        let resp = handle_update_quest(
+            &ctx,
+            &serde_json::json!({
+                "id": quest.id.0,
+                "status": "done",
+                "caller_user_id": user_id,
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(resp["ok"], true, "update response: {resp}");
+        assert_eq!(resp["quest"]["assignee"], expected);
+        let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(stored.status, aeqi_quests::QuestStatus::Done);
+        assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+        assert!(stored.closed_at.is_some());
+
+        let events = ctx
+            .activity_log
+            .query(
+                &crate::activity_log::EventFilter {
+                    event_type: Some("quest_completed".to_string()),
+                    quest_id: Some(quest.id.0.clone()),
+                    ..Default::default()
+                },
+                10,
+                0,
+            )
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].content["source"], "ipc_update");
+        assert_eq!(events[0].content["assignee"], expected);
+    }
+
+    #[tokio::test]
+    async fn close_quest_auto_binds_caller_and_emits_completed_activity() {
+        let (ctx, registry, _session_store, _idea_store, _dir) = quest_update_ctx().await;
+        let agent = registry.spawn("Quest Tester", None, None).await.unwrap();
+        let quest = registry
+            .create_task(&agent.id, "Track lifecycle", "body", &[], &[])
+            .await
+            .unwrap();
+        let user_id = uuid::Uuid::new_v4().to_string();
+        let expected = format!("user:{user_id}");
+
+        let resp = handle_close_quest(
+            &ctx,
+            &serde_json::json!({
+                "quest_id": quest.id.0,
+                "reason": "finished",
+                "caller_user_id": user_id,
+            }),
+            &None,
+        )
+        .await;
+
+        assert_eq!(resp["ok"], true, "close response: {resp}");
+        let stored = registry.get_task(&quest.id.0).await.unwrap().unwrap();
+        assert_eq!(stored.status, aeqi_quests::QuestStatus::Done);
+        assert_eq!(stored.assignee.as_deref(), Some(expected.as_str()));
+        assert!(stored.closed_at.is_some());
+
+        let events = ctx
+            .activity_log
+            .query(
+                &crate::activity_log::EventFilter {
+                    event_type: Some("quest_completed".to_string()),
+                    quest_id: Some(quest.id.0.clone()),
+                    ..Default::default()
+                },
+                10,
+                0,
+            )
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].content["source"], "ipc_close");
+        assert_eq!(events[0].content["assignee"], expected);
     }
 }
