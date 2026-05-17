@@ -15,6 +15,7 @@ import {
   createTrust as createTestTrust,
   expectTxFail,
   fundKeypair,
+  SUITE_SEED_TAIL,
 } from "./support";
 import {
   buildMerkleTree,
@@ -98,6 +99,11 @@ describe("aeqi_governance", () => {
     const trustId = new Uint8Array(32);
     trustId[0] = seed0;
     trustId[1] = seed1;
+    // Fill bytes 2..32 with the per-invocation suite tail so this fixture
+    // produces a fresh trust PDA on every mocha run (ae-041). Within a
+    // single invocation the tail is constant, so different (seed0, seed1)
+    // pairs still yield distinct PDAs as before.
+    trustId.set(SUITE_SEED_TAIL, 2);
     const [trustPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("trust"), Buffer.from(trustId)],
       trustProgram.programId,
@@ -1159,6 +1165,10 @@ describe("aeqi_governance", () => {
     const trustId = new Uint8Array(32);
     trustId[0] = 0xf0;
     trustId[1] = 0x01;
+    // Rotate bytes 2..32 per mocha invocation (ae-041) so re-running
+    // against a persistent validator doesn't collide on this fixture's
+    // trust PDA.
+    trustId.set(SUITE_SEED_TAIL, 2);
     const [trustV] = PublicKey.findProgramAddressSync(
       [Buffer.from("trust"), Buffer.from(trustId)],
       trustProgram.programId,
