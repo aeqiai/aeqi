@@ -34,6 +34,7 @@ const RoleNewPage = lazy(() => import("@/pages/RoleNewPage"));
 const RoleDetailPage = lazy(() => import("@/pages/RoleDetailPage"));
 const RoleEditPage = lazy(() => import("@/pages/RoleEditPage"));
 const RoleInvitePage = lazy(() => import("@/pages/RoleInvitePage"));
+const AgentHealthPage = lazy(() => import("@/pages/AgentHealthPage"));
 const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
 
 // Tab segments that moved under `/trust/<addr>/agents/<aid>/settings/<tab>`.
@@ -379,6 +380,9 @@ export default function AppLayout() {
           itemId={itemId}
         />
       );
+    }
+    if (drilledAgent && tab === "health") {
+      return <AgentHealthPage agentId={activeAgentId} />;
     }
     // Drilled-agent settings sub-surface — dedicated page that owns
     // the PageRail. Bare trust-scope `/agents/<aid>/settings` defaults to

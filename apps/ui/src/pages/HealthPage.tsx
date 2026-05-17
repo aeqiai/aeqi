@@ -187,7 +187,7 @@ export default function HealthPage({ entityId }: { entityId: string }) {
   );
 }
 
-function TrendBadge({ delta }: { delta: HealthMetrics["trendDeltas"]["questsClosed"] }) {
+export function TrendBadge({ delta }: { delta: HealthMetrics["trendDeltas"]["questsClosed"] }) {
   const arrow = trendArrow(delta.direction);
   const ratio = delta.ratio;
   // Label for the trend badge: "↑ 2.4×" / "↓ 30%" / "→ flat" / "↗ new"
@@ -212,7 +212,13 @@ function TrendBadge({ delta }: { delta: HealthMetrics["trendDeltas"]["questsClos
   );
 }
 
-function InterpretationLine({ text, direction }: { text: string; direction: TrendDirection }) {
+export function InterpretationLine({
+  text,
+  direction,
+}: {
+  text: string;
+  direction: TrendDirection;
+}) {
   return (
     <p className={styles.metricInterpretation} data-direction={direction}>
       {text}
@@ -220,7 +226,7 @@ function InterpretationLine({ text, direction }: { text: string; direction: Tren
   );
 }
 
-function SparklineGrid({ metrics }: { metrics: HealthMetrics }) {
+export function SparklineGrid({ metrics }: { metrics: HealthMetrics }) {
   return (
     <div className={styles.sparkGrid} data-columns={4}>
       <SparklineCell label="Quests closed" series={metrics.sparklines.questsClosed} />

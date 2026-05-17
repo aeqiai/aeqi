@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { BarChart3 } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, Tooltip } from "@/components/ui";
@@ -45,6 +46,7 @@ export default function AgentSurfaceHeader({
         : "/";
   const backLabel = variant === "settings" ? agentName : "Agents";
   const settingsHref = `${base}/agents/${encodeURIComponent(agentId)}/settings`;
+  const healthHref = `${base}/agents/${encodeURIComponent(agentId)}/health`;
 
   // "New" — broadcast the same custom event the type-anywhere shortcut
   // uses. AgentSessionView listens for this and resets the active
@@ -76,6 +78,16 @@ export default function AgentSurfaceHeader({
   const actions =
     variant === "default" ? (
       <>
+        <Tooltip content="Agent health — productivity, quality, goals">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(healthHref)}
+            leadingIcon={<BarChart3 size={13} strokeWidth={1.5} aria-hidden="true" />}
+          >
+            Health
+          </Button>
+        </Tooltip>
         <Tooltip content="Agent settings — model, tools, channels">
           <Button
             variant="secondary"

@@ -102,6 +102,21 @@ export interface HealthMetrics {
   /** Decision-like events fired in the trailing 7d window — supplements
    *  the lifetime total for the interpretation copy. */
   decisionsThisWeek: number;
+  /** Agent-only quality metric: quest reopen-like events in the trailing
+   *  28d divided by closed quests in the same period. Entity health
+   *  callers can ignore it. */
+  questReopenRate28d: {
+    reopened: number;
+    closed: number;
+    rate: number;
+  };
+  /** Agent-only discipline metric. The label/tag convention is not
+   *  formalized yet, so this reports observed overstep-like activity
+   *  while marking the metric as convention-pending. */
+  briefOverstepIncidence28d: {
+    count: number;
+    tracked: boolean;
+  };
   /** Per-metric trend deltas (current 7d vs previous 7d). The decision
    *  log metric is cumulative so its trend compares lifetime totals
    *  7d apart. */
@@ -122,6 +137,11 @@ export interface UseTrustHealthMetricsResult {
   metrics: HealthMetrics | null;
   isLoading: boolean;
   error: Error | null;
+}
+
+export interface TrustHealthMetricsOptions {
+  /** Optional per-agent filter for `/trust/<addr>/agents/<agent>/health`. */
+  agentId?: string | null;
 }
 
 interface InternalAggregationInput {
@@ -170,6 +190,12 @@ function isDecisionLike(decisionType: string | undefined): boolean {
   return DECISION_LIKE_PATTERNS.some((p) => dt.includes(p));
 }
 
+function includesAnyNeedle(value: string | undefined, needles: string[]): boolean {
+  if (!value) return false;
+  const text = value.toLowerCase();
+  return needles.some((needle) => text.includes(needle));
+}
+
 function parseTs(value: string | undefined): number {
   if (!value) return Number.NaN;
   const ms = Date.parse(value);
@@ -185,11 +211,13 @@ export function computeHealthMetrics(input: InternalAggregationInput): HealthMet
   const { windowDays, nowMs, quests, events, ideas, agentNames, agentIds } = input;
   const sevenDaysAgo = nowMs - 7 * DAY_MS;
   const fourteenDaysAgo = nowMs - 14 * DAY_MS;
+  const twentyEightDaysAgo = nowMs - 28 * DAY_MS;
 
   // ── Quests closed: closed_at timestamps for done/cancelled, agent ∈ subtree.
   const closedQuestTimestamps: number[] = [];
   let questsClosed7d = 0;
   let questsClosed14d = 0;
+  let questsClosed28d = 0;
   for (const q of quests) {
     if (q.status !== "done" && q.status !== "cancelled") continue;
     if (q.agent_id && !agentIds.has(q.agent_id)) continue;
@@ -198,6 +226,7 @@ export function computeHealthMetrics(input: InternalAggregationInput): HealthMet
     closedQuestTimestamps.push(ts);
     if (ts >= sevenDaysAgo) questsClosed7d += 1;
     else if (ts >= fourteenDaysAgo) questsClosed14d += 1;
+    if (ts >= twentyEightDaysAgo) questsClosed28d += 1;
   }
 
   // ── Agent actions: sum of (events fired by agent in subtree) +
@@ -255,11 +284,27 @@ export function computeHealthMetrics(input: InternalAggregationInput): HealthMet
   //    is the cumulative curve so the operator sees the "record getting
   //    heavier" arc, not a per-day rate.
   const decisionTimestamps: number[] = [];
+  let questReopenEvents28d = 0;
+  let briefOverstepEvents28d = 0;
   for (const ev of events) {
     if (!ev.agent || !agentNames.has(ev.agent)) continue;
-    if (!isDecisionLike(ev.decision_type)) continue;
     const ts = parseTs(ev.timestamp);
     if (!Number.isFinite(ts)) continue;
+    if (
+      ts >= twentyEightDaysAgo &&
+      (includesAnyNeedle(ev.decision_type, ["reopen", "re-open", "reopened"]) ||
+        includesAnyNeedle(ev.summary, ["reopen", "re-open", "reopened"]))
+    ) {
+      questReopenEvents28d += 1;
+    }
+    if (
+      ts >= twentyEightDaysAgo &&
+      (includesAnyNeedle(ev.decision_type, ["overstep", "scope creep", "brief violation"]) ||
+        includesAnyNeedle(ev.summary, ["overstep", "scope creep", "brief violation"]))
+    ) {
+      briefOverstepEvents28d += 1;
+    }
+    if (!isDecisionLike(ev.decision_type)) continue;
     decisionTimestamps.push(ts);
   }
   const decisionLogLength = decisionTimestamps.length;
@@ -307,6 +352,15 @@ export function computeHealthMetrics(input: InternalAggregationInput): HealthMet
     ideaGraphGrowth: ideaGrowth7d,
     decisionLogLength,
     decisionsThisWeek: decisions7d,
+    questReopenRate28d: {
+      reopened: questReopenEvents28d,
+      closed: questsClosed28d,
+      rate: questsClosed28d > 0 ? questReopenEvents28d / questsClosed28d : 0,
+    },
+    briefOverstepIncidence28d: {
+      count: briefOverstepEvents28d,
+      tracked: false,
+    },
     trendDeltas: {
       questsClosed: buildTrendDelta(questsClosed7d, questsClosed14d),
       agentActions: buildTrendDelta(agentActions7d, agentActions14d),
@@ -335,6 +389,7 @@ export function computeHealthMetrics(input: InternalAggregationInput): HealthMet
 export function useTrustHealthMetrics(
   addr: string | null | undefined,
   windowDays: number = DEFAULT_HEALTH_WINDOW_DAYS,
+  options: TrustHealthMetricsOptions = {},
 ): UseTrustHealthMetricsResult {
   const entities = useDaemonStore((s) => s.entities);
   const allAgents = useDaemonStore((s) => s.agents);
@@ -361,11 +416,21 @@ export function useTrustHealthMetrics(
     return allAgents.filter((a) => a.entity_id === entityId || a.id === entityId);
   }, [allAgents, entityId]);
 
+  const scopedAgents = useMemo(() => {
+    if (!options.agentId) return subtreeAgents;
+    const found = subtreeAgents.filter((a) => a.id === options.agentId);
+    return found.length ? found : [];
+  }, [subtreeAgents, options.agentId]);
+
   const agentNames = useMemo(
-    () => new Set<string>(subtreeAgents.map((a) => a.name)),
-    [subtreeAgents],
+    () => new Set<string>(scopedAgents.map((a) => a.name)),
+    [scopedAgents],
   );
-  const agentIds = useMemo(() => new Set<string>(subtreeAgents.map((a) => a.id)), [subtreeAgents]);
+  const agentIds = useMemo(() => {
+    const ids = new Set<string>(scopedAgents.map((a) => a.id));
+    if (options.agentId) ids.add(options.agentId);
+    return ids;
+  }, [scopedAgents, options.agentId]);
 
   // The daemon store's `events` only loads the most recent 30 — fine
   // for the cockpit "last 24h" card, not for a 30-day backfill. Fetch
