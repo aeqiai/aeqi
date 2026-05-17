@@ -30,29 +30,10 @@ export const SCOPE_LABEL: Record<IdeasFilter, string> = {
 export type SortMode = "tag" | "recent" | "alpha";
 export const SORT_MODES: SortMode[] = ["tag", "recent", "alpha"];
 export const SORT_LABELS: Record<SortMode, string> = {
-  tag: "By tag",
+  tag: "Nested",
   recent: "Recent",
   alpha: "A → Z",
 };
-
-/**
- * Kind discriminator for filter chips. `all` shows every kind; the
- * specific values map to `Idea.kind` per design canon
- * `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`.
- */
-export type KindFilter = "all" | "note" | "file" | "goal";
-export const KIND_FILTER_VALUES: KindFilter[] = ["all", "note", "file", "goal"];
-export const KIND_FILTER_LABELS: Record<KindFilter, string> = {
-  all: "All",
-  note: "Notes",
-  file: "Files",
-  goal: "Goals",
-};
-
-export function parseKind(raw: string | null): KindFilter {
-  if (!raw) return "all";
-  return (KIND_FILTER_VALUES as string[]).includes(raw) ? (raw as KindFilter) : "all";
-}
 
 export type FilterState = {
   scope: IdeasFilter;
@@ -60,7 +41,6 @@ export type FilterState = {
   tags: string[];
   sort: SortMode;
   needsReview: boolean;
-  kind: KindFilter;
 };
 
 // Tags are stored in the URL as a single comma-separated `?tags=a,b,c`
@@ -82,33 +62,6 @@ export function parseTags(raw: string | null): string[] {
 
 export function serializeTags(tags: string[]): string {
   return tags.join(",");
-}
-
-// Bucketed recency epochs — Linear/Things/Notion all chunk lists this way
-// because relative time alone ("3w") doesn't read as a *journal*. The last
-// bucket ("older") catches anything beyond the year so the index stays
-// finite. Exported so both the grouping and the section labels share the
-// same source of truth.
-export type Epoch = "today" | "this-week" | "this-month" | "this-year" | "older";
-export const EPOCH_LABELS: Record<Epoch, string> = {
-  today: "today",
-  "this-week": "this week",
-  "this-month": "this month",
-  "this-year": "this year",
-  older: "older",
-};
-export const EPOCH_ORDER: Epoch[] = ["today", "this-week", "this-month", "this-year", "older"];
-
-export function epochOf(iso: string | undefined, now = Date.now()): Epoch {
-  if (!iso) return "older";
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "older";
-  const sec = Math.max(0, Math.floor((now - t) / 1000));
-  if (sec < 60 * 60 * 24) return "today";
-  if (sec < 60 * 60 * 24 * 7) return "this-week";
-  if (sec < 60 * 60 * 24 * 30) return "this-month";
-  if (sec < 60 * 60 * 24 * 365) return "this-year";
-  return "older";
 }
 
 export function parseScope(raw: string | null): IdeasFilter {
@@ -190,7 +143,7 @@ export function highlightMatches(text: string, query: string): ReactNode {
 // Match rank — lower = more relevant. Hoists exact-name matches to the
 // top so "Thinking → Enter" always opens the most obvious target, then
 // name-prefix, then name-contains, then content-only. When nothing is
-// typed every idea is equal and the caller's grouping order takes over.
+// typed every idea is equal and the caller's current order takes over.
 export function matchRank(idea: { name: string; content: string }, query: string): number {
   if (!query) return 3;
   const q = query.trim().toLowerCase();

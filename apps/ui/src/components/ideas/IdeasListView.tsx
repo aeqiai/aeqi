@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
-import { Button } from "../ui";
+import { Button, Icon, IconButton } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { storeIdea } from "@/api/ideas";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
@@ -14,15 +15,11 @@ import IdeasListFilterChips from "./IdeasListFilterChips";
 import {
   type FilterState,
   type IdeasFilter,
-  type Epoch,
-  EPOCH_LABELS,
-  EPOCH_ORDER,
   SCOPE_LABEL,
   matchRank,
   snippetFor,
   highlightMatches,
   relativeTime,
-  epochOf,
 } from "./types";
 
 const TAG_CHIP_LIMIT = 8;
@@ -30,6 +27,56 @@ const TAG_CHIP_LIMIT = 8;
 function ScopeChip({ scope }: { scope: ScopeValue }) {
   if (scope === "self") return null;
   return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+}
+
+interface IdeaTreeNode {
+  idea: Idea;
+  children: IdeaTreeNode[];
+}
+
+interface IdeaTreeRow {
+  node: IdeaTreeNode;
+  depth: number;
+}
+
+function buildIdeaTree(ideas: Idea[]): IdeaTreeNode[] {
+  const byParent = new Map<string | null, Idea[]>();
+  const idSet = new Set(ideas.map((idea) => idea.id));
+  const order = new Map(ideas.map((idea, index) => [idea.id, index]));
+
+  for (const idea of ideas) {
+    const parent =
+      idea.parent_idea_id && idSet.has(idea.parent_idea_id) ? idea.parent_idea_id : null;
+    const siblings = byParent.get(parent) ?? [];
+    siblings.push(idea);
+    byParent.set(parent, siblings);
+  }
+
+  const sortByCurrentOrder = (a: Idea, b: Idea) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
+  const build = (parentId: string | null): IdeaTreeNode[] =>
+    (byParent.get(parentId) ?? []).sort(sortByCurrentOrder).map((idea) => ({
+      idea,
+      children: build(idea.id),
+    }));
+
+  return build(null);
+}
+
+function flattenIdeaTree(
+  nodes: IdeaTreeNode[],
+  expanded: Record<string, boolean>,
+  depth = 0,
+): IdeaTreeRow[] {
+  const rows: IdeaTreeRow[] = [];
+  for (const node of nodes) {
+    rows.push({ node, depth });
+    const defaultExpanded = depth === 0;
+    const isExpanded = expanded[node.idea.id] ?? defaultExpanded;
+    if (node.children.length > 0 && isExpanded) {
+      rows.push(...flattenIdeaTree(node.children, expanded, depth + 1));
+    }
+  }
+  return rows;
 }
 
 export interface IdeasListViewProps {
@@ -66,8 +113,9 @@ export default function IdeasListView({
   // (exact name → prefix → contains → content) so ↓-then-Enter always
   // hits the most obvious target — sort mode is suppressed under search
   // because relevance trumps shelf order. Without a query, sort mode
-  // controls the input order: `tag` keeps insertion order (groups handle
-  // it later), `recent` walks created_at desc, `alpha` walks name asc.
+  // controls the input order: the legacy `tag` mode keeps insertion order
+  // for the nested outline, `recent` walks created_at desc, `alpha` walks
+  // name asc.
   const ranked = useMemo(() => {
     if (searchActive) {
       return filtered
@@ -97,54 +145,10 @@ export default function IdeasListView({
     return filtered;
   }, [filtered, filter.search, filter.sort, searchActive]);
 
-  // Sectioning. `tag` groups by primary tag for Notion-style headings;
-  // `recent` groups by recency epoch (today / this-week / this-month /
-  // this-year / older) so the index reads like a journal; `alpha` is a
-  // flat run. Search collapses to a single "results" section regardless
-  // of sort because relevance trumps shelf order.
-  const grouped = useMemo<[string, Idea[]][]>(() => {
-    if (searchActive) return [["results", ranked]];
-    if (filter.sort === "alpha") return [["", ranked]];
-    if (filter.sort === "recent") {
-      const now = Date.now();
-      const byEpoch: Record<Epoch, Idea[]> = {
-        today: [],
-        "this-week": [],
-        "this-month": [],
-        "this-year": [],
-        older: [],
-      };
-      for (const idea of ranked) byEpoch[epochOf(idea.created_at, now)].push(idea);
-      return EPOCH_ORDER.filter((e) => byEpoch[e].length > 0).map((e) => [
-        EPOCH_LABELS[e],
-        byEpoch[e],
-      ]);
-    }
-    const byTag = new Map<string, Idea[]>();
-    for (const idea of ranked) {
-      const primary = idea.tags?.[0] ?? "untagged";
-      const list = byTag.get(primary) ?? [];
-      list.push(idea);
-      byTag.set(primary, list);
-    }
-    return Array.from(byTag.entries()).sort((a, b) => {
-      if (a[0] === "untagged") return 1;
-      if (b[0] === "untagged") return -1;
-      return b[1].length - a[1].length;
-    });
-  }, [ranked, searchActive, filter.sort]);
-
-  const showGroupHeadings = !searchActive && filter.sort !== "alpha";
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  /**
-   * Per-group collapsed state for the `.ideas-list-group-head` chrome
-   * (chevron + slab-tinted bar). Mirrors the quest-list group toggle
-   * idiom so tag/epoch groups can be folded out of the way without
-   * losing scroll position. Default-open: missing key = expanded.
-   */
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  const toggleGroup = (key: string) =>
-    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [expandedIdeas, setExpandedIdeas] = useState<Record<string, boolean>>({});
+  const toggleIdea = (id: string, defaultExpanded: boolean) =>
+    setExpandedIdeas((prev) => ({ ...prev, [id]: !(prev[id] ?? defaultExpanded) }));
   const visibleTagCount = tagsExpanded
     ? tagCounts.length
     : Math.min(TAG_CHIP_LIMIT, tagCounts.length);
@@ -278,7 +282,11 @@ export default function IdeasListView({
   const noMatchTrimmed = filter.search.trim();
   const totalInScope = scoped.length;
 
-  const rankedFirstId = ranked[0]?.id ?? null;
+  const treeRows = useMemo(
+    () => flattenIdeaTree(buildIdeaTree(ranked), expandedIdeas),
+    [ranked, expandedIdeas],
+  );
+  const rankedFirstId = treeRows[0]?.node.idea.id ?? ranked[0]?.id ?? null;
   const filteredCount = filtered.length;
 
   return (
@@ -419,157 +427,142 @@ export default function IdeasListView({
           (() => {
             // Reset the row-ref registry for this render so ↑/↓ walk the
             // current filtered order; row indices are assigned flat across
-            // group boundaries so keyboard traversal ignores grouping.
+            // parent/child boundaries so keyboard traversal follows the
+            // visible nested order.
             rowRefs.current = [];
-            let flatIndex = -1;
-            return grouped.map(([groupTag, items]) => {
-              const groupKey = groupTag || "all";
-              const isCollapsed = !!collapsedGroups[groupKey];
-              // When grouping by tag (the default `sort=tag` flow), the
-              // group label IS a tag — render it as the canonical pill
-              // chip so the heading reads visually parallel to the tag
-              // chips on idea rows. Epoch labels (today / this-week)
-              // and the "results" heading stay as plain text since
-              // they're not tags.
-              const isTagGroup =
-                !searchActive && filter.sort !== "alpha" && filter.sort !== "recent";
-              return (
-                <section key={groupKey} className="ideas-list-group">
-                  {showGroupHeadings && (
-                    <div className="ideas-list-group-head">
-                      <button
-                        type="button"
-                        className="ideas-list-group-toggle"
-                        aria-expanded={!isCollapsed}
-                        onClick={() => toggleGroup(groupKey)}
-                      >
-                        <svg
-                          className={`ideas-list-group-chevron${isCollapsed ? "" : " is-open"}`}
-                          width="10"
-                          height="10"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
+            return (
+              <section className="ideas-list-group ideas-list-group--nested">
+                {treeRows.map(({ node, depth }, myIndex) => {
+                  const idea = node.idea;
+                  const flatContent = blockTreeToPlainText(idea.content);
+                  const snippet = snippetFor(flatContent, filter.search);
+                  const wordCount = flatContent.trim().split(/\s+/).filter(Boolean).length;
+                  const ago = relativeTime(idea.created_at);
+                  const tags = idea.tags ?? [];
+                  const isCandidate =
+                    tags.includes("skill") &&
+                    tags.includes("candidate") &&
+                    !tags.includes("promoted") &&
+                    !tags.includes("rejected");
+                  const extraTags = Math.max(0, tags.length - 1);
+                  // Show scope chip when the scope isn't the default "self".
+                  // Suppress the chip when the filter tab already communicates it.
+                  const resolvedScope: ScopeValue | null =
+                    idea.scope ??
+                    (idea.agent_id == null ? "global" : idea.agent_id === agentId ? "self" : null);
+                  const showScopeChip =
+                    resolvedScope != null &&
+                    resolvedScope !== "self" &&
+                    filter.scope !== resolvedScope;
+                  const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
+                  const hasChildren = node.children.length > 0;
+                  const depthClass = `ideas-list-row-depth-${Math.min(depth, 6)}`;
+                  const defaultExpanded = depth === 0;
+                  const isExpanded = expandedIdeas[idea.id] ?? defaultExpanded;
+                  return (
+                    <div
+                      key={idea.id}
+                      className={`ideas-list-row-wrap ${depthClass}`}
+                      data-has-children={hasChildren ? "true" : "false"}
+                    >
+                      {hasChildren ? (
+                        <IconButton
+                          size="xs"
+                          className={`ideas-list-row-disclosure${isExpanded ? " is-open" : ""}`}
+                          aria-label={isExpanded ? "Collapse child ideas" : "Expand child ideas"}
+                          aria-expanded={isExpanded}
+                          onClick={() => toggleIdea(idea.id, defaultExpanded)}
                         >
-                          <path d="M4.5 3 L7.5 6 L4.5 9" />
-                        </svg>
-                        {isTagGroup ? (
-                          <span className="ideas-tag-chip ideas-list-group-tag">{groupTag}</span>
-                        ) : (
-                          <span className="ideas-list-group-label">{groupTag}</span>
-                        )}
-                        <span className="ideas-list-group-count">{items.length}</span>
-                      </button>
-                    </div>
-                  )}
-                  {!isCollapsed &&
-                    items.map((idea) => {
-                      const flatContent = blockTreeToPlainText(idea.content);
-                      const snippet = snippetFor(flatContent, filter.search);
-                      const wordCount = flatContent.trim().split(/\s+/).filter(Boolean).length;
-                      const ago = relativeTime(idea.created_at);
-                      const tags = idea.tags ?? [];
-                      const isCandidate =
-                        tags.includes("skill") &&
-                        tags.includes("candidate") &&
-                        !tags.includes("promoted") &&
-                        !tags.includes("rejected");
-                      const extraTags = Math.max(0, tags.length - 1);
-                      // Show scope chip when the scope isn't the default "self".
-                      // Suppress the chip when the filter tab already communicates it.
-                      const resolvedScope: ScopeValue | null =
-                        idea.scope ??
-                        (idea.agent_id == null
-                          ? "global"
-                          : idea.agent_id === agentId
-                            ? "self"
-                            : null);
-                      const showScopeChip =
-                        resolvedScope != null &&
-                        resolvedScope !== "self" &&
-                        filter.scope !== resolvedScope;
-                      const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
-                      flatIndex += 1;
-                      const myIndex = flatIndex;
-                      return (
-                        <Link
-                          key={idea.id}
-                          ref={(el) => {
-                            rowRefs.current[myIndex] = el;
-                          }}
-                          to={entityPath(entityId, "ideas", idea.id)}
-                          className="ideas-list-row"
-                          data-testid="idea-row"
-                          data-idea-id={idea.id}
-                          onKeyDown={(e) => {
-                            if (e.key === "ArrowDown") {
-                              e.preventDefault();
-                              const next = rowRefs.current[myIndex + 1];
-                              if (next) next.focus();
-                            } else if (e.key === "ArrowUp") {
-                              e.preventDefault();
-                              if (myIndex === 0) {
-                                searchRef.current?.focus();
-                              } else {
-                                rowRefs.current[myIndex - 1]?.focus();
-                              }
-                            } else if (e.key === "Escape") {
-                              e.preventDefault();
+                          <Icon icon={ChevronRight} size="xs" />
+                        </IconButton>
+                      ) : (
+                        <span className="ideas-list-row-disclosure-spacer" aria-hidden />
+                      )}
+                      <Link
+                        ref={(el) => {
+                          rowRefs.current[myIndex] = el;
+                        }}
+                        to={entityPath(entityId, "ideas", idea.id)}
+                        className="ideas-list-row"
+                        data-testid="idea-row"
+                        data-idea-id={idea.id}
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            const next = rowRefs.current[myIndex + 1];
+                            if (next) next.focus();
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            if (myIndex === 0) {
                               searchRef.current?.focus();
+                            } else {
+                              rowRefs.current[myIndex - 1]?.focus();
                             }
-                          }}
-                        >
-                          <div className="ideas-list-row-head">
-                            <span className="ideas-list-row-name">
-                              {isInheritedRow && idea.agent_id && (
-                                <span className="scope-inherited-prefix">
-                                  from @{idea.agent_id.slice(0, 8)}
-                                </span>
-                              )}
-                              {highlightMatches(idea.name, filter.search)}
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            searchRef.current?.focus();
+                          } else if (e.key === "ArrowRight" && hasChildren && !isExpanded) {
+                            e.preventDefault();
+                            toggleIdea(idea.id, defaultExpanded);
+                          } else if (e.key === "ArrowLeft" && hasChildren && isExpanded) {
+                            e.preventDefault();
+                            toggleIdea(idea.id, defaultExpanded);
+                          }
+                        }}
+                      >
+                        <div className="ideas-list-row-head">
+                          <span className="ideas-list-row-name">
+                            {isInheritedRow && idea.agent_id && (
+                              <span className="scope-inherited-prefix">
+                                from @{idea.agent_id.slice(0, 8)}
+                              </span>
+                            )}
+                            {highlightMatches(idea.name, filter.search)}
+                          </span>
+                          {hasChildren && (
+                            <span
+                              className="ideas-list-row-child-count"
+                              aria-label={`${node.children.length} child ideas`}
+                            >
+                              {node.children.length}
                             </span>
-                            {isCandidate && (
-                              <span
-                                className="ideas-list-row-candidate"
-                                title="Candidate skill — needs review"
-                              >
-                                needs review
-                              </span>
-                            )}
-                            {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
-                            {extraTags > 0 && (
-                              <span className="ideas-list-row-more">+{extraTags}</span>
-                            )}
-                            {ago ? (
-                              <span
-                                className="ideas-list-row-time"
-                                title={
-                                  idea.created_at ? formatDateTime(idea.created_at) : undefined
-                                }
-                              >
-                                {ago}
-                              </span>
-                            ) : wordCount > 0 ? (
-                              <span className="ideas-list-row-words" aria-hidden>
-                                {wordCount}w
-                              </span>
-                            ) : null}
-                          </div>
-                          {snippet && (
-                            <div className="ideas-list-row-snippet">
-                              {highlightMatches(snippet, filter.search)}
-                            </div>
                           )}
-                        </Link>
-                      );
-                    })}
-                </section>
-              );
-            });
+                          {isCandidate && (
+                            <span
+                              className="ideas-list-row-candidate"
+                              title="Candidate skill — needs review"
+                            >
+                              needs review
+                            </span>
+                          )}
+                          {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
+                          {extraTags > 0 && (
+                            <span className="ideas-list-row-more">+{extraTags}</span>
+                          )}
+                          {ago ? (
+                            <span
+                              className="ideas-list-row-time"
+                              title={idea.created_at ? formatDateTime(idea.created_at) : undefined}
+                            >
+                              {ago}
+                            </span>
+                          ) : wordCount > 0 ? (
+                            <span className="ideas-list-row-words" aria-hidden>
+                              {wordCount}w
+                            </span>
+                          ) : null}
+                        </div>
+                        {snippet && (
+                          <div className="ideas-list-row-snippet">
+                            {highlightMatches(snippet, filter.search)}
+                          </div>
+                        )}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </section>
+            );
           })()
         )}
       </div>

@@ -2,15 +2,12 @@ import { type ReactElement, useState } from "react";
 import { Popover } from "../ui/Popover";
 
 // Tables-in-Ideas Phase 2 — `table` and `kanban` join the existing
-// `list` / `graph` view modes. `tree` added in Phase 1.5 of ae-002 for
-// hierarchical exploration via parent_idea_id. URL-persisted as
-// `?view=<mode>` on the Ideas tab. Default is `tree` for Companies with
-// ≥10 Ideas (resolved in AgentIdeasTab), otherwise `list`.
-export type IdeasView = "list" | "tree" | "table" | "kanban" | "graph";
+// `list` / `graph` view modes. Hierarchy now lives inside List rows via
+// parent_idea_id disclosure, so there is no separate Tree view.
+export type IdeasView = "list" | "table" | "kanban" | "graph";
 
 const VIEW_LABEL: Record<IdeasView, string> = {
   list: "List",
-  tree: "Tree",
   table: "Table",
   kanban: "Kanban",
   graph: "Graph",
@@ -20,11 +17,6 @@ const VIEW_GLYPH: Record<IdeasView, ReactElement> = {
   list: (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
       <path d="M2.5 4h8M2.5 6.5h8M2.5 9h8" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  ),
-  tree: (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-      <path d="M3 3h7M3 3v3h2M3 3v6h2M5 6h5M5 9h5" strokeWidth="1.1" strokeLinecap="round" />
     </svg>
   ),
   table: (
@@ -56,7 +48,6 @@ const VIEW_GLYPH: Record<IdeasView, ReactElement> = {
 
 const VIEW_KBD: Record<IdeasView, string> = {
   list: "L",
-  tree: "R",
   table: "T",
   kanban: "K",
   graph: "G",
@@ -91,7 +82,7 @@ export default function IdeasViewPopover({ view, onChange }: IdeasViewPopoverPro
           <span className="ideas-filter-popover-label">view as</span>
         </header>
         <div className="ideas-filter-popover-list" role="radiogroup" aria-label="View">
-          {(["list", "tree", "table", "kanban", "graph"] as IdeasView[]).map((v) => {
+          {(["list", "table", "kanban", "graph"] as IdeasView[]).map((v) => {
             const isActive = view === v;
             return (
               <button

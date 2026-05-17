@@ -88,12 +88,18 @@ function ActivityItem({ row }: { row: ActivityRow }) {
 interface IdeaActivityFeedProps {
   ideaId: string;
   refreshKey?: unknown;
+  limit?: number;
   /** Optional callback fired with the row count after each load — lets the
    *  parent section header render an item-count badge without re-fetching. */
   onCount?: (count: number) => void;
 }
 
-export default function IdeaActivityFeed({ ideaId, refreshKey, onCount }: IdeaActivityFeedProps) {
+export default function IdeaActivityFeed({
+  ideaId,
+  refreshKey,
+  limit,
+  onCount,
+}: IdeaActivityFeedProps) {
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +146,9 @@ export default function IdeaActivityFeed({ ideaId, refreshKey, onCount }: IdeaAc
     return <div className="idea-convo-section-empty">No activity yet</div>;
   }
 
-  const grouped = groupByBucket(rows);
+  const visibleRows = typeof limit === "number" ? rows.slice(0, limit) : rows;
+  const hiddenCount = Math.max(0, rows.length - visibleRows.length);
+  const grouped = groupByBucket(visibleRows);
 
   return (
     <div className="idea-convo-activity-feed">
@@ -154,6 +162,11 @@ export default function IdeaActivityFeed({ ideaId, refreshKey, onCount }: IdeaAc
           </div>
         </div>
       ))}
+      {hiddenCount > 0 && (
+        <div className="idea-convo-activity-more" aria-label={`${hiddenCount} more activity rows`}>
+          +{hiddenCount} more
+        </div>
+      )}
     </div>
   );
 }

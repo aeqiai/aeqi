@@ -1,26 +1,19 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { getIdeaGraph, updateIdea } from "@/api/ideas";
+import { getIdeaGraph } from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas, useVisibleIdeas } from "@/queries/ideas";
-import { ideaKeys } from "@/queries/keys";
 import type { Idea } from "@/lib/types";
 import type { GraphNode, GraphEdge } from "./IdeaGraph";
 import IdeasListView from "./ideas/IdeasListView";
 import type { IdeasView } from "./ideas/IdeasViewPopover";
-import "@/styles/ideas-kind-chips.css";
 import { blockTreeToPlainText } from "./editor/blockEditorContent";
 import { Spinner } from "./ui";
 import {
   type FilterState,
   type IdeasFilter,
-  type KindFilter,
   IDEA_FILTER_VALUES,
   IDEA_SCOPE_VALUES,
-  KIND_FILTER_VALUES,
-  KIND_FILTER_LABELS,
-  parseKind,
   parseScope,
   parseSort,
   parseTags,
@@ -32,7 +25,6 @@ const IdeasGraphView = lazy(() => import("./ideas/IdeasGraphView"));
 const IdeasCanvasView = lazy(() => import("./ideas/IdeasCanvasView"));
 const IdeasTableView = lazy(() => import("./ideas/IdeasTableView"));
 const IdeasKanbanView = lazy(() => import("./ideas/IdeasKanbanView"));
-const IdeasTreeView = lazy(() => import("./ideas/IdeasTreeView"));
 
 const viewFallback = (
   <div className="ideas-list-body">
@@ -45,7 +37,7 @@ const viewFallback = (
  *   - graph view (?view=graph)
  *   - compose canvas (?compose=1 — triggered by New idea)
  *   - detail canvas (`:itemId` selected)
- *   - dense inline picker grouped by tag (default — no itemId, no compose)
+ *   - dense inline picker with parent/child disclosure (default — no itemId, no compose)
  *
  * Filter state (scope / q / tag) lives in URL search params so switching
  * between list and graph keeps the frame; the graph view applies the same
@@ -64,7 +56,7 @@ export default function AgentIdeasTab({
   const [searchParams, setSearchParams] = useSearchParams();
   const view: IdeasView = ((): IdeasView => {
     const raw = searchParams.get("view");
-    if (raw === "graph" || raw === "table" || raw === "kanban" || raw === "tree") return raw;
+    if (raw === "graph" || raw === "table" || raw === "kanban") return raw;
     return "list";
   })();
   const composing = searchParams.get("compose") === "1";
@@ -75,7 +67,6 @@ export default function AgentIdeasTab({
     tags: parseTags(searchParams.get("tags") ?? searchParams.get("tag")),
     sort: parseSort(searchParams.get("sort")),
     needsReview: searchParams.get("review") === "1",
-    kind: parseKind(searchParams.get("kind")),
   };
 
   const patchParams = useCallback(
@@ -124,10 +115,7 @@ export default function AgentIdeasTab({
           if (patch.needsReview) p.set("review", "1");
           else p.delete("review");
         }
-        if ("kind" in patch) {
-          if (patch.kind && patch.kind !== "all") p.set("kind", patch.kind);
-          else p.delete("kind");
-        }
+        p.delete("kind");
       });
     },
     [patchParams],
@@ -136,7 +124,6 @@ export default function AgentIdeasTab({
   const agentIdeas = useAgentIdeas(agentId, scope === "agent");
   const visibleIdeas = useVisibleIdeas(scope === "entity");
   const ideasQuery = scope === "entity" ? visibleIdeas : agentIdeas;
-  const queryClient = useQueryClient();
   const { data: ideas = NO_IDEAS, isLoading: ideasLoading } = ideasQuery;
 
   // Apply scope + search + tag to the agent's ideas. The graph view
@@ -178,15 +165,9 @@ export default function AgentIdeasTab({
         const inContent = blockTreeToPlainText(idea.content).toLowerCase().includes(q);
         if (!inName && !inContent) return false;
       }
-      // Kind filter chip — defaults to `all`; specific values filter on
-      // Idea.kind (defaulting absent kind to 'note' for back-compat).
-      if (filter.kind !== "all") {
-        const k = idea.kind ?? "note";
-        if (k !== filter.kind) return false;
-      }
       return true;
     });
-  }, [ideas, filter.search, filter.scope, filter.needsReview, filter.kind, agentId]);
+  }, [ideas, filter.search, filter.scope, filter.needsReview, agentId]);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -398,35 +379,6 @@ export default function AgentIdeasTab({
     );
   }
 
-  if (view === "tree") {
-    return (
-      <Suspense fallback={viewFallback}>
-        <div className="ideas-tree-shell">
-          <KindFilterChips current={filter.kind} onChange={(k) => setFilter({ kind: k })} />
-          <IdeasTreeView
-            ideas={filtered}
-            selectedId={selectedId}
-            onSelect={(id) => goEntity(entityId, "ideas", id)}
-            onReparent={async (childId, newParentId) => {
-              try {
-                await updateIdea(childId, { parent_idea_id: newParentId });
-                void queryClient.invalidateQueries({ queryKey: ideaKeys.visible });
-                if (agentId) {
-                  void queryClient.invalidateQueries({ queryKey: ideaKeys.byAgent(agentId) });
-                }
-              } catch (e) {
-                // Silent fallback — the tree re-fetches and the UI snaps
-                // back to the server state. A toast surface lives in
-                // Phase 2.4.1 once the toast infra is reachable from here.
-                console.error("reparent failed", e);
-              }
-            }}
-          />
-        </div>
-      </Suspense>
-    );
-  }
-
   const selected = selectedId ? ideas.find((i) => i.id === selectedId) : undefined;
 
   if (selected || composing) {
@@ -456,50 +408,17 @@ export default function AgentIdeasTab({
   }
 
   return (
-    <>
-      <KindFilterChips current={filter.kind} onChange={(k) => setFilter({ kind: k })} />
-      <IdeasListView
-        agentId={agentId}
-        ideas={ideas}
-        scoped={scoped}
-        filtered={filtered}
-        tagCounts={tagCounts}
-        scopeCounts={scopeCounts}
-        filter={filter}
-        onFilter={setFilter}
-        view={view}
-        onViewChange={setView}
-      />
-    </>
-  );
-}
-
-/**
- * Inline kind filter chips. Single-select across the canonical Idea
- * kinds (per `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`).
- * `All` clears the filter.
- */
-function KindFilterChips({
-  current,
-  onChange,
-}: {
-  current: KindFilter;
-  onChange: (next: KindFilter) => void;
-}) {
-  return (
-    <div className="ideas-kind-chips" role="radiogroup" aria-label="Filter by kind">
-      {KIND_FILTER_VALUES.map((k) => (
-        <button
-          key={k}
-          type="button"
-          role="radio"
-          aria-checked={current === k}
-          className={`ideas-kind-chip${current === k ? " ideas-kind-chip--active" : ""}`}
-          onClick={() => onChange(k)}
-        >
-          {KIND_FILTER_LABELS[k]}
-        </button>
-      ))}
-    </div>
+    <IdeasListView
+      agentId={agentId}
+      ideas={ideas}
+      scoped={scoped}
+      filtered={filtered}
+      tagCounts={tagCounts}
+      scopeCounts={scopeCounts}
+      filter={filter}
+      onFilter={setFilter}
+      view={view}
+      onViewChange={setView}
+    />
   );
 }

@@ -8,7 +8,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const REPO_ROOT = execSync("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -40,6 +40,7 @@ function trackedSourceFiles() {
     .split("\n")
     .filter(Boolean)
     .filter((file) => SOURCE_EXTENSIONS.some((extension) => file.endsWith(extension)))
+    .filter((file) => existsSync(path.join(REPO_ROOT, file)))
     .filter((file) => !ALLOWED_FILES.has(file))
     .filter((file) => !EXCLUDED_SUFFIXES.some((suffix) => file.endsWith(suffix)));
 }

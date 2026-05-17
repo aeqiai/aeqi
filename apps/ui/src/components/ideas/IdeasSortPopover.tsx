@@ -15,13 +15,7 @@ const SORT_GLYPH: Record<SortMode, ReactElement> = {
   ),
   tag: (
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
-      <path
-        d="M2 6.5 L6 2.5 H10 V6.5 L6 10.5 Z"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle cx="8" cy="4.5" r="0.55" fill="currentColor" stroke="none" />
+      <path d="M3 3h7M3 3v3h2M3 3v6h2M5 6h5M5 9h5" strokeWidth="1.1" strokeLinecap="round" />
     </svg>
   ),
   alpha: (

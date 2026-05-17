@@ -40,6 +40,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +100,29 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
   return (
     <div className="idea-children" aria-label="Child ideas">
       <div className="idea-children-head">
-        <span className="idea-children-title">Children</span>
+        <button
+          type="button"
+          className="idea-children-toggle"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((next) => !next)}
+        >
+          <svg
+            className={expanded ? "is-open" : ""}
+            width="10"
+            height="10"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M4.5 3 L7.5 6 L4.5 9" />
+          </svg>
+          <span className="idea-children-title">Children</span>
+          <span className="idea-children-count">{children.length}</span>
+        </button>
         <button type="button" className="idea-property-add" onClick={() => setShowAdd(true)}>
           + Add child
         </button>
@@ -107,7 +130,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
       {error && <span className="idea-children-error">{error}</span>}
       {loading ? (
         <span className="idea-children-loading">Loading…</span>
-      ) : (
+      ) : expanded ? (
         <ul className="idea-children-list">
           {children.map((child) => {
             const status = statusOf(child);
@@ -125,7 +148,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
             );
           })}
         </ul>
-      )}
+      ) : null}
       {showAdd && (
         <AddChildModal
           parentIdeaId={ideaId}

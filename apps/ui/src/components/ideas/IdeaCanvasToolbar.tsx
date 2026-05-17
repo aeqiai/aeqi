@@ -2,6 +2,7 @@ import { Button, Tooltip } from "../ui";
 import IdeasScopePopover from "./IdeasScopePopover";
 import type { Idea, ScopeValue } from "@/lib/types";
 import type { SaveState } from "../IdeaCanvas";
+import type { ReactNode } from "react";
 
 export interface IdeaCanvasToolbarProps {
   isEdit: boolean;
@@ -19,6 +20,7 @@ export interface IdeaCanvasToolbarProps {
   onDeleteClick: () => void;
   onCancel: () => void;
   onSave: () => void | Promise<unknown>;
+  importMenu?: ReactNode;
 }
 
 export default function IdeaCanvasToolbar({
@@ -37,6 +39,7 @@ export default function IdeaCanvasToolbar({
   onDeleteClick,
   onCancel,
   onSave,
+  importMenu,
 }: IdeaCanvasToolbarProps) {
   return (
     <div className="ideas-toolbar ideas-canvas-toolbar">
@@ -89,6 +92,7 @@ export default function IdeaCanvasToolbar({
           </Button>
         </Tooltip>
       )}
+      {!showCompose && importMenu}
       <IdeasScopePopover
         scope={headerScope}
         locked={isEdit}

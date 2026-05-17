@@ -1,10 +1,10 @@
 /**
- * IdeaConversationPanel — vertical Activity + Comments surface for an Idea.
+ * IdeaConversationPanel — vertical Comments + Activity surface for an Idea.
  *
  * Linear-style stacked sections, both visible in one scroll:
  *   • Subscribe pill — top-right of the panel; flips on click via add_participant
- *   • Activity     — system-emitted events (no avatars, structured rows)
  *   • Comments     — user / agent / position messages, composer at bottom
+ *   • Activity     — system-emitted events shown as a compact peek strip
  *
  * The conversation belongs to the idea's backing session — the Quest surface
  * passes its `quest.idea_id` here so "Quest IS its idea" is visible in the UI.
@@ -29,8 +29,6 @@ interface IdeaConversationPanelProps {
   ideaId: string;
   activityRefreshKey?: unknown;
 }
-
-type ConversationLens = "activity" | "comments";
 
 // ─── SubscribeBar ─────────────────────────────────────────────────────────────
 
@@ -102,7 +100,6 @@ export default function IdeaConversationPanel({
   const user = useAuthStore((s) => s.user);
   const { entityId } = useNav();
 
-  const [lens, setLens] = useState<ConversationLens>("activity");
   const [comments, setComments] = useState<CommentRow[]>([]);
   // sessionId is tracked so subsequent operations (e.g. unsubscribe, polling)
   // have a stable handle once the backend lazy-creates it. Currently only
@@ -200,29 +197,9 @@ export default function IdeaConversationPanel({
       )}
 
       <div className="idea-convo-head">
-        <div className="idea-convo-tabs" role="tablist" aria-label="Idea conversation">
-          <button
-            type="button"
-            className={`idea-convo-tab${lens === "activity" ? " is-active" : ""}`}
-            role="tab"
-            aria-selected={lens === "activity"}
-            aria-controls={`idea-convo-${ideaId}-activity`}
-            onClick={() => setLens("activity")}
-          >
-            Activity
-            <span className="idea-convo-section-count">{activityCount}</span>
-          </button>
-          <button
-            type="button"
-            className={`idea-convo-tab${lens === "comments" ? " is-active" : ""}`}
-            role="tab"
-            aria-selected={lens === "comments"}
-            aria-controls={`idea-convo-${ideaId}-comments`}
-            onClick={() => setLens("comments")}
-          >
-            Comments
-            <span className="idea-convo-section-count">{commentCount}</span>
-          </button>
+        <div className="idea-convo-title">
+          <span>Comments</span>
+          <span className="idea-convo-section-count">{commentCount}</span>
         </div>
         <SubscribeBar
           subscribed={subscribed}
@@ -232,43 +209,36 @@ export default function IdeaConversationPanel({
         />
       </div>
 
-      {lens === "activity" ? (
-        <section
-          className="idea-convo-panel"
-          id={`idea-convo-${ideaId}-activity`}
-          role="tabpanel"
-          aria-label="Activity"
-        >
-          <IdeaActivityFeed
-            ideaId={ideaId}
-            refreshKey={activityRefreshKey}
-            onCount={setActivityCount}
-          />
-        </section>
-      ) : (
-        <section
-          className="idea-convo-panel"
-          id={`idea-convo-${ideaId}-comments`}
-          role="tabpanel"
-          aria-label="Comments"
-        >
-          {loadingComments ? (
-            <div className="idea-convo-loading">
-              <Spinner size="sm" />
-            </div>
-          ) : commentError ? (
-            <div className="idea-convo-error">{commentError}</div>
-          ) : (
-            <IdeaCommentsList rows={comments} entityId={entityId} />
-          )}
-          <IdeaCommentComposer
-            ideaId={ideaId}
-            onOptimistic={handleOptimistic}
-            onConfirm={handleConfirm}
-            onError={handleError}
-          />
-        </section>
-      )}
+      <section className="idea-convo-panel" aria-label="Comments">
+        {loadingComments ? (
+          <div className="idea-convo-loading">
+            <Spinner size="sm" />
+          </div>
+        ) : commentError ? (
+          <div className="idea-convo-error">{commentError}</div>
+        ) : (
+          <IdeaCommentsList rows={comments} entityId={entityId} />
+        )}
+        <IdeaCommentComposer
+          ideaId={ideaId}
+          onOptimistic={handleOptimistic}
+          onConfirm={handleConfirm}
+          onError={handleError}
+        />
+      </section>
+
+      <section className="idea-convo-activity-peek" aria-label="Recent activity">
+        <div className="idea-convo-peek-head">
+          <span>Activity</span>
+          <span className="idea-convo-section-count">{activityCount}</span>
+        </div>
+        <IdeaActivityFeed
+          ideaId={ideaId}
+          refreshKey={activityRefreshKey}
+          limit={4}
+          onCount={setActivityCount}
+        />
+      </section>
     </div>
   );
 }

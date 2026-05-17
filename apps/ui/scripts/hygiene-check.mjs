@@ -46,7 +46,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const STAGED = process.argv.includes("--staged");
 const REPO_ROOT = execSync("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
@@ -126,7 +126,7 @@ function sourceFiles() {
     "git ls-files -- 'apps/ui/src/**/*.tsx' 'apps/ui/src/**/*.ts' 'apps/ui/src/**/*.css'",
     { cwd: REPO_ROOT, encoding: "utf-8" },
   );
-  return out.split("\n").filter(Boolean);
+  return out.split("\n").filter((file) => file && existsSync(`${REPO_ROOT}/${file}`));
 }
 
 function fullTreeViolations() {

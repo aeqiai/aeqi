@@ -14,6 +14,7 @@ import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas, useAgentIdeasCache } from "@/queries/ideas";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { Events, useTrack } from "@/lib/analytics";
+import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import LazyBlockEditor from "./editor/LazyBlockEditor";
 import { blockTreeToPlainText } from "./editor/blockEditorContent";
 import IdeaLinksPanel from "./IdeaLinksPanel";
@@ -24,6 +25,7 @@ import IdeaPropertyChips from "./ideas/IdeaPropertyChips";
 import IdeaChildrenList from "./ideas/IdeaChildrenList";
 import IdeaCanvasToolbar from "./ideas/IdeaCanvasToolbar";
 import IdeaCanvasDecisionPanel from "./ideas/IdeaCanvasDecisionPanel";
+import { ImportMenu } from "./blueprints/ImportMenu";
 
 /**
  * Imperative handle for callers that supply their own toolbar (the
@@ -139,7 +141,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const { goEntity, entityId } = useNav();
   const track = useTrack();
   const { data: ideas } = useAgentIdeas(agentId);
-  const { patchIdea, removeIdea, addIdea } = useAgentIdeasCache(agentId);
+  const { patchIdea, removeIdea, addIdea, invalidateIdeas } = useAgentIdeasCache(agentId);
   // All tags the agent has used elsewhere — ranked by frequency — power the
   // tag-autocomplete dropdown. Self-tags are excluded in TagsEditor.
   const tagSuggestions = useMemo(() => {
@@ -523,6 +525,40 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     revert();
   };
 
+  const handleMarkdownImport = useCallback(
+    async (files: FileList) => {
+      if (!idea) return;
+      const failures: string[] = [];
+      for (const file of Array.from(files)) {
+        try {
+          const raw = await file.text();
+          const { body, data } = parseFrontmatter(raw);
+          const importedName =
+            (typeof data.title === "string" && data.title) ||
+            file.name.replace(/\.(md|markdown)$/i, "") ||
+            "Untitled";
+          const summary = typeof data.summary === "string" ? data.summary.trim() : "";
+          const importedContent =
+            summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
+          await ideasApi.storeIdea({
+            name: importedName,
+            content: importedContent,
+            tags: asStringArray(data.tags),
+            agent_id: agentId,
+            scope: idea.scope ?? headerScope,
+            parent_idea_id: idea.id,
+          });
+        } catch (e) {
+          failures.push(`${file.name}: ${e instanceof Error ? e.message : "import failed"}`);
+        }
+      }
+      await invalidateIdeas();
+      setActivityRefreshSeq((n) => n + 1);
+      if (failures.length > 0) setError(failures.join("; "));
+    },
+    [agentId, headerScope, idea, invalidateIdeas],
+  );
+
   return (
     <div className={embedded ? "ideas-canvas ideas-canvas--embedded" : "asv-main ideas-canvas"}>
       {headerSlot && !embedded && (
@@ -552,6 +588,15 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             onDeleteClick={handleDeleteClick}
             onCancel={handleCancel}
             onSave={isEdit ? flushSave : handleCreate}
+            importMenu={
+              <ImportMenu
+                entityId={entityId}
+                parts={["ideas"]}
+                blueprintTitle="Import child ideas from a Blueprint"
+                onMarkdownPicked={(files) => void handleMarkdownImport(files)}
+                onBlueprintSpawned={() => void invalidateIdeas()}
+              />
+            }
           />
         </div>
       )}

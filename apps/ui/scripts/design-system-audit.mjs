@@ -131,6 +131,7 @@ function trackedSourceFiles() {
   return out
     .split("\n")
     .filter(Boolean)
+    .filter((file) => existsSync(path.join(REPO_ROOT, file)))
     .filter((file) => SOURCE_EXTENSIONS.some((extension) => file.endsWith(extension)))
     .filter((file) => !EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix)))
     .filter((file) => !EXCLUDED_SUFFIXES.some((suffix) => file.endsWith(suffix)));
