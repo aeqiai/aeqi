@@ -14,8 +14,8 @@ import "@/styles/detail-pages.css";
  * `metadata.parent_id === project.id`).
  *
  * Phase 2.2 ships the minimum viable detail: header + work board +
- * back link. Plan tab (attached Ideas), Files tab (Drive bridge),
- * Decisions tab, and the project Discussion thread are Phase 2.2.1+.
+ * back link. Plan tab (attached Ideas), Files tab, Decisions tab, and
+ * the project Discussion thread are Phase 2.2.1+.
  *
  * Routing: dispatched from CompanyPage when `tab === "projects"`
  * AND `itemId` is present.

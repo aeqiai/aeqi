@@ -3,7 +3,7 @@ import CompanySwitcher from "@/components/shell/CompanySwitcher";
 import AccountDropdown from "@/components/shell/AccountDropdown";
 import HelpMenu from "@/components/shell/HelpMenu";
 import Wordmark from "@/components/Wordmark";
-import { Tooltip } from "@/components/ui";
+import { IconButton, Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
@@ -202,8 +202,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
     keyHint?: string,
   ) => (
     <Tooltip content={keyHint ? `${label} (${keyHint})` : label}>
-      <button
-        type="button"
+      <IconButton
         className="sidebar-row-action-btn"
         onClick={(e) => {
           e.preventDefault();
@@ -213,7 +212,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
         aria-label={label}
       >
         {icon}
-      </button>
+      </IconButton>
     </Tooltip>
   );
 
@@ -324,14 +323,13 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
               <Wordmark size={20} />
             </Link>
             <Tooltip content={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}>
-              <button
-                type="button"
+              <IconButton
                 className="sidebar-collapse-btn"
                 onClick={toggleSidebar}
                 aria-label="Collapse sidebar"
               >
                 <PanelGlyph />
-              </button>
+              </IconButton>
             </Tooltip>
           </>
         ) : (
