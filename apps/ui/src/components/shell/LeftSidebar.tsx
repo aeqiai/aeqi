@@ -330,13 +330,17 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Launch — MVP entrypoint above the CompanySwitcher.
-            Search caps the row so command discovery stays structural. ── */}
-        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Launch">
-          {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch, {
-            action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
-          })}
-        </nav>
+        {/* ── Top zone — Inbox is the daily-action surface; Search caps
+            the row so command discovery stays structural. Only renders
+            once the user has a company (Inbox is entity-scoped). Without
+            a company, the bottom-group Launch row is the entry point. ── */}
+        {hasCompany && (
+          <nav className="sidebar-surface-nav sidebar-zone" aria-label="Inbox">
+            {navItem("inbox", "Inbox", <InboxIcon />, {
+              action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
+            })}
+          </nav>
+        )}
 
         {/* ── Workspace switcher — pivots between launch/user scope and
             the active company below. ── */}
@@ -369,7 +373,16 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">TRUST</span>
                 </a>
               </div>
-              {navItem("inbox", "Inbox", <InboxIcon />)}
+            </nav>
+
+            {/* TRUST organisation rows — Roles + Ownership + Treasury +
+                Governance sit directly under the cockpit with no section
+                label. Small gap from the TRUST row above. */}
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="TRUST organisation">
+              {navItem("roles", "Roles", <RolesIcon />)}
+              {navItem("ownership", "Ownership", <OwnershipIcon />)}
+              {navItem("treasury", "Treasury", <TreasuryIcon />)}
+              {navItem("governance", "Governance", <GovernanceIcon />)}
             </nav>
 
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Workspace">
@@ -391,14 +404,6 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                 }),
               })}
             </nav>
-
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
-              <div className="sidebar-section-label">Organization</div>
-              {navItem("roles", "Roles", <RolesIcon />)}
-              {navItem("ownership", "Ownership", <OwnershipIcon />)}
-              {navItem("treasury", "Treasury", <TreasuryIcon />)}
-              {navItem("governance", "Governance", <GovernanceIcon />)}
-            </nav>
           </>
         )}
 
@@ -409,6 +414,7 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
             (top-level, public). ── */}
         <div className="sidebar-bottom-group">
           <nav className="sidebar-surface-nav" aria-label="Platform">
+            {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch)}
             {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
             {isAdminUser && topLevelItem("/admin", "Admin", <AdminIcon />, isAdmin)}
           </nav>

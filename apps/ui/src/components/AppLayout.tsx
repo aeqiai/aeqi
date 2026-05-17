@@ -45,7 +45,6 @@ const RELOCATED_AGENT_TABS = new Set([
   "events",
   "ideas",
   "channels",
-  "treasury",
   "tools",
   "integrations",
 ]);
@@ -58,7 +57,7 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 // Tabs that route through CompanyPage. Each is now a top-level sidebar
 // row in the Phase-1 lock — CompanyPage is a thin per-tab dispatcher.
 // Inbox is the company-scoped action queue; Overview is the cockpit;
-// the rest map 1:1 to the sidebar's Organization + Settings groups.
+// Roles is the only company organization row that still has a surface.
 //
 // The four primitive tabs (agents/events/quests/ideas) ALSO route through
 // CompanyPage at the entity scope. Without this, `/trust/<addr>/agents`
@@ -72,9 +71,6 @@ const COMPANY_PAGE_TABS = new Set([
   "inbox",
   "health",
   "roles",
-  "ownership",
-  "treasury",
-  "governance",
   "agents",
   "events",
   "quests",
@@ -317,13 +313,17 @@ export default function AppLayout() {
   }
 
   // The drilled-agent rail tabs (Overview, Quests, Events, Ideas,
-  // Channels, Treasury, Tools, Integrations) now live under
+  // Channels, Tools, Integrations) now live under
   // `/trust/<addr>/agents/<agent>/settings/<tab>`.
   if (drilledAgent && tab && RELOCATED_AGENT_TABS.has(tab) && !agentSettingsSegment) {
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
     const sub = `/settings/${tab}`;
     const trailing = itemId ? `/${encodeURIComponent(itemId)}` : "";
     return <Navigate to={`${base}${agentSeg}${sub}${trailing}${search}`} replace />;
+  }
+
+  if (drilledAgent && tab === "treasury" && !agentSettingsSegment) {
+    return <NotFoundPage />;
   }
 
   // Channels are an agent-rail primitive only — see
