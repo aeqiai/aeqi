@@ -1,4 +1,5 @@
 use clap::Subcommand;
+use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum Commands {
@@ -26,6 +27,22 @@ pub enum Commands {
     },
     /// Initialize AEQI in the current directory.
     Init,
+    /// Open the runtime DBs and apply all migrations, then exit. Used by
+    /// `scripts/ci-local.sh` (and the deploy pipeline) as a startup smoke
+    /// test that catches runtime-only failure classes: SQLite migration
+    /// ordering bugs (idea `feedback/sqlite-create-index-runs-against-no-op-create-table`),
+    /// axum router-build panics (idea `feedback/axum-0.8-path-segment-runtime-not-compile`),
+    /// and any other panic that `cargo check`/`clippy` can't see because
+    /// the failure point is inside `pub async fn start()`. Exits 0 on
+    /// success, non-zero with a clear error message otherwise.
+    CheckRuntime {
+        /// Path to the runtime root (where `ideas.db` / `sessions.db` /
+        /// `agents.db` live). Defaults to the test fixture path. CI
+        /// should copy a known existing-shape DB into here before
+        /// invoking.
+        #[arg(long)]
+        root: Option<PathBuf>,
+    },
     /// Bootstrap a ready-to-run AEQI workspace.
     Setup {
         /// Default runtime preset (for example: openrouter_agent, anthropic_agent, ollama_agent).

@@ -71,6 +71,7 @@ async fn main() -> Result<()> {
             cmd::start::cmd_start(&cli.config, bind).await
         }
         Some(Commands::Init) => cmd::init::cmd_init().await,
+        Some(Commands::CheckRuntime { root }) => cmd::check_runtime::cmd_check_runtime(root).await,
         Some(Commands::Setup {
             runtime,
             service,
