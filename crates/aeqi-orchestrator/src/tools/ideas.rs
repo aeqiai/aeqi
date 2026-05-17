@@ -140,14 +140,13 @@ impl IdeasTool {
                 // If caller specified a non-default kind, follow up with the
                 // structural write. Default `note` requires no extra write
                 // (column already defaults to 'note').
-                if let Some(k) = kind {
-                    if k != "note" || file_id.is_some() {
-                        if let Err(e) = self.idea_store.set_kind(&id, k, file_id).await {
-                            return Ok(ToolResult::error(format!(
-                                "stored idea {id} but failed to set kind={k:?}: {e}"
-                            )));
-                        }
-                    }
+                if let Some(k) = kind
+                    && (k != "note" || file_id.is_some())
+                    && let Err(e) = self.idea_store.set_kind(&id, k, file_id).await
+                {
+                    return Ok(ToolResult::error(format!(
+                        "stored idea {id} but failed to set kind={k:?}: {e}"
+                    )));
                 }
                 // Emit idea_received so lifecycle events can fire.
                 if let Some(ref aid) = agent_id {
