@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
@@ -10,18 +10,25 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { entityBasePath } from "@/lib/entityPath";
 import EntityHeroStrip from "./EntityHeroStrip";
 import BlockAvatar from "./BlockAvatar";
-import { Tooltip } from "@/components/ui";
+import { Spinner, Tooltip } from "@/components/ui";
 import "@/styles/overview.css";
 
+// HealthBlock — substrate compounding read folded into the cockpit
+// 2026-05-17. Renders the 4 trend metrics + 30d sparklines as a
+// section beneath the slim numbers row. Lazy-imported to keep the
+// initial Overview chunk small; the Health hook pulls a deeper
+// activity tail on mount.
+const HealthBlock = lazy(() => import("@/pages/HealthPage"));
+
 /**
- * `/trust/<addr>/overview` — Organization cockpit.
+ * `/trust/<addr>/overview` — TRUST cockpit.
  *
  * Founder-locked direction (2026-05-08): Overview answers
  * "what's happening now," not "what does the P&L look like."
  * Treasury already owns the financial home; this surface is a pulse,
  * not a balance sheet.
  *
- * Three blocks:
+ * Four blocks:
  *   1. Hero strip — name, tagline, public toggle (kept; already shipped)
  *   2. Pulse band — three side-by-side cards:
  *        a) Next steps      — seeded onboarding and in-flight work
@@ -29,6 +36,9 @@ import "@/styles/overview.css";
  *        c) Last 24h activity — compact agent activity stream
  *   3. Slim numbers row — 4 stat tiles:
  *        Treasury · 7d activity · TRUST signers · Active agents
+ *   4. Health block — substrate compounding (folded in 2026-05-17 from
+ *      the retired /trust/<addr>/health surface): 4 trend metrics with
+ *      one-line interpretations + 30d sparklines.
  *
  * Each Pulse card and stat tile clicks through to its full surface.
  * Empty states render gracefully and surface the next action inline.
@@ -381,6 +391,19 @@ export default function EntityOverviewTab({ entityId }: { entityId: string }) {
           </span>
         </Link>
       </div>
+
+      {/* ── Health block — substrate compounding ── */}
+      <section className="entity-overview-health" aria-labelledby="overview-health">
+        <header className="entity-overview-section-head">
+          <h2 id="overview-health" className="entity-overview-section-title">
+            Health
+          </h2>
+          <p className="entity-overview-section-sub">Is this TRUST compounding?</p>
+        </header>
+        <Suspense fallback={<Spinner size="sm" />}>
+          <HealthBlock entityId={entityId} />
+        </Suspense>
+      </section>
     </div>
   );
 }

@@ -155,13 +155,6 @@ const AdminIcon = () => (
   </svg>
 );
 
-// Health — pulse line. Operator's "is this thing compounding?" surface.
-const HealthIcon = () => (
-  <svg {...iconProps}>
-    <path d="M2 8h3l1.5-3 3 6 1.5-3H14" />
-  </svg>
-);
-
 const SearchIcon = () => (
   <svg {...iconProps}>
     <circle cx="7" cy="7" r="4.5" />
@@ -379,19 +372,19 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
 
         {/* ── Company-scope items. Visible only when a company is
             selected. Order matches the Phase-1 lock:
-              Company (cockpit / overview)
+              TRUST (cockpit / overview — Health folded in)
               Inbox
               ORGANIZATION  (Roles · Ownership · Treasury · Governance · Channels)
               WORKSPACE     (Agents · Events · Quests · Ideas)
               Settings (standalone, gap above) ── */}
         {hasCompany && (
           <>
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Organization">
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="TRUST">
               <div key="overview" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}
                   href={base}
-                  title="Organization"
+                  title="TRUST"
                   aria-current={isCompanyOverview ? "page" : undefined}
                   onClick={(e) => {
                     e.preventDefault();
@@ -399,10 +392,9 @@ export default function LeftSidebar({ entityId, path }: LeftSidebarProps) {
                   }}
                 >
                   <CompanyIcon />
-                  <span className="sidebar-nav-label">Organization</span>
+                  <span className="sidebar-nav-label">TRUST</span>
                 </a>
               </div>
-              {navItem("health", "Health", <HealthIcon />)}
               {navItem("inbox", "Inbox", <InboxIcon />)}
             </nav>
 

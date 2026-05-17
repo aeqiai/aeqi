@@ -245,6 +245,34 @@
   object-fit: cover;
 }
 
+/* ── Health block — folded in from /trust/<addr>/health (2026-05-17). ─── */
+
+.entity-overview-health {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.entity-overview-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.entity-overview-section-title {
+  margin: 0;
+  font-size: var(--font-size-3);
+  font-weight: 600;
+  color: var(--color-fg);
+  letter-spacing: -0.01em;
+}
+
+.entity-overview-section-sub {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-1);
+}
+
 /* ── Mobile / tablet ──────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {

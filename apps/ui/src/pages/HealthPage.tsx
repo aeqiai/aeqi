@@ -1,15 +1,14 @@
 /**
- * `/trust/<addr>/health` — operator-facing day-30 substrate health.
+ * `HealthBlock` — operator-facing day-30 substrate health.
  *
  * Four substrate-compound metrics over the trailing 7d window with a
- * one-sentence interpretation each, plus 30d sparklines below. The
- * page is the operator's "is this thing compounding?" surface — the
- * Overview tab answers "what's happening now," this answers "is the
- * loop turning over."
+ * one-sentence interpretation each, plus 30d sparklines below. Folded
+ * into `EntityOverviewTab` (the bare `/trust/<addr>/` cockpit) so the
+ * "what's happening now" cockpit and the "is the loop turning over"
+ * health read live on one surface.
  *
- * Auth-gated (mounts inside the protected app shell) and dispatched
- * by CompanyPage on `tab === "health"`. Empty state covers the
- * day 1-3 case where there isn't enough signal to read trends.
+ * The legacy `/trust/<addr>/health` route 308-redirects to the bare
+ * overview — this file no longer renders its own Page chrome.
  *
  * Data flow is client-side aggregation — `useTrustHealthMetrics`
  * subscribes to the daemon store's quests/events/agents, pulls a
@@ -17,17 +16,7 @@
  * the four metrics with their trend deltas.
  */
 import { useMemo } from "react";
-import {
-  Banner,
-  EmptyState,
-  MetricCard,
-  MetricGrid,
-  Page,
-  PageBody,
-  PageHeader,
-  PageSection,
-  Spinner,
-} from "@/components/ui";
+import { Banner, EmptyState, MetricCard, MetricGrid, PageSection, Spinner } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import {
@@ -48,7 +37,7 @@ import styles from "./HealthPage.module.css";
 /** Minimum signal age before we treat trend deltas as meaningful. */
 const COMPOUNDING_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export default function HealthPage({ entityId }: { entityId: string }) {
+export default function HealthBlock({ entityId }: { entityId: string }) {
   const { entity } = useCurrentCompany();
   // Prefer trust_address (canonical /trust/<addr>) when present; fall
   // back to the entity id for entities that haven't registered TRUST yet.
@@ -67,123 +56,108 @@ export default function HealthPage({ entityId }: { entityId: string }) {
   }, [metrics]);
 
   if (isLoading) {
-    return (
-      <Page>
-        <PageHeader title="Health" description="Is this TRUST compounding?" />
-        <PageBody>
-          <Spinner size="sm" />
-        </PageBody>
-      </Page>
-    );
+    return <Spinner size="sm" />;
   }
 
   if (!metrics) {
     return (
-      <Page>
-        <PageHeader title="Health" description="Is this TRUST compounding?" />
-        <PageBody>
-          <EmptyState
-            title="No TRUST in scope."
-            description="Pick a TRUST from the sidebar to read its health."
-          />
-        </PageBody>
-      </Page>
+      <EmptyState
+        title="No TRUST in scope."
+        description="Pick a TRUST from the sidebar to read its health."
+      />
     );
   }
 
   return (
-    <Page>
-      <PageHeader title="Health" description="Is this TRUST compounding?" />
-      <PageBody>
-        {error && (
-          <div className={styles.errorBanner}>
-            <Banner kind="warning">
-              Some signal couldn’t load. Numbers below may understate activity.
-            </Banner>
-          </div>
-        )}
+    <>
+      {error && (
+        <div className={styles.errorBanner}>
+          <Banner kind="warning">
+            Some signal couldn’t load. Numbers below may understate activity.
+          </Banner>
+        </div>
+      )}
 
-        {isTooEarly && (
-          <EmptyState
-            eyebrow="Day 1-3"
-            title="Too early to see compounding — check back at day 7."
-            description="The substrate needs a week of activity before trend deltas become meaningful. Numbers below are the current absolute counts."
+      {isTooEarly && (
+        <EmptyState
+          eyebrow="Day 1-3"
+          title="Too early to see compounding — check back at day 7."
+          description="The substrate needs a week of activity before trend deltas become meaningful. Numbers below are the current absolute counts."
+        />
+      )}
+
+      <PageSection title="This week">
+        <MetricGrid columns={4}>
+          <MetricCard
+            label="Quests closed / wk"
+            value={
+              <span className={styles.metricValueNumeric}>
+                {formatInteger(metrics.questsClosedPerWeek)}
+              </span>
+            }
+            trend={<TrendBadge delta={metrics.trendDeltas.questsClosed} />}
+            detail={
+              <InterpretationLine
+                text={interpretQuests(metrics.trendDeltas.questsClosed)}
+                direction={metrics.trendDeltas.questsClosed.direction}
+              />
+            }
           />
-        )}
+          <MetricCard
+            label="Agent actions / wk"
+            value={
+              <span className={styles.metricValueNumeric}>
+                {formatInteger(metrics.agentActionsPerWeek)}
+              </span>
+            }
+            trend={<TrendBadge delta={metrics.trendDeltas.agentActions} />}
+            detail={
+              <InterpretationLine
+                text={interpretAgentActions(metrics.trendDeltas.agentActions)}
+                direction={metrics.trendDeltas.agentActions.direction}
+              />
+            }
+          />
+          <MetricCard
+            label="Idea graph growth"
+            value={
+              <span className={styles.metricValueNumeric}>
+                {formatInteger(metrics.ideaGraphGrowth)}
+              </span>
+            }
+            trend={<TrendBadge delta={metrics.trendDeltas.ideaGrowth} />}
+            detail={
+              <InterpretationLine
+                text={interpretIdeaGrowth(metrics.trendDeltas.ideaGrowth)}
+                direction={metrics.trendDeltas.ideaGrowth.direction}
+              />
+            }
+          />
+          <MetricCard
+            label="Decision log"
+            value={
+              <span className={styles.metricValueNumeric}>
+                {formatInteger(metrics.decisionLogLength)}
+              </span>
+            }
+            trend={<TrendBadge delta={metrics.trendDeltas.decisionLog} />}
+            detail={
+              <InterpretationLine
+                text={interpretDecisionLog(metrics.decisionLogLength, metrics.decisionsThisWeek)}
+                direction={metrics.trendDeltas.decisionLog.direction}
+              />
+            }
+          />
+        </MetricGrid>
+      </PageSection>
 
-        <PageSection title="This week">
-          <MetricGrid columns={4}>
-            <MetricCard
-              label="Quests closed / wk"
-              value={
-                <span className={styles.metricValueNumeric}>
-                  {formatInteger(metrics.questsClosedPerWeek)}
-                </span>
-              }
-              trend={<TrendBadge delta={metrics.trendDeltas.questsClosed} />}
-              detail={
-                <InterpretationLine
-                  text={interpretQuests(metrics.trendDeltas.questsClosed)}
-                  direction={metrics.trendDeltas.questsClosed.direction}
-                />
-              }
-            />
-            <MetricCard
-              label="Agent actions / wk"
-              value={
-                <span className={styles.metricValueNumeric}>
-                  {formatInteger(metrics.agentActionsPerWeek)}
-                </span>
-              }
-              trend={<TrendBadge delta={metrics.trendDeltas.agentActions} />}
-              detail={
-                <InterpretationLine
-                  text={interpretAgentActions(metrics.trendDeltas.agentActions)}
-                  direction={metrics.trendDeltas.agentActions.direction}
-                />
-              }
-            />
-            <MetricCard
-              label="Idea graph growth"
-              value={
-                <span className={styles.metricValueNumeric}>
-                  {formatInteger(metrics.ideaGraphGrowth)}
-                </span>
-              }
-              trend={<TrendBadge delta={metrics.trendDeltas.ideaGrowth} />}
-              detail={
-                <InterpretationLine
-                  text={interpretIdeaGrowth(metrics.trendDeltas.ideaGrowth)}
-                  direction={metrics.trendDeltas.ideaGrowth.direction}
-                />
-              }
-            />
-            <MetricCard
-              label="Decision log"
-              value={
-                <span className={styles.metricValueNumeric}>
-                  {formatInteger(metrics.decisionLogLength)}
-                </span>
-              }
-              trend={<TrendBadge delta={metrics.trendDeltas.decisionLog} />}
-              detail={
-                <InterpretationLine
-                  text={interpretDecisionLog(metrics.decisionLogLength, metrics.decisionsThisWeek)}
-                  direction={metrics.trendDeltas.decisionLog.direction}
-                />
-              }
-            />
-          </MetricGrid>
-        </PageSection>
-
-        <PageSection
-          title={`Trailing ${DEFAULT_HEALTH_WINDOW_DAYS} days`}
-          description="Each line is a per-day count. Decision log is cumulative."
-        >
-          <SparklineGrid metrics={metrics} />
-        </PageSection>
-      </PageBody>
-    </Page>
+      <PageSection
+        title={`Trailing ${DEFAULT_HEALTH_WINDOW_DAYS} days`}
+        description="Each line is a per-day count. Decision log is cumulative."
+      >
+        <SparklineGrid metrics={metrics} />
+      </PageSection>
+    </>
   );
 }
 

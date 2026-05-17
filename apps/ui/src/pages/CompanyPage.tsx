@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import AgentPage from "@/components/AgentPage";
 import WalletBoundary from "@/components/WalletBoundary";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
@@ -8,7 +8,6 @@ import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 // EntityHeroStrip + roles / quests / activity. Lazy-loaded to keep this
 // dispatch shell light. Mirrors the lazy pattern used in AgentPage.
 const EntityOverviewTab = lazy(() => import("@/components/EntityOverviewTab"));
-const HealthPage = lazy(() => import("@/pages/HealthPage"));
 const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 const OwnershipPage = lazy(() => import("@/pages/OwnershipPage"));
 const TreasuryPage = lazy(() => import("@/pages/TreasuryPage"));
@@ -43,9 +42,9 @@ interface CompanyPageProps {
  * dispatches the right component per tab.
  *
  * Routes:
- *   /c/:entityId               → EntityOverviewTab (cockpit)
+ *   /c/:entityId               → EntityOverviewTab (cockpit — Health folded in)
  *   /c/:entityId/inbox         → MeInboxPage
- *   /c/:entityId/health        → HealthPage (day-30 substrate health)
+ *   /c/:entityId/health        → 308 redirect to bare cockpit (legacy URL)
  *   /c/:entityId/roles         → EntityRolesTab (org chart)
  *   /c/:entityId/ownership     → OwnershipPage
  *   /c/:entityId/treasury      → TreasuryPage
@@ -105,12 +104,12 @@ export default function CompanyPage({ agentId, entityId, tab, itemId }: CompanyP
       </Suspense>
     );
   }
+  // /health was retired 2026-05-17 — folded into EntityOverviewTab on
+  // the bare TRUST URL. Redirect existing deep links to the cockpit so
+  // they land on the same content without breaking bookmarks.
   if (tab === "health") {
-    return (
-      <Suspense>
-        <HealthPage entityId={entityId} />
-      </Suspense>
-    );
+    const target = location.pathname.replace(/\/health\/?$/, "/") + location.search;
+    return <Navigate to={target} replace />;
   }
   if (tab === "ownership") {
     return (
