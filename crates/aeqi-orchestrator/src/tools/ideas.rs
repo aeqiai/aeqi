@@ -111,12 +111,41 @@ impl IdeasTool {
             }
         };
 
+        // Optional structural kind (per
+        // `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`).
+        // Open enum at the column; this tool boundary validates against the
+        // canonical set with a `custom:` prefix escape hatch for company-
+        // specific kinds.
+        let kind = args.get("kind").and_then(|v| v.as_str()).map(|s| s.trim());
+        if let Some(k) = kind {
+            const CANONICAL_IDEA_KINDS: &[&str] = &["note", "file", "goal"];
+            if !CANONICAL_IDEA_KINDS.contains(&k) && !k.starts_with("custom:") {
+                return Ok(ToolResult::error(format!(
+                    "invalid kind {k:?}; canonical Idea kinds: {} (or `custom:<name>` for company-specific kinds)",
+                    CANONICAL_IDEA_KINDS.join(", ")
+                )));
+            }
+        }
+        let file_id = args.get("file_id").and_then(|v| v.as_str()).map(|s| s.trim());
+
         match self
             .idea_store
             .store_with_scope(key, content, &tags, agent_id.as_deref(), scope)
             .await
         {
             Ok(id) => {
+                // If caller specified a non-default kind, follow up with the
+                // structural write. Default `note` requires no extra write
+                // (column already defaults to 'note').
+                if let Some(k) = kind {
+                    if k != "note" || file_id.is_some() {
+                        if let Err(e) = self.idea_store.set_kind(&id, k, file_id).await {
+                            return Ok(ToolResult::error(format!(
+                                "stored idea {id} but failed to set kind={k:?}: {e}"
+                            )));
+                        }
+                    }
+                }
                 // Emit idea_received so lifecycle events can fire.
                 if let Some(ref aid) = agent_id {
                     let _ = self
@@ -126,11 +155,14 @@ impl IdeasTool {
                             Some(aid.as_str()),
                             None,
                             None,
-                            &serde_json::json!({"name": key, "idea_id": id}),
+                            &serde_json::json!({"name": key, "idea_id": id, "kind": kind}),
                         )
                         .await;
                 }
-                Ok(ToolResult::success(format!("Stored memory {id} {key}")))
+                let kind_suffix = kind.map(|k| format!(" [kind={k}]")).unwrap_or_default();
+                Ok(ToolResult::success(format!(
+                    "Stored memory {id} {key}{kind_suffix}"
+                )))
             }
             Err(e) => Ok(ToolResult::error(format!("Failed to store: {e}"))),
         }
@@ -291,7 +323,12 @@ impl Tool for IdeasTool {
                         "description": "Visibility scope (for store). Defaults to 'self'. 'global' clears the agent_id anchor."
                     },
                     "query": { "type": "string", "description": "Natural language search query (for search)" },
-                    "top_k": { "type": "integer", "description": "Max results to return (for search, default: 5)" }
+                    "top_k": { "type": "integer", "description": "Max results to return (for search, default: 5)" },
+                    "kind": {
+                        "type": "string",
+                        "description": "Structural identity (for store). Canonical: 'note' (default — free-form knowledge), 'file' (binary content via file_id), 'goal' (directional outcome with metric/deadline/status). Custom kinds may use a 'custom:<name>' prefix. Single-valued — for multi-valued categorization use tags."
+                    },
+                    "file_id": { "type": "string", "description": "Binary blob row id from the orchestrator's files table (for store with kind='file' only)." }
                 },
                 "required": ["action"]
             }),

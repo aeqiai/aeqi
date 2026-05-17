@@ -289,6 +289,29 @@ impl SqliteIdeas {
         .await
     }
 
+    /// Set the structural `kind` (and optional `file_id`) of an existing idea.
+    /// Validation of kind values lives in the tool boundary; this is the raw
+    /// column write. See idea
+    /// `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`.
+    pub(super) async fn set_kind_impl(
+        &self,
+        idea_id: &str,
+        kind: &str,
+        file_id: Option<&str>,
+    ) -> Result<()> {
+        let id = idea_id.to_string();
+        let kind = kind.to_string();
+        let file_id = file_id.map(|s| s.to_string());
+        self.blocking(move |conn| {
+            conn.execute(
+                "UPDATE ideas SET kind = ?1, file_id = ?2, updated_at = ?3 WHERE id = ?4",
+                rusqlite::params![kind, file_id, Utc::now().to_rfc3339(), id],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
     /// Tables-in-Ideas Phase 2: replace the `properties` JSON column wholesale.
     /// `None` clears (column NULL); `Some(value)` serialises and stores.
     pub(super) async fn set_properties_impl(

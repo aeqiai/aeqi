@@ -380,8 +380,43 @@ impl QuestsTool {
             }
         }
 
+        // Optional structural kind (per
+        // `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`).
+        // Canonical Quest kinds: `task` (default) · `project` (container of
+        // sub-Quests + retrospective on completion). Open enum, validated at
+        // this tool boundary with a `custom:` prefix escape.
+        let kind = args
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string());
+        let mut kind_suffix = String::new();
+        if let Some(k) = kind.as_deref() {
+            const CANONICAL_QUEST_KINDS: &[&str] = &["task", "project"];
+            if !CANONICAL_QUEST_KINDS.contains(&k) && !k.starts_with("custom:") {
+                return Ok(ToolResult::error(format!(
+                    "invalid kind {k:?}; canonical Quest kinds: {} (or `custom:<name>` for company-specific kinds)",
+                    CANONICAL_QUEST_KINDS.join(", ")
+                )));
+            }
+            if k != "task" {
+                let k_owned = k.to_string();
+                if let Err(e) = self
+                    .agent_registry
+                    .update_task(&quest_id, move |q| {
+                        q.kind = k_owned;
+                    })
+                    .await
+                {
+                    return Ok(ToolResult::error(format!(
+                        "Quest created ({quest_id}) but failed to set kind={k:?}: {e}"
+                    )));
+                }
+                kind_suffix = format!(" [kind={k}]");
+            }
+        }
+
         Ok(ToolResult::success(format!(
-            "Created quest {quest_id}: {subject} (agent: {}, priority: {priority_str})",
+            "Created quest {quest_id}: {subject} (agent: {}, priority: {priority_str}){kind_suffix}",
             agent.name
         )))
     }
@@ -929,7 +964,11 @@ impl Tool for QuestsTool {
                     "assignee": { "type": ["string", "null"], "description": "Polymorphic assignee for update: agent:<id>, user:<id>, empty string, or null to unassign" },
                     "result": { "type": "string", "description": "Completion result (for close)" },
                     "reason": { "type": "string", "description": "Cancellation reason (for cancel)" },
-                    "url": { "type": "string", "description": "GitHub issue URL (for attach_github_issue). Must match https://github.com/<owner>/<repo>/issues/<n>." }
+                    "url": { "type": "string", "description": "GitHub issue URL (for attach_github_issue). Must match https://github.com/<owner>/<repo>/issues/<n>." },
+                    "kind": {
+                        "type": "string",
+                        "description": "Structural identity (for create). Canonical: 'task' (default — atomic claimable work) or 'project' (container of sub-Quests + retrospective on completion). Custom kinds may use a 'custom:<name>' prefix. Single-valued — for multi-valued categorization use tags."
+                    }
                 },
                 "required": ["action"]
             }),

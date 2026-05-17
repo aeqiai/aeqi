@@ -446,6 +446,30 @@ pub trait IdeaStore: Send + Sync {
         anyhow::bail!("update not supported by this store")
     }
 
+    /// Set the structural `kind` (and optional `file_id`) of an existing idea.
+    ///
+    /// Canonical kinds for Ideas: `note` (default), `file` (with file_id),
+    /// `goal` (Ideas-family lifecycle extended). See idea
+    /// `architecture/kind-taxonomy-and-the-structural-vs-categorical-rule`.
+    /// Open enum at the column layer; closed by convention via agent tools.
+    ///
+    /// `file_id` is only meaningful when `kind == "file"`; pass `None`
+    /// otherwise.
+    ///
+    /// Backends that don't yet persist the kind column should leave the
+    /// default `bail!` — tool callers will see a clean failure and can
+    /// degrade. Backends that DO persist it (SqliteIdeas as of v17)
+    /// override with the real UPDATE.
+    async fn set_kind(
+        &self,
+        id: &str,
+        kind: &str,
+        file_id: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let _ = (id, kind, file_id);
+        anyhow::bail!("set_kind not supported by this store")
+    }
+
     fn name(&self) -> &str;
 
     /// Advertise optional store features so runtime layers can fail cleanly
