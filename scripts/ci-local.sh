@@ -7,8 +7,9 @@
 #
 # Modes:
 #   scripts/ci-local.sh           # fast subset (default — < 3 min cached)
-#   FULL=1 scripts/ci-local.sh    # also runs cargo test + UI verify + smoke
+#   FULL=1 scripts/ci-local.sh    # also runs cargo test + UI verify + fresh-install smoke
 #   SKIP_UI=1 scripts/ci-local.sh # skip the apps/ui typecheck + prettier step
+#   SKIP_STARTUP_SMOKE=1 scripts/ci-local.sh # skip existing-DB runtime startup smoke
 #
 # Wired into .githooks/pre-push. Enable per checkout with:
 #   git config core.hooksPath .githooks
@@ -44,7 +45,12 @@ fi
 # 3. Build verification.
 run cargo build --workspace
 
-# 4. UI subset — fast checks (typecheck + prettier).
+# 4. Runtime startup smoke — catches build-pass/startup-panic regressions.
+if [[ "${SKIP_STARTUP_SMOKE:-0}" != "1" ]]; then
+  run env AEQI_SMOKE_RUNTIME_BIN="$PWD/target/debug/aeqi" bash scripts/runtime-startup-smoke.sh
+fi
+
+# 5. UI subset — fast checks (typecheck + prettier).
 if [[ "${SKIP_UI:-0}" != "1" ]] && [[ -d apps/ui ]]; then
   if [[ ! -d apps/ui/node_modules ]]; then
     echo "[ci-local] WARN — apps/ui/node_modules missing; run npm --prefix apps/ui ci first."
@@ -54,7 +60,7 @@ if [[ "${SKIP_UI:-0}" != "1" ]] && [[ -d apps/ui ]]; then
   fi
 fi
 
-# 5. FULL mode — run tests + UI verify + smoke. Slow; not on by default.
+# 6. FULL mode — run tests + UI verify + fresh-install smoke. Slow; not on by default.
 if [[ "${FULL:-0}" == "1" ]]; then
   run cargo test --workspace
   if [[ -d apps/ui/node_modules ]]; then

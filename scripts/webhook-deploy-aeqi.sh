@@ -73,6 +73,12 @@ case "$mode" in
     ;;
   full)
     echo "[webhook-deploy] runtime-impacting change; running scripts/deploy.sh"
+    if [ "${SKIP_STARTUP_SMOKE:-0}" != "1" ]; then
+      echo "[webhook-deploy] building release runtime for startup smoke"
+      cargo build --release -p aeqi 2>&1 | tail -3
+      env AEQI_SMOKE_RUNTIME_BIN="$REPO_ROOT/target/release/aeqi" \
+        "$REPO_ROOT/scripts/runtime-startup-smoke.sh"
+    fi
     AEQI_WEBHOOK_DEPLOY=1 "$FULL_DEPLOY"
     ;;
   none)
