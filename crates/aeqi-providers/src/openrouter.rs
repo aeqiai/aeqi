@@ -32,6 +32,7 @@ use tokio::sync::mpsc;
 use tracing::debug;
 
 const DEFAULT_API_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
+const BUDGET_FALLBACK_MODEL: &str = "z-ai/glm-4.5-air:free";
 
 /// OpenRouter LLM provider (also used as generic OpenAI-compatible proxy).
 pub struct OpenRouterProvider {
@@ -79,64 +80,68 @@ impl OpenRouterProvider {
         api_request: &ApiRequest,
         send_context: &str,
     ) -> Result<reqwest::Response> {
-        let response = self
-            .client
-            .post(self.api_url())
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("HTTP-Referer", "https://aeqi.dev")
-            .header("X-Title", "System Agent")
-            .json(api_request)
-            .send()
-            .await
-            .with_context(|| send_context.to_string())?;
+        let mut current_request = api_request.clone();
+        let mut capped_output_once = false;
+        let mut used_budget_fallback = false;
 
-        if response.status().is_success() {
-            return Ok(response);
-        }
-
-        let status = response.status();
-        let body = response
-            .text()
-            .await
-            .context("failed to read OpenRouter error response body")?;
-
-        if status.as_u16() == 402
-            && let Some(affordable) = affordable_max_tokens_from_body(&body)
-            && affordable < api_request.max_tokens
-        {
-            let mut retry_request = api_request.clone();
-            retry_request.max_tokens = affordable.max(1);
-            tracing::warn!(
-                model = %retry_request.model,
-                requested_max_tokens = api_request.max_tokens,
-                retry_max_tokens = retry_request.max_tokens,
-                "retrying OpenRouter request with provider-affordable max_tokens after 402"
-            );
-
-            let retry_response = self
+        loop {
+            let response = self
                 .client
                 .post(self.api_url())
                 .header("Authorization", format!("Bearer {}", self.api_key))
                 .header("HTTP-Referer", "https://aeqi.dev")
                 .header("X-Title", "System Agent")
-                .json(&retry_request)
+                .json(&current_request)
                 .send()
                 .await
                 .with_context(|| send_context.to_string())?;
 
-            if retry_response.status().is_success() {
-                return Ok(retry_response);
+            if response.status().is_success() {
+                return Ok(response);
             }
 
-            let retry_status = retry_response.status();
-            let retry_body = retry_response
+            let status = response.status();
+            let body = response
                 .text()
                 .await
-                .context("failed to read OpenRouter retry error response body")?;
-            return Err(openrouter_api_error(retry_status, &retry_body));
-        }
+                .context("failed to read OpenRouter error response body")?;
 
-        Err(openrouter_api_error(status, &body))
+            if !capped_output_once
+                && status.as_u16() == 402
+                && let Some(affordable) = affordable_max_tokens_from_body(&body)
+                && affordable < current_request.max_tokens
+            {
+                capped_output_once = true;
+                let requested = current_request.max_tokens;
+                current_request.max_tokens = affordable.max(1);
+                tracing::warn!(
+                    model = %current_request.model,
+                    requested_max_tokens = requested,
+                    retry_max_tokens = current_request.max_tokens,
+                    "retrying OpenRouter request with provider-affordable max_tokens after 402"
+                );
+                continue;
+            }
+
+            if !used_budget_fallback
+                && is_openrouter_budget_error(status, &body)
+                && current_request.model != BUDGET_FALLBACK_MODEL
+            {
+                used_budget_fallback = true;
+                let previous_model = current_request.model.clone();
+                current_request.model = BUDGET_FALLBACK_MODEL.to_string();
+                current_request.max_tokens = current_request.max_tokens.clamp(1, 1_024);
+                tracing::warn!(
+                    from = %previous_model,
+                    to = %current_request.model,
+                    retry_max_tokens = current_request.max_tokens,
+                    "retrying OpenRouter request on free fallback model after budget 402"
+                );
+                continue;
+            }
+
+            return Err(openrouter_api_error(status, &body));
+        }
     }
 
     /// Generate an image via OpenRouter using `modalities: ["image"]`.
@@ -419,6 +424,23 @@ fn affordable_max_tokens_from_body(body: &str) -> Option<u32> {
         .ok()
         .and_then(|err| affordable_max_tokens_from_text(&err.error.message))
         .or_else(|| affordable_max_tokens_from_text(body))
+}
+
+fn is_openrouter_budget_error(status: reqwest::StatusCode, body: &str) -> bool {
+    if status.as_u16() != 402 {
+        return false;
+    }
+
+    let text = serde_json::from_str::<ApiError>(body)
+        .ok()
+        .map(|err| err.error.message)
+        .unwrap_or_else(|| body.to_string())
+        .to_ascii_lowercase();
+
+    text.contains("can only afford")
+        || text.contains("prompt tokens limit exceeded")
+        || text.contains("weekly limit")
+        || text.contains("more credits")
 }
 
 fn affordable_max_tokens_from_text(text: &str) -> Option<u32> {
@@ -1036,5 +1058,35 @@ mod cache_control_tests {
         }"#;
 
         assert_eq!(affordable_max_tokens_from_body(body), None);
+    }
+
+    #[test]
+    fn recognizes_prompt_budget_402_for_free_model_fallback() {
+        let body = r#"{
+            "error": {
+                "code": 402,
+                "message": "Prompt tokens limit exceeded: 12772 > 780. To increase, adjust the key's weekly limit"
+            }
+        }"#;
+
+        assert!(is_openrouter_budget_error(
+            reqwest::StatusCode::PAYMENT_REQUIRED,
+            body,
+        ));
+    }
+
+    #[test]
+    fn does_not_treat_auth_401_as_budget_error() {
+        let body = r#"{
+            "error": {
+                "code": "401",
+                "message": "Missing Authentication header"
+            }
+        }"#;
+
+        assert!(!is_openrouter_budget_error(
+            reqwest::StatusCode::UNAUTHORIZED,
+            body,
+        ));
     }
 }
