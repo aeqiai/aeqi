@@ -62,6 +62,13 @@ export default defineConfig({
         // it's ~233KB / 74KB gz — a single character (`/`) saves
         // ~370KB gzipped on first paint.
         manualChunks(id) {
+          // Keep Rollup/Vite runtime helpers in their own tiny chunk. If a
+          // helper lands in a heavy manual chunk, Vite's dynamic-import
+          // wrapper makes that heavy chunk an eager dependency of the app
+          // entry and every lazy route.
+          if (id.includes("vite/preload-helper") || id.includes("commonjsHelpers.js")) {
+            return "vite-runtime";
+          }
           if (!id.includes("node_modules")) return undefined;
           if (
             id.includes("/node_modules/react/") ||
