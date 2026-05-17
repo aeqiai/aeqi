@@ -225,7 +225,7 @@ describe("aeqi_factory", () => {
     expect(threw).to.eq(true);
   });
 
-  it("create_with_modules atomically spawns trust + N modules + finalizes", async () => {
+  it("create_with_modules spawns trust + N modules and leaves the trust in creation mode", async () => {
     const trustId = new Uint8Array(32);
     trustId[0] = 0x77;
 
@@ -282,9 +282,12 @@ describe("aeqi_factory", () => {
       ])
       .rpc();
 
-    // Trust state — finalized, 2 modules registered
+    // Trust state — STILL in creation mode (caller is responsible for
+    // finalizing after module inits). The previous shape called
+    // `aeqi_trust::finalize` inside this CPI, which prevented any
+    // subsequent module init from succeeding (TrustNotInCreationMode).
     const trustAcct = await trust.account.trust.fetch(trustPda);
-    expect(trustAcct.creationMode).to.eq(false); // finalized
+    expect(trustAcct.creationMode).to.eq(true);
     expect(trustAcct.moduleCount).to.eq(2);
 
     // Both module PDAs were created with the right program IDs and ACLs
@@ -301,6 +304,20 @@ describe("aeqi_factory", () => {
     expect(gov.provider.toBase58()).to.eq(provider.wallet.publicKey.toBase58());
     expect(gov.implementationVersion.toString()).to.eq("1");
     expect(gov.trustAcl.toString()).to.eq("128");
+
+    // Confirm the caller can drive the trust out of creation mode via
+    // the explicit finalize CPI. This is the canonical sequence:
+    // create_with_modules → module inits → trust.finalize.
+    await trust.methods
+      .finalize()
+      .accountsPartial({
+        trust: trustPda,
+        authority: provider.wallet.publicKey,
+      })
+      .rpc();
+
+    const trustAfter = await trust.account.trust.fetch(trustPda);
+    expect(trustAfter.creationMode).to.eq(false);
   });
 
   it("instantiate_template replays a registered template into a fresh TRUST", async () => {

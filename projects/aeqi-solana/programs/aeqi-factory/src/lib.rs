@@ -63,14 +63,29 @@ pub mod aeqi_factory {
         Ok(())
     }
 
-    /// Atomic spawn — full company creation flow in one tx, skipping module
-    /// init/finalize CPIs. Steps:
+    /// Partial spawn — initialize a fresh trust and register a module set,
+    /// **leaving the trust in creation mode** so the caller can run each
+    /// module's `init` CPI before finalizing. Use this when the caller
+    /// owns the module-init step (the canonical use case is an off-chain
+    /// provisioner that submits init CPIs in follow-up transactions);
+    /// for the fully-atomic role + token + governance shape, prefer
+    /// `create_company_full`, which packs init + register + module-init
+    /// + finalize into one transaction.
+    ///
+    /// Steps:
     ///
     ///   1. CPI `aeqi_trust::initialize` (creates Trust PDA in creation mode).
     ///   2. For each `ModuleSpec` in `modules`, CPI `aeqi_trust::register_module`.
-    ///      The matching module PDAs are passed in `remaining_accounts`,
-    ///      grouped pairwise as (module_pda, system_program) per module.
-    ///   3. CPI `aeqi_trust::finalize` (exits creation mode).
+    ///      The matching module PDAs are passed in `remaining_accounts`.
+    ///
+    /// **Does NOT finalize.** Earlier versions of this function called
+    /// `aeqi_trust::finalize` at step 3, which locked out every
+    /// subsequent module init — `aeqi_*::init` requires the trust be in
+    /// creation mode. Callers that need register + per-module init +
+    /// finalize MUST issue the finalize CPI themselves once the inits
+    /// land. Cost of the prior shape (2026-05-17): every off-chain
+    /// trust-provisioning attempt failed with `TrustNotInCreationMode`
+    /// because the factory finalized before the inits could run.
     ///
     /// `remaining_accounts` layout: for each module spec, push the module PDA
     /// (writable, will be initialized by `aeqi_trust`).
@@ -119,14 +134,7 @@ pub mod aeqi_factory {
             )?;
         }
 
-        // 3. finalize
-        let fin_accounts = TrustFinalize {
-            trust: ctx.accounts.trust.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
-        };
-        let fin_ctx =
-            CpiContext::new(ctx.accounts.aeqi_trust_program.to_account_info(), fin_accounts);
-        aeqi_trust::cpi::finalize(fin_ctx)?;
+        // 3. (intentionally NOT finalizing — see docstring above)
 
         emit!(CompanySpawned {
             trust: ctx.accounts.trust.key(),
