@@ -126,7 +126,7 @@ async fn main() -> Result<()> {
                     warn!(program = %name, slot, ?err, "tx error — skipping");
                     continue;
                 }
-                for line in &resp.value.logs {
+                for (log_index, line) in resp.value.logs.iter().enumerate() {
                     if let Some(rest) = line.strip_prefix("Program data: ") {
                         match base64::Engine::decode(
                             &base64::engine::general_purpose::STANDARD,
@@ -141,6 +141,7 @@ async fn main() -> Result<()> {
                                             meta.event,
                                             slot,
                                             &resp.value.signature,
+                                            log_index as u32,
                                             rest,
                                         );
                                         match recorded {

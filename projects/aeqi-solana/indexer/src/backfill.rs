@@ -81,7 +81,7 @@ pub async fn backfill_program(
                 continue;
             };
 
-            for line in &logs {
+            for (log_index, line) in logs.iter().enumerate() {
                 if let Some(rest) = line.strip_prefix("Program data: ") {
                     if let Ok(bytes) =
                         base64::Engine::decode(&base64::engine::general_purpose::STANDARD, rest)
@@ -93,6 +93,7 @@ pub async fn backfill_program(
                                     meta.event,
                                     sig_info.slot,
                                     &sig_info.signature,
+                                    log_index as u32,
                                     rest,
                                 ) {
                                     Ok(true) => total_inserted += 1,
