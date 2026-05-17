@@ -4,6 +4,7 @@ import type { LaunchPlanId } from "@/lib/pricing";
 import type {
   Agent,
   AgentEvent,
+  AgentTemplate,
   Blueprint,
   EventInvocationRow,
   Idea,
@@ -591,7 +592,10 @@ export const api = {
 
   // Blueprints — pre-threaded company bundles. Spawn creates an entity
   // backed by a root agent today and returns the canonical entity id.
-  getBlueprints: () => request<{ ok: boolean; blueprints: Blueprint[] }>("/blueprints"),
+  getBlueprints: () =>
+    request<{ ok: boolean; blueprints: Blueprint[]; agent_templates?: AgentTemplate[] }>(
+      "/blueprints",
+    ),
 
   // Full Template including seed_agents/events/ideas/quests arrays. The
   // list endpoint returns counts only to keep the catalog payload small;

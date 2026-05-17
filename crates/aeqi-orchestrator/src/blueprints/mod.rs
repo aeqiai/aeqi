@@ -7,7 +7,12 @@
 //!
 //! `Template` (the deserialized shape) lives in [`crate::ipc::blueprints`].
 
-use crate::ipc::blueprints::Blueprint;
+use std::collections::{HashMap, HashSet};
+
+use crate::ipc::blueprints::{
+    AgentTemplateSpec, Blueprint, SeedAgentSpec, SeedEventSpec, SeedIdeaSpec, SeedQuestSpec,
+    SeedRoleEdgeSpec, SeedRoleSpec,
+};
 
 /// Slug of the canonical fallback default Blueprint shipped with the
 /// runtime. Operators can override which Blueprint is the catalog
@@ -17,21 +22,39 @@ use crate::ipc::blueprints::Blueprint;
 pub const DEFAULT_BLUEPRINT_SLUG: &str = "aeqi";
 
 const AEQI_DEFAULT_JSON: &str = include_str!("../../../../presets/blueprints/aeqi.json");
+const STEWARD_AGENT_TEMPLATE_JSON: &str =
+    include_str!("../../../../presets/agent_templates/steward.json");
 // Keep the shipped catalog intentionally narrow. The repository still carries
 // draft manifests for future archetypes, but only the conservative default is
 // embedded into the public runtime catalog until the others have a fresh
 // product and protocol audit.
 const COMPANY_BLUEPRINT_JSON: &[&str] = &[AEQI_DEFAULT_JSON];
+const AGENT_TEMPLATE_JSON: &[&str] = &[STEWARD_AGENT_TEMPLATE_JSON];
+
+/// Reusable agent templates exposed in the catalog.
+pub fn agent_templates() -> Vec<AgentTemplateSpec> {
+    let mut out: Vec<AgentTemplateSpec> = AGENT_TEMPLATE_JSON
+        .iter()
+        .map(|raw| {
+            serde_json::from_str::<AgentTemplateSpec>(raw)
+                .expect("shipped agent template failed to parse")
+        })
+        .collect();
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    out
+}
 
 /// All shipped company templates, sorted by slug so the catalog is stable.
 /// Parses the embedded JSON on every call — cheap (a handful of small docs)
 /// and avoids carrying a `once_cell` dependency just for this.
 pub fn company_blueprints() -> Vec<Blueprint> {
+    let agent_templates = agent_templates();
     let mut out: Vec<Blueprint> = COMPANY_BLUEPRINT_JSON
         .iter()
         .map(|raw| {
-            serde_json::from_str::<Blueprint>(raw)
-                .expect("shipped company template failed to parse")
+            let bp = serde_json::from_str::<Blueprint>(raw)
+                .expect("shipped company template failed to parse");
+            expand_catalog_assets(bp, &agent_templates)
         })
         .collect();
     out.sort_by(|a, b| a.slug.cmp(&b.slug));
@@ -41,6 +64,187 @@ pub fn company_blueprints() -> Vec<Blueprint> {
 /// Company template lookup by slug.
 pub fn company_blueprint(slug: &str) -> Option<Blueprint> {
     company_blueprints().into_iter().find(|t| t.slug == slug)
+}
+
+/// Resolve reusable template references into the legacy flat seed lists.
+/// This keeps old consumers working while making catalog dependencies visible
+/// before launch/hire/install.
+pub fn expand_catalog_assets(
+    mut blueprint: Blueprint,
+    templates: &[AgentTemplateSpec],
+) -> Blueprint {
+    if blueprint.agent_template_refs.is_empty() {
+        return blueprint;
+    }
+
+    let by_id: HashMap<&str, &AgentTemplateSpec> = templates
+        .iter()
+        .map(|template| (template.id.as_str(), template))
+        .collect();
+
+    for reference in blueprint.agent_template_refs.clone() {
+        let Some(template) = by_id.get(reference.id.as_str()) else {
+            continue;
+        };
+        let agent_name = reference
+            .name
+            .clone()
+            .unwrap_or_else(|| template.name.clone());
+        let role = reference.role.clone().or_else(|| {
+            if template.role.is_empty() {
+                None
+            } else {
+                Some(template.role.clone())
+            }
+        });
+
+        if !blueprint
+            .seed_agents
+            .iter()
+            .any(|seed| seed.name == agent_name)
+        {
+            blueprint.seed_agents.push(SeedAgentSpec {
+                owner: reference.owner.clone(),
+                template_id: Some(template.id.clone()),
+                name: agent_name.clone(),
+                tagline: if template.tagline.is_empty() {
+                    None
+                } else {
+                    Some(template.tagline.clone())
+                },
+                role,
+                model: template.model.clone(),
+                color: template.color.clone(),
+                avatar: template.avatar.clone(),
+                system_prompt: template.system_prompt.clone(),
+                proactive_greeting: template.proactive_greeting.clone(),
+                seed_messages: template.seed_messages.clone(),
+            });
+        }
+
+        append_template_events(
+            &mut blueprint.seed_events,
+            &template.seed_events,
+            &agent_name,
+        );
+        append_template_ideas(&mut blueprint.seed_ideas, &template.seed_ideas, &agent_name);
+        append_template_quests(
+            &mut blueprint.seed_quests,
+            &template.seed_quests,
+            &agent_name,
+        );
+        append_template_role(&mut blueprint, &reference, template, &agent_name);
+    }
+
+    blueprint
+}
+
+fn remap_template_owner(owner: &str, template_agent_name: &str) -> String {
+    if owner.is_empty() || owner == "root" {
+        template_agent_name.to_string()
+    } else {
+        owner.to_string()
+    }
+}
+
+fn append_template_events(
+    seed_events: &mut Vec<SeedEventSpec>,
+    template_events: &[SeedEventSpec],
+    agent_name: &str,
+) {
+    let mut seen: HashSet<(String, String)> = seed_events
+        .iter()
+        .map(|event| (event.owner.clone(), event.name.clone()))
+        .collect();
+    for template_event in template_events {
+        let mut event = template_event.clone();
+        event.owner = remap_template_owner(&event.owner, agent_name);
+        if seen.insert((event.owner.clone(), event.name.clone())) {
+            seed_events.push(event);
+        }
+    }
+}
+
+fn append_template_ideas(
+    seed_ideas: &mut Vec<SeedIdeaSpec>,
+    template_ideas: &[SeedIdeaSpec],
+    agent_name: &str,
+) {
+    let mut seen: HashSet<(String, String)> = seed_ideas
+        .iter()
+        .map(|idea| (idea.owner.clone(), idea.name.clone()))
+        .collect();
+    for template_idea in template_ideas {
+        let mut idea = template_idea.clone();
+        idea.owner = remap_template_owner(&idea.owner, agent_name);
+        if seen.insert((idea.owner.clone(), idea.name.clone())) {
+            seed_ideas.push(idea);
+        }
+    }
+}
+
+fn append_template_quests(
+    seed_quests: &mut Vec<SeedQuestSpec>,
+    template_quests: &[SeedQuestSpec],
+    agent_name: &str,
+) {
+    let mut seen: HashSet<(String, String)> = seed_quests
+        .iter()
+        .map(|quest| (quest.owner.clone(), quest.subject.clone()))
+        .collect();
+    for template_quest in template_quests {
+        let mut quest = template_quest.clone();
+        quest.owner = remap_template_owner(&quest.owner, agent_name);
+        if seen.insert((quest.owner.clone(), quest.subject.clone())) {
+            seed_quests.push(quest);
+        }
+    }
+}
+
+fn append_template_role(
+    blueprint: &mut Blueprint,
+    reference: &crate::ipc::blueprints::AgentTemplateRef,
+    template: &AgentTemplateSpec,
+    agent_name: &str,
+) {
+    if blueprint.seed_roles.is_empty() {
+        return;
+    }
+    let key = format!("agent-template-{}", template.id);
+    if !blueprint.seed_roles.iter().any(|role| role.key == key) {
+        blueprint.seed_roles.push(SeedRoleSpec {
+            key: key.clone(),
+            title: reference
+                .role
+                .clone()
+                .filter(|role| !role.is_empty())
+                .or_else(|| {
+                    if template.role.is_empty() {
+                        None
+                    } else {
+                        Some(template.role.clone())
+                    }
+                })
+                .unwrap_or_else(|| template.name.clone()),
+            default_occupant_agent: Some(agent_name.to_string()),
+            role_type: None,
+            grants: None,
+        });
+    }
+    if blueprint
+        .seed_roles
+        .iter()
+        .any(|role| role.key == reference.owner)
+        && !blueprint
+            .seed_role_edges
+            .iter()
+            .any(|edge| edge.parent == reference.owner && edge.child == key)
+    {
+        blueprint.seed_role_edges.push(SeedRoleEdgeSpec {
+            parent: reference.owner.clone(),
+            child: key,
+        });
+    }
 }
 
 #[cfg(test)]
@@ -65,8 +269,45 @@ mod tests {
     fn company_blueprint_lookup_returns_default_full_spec() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert_eq!(default.name, "aeqi");
-        assert_eq!(default.seed_agents.len(), 0);
-        assert_eq!(default.seed_quests.len(), 8);
+        assert_eq!(default.seed_agents.len(), 1);
+        assert_eq!(default.seed_agents[0].name, "Steward");
+        assert_eq!(
+            default.seed_agents[0].template_id.as_deref(),
+            Some("steward")
+        );
+        assert_eq!(default.seed_quests.len(), 9);
+    }
+
+    #[test]
+    fn agent_catalog_ships_steward_template() {
+        let templates = agent_templates();
+        assert!(
+            templates.iter().any(|template| template.id == "steward"),
+            "Steward must be exposed as a reusable agent template",
+        );
+    }
+
+    #[test]
+    fn default_blueprint_expands_steward_dependencies() {
+        let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
+        assert!(
+            default
+                .seed_events
+                .iter()
+                .any(|event| event.owner == "Steward" && event.name == "steward_weekly_review")
+        );
+        assert!(
+            default
+                .seed_ideas
+                .iter()
+                .any(|idea| idea.owner == "Steward" && idea.name == "Steward operating cadence")
+        );
+        assert!(
+            default
+                .seed_roles
+                .iter()
+                .any(|role| role.default_occupant_agent.as_deref() == Some("Steward"))
+        );
     }
 
     #[test]

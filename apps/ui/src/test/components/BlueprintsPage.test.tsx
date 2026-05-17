@@ -6,7 +6,7 @@ import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import BlueprintsPage from "@/pages/BlueprintsPage";
 import BlueprintDetailPage from "@/pages/BlueprintDetailPage";
 import { api } from "@/lib/api";
-import type { SingleBlueprint } from "@/lib/types";
+import type { AgentTemplate, SingleBlueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
 
 const SOLO: SingleBlueprint = {
@@ -25,6 +25,18 @@ const SOLO: SingleBlueprint = {
   seed_events: [{ pattern: "session:start", name: "Daily stand-in" }],
   seed_ideas: [{ name: "how-to-create-a-quest", tags: ["skill"] }],
   seed_quests: [{ subject: "Write the one-liner", priority: "high" }],
+};
+
+const STEWARD_TEMPLATE: AgentTemplate = {
+  id: "steward",
+  name: "Steward",
+  tagline: "Maintains operating cadence, context hygiene, and weekly review.",
+  role: "Operating Steward",
+  seed_events: [
+    { owner: "Steward", pattern: "schedule:0 16 * * 5", name: "steward_weekly_review" },
+  ],
+  seed_ideas: [{ owner: "Steward", name: "Steward operating cadence", tags: ["cadence"] }],
+  seed_quests: [{ owner: "Steward", subject: "Run the first Steward review" }],
 };
 
 // ── Type discriminator unit tests ────────────────────────────────────
@@ -48,6 +60,7 @@ const renderApp = (entry = "/blueprints") =>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/blueprints" element={<BlueprintsPage />} />
+          <Route path="/blueprints/agents" element={<BlueprintsPage />} />
           <Route path="/blueprints/:blueprintId" element={<BlueprintDetailPage />} />
           <Route path="/blueprints/:blueprintId/:section" element={<BlueprintDetailPage />} />
         </Routes>
@@ -113,6 +126,20 @@ describe("BlueprintsPage (catalog)", () => {
     expect(screen.getByLabelText("What this blueprint seeds")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /use this blueprint/i })).toBeInTheDocument();
   });
+
+  it("renders reusable agent templates on the Agents catalog lane", async () => {
+    vi.spyOn(api, "getBlueprints").mockResolvedValue({
+      ok: true,
+      blueprints: [SOLO],
+      agent_templates: [STEWARD_TEMPLATE],
+    });
+
+    renderApp("/blueprints/agents");
+
+    expect(await screen.findByText("Steward")).toBeInTheDocument();
+    expect(screen.getByText("Operating Steward")).toBeInTheDocument();
+    expect(screen.getByText(/1 event · 1 idea · 1 quest/)).toBeInTheDocument();
+  });
 });
 
 describe("BlueprintDetailPage", () => {
@@ -147,6 +174,40 @@ describe("BlueprintDetailPage", () => {
     await waitFor(() => {
       expect(screen.getByText("how-to-create-a-quest")).toBeInTheDocument();
     });
+  });
+
+  it("shows template-derived agent bundles on blueprint detail routes", async () => {
+    const aeqi: SingleBlueprint = {
+      ...SOLO,
+      slug: "aeqi",
+      name: "aeqi",
+      seed_agents: [
+        {
+          template_id: "steward",
+          name: "Steward",
+          tagline: "Maintains operating cadence.",
+          role: "Operating Steward",
+        },
+      ],
+      seed_events: STEWARD_TEMPLATE.seed_events,
+      seed_ideas: STEWARD_TEMPLATE.seed_ideas,
+      seed_quests: STEWARD_TEMPLATE.seed_quests,
+    };
+    vi.spyOn(api, "getBlueprint").mockResolvedValue({ ok: true, blueprint: aeqi });
+
+    const agentsRender = renderApp("/blueprints/aeqi/agents");
+    await screen.findByText("Steward");
+    expect(screen.getByText("fills · Operating Steward")).toBeInTheDocument();
+    agentsRender.unmount();
+
+    const ideasRender = renderApp("/blueprints/aeqi/ideas");
+    await screen.findByText("Steward operating cadence");
+    expect(screen.getByText(/Steward #cadence/)).toBeInTheDocument();
+    ideasRender.unmount();
+
+    renderApp("/blueprints/aeqi/events");
+    await screen.findByText("schedule:0 16 * * 5");
+    expect(screen.getByText(/Steward · steward_weekly_review/)).toBeInTheDocument();
   });
 
   it("shows the detail page error when the API fails", async () => {

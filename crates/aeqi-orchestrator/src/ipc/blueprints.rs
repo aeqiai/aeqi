@@ -69,7 +69,15 @@ pub struct SeedAgentSpec {
     /// Currently must be "root". Reserved for future nested templates.
     #[serde(default = "default_owner_root")]
     pub owner: String,
+    /// Stable catalog template this seed was derived from, when any. Inline
+    /// seed agents leave this empty.
+    #[serde(default)]
+    pub template_id: Option<String>,
     pub name: String,
+    #[serde(default)]
+    pub tagline: Option<String>,
+    #[serde(default)]
+    pub role: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
     #[serde(default)]
@@ -147,6 +155,49 @@ pub struct SeedQuestSpec {
     pub description: String,
     #[serde(default)]
     pub labels: Vec<String>,
+}
+
+/// Reusable catalog asset for hiring or including an agent in a company
+/// Blueprint. Template-owned ideas/events/quests expand with the template
+/// agent as their owner, so preview and spawn install the same bundle.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentTemplateSpec {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub tagline: String,
+    #[serde(default)]
+    pub role: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub system_prompt: Option<String>,
+    #[serde(default)]
+    pub proactive_greeting: Option<String>,
+    #[serde(default)]
+    pub seed_messages: Vec<SeedMessageSpec>,
+    #[serde(default)]
+    pub seed_events: Vec<SeedEventSpec>,
+    #[serde(default)]
+    pub seed_ideas: Vec<SeedIdeaSpec>,
+    #[serde(default)]
+    pub seed_quests: Vec<SeedQuestSpec>,
+}
+
+/// Reference from a company Blueprint to a reusable agent template.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentTemplateRef {
+    pub id: String,
+    #[serde(default = "default_owner_root")]
+    pub owner: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub role: Option<String>,
 }
 
 /// A declared role inside the entity. `key` is a stable identifier
@@ -228,6 +279,8 @@ pub struct Blueprint {
     pub root: DefaultAgentSpec,
     #[serde(default)]
     pub seed_agents: Vec<SeedAgentSpec>,
+    #[serde(default)]
+    pub agent_template_refs: Vec<AgentTemplateRef>,
     #[serde(default)]
     pub seed_events: Vec<SeedEventSpec>,
     #[serde(default)]
@@ -370,6 +423,16 @@ pub async fn spawn_blueprint(
     role_registry: &crate::role_registry::RoleRegistry,
     role_overrides: &[RoleOverride],
 ) -> anyhow::Result<SpawnOutcome> {
+    let expanded_blueprint;
+    let blueprint = if blueprint.agent_template_refs.is_empty() {
+        blueprint
+    } else {
+        expanded_blueprint = crate::blueprints::expand_catalog_assets(
+            blueprint.clone(),
+            &crate::blueprints::agent_templates(),
+        );
+        &expanded_blueprint
+    };
     let mut warnings: Vec<String> = Vec::new();
 
     // ---- default agent ----
@@ -996,27 +1059,12 @@ pub async fn handle_list_blueprints(
     _allowed: &Option<Vec<String>>,
 ) -> serde_json::Value {
     let templates = crate::blueprints::company_blueprints();
-    let items: Vec<serde_json::Value> = templates
-        .iter()
-        .map(|t| {
-            serde_json::json!({
-                "slug": t.slug,
-                "name": t.name,
-                "tagline": t.tagline,
-                "description": t.description,
-                "root": {
-                    "name": t.root.name,
-                    "model": t.root.model,
-                    "color": t.root.color,
-                },
-                "agent_count": 1 + t.seed_agents.len(),
-                "event_count": t.seed_events.len(),
-                "idea_count": t.seed_ideas.len(),
-                "quest_count": t.seed_quests.len(),
-            })
-        })
-        .collect();
-    serde_json::json!({"ok": true, "blueprints": items})
+    let agent_templates = crate::blueprints::agent_templates();
+    serde_json::json!({
+        "ok": true,
+        "blueprints": templates,
+        "agent_templates": agent_templates,
+    })
 }
 
 pub async fn handle_blueprint_detail(
@@ -1324,7 +1372,10 @@ mod tests {
             seed_agents: vec![
                 SeedAgentSpec {
                     owner: "root".to_string(),
+                    template_id: None,
                     name: "Editor".to_string(),
+                    tagline: None,
+                    role: None,
                     model: Some("anthropic/claude-sonnet-4.6".to_string()),
                     color: None,
                     avatar: None,
@@ -1334,7 +1385,10 @@ mod tests {
                 },
                 SeedAgentSpec {
                     owner: "root".to_string(),
+                    template_id: None,
                     name: "Distribution".to_string(),
+                    tagline: None,
+                    role: None,
                     model: None,
                     color: None,
                     avatar: None,
@@ -1343,6 +1397,7 @@ mod tests {
                     seed_messages: Vec::new(),
                 },
             ],
+            agent_template_refs: Vec::new(),
             seed_events: vec![
                 SeedEventSpec {
                     owner: "root".to_string(),
@@ -1512,6 +1567,68 @@ mod tests {
                 .any(|i| i.agent_id.as_deref() == Some(default_agent.id.as_str())),
             "default agent should have an identity idea; got {:?}",
             identity_ideas.iter().map(|i| &i.name).collect::<Vec<_>>(),
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_blueprint_expands_agent_template_refs_before_install() {
+        let registry = test_registry().await;
+        let event_store = EventHandlerStore::new(registry.db());
+        let role_registry = crate::role_registry::RoleRegistry::open(registry.db());
+        let idea_store = test_idea_store();
+
+        let mut blueprint = fixture_blueprint();
+        blueprint.seed_agents.clear();
+        blueprint.seed_events.clear();
+        blueprint.seed_ideas.clear();
+        blueprint.seed_quests.clear();
+        blueprint.agent_template_refs = vec![AgentTemplateRef {
+            id: "steward".to_string(),
+            owner: "root".to_string(),
+            name: None,
+            role: None,
+        }];
+
+        let outcome = spawn_blueprint(
+            &blueprint,
+            None,
+            None,
+            None,
+            &BlueprintPart::ALL,
+            &registry,
+            &event_store,
+            Some(&idea_store),
+            &role_registry,
+            &[],
+        )
+        .await
+        .expect("spawn should expand and install referenced template");
+
+        assert!(
+            outcome
+                .spawned_agents
+                .iter()
+                .any(|agent| agent.name == "Steward"),
+            "template-derived Steward agent should spawn; got {:?}",
+            outcome.spawned_agents,
+        );
+        assert_eq!(outcome.created_events, 1);
+        assert_eq!(outcome.created_ideas, 1);
+        assert_eq!(outcome.created_quests, 1);
+        assert!(
+            event_store
+                .list_for_agent(
+                    &registry
+                        .get_active_by_name("Steward")
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .id,
+                )
+                .await
+                .unwrap()
+                .iter()
+                .any(|event| event.name == "steward_weekly_review")
         );
     }
 
@@ -1705,7 +1822,10 @@ mod tests {
             },
             seed_agents: vec![SeedAgentSpec {
                 owner: "root".to_string(),
+                template_id: None,
                 name: "Imported Helper".to_string(),
+                tagline: None,
+                role: None,
                 model: None,
                 color: None,
                 avatar: None,
@@ -1713,6 +1833,7 @@ mod tests {
                 proactive_greeting: None,
                 seed_messages: Vec::new(),
             }],
+            agent_template_refs: Vec::new(),
             seed_events: Vec::new(),
             seed_ideas: Vec::new(),
             seed_quests: Vec::new(),

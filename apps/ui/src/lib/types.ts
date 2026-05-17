@@ -359,6 +359,7 @@ export interface WorkerEvent {
 // so a sparse Blueprint (no seed quests, no seed events) still renders
 // cleanly.
 export interface BlueprintSeedAgent {
+  template_id?: string | null;
   name: string;
   tagline?: string;
   role?: string;
@@ -369,21 +370,40 @@ export interface BlueprintSeedAgent {
 }
 
 export interface BlueprintSeedEvent {
+  owner?: string;
   pattern: string;
   name?: string;
   description?: string;
 }
 
 export interface BlueprintSeedIdea {
+  owner?: string;
   name: string;
+  content?: string;
   tags?: string[];
   summary?: string;
 }
 
 export interface BlueprintSeedQuest {
+  owner?: string;
   subject: string;
   description?: string;
   priority?: string;
+  labels?: string[];
+}
+
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  tagline?: string;
+  role?: string;
+  model?: string;
+  color?: string;
+  avatar?: string;
+  system_prompt?: string;
+  seed_events?: BlueprintSeedEvent[];
+  seed_ideas?: BlueprintSeedIdea[];
+  seed_quests?: BlueprintSeedQuest[];
 }
 
 export interface DefaultAgentSpec {
@@ -443,6 +463,12 @@ export interface SingleBlueprint {
   template?: BlueprintTemplate;
   tags?: string[];
   root?: DefaultAgentSpec;
+  agent_template_refs?: Array<{
+    id: string;
+    owner?: string;
+    name?: string;
+    role?: string;
+  }>;
   seed_agents?: BlueprintSeedAgent[];
   seed_events?: BlueprintSeedEvent[];
   seed_ideas?: BlueprintSeedIdea[];

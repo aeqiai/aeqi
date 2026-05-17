@@ -438,6 +438,7 @@ function EventsSection({ seeds }: { seeds?: BlueprintSeedEvent[] }) {
       (e) =>
         e.pattern.toLowerCase().includes(q) ||
         (e.name ?? "").toLowerCase().includes(q) ||
+        (e.owner ?? "").toLowerCase().includes(q) ||
         (e.description ?? "").toLowerCase().includes(q),
     );
   }, [all, query]);
@@ -454,7 +455,11 @@ function EventsSection({ seeds }: { seeds?: BlueprintSeedEvent[] }) {
             <li key={`${e.pattern}-${i}`} className="bp-seed-row">
               <div className="bp-seed-row-head">
                 <span className="bp-seed-row-pattern">{e.pattern}</span>
-                {e.name && <span className="bp-seed-row-meta">{e.name}</span>}
+                {(e.owner || e.name) && (
+                  <span className="bp-seed-row-meta">
+                    {[e.owner, e.name].filter(Boolean).join(" · ")}
+                  </span>
+                )}
               </div>
               {e.description && <p className="bp-seed-row-sub">{e.description}</p>}
             </li>
@@ -473,7 +478,10 @@ function QuestsSection({ seeds }: { seeds?: BlueprintSeedQuest[] }) {
     if (!q) return all;
     return all.filter(
       (qu) =>
-        qu.subject.toLowerCase().includes(q) || (qu.description ?? "").toLowerCase().includes(q),
+        qu.subject.toLowerCase().includes(q) ||
+        (qu.owner ?? "").toLowerCase().includes(q) ||
+        (qu.description ?? "").toLowerCase().includes(q) ||
+        (qu.labels ?? []).some((label) => label.toLowerCase().includes(q)),
     );
   }, [all, query]);
 
@@ -489,7 +497,13 @@ function QuestsSection({ seeds }: { seeds?: BlueprintSeedQuest[] }) {
             <li key={`${q.subject}-${i}`} className="bp-seed-row">
               <div className="bp-seed-row-head">
                 <span className="bp-seed-row-name">{q.subject}</span>
-                {q.priority && <span className="bp-seed-row-meta">{q.priority}</span>}
+                {(q.owner || q.priority || (q.labels ?? []).length > 0) && (
+                  <span className="bp-seed-row-meta">
+                    {[q.owner, q.priority, ...(q.labels ?? []).slice(0, 2)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                )}
               </div>
               {q.description && <p className="bp-seed-row-sub">{q.description}</p>}
             </li>
@@ -509,7 +523,9 @@ function IdeasSection({ seeds }: { seeds?: BlueprintSeedIdea[] }) {
     return all.filter(
       (i) =>
         i.name.toLowerCase().includes(q) ||
+        (i.owner ?? "").toLowerCase().includes(q) ||
         (i.summary ?? "").toLowerCase().includes(q) ||
+        (i.content ?? "").toLowerCase().includes(q) ||
         (i.tags ?? []).some((t) => t.toLowerCase().includes(q)),
     );
   }, [all, query]);
@@ -526,16 +542,17 @@ function IdeasSection({ seeds }: { seeds?: BlueprintSeedIdea[] }) {
             <li key={i.name} className="bp-seed-row">
               <div className="bp-seed-row-head">
                 <span className="bp-seed-row-name">{i.name}</span>
-                {i.tags && i.tags.length > 0 && (
+                {(i.owner || (i.tags ?? []).length > 0) && (
                   <span className="bp-seed-row-meta">
-                    {i.tags
-                      .slice(0, 3)
-                      .map((t) => `#${t}`)
+                    {[i.owner, ...(i.tags ?? []).slice(0, 3).map((t) => `#${t}`)]
+                      .filter(Boolean)
                       .join(" ")}
                   </span>
                 )}
               </div>
-              {i.summary && <p className="bp-seed-row-sub">{i.summary}</p>}
+              {(i.summary || i.content) && (
+                <p className="bp-seed-row-sub">{i.summary || i.content}</p>
+              )}
             </li>
           ))}
         </ul>

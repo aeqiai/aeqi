@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import type { Blueprint, BlueprintCategory, SingleBlueprint } from "@/lib/types";
+import type { AgentTemplate, Blueprint, BlueprintCategory, SingleBlueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
-import { Button, Spinner, Tooltip } from "@/components/ui";
+import { Button, Card, Spinner, Tooltip } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { parseTags, serializeTags } from "@/components/ideas/types";
@@ -59,6 +59,7 @@ export default function BlueprintsPage() {
   }, [location.pathname]);
 
   const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
+  const [agentTemplates, setAgentTemplates] = useState<AgentTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const query = searchParams.get("q") || "";
@@ -124,6 +125,7 @@ export default function BlueprintsPage() {
         if (cancelled) return;
         const incoming = resp.blueprints ?? [];
         setBlueprints(incoming);
+        setAgentTemplates(resp.agent_templates ?? []);
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -228,6 +230,31 @@ export default function BlueprintsPage() {
     }
     return map;
   }, [filtered]);
+
+  const filteredAgentTemplates = useMemo(() => {
+    if (activeKind !== "agents") return [] as AgentTemplate[];
+    const q = query.trim().toLowerCase();
+    let out = agentTemplates.filter((template) => {
+      if (!q) return true;
+      return (
+        template.name.toLowerCase().includes(q) ||
+        (template.tagline ?? "").toLowerCase().includes(q) ||
+        (template.role ?? "").toLowerCase().includes(q)
+      );
+    });
+    if (sort === "alpha-asc") {
+      out = [...out].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
+    } else if (sort === "alpha-desc") {
+      out = [...out].sort((a, b) =>
+        b.name.localeCompare(a.name, undefined, { sensitivity: "base" }),
+      );
+    } else if (sort === "complexity") {
+      out = [...out].sort((a, b) => agentTemplateComplexity(b) - agentTemplateComplexity(a));
+    }
+    return out;
+  }, [activeKind, agentTemplates, query, sort]);
 
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
   const filtersActive = query.trim() !== "" || selectedTags.length > 0 || !!activeCategory;
@@ -378,10 +405,31 @@ export default function BlueprintsPage() {
             </div>
           )}
 
-          {loading && activeKind === "companies" ? (
+          {loading && (activeKind === "companies" || activeKind === "agents") ? (
             <div className="bp-status">
               <Spinner size="sm" /> Loading Blueprints…
             </div>
+          ) : activeKind === "agents" ? (
+            filteredAgentTemplates.length === 0 ? (
+              <EmptyState
+                title={query ? `No match for "${query}".` : "No agent templates yet."}
+                description="Reusable agents appear here when they are available to include in Company blueprints."
+              />
+            ) : view === "list" ? (
+              <ul className="bp-list" role="list">
+                {filteredAgentTemplates.map((template) => (
+                  <li key={template.id} className="bp-list-row">
+                    <AgentTemplateRow template={template} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="bp-grid" role="list">
+                {filteredAgentTemplates.map((template) => (
+                  <AgentTemplateCard key={template.id} template={template} />
+                ))}
+              </div>
+            )
           ) : activeKind !== "companies" ? (
             <EmptyState
               title={`No standalone ${KIND_TABS.find((t) => t.id === activeKind)?.label.toLowerCase()} yet.`}
@@ -424,6 +472,63 @@ export default function BlueprintsPage() {
 }
 
 /* ── Category section ─────────────────────────────────── */
+
+function agentTemplateComplexity(template: AgentTemplate): number {
+  return (
+    (template.seed_events?.length ?? 0) +
+    (template.seed_ideas?.length ?? 0) +
+    (template.seed_quests?.length ?? 0)
+  );
+}
+
+function agentTemplateRuntimeLine(template: AgentTemplate): string {
+  const parts = ["Agent template"];
+  const events = template.seed_events?.length ?? 0;
+  const ideas = template.seed_ideas?.length ?? 0;
+  const quests = template.seed_quests?.length ?? 0;
+  if (events > 0) parts.push(`${events} ${events === 1 ? "event" : "events"}`);
+  if (ideas > 0) parts.push(`${ideas} ${ideas === 1 ? "idea" : "ideas"}`);
+  if (quests > 0) parts.push(`${quests} ${quests === 1 ? "quest" : "quests"}`);
+  return parts.join(" · ");
+}
+
+function AgentTemplateRow({ template }: { template: AgentTemplate }) {
+  return (
+    <Link to="/blueprints/aeqi/agents" className="bp-list-row-btn">
+      <span className="bp-list-row-name">{template.name}</span>
+      {template.tagline && <span className="bp-list-row-tagline">{template.tagline}</span>}
+      <span className="bp-list-row-counts">{agentTemplateRuntimeLine(template)}</span>
+    </Link>
+  );
+}
+
+function AgentTemplateCard({ template }: { template: AgentTemplate }) {
+  return (
+    <Link
+      to="/blueprints/aeqi/agents"
+      className="bp-card-link"
+      role="listitem"
+      aria-label={`${template.name} agent template`}
+    >
+      <Card variant="default" padding="md" interactive className="bp-card">
+        <h3 className="bp-card-name">{template.name}</h3>
+        {template.tagline && <p className="bp-card-tagline">{template.tagline}</p>}
+        <div className="bp-card-inclusions">
+          {template.role && (
+            <div className="bp-card-inclusion-row">
+              <span className="bp-card-inclusion-label">Role</span>
+              <span className="bp-card-inclusion-value">{template.role}</span>
+            </div>
+          )}
+          <div className="bp-card-inclusion-row">
+            <span className="bp-card-inclusion-label">Bundle</span>
+            <span className="bp-card-inclusion-value">{agentTemplateRuntimeLine(template)}</span>
+          </div>
+        </div>
+      </Card>
+    </Link>
+  );
+}
 
 const GLYPHS = {
   sort: (
