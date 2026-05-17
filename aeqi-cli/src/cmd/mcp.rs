@@ -613,6 +613,7 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                 "properties": {
                     "action": {"type": "string", "enum": ["search", "context", "impact", "file", "stats", "index", "diff_impact", "file_summary", "incremental", "synthesize"], "description": "search: find symbols by name (read). context: 360° view — callers, callees, implementors (read). impact: blast radius from a symbol (read). diff_impact: blast radius from uncommitted changes (read). file: list symbols in a file (read). file_summary: summary of a file (read). stats: graph statistics (read). index: full re-index of project (write). incremental: re-index only changed files (write). synthesize: generate community summary (write)."},
                     "project": {"type": "string", "description": "Project name"},
+                    "repo_path": {"type": "string", "description": "Optional repository path override for index, incremental, diff_impact, and stats repo resolution."},
                     "query": {"type": "string", "description": "Search query (for search action)"},
                     "node_id": {"type": "string", "description": "Node ID (for context/impact actions)"},
                     "file_path": {"type": "string", "description": "File path relative to project root (for file/file_summary actions)"},
@@ -1128,35 +1129,23 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                             .and_then(|v| v.as_str())
                             .unwrap_or("stats");
 
-                        // Find project repo path from config
-                        let repo_path =
-                            config
-                                .agent_spawns
-                                .iter()
-                                .find(|p| p.name == project)
-                                .map(|p| {
-                                    let r = p.repo.replace(
-                                        '~',
-                                        &dirs::home_dir().unwrap_or_default().to_string_lossy(),
-                                    );
-                                    std::path::PathBuf::from(r)
-                                });
-
                         let graph_dir = config.data_dir().join("codegraph");
                         std::fs::create_dir_all(&graph_dir).ok();
                         let db_path = graph_dir.join(format!("{project}.db"));
 
                         match action {
                             "index" => {
-                                let repo = repo_path.ok_or_else(|| {
-                                    anyhow::anyhow!("project '{project}' not found in config")
-                                })?;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
+                                let repo =
+                                    resolve_code_repo_path(&args, &config, project, Some(&store))?
+                                        .ok_or_else(|| code_project_not_found(project))?;
                                 let indexer = aeqi_graph::Indexer::new();
                                 let result = indexer.index(&repo, &store)?;
+                                store.set_meta("repo_path", &repo.to_string_lossy())?;
                                 Ok(serde_json::json!({
                                     "ok": true,
                                     "project": project,
+                                    "repo_path": repo.to_string_lossy(),
                                     "result": result.to_string(),
                                     "files": result.files_parsed,
                                     "nodes": result.nodes,
@@ -1236,9 +1225,14 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 let last_commit =
                                     store.get_meta("last_commit")?.unwrap_or_default();
                                 let dirty_files = graph_dirty_files(&store)?;
+                                let repo_path =
+                                    resolve_code_repo_path(&args, &config, project, Some(&store))
+                                        .ok()
+                                        .flatten();
                                 Ok(serde_json::json!({
                                     "ok": true,
                                     "project": project,
+                                    "repo_path": repo_path.as_ref().map(|p| p.to_string_lossy().to_string()),
                                     "nodes": stats.node_count,
                                     "edges": stats.edge_count,
                                     "files": stats.file_count,
@@ -1249,12 +1243,12 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "diff_impact" => {
-                                let repo = repo_path.ok_or_else(|| {
-                                    anyhow::anyhow!("project '{project}' not found")
-                                })?;
                                 let depth =
                                     args.get("depth").and_then(|v| v.as_u64()).unwrap_or(3) as u32;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
+                                let repo =
+                                    resolve_code_repo_path(&args, &config, project, Some(&store))?
+                                        .ok_or_else(|| code_project_not_found(project))?;
                                 let indexer = aeqi_graph::Indexer::new();
                                 let impact = indexer.diff_impact(&repo, &store, depth)?;
                                 let changed: Vec<serde_json::Value> = impact.changed_symbols.iter().map(|s| {
@@ -1265,6 +1259,8 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }).collect();
                                 Ok(serde_json::json!({
                                     "ok": true,
+                                    "project": project,
+                                    "repo_path": repo.to_string_lossy(),
                                     "changed_files": impact.changed_files,
                                     "changed_symbols": changed,
                                     "affected_count": affected.len(),
@@ -1283,15 +1279,17 @@ pub fn cmd_mcp(config_path: &Option<PathBuf>) -> Result<()> {
                                 }))
                             }
                             "incremental" => {
-                                let repo = repo_path.ok_or_else(|| {
-                                    anyhow::anyhow!("project '{project}' not found")
-                                })?;
                                 let store = aeqi_graph::GraphStore::open(&db_path)?;
+                                let repo =
+                                    resolve_code_repo_path(&args, &config, project, Some(&store))?
+                                        .ok_or_else(|| code_project_not_found(project))?;
                                 let indexer = aeqi_graph::Indexer::new();
                                 let result = indexer.index_incremental(&repo, &store)?;
+                                store.set_meta("repo_path", &repo.to_string_lossy())?;
                                 Ok(serde_json::json!({
                                     "ok": true,
                                     "project": project,
+                                    "repo_path": repo.to_string_lossy(),
                                     "result": result.to_string(),
                                     "files": result.files_parsed,
                                     "parse_errors": result.parse_errors,
@@ -1493,6 +1491,101 @@ fn quests_update_ipc_request(args: &serde_json::Value, default_project: &str) ->
     ipc
 }
 
+fn resolve_code_repo_path(
+    args: &serde_json::Value,
+    config: &aeqi_core::config::AEQIConfig,
+    project: &str,
+    store: Option<&aeqi_graph::GraphStore>,
+) -> anyhow::Result<Option<PathBuf>> {
+    if let Some(repo) = args
+        .get("repo_path")
+        .or_else(|| args.get("repo"))
+        .and_then(|v| v.as_str())
+        .map(expand_path)
+        .and_then(existing_dir)
+    {
+        return Ok(Some(repo));
+    }
+
+    if let Some(repo) = config
+        .agent_spawns
+        .iter()
+        .find(|p| p.name == project)
+        .map(|p| config.resolve_repo(&p.repo))
+        .map(expand_pathbuf)
+        .and_then(existing_dir)
+    {
+        return Ok(Some(repo));
+    }
+
+    if let Some(store) = store
+        && let Some(repo) = store
+            .get_meta("repo_path")?
+            .as_deref()
+            .map(expand_path)
+            .and_then(existing_dir)
+    {
+        return Ok(Some(repo));
+    }
+
+    Ok(discover_repo_by_project_name(project))
+}
+
+fn code_project_not_found(project: &str) -> anyhow::Error {
+    anyhow::anyhow!(
+        "project '{project}' not found; configure [[projects]], pass repo_path, or run a full index with repo_path once"
+    )
+}
+
+fn expand_path(path: &str) -> PathBuf {
+    PathBuf::from(expand_tilde(path))
+}
+
+fn expand_pathbuf(path: PathBuf) -> PathBuf {
+    PathBuf::from(expand_tilde(&path.to_string_lossy()))
+}
+
+fn existing_dir(path: PathBuf) -> Option<PathBuf> {
+    if path.is_dir() {
+        Some(std::fs::canonicalize(&path).unwrap_or(path))
+    } else {
+        None
+    }
+}
+
+fn discover_repo_by_project_name(project: &str) -> Option<PathBuf> {
+    if project.contains('/') || project.contains('\\') || project == "." || project == ".." {
+        return None;
+    }
+
+    let mut roots = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        roots.push(home);
+    }
+    roots.push(PathBuf::from("/workspace"));
+
+    if let Ok(home_entries) = std::fs::read_dir("/home") {
+        for entry in home_entries.flatten() {
+            roots.push(entry.path());
+        }
+    }
+
+    roots
+        .into_iter()
+        .map(|root| root.join(project))
+        .find(|candidate| candidate.is_dir() && candidate.join(".git").exists())
+        .and_then(existing_dir)
+}
+
+fn expand_tilde(path: &str) -> String {
+    if path.starts_with('~')
+        && let Some(home) = dirs::home_dir()
+    {
+        return path.replacen('~', &home.to_string_lossy(), 1);
+    }
+    path.to_string()
+}
+
 fn graph_dirty_files(store: &aeqi_graph::GraphStore) -> anyhow::Result<Vec<String>> {
     Ok(store
         .get_meta("dirty_files")?
@@ -1667,6 +1760,86 @@ mod tests {
         assert_eq!(req["agent_id"], "a6107b6a-1959-45f9-901c-77fa1f333cbe");
         assert_eq!(req["scope"], "global");
         assert!(req["due_at"].is_null());
+    }
+
+    #[test]
+    fn stdio_code_repo_resolution_prefers_explicit_repo_path() {
+        let repo = tempfile::tempdir().unwrap();
+        let configured = tempfile::tempdir().unwrap();
+        let config = aeqi_core::config::AEQIConfig::parse(&format!(
+            r#"
+[aeqi]
+name = "test"
+
+[[projects]]
+name = "aeqi"
+prefix = "ae"
+repo = "{}"
+"#,
+            configured.path().display()
+        ))
+        .unwrap();
+
+        let resolved = resolve_code_repo_path(
+            &serde_json::json!({"repo_path": repo.path().to_string_lossy()}),
+            &config,
+            "aeqi",
+            None,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(resolved, std::fs::canonicalize(repo.path()).unwrap());
+    }
+
+    #[test]
+    fn stdio_code_repo_resolution_uses_config_repo_key() {
+        let repo = tempfile::tempdir().unwrap();
+        let config = aeqi_core::config::AEQIConfig::parse(&format!(
+            r#"
+[aeqi]
+name = "test"
+
+[repos]
+main = "{}"
+
+[[projects]]
+name = "aeqi"
+prefix = "ae"
+repo = "main"
+"#,
+            repo.path().display()
+        ))
+        .unwrap();
+
+        let resolved = resolve_code_repo_path(&serde_json::json!({}), &config, "aeqi", None)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(resolved, std::fs::canonicalize(repo.path()).unwrap());
+    }
+
+    #[test]
+    fn stdio_code_repo_resolution_uses_graph_metadata_without_config() {
+        let repo = tempfile::tempdir().unwrap();
+        let config = aeqi_core::config::AEQIConfig::parse(
+            r#"
+[aeqi]
+name = "test"
+"#,
+        )
+        .unwrap();
+        let store = aeqi_graph::GraphStore::open_in_memory().unwrap();
+        store
+            .set_meta("repo_path", repo.path().to_string_lossy().as_ref())
+            .unwrap();
+
+        let resolved =
+            resolve_code_repo_path(&serde_json::json!({}), &config, "aeqi", Some(&store))
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(resolved, std::fs::canonicalize(repo.path()).unwrap());
     }
 
     #[test]
