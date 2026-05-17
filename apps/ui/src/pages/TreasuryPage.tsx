@@ -22,6 +22,7 @@ import { indexerEnabled } from "@/lib/indexer";
 import { formatInteger, formatMediumDate, formatShortDate } from "@/lib/i18n";
 import { goExternal } from "@/lib/navigation";
 import { formatCents, launchPlanById, launchPlanResourceItems } from "@/lib/pricing";
+import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { useTreasury, type TreasuryTransfer, type TokenBalance } from "@/hooks/useTreasury";
 import { useDaemonStore } from "@/store/daemon";
 import type { InferenceCallRow } from "@/lib/types";
@@ -344,6 +345,9 @@ function TransfersSection({
   transfers: TreasuryTransfer[] | null;
   loading: boolean;
 }) {
+  // Tick the relative-time column once a minute so "5s ago" advances.
+  useRelativeNow();
+
   const columns: Array<TableColumn<TreasuryTransfer>> = [
     {
       key: "direction",

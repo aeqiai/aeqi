@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Button } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
+import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { dueLabel, isOverdue, timeAgo } from "@/lib/format";
 import { formatDateTime } from "@/lib/i18n";
 import AssigneeAvatar from "./AssigneeAvatar";
@@ -53,6 +54,9 @@ export default function QuestList({
   const toggle = useCallback((s: QuestStatus) => {
     setCollapsed((prev) => ({ ...prev, [s]: !prev[s] }));
   }, []);
+
+  // Tick the "X ago" labels on each row once a minute.
+  useRelativeNow();
 
   if (totalCount === 0) {
     const hasSearch = search.trim().length > 0;

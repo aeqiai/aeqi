@@ -4,6 +4,7 @@ import { Button } from "../ui";
 import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
+import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { dueLabel, isOverdue, timeAgo } from "@/lib/format";
 import { formatDateTime } from "@/lib/i18n";
 import QuestsViewPopover, { type QuestsView } from "./QuestsViewPopover";
@@ -65,6 +66,10 @@ export default function QuestBoard({
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Tick "X ago" labels on the cards once a minute so they don't
+  // freeze when the board is left open.
+  useRelativeNow();
 
   // Search narrows what's displayed in the columns. Scope filtering
   // happens upstream (parent AgentQuestsTab) and feeds us `quests`; we

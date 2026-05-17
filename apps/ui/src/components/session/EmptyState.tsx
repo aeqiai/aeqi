@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Spinner } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
+import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { timeAgo } from "@/lib/format";
 import { formatInteger } from "@/lib/i18n";
 
@@ -34,6 +35,8 @@ export default function EmptyState({
 }: EmptyStateProps) {
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests);
+  // Tick "last active X ago" once a minute so the status doesn't lie.
+  useRelativeNow();
 
   // Look up the agent record (for last_active, session_count, etc.).
   const agent = useMemo(() => agents.find((a) => a.id === agentId), [agents, agentId]);

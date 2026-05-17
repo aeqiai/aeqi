@@ -29,6 +29,7 @@ import MessageItem from "@/components/session/MessageItem";
 import ParticipantStrip from "@/components/sessions/ParticipantStrip";
 import type { Message } from "@/components/session/types";
 import type { ComposerAttachmentKind, ComposerFile } from "@/components/composer/Composer";
+import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { timeAgo } from "@/lib/format";
 
 /** Compact relative-time for the chat header — wraps `timeAgo`'s ISO API
@@ -145,6 +146,10 @@ export default function SessionDetail({
   errorMessage,
   hideComposer = false,
 }: SessionDetailProps) {
+  // Subscribe to the shared 60 s tick so the header's "Active 2m ago" label
+  // advances even when no new message arrives.
+  useRelativeNow();
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef<number>(0);
