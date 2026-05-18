@@ -267,14 +267,16 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         </nav>
 
         {/* ── Acting-as selector — the main accent block in the rail.
-            Display: Acting as / <Actor> / <Role> · <Trust>. Click opens
-            the dedicated `/acting-as` page where the user picks the full
-            (actor × role × trust) tuple. Replaces the prior workspace
-            switcher dropdown 2026-05-18 — context isn't a "which company"
-            choice anymore, it's an Actor → Role → Trust choice. ── */}
-        <div className="sidebar-user-zone">
-          <ActingAsSelector />
-        </div>
+            Only mounts when a trust is active. At `/` (the identity
+            picker) nothing has been picked yet, so the selector would
+            falsely claim a context; hiding it keeps the rail honest
+            about state and lines up with the Trust/Ownership/Execution
+            groups below (which are also `hasCompany`-gated). ── */}
+        {hasCompany && (
+          <div className="sidebar-user-zone">
+            <ActingAsSelector />
+          </div>
+        )}
 
         {/* ── Company-scope items. Visible only when a company is
             selected. Order matches the Phase-1 lock:
