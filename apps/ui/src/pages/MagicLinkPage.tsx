@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import Wordmark from "@/components/Wordmark";
-import { Button, Spinner } from "@/components/ui";
+import { Button, Loading } from "@/components/ui";
 import { Events, useTrack } from "@/lib/analytics";
 
 type State = "consuming" | "success" | "expired" | "missing";
@@ -58,7 +58,7 @@ export default function MagicLinkPage() {
           <>
             <h1 className="auth-heading">Signing you in</h1>
             <p className="auth-subheading auth-verifying">
-              <Spinner size="sm" />
+              <Loading size="sm" />
               One moment…
             </p>
           </>

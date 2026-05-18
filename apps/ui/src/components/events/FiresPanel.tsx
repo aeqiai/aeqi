@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Spinner, Tooltip } from "@/components/ui";
+import { Loading, Tooltip } from "@/components/ui";
 import { formatShortDate } from "@/lib/i18n";
 import type { EventInvocationRow } from "@/lib/types";
 import StepDetail, { StatusDot, durationMs } from "./StepDetail";
@@ -65,7 +65,7 @@ export default function FiresPanel({ eventName, pattern, fireCountHint }: FiresP
 
       {loading && (
         <div className="events-fires-loading">
-          <Spinner size="sm" />
+          <Loading size="sm" />
           loading…
         </div>
       )}

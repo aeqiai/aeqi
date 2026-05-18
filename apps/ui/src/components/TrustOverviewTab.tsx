@@ -11,7 +11,7 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { entityBasePath } from "@/lib/entityPath";
 import TrustHeroStrip from "./TrustHeroStrip";
 import BlockAvatar from "./BlockAvatar";
-import { Spinner, Tooltip } from "@/components/ui";
+import { Loading, Tooltip } from "@/components/ui";
 import "@/styles/overview.css";
 
 // HealthBlock — substrate compounding read folded into the cockpit
@@ -490,7 +490,7 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
           </h2>
           <p className="entity-overview-section-sub">Is this TRUST compounding?</p>
         </header>
-        <Suspense fallback={<Spinner size="sm" />}>
+        <Suspense fallback={<Loading size="sm" />}>
           <HealthBlock trustId={trustId} />
         </Suspense>
       </section>

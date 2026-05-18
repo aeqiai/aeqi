@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useLocation, useParams } from "react-router-do
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 import AppLayout from "@/components/AppLayout";
 import SessionRedirect from "@/components/SessionRedirect";
 import { entityPath } from "@/lib/entityPath";
@@ -81,12 +81,7 @@ function PublicProfileRoute({ protectedFallback }: { protectedFallback: ReactNod
   return <PublicProfilePage />;
 }
 
-const LoadingSpinner = () => (
-  <div className="app-loading">
-    <Spinner size="sm" />
-    Loading…
-  </div>
-);
+const LoadingFallback = () => <Loading variant="page" label="Loading application" />;
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -108,7 +103,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     if (authMode && authMode !== "none" && token && !user) fetchMe();
   }, [authMode, token, user, fetchMe]);
 
-  if (!authMode) return <LoadingSpinner />;
+  if (!authMode) return <LoadingFallback />;
   if (authMode === "none") return <>{children}</>;
   if (!token) {
     const here = location.pathname + location.search;
@@ -135,7 +130,7 @@ function GatedAppShell() {
     fetchAuthMode();
   }, [fetchAuthMode]);
 
-  if (!authMode) return <LoadingSpinner />;
+  if (!authMode) return <LoadingFallback />;
   if (authMode === "none" || token) return <AppLayout />;
   const here = location.pathname + location.search;
   return <Navigate to={`/login?next=${encodeURIComponent(here)}`} replace />;
@@ -174,9 +169,9 @@ function RootRouteSwitch() {
     }
   }, [authMode, token, initialLoaded, fetchEntities]);
 
-  if (!authMode) return <LoadingSpinner />;
+  if (!authMode) return <LoadingFallback />;
   if (authMode !== "none" && token) {
-    if (!initialLoaded) return <LoadingSpinner />;
+    if (!initialLoaded) return <LoadingFallback />;
     const host = entities.find((e) => e.placement_type === "host");
     const primary = host ?? entities[0] ?? null;
     if (primary) {
@@ -253,7 +248,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <Suspense fallback={<LoadingSpinner />}>
+      <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public auth routes — three URLs, one component, three
               copy modes. Per "every user = a Company": sign-in and

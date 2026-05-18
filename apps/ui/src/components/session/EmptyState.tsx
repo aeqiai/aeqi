@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { timeAgo } from "@/lib/format";
@@ -60,7 +60,7 @@ export default function EmptyState({
           className="asv-empty-hint"
           style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
         >
-          <Spinner size="sm" />
+          <Loading size="sm" />
           Loading session…
         </div>
       </div>

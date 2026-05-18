@@ -103,7 +103,7 @@ describe("Button", () => {
     );
   });
 
-  it("hides leadingIcon while loading (spinner takes the slot)", () => {
+  it("hides leadingIcon while loading (loading mark takes the slot)", () => {
     render(
       <Button loading leadingIcon={<span data-testid="lead">+</span>}>
         Saving

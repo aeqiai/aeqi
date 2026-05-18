@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TrustHeroStrip from "@/components/TrustHeroStrip";
-import { Button, EmptyState, Spinner } from "@/components/ui";
+import { Button, EmptyState, Loading } from "@/components/ui";
 
 /**
  * Public profile page — Phase 2 of public-profiles. Renders at the
@@ -93,7 +93,7 @@ export default function PublicProfilePage() {
           fontSize: "var(--font-size-sm)",
         }}
       >
-        <Spinner size="sm" />
+        <Loading size="sm" />
         Loading profile…
       </div>
     );

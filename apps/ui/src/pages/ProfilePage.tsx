@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import PageRail from "@/components/PageRail";
 import { useAuthStore } from "@/store/auth";
-import { EmptyState, Spinner } from "@/components/ui";
+import { EmptyState, Loading } from "@/components/ui";
 import WalletBoundary from "@/components/WalletBoundary";
 
 const ProfilePanel = lazy(() => import("@/pages/Settings/ProfilePanel"));
@@ -27,7 +27,7 @@ const BASE_TABS = [
 ];
 const ADMIN_TAB = { id: "invites", label: "Invites" };
 
-const panelFallback = <Spinner size="md" />;
+const panelFallback = <Loading size="md" />;
 
 /**
  * `/account` — user-scoped account shell. Each tab lives in its own

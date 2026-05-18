@@ -6,7 +6,7 @@ import type { InvitationDetail } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
-import { Button, Select, Spinner } from "@/components/ui";
+import { Button, Select, Loading } from "@/components/ui";
 import Wordmark from "@/components/Wordmark";
 
 /**
@@ -169,7 +169,7 @@ export default function InvitationAcceptPage() {
                 padding: "var(--space-4) 0",
               }}
             >
-              <Spinner size="sm" /> Loading invitation…
+              <Loading size="sm" /> Loading invitation…
             </div>
           )}
 

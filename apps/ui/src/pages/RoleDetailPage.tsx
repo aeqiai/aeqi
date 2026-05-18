@@ -6,7 +6,7 @@ import { formatMediumDate } from "@/lib/i18n";
 import type { Role, RoleInvitation } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
-import { Badge, Button, Spinner } from "@/components/ui";
+import { Badge, Button, Loading } from "@/components/ui";
 
 const ROLE_TYPE_LABEL: Record<string, string> = {
   director: "Director",
@@ -98,7 +98,7 @@ export default function RoleDetailPage() {
           fontSize: "var(--font-size-sm)",
         }}
       >
-        <Spinner size="sm" /> Loading…
+        <Loading size="sm" /> Loading…
       </div>
     );
   }

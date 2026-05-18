@@ -3454,7 +3454,7 @@
   overflow: hidden;
 }
 /* Quest detail save-state indicator — sits in the right of the canonical
-   toolbar. Subtle text + spinner (when saving), quiet "Saved · Xm ago"
+   toolbar. Subtle text + loading mark (when saving), quiet "Saved · Xm ago"
    timestamp at rest. Auto-save means there's no Save button; this is the
    only signal the work persisted. */
 .quest-detail-savestate {

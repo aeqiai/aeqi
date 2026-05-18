@@ -2,7 +2,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { EmptyState } from "./EmptyState";
 import { Button } from "./Button";
-import { Spinner } from "./Spinner";
+import { Loading } from "./Loading";
 
 const meta: Meta<typeof EmptyState> = {
   title: "Primitives/Feedback/EmptyState",
@@ -121,7 +121,7 @@ function LoadingToEmptyTransitionRender(): ReactNode {
             gap: 16,
           }}
         >
-          <Spinner size="md" />
+          <Loading size="md" />
           <span style={{ fontSize: 13, color: "rgba(0,0,0,0.4)" }}>Loading quests...</span>
         </div>
       ) : (
@@ -144,7 +144,7 @@ export const LoadingToEmptyTransition: Story = {
     docs: {
       description: {
         story:
-          "Documents the canonical fetch-to-empty pattern. Surfaces display a Spinner during data load, then transition to EmptyState when the request resolves with no results. This cycle repeats to showcase the transition. Most surfaces implement this manually; the story documents the sequence.",
+          "Documents the canonical fetch-to-empty pattern. Surfaces display a Loading during data load, then transition to EmptyState when the request resolves with no results. This cycle repeats to showcase the transition. Most surfaces implement this manually; the story documents the sequence.",
       },
     },
   },

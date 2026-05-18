@@ -15,7 +15,7 @@ const BlockEditor = lazy(() => import("./BlockEditor"));
 /**
  * Suspense fallback. While the editor chunk is loading we render a
  * read-only Textarea showing the plaintext content so a slow network
- * still presents *something* readable, not a spinner. The textarea is
+ * still presents *something* readable, not an empty loading frame. The textarea is
  * read-only — the user can't accidentally type into it and lose the
  * input on chunk arrival.
  */

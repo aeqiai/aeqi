@@ -1,5 +1,5 @@
 import { Meta } from "@storybook/blocks";
-import { Spinner } from "../Spinner";
+import { Loading } from "../Loading";
 import { ThinkingDot } from "../ThinkingDot";
 import { EmptyState } from "../EmptyState";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -9,72 +9,66 @@ import { Button } from "../Button";
 
 # Feedback
 
-Four primitives communicate state to the user: Spinner announces data is loading, ThinkingDot signals an agent is processing, EmptyState tells the user a surface has no data yet, and ErrorBoundary catches render failures and shows recovery UI instead of a blank page. Together they handle the four core feedback states—loading, thinking, empty, broken—ensuring the user always knows what the system is doing.
+Four primitives communicate state to the user: Loading announces data is loading, ThinkingDot signals an agent is processing, EmptyState tells the user a surface has no data yet, and ErrorBoundary catches render failures and shows recovery UI instead of a blank page. Together they handle the four core feedback states: loading, thinking, empty, broken.
 
 ## When to use which
 
 | Primitive         | Role                         | Use when                                                      |
 | ----------------- | ---------------------------- | ------------------------------------------------------------- |
-| **Spinner**       | Loading indicator            | Data is fetching or any long operation is in progress         |
+| **Loading**       | Loading indicator            | Data is fetching or any long operation is in progress         |
 | **ThinkingDot**   | Streaming/thinking indicator | An agent is processing, thinking, or streaming a response     |
 | **EmptyState**    | Zero-data placeholder        | A list, feed, or surface has no items to show                 |
 | **ErrorBoundary** | Render error boundary        | Wrapping subtrees that may throw during render to catch falls |
 
-## Spinner
+## Loading
 
-Three sizes optimized for their context: **sm** (14px) for inline labels like "Loading…", **md** (20px) as default in most surfaces, **lg** (32px) for prominent page-level loading states.
+Loading is the generic fetch/wait primitive. It uses the aeqi wordmark or compact brand mark with a slow pulse, so waiting states read as part of the product.
 
 ### Sizes
 
-| Size   | Use when                                                              |
-| ------ | --------------------------------------------------------------------- |
-| **sm** | Inline with a text label inside toolbars, cards, or list row contexts |
-| **md** | Default; loading states inside modals, cards, or sections             |
-| **lg** | Full-page or hero-level loading (Suspense fallback, large empty area) |
+| Size   | Use when                                                               |
+| ------ | ---------------------------------------------------------------------- |
+| **sm** | Inline with a text label inside toolbars, cards, or list row contexts  |
+| **md** | Default; loading states inside modals, cards, or sections              |
+| **lg** | Full-page or route-level loading (Suspense fallback, large empty area) |
 
 ### Accessibility contract
 
-- `role="status"` + `aria-label="Loading"` fire automatically
-- Screen readers announce "Loading" when the spinner appears
-- Always pair with visible text in inline contexts — don't render Spinner alone without a label a screen reader user can reach
+- `role="status"` + `aria-label` fire automatically
+- Pass a specific `label` for the surface being loaded
+- Inline contexts should either pass `showLabel` or keep visible loading text beside the mark
 
 ### Pattern: inline loading
 
 ```tsx
 <div>
-  <Spinner size="sm" /> Loading agents…
+  <Loading size="sm" label="Loading agents" showLabel />
 </div>
 ```
 
-Loading inside a visible surface while context stays readable. The Spinner signals activity; the label tells the screen reader what's loading.
+Loading inside a visible surface while context stays readable. The mark signals activity; the label names what's loading.
 
 ### Pattern: page-level loading
 
 ```tsx
-<Suspense
-  fallback={
-    <div style={{ display: "flex", justifyContent: "center", padding: "5rem" }}>
-      <Spinner size="lg" />
-    </div>
-  }
->
+<Suspense fallback={<Loading variant="page" label="Loading application" />}>
   {/* route content */}
 </Suspense>
 ```
 
-Centred Spinner at App root or route boundary. Use `size="lg"` for page-level prominence.
+Use page loading at the app root or route boundary. It renders the full wordmark and hides visual prose so the loading frame stays quiet.
 
 ### Reduced-motion contract
 
-When a user sets OS preference for reduced motion, Spinner stops rotating. The ring becomes static and dims slightly to signal "waiting" without motion. State changes (opacity) happen instantly; only the spin animation disables.
+When a user sets OS preference for reduced motion, Loading stops pulsing and renders the mark at full opacity. Do not replace it with a rotating indicator.
 
 ### Storybook
 
-`Components/UI/Spinner` — all three sizes, inline and page-level patterns, motion preference simulation.
+`Primitives/Feedback/Loading` — inline, section, page, overlay, and reduced-motion examples.
 
 ## ThinkingDot
 
-Smaller and more specialised than Spinner. Two sizes (**sm** 5px, **md** 7px) for tight inline contexts where a full Spinner would be too large.
+ThinkingDot is narrower than Loading. Use it only when an agent turn is thinking, streaming, or running tools.
 
 ### Sizes and context
 
@@ -228,12 +222,12 @@ Pass `fallback` prop to override the default UI:
 
 Every animated primitive honours `@media (prefers-reduced-motion: reduce)`:
 
-| Primitive         | At rest                    | With reduced motion           |
-| ----------------- | -------------------------- | ----------------------------- |
-| **Spinner**       | Rotating ring              | Static dim ring (opacity 0.7) |
-| **ThinkingDot**   | Pulsing dot                | Static dot at full opacity    |
-| **EmptyState**    | No motion (static already) | —                             |
-| **ErrorBoundary** | No motion in fallback      | —                             |
+| Primitive         | At rest                    | With reduced motion         |
+| ----------------- | -------------------------- | --------------------------- |
+| **Loading**       | Pulsing wordmark/mark      | Static mark at full opacity |
+| **ThinkingDot**   | Pulsing dot                | Static dot at full opacity  |
+| **EmptyState**    | No motion (static already) | —                           |
+| **ErrorBoundary** | No motion in fallback      | —                           |
 
 State changes (colour, opacity shifts, border updates) happen instantly in all cases. Motion is the layer that disables when the user prefers it. This honours WCAG 2.1 SC 2.3.3 (animation from interactions).
 
@@ -263,7 +257,7 @@ All four primitives:
 
 See the **Docs** tab on each component for the full prop surface:
 
-- **Spinner** — `size` ("sm" | "md" | "lg"), `className`, standard `span` attributes
+- **Loading** — `variant` ("page" | "section" | "inline"), `size`, `label`, `showLabel`, `className`
 - **ThinkingDot** — `size` ("sm" | "md"), `className`, standard `span` attributes
 - **EmptyState** — `title` (required), `description`, `action`, `eyebrow`, `className`
 - **ErrorBoundary** — `children` (required), `fallback` (optional custom UI), standard `div` attributes on wrapper

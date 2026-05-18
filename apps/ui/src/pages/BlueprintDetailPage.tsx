@@ -11,7 +11,7 @@ import type {
   SingleBlueprint,
 } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { Button, Spinner } from "@/components/ui";
+import { Button, Loading } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
@@ -116,7 +116,7 @@ export default function BlueprintDetailPage() {
         <PageRail tabs={SECTION_TABS} defaultTab="overview" title="Blueprint" basePath="" />
         <main className="page-rail-content page-rail-content--full">
           <div className="bp-status">
-            <Spinner size="sm" /> Loading Blueprint…
+            <Loading size="sm" /> Loading Blueprint…
           </div>
         </main>
       </div>

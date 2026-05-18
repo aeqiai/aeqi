@@ -180,47 +180,29 @@
   min-width: 0;
 }
 
-.spinner {
+.loadingMark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.spinner::after {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: var(--radius-full);
-  animation: btn-spin 0.6s linear infinite;
-  opacity: 0.7;
-}
-
-/* Spinner sizing — scale by button size */
-.sm .spinner::after {
-  width: 12px;
-  height: 12px;
+.loadingGlyph {
+  animation: btn-loading-pulse var(--motion-loading-duration) var(--motion-loading-easing) infinite;
 }
 
 .loading .label {
   opacity: 0.72;
 }
 
-.lg .spinner::after {
-  width: 16px;
-  height: 16px;
-}
+@keyframes btn-loading-pulse {
+  0%,
+  100% {
+    opacity: var(--motion-loading-opacity-min);
+  }
 
-.xl .spinner::after {
-  width: 18px;
-  height: 18px;
-}
-
-@keyframes btn-spin {
-  to {
-    transform: rotate(360deg);
+  50% {
+    opacity: var(--motion-loading-opacity-max);
   }
 }
 
@@ -267,8 +249,9 @@
     transform: none;
   }
 
-  .spinner::after {
+  .loadingGlyph {
     animation: none;
+    opacity: var(--motion-loading-opacity-max);
   }
 
   .button:not(:disabled):not([aria-disabled="true"]) .trailingIconForward {

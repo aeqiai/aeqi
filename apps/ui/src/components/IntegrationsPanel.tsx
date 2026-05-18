@@ -3,7 +3,7 @@ import type { CredentialView, IntegrationCatalogEntry } from "@/api/integrations
 import { integrationsApi } from "@/api/integrations";
 import { ConnectIntegrationModal } from "./ConnectIntegrationModal";
 import { IntegrationCard } from "./IntegrationCard";
-import { EmptyState } from "./ui";
+import { EmptyState, Loading } from "./ui";
 
 interface IntegrationsPanelProps {
   /** Credentials are filtered to this scope. */
@@ -103,7 +103,9 @@ export function IntegrationsPanel({ scope, heading, description }: IntegrationsP
   if (loading && catalog.length === 0) {
     return (
       <div className="integrations-panel">
-        <p className="integrations-panel-loading">Loading integrations…</p>
+        <p className="integrations-panel-loading">
+          <Loading size="sm" /> Loading integrations…
+        </p>
       </div>
     );
   }

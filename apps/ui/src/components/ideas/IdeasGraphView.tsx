@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Button, EmptyState, Spinner } from "../ui";
+import { Button, EmptyState, Loading } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
 import IdeasToolbar from "./IdeasToolbar";
 import { type IdeasView } from "./IdeasViewPopover";
@@ -77,7 +77,7 @@ export default function IdeasGraphView({
       <div className="ideas-graph-canvas">
         {graphLoading ? (
           <div className="ideas-graph-loading">
-            <Spinner size="sm" />
+            <Loading size="sm" />
             <span>Loading graph…</span>
           </div>
         ) : filteredGraph.nodes.length === 0 ? (

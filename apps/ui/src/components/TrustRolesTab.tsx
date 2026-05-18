@@ -5,7 +5,7 @@ import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import { Button, EmptyState, Tooltip } from "./ui";
+import { Button, EmptyState, Loading, Tooltip } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -304,7 +304,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
 function RolesLoading() {
   return (
-    <div style={{ padding: "24px 28px", color: "var(--color-text-muted)" }}>Loading roles…</div>
+    <div style={{ padding: "24px 28px", color: "var(--color-text-muted)" }}>
+      <Loading size="sm" /> Loading roles…
+    </div>
   );
 }
 

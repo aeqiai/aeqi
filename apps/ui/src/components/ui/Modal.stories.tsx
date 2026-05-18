@@ -5,6 +5,7 @@ import { Button } from "./Button";
 import { Input } from "./Input";
 import { Badge } from "./Badge";
 import { DetailField } from "./DetailField";
+import { Loading } from "./Loading";
 
 const meta: Meta<typeof Modal> = {
   title: "Primitives/Overlays/Modal",
@@ -281,7 +282,7 @@ export const LongContentScroll: Story = {
   },
 };
 
-/* ── Loading state with spinner ── */
+/* ── Loading state ── */
 
 function LoadingStateDemo() {
   const [open, setOpen] = useState(false);
@@ -302,16 +303,7 @@ function LoadingStateDemo() {
             minHeight: 140,
           }}
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              border: "2px solid rgba(0,0,0,0.1)",
-              borderTopColor: "rgba(0,0,0,0.6)",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
+          <Loading size="lg" label="Fetching agents" />
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 14, color: "rgba(0,0,0,0.7)", marginBottom: 4 }}>
               Fetching 12 agents...
@@ -321,7 +313,6 @@ function LoadingStateDemo() {
             </div>
           </div>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </Modal>
     </>
   );
@@ -334,7 +325,7 @@ export const LoadingState: Story = {
     docs: {
       description: {
         story:
-          "Modal showing a loading spinner during async work. The close button remains active. Pattern: use a centered spinner with descriptive text; don't disable the modal to show loading.",
+          "Modal showing the canonical loading mark during async work. The close button remains active. Pattern: use a centered Loading mark with descriptive text; don't disable the modal to show loading.",
       },
     },
   },

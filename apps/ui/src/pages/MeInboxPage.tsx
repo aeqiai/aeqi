@@ -11,7 +11,7 @@ import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionR
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
 import { useWebSocketChat } from "@/components/session/useWebSocketChat";
-import { Badge, IconButton, Spinner, Tooltip } from "@/components/ui";
+import { Badge, IconButton, Loading, Tooltip } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 import type { Message, SessionInfo } from "@/components/session/types";
@@ -599,7 +599,7 @@ export default function MeInboxPage() {
         <div className="inbox-pane-list-scroll">
           {loading && visible.length === 0 ? (
             <div className="inbox-list-loading">
-              <Spinner size="sm" />
+              <Loading size="sm" />
             </div>
           ) : visible.length === 0 ? (
             <SessionRail

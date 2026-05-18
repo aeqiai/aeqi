@@ -10,7 +10,7 @@ import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import { Banner, Button, Card, EmptyState, Input, Spinner, Textarea } from "@/components/ui";
+import { Banner, Button, Card, EmptyState, Input, Loading, Textarea } from "@/components/ui";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { LaunchingReveal } from "@/components/LaunchingReveal";
 import "@/styles/blueprints-store.css";
@@ -338,7 +338,7 @@ export default function CompanySetupPage() {
     return (
       <div className="wizard-page">
         <div className="bp-status">
-          <Spinner size="sm" /> Loading blueprint…
+          <Loading size="sm" /> Loading blueprint…
         </div>
       </div>
     );

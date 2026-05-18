@@ -16,7 +16,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   /** Use the danger variant for destructive actions. */
   destructive?: boolean;
-  /** Show a spinner on the confirm button (e.g. during an async call). */
+  /** Show the loading mark on the confirm button (e.g. during an async call). */
   loading?: boolean;
 }
 

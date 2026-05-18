@@ -33,8 +33,8 @@ export { QRCode } from "./QRCode";
 export { Tooltip } from "./Tooltip";
 export type { TooltipProps } from "./Tooltip";
 
-export { Spinner } from "./Spinner";
-export type { SpinnerProps } from "./Spinner";
+export { Loading } from "./Loading";
+export type { LoadingProps } from "./Loading";
 
 export { ThinkingDot } from "./ThinkingDot";
 export type { ThinkingDotProps } from "./ThinkingDot";

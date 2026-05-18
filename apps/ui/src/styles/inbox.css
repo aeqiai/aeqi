@@ -100,7 +100,7 @@
 /* ── List rows now live on the universal `<SessionRail>` primitive
    (`apps/ui/src/components/sessions/SessionRail.tsx`); the rail's
    styling is in layout.css under `.sessions-rail-*`. The
-   `.inbox-list-loading` wrapper still exists below for the spinner
+   `.inbox-list-loading` wrapper still exists below for the loading
    gate during the first fetch.                                   */
 
 /* ── Detail pane ─────────────────────────────────────────────── */

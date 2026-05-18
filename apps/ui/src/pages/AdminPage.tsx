@@ -18,7 +18,7 @@ import {
   Button,
   EmptyState,
   Input,
-  Spinner,
+  Loading,
   Table,
   Tabs,
   type BadgeVariant,
@@ -755,7 +755,7 @@ export default function AdminPage() {
 
       {loading && !data && (
         <div className="admin-page-loading">
-          <Spinner />
+          <Loading />
         </div>
       )}
 

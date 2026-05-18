@@ -4,7 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
-import { Spinner } from "./ui";
+import { Loading } from "./ui";
 import QuestCanvas from "./QuestCanvas";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import type { QuestsView } from "./quests/QuestsViewPopover";
@@ -152,7 +152,7 @@ export default function AgentQuestsTab({
           className="ideas-list-body"
           style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          <Spinner size="md" />
+          <Loading size="md" />
         </div>
       );
     }

@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
 import BlockAvatar from "@/components/BlockAvatar";
-import { Button, EmptyState, Spinner } from "@/components/ui";
+import { Button, EmptyState, Loading } from "@/components/ui";
 import type { Agent } from "@/lib/types";
 
 interface Trust {
@@ -137,7 +137,7 @@ export default function AgentsPage() {
 
       {loading ? (
         <div className="entities-loading" role="status">
-          <Spinner size="sm" />
+          <Loading size="sm" />
           Loading agents…
         </div>
       ) : entities.length === 0 ? (

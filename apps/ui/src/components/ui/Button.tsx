@@ -1,6 +1,14 @@
 import { forwardRef } from "react";
 import type { ReactNode } from "react";
+import BrandMark from "@/components/BrandMark";
 import styles from "./Button.module.css";
+
+const LOADING_MARK_SIZE = {
+  sm: 12,
+  md: 14,
+  lg: 16,
+  xl: 18,
+} as const;
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "danger" | "light";
@@ -18,8 +26,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   /** `forward` gives continuation arrows extra offset + hover nudge.
       `inline` keeps dropdown/status glyphs optically attached to the label. */
   trailingIconMode?: "forward" | "inline";
-  /** Screen-reader label for the loading spinner. Prevents double-announce when button label
-      already describes the action (e.g. "Save" + spinner should announce "Save", not "Save Loading").
+  /** Screen-reader label for the loading mark. Prevents double-announce when button label
+      already describes the action (e.g. "Save" + mark should announce "Save", not "Save Loading").
       Defaults to "Loading". Set to empty string to suppress sr-only announcement. */
   loadingLabel?: string;
 }
@@ -55,7 +63,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <button ref={ref} className={cls} disabled={disabled || loading} aria-busy={loading} {...rest}>
       {loading && (
-        <span className={styles.spinner} aria-hidden="true">
+        <span className={styles.loadingMark}>
+          <span className={styles.loadingGlyph} aria-hidden="true">
+            <BrandMark size={LOADING_MARK_SIZE[size]} color="currentColor" />
+          </span>
           {loadingLabel && <span className="sr-only">{loadingLabel}</span>}
         </span>
       )}

@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { goExternal } from "@/lib/navigation";
 import type { LaunchPlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
-import { Banner, Card, Spinner } from "@/components/ui";
+import { Banner, Card, Loading } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import type { Agent } from "@/lib/types";
 import "@/styles/billing.css";
@@ -120,7 +120,7 @@ export default function PlanTab({ agentId }: PlanTabProps) {
     return (
       <div className="billing-panel billing-panel-padded">
         <div className="billing-loading">
-          <Spinner size="sm" /> Loading plan…
+          <Loading size="sm" /> Loading plan…
         </div>
       </div>
     );

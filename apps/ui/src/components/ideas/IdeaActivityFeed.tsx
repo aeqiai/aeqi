@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 import { getIdeaActivity, type ActivityRow } from "@/api/sessions";
 import { formatDateTime, formatShortDate } from "@/lib/i18n";
 
@@ -132,7 +132,7 @@ export default function IdeaActivityFeed({
   if (loading) {
     return (
       <div className="idea-convo-loading">
-        <Spinner size="sm" />
+        <Loading size="sm" />
       </div>
     );
   }

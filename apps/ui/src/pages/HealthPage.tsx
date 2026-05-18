@@ -16,7 +16,7 @@
  * the four metrics with their trend deltas.
  */
 import { useMemo } from "react";
-import { Banner, EmptyState, MetricCard, MetricGrid, PageSection, Spinner } from "@/components/ui";
+import { Banner, EmptyState, MetricCard, MetricGrid, PageSection, Loading } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import {
@@ -56,7 +56,7 @@ export default function HealthBlock({ trustId }: { trustId: string }) {
   }, [metrics]);
 
   if (isLoading) {
-    return <Spinner size="sm" />;
+    return <Loading size="sm" />;
   }
 
   if (!metrics) {

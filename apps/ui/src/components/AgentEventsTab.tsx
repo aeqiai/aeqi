@@ -4,7 +4,7 @@ import { useNav } from "@/hooks/useNav";
 import * as eventsApi from "@/api/events";
 import { useAgentEvents, useAgentEventsCache } from "@/queries/events";
 import type { AgentEvent, ScopeValue } from "@/lib/types";
-import { Button, Select, Spinner } from "./ui";
+import { Button, Select, Loading } from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
 import {
@@ -421,7 +421,7 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
           className="events-surface-body"
           style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          <Spinner size="md" />
+          <Loading size="md" />
         </div>
       </div>
     );

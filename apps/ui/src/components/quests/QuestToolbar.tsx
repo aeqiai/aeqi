@@ -1,5 +1,5 @@
 import type React from "react";
-import { Button, Spinner, Tooltip } from "../ui";
+import { Button, Loading, Tooltip } from "../ui";
 import type { QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
 import QuestStatusPopover from "./QuestStatusPopover";
 import QuestPriorityPopover from "./QuestPriorityPopover";
@@ -11,7 +11,7 @@ import AssigneePicker from "./AssigneePicker";
 // ─────────────────────────────────────────────────────────────────────
 //  Shared toolbar — same chrome, same affordances, same field order in
 //  both modes. Only the buttons that don't apply to the mode (linked-
-//  idea picker, save-state spinner) get hidden.
+//  idea picker, save-state loading mark) get hidden.
 // ─────────────────────────────────────────────────────────────────────
 export default function QuestToolbar({
   agentId,
@@ -203,7 +203,7 @@ export default function QuestToolbar({
       <div className="ideas-toolbar-spacer" aria-hidden />
       {saving && (
         <span className="quest-detail-savestate">
-          <Spinner size="sm" /> Saving
+          <Loading size="sm" /> Saving
         </span>
       )}
       {showCancelSave && (

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { api } from "@/lib/api";
 import type { AgentTemplate, Blueprint, BlueprintCategory, SingleBlueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
-import { Button, Card, Spinner, Tooltip } from "@/components/ui";
+import { Button, Card, Loading, Tooltip } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { parseTags, serializeTags } from "@/components/ideas/types";
@@ -407,7 +407,7 @@ export default function BlueprintsPage() {
 
           {loading && (activeKind === "companies" || activeKind === "agents") ? (
             <div className="bp-status">
-              <Spinner size="sm" /> Loading Blueprints…
+              <Loading size="sm" /> Loading Blueprints…
             </div>
           ) : activeKind === "agents" ? (
             filteredAgentTemplates.length === 0 ? (

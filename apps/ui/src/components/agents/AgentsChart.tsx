@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Agent, Role, RoleEdge } from "@/lib/types";
-import { EmptyState } from "../ui";
+import { EmptyState, Loading } from "../ui";
 import { layoutChart, reRootEdges, NODE_W, NODE_H } from "@/components/roles/layout";
 import AgentChartCard from "./AgentChartCard";
 
@@ -39,7 +39,7 @@ export default function AgentsChart({
   if (loading) {
     return (
       <div className="ideas-list-body" style={{ color: "var(--color-text-muted)" }}>
-        Loading org chart…
+        <Loading size="sm" /> Loading org chart…
       </div>
     );
   }

@@ -4,7 +4,7 @@ import { listIdeaChildren, storeIdea } from "@/api/ideas";
 import { ideaKeys } from "@/queries/keys";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { useNav } from "@/hooks/useNav";
-import { Button, Modal, Input } from "../ui";
+import { Button, Loading, Modal, Input } from "../ui";
 
 /**
  * Tables-in-Ideas Phase 2.1 — Children list under the BlockEditor body.
@@ -105,7 +105,9 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
       </div>
       {error && <span className="idea-children-error">{error}</span>}
       {loading ? (
-        <span className="idea-children-loading">Loading…</span>
+        <span className="idea-children-loading">
+          <Loading size="sm" /> Loading children…
+        </span>
       ) : expanded && hasChildren ? (
         <ul className="idea-children-list">
           {children.map((child) => {

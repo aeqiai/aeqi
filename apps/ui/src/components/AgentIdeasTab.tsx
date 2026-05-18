@@ -8,7 +8,7 @@ import type { GraphNode, GraphEdge } from "./IdeaGraph";
 import IdeasListView from "./ideas/IdeasListView";
 import type { IdeasView } from "./ideas/IdeasViewPopover";
 import { blockTreeToPlainText } from "./editor/blockEditorContent";
-import { Spinner } from "./ui";
+import { Loading } from "./ui";
 import {
   type FilterState,
   type IdeasFilter,
@@ -27,7 +27,7 @@ const IdeasTableView = lazy(() => import("./ideas/IdeasTableView"));
 
 const viewFallback = (
   <div className="ideas-list-body">
-    <Spinner size="md" />
+    <Loading size="md" />
   </div>
 );
 
@@ -383,7 +383,7 @@ export default function AgentIdeasTab({
         className="ideas-list-body"
         style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
       >
-        <Spinner size="md" />
+        <Loading size="md" />
       </div>
     );
   }

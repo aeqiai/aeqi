@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { Combobox, Spinner } from "./ui";
+import { Combobox, Loading } from "./ui";
 import type { ComboboxOption } from "./ui";
 
 type Tier = "free" | "cheap" | "balanced" | "premium";
@@ -149,7 +149,7 @@ export default function ModelPicker({
   if (!models) {
     return (
       <div className="mp-loading">
-        <Spinner size="sm" />
+        <Loading size="sm" />
         <span>Loading catalog…</span>
       </div>
     );

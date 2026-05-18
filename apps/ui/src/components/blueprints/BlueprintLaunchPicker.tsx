@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
-import { Card, Spinner } from "@/components/ui";
+import { Card, Loading } from "@/components/ui";
 import { RECOMMENDED_BLUEPRINTS } from "@/lib/recommendedBlueprints";
 import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
@@ -44,7 +44,7 @@ interface BlueprintLaunchPickerProps {
  *     (a "merge into existing company" flow — no naming or billing
  *     concerns to surface)
  *
- * No bespoke colors / sizes — reuses `Card`, `Spinner`, and the
+ * No bespoke colors / sizes — reuses `Card`, `Loading`, and the
  * `bp-card-*` typography vocabulary from the catalog.
  */
 export function BlueprintLaunchPicker({
@@ -141,7 +141,7 @@ export function BlueprintLaunchPicker({
     return (
       <div className="bp-launch">
         <div className="bp-status">
-          <Spinner size="sm" /> Loading Blueprints…
+          <Loading size="sm" /> Loading Blueprints…
         </div>
       </div>
     );
@@ -175,7 +175,7 @@ export function BlueprintLaunchPicker({
             {blank.tagline && <span className="bp-launch-blank-tagline">{blank.tagline}</span>}
           </span>
           <span className="bp-launch-blank-cue" aria-hidden>
-            {submittingBlueprintId === blueprintId(blank) ? <Spinner size="sm" /> : "→"}
+            {submittingBlueprintId === blueprintId(blank) ? <Loading size="sm" /> : "→"}
           </span>
         </button>
       )}
@@ -208,7 +208,7 @@ export function BlueprintLaunchPicker({
                     <p className="bp-card-meta">
                       {busy ? (
                         <span className="bp-launch-card-busy">
-                          <Spinner size="sm" /> Launching…
+                          <Loading size="sm" /> Launching…
                         </span>
                       ) : (
                         formatSeedMeta(t)

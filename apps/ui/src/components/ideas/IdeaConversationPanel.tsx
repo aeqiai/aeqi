@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Spinner, Tooltip } from "@/components/ui";
+import { Button, Loading, Tooltip } from "@/components/ui";
 import { getIdeaComments, subscribeToIdea, type CommentRow } from "@/api/sessions";
 import { useAuthStore } from "@/store/auth";
 import { useNav } from "@/hooks/useNav";
@@ -212,7 +212,7 @@ export default function IdeaConversationPanel({
       <section className="idea-convo-panel" aria-label="Comments">
         {loadingComments ? (
           <div className="idea-convo-loading">
-            <Spinner size="sm" />
+            <Loading size="sm" />
           </div>
         ) : commentError ? (
           <div className="idea-convo-error">{commentError}</div>

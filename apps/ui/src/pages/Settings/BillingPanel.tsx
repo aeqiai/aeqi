@@ -7,7 +7,7 @@ import { formatCents, type LaunchPlanId } from "@/lib/pricing";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 import { entityPath } from "@/lib/entityPath";
-import { Banner, Button, Card, Spinner } from "@/components/ui";
+import { Banner, Button, Card, Loading } from "@/components/ui";
 import { CompanyPlanCard, type Company } from "@/components/billing/CompanyPlanCard";
 import "@/styles/billing.css";
 
@@ -152,7 +152,7 @@ export default function BillingPanel() {
   if (spawn.kind === "running") {
     return (
       <div className="billing-spawn">
-        <Spinner size="sm" />
+        <Loading size="sm" />
         <span>Provisioning your Company…</span>
       </div>
     );
@@ -161,7 +161,7 @@ export default function BillingPanel() {
   if (loading) {
     return (
       <div className="billing-loading">
-        <Spinner size="sm" />
+        <Loading size="sm" />
         <span>Loading billing…</span>
       </div>
     );

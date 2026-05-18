@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { formatInteger } from "@/lib/i18n";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 
 interface PreflightResult {
   system: string;
@@ -115,7 +115,7 @@ export default function QuestPreflightPanel({ agentId, description, taskIdeaIds 
               color: "var(--color-text-muted)",
             }}
           >
-            <Spinner size="sm" />
+            <Loading size="sm" />
             <span style={{ fontStyle: "italic" }}>loading…</span>
           </span>
         )}

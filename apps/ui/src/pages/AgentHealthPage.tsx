@@ -8,7 +8,7 @@ import {
   Page,
   PageBody,
   PageSection,
-  Spinner,
+  Loading,
 } from "@/components/ui";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
 import {
@@ -57,7 +57,7 @@ export default function AgentHealthPage({ agentId }: { agentId: string }) {
           )}
 
           {isLoading ? (
-            <Spinner size="sm" />
+            <Loading size="sm" />
           ) : !metrics ? (
             <EmptyState
               title="No health signal in scope."
@@ -83,7 +83,7 @@ export default function AgentHealthPage({ agentId }: { agentId: string }) {
 
           <PageSection title="Professional goals">
             {goalsQuery.isLoading ? (
-              <Spinner size="sm" />
+              <Loading size="sm" />
             ) : goals.length === 0 ? (
               <EmptyState
                 title="This agent has no professional goals filed."

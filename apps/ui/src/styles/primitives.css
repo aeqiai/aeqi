@@ -199,6 +199,10 @@
      changed properties explicitly so motion stays readable and auditable. */
   --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-loading-duration: 1.6s;
+  --motion-loading-easing: ease-in-out;
+  --motion-loading-opacity-min: 0.55;
+  --motion-loading-opacity-max: 1;
 
   /* ── Polish tokens (Track I) ──────────────────────────
      Accent bars, section divider rhythm, and key-pill treatment.

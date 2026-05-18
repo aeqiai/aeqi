@@ -3,7 +3,7 @@ import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { apiRequest } from "@/api/client";
 import { api } from "@/lib/api";
-import { Banner, Button, ConfirmDialog } from "@/components/ui";
+import { Banner, Button, ConfirmDialog, Loading } from "@/components/ui";
 import { buildSiweMessage, fetchNonce } from "@/lib/walletAuth";
 
 interface WalletRow {
@@ -161,7 +161,11 @@ export default function WalletsPanel() {
 
         {feedback && <Banner kind={feedback.type}>{feedback.msg}</Banner>}
 
-        {loading && <div className="account-activity-empty">Loading…</div>}
+        {loading && (
+          <div className="account-activity-empty">
+            <Loading size="sm" /> Loading wallets…
+          </div>
+        )}
         {!loading && wallets.length === 0 && (
           <div className="account-activity-empty">No wallets yet.</div>
         )}

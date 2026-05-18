@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 import type { EventInvocationRow, InvocationStepRow } from "@/lib/types";
 
 export function durationMs(started: string, finished: string | null): string {
@@ -75,7 +75,7 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
 
       {loading && (
         <div className="events-step-detail-loading">
-          <Spinner size="sm" />
+          <Loading size="sm" />
           Loading…
         </div>
       )}

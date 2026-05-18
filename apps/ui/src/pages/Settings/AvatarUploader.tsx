@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent } from "react";
 import UserAvatar from "@/components/UserAvatar";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import AvatarCropDialog from "./AvatarCropDialog";
@@ -123,7 +123,7 @@ export default function AvatarUploader({
         <UserAvatar name={name} size={64} src={src} />
         <span className="avatar-uploader-overlay" aria-hidden>
           {busy ? (
-            <Spinner size="sm" />
+            <Loading size="sm" />
           ) : (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path

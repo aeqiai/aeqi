@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { logError } from "@/lib/logging";
-import { Banner, Button, Card, EmptyState, Spinner } from "@/components/ui";
+import { Banner, Button, Card, EmptyState, Loading } from "@/components/ui";
 
 /**
  * `/account/notifications` — per-channel suppression preferences for the
@@ -79,7 +79,7 @@ export default function NotificationsPanel() {
   );
 
   if (loading && channels === null) {
-    return <Spinner size="md" />;
+    return <Loading size="md" />;
   }
 
   return (

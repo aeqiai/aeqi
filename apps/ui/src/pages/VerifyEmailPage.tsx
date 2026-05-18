@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import Wordmark from "@/components/Wordmark";
-import { Spinner } from "@/components/ui";
+import { Loading } from "@/components/ui";
 
 export default function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -123,7 +123,7 @@ export default function VerifyEmailPage() {
         {error && <div className="auth-error">{error}</div>}
         {loading && (
           <p className="auth-subheading auth-verifying">
-            <Spinner size="sm" />
+            <Loading size="sm" />
             Verifying…
           </p>
         )}

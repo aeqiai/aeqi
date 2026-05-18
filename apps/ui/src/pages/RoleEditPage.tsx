@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { GRANT_CATALOG } from "@/lib/grants";
 import type { Role, RoleType } from "@/lib/types";
-import { Button, Input, Spinner } from "@/components/ui";
+import { Button, Input, Loading } from "@/components/ui";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 
@@ -88,7 +88,7 @@ export default function RoleEditPage() {
           fontSize: "var(--font-size-sm)",
         }}
       >
-        <Spinner size="sm" /> Loading…
+        <Loading size="sm" /> Loading…
       </div>
     );
   }
