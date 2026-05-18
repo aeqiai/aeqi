@@ -349,19 +349,20 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           </>
         )}
 
-        {/* ── Bottom group — admin row (only for admin users) + HelpMenu.
-            Launch + Blueprints were dropped 2026-05-18: users land on
-            /launch automatically when they have no active trust, and the
-            workspace switcher's "+" cap covers new-company creation;
-            /blueprints is still reachable by URL but doesn't earn a
-            sidebar row. ── */}
+        {/* ── Bottom row — single horizontal row with Admin pinned left
+            (only for admin users) + HelpMenu pinned right. The Help cap
+            sits flush-right regardless of whether Admin is present; an
+            empty flex-grow placeholder occupies the left slot when Admin
+            isn't rendered so Help's right-edge position stays stable. ── */}
         <div className="sidebar-bottom-group">
-          {isAdminUser && (
-            <nav className="sidebar-surface-nav" aria-label="Admin">
-              {topLevelItem("/admin", "Admin", <AdminIcon />, isAdmin)}
-            </nav>
-          )}
-          <div className="sidebar-action-row sidebar-action-row--help">
+          <div className="sidebar-action-row sidebar-action-row--bottom">
+            {isAdminUser ? (
+              <nav className="sidebar-surface-nav sidebar-action-row-nav" aria-label="Admin">
+                {topLevelItem("/admin", "Admin", <AdminIcon />, isAdmin)}
+              </nav>
+            ) : (
+              <span className="sidebar-action-row-spacer" aria-hidden="true" />
+            )}
             <HelpMenu />
           </div>
         </div>

@@ -7642,3 +7642,22 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* ── Bottom row: Admin (if applicable) left, HelpMenu always right. The
+   `.sidebar-action-row > :first-child { flex: 1 }` rule already pins the
+   first child to take the row's growth, so the nav (Admin) or the spacer
+   (placeholder when Admin isn't rendered) takes that slot and HelpMenu
+   stays flush-right. ── */
+.sidebar-action-row--bottom {
+  margin: 0 8px 8px;
+}
+.sidebar-action-row-nav {
+  /* Strip the nav element's own margins/padding so the Admin row aligns
+     visually with the HelpMenu icon button beside it. */
+  margin: 0;
+  padding: 0;
+}
+.sidebar-action-row-spacer {
+  display: block;
+  min-height: 1px;
+}
