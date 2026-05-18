@@ -5,17 +5,13 @@ import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
-import { dueLabel, isOverdue, timeAgo } from "@/lib/format";
-import { formatDateTime } from "@/lib/i18n";
 import QuestsViewPopover, { type QuestsView } from "./QuestsViewPopover";
 import QuestsSortPopover, { type QuestSort } from "./QuestsSortPopover";
-import AssigneeAvatar from "./AssigneeAvatar";
-import AssigneePicker from "./AssigneePicker";
-import PriorityIcon from "./PriorityIcon";
 import QuestsFilterPopover from "./QuestsFilterPopover";
-import QuestScopeChip from "./QuestScopeChip";
 import StatusDot from "./StatusDot";
 import QuestList from "./QuestList";
+import QuestActiveCard from "./QuestActiveCard";
+import QuestArchiveStrips from "./QuestArchiveStrips";
 import { importQuestFromMarkdown, sortQuests, type QuestFilter } from "./agentQuestsHelpers";
 
 /**
@@ -43,6 +39,7 @@ export default function QuestBoard({
   onSortChange,
   agents,
   users,
+  splitLayout = false,
 }: {
   agentId: string;
   resolvedAgentId: string;
@@ -62,7 +59,16 @@ export default function QuestBoard({
   onSortChange: (next: QuestSort) => void;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
+  /** When true, the main board renders only the four ACTIVE columns
+   *  (Todo · In Progress · In Review · Done) and demotes Backlog and
+   *  Cancelled into horizontal strips below the board. Used by the
+   *  standalone TRUST-scope Quests app at `/trust/<addr>/quests`. */
+  splitLayout?: boolean;
 }) {
+  // Backlog and Cancelled are demoted into below-board strips when
+  // `splitLayout` is on. The drag/drop layer still recognises them as
+  // drop targets — promote / demote flows survive the split. Strip
+  // open/close state lives inside `QuestArchiveStrips`.
   const [err, setErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -165,16 +171,26 @@ export default function QuestBoard({
     [quests, defaultAssignee, onCreated],
   );
 
-  // v5.2: five-status Linear ladder. Backlog (parked) → Todo (ready) →
-  // In progress → Done | Cancelled. Reading order left-to-right on the
-  // board, top-to-bottom in the list view.
-  const columns: Array<{ status: QuestStatus; label: string }> = [
-    { status: "backlog", label: "Backlog" },
-    { status: "todo", label: "Todo" },
-    { status: "in_progress", label: "In progress" },
-    { status: "done", label: "Done" },
-    { status: "cancelled", label: "Cancelled" },
-  ];
+  // v5.3: six-status Linear ladder. Backlog (parked) → Todo (ready) →
+  // In progress → In review → Done | Cancelled. Reading order left-to-right
+  // on the board, top-to-bottom in the list view.
+  // When `splitLayout` is on, Backlog and Cancelled get demoted into
+  // collapsible strips below the main board — see the JSX below the grid.
+  const columns: Array<{ status: QuestStatus; label: string }> = splitLayout
+    ? [
+        { status: "todo", label: "Todo" },
+        { status: "in_progress", label: "In progress" },
+        { status: "in_review", label: "In review" },
+        { status: "done", label: "Done" },
+      ]
+    : [
+        { status: "backlog", label: "Backlog" },
+        { status: "todo", label: "Todo" },
+        { status: "in_progress", label: "In progress" },
+        { status: "in_review", label: "In review" },
+        { status: "done", label: "Done" },
+        { status: "cancelled", label: "Cancelled" },
+      ];
 
   // Bucket the already-sorted source by displayed status. Stable sort
   // means within-column order honors the active sort mode without a
@@ -186,6 +202,7 @@ export default function QuestBoard({
       backlog: [],
       todo: [],
       in_progress: [],
+      in_review: [],
       done: [],
       cancelled: [],
     };
@@ -197,13 +214,20 @@ export default function QuestBoard({
   }, [sortedVisibleQuests, optimistic]);
 
   // Flat traversal order used by j/k. In Board view: column-major over
-  // backlog → todo → in_progress → done → cancelled. In List view:
-  // the flat-sorted order.
+  // backlog → todo → in_progress → in_review → done → cancelled. In List
+  // view: the flat-sorted order.
   const flatOrderKey = useMemo(() => {
     if (view === "list") {
       return sortedVisibleQuests.map((q) => q.id).join("|");
     }
-    const order: QuestStatus[] = ["backlog", "todo", "in_progress", "done", "cancelled"];
+    const order: QuestStatus[] = [
+      "backlog",
+      "todo",
+      "in_progress",
+      "in_review",
+      "done",
+      "cancelled",
+    ];
     const ids: string[] = [];
     for (const s of order) for (const q of grouped[s] ?? []) ids.push(q.id);
     return ids.join("|");
@@ -473,99 +497,21 @@ export default function QuestBoard({
                     <div className="quest-col-empty">{isTarget ? "Drop here" : "Nothing here"}</div>
                   ) : (
                     list.map((q) => (
-                      <article
+                      <QuestActiveCard
                         key={q.id}
-                        className="quest-card"
-                        data-priority={q.priority}
-                        data-dragging={dragging === q.id || undefined}
-                        data-focused={focusId === q.id || undefined}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setData("text/plain", q.id);
-                          setDragging(q.id);
-                        }}
-                        onDragEnd={() => {
-                          setDragging(null);
-                          setDropTarget(null);
-                        }}
-                        onClick={() => onPick(q.id)}
-                      >
-                        <div className="quest-card-head">
-                          <StatusDot status={optimistic[q.id] ?? q.status} />
-                          <span className="quest-card-subject">{q.idea?.name ?? q.id}</span>
-                        </div>
-                        <div className="quest-card-meta">
-                          <PriorityIcon priority={q.priority} />
-                          {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-                          {q.status !== "in_progress" &&
-                            q.status !== "done" &&
-                            q.status !== "cancelled" && (
-                              <button
-                                type="button"
-                                className="quest-take-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleTake(q.id);
-                                }}
-                              >
-                                Take
-                              </button>
-                            )}
-                          <span
-                            className="quest-card-assignee"
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          >
-                            <AssigneePicker
-                              assignee={q.assignee}
-                              agents={agents}
-                              users={users}
-                              onChange={async (next) => {
-                                try {
-                                  await api.updateQuest(q.id, { assignee: next });
-                                  onCreated();
-                                } catch (e) {
-                                  setErr(e instanceof Error ? e.message : "Failed to reassign");
-                                }
-                              }}
-                              renderTrigger={({ open }) => (
-                                <button
-                                  type="button"
-                                  className={`quest-row-assignee${open ? " open" : ""}`}
-                                  aria-haspopup="dialog"
-                                  aria-expanded={open}
-                                  aria-label={
-                                    q.assignee
-                                      ? `Assigned: ${q.assignee}. Click to reassign.`
-                                      : "Unassigned. Click to assign."
-                                  }
-                                >
-                                  <AssigneeAvatar
-                                    assignee={q.assignee}
-                                    agents={agents}
-                                    users={users}
-                                    size={18}
-                                  />
-                                </button>
-                              )}
-                            />
-                          </span>
-                          {q.due_at && (
-                            <span
-                              className={`quest-due-chip${
-                                isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""
-                              }`}
-                              title={`Due ${formatDateTime(q.due_at)}`}
-                            >
-                              {dueLabel(q.due_at)}
-                            </span>
-                          )}
-                          {q.updated_at && (
-                            <span className="quest-card-time">{timeAgo(q.updated_at)}</span>
-                          )}
-                        </div>
-                      </article>
+                        q={q}
+                        optimistic={optimistic}
+                        dragging={dragging}
+                        focusId={focusId}
+                        setDragging={setDragging}
+                        setDropTarget={setDropTarget}
+                        onPick={onPick}
+                        onTake={handleTake}
+                        onCreated={onCreated}
+                        onError={setErr}
+                        agents={agents}
+                        users={users}
+                      />
                     ))
                   )}
                 </div>
@@ -573,6 +519,19 @@ export default function QuestBoard({
             );
           })}
         </div>
+      )}
+      {view !== "list" && splitLayout && (
+        <QuestArchiveStrips
+          grouped={grouped}
+          dragging={dragging}
+          setDragging={setDragging}
+          dropTarget={dropTarget}
+          setDropTarget={setDropTarget}
+          onDrop={handleDrop}
+          optimistic={optimistic}
+          focusId={focusId}
+          onPick={onPick}
+        />
       )}
     </div>
   );

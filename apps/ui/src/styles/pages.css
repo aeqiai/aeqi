@@ -3497,6 +3497,9 @@
 .quest-status-dot--in_progress {
   background: var(--info);
 }
+.quest-status-dot--in_review {
+  background: var(--color-accent);
+}
 .quest-status-dot--blocked {
   background: var(--warning);
 }
@@ -3505,6 +3508,118 @@
 }
 .quest-status-dot--cancelled {
   background: var(--color-text-muted);
+}
+
+/* ───────────────────────────────────────────────────────────────────
+   Quest archive strips — Backlog + Cancelled rendered as collapsible
+   horizontal lanes below the main board on the TRUST-scope standalone
+   Quests app. The main board keeps the four ACTIVE columns
+   (Todo · In progress · In review · Done) at full rhythm; demoted
+   states sit here so the eye reads "in-flight" first, "parked" /
+   "archived" second.
+
+   Card shape: 32px-tall chip on `--color-card-elevated`, same StatusDot
+   + truncated subject + priority glyph as the main board. Drag-to-
+   promote works from chip back into any active column.
+   ─────────────────────────────────────────────────────────────────── */
+.quest-archive-strips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 16px;
+  padding-bottom: 24px;
+}
+.quest-archive-strip {
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  transition: background-color var(--transition-fast, 150ms) ease;
+}
+.quest-archive-strip[data-drop-target] {
+  background: var(--color-card-subtle);
+}
+.quest-archive-strip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  border-radius: 4px;
+  transition: color var(--transition-fast, 150ms) ease;
+}
+.quest-archive-strip-head:hover {
+  color: var(--color-text-primary);
+}
+.quest-archive-strip-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+.quest-archive-strip-label {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.quest-archive-strip-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.quest-archive-strip-body {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 12px 8px;
+  scrollbar-width: thin;
+}
+.quest-archive-strip-empty {
+  flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+.quest-archive-chip {
+  flex: 0 0 240px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--color-card-elevated);
+  border-radius: 4px;
+  cursor: grab;
+  color: var(--color-text-primary);
+  transition:
+    background-color var(--transition-fast, 150ms) ease,
+    opacity var(--transition-fast, 150ms) ease;
+}
+.quest-archive-chip:hover {
+  background: var(--color-card);
+}
+.quest-archive-chip[data-dragging] {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+.quest-archive-chip[data-focused] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+.quest-archive-chip-subject {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
 }
 
 /* Priority mark — same 7px disc language as status. Critical fills

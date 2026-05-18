@@ -58,17 +58,19 @@ impl From<String> for QuestId {
     }
 }
 
-/// Five-status Linear-style lifecycle. v5.2 (2026-04-27) renamed
+/// Six-status Linear-style lifecycle. v5.2 (2026-04-27) renamed
 /// `Pending → Todo` and folded the legacy `Blocked` variant into a
-/// new `Backlog` tier — the canonical column order is now
-/// Backlog → Todo → InProgress → Done → Cancelled, matching the
-/// reading flow Linear / Notion / Height converged on.
+/// new `Backlog` tier. v5.3 (2026-05-18) added `InReview` between
+/// `InProgress` and `Done` so quests awaiting verification get their
+/// own column. Canonical column order is now
+/// Backlog → Todo → InProgress → InReview → Done → Cancelled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuestStatus {
     Backlog,
     Todo,
     InProgress,
+    InReview,
     Done,
     Cancelled,
 }
@@ -79,6 +81,7 @@ impl fmt::Display for QuestStatus {
             Self::Backlog => write!(f, "backlog"),
             Self::Todo => write!(f, "todo"),
             Self::InProgress => write!(f, "in_progress"),
+            Self::InReview => write!(f, "in_review"),
             Self::Done => write!(f, "done"),
             Self::Cancelled => write!(f, "cancelled"),
         }

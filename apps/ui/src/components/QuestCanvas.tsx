@@ -12,7 +12,14 @@ import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestToolbar from "./quests/QuestToolbar";
 import LinkedIdeaPicker from "./quests/LinkedIdeaPicker";
 
-const QUEST_STATUS_VALUES: QuestStatus[] = ["backlog", "todo", "in_progress", "done", "cancelled"];
+const QUEST_STATUS_VALUES: QuestStatus[] = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "done",
+  "cancelled",
+];
 
 function parseQuestStatus(raw: string | null): QuestStatus | null {
   return raw && QUEST_STATUS_VALUES.includes(raw as QuestStatus) ? (raw as QuestStatus) : null;

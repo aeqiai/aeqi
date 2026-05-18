@@ -5,11 +5,13 @@ use tracing::debug;
 
 use crate::quest::{Quest, QuestId, QuestOutcomeKind, QuestOutcomeRecord, QuestStatus};
 
-/// Valid transitions for the five-status quest state machine
-/// (Backlog → Todo → InProgress → Done | Cancelled). Backlog is the
-/// "parked / not yet committed" tier; Todo is "ready to work on".
-/// Anything can be cancelled; in-progress can re-queue back to Todo
-/// on worker failure.
+/// Valid transitions for the six-status quest state machine
+/// (Backlog → Todo → InProgress → InReview → Done | Cancelled).
+/// Backlog is the "parked / not yet committed" tier; Todo is "ready
+/// to work on"; InReview is "work submitted, awaiting verification".
+/// Anything non-terminal can be cancelled; in-progress can re-queue
+/// back to Todo on worker failure; in-review can bounce back to
+/// in-progress when rejected.
 fn valid_transition(from: &QuestStatus, to: &QuestStatus) -> bool {
     use QuestStatus::*;
     matches!(
@@ -17,11 +19,17 @@ fn valid_transition(from: &QuestStatus, to: &QuestStatus) -> bool {
         // Forward flow
         (Backlog, Todo)
             | (Todo, InProgress)
+            | (InProgress, InReview)
+            | (InReview, Done)
+            // Skip review (auto-accept by the same agent that did the work)
             | (InProgress, Done)
             | (InProgress, Cancelled)
+            | (InReview, Cancelled)
             // Retry / re-queue from worker failure
             | (InProgress, Todo)
             | (InProgress, Backlog)
+            // Reject from review back to in-progress
+            | (InReview, InProgress)
             // Park: pull a Todo back to the backlog
             | (Todo, Backlog)
             // Cancellation from any non-terminal state
@@ -31,6 +39,7 @@ fn valid_transition(from: &QuestStatus, to: &QuestStatus) -> bool {
             | (Backlog, Backlog)
             | (Todo, Todo)
             | (InProgress, InProgress)
+            | (InReview, InReview)
     )
 }
 

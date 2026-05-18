@@ -191,6 +191,7 @@ export default function QuestList({
                           </span>
                         )}
                         {status !== "in_progress" &&
+                          status !== "in_review" &&
                           status !== "done" &&
                           status !== "cancelled" && (
                             <button

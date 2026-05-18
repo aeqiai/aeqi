@@ -107,7 +107,10 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
       quests
         .filter(
           (q) =>
-            (q.status === "in_progress" || q.status === "todo" || q.status === "backlog") &&
+            (q.status === "in_progress" ||
+              q.status === "in_review" ||
+              q.status === "todo" ||
+              q.status === "backlog") &&
             ((q.agent_id && subtreeIds.has(q.agent_id)) || q.agent_id === trustId),
         )
         .sort((a, b) => {
@@ -501,10 +504,11 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
 // ── Helpers ───────────────────────────────────────────────────────────
 
 function questStatusRank(status: Quest["status"]): number {
-  if (status === "in_progress") return 0;
-  if (status === "todo") return 1;
-  if (status === "backlog") return 2;
-  return 3;
+  if (status === "in_review") return 0;
+  if (status === "in_progress") return 1;
+  if (status === "todo") return 2;
+  if (status === "backlog") return 3;
+  return 4;
 }
 
 function questPriorityRank(priority: Quest["priority"]): number {

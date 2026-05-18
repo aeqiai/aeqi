@@ -48,7 +48,9 @@ export default function AgentOverviewTab({
   const inFlightQuests = useMemo(
     () =>
       quests
-        .filter((q) => q.status === "in_progress" && q.agent_id === agentId)
+        .filter(
+          (q) => (q.status === "in_progress" || q.status === "in_review") && q.agent_id === agentId,
+        )
         .sort(
           (a, b) => parseTs(b.updated_at ?? b.created_at) - parseTs(a.updated_at ?? a.created_at),
         )
@@ -59,7 +61,9 @@ export default function AgentOverviewTab({
   const openQuestCount = useMemo(
     () =>
       quests.filter(
-        (q) => (q.status === "todo" || q.status === "in_progress") && q.agent_id === agentId,
+        (q) =>
+          (q.status === "todo" || q.status === "in_progress" || q.status === "in_review") &&
+          q.agent_id === agentId,
       ).length,
     [quests, agentId],
   );
