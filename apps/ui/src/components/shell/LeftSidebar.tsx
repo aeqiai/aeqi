@@ -11,8 +11,6 @@ import {
   Target,
   Lightbulb,
   ScrollText,
-  Layers,
-  Rocket,
   Shield,
   Search,
   Plus,
@@ -47,11 +45,6 @@ const AgentsIcon = () => <Bot />;
 const EventsIcon = () => <Webhook />;
 const QuestsIcon = () => <Target />;
 const IdeasIcon = () => <Lightbulb />;
-
-// Blueprints — catalog of recipes (the supply layer). Layers = stacked-deck.
-const BlueprintsIcon = () => <Layers />;
-// Launch — company-creation CTA. Rocket reads the verb directly.
-const LaunchIcon = () => <Rocket />;
 
 // AEQI Ownership primitives — Lucide picks anchored to each row's semantic.
 // Assets (a) → Coins: stacked-coin = stored value.
@@ -131,8 +124,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const isCompanyOverview = !!base && path === base;
 
   // Top-level public rows.
-  const isLaunch = path === "/launch" || path.startsWith("/launch/");
-  const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
   const isAdmin = path === "/admin" || path.startsWith("/admin/");
   const isAdminUser = useAuthStore((s) => s.user?.is_admin === true);
@@ -354,16 +345,18 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           </>
         )}
 
-        {/* ── Bottom group — platform-level destinations + HelpMenu.
-            AccountDropdown moved to the top-left of the sidebar header
-            on 2026-05-18 (replacing the Wordmark slot), so it no longer
-            appears here. ── */}
+        {/* ── Bottom group — admin row (only for admin users) + HelpMenu.
+            Launch + Blueprints were dropped 2026-05-18: users land on
+            /launch automatically when they have no active trust, and the
+            workspace switcher's "+" cap covers new-company creation;
+            /blueprints is still reachable by URL but doesn't earn a
+            sidebar row. ── */}
         <div className="sidebar-bottom-group">
-          <nav className="sidebar-surface-nav" aria-label="Platform">
-            {topLevelItem("/launch", "Launch", <LaunchIcon />, isLaunch)}
-            {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
-            {isAdminUser && topLevelItem("/admin", "Admin", <AdminIcon />, isAdmin)}
-          </nav>
+          {isAdminUser && (
+            <nav className="sidebar-surface-nav" aria-label="Admin">
+              {topLevelItem("/admin", "Admin", <AdminIcon />, isAdmin)}
+            </nav>
+          )}
           <div className="sidebar-action-row sidebar-action-row--help">
             <HelpMenu />
           </div>
