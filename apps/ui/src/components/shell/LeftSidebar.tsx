@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import {
   Inbox,
-  Landmark,
+  LayoutDashboard,
   Coins,
   PieChart,
   Vote,
@@ -39,7 +39,10 @@ interface LeftSidebarProps {
 // Stroke width is overridden to 1.65 by layout.css for the 16px optical sweet
 // spot; the icon prop here just controls glyph identity.
 const InboxIcon = () => <Inbox />;
-const TrustIcon = () => <Landmark />;
+// Overview — the trust cockpit. LayoutDashboard reads "this is the
+// canonical landing for the trust." The Trust group header carries the
+// institution semantic so this glyph doesn't need to.
+const OverviewIcon = () => <LayoutDashboard />;
 const AgentsIcon = () => <Bot />;
 const EventsIcon = () => <Webhook />;
 const QuestsIcon = () => <Target />;
@@ -281,26 +284,26 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               Settings (standalone, gap above) ── */}
         {hasCompany && (
           <>
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="TRUST">
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Trust">
+              <div className="sidebar-section-label">Trust</div>
               <div key="overview" className="sidebar-nav-row">
                 <a
                   className={`sidebar-nav-item ${isCompanyOverview ? "active" : ""}`}
                   href={base}
-                  title="TRUST"
+                  title="Overview"
                   aria-current={isCompanyOverview ? "page" : undefined}
                   onClick={(e) => {
                     e.preventDefault();
                     navigate(base);
                   }}
                 >
-                  <TrustIcon />
-                  <span className="sidebar-nav-label">TRUST</span>
+                  <OverviewIcon />
+                  <span className="sidebar-nav-label">Overview</span>
                 </a>
               </div>
-              {/* Roles — peer slot under Trust, outside both AEQI groups. The
-                  authority graph is the connective tissue between Ownership
-                  (board tier) and Execution (operating tier), so it doesn't
-                  belong inside either. */}
+              {/* Roles — the org-chart / authority graph. Sits inside the
+                  Trust group alongside Overview; both describe what the
+                  Trust IS rather than what it owns or what it does. */}
               {navItem("roles", "Roles", <RolesIcon />)}
             </nav>
 
