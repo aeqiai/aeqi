@@ -6683,11 +6683,26 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   padding: 8px;
 }
 .account-dropdown-menu {
-  min-width: 200px;
-  max-width: 280px;
+  min-width: 160px;
+  max-width: 220px;
   display: flex;
   flex-direction: column;
-  padding: 4px;
+  padding: 2px;
+}
+/* Tighten SelectOption rows inside the account menu specifically — the
+   global SelectOption padding (8px 12px) reads as too roomy for a 3-row
+   menu hanging off the rail's top-left avatar. Local override: smaller
+   padding, smaller icons, tighter row height. SelectOption uses CSS
+   Modules so we reach into the rendered <button> directly. */
+.account-dropdown-menu > button {
+  padding: 6px 10px;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  min-height: 28px;
+}
+.account-dropdown-menu > button svg {
+  width: 14px;
+  height: 14px;
 }
 .account-dropdown-item {
   /* position:relative so the .active ::before accent bar anchors to
