@@ -7682,17 +7682,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-picker-link:hover {
   color: var(--color-text-primary);
 }
-.home-picker-link--muted,
-.home-picker-link[disabled] {
-  color: var(--color-text-muted);
-  cursor: default;
-}
-.home-picker-link--muted:hover {
-  color: var(--color-text-muted);
-}
-.home-picker-link-sep {
-  user-select: none;
-}
 
 /* ── Bottom row: Admin (if applicable) left, HelpMenu always right. The
    `.sidebar-action-row > :first-child { flex: 1 }` rule already pins the

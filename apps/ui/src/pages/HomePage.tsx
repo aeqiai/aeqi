@@ -7,17 +7,20 @@ import { useAuthStore } from "@/store/auth";
 import { useEntities } from "@/queries/entities";
 
 /**
- * Home — the root `/` surface. Personal greeting at the top anchors the
- * user; below it, a node-grid of the (actor × role × trust) contexts they
- * can step into. The grid always ends on a "+ Create new trust" tile so
- * creation is a peer affordance to selection, not a separate footer
- * button row.
+ * Home — the root `/` surface. THIS page IS the network map / identity
+ * selection: every authed visit lands here to pick which identity (actor
+ * × role × trust tuple) they want to operate as, or create a new one.
+ * There is no separate "view network map" destination — the root is it.
+ *
+ * Two affordances only:
+ *   1. SELECT — pick one of the existing context tiles.
+ *   2. CREATE — the trailing "+ New trust" tile fires the launch flow.
  *
  * Visual intent (ethereal / character-selection): centred large user
  * avatar at top, display typography for the greeting, generous gaps,
  * soft hover lift. Per .impeccable.md: no hairlines, no gradients, no
- * animations beyond 0.12s ease — the "ethereal" comes from composition
- * and whitespace, not flourish.
+ * animations beyond 0.12s ease — the feel comes from composition and
+ * whitespace, not flourish.
  *
  * MVP data: actor = the signed-in user, trust = each entity from
  * `useEntities()`, role = stub label pending a runtime per-user × per-
@@ -89,17 +92,6 @@ export default function HomePage() {
       <footer className="home-picker-footer">
         <button type="button" className="home-picker-link" onClick={() => navigate("/blueprints")}>
           Browse blueprints
-        </button>
-        <span className="home-picker-link-sep" aria-hidden="true">
-          ·
-        </span>
-        <button
-          type="button"
-          className="home-picker-link home-picker-link--muted"
-          disabled
-          title="Coming soon"
-        >
-          View network map
         </button>
       </footer>
     </div>
