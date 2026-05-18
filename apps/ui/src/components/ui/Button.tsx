@@ -67,7 +67,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
           <span className={styles.loadingGlyph} aria-hidden="true">
             <BrandMark size={LOADING_MARK_SIZE[size]} color="currentColor" />
           </span>
-          {loadingLabel && <span className="sr-only">{loadingLabel}</span>}
+          {loadingLabel && <span className={styles.srOnly}>{loadingLabel}</span>}
         </span>
       )}
       <span className={styles.content}>
