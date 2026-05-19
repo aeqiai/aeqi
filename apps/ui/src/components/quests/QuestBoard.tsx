@@ -39,6 +39,13 @@ export default function QuestBoard({
   onSortChange,
   agents,
   users,
+  boardScopeId,
+  boardScopeQuest,
+  boardScopeAncestors = [],
+  childCounts,
+  onBoardScopeChange,
+  onOpenQuest,
+  onOpenParent,
   splitLayout = false,
 }: {
   agentId: string;
@@ -59,6 +66,13 @@ export default function QuestBoard({
   onSortChange: (next: QuestSort) => void;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
+  boardScopeId?: string | null;
+  boardScopeQuest?: Quest;
+  boardScopeAncestors?: Quest[];
+  childCounts: Map<string, number>;
+  onBoardScopeChange: (next: string | null) => void;
+  onOpenQuest: (id: string) => void;
+  onOpenParent: (id: string) => void;
   /** When true, the main board renders only the four ACTIVE columns
    *  (Todo · In Progress · In Review · Done) and demotes Backlog and
    *  Cancelled into horizontal strips below the board. Used by the
@@ -406,6 +420,81 @@ export default function QuestBoard({
           </Button>
         </div>
       </div>
+      <div className="quest-board-scopebar">
+        <nav className="quest-board-breadcrumb" aria-label="Quest board scope">
+          <button
+            type="button"
+            className="quest-board-crumb"
+            data-active={!boardScopeId || undefined}
+            onClick={() => onBoardScopeChange(null)}
+          >
+            Root quests
+          </button>
+          {boardScopeAncestors.map((ancestor) => (
+            <span key={ancestor.id} className="quest-board-crumb-wrap">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4.5 3 L7.5 6 L4.5 9" />
+              </svg>
+              <button
+                type="button"
+                className="quest-board-crumb"
+                onClick={() => onBoardScopeChange(ancestor.id)}
+              >
+                {ancestor.idea?.name ?? ancestor.id}
+              </button>
+            </span>
+          ))}
+          {boardScopeQuest && (
+            <span className="quest-board-crumb-wrap">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4.5 3 L7.5 6 L4.5 9" />
+              </svg>
+              <span className="quest-board-crumb" data-active>
+                {boardScopeQuest.idea?.name ?? boardScopeQuest.id}
+              </span>
+            </span>
+          )}
+        </nav>
+        <div className="quest-board-scope-actions">
+          {boardScopeQuest && (
+            <>
+              <span className="quest-board-scope-count">
+                {childCounts.get(boardScopeQuest.id) ?? 0} subquests
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => onOpenParent(boardScopeQuest.id)}
+              >
+                Up
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => onOpenQuest(boardScopeQuest.id)}>
+                Open quest
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
       {err && <div className="quest-board-error">{err}</div>}
 
       {view === "list" ? (
@@ -433,6 +522,7 @@ export default function QuestBoard({
           search={search}
           agents={agents}
           users={users}
+          childCounts={childCounts}
         />
       ) : (
         <div className="quest-board-columns" data-column-count={columns.length}>
@@ -511,6 +601,7 @@ export default function QuestBoard({
                         onError={setErr}
                         agents={agents}
                         users={users}
+                        childCount={childCounts.get(q.id) ?? 0}
                       />
                     ))
                   )}

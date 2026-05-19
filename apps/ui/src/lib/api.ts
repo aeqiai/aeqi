@@ -503,6 +503,7 @@ export const api = {
     description?: string;
     priority?: string;
     scope?: string;
+    parent?: string;
     acceptance_criteria?: string;
     agent_id?: string;
     agent?: string;

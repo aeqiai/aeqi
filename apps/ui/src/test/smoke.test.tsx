@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
@@ -172,6 +172,50 @@ describe("AgentQuestsTab smoke", () => {
     );
 
     expect(screen.getByText("Root quest")).toBeInTheDocument();
+    expect(screen.getByText("Child quest")).toBeInTheDocument();
+  });
+
+  it("scopes the board into a quest's direct children", () => {
+    useDaemonStore.setState({
+      quests: [
+        {
+          id: "67-root",
+          idea_id: "idea-root",
+          status: "todo",
+          priority: "normal",
+          agent_id: "root-1",
+          scope: "self",
+          created_at: "2026-05-16T00:00:00Z",
+          idea: { id: "idea-root", name: "Root quest", content: "", tags: [] },
+        },
+        {
+          id: "67-root.1",
+          idea_id: "idea-child",
+          status: "todo",
+          priority: "normal",
+          agent_id: "root-1",
+          scope: "self",
+          created_at: "2026-05-16T00:00:00Z",
+          idea: { id: "idea-child", name: "Child quest", content: "", tags: [] },
+        },
+      ] as never,
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
+          <Routes>
+            <Route path="c/:trustId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(screen.getByText("Root quest")).toBeInTheDocument();
+    expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
+
     expect(screen.getByText("Child quest")).toBeInTheDocument();
   });
 

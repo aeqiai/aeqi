@@ -60,6 +60,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
   const fromIdeaId = searchParams.get("fromIdea") ?? null;
   const presetName = searchParams.get("name") ?? "";
   const presetStatus = parseQuestStatus(searchParams.get("status"));
+  const parentQuestId = searchParams.get("parent") ?? null;
 
   const { data: ideas = [] } = useAgentIdeas(resolvedAgentId);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
@@ -119,6 +120,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
         agent_id: resolvedAgentId,
         priority,
         scope,
+        parent: parentQuestId ?? undefined,
         idea_id: ideaId,
       });
       const newId = res?.quest?.id;
@@ -142,7 +144,14 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
         }
       }
       await fetchQuests();
-      goEntity(trustId, "quests", newId ?? undefined, { replace: true });
+      if (parentQuestId) {
+        goEntity(trustId, "quests", undefined, {
+          replace: true,
+          search: { scope: parentQuestId },
+        });
+      } else {
+        goEntity(trustId, "quests", newId ?? undefined, { replace: true });
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to create quest");
       setBusy(false);
@@ -154,6 +163,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
     assignee,
     scope,
     dueAt,
+    parentQuestId,
     resolvedAgentId,
     fetchQuests,
     goEntity,

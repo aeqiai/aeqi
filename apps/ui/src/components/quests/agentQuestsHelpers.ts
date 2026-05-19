@@ -109,3 +109,39 @@ export function matchesQuestFilter(q: Quest, filter: QuestFilter, agentId: strin
   if (filter === "global") return q.agent_id == null;
   return false;
 }
+
+export function questParentId(id: string): string | null {
+  const i = id.lastIndexOf(".");
+  return i === -1 ? null : id.slice(0, i);
+}
+
+export function isRootQuest(q: Quest): boolean {
+  return questParentId(q.id) === null;
+}
+
+export function isDirectChildOf(q: Quest, parentId: string | null): boolean {
+  return questParentId(q.id) === parentId;
+}
+
+export function childCountsByParent(quests: Quest[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const q of quests) {
+    const parentId = questParentId(q.id);
+    if (!parentId) continue;
+    counts.set(parentId, (counts.get(parentId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export function questAncestors(id: string, quests: Quest[]): Quest[] {
+  const byId = new Map(quests.map((q) => [q.id, q]));
+  const ancestors: Quest[] = [];
+  let parentId = questParentId(id);
+  while (parentId) {
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    ancestors.unshift(parent);
+    parentId = questParentId(parentId);
+  }
+  return ancestors;
+}

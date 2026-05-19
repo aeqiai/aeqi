@@ -10,7 +10,15 @@ import type { Quest, QuestStatus, User } from "@/lib/types";
 import type { QuestsView } from "./quests/QuestsViewPopover";
 import type { QuestSort } from "./quests/QuestsSortPopover";
 import QuestBoard from "./quests/QuestBoard";
-import { matchesQuestFilter, parseQuestSort, type QuestFilter } from "./quests/agentQuestsHelpers";
+import {
+  childCountsByParent,
+  isDirectChildOf,
+  matchesQuestFilter,
+  parseQuestSort,
+  questAncestors,
+  questParentId,
+  type QuestFilter,
+} from "./quests/agentQuestsHelpers";
 
 export default function AgentQuestsTab({
   agentId,
@@ -34,12 +42,14 @@ export default function AgentQuestsTab({
   const [searchParams, setSearchParams] = useSearchParams();
   const view: QuestsView = searchParams.get("view") === "list" ? "list" : "board";
   const sort: QuestSort = parseQuestSort(searchParams.get("sort"));
+  const boardScopeId = searchParams.get("scope") || null;
 
   const openCompose = useCallback(
-    (opts?: { fromIdea?: string; status?: QuestStatus }) => {
+    (opts?: { fromIdea?: string; status?: QuestStatus; parent?: string }) => {
       const search: Record<string, string> = {};
       if (opts?.fromIdea) search.fromIdea = opts.fromIdea;
       if (opts?.status) search.status = opts.status;
+      if (opts?.parent) search.parent = opts.parent;
       goEntity(trustId, "quests", "new", {
         replace: false,
         search: Object.keys(search).length > 0 ? search : undefined,
@@ -167,18 +177,50 @@ export default function AgentQuestsTab({
       questFilter === "all"
         ? visibleQuests
         : visibleQuests.filter((q) => matchesQuestFilter(q, questFilter, agent?.id ?? agentId));
+    const visibleQuestIds = new Set(filteredQuests.map((q) => q.id));
+    const activeScopeId = boardScopeId && visibleQuestIds.has(boardScopeId) ? boardScopeId : null;
+    const scopedQuests = filteredQuests.filter((q) => isDirectChildOf(q, activeScopeId));
+    const childCounts = childCountsByParent(filteredQuests);
+    const scopeQuest = activeScopeId ? filteredQuests.find((q) => q.id === activeScopeId) : null;
+    const scopeAncestors = activeScopeId ? questAncestors(activeScopeId, filteredQuests) : [];
+    const setBoardScope = (next: string | null) => {
+      setSearchParams(
+        (p) => {
+          const np = new URLSearchParams(p);
+          if (next) np.set("scope", next);
+          else np.delete("scope");
+          return np;
+        },
+        { replace: false },
+      );
+    };
     return (
       <QuestBoard
         agentId={agentId}
         resolvedAgentId={agent?.id || agentId}
         trustId={trustId}
-        quests={filteredQuests}
+        quests={scopedQuests}
         allQuests={visibleQuests}
         scopeFilter={questFilter}
         onScopeChange={setQuestFilter}
         onCreated={fetchQuests}
-        onPick={(id) => goEntity(trustId, "quests", id)}
-        onCompose={(status) => openCompose(status ? { status } : undefined)}
+        onPick={(id) => {
+          if ((childCounts.get(id) ?? 0) > 0) setBoardScope(id);
+          else goEntity(trustId, "quests", id);
+        }}
+        onCompose={(status) =>
+          openCompose({
+            ...(status ? { status } : {}),
+            ...(activeScopeId ? { parent: activeScopeId } : {}),
+          })
+        }
+        boardScopeId={activeScopeId}
+        boardScopeQuest={scopeQuest ?? undefined}
+        boardScopeAncestors={scopeAncestors}
+        childCounts={childCounts}
+        onBoardScopeChange={setBoardScope}
+        onOpenQuest={(id) => goEntity(trustId, "quests", id)}
+        onOpenParent={(id) => setBoardScope(questParentId(id))}
         view={view}
         onViewChange={setView}
         sort={sort}

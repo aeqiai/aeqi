@@ -31,6 +31,7 @@ export interface QuestActiveCardProps {
   onError: (msg: string) => void;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
+  childCount?: number;
 }
 
 export default function QuestActiveCard({
@@ -46,6 +47,7 @@ export default function QuestActiveCard({
   onError,
   agents,
   users,
+  childCount = 0,
 }: QuestActiveCardProps) {
   const canTake =
     q.status !== "in_progress" &&
@@ -62,7 +64,11 @@ export default function QuestActiveCard({
       draggable
       role="button"
       tabIndex={0}
-      aria-label={`Open quest ${q.idea?.name ?? q.id}`}
+      aria-label={
+        childCount > 0
+          ? `Open board for ${q.idea?.name ?? q.id}, ${childCount} subquests`
+          : `Open quest ${q.idea?.name ?? q.id}`
+      }
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", q.id);
@@ -84,6 +90,11 @@ export default function QuestActiveCard({
         <span className="quest-card-subject" title={q.idea?.name ?? q.id}>
           {q.idea?.name ?? q.id}
         </span>
+        {childCount > 0 && (
+          <span className="quest-child-count" aria-label={`${childCount} subquests`}>
+            {childCount}
+          </span>
+        )}
       </div>
       <div className="quest-card-meta">
         <span className="quest-card-meta-left">

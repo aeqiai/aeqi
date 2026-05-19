@@ -32,6 +32,7 @@ export default function QuestList({
   search,
   agents,
   users,
+  childCounts,
 }: {
   groups: Array<{ status: QuestStatus; label: string; quests: Quest[] }>;
   optimistic: Record<string, QuestStatus>;
@@ -45,6 +46,7 @@ export default function QuestList({
   search: string;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
+  childCounts: Map<string, number>;
 }) {
   // Per-group collapsed state. Empty groups stay hidden entirely; the
   // four canonical statuses (todo / in progress / blocked / done) all
@@ -155,6 +157,7 @@ export default function QuestList({
                 {group.quests.map((q) => {
                   const status = optimistic[q.id] ?? q.status;
                   const isFocused = focusId === q.id;
+                  const childCount = childCounts.get(q.id) ?? 0;
                   return (
                     <div
                       key={q.id}
@@ -172,6 +175,14 @@ export default function QuestList({
                       <div className="ideas-list-row-head">
                         <StatusDot status={status} />
                         <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
+                        {childCount > 0 && (
+                          <span
+                            className="quest-child-count"
+                            aria-label={`${childCount} subquests`}
+                          >
+                            {childCount}
+                          </span>
+                        )}
                         {q.kind === "project" && (
                           <span
                             className="quest-kind-chip quest-kind-chip--project"
