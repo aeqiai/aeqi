@@ -700,7 +700,7 @@
   color: var(--color-text-muted);
 }
 
-/* Runtime-gated row when no `aeqi-host-<entity>.service` is attached.
+/* Runtime-gated row when the TRUST has no runtime attached.
    Stays clickable on purpose — clicking opens the in-tab upsell which
    IS the conversion surface. The dim is the cue, not a block. */
 .sidebar-nav-item--locked {

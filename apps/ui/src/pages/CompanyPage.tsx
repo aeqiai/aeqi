@@ -54,7 +54,7 @@ interface CompanyPageProps {
  * tagline, public toggle, and plan link now live in the TrustHeroStrip
  * on Overview. Workspace billing remains at `/account/billing`.
  */
-/** Tabs that require an attached runtime (`aeqi-host-<entity>.service`).
+/** Tabs that require a per-tenant runtime service.
  *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in
  *  their slot instead of the real tab body. The 6 ownership/governance
  *  tabs (Overview / Roles / Assets / Equity / Quorum / Incorporation)

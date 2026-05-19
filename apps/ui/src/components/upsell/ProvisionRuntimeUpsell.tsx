@@ -9,7 +9,7 @@
  *     ownership/governance tabs (Overview / Roles / Assets / Equity /
  *     Quorum / Incorporation) work without a runtime — they read the
  *     chain directly.
- *   - The 6 execution tabs need an `aeqi-host-<entity>.service` to be
+ *   - The 6 execution tabs need a per-tenant runtime service to be
  *     running. This component is the upsell shown in their place until
  *     the user provisions one.
  *   - Wire: `POST /api/runtime/provision { trust_id, plan }` returns a
