@@ -137,7 +137,6 @@ export default function StartPage() {
         />
         <AllTrustsCard
           others={otherTrusts}
-          totalCount={entities.length}
           onViewAll={() => navigate("/trust")}
           onPick={(t) => navigate(entityPath(t))}
         />
@@ -161,12 +160,24 @@ export default function StartPage() {
           {inboxPreview.length > 0 ? (
             <ul className="home-inbox-list">
               {inboxPreview.map((item) => {
+                // Subject is the headline. Use the awaiting subject when
+                // present (decision-request shape), else fall back to a
+                // session name or the first 80 chars of the agent's last
+                // message. The preview line below is suppressed when the
+                // subject already comes from the agent's message — they
+                // duplicate in that case. Keeping only the case where the
+                // subject is a session/awaiting label and the message adds
+                // additional context.
                 const subject =
                   item.awaiting_subject ||
                   item.session_name ||
                   item.last_agent_message?.slice(0, 80) ||
                   "Untitled session";
-                const preview = item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
+                const subjectFromMessage =
+                  !item.awaiting_subject && !item.session_name && !!item.last_agent_message;
+                const preview = subjectFromMessage
+                  ? ""
+                  : item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
                 const from = item.agent_name || "Agent";
                 const time = timeShort(item.awaiting_at || item.last_active);
                 return (
@@ -272,12 +283,9 @@ function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProp
         className="home-card home-card--personal home-card--empty"
         onClick={onCreate}
       >
-        <header className="home-card-head">
-          <span className="home-card-eyebrow">Personal</span>
-        </header>
         <div className="home-personal-body">
           <span className="home-personal-avatar home-personal-avatar--ghost" aria-hidden="true">
-            <Plus size={22} strokeWidth={1.5} />
+            <Plus size={26} strokeWidth={1.5} />
           </span>
           <h3 className="home-personal-name">Your personal TRUST</h3>
           <p className="home-personal-role">Create one to begin</p>
@@ -292,12 +300,9 @@ function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProp
       onClick={() => onOpen(personal)}
       aria-label={`Step into your personal TRUST, ${personal.name}`}
     >
-      <header className="home-card-head">
-        <span className="home-card-eyebrow">Personal</span>
-      </header>
       <div className="home-personal-body">
         <span className="home-personal-avatar" aria-hidden="true">
-          <BlockAvatar name={personal.name} size={48} />
+          <BlockAvatar name={personal.name} size={64} />
         </span>
         <h3 className="home-personal-name">{personal.name}</h3>
         <p className="home-personal-role">Your TRUST</p>
@@ -347,12 +352,11 @@ function StepIntoTrustCard({ onNewTrust, onBrowseBlueprints }: StepIntoTrustCard
 
 interface AllTrustsCardProps {
   others: ReadonlyArray<Trust>;
-  totalCount: number;
   onViewAll: () => void;
   onPick: (trust: Trust) => void;
 }
 
-function AllTrustsCard({ others, totalCount, onViewAll, onPick }: AllTrustsCardProps) {
+function AllTrustsCard({ others, onViewAll, onPick }: AllTrustsCardProps) {
   const previewAvatars = others.slice(0, ALL_TRUSTS_AVATAR_LIMIT);
   const overflow = Math.max(0, others.length - previewAvatars.length);
 
@@ -367,10 +371,12 @@ function AllTrustsCard({ others, totalCount, onViewAll, onPick }: AllTrustsCardP
       </header>
       <div className="home-all-body">
         <h3 className="home-all-title">
-          {totalCount === 0 ? "No TRUSTs yet" : `${totalCount} TRUST${totalCount === 1 ? "" : "s"}`}
+          {others.length === 0 ? "No other TRUSTs" : "Switch context"}
         </h3>
         <p className="home-all-hint">
-          {others.length === 0 ? "Just your personal one for now." : "Step into another context."}
+          {others.length === 0
+            ? "Just your personal one for now."
+            : `${others.length} other${others.length === 1 ? "" : "s"} to step into.`}
         </p>
       </div>
       {previewAvatars.length > 0 ? (

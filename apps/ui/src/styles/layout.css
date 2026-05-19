@@ -8130,16 +8130,22 @@ button.home-card:focus-visible {
    Personal · Step into a TRUST · All TRUSTs. Cards stretch to the same
    height so the row reads as a single horizontal beat. Collapses to a
    single column at narrow widths. */
+/* Trust row — Personal is the anchor (2fr), Step + All are satellites
+   (1fr each). The asymmetry establishes "this is where you live" vs
+   "these are options" without needing different surface tones. */
 .home-row-trusts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 16px;
   align-items: stretch;
 }
 .home-card--personal,
 .home-card--step,
 .home-card--all {
-  min-height: 220px;
+  min-height: 240px;
+}
+.home-card--personal {
+  padding: var(--space-6) var(--space-6);
 }
 .home-card-eyebrow {
   font-size: var(--font-size-xs);
@@ -8149,21 +8155,23 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 
-/* Personal TRUST card — quiet anchor on the left. Big avatar, name in
-   display weight, "Step in →" CTA at the foot. */
+/* Personal TRUST card — the row's anchor (2fr column). Big 64px
+   avatar, name in display weight at 28px, "Step in →" CTA at the foot.
+   The eyebrow was dropped — the avatar + display name already tells
+   the user "this is yours" without a label. */
 .home-personal-body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 14px;
   flex: 1;
 }
 .home-personal-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   border-radius: 999px;
   flex-shrink: 0;
 }
@@ -8174,10 +8182,10 @@ button.home-card:focus-visible {
 .home-personal-name {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 300;
-  letter-spacing: -0.015em;
-  line-height: 1.15;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--color-text-primary);
   word-break: break-word;
 }
