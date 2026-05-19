@@ -7879,13 +7879,16 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero {
   position: relative;
 }
-/* Ethereal fade — the image itself dissolves into the page paper at
-   the top-left corner. Uses CSS mask so the gradient is INSIDE the
-   image (its pixels become transparent and paper-warm shows through),
-   not a tacked-on overlay element above it. The earlier
-   `.home-hero-fade` screen-blend span read as a bright patch over the
-   warm portal photo; mask-image keeps the warmth and just lets the
-   image emerge from the page instead of sitting against a hard edge. */
+/* Ethereal fade — the image dissolves into the page paper across the
+   top-left quadrant. Uses CSS mask so the gradient is INSIDE the image
+   (its pixels become transparent and paper-warm shows through), not a
+   tacked-on overlay element above it. Earlier iterations placed the
+   ellipse center at (75%, 70%) and only the extreme corner faded — the
+   warm-sky top-left blended into the warm paper invisibly. This pass
+   anchors the circle at the bottom-right (100% 100%) and starts the
+   fade at 50% radius, so the whole top-left quadrant softens
+   noticeably while the focal subject (the monolithic ring in the
+   upper-right) stays sharp. */
 .home-hero-image {
   display: block;
   width: 100%;
@@ -7893,8 +7896,12 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   object-fit: cover;
   object-position: center 45%;
   border-radius: var(--radius-lg, 12px);
-  mask-image: radial-gradient(ellipse 130% 130% at 75% 70%, black 55%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 130% 130% at 75% 70%, black 55%, transparent 100%);
+  mask-image: radial-gradient(circle farthest-corner at 100% 100%, black 50%, transparent 100%);
+  -webkit-mask-image: radial-gradient(
+    circle farthest-corner at 100% 100%,
+    black 50%,
+    transparent 100%
+  );
 }
 .home-hero-overlay {
   position: absolute;
