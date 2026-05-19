@@ -39,12 +39,29 @@ interface DaemonState {
   setWsConnected: (connected: boolean) => void;
 }
 
+// Hydrate cached entities and agents from localStorage so the
+// LeftSidebar / CompanySwitcher / agent tree paint the real shape on
+// hard refresh instead of flashing the empty-list state for the
+// 50-500 ms it takes fetchEntities() and fetchAgents() to round-trip.
+// Same pattern as the auth-store user persistence; cache is overwritten
+// by the persist subscriber below on every successful fetch.
+function hydrate<T>(key: string): T[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export const useDaemonStore = create<DaemonState>((set, get) => ({
   status: null,
   dashboard: null,
   cost: null,
-  entities: [],
-  agents: [],
+  entities: hydrate<Trust>("aeqi_daemon_entities"),
+  agents: hydrate<Agent>("aeqi_daemon_agents"),
   quests: [],
   events: [],
   workerEvents: [],
@@ -170,6 +187,36 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   setWsConnected: (connected: boolean) => set({ wsConnected: connected }),
 }));
+
+// Persist `entities` and `agents` to localStorage on every change. Paired
+// with the synchronous `hydrate()` reads above so hard refresh restores
+// the real sidebar/company-switcher shape instead of flashing empty
+// lists. Plain `subscribe` + module-level reference compares match the
+// auth-store pattern (no `subscribeWithSelector` middleware needed).
+// `quests` and `events` deliberately do NOT persist — quests are
+// entity-scoped (a stale cache from one entity could leak into another
+// on refresh), and the events stream is bounded to the last 30 entries
+// and a fresh fetch is faster than reconstructing local state.
+let lastEntities: Trust[] = [];
+let lastAgents: Agent[] = [];
+useDaemonStore.subscribe((state) => {
+  if (state.entities !== lastEntities) {
+    lastEntities = state.entities;
+    try {
+      localStorage.setItem("aeqi_daemon_entities", JSON.stringify(state.entities));
+    } catch {
+      // localStorage unavailable (Safari private etc.) — non-fatal.
+    }
+  }
+  if (state.agents !== lastAgents) {
+    lastAgents = state.agents;
+    try {
+      localStorage.setItem("aeqi_daemon_agents", JSON.stringify(state.agents));
+    } catch {
+      // localStorage unavailable (Safari private etc.) — non-fatal.
+    }
+  }
+});
 
 /** Selector: list of entities (companies) the user owns. */
 export function useEntities() {
