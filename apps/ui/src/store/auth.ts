@@ -104,6 +104,24 @@ interface AuthState {
   }
 })();
 
+// Hydrate the cached user profile written by the persist-on-change
+// subscriber below. Without this, hard-refresh renders `AccountDropdown`
+// and any other component that keys off `user.name`/`user.email`/
+// `user.avatar_url` against `user=null` for the 50–500 ms it takes
+// `fetchMe()` to round-trip, flashing the "You" / fallback-initial
+// placeholder over the real identity. The cached blob is rehydrated
+// synchronously here; `fetchMe()` still runs in `App.tsx` to refresh
+// against server changes.
+function hydrateUser(): User | null {
+  try {
+    const raw = localStorage.getItem("aeqi_user");
+    if (!raw) return null;
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem("aeqi_token"),
   appMode: (localStorage.getItem("aeqi_app_mode") as AppMode) || null,
@@ -111,7 +129,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   googleOAuth: false,
   githubOAuth: false,
   waitlist: false,
-  user: null,
+  user: hydrateUser(),
   loading: false,
   error: null,
   pendingEmail: null,
@@ -415,3 +433,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return !user.roots || user.roots.length === 0;
   },
 }));
+
+// Persist user profile to localStorage on every change. Paired with the
+// synchronous `hydrateUser()` read above so a hard refresh restores the
+// real identity instead of flashing the "You" / fallback-initial state
+// for the fetchMe() round-trip. Plain `subscribe` (no selector) is fine —
+// the listener does its own equality check on the user reference.
+let lastPersistedUser: User | null = null;
+useAuthStore.subscribe((state) => {
+  if (state.user === lastPersistedUser) return;
+  lastPersistedUser = state.user;
+  try {
+    if (state.user) {
+      localStorage.setItem("aeqi_user", JSON.stringify(state.user));
+    } else {
+      localStorage.removeItem("aeqi_user");
+    }
+  } catch {
+    // localStorage unavailable (Safari private etc.) — non-fatal.
+  }
+});
