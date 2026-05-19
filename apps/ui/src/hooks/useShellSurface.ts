@@ -17,9 +17,13 @@ export interface ShellSurface {
    *  Renamed to `/identity` on 2026-05-19 (sidebar group label now reads
    *  IDENTITY). Both URLs render the same page. */
   isNetwork: boolean;
-  /** `/identity` — the operating-context surface. Big trust hero +
-   *  role + switcher. Canonical URL (replaces /network). */
+  /** `/identity` — back-compat alias for the trusts picker (renamed
+   *  to `/trust` 2026-05-19). Mounts the same HomePage. */
   isIdentity: boolean;
+  /** `/trust` — canonical trusts picker as of 2026-05-19. Big active-
+   *  trust hero + switcher. Bare `/trust` (no address segment) is the
+   *  picker; `/trust/<addr>/...` is the entity shell handled separately. */
+  isTrustsPicker: boolean;
   /** True for all `/account/*` paths — ProfilePage dispatches further. */
   isAccount: boolean;
   isBlueprints: boolean;
@@ -71,6 +75,9 @@ export function useShellSurface(path: string): ShellSurface {
     const isStart = path === "/start" || path.startsWith("/start/");
     const isNetwork = path === "/network" || path.startsWith("/network/");
     const isIdentity = path === "/identity" || path.startsWith("/identity/");
+    // Canonical picker route as of 2026-05-19. /network, /identity, /acting-as
+    // remain mounted on the same component as back-compat aliases.
+    const isTrustsPicker = path === "/trust";
 
     // In-shell Roles sub-pages on the canonical trust route. URL slug is
     // `/roles/...`; underlying pages are RoleNewPage / RoleDetailPage /
@@ -100,6 +107,7 @@ export function useShellSurface(path: string): ShellSurface {
       isStart ||
       isNetwork ||
       isIdentity ||
+      isTrustsPicker ||
       isAdmin;
     const isNotFound = !isKnownShellRoute;
 
@@ -114,6 +122,7 @@ export function useShellSurface(path: string): ShellSurface {
       isStart,
       isNetwork,
       isIdentity,
+      isTrustsPicker,
       isNotFound,
       isAdmin,
       isRolesNew,

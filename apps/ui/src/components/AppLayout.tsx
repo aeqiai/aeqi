@@ -221,6 +221,7 @@ export default function AppLayout() {
     isStart,
     isNetwork,
     isIdentity,
+    isTrustsPicker,
     isNotFound,
     isAdmin,
     isRolesNew,
@@ -378,11 +379,10 @@ export default function AppLayout() {
     // `/` is the Start surface (welcome + previews). The legacy `/start`
     // URL keeps working as an alias for any link already in circulation.
     if (isHome || isStart) return <StartPage />;
-    // `/network` is the dominion picker (Step into a context). `/acting-as`
-    // is preserved as an alias for any link already in circulation.
-    // /identity is canonical; /network + /acting-as are back-compat
-    // aliases that render the same page.
-    if (isIdentity || isNetwork || isActingAs) return <HomePage />;
+    // `/trust` (bare, no address) is the canonical trusts picker as of
+    // 2026-05-19. `/identity`, `/network`, `/acting-as` remain mounted on
+    // the same page as back-compat aliases for links already in circulation.
+    if (isTrustsPicker || isIdentity || isNetwork || isActingAs) return <HomePage />;
     if (isBlueprints) {
       // /blueprints/<seg> where <seg> is a known kind (companies / agents /
       // events / quests / ideas) → catalog tab. Otherwise <seg> is a blueprint
@@ -446,6 +446,7 @@ export default function AppLayout() {
     !isStart &&
     !isNetwork &&
     !isIdentity &&
+    !isTrustsPicker &&
     isAgentChatDefault;
   const showComposer = sessionsMounted;
   const showSessionsRail = sessionsMounted && !!isEntityRoute;

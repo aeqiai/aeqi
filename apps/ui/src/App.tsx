@@ -204,6 +204,10 @@ export default function App() {
           <Route path="start" element={null} />
           <Route path="network" element={null} />
           <Route path="identity" element={null} />
+          {/* Canonical trusts-picker route as of 2026-05-19. Bare `/trust`
+              (no address) renders the picker; `/trust/<addr>/...` below
+              is the entity shell. */}
+          <Route path="trust" element={null} />
           <Route path="trust/:trustAddress" element={null}>
             <Route index element={null} />
             <Route path="agents/:agentId" element={null}>

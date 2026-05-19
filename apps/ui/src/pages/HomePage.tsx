@@ -6,9 +6,11 @@ import { useUIStore } from "@/store/ui";
 import { useEntities, useActiveEntity } from "@/queries/entities";
 
 /**
- * Network — `/network`. The operating-context surface. Shows the trust
- * the user is currently in as a big visual anchor (avatar + name + role)
- * and provides the means to switch below.
+ * Trusts picker — `/trust` (canonical as of 2026-05-19; `/network`,
+ * `/identity`, `/acting-as` remain mounted as back-compat aliases).
+ * The operating-context surface: shows the trust the user is currently
+ * in as a big visual anchor (avatar + name + role) and provides the
+ * means to switch below.
  *
  * Page composition:
  *   1. Current trust hero — large BlockAvatar + trust name in display

@@ -100,15 +100,15 @@ export default function StartPage() {
           <span className="start-page-card-action">Browse →</span>
         </button>
 
-        <button type="button" className="start-page-card" onClick={() => navigate("/identity")}>
+        <button type="button" className="start-page-card" onClick={() => navigate("/trust")}>
           <span className="start-page-card-icon">
             <Landmark size={20} strokeWidth={1.5} />
           </span>
-          <span className="start-page-card-title">Your network</span>
+          <span className="start-page-card-title">Your trusts</span>
           <span className="start-page-card-desc">
-            The trusts, roles, and operators connected to you.
+            Step into any trust you operate from — your own, or one you've been invited into.
           </span>
-          <span className="start-page-card-action">View network →</span>
+          <span className="start-page-card-action">Open →</span>
         </button>
       </section>
 

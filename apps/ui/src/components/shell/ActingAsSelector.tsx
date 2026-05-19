@@ -19,7 +19,7 @@ import BlockAvatar from "@/components/BlockAvatar";
  * reads as a deliberately set-back credential — slightly narrower than
  * the nav rows above and below.
  *
- * Click navigates to `/identity` where the user can switch contexts.
+ * Click navigates to `/trust` where the user can switch contexts.
  *
  * MVP wiring: trust = the active entity, role is a stub label until the
  * runtime exposes "current acting role" per (user × trust).
@@ -36,7 +36,7 @@ export default function ActingAsSelector() {
     <button
       type="button"
       className="acting-as-trigger"
-      onClick={() => navigate("/identity")}
+      onClick={() => navigate("/trust")}
       aria-label={`Switch context · currently ${roleName} at ${trustName}`}
     >
       <span className="acting-as-badge acting-as-badge--expanded" aria-hidden="true">
