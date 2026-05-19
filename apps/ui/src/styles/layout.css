@@ -7848,8 +7848,8 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .home-hero,
 .home-row-two,
-.home-thesis,
-.home-card--trusts {
+.home-row-trusts,
+.home-thesis {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
@@ -7871,6 +7871,23 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   object-fit: cover;
   object-position: center 45%;
   border-radius: var(--radius-lg, 12px);
+}
+/* Ethereal fade — a soft luminous wash bleeding from the top-left
+   corner of the hero. Pure decoration; sits above the image, below the
+   greeting overlay. Uses --color-card so the wash matches the surface
+   the page floats on instead of importing a foreign hue. */
+.home-hero-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: var(--radius-lg, 12px);
+  background: radial-gradient(
+    ellipse 60% 80% at 0% 0%,
+    color-mix(in srgb, var(--color-card) 70%, transparent) 0%,
+    color-mix(in srgb, var(--color-card) 30%, transparent) 40%,
+    transparent 75%
+  );
+  mix-blend-mode: screen;
 }
 .home-hero-overlay {
   position: absolute;
@@ -7959,7 +7976,6 @@ button.home-card:hover .home-card-icon {
   letter-spacing: -0.005em;
 }
 .home-card-meta {
-  margin-left: auto;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   font-weight: 500;
@@ -7968,7 +7984,7 @@ button.home-card:hover .home-card-icon {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 12px;
+  margin-left: auto;
   padding: 0;
   background: transparent;
   border: 0;
@@ -8000,119 +8016,226 @@ button.home-card:hover .home-card-icon {
   color: var(--color-accent);
 }
 
-/* Trust card — full-width row above the two-column preview. Holds
-   per-trust tiles plus the [+ New TRUST] and [Browse blueprints]
-   action tiles, wrapping on narrow viewports. */
-.home-card--trusts {
-  padding: 28px;
-}
-.home-trusts-grid {
+/* Trust row — three side-by-side cards above the inbox/economy row:
+   Personal · Step into a TRUST · All TRUSTs. Cards stretch to the same
+   height so the row reads as a single horizontal beat. Collapses to a
+   single column at narrow widths. */
+.home-row-trusts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: stretch;
 }
-.home-trust-tile {
+.home-card--personal,
+.home-card--step,
+.home-card--all {
+  min-height: 220px;
+}
+.home-card-eyebrow {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Personal TRUST card — quiet anchor on the left. Big avatar, name in
+   display weight, "Step in →" CTA at the foot. */
+.home-personal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+}
+.home-personal-avatar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.home-personal-avatar--ghost {
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+}
+.home-personal-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+.home-personal-role {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Step-into-a-TRUST card — the center beat. Carries the "Step into a
+   TRUST." phrase and the two action buttons (New TRUST + Browse
+   blueprints). The primary button is ink-on-paper to make it the focal
+   action of the row. */
+.home-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.home-step-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+}
+.home-step-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.home-step-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+.home-step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 12px 14px;
   background: var(--bg-row);
   border: 0;
   border-radius: var(--radius-md, 10px);
   font-family: inherit;
   font-size: var(--font-size-sm);
+  font-weight: 500;
   color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
   transition:
     background 0.12s ease,
-    transform 0.12s ease;
+    transform 0.12s ease,
+    filter 0.12s ease;
 }
-.home-trust-tile:hover {
+.home-step-btn:hover {
   background: var(--color-card);
   transform: translateY(-1px);
 }
-.home-trust-tile:focus-visible {
+.home-step-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
-.home-trust-tile-avatar {
-  display: flex;
+.home-step-btn-icon {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   flex-shrink: 0;
 }
-.home-trust-tile-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.home-step-btn-label {
   flex: 1;
 }
-.home-trust-tile-name {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.home-trust-tile-role {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  letter-spacing: 0.01em;
-}
-.home-trust-tile-action-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: var(--color-card);
-  color: var(--color-text-primary);
-  flex-shrink: 0;
-}
-.home-trust-tile--primary {
+.home-step-btn--primary {
   background: var(--color-text-primary);
   color: var(--btn-primary-text);
 }
-.home-trust-tile--primary:hover {
+.home-step-btn--primary:hover {
   background: var(--color-text-primary);
-  filter: brightness(1.05);
+  filter: brightness(1.08);
   transform: translateY(-1px);
 }
-.home-trust-tile--primary .home-trust-tile-name {
-  color: var(--btn-primary-text);
-}
-.home-trust-tile--primary .home-trust-tile-role {
-  color: var(--btn-primary-text);
-  opacity: 0.7;
-}
-.home-trust-tile--primary .home-trust-tile-action-icon {
-  background: transparent;
-  color: var(--btn-primary-text);
-}
-.home-trust-tile--overflow {
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+
+/* All TRUSTs card — count headline + a quiet row of avatars previewing
+   the other contexts the user can step into. The full list lives at
+   /trust; the avatar row is a teaser, not the picker. */
+.home-all-body {
+  display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
+  flex: 1;
 }
-.home-trust-tile-overflow-count {
+.home-all-title {
+  margin: 0;
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 300;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
   color: var(--color-text-primary);
 }
-.home-trust-tile-overflow-label {
-  font-size: var(--font-size-xs);
+.home-all-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+.home-all-avatars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.home-all-avatar-item {
+  margin: 0;
+}
+.home-all-avatar-btn,
+.home-all-avatar-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    transform 0.12s ease;
+}
+.home-all-avatar-btn:hover,
+.home-all-avatar-more:hover {
+  background: var(--color-card);
+  transform: translateY(-1px);
+}
+.home-all-avatar-btn:focus-visible,
+.home-all-avatar-more:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.home-all-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+}
+@media (max-width: 960px) {
+  .home-row-trusts {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Two-col row — Inbox + Economy. Cards are `align-items: stretch` so

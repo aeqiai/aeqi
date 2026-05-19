@@ -11,18 +11,13 @@ import { useMemo } from "react";
 export interface ShellSurface {
   /** Bare `/` — the welcome / Start surface (hero + 4 preview cards).
    *  The root every authed user lands on (2026-05-19 swap: the dominion
-   *  picker moved to `/network`; `/` is now the cinematic welcome). */
+   *  picker moved to `/trust`; `/` is now the cinematic welcome). */
   isHome: boolean;
-  /** `/network` — back-compat alias for the identity / dominion picker.
-   *  Renamed to `/identity` on 2026-05-19 (sidebar group label now reads
-   *  IDENTITY). Both URLs render the same page. */
-  isNetwork: boolean;
-  /** `/identity` — back-compat alias for the trusts picker (renamed
-   *  to `/trust` 2026-05-19). Mounts the same HomePage. */
-  isIdentity: boolean;
   /** `/trust` — canonical trusts picker as of 2026-05-19. Big active-
    *  trust hero + switcher. Bare `/trust` (no address segment) is the
-   *  picker; `/trust/<addr>/...` is the entity shell handled separately. */
+   *  picker; `/trust/<addr>/...` is the entity shell handled separately.
+   *  The 2026-05-19 `/network`, `/identity`, `/acting-as` back-compat
+   *  aliases were dropped 2026-05-19 PM — only `/trust` remains. */
   isTrustsPicker: boolean;
   /** True for all `/account/*` paths — ProfilePage dispatches further. */
   isAccount: boolean;
@@ -40,9 +35,6 @@ export interface ShellSurface {
    *  preview cards. Distinct from `/` (the dominion picker) so the
    *  arrival surface stays cinematic instead of double-duty. */
   isStart: boolean;
-  /** `/acting-as` — the operating-context picker (Actor × Role × Trust)
-   *  reached from the sidebar's main accent block. */
-  isActingAs: boolean;
   /** True when the path doesn't match any known shell surface — drives the
    *  in-shell 404 dispatch. Stays false for `/me/...`, `/launch/...`,
    *  `/blueprints/...`, and other non-organization routes. */
@@ -70,13 +62,11 @@ export function useShellSurface(path: string): ShellSurface {
     const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
     const isLaunch = path === "/launch" || path.startsWith("/launch/");
     const isEconomy = path === "/economy" || path.startsWith("/economy/");
-    const isActingAs = path === "/acting-as" || path.startsWith("/acting-as/");
     const isInbox = path === "/inbox" || path.startsWith("/inbox/");
     const isStart = path === "/start" || path.startsWith("/start/");
-    const isNetwork = path === "/network" || path.startsWith("/network/");
-    const isIdentity = path === "/identity" || path.startsWith("/identity/");
-    // Canonical picker route as of 2026-05-19. /network, /identity, /acting-as
-    // remain mounted on the same component as back-compat aliases.
+    // Canonical picker route as of 2026-05-19. The earlier /network,
+    // /identity, /acting-as back-compat aliases were retired the same
+    // day — only /trust is supported.
     const isTrustsPicker = path === "/trust";
 
     // In-shell Roles sub-pages on the canonical trust route. URL slug is
@@ -102,11 +92,8 @@ export function useShellSurface(path: string): ShellSurface {
       isBlueprints ||
       isLaunch ||
       isEconomy ||
-      isActingAs ||
       isInbox ||
       isStart ||
-      isNetwork ||
-      isIdentity ||
       isTrustsPicker ||
       isAdmin;
     const isNotFound = !isKnownShellRoute;
@@ -117,11 +104,8 @@ export function useShellSurface(path: string): ShellSurface {
       isBlueprints,
       isLaunch,
       isEconomy,
-      isActingAs,
       isInbox,
       isStart,
-      isNetwork,
-      isIdentity,
       isTrustsPicker,
       isNotFound,
       isAdmin,

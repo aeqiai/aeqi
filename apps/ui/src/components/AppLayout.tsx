@@ -27,7 +27,7 @@ const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
-const HomePage = lazy(() => import("@/pages/HomePage"));
+const TrustPage = lazy(() => import("@/pages/TrustPage"));
 const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
@@ -216,11 +216,8 @@ export default function AppLayout() {
     isBlueprints,
     isLaunch,
     isEconomy,
-    isActingAs,
     isInbox,
     isStart,
-    isNetwork,
-    isIdentity,
     isTrustsPicker,
     isNotFound,
     isAdmin,
@@ -379,10 +376,10 @@ export default function AppLayout() {
     // `/` is the Start surface (welcome + previews). The legacy `/start`
     // URL keeps working as an alias for any link already in circulation.
     if (isHome || isStart) return <StartPage />;
-    // `/trust` (bare, no address) is the canonical trusts picker as of
-    // 2026-05-19. `/identity`, `/network`, `/acting-as` remain mounted on
-    // the same page as back-compat aliases for links already in circulation.
-    if (isTrustsPicker || isIdentity || isNetwork || isActingAs) return <HomePage />;
+    // `/trust` (bare, no address) is the canonical trusts picker. The
+    // 2026-05-19 back-compat aliases (`/network`, `/identity`,
+    // `/acting-as`) were retired the same day — only `/trust` is mounted.
+    if (isTrustsPicker) return <TrustPage />;
     if (isBlueprints) {
       // /blueprints/<seg> where <seg> is a known kind (companies / agents /
       // events / quests / ideas) → catalog tab. Otherwise <seg> is a blueprint
@@ -441,11 +438,8 @@ export default function AppLayout() {
     !isLaunch &&
     !isBlueprints &&
     !isEconomy &&
-    !isActingAs &&
     !isInbox &&
     !isStart &&
-    !isNetwork &&
-    !isIdentity &&
     !isTrustsPicker &&
     isAgentChatDefault;
   const showComposer = sessionsMounted;

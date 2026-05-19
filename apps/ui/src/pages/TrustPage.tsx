@@ -6,11 +6,11 @@ import { useUIStore } from "@/store/ui";
 import { useEntities, useActiveEntity } from "@/queries/entities";
 
 /**
- * Trusts picker — `/trust` (canonical as of 2026-05-19; `/network`,
- * `/identity`, `/acting-as` remain mounted as back-compat aliases).
- * The operating-context surface: shows the trust the user is currently
- * in as a big visual anchor (avatar + name + role) and provides the
- * means to switch below.
+ * Trusts picker — `/trust`, the canonical (and only) entry point as of
+ * 2026-05-19 (the `/network`, `/identity`, `/acting-as` back-compat
+ * aliases were retired the same day). The operating-context surface:
+ * shows the trust the user is currently in as a big visual anchor
+ * (avatar + name + role) and provides the means to switch below.
  *
  * Page composition:
  *   1. Current trust hero — large BlockAvatar + trust name in display
@@ -22,7 +22,7 @@ import { useEntities, useActiveEntity } from "@/queries/entities";
  * Per .impeccable.md: no gradients, no decorative motion. The feel
  * comes from composition, scale, and restraint.
  */
-export default function HomePage() {
+export default function TrustPage() {
   const navigate = useNavigate();
   const activeEntityId = useUIStore((s) => s.activeEntity);
   const activeEntity = useActiveEntity(activeEntityId);

@@ -153,8 +153,8 @@ function GatedAppShell() {
 function RootRouteSwitch() {
   // The root `/` surface is the home picker (node-grid of actor × role ×
   // trust contexts). GatedAppShell handles the auth gate; AppLayout mounts
-  // and dispatches `path === "/"` → HomePage. No redirects to /launch or
-  // /trust/<addr> anymore — the picker IS the daily-landing.
+  // and dispatches `path === "/"` → StartPage. No redirects to /launch or
+  // /trust/<addr> anymore — the start page IS the daily-landing.
   return <GatedAppShell />;
 }
 
