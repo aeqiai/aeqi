@@ -709,6 +709,36 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  /**
+   * Read the live BondingCurve state for a TRUST's genesis curve. Prices
+   * are u128 micro-USDC and come over the wire as decimal strings — the UI
+   * caller parses to BigInt for math or renders them as labels.
+   *
+   * 200 → fully provisioned, full state below.
+   * 409 → `curve_not_provisioned` (the platform-018 honesty contract; the
+   *   chain doesn't back the derived addresses yet). UI hides the chart.
+   * 403 / 404 / 503 → normal platform error shapes; treated as null below.
+   */
+  getCurveState: (trustId: string) =>
+    request<{
+      ok: true;
+      trust_pubkey_b58: string;
+      curve_pubkey_b58: string;
+      asset_mint_b58: string;
+      quote_mint_b58: string;
+      creator_b58: string;
+      curve_id_hex: string;
+      curve_type: number;
+      start_price: string;
+      end_price: string;
+      current_price: string;
+      max_supply: number;
+      current_supply: number;
+      reserve_balance: string;
+      reserve_ratio_ppm: number;
+      proceeds_collected: string;
+    }>(`/curves/${encodeURIComponent(trustId)}/state`),
+
   spawnAgent: (data: {
     name: string;
     template?: string;
