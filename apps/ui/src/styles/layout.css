@@ -7960,6 +7960,8 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
     background 0.12s ease;
 }
 .constellation-self {
+  top: 50%;
+  left: 50%;
   cursor: default;
   background: transparent;
   z-index: 2;
