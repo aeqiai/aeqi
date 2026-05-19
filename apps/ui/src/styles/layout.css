@@ -8242,12 +8242,16 @@ button.home-card:focus-visible {
 }
 
 /* Two-col row — Inbox + Economy. Cards are `align-items: stretch` so
-   they share the row's height regardless of preview-content length. */
+   they share the row's height regardless of preview-content length.
+   The row itself `flex: 1` inside .home-page so it absorbs any extra
+   vertical space — pushing the thesis card to the actual page foot
+   on tall viewports instead of leaving a gap. */
 .home-row-two {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
   align-items: stretch;
+  flex: 1;
 }
 .home-card--inbox,
 .home-card--economy {
