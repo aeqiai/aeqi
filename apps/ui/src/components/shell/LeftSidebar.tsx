@@ -262,21 +262,26 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
           {topLevelItem("/", "Start", <StartIcon />, isStart)}
         </nav>
 
-        {/* ── Global group — cross-trust destinations. ── */}
-        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Global">
-          <div className="sidebar-section-label">Global</div>
+        {/* ── Cross-trust destinations. No group label — Inbox + Economy
+            speak for themselves at the top of the rail, and dropping
+            the eyebrow gives the IDENTITY label downstream more weight
+            (it becomes the first group label the eye lands on, marking
+            the sacredness of the identity zone). ── */}
+        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Cross-trust">
           {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
         </nav>
 
-        {/* ── Network group — the operating-context selector. Only mounts
-            when a trust is active. Clicking the selector navigates to
-            /network where you can switch contexts. ── */}
+        {/* ── Identity group — the operating-context "ID card". Only
+            mounts when a trust is active. Clicking the block navigates
+            to /identity where the user can switch contexts. The block
+            itself shows a small trust avatar + role + trust name + a
+            right chevron — it reads as an ID badge. ── */}
         {hasCompany && (
-          <nav className="sidebar-surface-nav sidebar-zone" aria-label="Network">
-            <div className="sidebar-section-label">Network</div>
+          <nav className="sidebar-surface-nav sidebar-zone" aria-label="Identity">
+            <div className="sidebar-section-label">Identity</div>
             <div className="sidebar-user-zone">
               <ActingAsSelector />
             </div>

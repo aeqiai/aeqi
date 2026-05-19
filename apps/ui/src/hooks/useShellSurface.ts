@@ -13,10 +13,13 @@ export interface ShellSurface {
    *  The root every authed user lands on (2026-05-19 swap: the dominion
    *  picker moved to `/network`; `/` is now the cinematic welcome). */
   isHome: boolean;
-  /** `/network` — the dominion picker (Step into a context). Identity
-   *  selection / "network of trusts" view. Lifted out of `/` 2026-05-19
-   *  so the root can be the welcome surface. */
+  /** `/network` — back-compat alias for the identity / dominion picker.
+   *  Renamed to `/identity` on 2026-05-19 (sidebar group label now reads
+   *  IDENTITY). Both URLs render the same page. */
   isNetwork: boolean;
+  /** `/identity` — the operating-context surface. Big trust hero +
+   *  role + switcher. Canonical URL (replaces /network). */
+  isIdentity: boolean;
   /** True for all `/account/*` paths — ProfilePage dispatches further. */
   isAccount: boolean;
   isBlueprints: boolean;
@@ -67,6 +70,7 @@ export function useShellSurface(path: string): ShellSurface {
     const isInbox = path === "/inbox" || path.startsWith("/inbox/");
     const isStart = path === "/start" || path.startsWith("/start/");
     const isNetwork = path === "/network" || path.startsWith("/network/");
+    const isIdentity = path === "/identity" || path.startsWith("/identity/");
 
     // In-shell Roles sub-pages on the canonical trust route. URL slug is
     // `/roles/...`; underlying pages are RoleNewPage / RoleDetailPage /
@@ -95,6 +99,7 @@ export function useShellSurface(path: string): ShellSurface {
       isInbox ||
       isStart ||
       isNetwork ||
+      isIdentity ||
       isAdmin;
     const isNotFound = !isKnownShellRoute;
 
@@ -108,6 +113,7 @@ export function useShellSurface(path: string): ShellSurface {
       isInbox,
       isStart,
       isNetwork,
+      isIdentity,
       isNotFound,
       isAdmin,
       isRolesNew,

@@ -220,6 +220,7 @@ export default function AppLayout() {
     isInbox,
     isStart,
     isNetwork,
+    isIdentity,
     isNotFound,
     isAdmin,
     isRolesNew,
@@ -379,7 +380,9 @@ export default function AppLayout() {
     if (isHome || isStart) return <StartPage />;
     // `/network` is the dominion picker (Step into a context). `/acting-as`
     // is preserved as an alias for any link already in circulation.
-    if (isNetwork || isActingAs) return <HomePage />;
+    // /identity is canonical; /network + /acting-as are back-compat
+    // aliases that render the same page.
+    if (isIdentity || isNetwork || isActingAs) return <HomePage />;
     if (isBlueprints) {
       // /blueprints/<seg> where <seg> is a known kind (companies / agents /
       // events / quests / ideas) → catalog tab. Otherwise <seg> is a blueprint
@@ -442,6 +445,7 @@ export default function AppLayout() {
     !isInbox &&
     !isStart &&
     !isNetwork &&
+    !isIdentity &&
     isAgentChatDefault;
   const showComposer = sessionsMounted;
   const showSessionsRail = sessionsMounted && !!isEntityRoute;

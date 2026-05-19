@@ -89,7 +89,7 @@ export default function StartPage() {
           <span className="start-page-card-action">Browse →</span>
         </button>
 
-        <button type="button" className="start-page-card" onClick={() => navigate("/network")}>
+        <button type="button" className="start-page-card" onClick={() => navigate("/identity")}>
           <span className="start-page-card-icon">
             <Landmark size={20} strokeWidth={1.5} />
           </span>
