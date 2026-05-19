@@ -1,13 +1,23 @@
 import { useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Inbox as InboxIcon, Store, ArrowUpRight, ArrowRight, Users } from "lucide-react";
+import {
+  Plus,
+  Inbox as InboxIcon,
+  Store,
+  ArrowUpRight,
+  ArrowRight,
+  Users,
+  Settings,
+} from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useEntities } from "@/queries/entities";
 import { useInboxStore } from "@/store/inbox";
 import { entityPath } from "@/lib/entityPath";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { timeShort } from "@/lib/format";
+import { launchPlanById } from "@/lib/pricing";
 import BlockAvatar from "@/components/BlockAvatar";
+import UserAvatar from "@/components/UserAvatar";
 import type { Trust } from "@/lib/types";
 
 /**
@@ -59,19 +69,59 @@ export default function StartPage() {
 
   const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
   const inboxCount = inboxItems.length;
+  const awaitingCount = useMemo(
+    () => inboxItems.filter((i) => !!i.awaiting_at).length,
+    [inboxItems],
+  );
+  const planLabel = useMemo(() => {
+    if (!user?.subscription_plan) return "Free";
+    try {
+      return launchPlanById(user.subscription_plan).name;
+    } catch {
+      return "Free";
+    }
+  }, [user?.subscription_plan]);
+  const trustsLabel = `${entities.length} TRUST${entities.length === 1 ? "" : "s"}`;
+  const inboxLabel =
+    awaitingCount > 0
+      ? `${awaitingCount} awaiting`
+      : inboxCount > 0
+        ? `${inboxCount} in inbox`
+        : "Inbox clear";
 
   return (
     <div className="home-page">
       <header className="home-hero">
         <img src="/welcome/start-hero.png" alt="" className="home-hero-image" aria-hidden="true" />
+        <Link
+          to="/account"
+          className="home-hero-settings"
+          aria-label="Open account settings"
+          title="Account settings"
+        >
+          <Settings size={16} strokeWidth={1.6} />
+        </Link>
         <div className="home-hero-overlay">
-          <div className="home-hero-text">
-            <h1 className="home-hero-title">Welcome, {actorName}.</h1>
-            <p className="home-hero-subtitle">
-              Launch a TRUST, review what needs approval, or step into the economy already forming
-              around you.
-            </p>
+          <div className="home-hero-identity">
+            <span className="home-hero-avatar" aria-hidden="true">
+              <UserAvatar name={actorName} size={56} src={user?.avatar_url} />
+            </span>
+            <div className="home-hero-text">
+              <p className="home-hero-eyebrow">Welcome back</p>
+              <h1 className="home-hero-title">{actorName}</h1>
+            </div>
           </div>
+        </div>
+        <div className="home-hero-pill" role="status" aria-label="Account snapshot">
+          <span className="home-hero-pill-stat">{trustsLabel}</span>
+          <span className="home-hero-pill-sep" aria-hidden>
+            ·
+          </span>
+          <span className="home-hero-pill-stat">{inboxLabel}</span>
+          <span className="home-hero-pill-sep" aria-hidden>
+            ·
+          </span>
+          <span className="home-hero-pill-stat">{planLabel} plan</span>
         </div>
       </header>
 

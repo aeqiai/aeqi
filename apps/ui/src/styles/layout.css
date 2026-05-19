@@ -7910,29 +7910,113 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  padding: 40px 48px;
+  padding: 36px 48px;
   pointer-events: none;
+}
+.home-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 560px;
+}
+.home-hero-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-card-muted);
+  flex-shrink: 0;
 }
 .home-hero-text {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 520px;
+  gap: 2px;
+  min-width: 0;
+}
+.home-hero-eyebrow {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 .home-hero-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 40px;
-  font-weight: 200;
+  font-size: 36px;
+  font-weight: 300;
   letter-spacing: -0.025em;
   color: var(--color-text-primary);
   line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.home-hero-subtitle {
-  margin: 0;
+/* Top-right gear: shortcut to /account. White pill so it reads as a
+   real affordance against the warm hero photo, sized to the same 32px
+   row rhythm as the rest of the chrome. pointer-events re-enabled
+   because the overlay container disables them. */
+.home-hero-settings {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--color-card-elevated);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-md, 15px);
-  line-height: 1.5;
+  text-decoration: none;
+  pointer-events: auto;
+  transition:
+    transform 0.12s ease,
+    color 0.12s ease,
+    filter 0.12s ease;
+  z-index: 1;
+}
+.home-hero-settings:hover {
+  color: var(--color-text-primary);
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+.home-hero-settings:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+/* Bottom stats pill — a single white pill anchored at the hero's
+   bottom-left containing 3 mini-stats (TRUST count, inbox state,
+   plan). White-on-warm-photo gives it the same affordance weight as
+   the gear; ink is muted secondary so it reads as quiet data, not
+   another CTA. */
+.home-hero-pill {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--color-card-elevated);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  z-index: 1;
+}
+.home-hero-pill-stat {
+  font-variant-numeric: tabular-nums;
+}
+.home-hero-pill-sep {
+  color: var(--color-text-muted);
+  opacity: 0.55;
 }
 
 /* Card shell — shared by trust card, inbox, economy, and thesis.
@@ -8509,10 +8593,23 @@ button.home-card:focus-visible {
   }
   .home-hero-overlay {
     inset: 0 16px;
-    padding: 24px 28px;
+    padding: 24px 24px;
+  }
+  .home-hero-avatar {
+    width: 44px;
+    height: 44px;
   }
   .home-hero-title {
-    font-size: 30px;
+    font-size: 26px;
+  }
+  .home-hero-settings {
+    top: 16px;
+    right: 16px;
+  }
+  .home-hero-pill {
+    left: 16px;
+    bottom: 16px;
+    flex-wrap: wrap;
   }
   .home-thesis-card {
     grid-template-columns: 1fr;
