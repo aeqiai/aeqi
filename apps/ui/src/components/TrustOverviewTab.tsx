@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Copy, Check } from "lucide-react";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useTreasury } from "@/hooks/useTreasury";
@@ -10,42 +11,38 @@ import type { Quest } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { entityBasePath } from "@/lib/entityPath";
 import TrustHeroStrip from "./TrustHeroStrip";
+import TrustStateBand, { MILESTONE_ORDER, type MilestoneKey } from "./TrustStateBand";
+import TrustGenesisCurveCard from "./TrustGenesisCurveCard";
 import BlockAvatar from "./BlockAvatar";
-import { Loading, Tooltip } from "@/components/ui";
+import { Loading } from "@/components/ui";
 import "@/styles/overview.css";
 
-// HealthBlock — substrate compounding read folded into the cockpit
-// 2026-05-17. Renders the 4 trend metrics + 30d sparklines as a
-// section beneath the slim numbers row. Lazy-imported to keep the
-// initial Overview chunk small; the Health hook pulls a deeper
-// activity tail on mount.
 const HealthBlock = lazy(() => import("@/pages/HealthPage"));
 
 type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
 type GenesisCurveState = NonNullable<LaunchStatus["unifutures"]>;
 
 /**
- * `/trust/<addr>/overview` — TRUST cockpit.
+ * `/trust/<addr>/overview` — TRUST cockpit (v2).
  *
- * Founder-locked direction (2026-05-08): Overview answers
- * "what's happening now," not "what does the P&L look like."
- * Financial/on-chain indicators stay a pulse here, not a dedicated
- * balance-sheet page.
+ * Composition (top → bottom, sections render conditionally):
  *
- * Four blocks:
- *   1. Hero strip — name, tagline, public toggle (kept; already shipped)
- *   2. Pulse band — three side-by-side cards:
- *        a) Next steps      — seeded onboarding and in-flight work
- *        b) Awaiting decisions — entity-scoped inbox (kind=decision_request)
- *        c) Last 24h activity — compact agent activity stream
- *   3. Slim numbers row — 4 stat tiles:
- *        Assets · 7d activity · TRUST signers · Active agents
- *   4. Health block — substrate compounding (folded in 2026-05-17 from
- *      the retired /trust/<addr>/health surface): 4 trend metrics with
- *      one-line interpretations + 30d sparklines.
+ *   1. Hero band — TrustHeroStrip (avatar plate + name + tagline +
+ *      chrome row). Identity at-a-glance.
+ *   2. State band — one wide card carrying the mode-specific primary
+ *      CTA: operational → chat / provisioning → progress / static →
+ *      launch. This is the 120% beat of the page.
+ *   3. On-chain identity strip — compact TRUST address + signers count.
+ *      Always visible; the proof this is a real on-chain primitive.
+ *   4. Operations grid (operational mode only) — pulse stack left (one
+ *      primary card, two quieter satellites) + side stats right.
+ *   5. Modules row — one card per installed module. Genesis curve is
+ *      the first (and currently only) module; renders only when
+ *      launchStatus.unifutures !== null.
+ *   6. Health — substrate compounding, lazy-loaded (operational mode).
  *
- * Pulse cards and routed stat tiles click through to their full surface.
- * Empty states render gracefully and surface the next action inline.
+ * All cards paint --color-card-elevated to sit above .content-paper
+ * (--color-card). Same paper-on-paper convention as the home page.
  */
 export default function TrustOverviewTab({ trustId }: { trustId: string }) {
   const navigate = useNavigate();
@@ -56,30 +53,60 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
 
   const entity = entities.find((e) => e.id === trustId);
   const trustAddress = entity?.trust_address;
+  const basePath = entity ? entityBasePath(entity) : "/launch";
 
-  // Click-to-copy the truncated TRUST pubkey: the demo moment where the
-  // audience can paste the address into any Solana explorer to verify
-  // the on-chain reality. `stopPropagation` lets the rest of the tile
-  // still navigate to /trust/<addr>.
+  // ── Launch / runtime state ──────────────────────────────────────────
+  const [launchStatus, setLaunchStatus] = useState<LaunchStatus | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getLaunchStatus(trustId)
+      .then((status) => {
+        if (cancelled) return;
+        setLaunchStatus(status);
+        setLaunchError(null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLaunchStatus(null);
+        setLaunchError(err instanceof Error ? err.message : "Status unavailable.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [trustId]);
+
+  // Mode is derived from launch state. The current milestone is the
+  // first one not yet reached; once all reached, mode flips operational.
+  const mode = useMemo<"operational" | "provisioning" | "static" | "error">(() => {
+    if (entity?.launch_error || launchStatus?.runtime_error || launchStatus?.trust_error)
+      return "error";
+    if (!launchStatus) return "static";
+    const allDone = MILESTONE_ORDER.every((k) => launchStatus.milestones[k]?.reached);
+    if (allDone) return "operational";
+    const anyReached = MILESTONE_ORDER.some((k) => launchStatus.milestones[k]?.reached);
+    return anyReached ? "provisioning" : "static";
+  }, [launchStatus, entity?.launch_error]);
+
+  const currentMilestone = useMemo<MilestoneKey | null>(() => {
+    if (!launchStatus) return null;
+    return MILESTONE_ORDER.find((k) => !launchStatus.milestones[k]?.reached) ?? null;
+  }, [launchStatus]);
+
+  // ── Click-to-copy address ────────────────────────────────────────────
   const [trustCopied, setTrustCopied] = useState(false);
-  const handleCopyTrust = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const copyAddress = () => {
     if (!trustAddress) return;
     navigator.clipboard.writeText(trustAddress);
     setTrustCopied(true);
     setTimeout(() => setTrustCopied(false), 1500);
   };
 
-  // Inbox: subscribe to raw fields and useMemo the entity-filtered slice.
-  // A selector that filters inline returns a fresh array every call and
-  // breaks `useSyncExternalStore`'s identity check (React error #185).
+  // ── Inbox (entity-scoped decisions) ─────────────────────────────────
   const inboxAllItems = useInboxStore((s) => s.items);
   const inboxPending = useInboxStore((s) => s.pendingDismissal);
-  // The overview's "Awaiting decisions" card surfaces decision-requests
-  // only — filter to rows with `awaiting_at` set. The broadened inbox
-  // query (2026-05-07) returns every session in scope; this card stays
-  // narrow to its purpose.
   const entityInbox = useMemo(
     () =>
       inboxAllItems.filter(
@@ -88,6 +115,7 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
     [inboxAllItems, inboxPending, trustId],
   );
 
+  // ── Agents subtree ──────────────────────────────────────────────────
   const subtreeAgents = useMemo(
     () => agents.filter((a) => a.trust_id === trustId || a.id === trustId),
     [agents, trustId],
@@ -100,8 +128,19 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
     () => new Set<string>(subtreeAgents.map((a) => a.name)),
     [subtreeAgents],
   );
+  const activeAgentsCount = useMemo(
+    () =>
+      subtreeAgents.filter(
+        (a) => a.status === "running" || a.status === "active" || a.status === "online",
+      ).length,
+    [subtreeAgents],
+  );
+  const rootAgent = useMemo(
+    () => subtreeAgents.find((a) => a.id === entity?.agent_id) ?? subtreeAgents[0] ?? null,
+    [subtreeAgents, entity?.agent_id],
+  );
 
-  // ── Pulse: next steps ───────────────────────────────────────────────
+  // ── Pulse: next steps / recent events ───────────────────────────────
   const nextStepQuests = useMemo(
     () =>
       quests
@@ -120,36 +159,21 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
           if (priorityDelta !== 0) return priorityDelta;
           return parseTs(a.created_at) - parseTs(b.created_at);
         })
-        .slice(0, 5),
+        .slice(0, 4),
     [quests, subtreeIds, trustId],
   );
 
-  // ── Pulse: last 24h activity stream ─────────────────────────────────
   const recentEvents = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     return events
       .filter((ev) => ev.agent && subtreeNames.has(ev.agent) && parseTs(ev.timestamp) >= cutoff)
       .sort((a, b) => parseTs(b.timestamp) - parseTs(a.timestamp))
-      .slice(0, 6);
+      .slice(0, 5);
   }, [events, subtreeNames]);
 
-  // ── Numbers row: indexed assets + 7d transfer activity ──────────────
+  // ── Treasury ────────────────────────────────────────────────────────
   const { balances, transfers } = useTreasury(trustId);
-
-  // Indexed asset count. The dedicated page surface was retired; keep the
-  // lightweight indexer signal in the cockpit without linking to a dead route.
-  const assetDisplay = useMemo(() => {
-    if (balances === null) return "—";
-    const total = balances.length;
-    if (total === 0) return "0 assets";
-    return `${total} ${total === 1 ? "asset" : "assets"}`;
-  }, [balances]);
-
-  // Recent transfer counts (in vs out) as a 7d-activity proxy. Direction-
-  // only signal — the indexer returns hex amounts per-token without a USD
-  // oracle, so the sign + label ("+3 in / -1 out" vs "no movement") is
-  // what matters at-a-glance. Block-time joins for a strict 7d window
-  // are deferred; we cap at the most recent 50 transfers as a proxy.
+  const assetCount = balances?.length ?? null;
   const netDelta = useMemo(() => {
     if (transfers === null) return null;
     let inCount = 0;
@@ -161,71 +185,33 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
     return { inCount, outCount };
   }, [transfers]);
 
-  // ── Numbers row: TRUST signers count ────────────────────────────────
-  const [trustsCount, setTrustsCount] = useState<number | null>(null);
-  const [genesisCurve, setGenesisCurve] = useState<GenesisCurveState | null>(null);
-  const [curveError, setCurveError] = useState<string | null>(null);
-  const [buying, setBuying] = useState(false);
-  const [buyResult, setBuyResult] = useState<string | null>(null);
-  const [buyError, setBuyError] = useState<string | null>(null);
+  // ── On-chain signers count ──────────────────────────────────────────
+  const [signersCount, setSignersCount] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (!trustAddress) {
-      setTrustsCount(null);
+      setSignersCount(null);
       return;
     }
     fetchTrust(trustAddress)
       .then((trust) => {
         if (cancelled) return;
-        setTrustsCount(trust?.signersCount ?? null);
+        setSignersCount(trust?.signersCount ?? null);
       })
       .catch(() => {
         if (cancelled) return;
-        setTrustsCount(null);
+        setSignersCount(null);
       });
     return () => {
       cancelled = true;
     };
   }, [trustAddress]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!trustAddress) {
-      setGenesisCurve(null);
-      setCurveError(null);
-      return;
-    }
-    api
-      .getLaunchStatus(trustId)
-      .then((status) => {
-        if (cancelled) return;
-        setGenesisCurve(status.unifutures);
-        setCurveError(null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setGenesisCurve(null);
-        setCurveError(err instanceof Error ? err.message : "Curve state unavailable.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [trustId, trustAddress]);
-
-  // ── Numbers row: active agents (status=running/active/online) ───────
-  const activeAgentsCount = useMemo(
-    () =>
-      subtreeAgents.filter(
-        (a) => a.status === "running" || a.status === "active" || a.status === "online",
-      ).length,
-    [subtreeAgents],
-  );
-
-  // basePath is canonical: /trust/<addr>.
-  // trustPath here is the same — kept as a separate name for the
-  // signers stat tile to read clearly.
-  const basePath = entity ? entityBasePath(entity) : "/launch";
-  const trustPath = basePath;
+  // ── Genesis curve module ────────────────────────────────────────────
+  const [buying, setBuying] = useState(false);
+  const [buyResult, setBuyResult] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const genesisCurve: GenesisCurveState | null = launchStatus?.unifutures ?? null;
 
   const handleFirstBuy = async () => {
     setBuying(true);
@@ -241,267 +227,291 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
     }
   };
 
+  // ── Mode-specific primary CTA target ────────────────────────────────
+  const operationalCtaPath = useMemo(() => {
+    if (!entity || !rootAgent) return `${basePath}/agents`;
+    return `${basePath}/agents/${encodeURIComponent(rootAgent.id)}`;
+  }, [entity, rootAgent, basePath]);
+
   return (
-    <div className="entity-overview">
+    <div className="trust-overview">
       <TrustHeroStrip trustId={trustId} />
 
-      {/* ── Pulse band ── */}
-      <div className="entity-overview-pulse">
-        {/* a) Next steps */}
-        <section className="entity-overview-pulse-card" aria-labelledby="pulse-quests">
-          <div className="entity-overview-pulse-head">
-            <h2 id="pulse-quests" className="entity-overview-pulse-title">
-              Next steps
-            </h2>
-            {nextStepQuests.length > 0 && (
-              <Link to={`${basePath}/quests`} className="entity-overview-pulse-link">
-                View all →
-              </Link>
-            )}
-          </div>
-          {nextStepQuests.length === 0 ? (
-            <p className="entity-overview-pulse-empty">
-              No queued next steps ·{" "}
-              <Link to={`${basePath}/quests`} className="entity-overview-pulse-empty-link">
-                start one →
-              </Link>
-            </p>
-          ) : (
-            <ul className="entity-overview-pulse-list" role="list">
-              {nextStepQuests.map((q) => {
-                const agent = q.agent_id ? agents.find((a) => a.id === q.agent_id) : null;
-                const agentName = agent?.name ?? "Agent";
-                return (
-                  <li key={q.id} className="entity-overview-pulse-row">
-                    <button
-                      type="button"
-                      className="entity-overview-pulse-btn"
-                      onClick={() => navigate(`${basePath}/quests/${encodeURIComponent(q.id)}`)}
-                    >
-                      <span className="entity-overview-pulse-from">
-                        <span className="entity-overview-pulse-avatar" aria-hidden>
-                          {agent?.avatar ? (
-                            <img src={agent.avatar} alt="" />
-                          ) : (
-                            <BlockAvatar name={agentName} size={18} />
-                          )}
-                        </span>
-                        {agentName}
-                      </span>
-                      <span className="entity-overview-pulse-text">
-                        {q.idea?.name ?? "untitled quest"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+      <TrustStateBand
+        mode={mode}
+        currentMilestone={currentMilestone}
+        launchError={launchError ?? entity?.launch_error ?? null}
+        activeAgents={activeAgentsCount}
+        totalAgents={subtreeAgents.length}
+        operationalCtaPath={operationalCtaPath}
+        onLaunch={() => navigate("/launch")}
+        rootAgentName={rootAgent?.name}
+      />
 
-        {/* b) Awaiting decisions */}
-        <section className="entity-overview-pulse-card" aria-labelledby="pulse-decisions">
-          <div className="entity-overview-pulse-head">
-            <h2 id="pulse-decisions" className="entity-overview-pulse-title">
-              Awaiting decisions
-            </h2>
-            {entityInbox.length > 0 && (
-              <Link to={`${basePath}/inbox`} className="entity-overview-pulse-link">
-                View inbox →
-              </Link>
+      {trustAddress && (
+        <section className="trust-overview-identity" aria-label="On-chain identity">
+          <span className="trust-overview-identity-label">TRUST</span>
+          <button
+            type="button"
+            className="trust-overview-identity-addr"
+            onClick={copyAddress}
+            title={trustCopied ? "Copied" : "Click to copy"}
+          >
+            <span>{trustAddress}</span>
+            {trustCopied ? (
+              <Check size={14} strokeWidth={1.8} />
+            ) : (
+              <Copy size={14} strokeWidth={1.5} />
             )}
-          </div>
-          {entityInbox.length === 0 ? (
-            <p className="entity-overview-pulse-empty">No decisions waiting.</p>
-          ) : (
-            <ul className="entity-overview-pulse-list" role="list">
+          </button>
+          <span className="trust-overview-identity-sep" aria-hidden>
+            ·
+          </span>
+          <span className="trust-overview-identity-label">Signers</span>
+          <span className="trust-overview-identity-num">
+            {signersCount === null ? "—" : signersCount}
+          </span>
+        </section>
+      )}
+
+      {mode === "operational" && (
+        <section className="trust-overview-ops" aria-label="Operations">
+          <div className="trust-overview-ops-pulse">
+            <PulseCard
+              tone="primary"
+              title="Awaiting decisions"
+              empty="No decisions waiting."
+              link={
+                entityInbox.length > 0 ? { to: `${basePath}/inbox`, label: "Open inbox" } : null
+              }
+            >
               {entityInbox.slice(0, 5).map((item) => {
                 const fromName = item.agent_name || "Agent";
                 const preview =
                   item.awaiting_subject || item.last_agent_message || item.session_name;
                 return (
-                  <li key={item.session_id} className="entity-overview-pulse-row">
-                    <button
-                      type="button"
-                      className="entity-overview-pulse-btn"
-                      onClick={() =>
-                        navigate(
-                          sessionDeepUrlFromId(
-                            entities,
-                            item.trust_id,
-                            item.agent_id,
-                            item.session_id,
-                          ),
-                        )
-                      }
-                    >
-                      <span className="entity-overview-pulse-from">
-                        <span className="entity-overview-pulse-avatar" aria-hidden>
-                          <BlockAvatar name={fromName} size={18} />
-                        </span>
-                        {fromName}
-                        <span className="entity-overview-pulse-time">
-                          {relativeTime(item.awaiting_at ?? item.last_active)}
-                        </span>
-                      </span>
-                      <span className="entity-overview-pulse-text">{preview}</span>
-                    </button>
-                  </li>
+                  <PulseRow
+                    key={item.session_id}
+                    avatar={fromName}
+                    from={fromName}
+                    time={relativeTime(item.awaiting_at ?? item.last_active)}
+                    text={preview ?? "Untitled"}
+                    onClick={() =>
+                      navigate(
+                        sessionDeepUrlFromId(
+                          entities,
+                          item.trust_id,
+                          item.agent_id,
+                          item.session_id,
+                        ),
+                      )
+                    }
+                  />
                 );
               })}
-            </ul>
-          )}
-        </section>
+            </PulseCard>
 
-        {/* c) Last 24h activity */}
-        <section className="entity-overview-pulse-card" aria-labelledby="pulse-activity">
-          <div className="entity-overview-pulse-head">
-            <h2 id="pulse-activity" className="entity-overview-pulse-title">
-              Last 24h
-            </h2>
-            {recentEvents.length > 0 && (
-              <Link to={`${basePath}/events`} className="entity-overview-pulse-link">
-                View events →
-              </Link>
-            )}
-          </div>
-          {recentEvents.length === 0 ? (
-            <p className="entity-overview-pulse-empty">Quiet day. No agent activity.</p>
-          ) : (
-            <ul className="entity-overview-pulse-list" role="list">
-              {recentEvents.map((ev) => {
-                const decision = ev.decision_type.replace(/_/g, " ");
-                return (
-                  <li key={ev.id} className="entity-overview-pulse-row">
-                    <button
-                      type="button"
-                      className="entity-overview-pulse-btn"
-                      onClick={() => navigate(`${basePath}/events`)}
-                    >
-                      <span className="entity-overview-pulse-from">
-                        {ev.agent ?? "system"}
-                        <span className="entity-overview-pulse-time">
-                          {relativeTime(ev.timestamp)}
-                        </span>
-                      </span>
-                      <span className="entity-overview-pulse-text">{decision}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      {/* ── Slim numbers row ── */}
-      <div className="entity-overview-numbers">
-        <div className="entity-overview-stat">
-          <span className="entity-overview-stat-label">Assets</span>
-          <span className="entity-overview-stat-value">{assetDisplay}</span>
-        </div>
-
-        <div className="entity-overview-stat">
-          <span className="entity-overview-stat-label">Activity</span>
-          <span className="entity-overview-stat-value">{netDeltaValue(netDelta)}</span>
-          <span className={netDeltaClassName(netDelta)}>{netDeltaLabel(netDelta)}</span>
-        </div>
-
-        <Link to={trustPath} className="entity-overview-stat">
-          <span className="entity-overview-stat-label">TRUST signers</span>
-          <span className="entity-overview-stat-value">
-            {trustsCount === null ? "—" : trustsCount}
-          </span>
-          {trustAddress ? (
-            <Tooltip content={trustCopied ? "Copied" : "Copy full address"}>
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={handleCopyTrust}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") handleCopyTrust(e);
-                }}
-                className="entity-overview-stat-delta entity-overview-trust-pubkey"
+            <div className="trust-overview-ops-pulse-pair">
+              <PulseCard
+                tone="quiet"
+                title="Next steps"
+                empty="No queued work."
+                link={
+                  nextStepQuests.length > 0
+                    ? { to: `${basePath}/quests`, label: "All quests" }
+                    : null
+                }
               >
-                {trustAddress.length > 12
-                  ? `${trustAddress.slice(0, 6)}…${trustAddress.slice(-4)}`
-                  : trustAddress}
-                {trustCopied ? " ✓" : ""}
-              </span>
-            </Tooltip>
-          ) : null}
-        </Link>
+                {nextStepQuests.map((q) => {
+                  const agent = q.agent_id ? agents.find((a) => a.id === q.agent_id) : null;
+                  const agentName = agent?.name ?? "Agent";
+                  return (
+                    <PulseRow
+                      key={q.id}
+                      avatar={agentName}
+                      from={agentName}
+                      time=""
+                      text={q.idea?.name ?? "untitled quest"}
+                      onClick={() => navigate(`${basePath}/quests/${encodeURIComponent(q.id)}`)}
+                    />
+                  );
+                })}
+              </PulseCard>
 
-        <Link to={`${basePath}/agents`} className="entity-overview-stat">
-          <span className="entity-overview-stat-label">Active agents</span>
-          <span className="entity-overview-stat-value">
-            {activeAgentsCount}
-            <span className="entity-overview-stat-delta">/{subtreeAgents.length}</span>
-          </span>
-        </Link>
-      </div>
-
-      <section className="entity-overview-genesis" aria-labelledby="overview-genesis">
-        <div className="entity-overview-section-head">
-          <h2 id="overview-genesis" className="entity-overview-section-title">
-            Genesis curve
-          </h2>
-          <p className="entity-overview-section-sub">UniFutures first buy</p>
-        </div>
-        <div className="entity-overview-genesis-row">
-          <div className="entity-overview-genesis-main">
-            <span className="entity-overview-genesis-label">Curve</span>
-            <span className="entity-overview-genesis-value">
-              {genesisCurve
-                ? compactAddress(genesisCurve.curve)
-                : curveError
-                  ? "unavailable"
-                  : "loading"}
-            </span>
-            {genesisCurve && (
-              <span className="entity-overview-genesis-sub">
-                Asset {compactAddress(genesisCurve.asset_mint)} · USDC{" "}
-                {compactAddress(genesisCurve.quote_mint)}
-              </span>
-            )}
-            {!genesisCurve && curveError && (
-              <span className="entity-overview-genesis-sub">{curveError}</span>
-            )}
-            {buyResult && (
-              <span className="entity-overview-genesis-sub">
-                Settled {compactAddress(buyResult)}
-              </span>
-            )}
-            {buyError && <span className="entity-overview-genesis-error">{buyError}</span>}
+              <PulseCard
+                tone="quiet"
+                title="Last 24h"
+                empty="Quiet day. No activity."
+                link={
+                  recentEvents.length > 0 ? { to: `${basePath}/events`, label: "All events" } : null
+                }
+              >
+                {recentEvents.map((ev) => {
+                  const decision = ev.decision_type.replace(/_/g, " ");
+                  return (
+                    <PulseRow
+                      key={ev.id}
+                      avatar={ev.agent ?? "system"}
+                      from={ev.agent ?? "system"}
+                      time={relativeTime(ev.timestamp)}
+                      text={decision}
+                      onClick={() => navigate(`${basePath}/events`)}
+                    />
+                  );
+                })}
+              </PulseCard>
+            </div>
           </div>
-          <button
-            type="button"
-            className="entity-overview-genesis-buy"
-            onClick={() => void handleFirstBuy()}
-            disabled={!genesisCurve || buying}
-          >
-            {buying ? "Buying" : "Try $1 USDC buy"}
-          </button>
-        </div>
-      </section>
 
-      {/* ── Health block — substrate compounding ── */}
-      <section className="entity-overview-health" aria-labelledby="overview-health">
-        <header className="entity-overview-section-head">
-          <h2 id="overview-health" className="entity-overview-section-title">
-            Health
-          </h2>
-          <p className="entity-overview-section-sub">Is this TRUST compounding?</p>
-        </header>
-        <Suspense fallback={<Loading size="sm" />}>
-          <HealthBlock trustId={trustId} />
-        </Suspense>
-      </section>
+          <aside className="trust-overview-ops-stats" aria-label="Stats">
+            <Stat
+              label="Active agents"
+              value={String(activeAgentsCount)}
+              hint={`of ${subtreeAgents.length}`}
+              to={`${basePath}/agents`}
+            />
+            <Stat
+              label="Treasury"
+              value={assetCount === null ? "—" : String(assetCount)}
+              hint={assetCount === 1 ? "asset" : "assets"}
+              delta={netDelta ? netDeltaLabel(netDelta) : null}
+              deltaTone={netDeltaTone(netDelta)}
+              to={`${basePath}/treasury`}
+            />
+            <Stat
+              label="In flight"
+              value={String(nextStepQuests.length)}
+              hint={nextStepQuests.length === 1 ? "quest" : "quests"}
+              to={`${basePath}/quests`}
+            />
+          </aside>
+        </section>
+      )}
+
+      {genesisCurve && (
+        <section className="trust-overview-modules" aria-label="Modules">
+          <div className="trust-overview-section-head">
+            <h2 className="trust-overview-section-title">Modules</h2>
+            <p className="trust-overview-section-sub">
+              Programmable surfaces installed on this TRUST.
+            </p>
+          </div>
+          <TrustGenesisCurveCard
+            curve={genesisCurve}
+            buying={buying}
+            buyResult={buyResult}
+            buyError={buyError}
+            onFirstBuy={handleFirstBuy}
+          />
+        </section>
+      )}
+
+      {mode === "operational" && (
+        <section className="trust-overview-health" aria-label="Health">
+          <div className="trust-overview-section-head">
+            <h2 className="trust-overview-section-title">Health</h2>
+            <p className="trust-overview-section-sub">Is this TRUST compounding?</p>
+          </div>
+          <div className="trust-overview-card">
+            <Suspense fallback={<Loading size="sm" />}>
+              <HealthBlock trustId={trustId} />
+            </Suspense>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
+// ── Pulse card ──────────────────────────────────────────────────────────
+
+interface PulseCardProps {
+  tone: "primary" | "quiet";
+  title: string;
+  empty: string;
+  link: { to: string; label: string } | null;
+  children?: React.ReactNode;
+}
+
+function PulseCard({ tone, title, empty, link, children }: PulseCardProps) {
+  const items = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
+  const hasItems = items.length > 0;
+  return (
+    <article className={`trust-overview-card trust-overview-pulse trust-overview-pulse--${tone}`}>
+      <header className="trust-overview-pulse-head">
+        <h3 className="trust-overview-pulse-title">{title}</h3>
+        {link && (
+          <Link className="trust-overview-pulse-link" to={link.to}>
+            {link.label}
+            <ArrowRight size={12} strokeWidth={1.8} />
+          </Link>
+        )}
+      </header>
+      {hasItems ? (
+        <ul className="trust-overview-pulse-list" role="list">
+          {items}
+        </ul>
+      ) : (
+        <p className="trust-overview-pulse-empty">{empty}</p>
+      )}
+    </article>
+  );
+}
+
+interface PulseRowProps {
+  avatar: string;
+  from: string;
+  time: string;
+  text: string;
+  onClick: () => void;
+}
+
+function PulseRow({ avatar, from, time, text, onClick }: PulseRowProps) {
+  return (
+    <li className="trust-overview-pulse-row">
+      <button type="button" className="trust-overview-pulse-btn" onClick={onClick}>
+        <span className="trust-overview-pulse-meta">
+          <span className="trust-overview-pulse-avatar" aria-hidden>
+            <BlockAvatar name={avatar} size={18} />
+          </span>
+          <span className="trust-overview-pulse-from">{from}</span>
+          {time && <span className="trust-overview-pulse-time">{time}</span>}
+        </span>
+        <span className="trust-overview-pulse-text">{text}</span>
+      </button>
+    </li>
+  );
+}
+
+// ── Stat tile ───────────────────────────────────────────────────────────
+
+interface StatProps {
+  label: string;
+  value: string;
+  hint?: string;
+  delta?: string | null;
+  deltaTone?: "positive" | "negative" | "neutral";
+  to: string;
+}
+
+function Stat({ label, value, hint, delta, deltaTone = "neutral", to }: StatProps) {
+  return (
+    <Link to={to} className="trust-overview-card trust-overview-stat">
+      <span className="trust-overview-stat-label">{label}</span>
+      <span className="trust-overview-stat-value">
+        {value}
+        {hint && <span className="trust-overview-stat-hint"> {hint}</span>}
+      </span>
+      {delta && (
+        <span className={`trust-overview-stat-delta trust-overview-stat-delta--${deltaTone}`}>
+          {delta}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 function questStatusRank(status: Quest["status"]): number {
   if (status === "in_review") return 0;
@@ -536,27 +546,17 @@ function relativeTime(iso: string | undefined): string {
   return formatShortDate(ts);
 }
 
-function compactAddress(value: string): string {
-  if (value.length <= 12) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
-function netDeltaValue(delta: { inCount: number; outCount: number } | null): string {
-  if (delta === null) return "—";
-  const total = delta.inCount + delta.outCount;
-  if (total === 0) return "0";
-  return String(total);
-}
-
 function netDeltaLabel(delta: { inCount: number; outCount: number } | null): string {
-  if (delta === null) return "loading";
+  if (delta === null) return "";
   if (delta.inCount === 0 && delta.outCount === 0) return "no movement";
-  return `+${delta.inCount} in / -${delta.outCount} out`;
+  return `+${delta.inCount} in · −${delta.outCount} out`;
 }
 
-function netDeltaClassName(delta: { inCount: number; outCount: number } | null): string {
-  if (delta === null) return "entity-overview-stat-delta";
-  if (delta.inCount > delta.outCount) return "entity-overview-stat-delta is-positive";
-  if (delta.outCount > delta.inCount) return "entity-overview-stat-delta is-negative";
-  return "entity-overview-stat-delta";
+function netDeltaTone(
+  delta: { inCount: number; outCount: number } | null,
+): "positive" | "negative" | "neutral" {
+  if (delta === null) return "neutral";
+  if (delta.inCount > delta.outCount) return "positive";
+  if (delta.outCount > delta.inCount) return "negative";
+  return "neutral";
 }

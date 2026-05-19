@@ -10,20 +10,16 @@ import { Textarea } from "./ui";
  * `TrustHeroStrip` — top of every Company Overview surface.
  *
  * Click-to-edit name + tagline persist via `api.updateEntity`. Public
- * toggle flips `entities.public` (Phase 2 ships the public profile page
- * itself; Phase 1 only sets the flag). Plan label-link routes to the
- * organization plan tab.
+ * toggle flips `entities.public`. Plan label-link routes to the
+ * organization billing tab.
  *
- * In `public` mode the strip renders read-only: no click-to-edit on name
- * or tagline, no plan label, no public/private toggle (the viewer is
- * already on the public profile, so the toggle would be tautological).
- * The data source switches from the daemon store to the public-profile
- * payload passed in via `publicEntity` — daemon store is empty for
- * unauthenticated visitors. Used by `PublicProfilePage`.
+ * In `public` mode the strip renders read-only: no click-to-edit on
+ * name or tagline, no plan label, no public/private toggle (the viewer
+ * is already on the public profile). Data source switches to
+ * `publicEntity` since the daemon store is empty for unauth visitors.
  *
- * Design tokens only; no bespoke colors, no hairline borders. The strip
- * sits above the existing dashboard grid; height is content-driven
- * (inline editor swaps grow vertically without knocking the grid).
+ * All styling moved to overview.css under the `.trust-hero-*` namespace
+ * 2026-05-19. No inline styles; tokens only.
  */
 interface PublicEntityShape {
   display_name: string;
@@ -32,16 +28,9 @@ interface PublicEntityShape {
 
 interface TrustHeroStripProps {
   trustId: string;
-  /**
-   * When true, render the strip read-only — hides edit affordances, plan
-   * label, and public/private toggle. Used by the unauthenticated public
-   * profile page.
-   */
+  /** Read-only public-profile mode (PublicProfilePage). */
   public?: boolean;
-  /**
-   * Public-mode data source. Required when `public={true}` because the
-   * daemon store is empty for unauth visitors. Ignored otherwise.
-   */
+  /** Public-mode data source; required when `public={true}`. */
   publicEntity?: PublicEntityShape;
 }
 
@@ -54,7 +43,6 @@ export default function TrustHeroStrip({
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const entity = entities.find((e) => e.id === trustId);
 
-  // Local edit state — switches between display and inline-input modes.
   const [editingName, setEditingName] = useState(false);
   const [editingTagline, setEditingTagline] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -65,13 +53,10 @@ export default function TrustHeroStrip({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const taglineInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Keep public toggle synced with store (it's the source of truth after
-  // each fetchEntities refresh).
   useEffect(() => {
     setIsPublic(entity?.public === true);
   }, [entity?.public]);
 
-  // Auto-focus when edit mode opens.
   useEffect(() => {
     if (editingName) {
       nameInputRef.current?.focus();
@@ -128,14 +113,14 @@ export default function TrustHeroStrip({
       await fetchEntities();
     } catch (e) {
       console.error("toggle public failed", e);
-      setIsPublic(!next); // rollback
+      setIsPublic(!next);
     } finally {
       setSavingPublic(false);
     }
   };
 
   const planLabel = (() => {
-    if (!entity?.plan) return "No plan";
+    if (!entity?.plan) return null;
     const plan = launchPlanById(entity.plan);
     return `${plan.name} · ${plan.price}/mo`;
   })();
@@ -144,34 +129,14 @@ export default function TrustHeroStrip({
   const tagline = isPublicMode ? (publicEntity?.tagline ?? "") : (entity?.tagline ?? "");
 
   return (
-    <header
-      className="entity-hero-strip"
-      style={{
-        display: "flex",
-        gap: "var(--space-5)",
-        alignItems: "flex-start",
-        padding: "var(--space-6) 0",
-        marginBottom: "var(--space-6)",
-      }}
-      aria-label="Company hero"
-    >
-      <div
-        style={{
-          width: 96,
-          height: 96,
-          flexShrink: 0,
-          borderRadius: "var(--radius-md)",
-          overflow: "hidden",
-          background: "var(--color-bg-subtle)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <BlockAvatar name={name} size={96} />
+    <header className="trust-hero" aria-label="Trust identity">
+      <div className="trust-hero-avatar" aria-hidden>
+        <BlockAvatar name={name} size={88} />
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="trust-hero-body">
+        <span className="trust-hero-eyebrow">TRUST</span>
+
         {!isPublicMode && editingName ? (
           <input
             ref={nameInputRef}
@@ -187,55 +152,16 @@ export default function TrustHeroStrip({
               }
             }}
             maxLength={64}
-            className="entity-hero-name-input"
-            style={{
-              font: "inherit",
-              fontSize: "var(--font-size-3xl)",
-              fontWeight: 600,
-              lineHeight: 1.1,
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              margin: 0,
-              width: "100%",
-              color: "var(--color-text-primary)",
-              outline: "none",
-            }}
+            className="trust-hero-name-input"
           />
         ) : isPublicMode ? (
-          <h1
-            style={{
-              font: "inherit",
-              fontSize: "var(--font-size-3xl)",
-              fontWeight: 600,
-              lineHeight: 1.1,
-              padding: 0,
-              margin: 0,
-              color: "var(--color-text-primary)",
-            }}
-          >
-            {name}
-          </h1>
+          <h1 className="trust-hero-name">{name}</h1>
         ) : (
           <button
             type="button"
             onClick={startNameEdit}
             title="Click to rename"
-            style={{
-              font: "inherit",
-              fontSize: "var(--font-size-3xl)",
-              fontWeight: 600,
-              lineHeight: 1.1,
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              margin: 0,
-              cursor: "text",
-              color: "var(--color-text-primary)",
-              textAlign: "left",
-              display: "block",
-              width: "100%",
-            }}
+            className="trust-hero-name trust-hero-name--button"
           >
             {name}
           </button>
@@ -259,98 +185,45 @@ export default function TrustHeroStrip({
             maxLength={200}
             placeholder="Add a tagline"
             rows={2}
-            style={{
-              font: "inherit",
-              fontStyle: "italic",
-              fontSize: "var(--font-size-sm)",
-              lineHeight: 1.4,
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              margin: "var(--space-2) 0 0 0",
-              width: "100%",
-              color: "var(--color-text-secondary)",
-              outline: "none",
-              resize: "none",
-            }}
+            className="trust-hero-tagline-input"
           />
         ) : isPublicMode ? (
           tagline ? (
-            <p
-              style={{
-                font: "inherit",
-                fontStyle: "italic",
-                fontSize: "var(--font-size-sm)",
-                lineHeight: 1.4,
-                padding: 0,
-                margin: "var(--space-2) 0 0 0",
-                color: "var(--color-text-secondary)",
-              }}
-            >
-              {tagline}
-            </p>
+            <p className="trust-hero-tagline">{tagline}</p>
           ) : null
         ) : (
           <button
             type="button"
             onClick={startTaglineEdit}
             title="Click to edit tagline"
-            style={{
-              font: "inherit",
-              fontStyle: "italic",
-              fontSize: "var(--font-size-sm)",
-              lineHeight: 1.4,
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              margin: "var(--space-2) 0 0 0",
-              cursor: "text",
-              color: tagline ? "var(--color-text-secondary)" : "var(--color-text-muted)",
-              textAlign: "left",
-              display: "block",
-              width: "100%",
-            }}
+            className={
+              tagline
+                ? "trust-hero-tagline trust-hero-tagline--button"
+                : "trust-hero-tagline trust-hero-tagline--button trust-hero-tagline--empty"
+            }
           >
             {tagline || "Add a tagline"}
           </button>
         )}
 
         {!isPublicMode && (
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-4)",
-              alignItems: "center",
-              marginTop: "var(--space-4)",
-              flexWrap: "wrap",
-              fontSize: "var(--font-size-sm)",
-              color: "var(--color-text-muted)",
-            }}
-          >
-            <Link
-              to="/account/billing"
-              style={{
-                color: "inherit",
-                textDecoration: "none",
-                fontVariantNumeric: "tabular-nums",
-              }}
-              title="Manage workspace billing"
-            >
-              {planLabel}
-            </Link>
-
-            <span aria-hidden style={{ opacity: 0.5 }}>
-              ·
-            </span>
-
+          <div className="trust-hero-chrome">
+            {planLabel && (
+              <Link
+                to="/account/billing"
+                className="trust-hero-chrome-link"
+                title="Manage workspace billing"
+              >
+                {planLabel}
+              </Link>
+            )}
+            {planLabel && (
+              <span aria-hidden className="trust-hero-chrome-sep">
+                ·
+              </span>
+            )}
             <label
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "var(--space-2)",
-                cursor: savingPublic ? "wait" : "pointer",
-                userSelect: "none",
-              }}
+              className="trust-hero-public"
               title={
                 isPublic ? "Profile is public at <host>/<slug>" : "Profile is private to members"
               }
@@ -360,7 +233,6 @@ export default function TrustHeroStrip({
                 checked={isPublic}
                 onChange={togglePublic}
                 disabled={savingPublic}
-                style={{ accentColor: "var(--color-accent)" }}
               />
               <span>{isPublic ? "Public" : "Private"}</span>
             </label>
