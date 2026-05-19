@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use crate::schema::{CodeEdge, CodeNode, EdgeType, NodeLabel};
@@ -180,6 +181,34 @@ impl GraphStore {
             params![file_path],
         )?;
         Ok(())
+    }
+
+    pub fn source_files_pointing_to_files(&self, file_paths: &[String]) -> Result<Vec<String>> {
+        if file_paths.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let placeholders = vec!["?"; file_paths.len()].join(", ");
+        let sql = format!(
+            "SELECT DISTINCT source.file_path
+             FROM code_edges edge
+             JOIN code_nodes source ON source.id = edge.source_id
+             JOIN code_nodes target ON target.id = edge.target_id
+             WHERE target.file_path IN ({placeholders})
+               AND source.file_path NOT IN ({placeholders})"
+        );
+        let params = file_paths.iter().chain(file_paths.iter());
+        let mut stmt = self.conn.prepare(&sql)?;
+        let source_files = stmt
+            .query_map(rusqlite::params_from_iter(params), |row| {
+                row.get::<_, String>(0)
+            })?
+            .filter_map(|row| row.ok())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+
+        Ok(source_files)
     }
 
     pub fn clear(&self) -> Result<()> {

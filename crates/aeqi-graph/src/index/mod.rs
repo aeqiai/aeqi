@@ -297,7 +297,9 @@ impl Indexer {
             }
         };
         let current_dirty = dirty_worktree_files(project_dir);
-        let changed_files = changed_file_set(&committed_changes, &current_dirty, &previous_dirty);
+        let mut changed_files =
+            changed_file_set(&committed_changes, &current_dirty, &previous_dirty);
+        changed_files = self.expand_with_reverse_dependencies(store, changed_files)?;
 
         if changed_files.is_empty() {
             info!(
@@ -413,6 +415,28 @@ impl Indexer {
             processes: 0,
             unresolved,
         })
+    }
+
+    fn expand_with_reverse_dependencies(
+        &self,
+        store: &GraphStore,
+        changed_files: Vec<String>,
+    ) -> Result<Vec<String>> {
+        let mut expanded: BTreeSet<String> = changed_files.into_iter().collect();
+        let mut frontier: Vec<String> = expanded.iter().cloned().collect();
+
+        while !frontier.is_empty() {
+            let dependents = store.source_files_pointing_to_files(&frontier)?;
+            frontier.clear();
+
+            for file in dependents {
+                if expanded.insert(file.clone()) {
+                    frontier.push(file);
+                }
+            }
+        }
+
+        Ok(expanded.into_iter().collect())
     }
 
     /// Compute impact of current uncommitted changes (git diff → symbols → blast radius).
@@ -580,6 +604,10 @@ fn is_supported_source_path(file: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{GraphStore, NodeLabel};
+    use std::fs;
+    use std::path::Path;
+    use std::process::Command;
 
     #[test]
     fn changed_file_set_includes_current_and_previous_dirty_sources() {
@@ -606,6 +634,78 @@ mod tests {
         assert_eq!(
             parsed,
             vec!["src/lib.rs".to_string(), "x/test.ts".to_string()]
+        );
+    }
+
+    #[test]
+    fn incremental_reindexes_reverse_dependents_to_preserve_callers() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        fs::create_dir(&src).unwrap();
+        fs::write(src.join("callee.rs"), "pub fn helper() -> u32 { 1 }\n").unwrap();
+        fs::write(
+            src.join("caller.rs"),
+            "use crate::callee::helper;\n\npub fn caller() -> u32 {\n    helper()\n}\n",
+        )
+        .unwrap();
+
+        git(dir.path(), &["init"]);
+        git(dir.path(), &["add", "."]);
+        git(
+            dir.path(),
+            &[
+                "-c",
+                "user.name=AEQI Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial graph fixture",
+            ],
+        );
+
+        let store = GraphStore::open_in_memory().unwrap();
+        let indexer = Indexer::new();
+        indexer.index(dir.path(), &store).unwrap();
+
+        fs::write(
+            src.join("callee.rs"),
+            "// shifted during edit\n// keeps the symbol name stable\npub fn helper() -> u32 { 2 }\n",
+        )
+        .unwrap();
+
+        let result = indexer.index_incremental(dir.path(), &store).unwrap();
+        assert_eq!(
+            result.files_parsed, 2,
+            "callee edits must reparse direct callers before deleting incoming edges"
+        );
+
+        let helper = store
+            .nodes_in_file("src/callee.rs")
+            .unwrap()
+            .into_iter()
+            .find(|node| node.label == NodeLabel::Function && node.name == "helper")
+            .expect("helper should be reindexed after callee edit");
+        let context = store.context(&helper.id).unwrap();
+
+        assert!(
+            context.callers.iter().any(|node| node.name == "caller"),
+            "incremental indexing must preserve unchanged caller -> changed callee edges"
+        );
+    }
+
+    fn git(dir: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} failed\nstdout:\n{}\nstderr:\n{}",
+            args,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
     }
 }

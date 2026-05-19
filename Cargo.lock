@@ -131,6 +131,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "tempfile",
  "tracing",
  "tree-sitter",
  "tree-sitter-rust",
