@@ -64,7 +64,6 @@ export default function StartPage() {
     <div className="home-page">
       <header className="home-hero">
         <img src="/welcome/start-hero.png" alt="" className="home-hero-image" aria-hidden="true" />
-        <span className="home-hero-fade" aria-hidden="true" />
         <div className="home-hero-overlay">
           <div className="home-hero-text">
             <h1 className="home-hero-title">Welcome, {actorName}.</h1>

@@ -7879,6 +7879,13 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero {
   position: relative;
 }
+/* Ethereal fade — the image itself dissolves into the page paper at
+   the top-left corner. Uses CSS mask so the gradient is INSIDE the
+   image (its pixels become transparent and paper-warm shows through),
+   not a tacked-on overlay element above it. The earlier
+   `.home-hero-fade` screen-blend span read as a bright patch over the
+   warm portal photo; mask-image keeps the warmth and just lets the
+   image emerge from the page instead of sitting against a hard edge. */
 .home-hero-image {
   display: block;
   width: 100%;
@@ -7886,23 +7893,8 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   object-fit: cover;
   object-position: center 45%;
   border-radius: var(--radius-lg, 12px);
-}
-/* Ethereal fade — a soft luminous wash bleeding from the top-left
-   corner of the hero. Pure decoration; sits above the image, below the
-   greeting overlay. Uses --color-card so the wash matches the surface
-   the page floats on instead of importing a foreign hue. */
-.home-hero-fade {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: var(--radius-lg, 12px);
-  background: radial-gradient(
-    ellipse 60% 80% at 0% 0%,
-    color-mix(in srgb, var(--color-card) 70%, transparent) 0%,
-    color-mix(in srgb, var(--color-card) 30%, transparent) 40%,
-    transparent 75%
-  );
-  mix-blend-mode: screen;
+  mask-image: radial-gradient(ellipse 130% 130% at 75% 70%, black 55%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 130% 130% at 75% 70%, black 55%, transparent 100%);
 }
 .home-hero-overlay {
   position: absolute;
