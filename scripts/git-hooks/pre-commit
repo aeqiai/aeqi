@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Pre-commit gate: refuse commits that would land fmt drift on main.
+#
+# Cheap (<1s with cache). Mirrors the first half of
+# scripts/rust-strict-lints.sh, which is the gate CI fails on.
+#
+# Bypass with `git commit --no-verify` only when you know what you're doing —
+# every bypass risks turning rust_strict_lints red on the next push.
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# Only enforce when Rust files are staged. Touching docs/tokens/CSS shouldn't
+# pay the rustfmt startup cost.
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.rs$'; then
+    exit 0
+fi
+
+echo "=== pre-commit: cargo fmt --all --check ==="
+if ! cargo fmt --all --check; then
+    echo ""
+    echo "✗ rustfmt drift detected. Run: cargo fmt --all"
+    echo "  then re-stage and commit. (Bypass: --no-verify)"
+    exit 1
+fi

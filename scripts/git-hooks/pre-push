@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Pre-push gate: thin wrapper around scripts/pre-push.sh so git invokes the
+# canonical pre-push script. The script runs fmt + clippy + tests, mirroring
+# the blocking subset of CI's Quality Gates.
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+exec "$ROOT/scripts/pre-push.sh"
