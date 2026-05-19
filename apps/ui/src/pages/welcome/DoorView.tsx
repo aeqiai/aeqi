@@ -9,6 +9,15 @@ export interface DoorViewProps {
   copy: WelcomeCopy;
   email: string;
   setEmail: (s: string) => void;
+  /** Manual invite-code input value (signup mode only). */
+  inviteInput: string;
+  setInviteInput: (s: string) => void;
+  /** Invite code already supplied via `?invite=` URL param — when set,
+   *  the manual input is hidden because the URL wins. */
+  inviteFromUrl: string | null;
+  /** Render the invite-code input. False on `/login` (existing users
+   *  don't need to redeem a code). */
+  showInviteField: boolean;
   walletDetected: { name: string } | null;
   passkeyAvailable: boolean;
   submitting: boolean;
@@ -24,6 +33,10 @@ export default function DoorView({
   copy,
   email,
   setEmail,
+  inviteInput,
+  setInviteInput,
+  inviteFromUrl,
+  showInviteField,
   walletDetected,
   passkeyAvailable,
   submitting,
@@ -34,6 +47,7 @@ export default function DoorView({
   onGithub,
   onSwitch,
 }: DoorViewProps) {
+  const renderInviteField = showInviteField && !inviteFromUrl;
   return (
     <>
       <h1 className="auth-heading">{copy.title}</h1>
@@ -51,6 +65,20 @@ export default function DoorView({
           onChange={(e) => setEmail(e.target.value)}
           autoFocus
         />
+        {renderInviteField && (
+          <Input
+            size="lg"
+            type="text"
+            name="invite_code"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            placeholder="Invite code (optional)"
+            aria-label="Invite code"
+            value={inviteInput}
+            onChange={(e) => setInviteInput(e.target.value)}
+          />
+        )}
         <Button
           variant="primary"
           size="lg"

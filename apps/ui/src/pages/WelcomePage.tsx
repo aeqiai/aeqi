@@ -75,6 +75,19 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const [walletDetected, setWalletDetected] = useState<{ name: string } | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Manual invite-code entry. The URL `?invite=<code>` query param wins
+  // when present; otherwise the user can paste/type their code into the
+  // door form. The closed beta still gates on the platform side, so the
+  // input is just a UX restoration — empty string sends `undefined` to
+  // the server (which is what the URL-less flow did before the input
+  // came back 2026-05-19).
+  const [inviteInput, setInviteInput] = useState("");
+  const getInviteCode = (): string | undefined => {
+    const fromUrl = searchParams.get("invite");
+    if (fromUrl) return fromUrl;
+    const typed = inviteInput.trim();
+    return typed || undefined;
+  };
 
   /**
    * OAuth hash landing path: Google + GitHub callbacks redirect to
@@ -286,7 +299,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setErrorMsg(null);
     setSteps(buildSteps());
     try {
-      const inviteCode = searchParams.get("invite") ?? undefined;
+      const inviteCode = getInviteCode();
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/wallet-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -340,7 +353,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setStage("check-email");
     setErrorMsg(null);
     try {
-      const inviteCode = searchParams.get("invite") ?? undefined;
+      const inviteCode = getInviteCode();
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -508,7 +521,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         body: JSON.stringify({
           ceremony_id: regStart.ceremony_id,
           credential: encodeRegistrationCredential(registration),
-          invite_code: searchParams.get("invite") ?? undefined,
+          invite_code: getInviteCode(),
         }),
       });
       if (!finishRes.ok) {
@@ -585,6 +598,10 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
               copy={copy}
               email={email}
               setEmail={setEmail}
+              inviteInput={inviteInput}
+              setInviteInput={setInviteInput}
+              inviteFromUrl={searchParams.get("invite")}
+              showInviteField={mode !== "login"}
               walletDetected={walletDetected}
               passkeyAvailable={passkeyAvailable}
               submitting={submitting}
@@ -592,12 +609,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
               onWallet={handleWalletConnect}
               onPasskey={handlePasskey}
               onGoogle={() => {
-                const inviteCode = searchParams.get("invite");
+                const inviteCode = getInviteCode();
                 const qs = inviteCode ? `?invite_code=${encodeURIComponent(inviteCode)}` : "";
                 goExternal(`${SOLANA_API_URL}/api/auth/welcome/google/start${qs}`);
               }}
               onGithub={() => {
-                const inviteCode = searchParams.get("invite");
+                const inviteCode = getInviteCode();
                 const qs = inviteCode ? `?invite_code=${encodeURIComponent(inviteCode)}` : "";
                 goExternal(`${SOLANA_API_URL}/api/auth/welcome/github/start${qs}`);
               }}
@@ -611,7 +628,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
               onCodeSubmit={(code) => spawnViaEmailCode(email.trim().toLowerCase(), code)}
               onResend={async () => {
                 const lower = email.trim().toLowerCase();
-                const inviteCode = searchParams.get("invite") ?? undefined;
+                const inviteCode = getInviteCode();
                 await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
