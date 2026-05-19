@@ -3,6 +3,15 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
+
+# Git invokes hooks with GIT_DIR/GIT_COMMON_DIR/etc. pointing at the outer
+# repository. Tests that create temporary repositories and shell out to git must
+# not inherit those values, or their nested `git init` / `git commit` calls can
+# mutate this checkout instead of the temp repo.
+while IFS= read -r var; do
+  unset "$var"
+done < <(git rev-parse --local-env-vars)
+
 cd "$ROOT"
 
 echo "=== pre-push: public surface scan ==="
