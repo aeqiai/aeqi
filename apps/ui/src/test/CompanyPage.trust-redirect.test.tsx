@@ -10,7 +10,7 @@ const TRUST_ADDR = "0xdeadbeefcafe0000000000000000000000000001";
 const ENTITY_WITH_TRUST: Trust = {
   id: ENTITY_ID,
   name: "Acme Corp",
-  type: "company",
+  type: "trust",
   status: "active",
   created_at: "2026-01-01T00:00:00Z",
   trust_address: TRUST_ADDR,
@@ -19,7 +19,7 @@ const ENTITY_WITH_TRUST: Trust = {
 const ENTITY_WITHOUT_TRUST: Trust = {
   id: ENTITY_ID,
   name: "Pending Corp",
-  type: "company",
+  type: "trust",
   status: "active",
   created_at: "2026-01-01T00:00:00Z",
   // no trust_address

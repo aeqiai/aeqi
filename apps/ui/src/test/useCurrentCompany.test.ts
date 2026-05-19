@@ -14,7 +14,7 @@ const TRUST_ADDR = "6PHMM72UqfhgQuUvzDTU2KF9JZvBCCC4aJoKzVe2rKb2";
 const ENTITY: Trust = {
   id: ENTITY_ID,
   name: "Acme Corp",
-  type: "company",
+  type: "trust",
   status: "active",
   created_at: "2026-01-01T00:00:00Z",
   trust_address: TRUST_ADDR,
@@ -23,7 +23,7 @@ const ENTITY: Trust = {
 const PENDING_ENTITY: Trust = {
   id: "ent-pending-456",
   name: "Pending Corp",
-  type: "company",
+  type: "trust",
   status: "active",
   created_at: "2026-01-01T00:00:00Z",
   // no trust_address

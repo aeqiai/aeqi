@@ -9,6 +9,12 @@ use crate::server::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/trusts", get(list_trusts).post(create_trust))
+        .route("/trusts/{name}", axum::routing::put(update_trust_handler))
+        .route(
+            "/trusts/{trust_id}/channels",
+            get(list_entity_channels).post(create_entity_channel),
+        )
         .route("/entities", get(list_entities).post(create_entity))
         .route(
             "/entities/{name}",
@@ -52,10 +58,56 @@ async fn list_entities(State(state): State<AppState>, scope: Scope) -> Response 
     ipc_proxy(state, scope.as_ref(), "entities", serde_json::Value::Null).await
 }
 
+async fn list_trusts(State(state): State<AppState>, scope: Scope) -> Response {
+    let params = if let Some(scope_ref) = scope.as_ref() {
+        serde_json::json!({
+            "allowed_roots": scope_ref.roots,
+            "caller_user_id": scope_ref.user_id,
+        })
+    } else {
+        serde_json::json!({})
+    };
+    let resp = state
+        .ipc
+        .cmd_with("entities", params)
+        .await
+        .unwrap_or_else(|e| serde_json::json!({"ok": false, "error": e.to_string()}));
+    if resp.get("ok") == Some(&serde_json::Value::Bool(false)) {
+        return Json(resp).into_response();
+    }
+    let trusts = resp
+        .get("roots")
+        .or_else(|| resp.get("entities"))
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    Json(serde_json::json!({
+        "ok": true,
+        "trusts": trusts,
+    }))
+    .into_response()
+}
+
+async fn create_trust(
+    State(state): State<AppState>,
+    scope: Scope,
+    req: axum::extract::Request,
+) -> Response {
+    create_trust_inner(state, scope, req, "create_trust").await
+}
+
 async fn create_entity(
     State(state): State<AppState>,
     scope: Scope,
     req: axum::extract::Request,
+) -> Response {
+    create_trust_inner(state, scope, req, "create_entity").await
+}
+
+async fn create_trust_inner(
+    state: AppState,
+    scope: Scope,
+    req: axum::extract::Request,
+    log_action: &'static str,
 ) -> Response {
     // Extract claims and body.
     let claims = req.extensions().get::<Claims>().cloned();
@@ -100,11 +152,21 @@ async fn create_entity(
         tracing::warn!(
             user_id,
             trust_id,
-            "create_entity: failed to link entity to user: {err}"
+            action = log_action,
+            "failed to link trust to user: {err}"
         );
     }
 
     Json(resp).into_response()
+}
+
+async fn update_trust_handler(
+    State(state): State<AppState>,
+    scope: Scope,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    update_trust_inner(state, scope, name, body).await
 }
 
 async fn update_entity_handler(
@@ -112,6 +174,15 @@ async fn update_entity_handler(
     scope: Scope,
     axum::extract::Path(name): axum::extract::Path<String>,
     Json(body): Json<serde_json::Value>,
+) -> Response {
+    update_trust_inner(state, scope, name, body).await
+}
+
+async fn update_trust_inner(
+    state: AppState,
+    scope: Scope,
+    name: String,
+    body: serde_json::Value,
 ) -> Response {
     let mut params = body;
     params["name"] = serde_json::Value::String(name);

@@ -22,7 +22,7 @@ const TRUSTS: Trust[] = [
   {
     id: "alpha",
     name: "Alpha Trust",
-    type: "company",
+    type: "trust",
     status: "active",
     created_at: "2026-05-01T00:00:00Z",
     tagline: "Public operating company",
@@ -33,7 +33,7 @@ const TRUSTS: Trust[] = [
   {
     id: "beta",
     name: "Beta Trust",
-    type: "company",
+    type: "trust",
     status: "active",
     created_at: "2026-05-03T00:00:00Z",
     tagline: "Private lab",

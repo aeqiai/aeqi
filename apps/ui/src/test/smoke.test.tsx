@@ -245,7 +245,7 @@ describe("shell components smoke", () => {
         {
           id: "root-1",
           name: "Root",
-          type: "company",
+          type: "trust",
           status: "active",
           created_at: "2026-04-28T00:00:00Z",
         },

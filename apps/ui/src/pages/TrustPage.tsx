@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import BlockAvatar from "@/components/BlockAvatar";
 import { useUIStore } from "@/store/ui";
-import { useEntities, useActiveEntity } from "@/queries/entities";
+import { useTrusts, useActiveTrust } from "@/queries/trusts";
 
 /**
  * Trusts picker — `/trust`, the canonical (and only) entry point as of
@@ -25,8 +25,8 @@ import { useEntities, useActiveEntity } from "@/queries/entities";
 export default function TrustPage() {
   const navigate = useNavigate();
   const activeEntityId = useUIStore((s) => s.activeEntity);
-  const activeEntity = useActiveEntity(activeEntityId);
-  const entities = useEntities();
+  const activeTrust = useActiveTrust(activeEntityId);
+  const trusts = useTrusts();
 
   // Stub: the runtime doesn't surface a "current acting role" yet. When
   // it does, this resolves to a real value per (user × trust).
@@ -34,28 +34,28 @@ export default function TrustPage() {
 
   const otherContexts = useMemo(
     () =>
-      entities
-        .filter((e) => e.id !== activeEntityId)
-        .map((entity) => ({
-          id: entity.id,
+      trusts
+        .filter((trust) => trust.id !== activeEntityId)
+        .map((trust) => ({
+          id: trust.id,
           role: "Director",
-          trust: entity.name,
-          href: `/trust/${encodeURIComponent(entity.id)}`,
+          trust: trust.name,
+          href: `/trust/${encodeURIComponent(trust.id)}`,
         })),
-    [entities, activeEntityId],
+    [trusts, activeEntityId],
   );
 
   return (
     <div className="network-page">
       <header className="network-anchor">
-        {activeEntity ? (
+        {activeTrust ? (
           <>
             <span className="network-anchor-avatar">
-              <BlockAvatar name={activeEntity.name} size={112} />
+              <BlockAvatar name={activeTrust.name} size={112} />
             </span>
             <div className="network-anchor-text">
               <p className="network-anchor-eyebrow">Currently operating</p>
-              <h1 className="network-anchor-trust">{activeEntity.name}</h1>
+              <h1 className="network-anchor-trust">{activeTrust.name}</h1>
               <p className="network-anchor-role">as {currentRole}</p>
             </div>
           </>

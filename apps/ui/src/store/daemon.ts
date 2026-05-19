@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import * as activityApi from "@/api/activity";
 import * as agentsApi from "@/api/agents";
-import * as entitiesApi from "@/api/entities";
+import * as trustsApi from "@/api/trusts";
 import * as questsApi from "@/api/quests";
 import * as runtimeApi from "@/api/runtime";
 import { getScopedEntity } from "@/lib/appMode";
@@ -39,7 +39,7 @@ interface DaemonState {
   setWsConnected: (connected: boolean) => void;
 }
 
-// Hydrate cached entities and agents from localStorage so the
+// Hydrate cached trusts and agents from localStorage so the
 // LeftSidebar / CompanySwitcher / agent tree paint the real shape on
 // hard refresh instead of flashing the empty-list state for the
 // 50-500 ms it takes fetchEntities() and fetchAgents() to round-trip.
@@ -98,12 +98,18 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
   fetchEntities: async () => {
     try {
-      const data = await entitiesApi.getEntitiesRaw();
-      const nextEntities = entitiesApi.normalizeEntityRoots(data);
-      // Empty + no `entities` key on the response = transient/auth
+      const data = await trustsApi.getTrustsRaw();
+      const nextEntities = trustsApi.normalizeTrustRoots(data);
+      // Empty + no `trusts` key on the response = transient/auth
       // failure; keep what we had. Empty + key present = the user
-      // genuinely has no companies; commit the empty list.
-      if (nextEntities.length === 0 && !Array.isArray(data.entities)) return;
+      // genuinely has no trusts; commit the empty list.
+      if (
+        nextEntities.length === 0 &&
+        !Array.isArray(data.trusts) &&
+        !Array.isArray(data.entities) &&
+        !Array.isArray(data.roots)
+      )
+        return;
       set({ entities: nextEntities, initialLoaded: true });
       // Trust-first migration (2026-05-17): trust_address IS the trust_id
       // at the platform boundary now, so the prior trust→entity mirror is
@@ -116,13 +122,13 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
         // localStorage can fail in private-mode — non-blocking.
       }
     } catch {
-      // Keep existing entities on transient failure.
+      // Keep existing trusts on transient failure.
     }
   },
 
   fetchAgents: async () => {
-    // `/api/entities` is user-scoped (no X-Trust required) and always
-    // lists every company the user owns. `/api/agents` is scoped to the
+    // `/api/trusts` is user-scoped (no X-Trust required) and always
+    // lists every trust the user owns. `/api/agents` is scoped to the
     // active X-Trust and returns the full subtree. We fetch both so the
     // sidebar has roots to show on `/` (where no X-Trust is set) and the
     // agent subtree is available for per-company pages.
@@ -157,14 +163,14 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   fetchAll: async () => {
     const s = get();
     // fetchEntities is user-scoped (no X-Trust required) and produces the
-    // companies the user owns. Run it first so that on first ever load we
+    // trusts the user owns. Run it first so that on first ever load we
     // don't fire the entity-scoped proxy fetches against an empty scope —
     // the proxy 400s with "X-Trust required" and the dashboard ends up
     // with five red entries before fetchEntities has resolved.
     await s.fetchEntities();
     if (!getScopedEntity()) {
       // No active entity yet — the user just landed at `/` with zero
-      // companies, or hasn't picked one. Skip the proxied fetches; they
+      // trusts, or hasn't picked one. Skip the proxied fetches; they
       // require entity scope and there's nothing to render against them.
       set({ initialLoaded: true });
       return;
@@ -190,7 +196,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
 
 // Persist `entities` and `agents` to localStorage on every change. Paired
 // with the synchronous `hydrate()` reads above so hard refresh restores
-// the real sidebar/company-switcher shape instead of flashing empty
+// the real sidebar/trust-switcher shape instead of flashing empty
 // lists. Plain `subscribe` + module-level reference compares match the
 // auth-store pattern (no `subscribeWithSelector` middleware needed).
 // `quests` and `events` deliberately do NOT persist — quests are
@@ -218,12 +224,12 @@ useDaemonStore.subscribe((state) => {
   }
 });
 
-/** Selector: list of entities (companies) the user owns. */
+/** Selector: list of trusts the user owns. */
 export function useEntities() {
   return useDaemonStore((s) => s.entities);
 }
 
-/** Selector: the entity whose id matches activeEntity, or null. */
+/** Selector: the trust whose id matches activeEntity, or null. */
 export function useActiveEntity(activeEntityId: string) {
   return useDaemonStore((s) => s.entities.find((e) => e.id === activeEntityId) ?? null);
 }

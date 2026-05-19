@@ -227,9 +227,12 @@ export const api = {
     return request<Record<string, unknown>>(`/activity/events${qs ? `?${qs}` : ""}`);
   },
 
-  getEntities: () => request<Record<string, unknown>>("/entities"),
+  getTrusts: () => request<Record<string, unknown>>("/trusts"),
+  createTrust: (data: { name: string; tagline?: string; prefix?: string }) =>
+    request<Record<string, unknown>>("/trusts", { method: "POST", body: JSON.stringify(data) }),
+  getEntities: () => request<Record<string, unknown>>("/trusts"),
   createEntity: (data: { name: string; tagline?: string; prefix?: string }) =>
-    request<Record<string, unknown>>("/entities", { method: "POST", body: JSON.stringify(data) }),
+    request<Record<string, unknown>>("/trusts", { method: "POST", body: JSON.stringify(data) }),
   updateEntity: (
     name: string,
     data: {
@@ -239,7 +242,7 @@ export const api = {
       public?: boolean;
     },
   ) =>
-    request<{ ok: boolean }>(`/entities/${encodeURIComponent(name)}`, {
+    request<{ ok: boolean }>(`/trusts/${encodeURIComponent(name)}`, {
       method: "PUT",
       body: JSON.stringify({
         ...data,
@@ -316,7 +319,7 @@ export const api = {
       `/roles/grants?trust_id=${encodeURIComponent(trustId)}&user_id=${encodeURIComponent(userId)}`,
     ),
 
-  // Invitation endpoints — platform-side, no entity scope in the path
+  // Invitation endpoints — platform-side, no trust scope in the path
   // for the public-facing ones.
   createRoleInvitation: (
     trustId: string,
@@ -329,13 +332,13 @@ export const api = {
     },
   ) =>
     request<{ ok: boolean; invitation: RoleInvitation }>(
-      `/entities/${encodeURIComponent(trustId)}/roles/${encodeURIComponent(roleId)}/invitations`,
+      `/trusts/${encodeURIComponent(trustId)}/roles/${encodeURIComponent(roleId)}/invitations`,
       { method: "POST", body: JSON.stringify(data) },
     ),
 
   listEntityInvitations: (trustId: string) =>
     request<{ ok: boolean; invitations: RoleInvitation[] }>(
-      `/entities/${encodeURIComponent(trustId)}/invitations`,
+      `/trusts/${encodeURIComponent(trustId)}/invitations`,
     ),
 
   getInvitation: (token: string) =>

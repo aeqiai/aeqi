@@ -16,9 +16,11 @@ export const channelKeys = {
   sessions: (agentId: string) => ["channels", "sessions", agentId] as const,
 };
 
-export const entityKeys = {
-  all: ["entities"] as const,
+export const trustKeys = {
+  all: ["trusts"] as const,
 };
+
+export const entityKeys = trustKeys;
 
 export const agentKeys = {
   all: ["agents"] as const,

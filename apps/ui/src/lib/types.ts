@@ -1,12 +1,11 @@
 import type { QuestMetadata, QuestRuntime } from "./runtime";
 
 /**
- * Single-variant alias for the on-the-wire `type` field on a Trust. The
- * pre-2026-05-19 multi-variant taxonomy (human / agent / fund / dao /
- * holding / protocol) was vestigial — every production path resolves to
- * `"company"`. See AEQI idea `architecture/entitytype-enum-is-vestigial`.
+ * Single-variant alias for the on-the-wire `type` field on a Trust.
+ * Legacy payloads used `"company"`; the UI normalizes current payloads to
+ * `"trust"` at the API boundary.
  */
-export type TrustType = "company";
+export type TrustType = "trust";
 
 export interface Trust {
   id: string;
@@ -24,8 +23,8 @@ export interface Trust {
   trust_address?: string;
   /** EOA that created this Trust's on-chain TRUST mirror. */
   creator_address?: string;
-  /** Root agent UUID for this entity. Surfaced by the platform's
-   *  `/api/entities` payload as `agent_id` so per-entity surfaces (`/me/*`,
+  /** Root agent UUID for this trust. Surfaced by the platform's
+   *  `/api/trusts` payload as `agent_id` so trust-scoped surfaces (`/me/*`,
    *  AgentPage) can resolve the root without an entity-scoped agents fetch. */
   agent_id?: string;
   /** Placement type — `"host"`, `"sandbox"`, `"vps"`, or `"unknown"`. */

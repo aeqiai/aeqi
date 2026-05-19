@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildAgentDirectory } from "@/api/agents";
-import { normalizeEntityRoots } from "@/api/entities";
+import { normalizeTrustRoots } from "@/api/trusts";
 
-describe("entity API normalization", () => {
-  it("maps entity roots into UI entities and drops invalid rows", () => {
+describe("trust API normalization", () => {
+  it("maps trust roots into UI trusts and drops invalid rows", () => {
     expect(
-      normalizeEntityRoots({
-        entities: [
+      normalizeTrustRoots({
+        trusts: [
           {
-            id: "ent_1",
+            id: "trust_1",
             display_name: "Acme",
             running: true,
             created_at: "2026-01-01T00:00:00Z",
@@ -19,9 +19,9 @@ describe("entity API normalization", () => {
       }),
     ).toEqual([
       {
-        id: "ent_1",
+        id: "trust_1",
         name: "Acme",
-        type: "company",
+        type: "trust",
         status: "active",
         avatar: undefined,
         color: undefined,
@@ -36,6 +36,9 @@ describe("entity API normalization", () => {
         tagline: undefined,
         public: false,
         plan: undefined,
+        placement_status: undefined,
+        launch_state: undefined,
+        launch_error: undefined,
       },
     ]);
   });
