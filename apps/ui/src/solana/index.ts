@@ -39,6 +39,18 @@ export type {
   VaultHolding,
   VestingPositionAccount,
 } from "./assets";
+export {
+  readTokenModuleState,
+  readMint,
+  readHolders,
+  readVestingPositions,
+  deriveCapTableMintPda,
+} from "./equity";
+export type {
+  TokenModuleStateAccount,
+  VestingPositionWithPda,
+  TokenHolder,
+} from "./equity";
 export { AEQI_PROGRAM_NAMES, getAeqiProgramName } from "./program-names";
 export {
   AEQI_BUDGET_PROGRAM_ID,
