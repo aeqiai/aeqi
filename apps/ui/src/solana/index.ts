@@ -46,11 +46,7 @@ export {
   readVestingPositions,
   deriveCapTableMintPda,
 } from "./equity";
-export type {
-  TokenModuleStateAccount,
-  VestingPositionWithPda,
-  TokenHolder,
-} from "./equity";
+export type { TokenModuleStateAccount, VestingPositionWithPda, TokenHolder } from "./equity";
 export {
   readGovernanceConfigs,
   readProposals,
