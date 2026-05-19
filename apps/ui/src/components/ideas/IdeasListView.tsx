@@ -30,7 +30,7 @@ function isMarkdownFile(file: File): boolean {
 
 function ScopeChip({ scope }: { scope: ScopeValue }) {
   if (scope === "self") return null;
-  return <span className={`scope-chip scope-chip--${scope}`}>{scope}</span>;
+  return <span className={`scope-chip scope-chip--${scope}`}>{SCOPE_LABEL[scope]}</span>;
 }
 
 interface IdeaTreeNode {

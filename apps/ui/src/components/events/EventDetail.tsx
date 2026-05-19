@@ -6,6 +6,7 @@ import { useNav } from "@/hooks/useNav";
 import TestTriggerPanel from "../TestTriggerPanel";
 import EventCanvasEditor, { type CanvasDraft } from "./EventCanvasEditor";
 import FiresPanel from "./FiresPanel";
+import { SCOPE_LABEL } from "../ideas/types";
 
 interface EventDetailProps {
   event: AgentEvent;
@@ -144,12 +145,14 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
             aria-label="Event name"
           />
           {isGlobal && (
-            <span className="events-detail-title-badge" title="Global event — every agent">
-              global
+            <span className="events-detail-title-badge" title="TRUST-wide event">
+              {SCOPE_LABEL.global}
             </span>
           )}
           {event.scope && event.scope !== "self" && (
-            <span className={`scope-chip scope-chip--${event.scope}`}>{event.scope}</span>
+            <span className={`scope-chip scope-chip--${event.scope}`}>
+              {SCOPE_LABEL[event.scope]}
+            </span>
           )}
           <div className="ideas-toolbar-spacer" aria-hidden />
           <label className="events-detail-toggle" title="Enabled">
@@ -258,7 +261,7 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
       {readOnly && (
         <div className="events-detail-notice">
           {isGlobal
-            ? "Inherited global event — fires for every agent at this lifecycle moment. Manage from Settings."
+            ? "Inherited TRUST event — fires for every role at this lifecycle moment. Manage from Settings."
             : "System event — read-only."}
         </div>
       )}

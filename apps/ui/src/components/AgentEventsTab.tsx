@@ -17,9 +17,9 @@ import {
 import { eventLifecycle } from "./events/lifecycle";
 import EventsOverview from "./EventsOverview";
 import EventDetail from "./events/EventDetail";
+import { SCOPE_LABEL, SCOPE_PICKER_VALUES } from "./ideas/types";
 
 const NO_EVENTS: AgentEvent[] = [];
-const SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
 
 interface TransportPreset {
   id: string;
@@ -347,12 +347,12 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
                 />
               </div>
               <div className="events-addform-section">
-                <div className="events-addform-label">Scope</div>
+                <div className="events-addform-label">Visibility</div>
                 <Select
                   size="sm"
                   value={newScope}
                   onChange={(v) => setNewScope(v as ScopeValue)}
-                  options={SCOPE_VALUES.map((s) => ({ value: s, label: s }))}
+                  options={SCOPE_PICKER_VALUES.map((s) => ({ value: s, label: SCOPE_LABEL[s] }))}
                 />
               </div>
               <div className="events-addform-section">

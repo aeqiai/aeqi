@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import { QUEST_SORT_MODES, type QuestSort } from "./QuestsSortPopover";
 import type { Quest, QuestPriority, ScopeValue } from "@/lib/types";
+import { matchesVisibilityFilter } from "../ideas/types";
 
 export const PRIORITY_RANK: Record<QuestPriority, number> = {
   critical: 0,
@@ -56,9 +57,7 @@ export type QuestFilter = "all" | ScopeValue | "inherited";
 export const QUEST_FILTER_VALUES: QuestFilter[] = [
   "all",
   "self",
-  "siblings",
   "children",
-  "branch",
   "global",
   "inherited",
 ];
@@ -105,7 +104,7 @@ export async function importQuestFromMarkdown(file: File, agentId: string): Prom
 export function matchesQuestFilter(q: Quest, filter: QuestFilter, agentId: string): boolean {
   if (filter === "all") return true;
   if (filter === "inherited") return isQuestInherited(q, agentId);
-  if (q.scope != null) return q.scope === filter;
+  if (q.scope != null) return matchesVisibilityFilter(q.scope, filter);
   if (filter === "self") return q.agent_id === agentId;
   if (filter === "global") return q.agent_id == null;
   return false;

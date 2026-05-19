@@ -7,6 +7,7 @@ import {
   isQuestInherited,
   type QuestFilter,
 } from "./agentQuestsHelpers";
+import { SCOPE_HINT, SCOPE_LABEL, visibilityBucket } from "../ideas/types";
 
 /**
  * Single Filter button + popover. Mirrors IdeasFilterPopover so Quests
@@ -36,7 +37,7 @@ export default function QuestsFilterPopover({
       c.all += 1;
       if (isQuestInherited(q, agentId)) c.inherited += 1;
       if (q.scope != null && QUEST_SCOPE_VALUES.includes(q.scope)) {
-        c[q.scope] += 1;
+        c[visibilityBucket(q.scope)] += 1;
       } else if (q.agent_id === agentId) {
         c.self += 1;
       } else if (q.agent_id == null) {
@@ -60,7 +61,7 @@ export default function QuestsFilterPopover({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          title={active ? `Filter — ${filter}` : "Filter"}
+          title={active ? `Filter — ${SCOPE_LABEL[filter]}` : "Filter"}
         >
           <svg
             width="13"
@@ -81,7 +82,7 @@ export default function QuestsFilterPopover({
       <div id={popoverId} className="ideas-filter-popover" role="dialog" aria-label="Filter quests">
         <section className="ideas-filter-popover-section">
           <header className="ideas-filter-popover-head">
-            <span className="ideas-filter-popover-label">scope</span>
+            <span className="ideas-filter-popover-label">visibility</span>
             {filter !== "all" && (
               <button
                 type="button"
@@ -92,7 +93,7 @@ export default function QuestsFilterPopover({
               </button>
             )}
           </header>
-          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Scope">
+          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Visibility">
             {QUEST_FILTER_VALUES.map((s) => {
               const count = counts[s] ?? 0;
               const isActive = filter === s;
@@ -103,6 +104,7 @@ export default function QuestsFilterPopover({
                   type="button"
                   role="radio"
                   aria-checked={isActive}
+                  title={SCOPE_HINT[s]}
                   className={`ideas-filter-row${isActive ? " active" : ""}${isEmpty ? " empty" : ""}`}
                   onClick={() => {
                     onChange(s);
@@ -123,7 +125,7 @@ export default function QuestsFilterPopover({
                       </svg>
                     )}
                   </span>
-                  <span className="ideas-filter-row-label">{s}</span>
+                  <span className="ideas-filter-row-label">{SCOPE_LABEL[s]}</span>
                   <span className="ideas-filter-row-count">{count}</span>
                 </button>
               );

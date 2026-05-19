@@ -9,6 +9,7 @@ import {
   LIFECYCLE_ORDER,
   eventLifecycle,
 } from "./events/lifecycle";
+import { SCOPE_LABEL } from "./ideas/types";
 
 /**
  * EventsOverview — the no-selection canvas. Every event is a row showing
@@ -116,7 +117,7 @@ function OverviewRow({
         <div className="events-overview-row-head">
           <span className={`events-overview-row-pin events-overview-tone-${group}`} aria-hidden />
           <span className="events-overview-row-name">{event.name}</span>
-          {isGlobal && <span className="events-overview-row-badge">global</span>}
+          {isGlobal && <span className="events-overview-row-badge">{SCOPE_LABEL.global}</span>}
           <span className="events-overview-row-pattern">{event.pattern}</span>
           <span className="events-overview-row-spacer" />
           <span className="events-overview-row-fires">

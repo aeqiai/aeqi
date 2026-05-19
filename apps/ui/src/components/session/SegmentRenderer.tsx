@@ -17,6 +17,8 @@ import {
   shouldRenderStatus,
 } from "./types";
 import EntityRefInline from "./EntityRefInline";
+import type { ScopeValue } from "@/lib/types";
+import { SCOPE_LABEL } from "../ideas/types";
 
 // ── Markdown wrapper ─────────────────────────────────────────────────────
 
@@ -225,7 +227,9 @@ export function EventFireItem({ msg }: { msg: Message }) {
         {fire.eventName || fire.pattern || "event"}
       </button>
       {fire.scope && fire.scope !== "self" && (
-        <span className="asv-event-fire-scope">{`(${fire.scope})`}</span>
+        <span className="asv-event-fire-scope">{`(${
+          SCOPE_LABEL[fire.scope as ScopeValue] ?? fire.scope
+        })`}</span>
       )}
       {msg.timestamp && <span className="asv-event-fire-time">{formatTime(msg.timestamp)}</span>}
     </div>

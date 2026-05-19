@@ -2,30 +2,45 @@ import { type ReactNode, Fragment } from "react";
 import type { ScopeValue } from "@/lib/types";
 
 export const IDEA_SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
+export const SCOPE_PICKER_VALUES: ScopeValue[] = ["self", "children", "global"];
 export type IdeasFilter = "all" | ScopeValue | "inherited";
-export const IDEA_FILTER_VALUES: IdeasFilter[] = [
-  "all",
-  "self",
-  "siblings",
-  "children",
-  "branch",
-  "global",
-  "inherited",
-];
+export const IDEA_FILTER_VALUES: IdeasFilter[] = ["all", "self", "children", "global", "inherited"];
 
-/** Title-cased display labels for every scope/filter value. The
- *  underlying string identifiers stay lowercase (URL params, JSON
- *  keys); only human-facing labels Title Case per the lowercase-
- *  scope rule (aeqi is the only lowercase brand mark). */
+/** Role-tree visibility labels. The wire values stay on the legacy
+ *  agent-tree enum until the server-side role evaluator lands; this is
+ *  deliberately only a presentation layer. */
 export const SCOPE_LABEL: Record<IdeasFilter, string> = {
   all: "All",
-  self: "Self",
-  siblings: "Siblings",
-  children: "Children",
-  branch: "Branch",
-  global: "Global",
+  self: "Role",
+  siblings: "TRUST",
+  children: "Team",
+  branch: "TRUST",
+  global: "TRUST",
   inherited: "Inherited",
 };
+
+export const SCOPE_HINT: Record<IdeasFilter, string> = {
+  all: "Everything visible here",
+  self: "Visible to this role and supervising roles",
+  siblings: "Existing peer visibility, now shown as TRUST",
+  children: "Visible to this role's downstream team",
+  branch: "Existing broad visibility, now shown as TRUST",
+  global: "Visible across this TRUST",
+  inherited: "Visible here, anchored elsewhere",
+};
+
+export const PUBLIC_VISIBILITY_LABEL = "Public";
+export const PUBLIC_VISIBILITY_HINT =
+  "Explicit public visibility is reserved until the backend public scope lands";
+
+export function visibilityBucket(scope: ScopeValue): ScopeValue {
+  if (scope === "siblings" || scope === "branch") return "global";
+  return scope;
+}
+
+export function matchesVisibilityFilter(scope: ScopeValue, filter: ScopeValue): boolean {
+  return visibilityBucket(scope) === filter;
+}
 
 export type SortMode = "tag" | "recent" | "alpha";
 export const SORT_MODES: SortMode[] = ["tag", "recent", "alpha"];
@@ -65,6 +80,7 @@ export function serializeTags(tags: string[]): string {
 }
 
 export function parseScope(raw: string | null): IdeasFilter {
+  if (raw === "siblings" || raw === "branch") return "global";
   return IDEA_FILTER_VALUES.includes(raw as IdeasFilter) ? (raw as IdeasFilter) : "all";
 }
 

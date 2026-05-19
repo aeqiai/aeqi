@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { Popover } from "../ui/Popover";
-import { SCOPE_LABEL } from "../ideas/types";
+import { SCOPE_HINT, SCOPE_LABEL } from "../ideas/types";
 import { type LifecycleGroup, LIFECYCLE_HINT, LIFECYCLE_LABEL, LIFECYCLE_ORDER } from "./lifecycle";
 
 export type EventsScope = "all" | "self" | "inherited" | "global";
@@ -28,13 +28,6 @@ function activeFilterCount(f: EventsFilterState): number {
   if (f.group !== "all") n += 1;
   return n;
 }
-
-const SCOPE_HINT: Record<EventsScope, string> = {
-  all: "everything visible on this agent",
-  self: "anchored on this agent",
-  inherited: "fired on this agent, defined elsewhere",
-  global: "shared by every agent",
-};
 
 export default function EventsFilterPopover({
   filter,
@@ -79,7 +72,7 @@ export default function EventsFilterPopover({
       <div id={popoverId} className="ideas-filter-popover" role="dialog" aria-label="Filter events">
         <section className="ideas-filter-popover-section">
           <header className="ideas-filter-popover-head">
-            <span className="ideas-filter-popover-label">scope</span>
+            <span className="ideas-filter-popover-label">visibility</span>
             {filter.scope !== "all" && (
               <button
                 type="button"
@@ -90,7 +83,7 @@ export default function EventsFilterPopover({
               </button>
             )}
           </header>
-          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Scope">
+          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Visibility">
             {EVENTS_SCOPE_VALUES.map((s) => {
               const count = scopeCounts[s] ?? 0;
               const isActive = filter.scope === s;

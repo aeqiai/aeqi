@@ -14,6 +14,8 @@ import {
   type IdeasFilter,
   IDEA_FILTER_VALUES,
   IDEA_SCOPE_VALUES,
+  matchesVisibilityFilter,
+  visibilityBucket,
   parseScope,
   parseSort,
   parseTags,
@@ -139,9 +141,7 @@ export default function AgentIdeasTab({
           // cross-cut: visible but anchored on another agent
           if (idea.agent_id == null || idea.agent_id === agentId) return false;
         } else if (idea.scope != null) {
-          // Modern rows carry an explicit scope, so direct equality is
-          // the only filtering rule needed for the scope enum.
-          if (idea.scope !== sc) return false;
+          if (!matchesVisibilityFilter(idea.scope, sc)) return false;
         } else {
           // Legacy rows have no scope column; only self/global can be
           // inferred from agent ownership.
@@ -215,7 +215,7 @@ export default function AgentIdeasTab({
       if (idea.agent_id != null && idea.agent_id !== agentId) counts.inherited += 1;
       // scope-based
       if (idea.scope != null && IDEA_SCOPE_VALUES.includes(idea.scope)) {
-        counts[idea.scope] += 1;
+        counts[visibilityBucket(idea.scope)] += 1;
       } else if (idea.agent_id === agentId) {
         counts.self += 1;
       } else if (idea.agent_id == null) {

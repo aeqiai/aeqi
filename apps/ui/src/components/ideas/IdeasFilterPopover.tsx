@@ -1,6 +1,12 @@
 import { useId, useState } from "react";
 import { Popover } from "../ui/Popover";
-import { type FilterState, type IdeasFilter, IDEA_FILTER_VALUES, SCOPE_LABEL } from "./types";
+import {
+  type FilterState,
+  type IdeasFilter,
+  IDEA_FILTER_VALUES,
+  SCOPE_HINT,
+  SCOPE_LABEL,
+} from "./types";
 
 export interface IdeasFilterPopoverProps {
   filter: FilterState;
@@ -64,7 +70,7 @@ export default function IdeasFilterPopover({
       <div id={popoverId} className="ideas-filter-popover" role="dialog" aria-label="Filter ideas">
         <section className="ideas-filter-popover-section">
           <header className="ideas-filter-popover-head">
-            <span className="ideas-filter-popover-label">scope</span>
+            <span className="ideas-filter-popover-label">visibility</span>
             {filter.scope !== "all" && (
               <button
                 type="button"
@@ -75,7 +81,7 @@ export default function IdeasFilterPopover({
               </button>
             )}
           </header>
-          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Scope">
+          <div className="ideas-filter-popover-list" role="radiogroup" aria-label="Visibility">
             {IDEA_FILTER_VALUES.map((s) => {
               const count = scopeCounts[s] ?? 0;
               const isActive = filter.scope === s;
@@ -86,6 +92,7 @@ export default function IdeasFilterPopover({
                   type="button"
                   role="radio"
                   aria-checked={isActive}
+                  title={SCOPE_HINT[s]}
                   className={`ideas-filter-row${isActive ? " active" : ""}${isEmpty ? " empty" : ""}`}
                   onClick={() => {
                     onChange({ scope: s });
