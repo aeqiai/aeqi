@@ -171,7 +171,7 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
   if (tab === "quorum") {
     return (
       <Suspense>
-        <QuorumPage />
+        <QuorumPage trustId={trustId} />
       </Suspense>
     );
   }

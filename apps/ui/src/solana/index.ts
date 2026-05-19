@@ -51,6 +51,26 @@ export type {
   VestingPositionWithPda,
   TokenHolder,
 } from "./equity";
+export {
+  readGovernanceConfigs,
+  readProposals,
+  readRoleTypes,
+  deriveProposalStatus,
+  votingModeFor,
+  findRoleTypeById,
+  isTokenModeId,
+  isSnapshotPending,
+} from "./quorum";
+export type {
+  GovernanceConfigAccount,
+  GovernanceConfigWithPda,
+  ProposalAccount,
+  ProposalWithPda,
+  ProposalStatus,
+  RoleTypeAccount,
+  RoleTypeWithPda,
+  VotingMode,
+} from "./quorum";
 export { AEQI_PROGRAM_NAMES, getAeqiProgramName } from "./program-names";
 export {
   AEQI_BUDGET_PROGRAM_ID,
