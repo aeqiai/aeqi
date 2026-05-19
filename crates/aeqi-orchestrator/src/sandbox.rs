@@ -16,6 +16,41 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::process::Command;
 use tracing::{info, warn};
 
+const GIT_ENV_VARS: &[&str] = &[
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_CONFIG",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_DIR",
+    "GIT_GRAFT_FILE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_PREFIX",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_SHALLOW_FILE",
+    "GIT_WORK_TREE",
+];
+
+fn git_command() -> Command {
+    let mut cmd = Command::new("git");
+    for var in GIT_ENV_VARS {
+        cmd.env_remove(var);
+    }
+    cmd
+}
+
+#[cfg(test)]
+fn std_git_command() -> std::process::Command {
+    let mut cmd = std::process::Command::new("git");
+    for var in GIT_ENV_VARS {
+        cmd.env_remove(var);
+    }
+    cmd
+}
+
 /// Configuration for quest sandboxing.
 #[derive(Debug, Clone)]
 pub struct SandboxConfig {
@@ -122,10 +157,11 @@ impl QuestSandbox {
                 worktree = %worktree_path.display(),
                 "stale worktree directory exists — removing before creation"
             );
-            let _ = Command::new("git")
+            let _ = git_command()
                 .args([
                     "worktree",
                     "remove",
+                    "--force",
                     "--force",
                     &worktree_path.to_string_lossy(),
                 ])
@@ -134,7 +170,7 @@ impl QuestSandbox {
                 .await;
             // Fallback: manual removal if git worktree remove failed.
             let _ = tokio::fs::remove_dir_all(&worktree_path).await;
-            let _ = Command::new("git")
+            let _ = git_command()
                 .args(["worktree", "prune"])
                 .current_dir(&config.repo_root)
                 .output()
@@ -142,7 +178,7 @@ impl QuestSandbox {
         }
 
         // Try creating with a new branch first.
-        let output = Command::new("git")
+        let output = git_command()
             .args([
                 "worktree",
                 "add",
@@ -167,13 +203,61 @@ impl QuestSandbox {
                     branch = %branch_name,
                     "branch already exists — deleting and retrying"
                 );
-                let _ = Command::new("git")
-                    .args(["branch", "-D", &branch_name])
+
+                // A stale quest branch may still be checked out in a linked
+                // worktree. Remove those worktrees first; otherwise `branch -D`
+                // fails and the retry hits the same "already exists" error.
+                let list = git_command()
+                    .args(["worktree", "list", "--porcelain"])
+                    .current_dir(&config.repo_root)
+                    .output()
+                    .await;
+                if let Ok(list) = list {
+                    let stdout = String::from_utf8_lossy(&list.stdout);
+                    let mut current_worktree: Option<String> = None;
+                    let target_branch = format!("branch refs/heads/{branch_name}");
+                    for line in stdout.lines() {
+                        if let Some(path) = line.strip_prefix("worktree ") {
+                            current_worktree = Some(path.to_string());
+                            continue;
+                        }
+
+                        if line == target_branch
+                            && let Some(path) = current_worktree.take()
+                            && Path::new(&path) != config.repo_root
+                        {
+                            let _ = git_command()
+                                .args(["worktree", "remove", "--force", "--force", &path])
+                                .current_dir(&config.repo_root)
+                                .output()
+                                .await;
+                            let _ = tokio::fs::remove_dir_all(&path).await;
+                        }
+                    }
+                }
+                let _ = git_command()
+                    .args(["worktree", "prune"])
                     .current_dir(&config.repo_root)
                     .output()
                     .await;
 
-                let retry = Command::new("git")
+                let delete_branch = git_command()
+                    .args(["branch", "-D", &branch_name])
+                    .current_dir(&config.repo_root)
+                    .output()
+                    .await;
+                if let Ok(delete_branch) = &delete_branch
+                    && !delete_branch.status.success()
+                {
+                    warn!(
+                        quest_id,
+                        branch = %branch_name,
+                        stderr = %String::from_utf8_lossy(&delete_branch.stderr),
+                        "failed to delete existing quest branch before retry"
+                    );
+                }
+
+                let retry = git_command()
                     .args([
                         "worktree",
                         "add",
@@ -333,14 +417,14 @@ impl QuestSandbox {
         }
 
         // Stage everything to capture new/deleted files in the diff.
-        let _ = Command::new("git")
+        let _ = git_command()
             .args(["add", "-A"])
             .current_dir(&self.worktree_path)
             .output()
             .await;
 
         // Get the diff against the base.
-        let diff_output = Command::new("git")
+        let diff_output = git_command()
             .args(["diff", "--cached", "--stat"])
             .current_dir(&self.worktree_path)
             .output()
@@ -353,7 +437,7 @@ impl QuestSandbox {
         let (insertions, deletions) = parse_diff_stat(&stat_text);
 
         // Get the full diff text.
-        let full_diff = Command::new("git")
+        let full_diff = git_command()
             .args(["diff", "--cached"])
             .current_dir(&self.worktree_path)
             .output()
@@ -363,7 +447,7 @@ impl QuestSandbox {
         let diff_text = String::from_utf8_lossy(&full_diff.stdout).to_string();
 
         // Get changed file list.
-        let files_output = Command::new("git")
+        let files_output = git_command()
             .args(["diff", "--cached", "--name-only"])
             .current_dir(&self.worktree_path)
             .output()
@@ -377,7 +461,7 @@ impl QuestSandbox {
             .collect();
 
         // Unstage so the worktree is back to a clean index state.
-        let _ = Command::new("git")
+        let _ = git_command()
             .args(["reset", "HEAD"])
             .current_dir(&self.worktree_path)
             .output()
@@ -400,7 +484,7 @@ impl QuestSandbox {
         }
 
         // Check for changes.
-        let status = Command::new("git")
+        let status = git_command()
             .args(["status", "--porcelain"])
             .current_dir(&self.worktree_path)
             .output()
@@ -439,7 +523,7 @@ impl QuestSandbox {
         }
 
         // Stage everything.
-        let add = Command::new("git")
+        let add = git_command()
             .args(["add", "-A"])
             .current_dir(&self.worktree_path)
             .output()
@@ -451,7 +535,7 @@ impl QuestSandbox {
         }
 
         // Check if there's anything to commit.
-        let status = Command::new("git")
+        let status = git_command()
             .args(["status", "--porcelain"])
             .current_dir(&self.worktree_path)
             .output()
@@ -462,7 +546,7 @@ impl QuestSandbox {
         }
 
         // Commit.
-        let commit = Command::new("git")
+        let commit = git_command()
             .args([
                 "commit",
                 "-m",
@@ -483,7 +567,7 @@ impl QuestSandbox {
         }
 
         // Get the commit hash.
-        let hash = Command::new("git")
+        let hash = git_command()
             .args(["rev-parse", "HEAD"])
             .current_dir(&self.worktree_path)
             .output()
@@ -511,7 +595,7 @@ impl QuestSandbox {
                 let hash = self.commit_changes(&message, "aeqi-agent").await?;
 
                 // Merge the quest branch into the target branch (from repo root).
-                let merge = Command::new("git")
+                let merge = git_command()
                     .args([
                         "merge",
                         &self.branch_name,
@@ -526,13 +610,13 @@ impl QuestSandbox {
 
                 if !merge.status.success() {
                     // Merge failed — try rebase onto target branch first.
-                    let _ = Command::new("git")
+                    let _ = git_command()
                         .args(["merge", "--abort"])
                         .current_dir(&self.repo_root)
                         .output()
                         .await;
 
-                    let rebase = Command::new("git")
+                    let rebase = git_command()
                         .args(["rebase", "main"])
                         .current_dir(&self.worktree_path)
                         .output()
@@ -542,7 +626,7 @@ impl QuestSandbox {
                         && rb.status.success()
                     {
                         // Rebase succeeded — retry merge.
-                        let retry = Command::new("git")
+                        let retry = git_command()
                             .args([
                                 "merge",
                                 &self.branch_name,
@@ -564,7 +648,7 @@ impl QuestSandbox {
                     }
 
                     // Rebase also failed — abort and preserve branch.
-                    let _ = Command::new("git")
+                    let _ = git_command()
                         .args(["rebase", "--abort"])
                         .current_dir(&self.worktree_path)
                         .output()
@@ -602,7 +686,7 @@ impl QuestSandbox {
         }
 
         // Remove the worktree.
-        let remove = Command::new("git")
+        let remove = git_command()
             .args([
                 "worktree",
                 "remove",
@@ -624,7 +708,7 @@ impl QuestSandbox {
                 // Fallback: manual removal.
                 let _ = tokio::fs::remove_dir_all(&self.worktree_path).await;
                 // Prune stale worktree entries.
-                let _ = Command::new("git")
+                let _ = git_command()
                     .args(["worktree", "prune"])
                     .current_dir(&self.repo_root)
                     .output()
@@ -642,7 +726,7 @@ impl QuestSandbox {
         }
 
         // Delete the quest branch.
-        let _ = Command::new("git")
+        let _ = git_command()
             .args(["branch", "-D", &self.branch_name])
             .current_dir(&self.repo_root)
             .output()
@@ -662,7 +746,7 @@ impl QuestSandbox {
             return Ok(String::new());
         }
 
-        let output = Command::new("git")
+        let output = git_command()
             .args(["status", "--short"])
             .current_dir(&self.worktree_path)
             .output()
@@ -692,7 +776,7 @@ pub async fn prune_stale_worktrees(
     worktree_base: &Path,
     active_quest_ids: &std::collections::HashSet<String>,
 ) -> Result<Vec<String>> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["worktree", "list", "--porcelain"])
         .current_dir(repo_root)
         .output()
@@ -732,7 +816,7 @@ pub async fn prune_stale_worktrees(
         );
 
         // Remove the worktree.
-        let rm = Command::new("git")
+        let rm = git_command()
             .args(["worktree", "remove", "--force", wt_path])
             .current_dir(repo_root)
             .output()
@@ -753,7 +837,7 @@ pub async fn prune_stale_worktrees(
 
         // Delete the quest branch.
         let branch_name = format!("quest/{quest_id}");
-        let _ = Command::new("git")
+        let _ = git_command()
             .args(["branch", "-D", &branch_name])
             .current_dir(repo_root)
             .output()
@@ -764,7 +848,7 @@ pub async fn prune_stale_worktrees(
 
     // Final prune pass to clean up any stale worktree entries.
     if !pruned.is_empty() {
-        let _ = Command::new("git")
+        let _ = git_command()
             .args(["worktree", "prune"])
             .current_dir(repo_root)
             .output()
@@ -832,32 +916,29 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let repo = dir.path();
 
-        let init = std::process::Command::new("git")
-            .args(["init"])
-            .current_dir(repo)
-            .output();
+        let init = std_git_command().args(["init"]).current_dir(repo).output();
 
         if init.is_err() || !init.unwrap().status.success() {
             return; // Git not available.
         }
 
         // Configure git user.
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["config", "user.email", "test@test.com"])
             .current_dir(repo)
             .output();
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["config", "user.name", "Test"])
             .current_dir(repo)
             .output();
 
         // Initial commit.
         std::fs::write(repo.join("hello.txt"), "hello").unwrap();
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["add", "."])
             .current_dir(repo)
             .output();
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["commit", "-m", "initial"])
             .current_dir(repo)
             .output();
@@ -908,30 +989,27 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let repo = dir.path();
 
-        let init = std::process::Command::new("git")
-            .args(["init"])
-            .current_dir(repo)
-            .output();
+        let init = std_git_command().args(["init"]).current_dir(repo).output();
 
         if init.is_err() || !init.unwrap().status.success() {
             return;
         }
 
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["config", "user.email", "test@test.com"])
             .current_dir(repo)
             .output();
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["config", "user.name", "Test"])
             .current_dir(repo)
             .output();
 
         std::fs::write(repo.join("file.txt"), "original").unwrap();
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["add", "."])
             .current_dir(repo)
             .output();
-        let _ = std::process::Command::new("git")
+        let _ = std_git_command()
             .args(["commit", "-m", "initial"])
             .current_dir(repo)
             .output();
