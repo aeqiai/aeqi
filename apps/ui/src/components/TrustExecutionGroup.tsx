@@ -41,8 +41,6 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
       ).length,
     [subtreeAgents],
   );
-  const rootAgent = subtreeAgents[0] ?? null;
-
   const inflightQuests = useMemo(
     () =>
       quests.filter(
@@ -75,16 +73,14 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
       ? `${runtime.plan === "pro" ? "Pro" : "Standard"} plan · host inactive`
       : "Identity-only TRUST — execution surfaces are dormant.";
 
-  const ctaPath = runtime.hostActive
-    ? rootAgent
-      ? `${basePath}/agents/${encodeURIComponent(rootAgent.id)}`
-      : `${basePath}/agents`
-    : "/launch";
-  const ctaLabel = runtime.hostActive
-    ? rootAgent
-      ? `Chat with ${rootAgent.name}`
-      : "Open agents"
-    : "Launch runtime";
+  // CTA targets the agents LIST when the runtime is live (the team,
+  // not a singled-out agent). Earlier iterations said "Chat with
+  // <rootAgent.name>" which read as if there was one canonical agent
+  // — the TRUST is multi-agent by design, so naming one in the
+  // primary CTA misframes the whole group. "Open agents" is generic,
+  // plural-implying, and matches the tab name in the trust shell.
+  const ctaPath = runtime.hostActive ? `${basePath}/agents` : "/launch";
+  const ctaLabel = runtime.hostActive ? "Open agents" : "Launch runtime";
 
   return (
     <section className="trust-group trust-group--execution" aria-labelledby="exec-eyebrow">
@@ -113,14 +109,20 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           label="Agents"
           value={String(activeAgents)}
           hint={`of ${subtreeAgents.length}`}
-          sub={rootAgent ? rootAgent.name : "No agents yet"}
+          sub={
+            subtreeAgents.length === 0
+              ? "No agents yet"
+              : activeAgents > 0
+                ? "Team online"
+                : "Team standing by"
+          }
         />
         <PrimitiveCard
           to={`${basePath}/quests`}
           icon={<Compass size={16} strokeWidth={1.5} />}
           label="Quests"
           value={String(inflightQuests)}
-          hint={inflightQuests === 1 ? "in flight" : "in flight"}
+          hint="in flight"
           sub={inflightQuests > 0 ? "Active work" : "Queue is clear"}
         />
         <PrimitiveCard
@@ -135,7 +137,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           to={`${basePath}/ideas`}
           icon={<Lightbulb size={16} strokeWidth={1.5} />}
           label="Ideas"
-          value=""
+          value="—"
           hint=""
           sub="Knowledge graph"
         />
