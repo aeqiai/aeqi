@@ -76,15 +76,22 @@ export interface TreasuryVault {
 /* ------------------------------------------------------------------ */
 
 /**
- * Permissive symbol registry. Mainnet USDC is the only entry we lean on
- * for human-readable labels today; localnet uses freshly-minted test
- * USDC at a different address so we can't pin it here. Unknown mints
- * fall back to the truncated mint pubkey in the UI.
+ * Permissive symbol registry. Maps mint pubkey → symbol + decimals so the
+ * Assets surface and the Overview cockpit's Assets tile can render
+ * human-readable balances. Unknown mints fall back to the truncated mint
+ * pubkey in the UI.
  *
  * Mainnet USDC: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (6 decimals).
+ *
+ * Localnet USDC: `BscBtSVDbZCzSHikQSwmCuszX4f4nbESdnfrFYkbv3F3` (6 decimals).
+ * Created 2026-05-20 with the dogfood CLI keypair as the mint authority so
+ * test TRUSTs (incl. the canonical AEQI dogfood at
+ * `C68sd4DX6K7aSLaTyfPnAw7cqN5Fj82qX7JyuDj8NVY4`) can show non-empty
+ * treasury balances on the cockpit tile + Assets surface.
  */
 export const TOKEN_REGISTRY: Record<string, { symbol: string; decimals: number }> = {
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: "USDC", decimals: 6 },
+  BscBtSVDbZCzSHikQSwmCuszX4f4nbESdnfrFYkbv3F3: { symbol: "USDC", decimals: 6 },
 };
 
 export function lookupTokenMeta(mint: PublicKey | string): {
