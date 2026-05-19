@@ -14,8 +14,12 @@ import TrustHeroStrip from "./TrustHeroStrip";
 import TrustStateBand, { MILESTONE_ORDER, type MilestoneKey } from "./TrustStateBand";
 import TrustGenesisCurveCard from "./TrustGenesisCurveCard";
 import BlockAvatar from "./BlockAvatar";
-import { Loading } from "@/components/ui";
+import { Button, Loading } from "@/components/ui";
+import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
+import { goExternal } from "@/lib/navigation";
+import { launchPlanBillingLine, launchPlanDisplayName } from "@/lib/pricing";
 import "@/styles/overview.css";
+import "@/styles/runtime-upsell.css";
 
 const HealthBlock = lazy(() => import("@/pages/HealthPage"));
 
@@ -94,6 +98,30 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
     if (!launchStatus) return null;
     return MILESTONE_ORDER.find((k) => !launchStatus.milestones[k]?.reached) ?? null;
   }, [launchStatus]);
+
+  // ── Runtime attachment ──────────────────────────────────────────────
+  // Drives the runtime status row beneath the state band: the quiet
+  // plan badge ("Standard · $49/mo") for provisioned TRUSTs, or a
+  // "Provision runtime" CTA for free ones. The full gating + picker
+  // lives in CompanyPage; this is the cockpit-side surface.
+  const runtimeStatus = useRuntimeStatus(trustId);
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionError, setProvisionError] = useState<string | null>(null);
+  const handleProvision = async () => {
+    setProvisioning(true);
+    setProvisionError(null);
+    try {
+      // Default to Pro — the recommended plan in pricing.ts and matches
+      // the upsell panel's default. Inside the picker (rendered in
+      // place of gated tabs) the user can flip; the overview CTA is the
+      // one-click path.
+      const { url } = await api.provisionRuntime({ trust_id: trustId, plan: "pro" });
+      goExternal(url);
+    } catch (err) {
+      setProvisionError(err instanceof Error ? err.message : "Could not start checkout.");
+      setProvisioning(false);
+    }
+  };
 
   // ── Click-to-copy address ────────────────────────────────────────────
   const [trustCopied, setTrustCopied] = useState(false);
@@ -247,6 +275,55 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
         onLaunch={() => navigate("/launch")}
         rootAgentName={rootAgent?.name}
       />
+
+      {/* ── Runtime status — quiet plan badge on provisioned TRUSTs, or
+          "Provision runtime" CTA for free ones. Suppressed while the
+          status query is in-flight to avoid a flash of "not provisioned"
+          on a TRUST that already has a runtime. ── */}
+      {!runtimeStatus.isLoading &&
+        (runtimeStatus.hasRuntime ? (
+          <div className="runtime-status-row" role="status">
+            <div className="runtime-status-row-text">
+              <span className="runtime-status-row-label">Runtime</span>
+              <span className="runtime-status-row-value">
+                {launchPlanDisplayName(runtimeStatus.plan ?? undefined)} ·{" "}
+                <span className="runtime-status-row-quiet">
+                  {launchPlanBillingLine(runtimeStatus.plan ?? undefined)}
+                </span>
+              </span>
+            </div>
+            <Link to="/account/billing" className="trust-overview-pulse-link">
+              Manage billing
+              <ArrowRight size={12} strokeWidth={1.8} />
+            </Link>
+          </div>
+        ) : (
+          <div className="runtime-status-row">
+            <div className="runtime-status-row-text">
+              <span className="runtime-status-row-label">Runtime</span>
+              <span className="runtime-status-row-value">
+                Not provisioned ·{" "}
+                <span className="runtime-status-row-quiet">
+                  agents and execution surfaces are locked until you add one.
+                </span>
+              </span>
+              {provisionError && (
+                <span className="runtime-status-row-quiet" role="alert">
+                  {provisionError}
+                </span>
+              )}
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void handleProvision()}
+              loading={provisioning}
+              loadingLabel="Starting checkout"
+            >
+              Provision runtime
+            </Button>
+          </div>
+        ))}
 
       {trustAddress && (
         <section className="trust-overview-identity" aria-label="On-chain identity">

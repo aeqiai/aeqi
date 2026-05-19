@@ -2,6 +2,10 @@ import { Suspense, lazy, useEffect } from "react";
 import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import AgentPage from "@/components/AgentPage";
 import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
+import ProvisionRuntimeUpsell, {
+  type UpsellSurface,
+} from "@/components/upsell/ProvisionRuntimeUpsell";
 
 // TrustOverviewTab is the canonical bare-`/c/<id>/` landing — renders
 // TrustHeroStrip + roles / quests / activity. Lazy-loaded to keep this
@@ -50,10 +54,31 @@ interface CompanyPageProps {
  * tagline, public toggle, and plan link now live in the TrustHeroStrip
  * on Overview. Workspace billing remains at `/account/billing`.
  */
+/** Tabs that require an attached runtime (`aeqi-host-<entity>.service`).
+ *  When `has_runtime === false`, render `<ProvisionRuntimeUpsell>` in
+ *  their slot instead of the real tab body. The 6 ownership/governance
+ *  tabs (Overview / Roles / Assets / Equity / Quorum / Incorporation)
+ *  read on-chain state and stay reachable on free TRUSTs. */
+const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
+  agents: "agents",
+  events: "events",
+  quests: "quests",
+  ideas: "ideas",
+  inbox: "inbox",
+  // `sessions` is rewritten upstream in AppLayout (308 to the drilled-
+  // agent inbox URL), so it never lands on CompanyPage. Listed here for
+  // discoverability — gating its drilled-agent rewrite target is a
+  // separate concern handled in the drilled-agent surface.
+};
+
 export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { entity } = useCurrentCompany();
+  // Runtime status drives whether the 5 execution tabs render or get
+  // upsold. React Query dedupes parallel calls, so the per-tab gate
+  // shares a single fetch with TrustOverviewTab.
+  const { hasRuntime, isLoading: runtimeStatusLoading } = useRuntimeStatus(trustId);
 
   // Title effect
   useEffect(() => {
@@ -85,6 +110,16 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
     // Replace the history entry so the user doesn't pollute their back-button
     navigate(targetPath, { replace: true });
   }, [entity?.trust_address, tab, itemId, navigate, location.pathname, location.search]);
+
+  // Runtime gate — applied before the per-tab dispatch so all 5 gated
+  // surfaces share one branch. While the status query is in-flight we
+  // fall through to the normal per-tab render (best-effort optimism);
+  // the gate flips to the upsell on the next render once the placement
+  // confirms `has_runtime: false`.
+  const upsellSurface = RUNTIME_GATED_TABS[tab];
+  if (upsellSurface && !runtimeStatusLoading && !hasRuntime) {
+    return <ProvisionRuntimeUpsell surface={upsellSurface} trustId={trustId} />;
+  }
 
   // Inbox is the company-scoped action queue. Visually it's MeInbox
   // for now (Phase-1 cross-company aggregation lives at top-level

@@ -699,6 +699,17 @@
 .sidebar-nav-item.disabled > svg {
   color: var(--color-text-muted);
 }
+
+/* Runtime-gated row when no `aeqi-host-<entity>.service` is attached.
+   Stays clickable on purpose — clicking opens the in-tab upsell which
+   IS the conversion surface. The dim is the cue, not a block. */
+.sidebar-nav-item--locked {
+  opacity: 0.55;
+}
+.sidebar-nav-item--locked:hover,
+.sidebar-nav-item--locked.active {
+  opacity: 1;
+}
 .sidebar-nav-label {
   flex: 1;
   /* line-height: 1 collapses the label's line-box to its font-size so

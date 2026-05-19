@@ -1,0 +1,155 @@
+/* ProvisionRuntimeUpsell — the gate shown in place of the 6 runtime-
+   gated tabs (Agents/Quests/Ideas/Events/Inbox/Sessions) when the
+   TRUST hasn't been provisioned yet.
+
+   Layout-only. Visual primitives (Card, Button, Banner) come from
+   @/components/ui; the plan picker reuses the canonical
+   .plan-card / .plan-card-* classes defined in
+   blueprint-launch-picker.css.
+
+   Pattern mirrors billing.css: thin layout glue around primitives,
+   tokens only — no hex literals, no hand-rolled colors. */
+
+.runtime-upsell {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.runtime-upsell-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 720px;
+}
+
+.runtime-upsell-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.runtime-upsell-eyebrow {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.runtime-upsell-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+}
+
+.runtime-upsell-lede {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  max-width: 60ch;
+}
+
+.runtime-upsell-plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .runtime-upsell-plans {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Per-plan supporting copy — matches the launch picker's bullet rhythm
+   but uses local class names so the layout is independent of the
+   launch-picker grid which lives in a different container. */
+
+.runtime-upsell-plan-intro {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.runtime-upsell-plan-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.runtime-upsell-plan-bullet {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.runtime-upsell-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.runtime-upsell-cta-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ── TrustOverviewTab — runtime status banner ───────────────────────
+   Renders inside the cockpit. Two states: a primary "Provision
+   runtime" CTA when no runtime is attached, a quiet badge when one is.
+   Lives here (next to the upsell) so the runtime-opt-in surface is
+   one file to find. */
+
+.runtime-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.runtime-status-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.runtime-status-row-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.runtime-status-row-value {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.runtime-status-row-quiet {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}

@@ -880,6 +880,34 @@ export const api = {
 
   revokeKey: (id: string) => request<{ ok: boolean }>(`/keys/${id}`, { method: "DELETE" }),
 
+  // Runtime provisioning — turn a free TRUST into a paid one.
+  // Backend: `aeqi-platform/src/routes/runtime.rs`.
+  //
+  //   POST /api/runtime/provision { trust_id, plan: "standard"|"pro" }
+  //     → { ok, url, trust_id, plan }   — Stripe checkout URL.
+  //   GET  /api/runtime/status?trust_id=<id>
+  //     → { ok, has_runtime, plan, tier, host_active, … }
+  //
+  // `trust_id` here is the platform-side entity uuid (matches
+  // `Trust.id` on the frontend), NOT the on-chain `trust_address`.
+  provisionRuntime: (data: { trust_id: string; plan: "standard" | "pro" }) =>
+    request<{ ok: boolean; url: string; trust_id: string; plan: string }>("/runtime/provision", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getRuntimeStatus: (trustId: string) =>
+    request<{
+      ok: boolean;
+      has_runtime: boolean;
+      plan: string | null;
+      tier: string;
+      host_active: boolean;
+      placement_type: string;
+      status: string;
+      service_name: string | null;
+    }>(`/runtime/status?trust_id=${encodeURIComponent(trustId)}`),
+
   // Stripe billing. Launch and resubscribe flows stamp Standard/Pro `plan`
   // metadata for provisioning and billing display.
   createCheckoutSession: (data: {

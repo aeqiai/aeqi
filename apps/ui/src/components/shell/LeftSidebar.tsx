@@ -25,6 +25,7 @@ import HelpMenu from "@/components/shell/HelpMenu";
 import { IconButton, Tooltip } from "@/components/ui";
 import { useUIStore } from "@/store/ui";
 import { useDaemonStore } from "@/store/daemon";
+import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { entityBasePath } from "@/lib/entityPath";
 
 interface LeftSidebarProps {
@@ -117,6 +118,14 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const base = activeEntityObj ? entityBasePath(activeEntityObj) : "";
   const hasCompany = !!trustId;
 
+  // Runtime gate cue — when the TRUST has no runtime attached, the
+  // execution-tab rows (Agents/Events/Quests/Ideas) read as locked
+  // (reduced opacity). They stay clickable on purpose; the in-tab
+  // upsell IS the conversion surface. While the status query is
+  // in-flight or unavailable we leave them at full opacity.
+  const runtimeStatus = useRuntimeStatus(trustId);
+  const runtimeLocked = !runtimeStatus.isLoading && trustId !== null && !runtimeStatus.hasRuntime;
+
   const navHref = (id: string) => `${base}/${id}`;
 
   // The Organization cockpit row stays lit ONLY at the bare trust URL —
@@ -138,7 +147,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
     id: string,
     label: string,
     icon: React.ReactNode,
-    opts: { soon?: boolean; action?: React.ReactNode } = {},
+    opts: { soon?: boolean; action?: React.ReactNode; locked?: boolean } = {},
   ) => {
     if (opts.soon) {
       return (
@@ -156,12 +165,14 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
       );
     }
     const active = isActiveTab(id);
+    const lockedCls = opts.locked ? "sidebar-nav-item--locked" : "";
+    const titleHint = opts.locked ? `${label} — runtime required` : label;
     return (
       <div key={id} className="sidebar-nav-row">
         <a
-          className={`sidebar-nav-item ${active ? "active" : ""}`}
+          className={`sidebar-nav-item ${active ? "active" : ""} ${lockedCls}`.trim()}
           href={navHref(id)}
-          title={label}
+          title={titleHint}
           aria-current={active ? "page" : undefined}
           onClick={(e) => {
             e.preventDefault();
@@ -326,6 +337,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Execution">
               <div className="sidebar-section-label">Execution</div>
               {navItem("agents", "Agents", <AgentsIcon />, {
+                locked: runtimeLocked,
                 action: rowAction("New agent", <PlusIcon />, () => {
                   // TrustAgentsTab listens for `aeqi:create` to open the
                   // BlueprintPickerModal. Navigate first so the listener is
@@ -335,16 +347,19 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                 }),
               })}
               {navItem("events", "Events", <EventsIcon />, {
+                locked: runtimeLocked,
                 action: rowAction("New event", <PlusIcon />, () => {
                   navigate(`${base}/events?compose=1`);
                 }),
               })}
               {navItem("quests", "Quests", <QuestsIcon />, {
+                locked: runtimeLocked,
                 action: rowAction("New quest", <PlusIcon />, () => {
                   navigate(`${base}/quests/new`);
                 }),
               })}
               {navItem("ideas", "Ideas", <IdeasIcon />, {
+                locked: runtimeLocked,
                 action: rowAction("New idea", <PlusIcon />, () => {
                   navigate(`${base}/ideas?compose=1`);
                 }),
