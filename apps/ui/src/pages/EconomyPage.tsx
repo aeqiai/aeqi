@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
+import { ArrowUpRight, BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
 import BlockAvatar from "@/components/BlockAvatar";
 import PageRail from "@/components/PageRail";
 import {
@@ -23,9 +23,15 @@ import { formatInteger, formatMediumDate } from "@/lib/i18n";
 import type { Role, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
 import { RegistryCard, TrustDirectory } from "./EconomyPage.parts";
+import {
+  compactAddress,
+  ECONOMY_TABS,
+  isEconomyTab,
+  matchesPoolQuery,
+  matchesRoleQuery,
+  matchesTrustQuery,
+} from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
-
-type EconomyTab = "overview" | "trusts" | "pools" | "funding" | "roles";
 
 type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
 
@@ -53,42 +59,6 @@ interface RoleOpeningRow {
   id: string;
   trust: Trust;
   role: Role;
-}
-
-const ECONOMY_TABS: Array<{ id: EconomyTab; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "trusts", label: "Trusts" },
-  { id: "pools", label: "Liquidity Pools" },
-  { id: "funding", label: "Funding Rounds" },
-  { id: "roles", label: "Roles" },
-];
-
-function isEconomyTab(tab: string | undefined): tab is EconomyTab {
-  return !!tab && ECONOMY_TABS.some((item) => item.id === tab);
-}
-
-function compactAddress(value: string | null | undefined): string {
-  if (!value) return "Not on-chain";
-  if (value.length <= 14) return value;
-  return `${value.slice(0, 6)}...${value.slice(-6)}`;
-}
-
-function matchesQuery(entity: Trust, query: string): boolean {
-  if (!query) return true;
-  const haystack = [
-    entity.name,
-    entity.tagline,
-    entity.id,
-    entity.trust_id,
-    entity.trust_address,
-    entity.creator_address,
-    entity.plan,
-    entity.placement_status,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(query);
 }
 
 export default function EconomyPage() {
@@ -166,7 +136,7 @@ export default function EconomyPage() {
 
   const normalizedSearch = search.trim().toLowerCase();
   const visibleTrusts = useMemo(
-    () => entities.filter((entity) => matchesQuery(entity, normalizedSearch)),
+    () => entities.filter((entity) => matchesTrustQuery(entity, normalizedSearch)),
     [entities, normalizedSearch],
   );
 
@@ -204,8 +174,18 @@ export default function EconomyPage() {
     [entities, launchState],
   );
 
+  const visiblePoolRows = useMemo(
+    () => poolRows.filter((row) => matchesPoolQuery(row, normalizedSearch)),
+    [poolRows, normalizedSearch],
+  );
+  const visibleRoleOpenings = useMemo(
+    () => roleOpenings.filter((row) => matchesRoleQuery(row, normalizedSearch)),
+    [roleOpenings, normalizedSearch],
+  );
+
   const publicTrusts = entities.filter((entity) => entity.public);
   const onChainTrusts = entities.filter((entity) => entity.trust_address);
+  const hasSearch = normalizedSearch.length > 0;
   const loadingSecondaryData =
     Object.values(roleState).some((state) => state.loading) ||
     Object.values(launchState).some((state) => state.loading);
@@ -304,8 +284,27 @@ export default function EconomyPage() {
         align: "end",
         width: "110px",
       },
+      {
+        key: "action",
+        header: "",
+        cell: (row) => (
+          <Button
+            variant="secondary"
+            size="sm"
+            trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
+            onClick={(event) => {
+              event.stopPropagation();
+              navigate(entityBasePath(row.trust));
+            }}
+          >
+            Open
+          </Button>
+        ),
+        width: "92px",
+        align: "end",
+      },
     ],
-    [],
+    [navigate],
   );
 
   const roleColumns = useMemo<Array<TableColumn<RoleOpeningRow>>>(
@@ -394,18 +393,26 @@ export default function EconomyPage() {
             </span>
             <Input
               aria-label="Search trusts"
-              placeholder="Search trusts, addresses, plans"
+              placeholder="Search trusts, roles, pools, addresses"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className={styles.searchInput}
             />
+            {hasSearch && (
+              <span className={styles.searchSummary}>
+                {visibleTrusts.length} trusts / {visiblePoolRows.length} pools /{" "}
+                {visibleRoleOpenings.length} roles
+              </span>
+            )}
           </div>
 
           <MetricGrid columns={4}>
             <MetricCard
               label="Visible Trusts"
               value={entitiesLoading ? "—" : entities.length}
-              detail={`${publicTrusts.length} public`}
+              detail={
+                hasSearch ? `${visibleTrusts.length} matching` : `${publicTrusts.length} public`
+              }
             />
             <MetricCard
               label="On-Chain"
@@ -415,12 +422,16 @@ export default function EconomyPage() {
             <MetricCard
               label="Liquidity Pools"
               value={poolRows.length}
-              detail="Indexed genesis curves"
+              detail={hasSearch ? `${visiblePoolRows.length} matching` : "Indexed genesis curves"}
             />
             <MetricCard
               label="Open Roles"
               value={roleOpenings.length}
-              detail={`${allRoles.length} total roles`}
+              detail={
+                hasSearch
+                  ? `${visibleRoleOpenings.length} matching`
+                  : `${allRoles.length} total roles`
+              }
             />
           </MetricGrid>
 
@@ -451,7 +462,7 @@ export default function EconomyPage() {
                   <RegistryCard
                     icon={<BriefcaseBusiness size={16} strokeWidth={1.6} />}
                     title="Open roles"
-                    value={roleOpenings.length}
+                    value={visibleRoleOpenings.length}
                     body="Vacant roles across visible trusts become the apply surface for joining a trust."
                     onOpen={() => navigate("/economy/roles")}
                   />
@@ -490,16 +501,21 @@ export default function EconomyPage() {
               >
                 <Table
                   columns={poolColumns}
-                  data={poolRows}
+                  data={visiblePoolRows}
                   rowKey={(row) => row.id}
-                  loading={loadingSecondaryData && poolRows.length === 0}
+                  onRowClick={(row) => navigate(entityBasePath(row.trust))}
+                  loading={loadingSecondaryData && visiblePoolRows.length === 0}
                   skeletonRows={3}
                   scrollWidth="lg"
                   ariaLabel="Liquidity pools"
                   empty={
                     <EmptyState
-                      title="No indexed pools yet"
-                      description="Pools appear here after launch status confirms a provisioned genesis curve."
+                      title={hasSearch ? "No matching pools" : "No indexed pools yet"}
+                      description={
+                        hasSearch
+                          ? "Try a trust name, pool address, asset mint, or quote mint."
+                          : "Pools appear here after launch status confirms a provisioned genesis curve."
+                      }
                     />
                   }
                 />
@@ -525,21 +541,25 @@ export default function EconomyPage() {
               >
                 <Table
                   columns={roleColumns}
-                  data={roleOpenings}
+                  data={visibleRoleOpenings}
                   rowKey={(row) => row.id}
                   onRowClick={(row) =>
                     navigate(
                       `${entityBasePath(row.trust)}/roles/${encodeURIComponent(row.role.id)}`,
                     )
                   }
-                  loading={loadingSecondaryData && roleOpenings.length === 0}
+                  loading={loadingSecondaryData && visibleRoleOpenings.length === 0}
                   skeletonRows={5}
                   scrollWidth="md"
                   ariaLabel="Open roles"
                   empty={
                     <EmptyState
-                      title="No open roles"
-                      description="Vacant roles will appear here when trusts publish roles without occupants."
+                      title={hasSearch ? "No matching roles" : "No open roles"}
+                      description={
+                        hasSearch
+                          ? "Try a role title, role type, trust name, or trust address."
+                          : "Vacant roles will appear here when trusts publish roles without occupants."
+                      }
                     />
                   }
                 />

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import EconomyPage from "@/pages/EconomyPage";
 import { api } from "@/lib/api";
@@ -147,6 +147,25 @@ describe("EconomyPage", () => {
     expect(screen.getByText("Alpha Trust")).toBeInTheDocument();
   });
 
+  it("filters indexed pools by pool and trust fields", async () => {
+    renderEconomy("/economy/pools");
+
+    expect(await screen.findByText("Genesis curve")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+      target: { value: "quote111" },
+    });
+
+    expect(screen.getByText("Genesis curve")).toBeInTheDocument();
+    expect(screen.getByText("0 trusts / 1 pools / 0 roles")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+      target: { value: "Beta" },
+    });
+
+    expect(screen.getByText("No matching pools")).toBeInTheDocument();
+  });
+
   it("shows vacant trust roles on the roles tab", async () => {
     renderEconomy("/economy/roles");
 
@@ -154,6 +173,25 @@ describe("EconomyPage", () => {
     expect(await screen.findByText("CFO")).toBeInTheDocument();
     expect(screen.queryByText("Director")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+  });
+
+  it("filters open roles by role and trust fields", async () => {
+    renderEconomy("/economy/roles");
+
+    expect(await screen.findByText("CFO")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+      target: { value: "operational" },
+    });
+
+    expect(screen.getByText("CFO")).toBeInTheDocument();
+    expect(screen.getByText("0 trusts / 0 pools / 1 roles")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search trusts" }), {
+      target: { value: "Beta" },
+    });
+
+    expect(screen.getByText("No matching roles")).toBeInTheDocument();
   });
 
   it("keeps the funding lane honest while the funding index is absent", () => {
