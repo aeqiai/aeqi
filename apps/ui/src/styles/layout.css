@@ -7962,9 +7962,15 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    row rhythm as the rest of the chrome. pointer-events re-enabled
    because the overlay container disables them. */
 .home-hero-settings {
+  /* `.home-hero` carries 24px horizontal padding (shared with the row
+     wrappers below), and absolute children resolve against the padding
+     box edge. `right: 24px` was therefore touching the image's right
+     edge with zero gap. Bumping to 44px = 24px padding + 20px breathing
+     room — same applies vertically (top: 20px stays inside the image
+     since there's no vertical padding on `.home-hero`). */
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: 20px;
+  right: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7996,9 +8002,12 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    the gear; ink is muted secondary so it reads as quiet data, not
    another CTA. */
 .home-hero-pill {
+  /* Same inset math as `.home-hero-settings` above: 44px on the side
+     (24px page padding + 20px gap from the image edge), 20px from the
+     bottom. */
   position: absolute;
-  left: 24px;
-  bottom: 24px;
+  left: 44px;
+  bottom: 20px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -8603,12 +8612,12 @@ button.home-card:focus-visible {
     font-size: 26px;
   }
   .home-hero-settings {
-    top: 16px;
-    right: 16px;
+    top: 12px;
+    right: 32px;
   }
   .home-hero-pill {
-    left: 16px;
-    bottom: 16px;
+    left: 32px;
+    bottom: 12px;
     flex-wrap: wrap;
   }
   .home-thesis-card {
