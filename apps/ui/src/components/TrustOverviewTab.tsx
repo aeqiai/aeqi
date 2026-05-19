@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
 import { useDaemonStore } from "@/store/daemon";
-import { fetchTrust } from "@/lib/indexer";
 import { entityBasePath } from "@/lib/entityPath";
 import TrustHeroStrip from "./TrustHeroStrip";
 import TrustExecutionGroup from "./TrustExecutionGroup";
@@ -21,7 +19,11 @@ import "@/styles/overview.css";
  *   3. Programmable Ownership group — on-chain identity header bar
  *      (TRUST address + signers + smart-contract chip) + 4 cards:
  *      Assets, Equity, Quorum, Incorporation. The identity strip
- *      that lived as its own row in v2 folds into this header.
+ *      that lived as its own row in v2 folds into this header. Every
+ *      ownership signal is sourced from on-chain reads (`useAssets` /
+ *      `useEquity` / `useQuorum` / `useIncorporation`) — the EVM-era
+ *      `/indexer/graphql` path silently returned `[]` against Solana
+ *      TRUST addresses and is no longer touched on this surface.
  *   4. Public surface (half/half) — Updates (timeline) + Data Room
  *      (documents). Placeholders for now; structure is what matters.
  *
@@ -37,39 +39,11 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
   const trustAddress = entity?.trust_address;
   const basePath = entity ? entityBasePath(entity) : "/launch";
 
-  // On-chain signers count — only signal we still source directly on
-  // the overview surface; the four ownership-card hooks own everything
-  // else. Could move into a useTrustSigners hook later.
-  const [signersCount, setSignersCount] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    if (!trustAddress) {
-      setSignersCount(null);
-      return;
-    }
-    fetchTrust(trustAddress)
-      .then((trust) => {
-        if (cancelled) return;
-        setSignersCount(trust?.signersCount ?? null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSignersCount(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [trustAddress]);
-
   return (
     <div className="trust-overview">
       <TrustHeroStrip trustId={trustId} />
       <TrustExecutionGroup trustId={trustId} basePath={basePath} />
-      <TrustOwnershipGroup
-        trustAddress={trustAddress}
-        basePath={basePath}
-        signersCount={signersCount}
-      />
+      <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
       <TrustPublicRow />
     </div>
   );

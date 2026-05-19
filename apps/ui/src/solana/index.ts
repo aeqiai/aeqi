@@ -21,8 +21,14 @@ export {
   getUnifuturesProgram,
   getVestingProgram,
 } from "./programs";
-export { readTrust, readModules } from "./incorporation";
-export type { TrustAccount, ModuleAccount, ModuleAccountWithPda } from "./incorporation";
+export { readTrust, readModules, readRoles } from "./incorporation";
+export type {
+  TrustAccount,
+  ModuleAccount,
+  ModuleAccountWithPda,
+  RoleAccount,
+  RoleAccountWithPda,
+} from "./incorporation";
 export {
   readTreasuryModuleState,
   readVaultHoldings,

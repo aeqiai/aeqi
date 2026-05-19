@@ -1,24 +1,34 @@
 /**
- * `useIncorporation` — React Query wrapper around the two on-chain reads
- * the Incorporation surface needs: the Trust account and the list of
- * Module accounts hanging off it.
+ * `useIncorporation` — React Query wrapper around the three on-chain
+ * reads the Incorporation surface (and the Overview cockpit rollup) need:
+ * the Trust account, the list of Module accounts hanging off it, and the
+ * list of Role accounts on `aeqi_role`. Roles are folded in here (rather
+ * than into their own hook) because the Overview cockpit's "signers /
+ * modules / roles" identity strip wants all three together — the cost
+ * is one extra parallel `getProgramAccounts`, and the staleness is the
+ * same operator cadence.
  *
- * The TRUST PDA address (`trust_address`) is the cache key for both
+ * The TRUST PDA address (`trust_address`) is the cache key for all three
  * queries. A 30s staleTime matches the cadence at which these accounts
  * actually change (manual operator actions through aeqi-platform —
- * pause/unpause, adopt new module implementation, ACL edits) rather
- * than the every-block churn of token balances.
+ * pause/unpause, adopt new module implementation, ACL edits, role
+ * assign / resign) rather than the every-block churn of token balances.
+ *
+ * The role scan is soft-failed (try/catch → []) because Foundation-shaped
+ * TRUSTs that haven't adopted `aeqi_role` should degrade to "0 roles"
+ * instead of surfacing an error in the cockpit header.
  */
 import { useQuery } from "@tanstack/react-query";
 
-import { readModules, readTrust } from "@/solana";
-import type { ModuleAccountWithPda, TrustAccount } from "@/solana";
+import { readModules, readRoles, readTrust } from "@/solana";
+import type { ModuleAccountWithPda, RoleAccountWithPda, TrustAccount } from "@/solana";
 
 const STALE_TIME_MS = 30_000;
 
 export interface UseIncorporationResult {
   trust: TrustAccount | null | undefined;
   modules: ModuleAccountWithPda[] | undefined;
+  roles: RoleAccountWithPda[] | undefined;
   isLoading: boolean;
   error: Error | null;
 }
@@ -48,10 +58,30 @@ export function useIncorporation(trustAddress: string | null | undefined): UseIn
     staleTime: STALE_TIME_MS,
   });
 
+  const rolesQuery = useQuery({
+    queryKey: ["incorporation", "roles", trustAddress ?? null],
+    queryFn: async () => {
+      try {
+        return await readRoles(trustAddress as string);
+      } catch {
+        // Foundation-shaped TRUSTs without `aeqi_role` adopted should
+        // degrade to "0 roles" in the cockpit instead of erroring.
+        return [];
+      }
+    },
+    enabled,
+    staleTime: STALE_TIME_MS,
+  });
+
   return {
     trust: trustQuery.data,
     modules: modulesQuery.data,
-    isLoading: enabled && (trustQuery.isLoading || modulesQuery.isLoading),
-    error: (trustQuery.error as Error | null) ?? (modulesQuery.error as Error | null) ?? null,
+    roles: rolesQuery.data,
+    isLoading: enabled && (trustQuery.isLoading || modulesQuery.isLoading || rolesQuery.isLoading),
+    error:
+      (trustQuery.error as Error | null) ??
+      (modulesQuery.error as Error | null) ??
+      (rolesQuery.error as Error | null) ??
+      null,
   };
 }
