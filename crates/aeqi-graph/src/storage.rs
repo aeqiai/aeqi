@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
 
 use crate::schema::{CodeEdge, CodeNode, EdgeType, NodeLabel};
@@ -289,6 +289,81 @@ impl GraphStore {
     }
 
     pub fn search_nodes(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
+        let query = query.trim();
+        if query.is_empty() || limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut results = Vec::new();
+        let mut seen = HashSet::new();
+
+        let exact_name = self.search_nodes_by_exact_name(query, remaining(limit, results.len()))?;
+        append_unique_nodes(&mut results, &mut seen, exact_name, limit);
+
+        if results.len() < limit {
+            let path_matches = self.search_nodes_by_path(query, remaining(limit, results.len()))?;
+            append_unique_nodes(&mut results, &mut seen, path_matches, limit);
+        }
+
+        if results.len() < limit {
+            let fts_matches = self.search_nodes_by_fts(query, remaining(limit, results.len()))?;
+            append_unique_nodes(&mut results, &mut seen, fts_matches, limit);
+        }
+
+        Ok(results)
+    }
+
+    fn search_nodes_by_exact_name(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut stmt = self.conn.prepare(
+            "SELECT id, label, name, file_path, start_line, end_line, language, is_exported, signature, doc_comment, community_id
+             FROM code_nodes
+             WHERE name = ?1 COLLATE NOCASE
+             ORDER BY is_exported DESC, file_path, start_line
+             LIMIT ?2",
+        )?;
+        let nodes = stmt
+            .query_map(params![query, limit as u32], |row| Ok(row_to_node(row)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(nodes)
+    }
+
+    fn search_nodes_by_path(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
+        if limit == 0 || !looks_like_path_query(query) {
+            return Ok(Vec::new());
+        }
+
+        let like = format!("%{query}%");
+        let mut stmt = self.conn.prepare(
+            "SELECT id, label, name, file_path, start_line, end_line, language, is_exported, signature, doc_comment, community_id
+             FROM code_nodes
+             WHERE file_path = ?1 OR file_path LIKE ?2
+             ORDER BY
+                CASE WHEN file_path = ?1 THEN 0 ELSE 1 END,
+                CASE WHEN label = 'file' THEN 0 ELSE 1 END,
+                file_path,
+                start_line
+             LIMIT ?3",
+        )?;
+        let nodes = stmt
+            .query_map(params![query, like, limit as u32], |row| {
+                Ok(row_to_node(row))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(nodes)
+    }
+
+    fn search_nodes_by_fts(&self, query: &str, limit: usize) -> Result<Vec<CodeNode>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let fts_query = escape_fts_query(query);
         let mut stmt = self.conn.prepare(
             "SELECT n.id, n.label, n.name, n.file_path, n.start_line, n.end_line, n.language, n.is_exported, n.signature, n.doc_comment, n.community_id
              FROM code_nodes_fts f
@@ -298,7 +373,7 @@ impl GraphStore {
              LIMIT ?2",
         )?;
         let nodes = stmt
-            .query_map(params![query, limit as u32], |row| Ok(row_to_node(row)))?
+            .query_map(params![fts_query, limit as u32], |row| Ok(row_to_node(row)))?
             .filter_map(|r| r.ok())
             .collect();
         Ok(nodes)
@@ -596,6 +671,35 @@ fn row_to_edge(row: &rusqlite::Row, offset: usize) -> CodeEdge {
     }
 }
 
+fn append_unique_nodes(
+    results: &mut Vec<CodeNode>,
+    seen: &mut HashSet<String>,
+    nodes: Vec<CodeNode>,
+    limit: usize,
+) {
+    for node in nodes {
+        if results.len() >= limit {
+            break;
+        }
+        if seen.insert(node.id.clone()) {
+            results.push(node);
+        }
+    }
+}
+
+fn remaining(limit: usize, current: usize) -> usize {
+    limit.saturating_sub(current)
+}
+
+fn looks_like_path_query(query: &str) -> bool {
+    query.contains('/') || query.contains('\\') || query.contains('.')
+}
+
+fn escape_fts_query(query: &str) -> String {
+    let escaped = query.replace('"', "\"\"");
+    format!("\"{escaped}\"")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -667,6 +771,96 @@ mod tests {
         let results = store.search_nodes("Observer", 10).unwrap();
         assert!(!results.is_empty());
         assert_eq!(results[0].name, "Observer");
+    }
+
+    #[test]
+    fn search_prefers_exact_symbol_name_before_doc_matches() {
+        let store = GraphStore::open_in_memory().unwrap();
+
+        store
+            .upsert_node(
+                &CodeNode::new(
+                    NodeLabel::Function,
+                    "unrelated",
+                    "src/other.rs",
+                    1,
+                    5,
+                    "rust",
+                )
+                .with_doc("Mentions GraphStore in documentation."),
+            )
+            .unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Struct,
+                "GraphStore",
+                "src/storage.rs",
+                10,
+                25,
+                "rust",
+            ))
+            .unwrap();
+
+        let results = store.search_nodes("GraphStore", 10).unwrap();
+
+        assert_eq!(results[0].name, "GraphStore");
+        assert_eq!(results[0].label, NodeLabel::Struct);
+    }
+
+    #[test]
+    fn search_accepts_file_path_queries_and_returns_file_first() {
+        let store = GraphStore::open_in_memory().unwrap();
+        let file = CodeNode::new(
+            NodeLabel::File,
+            "storage.rs",
+            "src/storage.rs",
+            1,
+            100,
+            "rust",
+        );
+        let function = CodeNode::new(
+            NodeLabel::Function,
+            "search_nodes",
+            "src/storage.rs",
+            20,
+            40,
+            "rust",
+        );
+        store.upsert_node(&file).unwrap();
+        store.upsert_node(&function).unwrap();
+
+        let results = store.search_nodes("src/storage.rs", 10).unwrap();
+
+        assert_eq!(results[0].label, NodeLabel::File);
+        assert_eq!(results[0].file_path, "src/storage.rs");
+        assert!(
+            results
+                .iter()
+                .any(|node| node.name == "search_nodes" && node.label == NodeLabel::Function)
+        );
+    }
+
+    #[test]
+    fn search_escapes_path_like_terms_before_fts_fallback() {
+        let store = GraphStore::open_in_memory().unwrap();
+        store
+            .upsert_node(
+                &CodeNode::new(
+                    NodeLabel::Function,
+                    "parse_path",
+                    "src/parser.rs",
+                    1,
+                    10,
+                    "rust",
+                )
+                .with_doc("Handles app/routes/proxy.rs lookup input."),
+            )
+            .unwrap();
+
+        let results = store.search_nodes("app/routes/proxy.rs", 10).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "parse_path");
     }
 
     #[test]
