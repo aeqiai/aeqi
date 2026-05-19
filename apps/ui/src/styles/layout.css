@@ -7923,13 +7923,17 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 
 /* Card shell — shared by trust card, inbox, economy, and thesis.
    Generous padding (28px) so every card reads as a deliberate
-   component, not a thin row. */
+   component, not a thin row. Resting bg is --color-card-elevated
+   because the StartPage sits inside .content-paper (paper tier =
+   --color-card); cards-on-paper need the elevated step up or they
+   vanish into the surface at rest. Per primitives.css comment:
+   "--color-card-elevated → buttons + popovers + cards-on-cards". */
 .home-card {
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding: 28px;
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   border: 0;
   border-radius: var(--radius-lg, 12px);
   font-family: inherit;
@@ -7938,13 +7942,15 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   text-align: left;
   transition:
     background 0.12s ease,
-    transform 0.12s ease;
+    transform 0.12s ease,
+    filter 0.12s ease;
 }
 button.home-card {
   cursor: pointer;
 }
 button.home-card:hover {
-  background: var(--bg-row);
+  background: var(--color-card-elevated);
+  filter: brightness(1.02);
   transform: translateY(-2px);
 }
 button.home-card:focus-visible {
@@ -7966,9 +7972,6 @@ button.home-card:focus-visible {
   background: var(--bg-row);
   color: var(--color-text-primary);
   flex-shrink: 0;
-}
-button.home-card:hover .home-card-icon {
-  background: var(--color-card);
 }
 .home-card-title {
   font-size: 17px;
@@ -8279,9 +8282,6 @@ button.home-card:hover .home-card-icon {
   transition: background 0.12s ease;
 }
 .home-inbox-link:hover {
-  background: var(--color-card);
-}
-button.home-card:hover .home-inbox-link:hover {
   background: var(--bg-row);
 }
 .home-inbox-avatar {
@@ -8360,9 +8360,6 @@ button.home-card:hover .home-inbox-link:hover {
   color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
-button.home-card:hover .home-inbox-empty-icon {
-  background: var(--color-card);
-}
 .home-inbox-empty-title {
   margin: 0;
   font-family: var(--font-display);
@@ -8417,16 +8414,18 @@ button.home-card:hover .home-inbox-empty-icon {
   align-items: end;
   gap: 32px;
   padding: 36px 36px 32px;
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   border-radius: var(--radius-lg, 12px);
   color: inherit;
   text-decoration: none;
   transition:
     background 0.12s ease,
-    transform 0.12s ease;
+    transform 0.12s ease,
+    filter 0.12s ease;
 }
 .home-thesis-card:hover {
-  background: var(--bg-row);
+  background: var(--color-card-elevated);
+  filter: brightness(1.02);
   transform: translateY(-2px);
 }
 .home-thesis-card:focus-visible {
