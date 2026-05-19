@@ -469,7 +469,9 @@ impl Indexer {
             });
         }
 
-        // Parse diff hunks to get file + line ranges
+        // Parse diff hunks against the old side of the diff. The graph store
+        // still represents HEAD, so using +new ranges after an insertion can
+        // accidentally point at later, unchanged symbols.
         let mut file_changes: Vec<(String, Vec<(u32, u32)>)> = Vec::new();
         let mut current_file = String::new();
         let mut current_ranges: Vec<(u32, u32)> = Vec::new();
@@ -481,20 +483,8 @@ impl Indexer {
                     current_ranges.clear();
                 }
                 current_file = file.to_string();
-            } else if line.starts_with("@@ ") {
-                // Parse hunk header: @@ -old,count +new,count @@
-                if let Some(plus) = line.find('+') {
-                    let rest = &line[plus + 1..];
-                    if let Some(space) = rest.find(' ') {
-                        let range_str = &rest[..space];
-                        let parts: Vec<&str> = range_str.split(',').collect();
-                        let start: u32 = parts[0].parse().unwrap_or(0);
-                        let count: u32 = parts.get(1).and_then(|c| c.parse().ok()).unwrap_or(1);
-                        if start > 0 {
-                            current_ranges.push((start, start + count.max(1) - 1));
-                        }
-                    }
-                }
+            } else if let Some(range) = old_hunk_range(line) {
+                current_ranges.push(range);
             }
         }
         if !current_file.is_empty() {
@@ -526,6 +516,31 @@ impl Indexer {
             affected,
         })
     }
+}
+
+fn old_hunk_range(line: &str) -> Option<(u32, u32)> {
+    if !line.starts_with("@@ ") {
+        return None;
+    }
+
+    let minus = line.find('-')?;
+    let rest = &line[minus + 1..];
+    let space = rest.find(' ')?;
+    let range_str = &rest[..space];
+    let (start, count) = parse_hunk_range(range_str)?;
+    if start == 0 {
+        return None;
+    }
+
+    let end = start + count.max(1) - 1;
+    Some((start, end))
+}
+
+fn parse_hunk_range(range: &str) -> Option<(u32, u32)> {
+    let mut parts = range.split(',');
+    let start = parts.next()?.parse().ok()?;
+    let count = parts.next().and_then(|part| part.parse().ok()).unwrap_or(1);
+    Some((start, count))
 }
 
 fn git_lines(project_dir: &Path, args: &[&str]) -> Option<Vec<String>> {
@@ -692,6 +707,57 @@ mod tests {
             context.callers.iter().any(|node| node.name == "caller"),
             "incremental indexing must preserve unchanged caller -> changed callee edges"
         );
+    }
+
+    #[test]
+    fn diff_impact_uses_head_line_ranges_to_avoid_shifted_symbol_noise() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        fs::create_dir(&src).unwrap();
+        fs::write(
+            src.join("lib.rs"),
+            "pub fn first() -> u32 {\n    1\n}\n\npub fn second() -> u32 {\n    2\n}\n",
+        )
+        .unwrap();
+
+        git(dir.path(), &["init"]);
+        git(dir.path(), &["add", "."]);
+        git(
+            dir.path(),
+            &[
+                "-c",
+                "user.name=AEQI Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial graph fixture",
+            ],
+        );
+
+        let store = GraphStore::open_in_memory().unwrap();
+        let indexer = Indexer::new();
+        indexer.index(dir.path(), &store).unwrap();
+
+        let inserted = (0..30)
+            .map(|idx| format!("    // inserted line {idx}\n"))
+            .collect::<String>();
+        fs::write(
+            src.join("lib.rs"),
+            format!(
+                "pub fn first() -> u32 {{\n{inserted}    1\n}}\n\npub fn second() -> u32 {{\n    2\n}}\n"
+            ),
+        )
+        .unwrap();
+
+        let impact = indexer.diff_impact(dir.path(), &store, 1).unwrap();
+        let changed_names: Vec<&str> = impact
+            .changed_symbols
+            .iter()
+            .map(|node| node.name.as_str())
+            .collect();
+
+        assert_eq!(changed_names, vec!["first"]);
     }
 
     fn git(dir: &Path, args: &[&str]) {

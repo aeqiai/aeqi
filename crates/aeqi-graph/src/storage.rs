@@ -570,18 +570,23 @@ impl GraphStore {
         let mut matched = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
-        for node in &nodes {
-            if matches!(
-                node.label,
-                NodeLabel::File | NodeLabel::Module | NodeLabel::Community | NodeLabel::Process
-            ) {
-                continue;
-            }
-            for &(start, end) in line_ranges {
-                // Symbol overlaps if it starts before range end AND ends after range start
-                if node.start_line <= end && node.end_line >= start && !seen.contains(&node.id) {
-                    seen.insert(node.id.clone());
-                    matched.push(node.clone());
+        for &(start, end) in line_ranges {
+            let overlapping: Vec<&CodeNode> = nodes
+                .iter()
+                .filter(|node| !is_structural_node(node.label))
+                .filter(|node| node.start_line <= end && node.end_line >= start)
+                .collect();
+
+            for node in &overlapping {
+                let contains_more_specific_node = overlapping.iter().any(|other| {
+                    node.id != other.id
+                        && node.start_line <= other.start_line
+                        && node.end_line >= other.end_line
+                        && (node.start_line < other.start_line || node.end_line > other.end_line)
+                });
+
+                if !contains_more_specific_node && seen.insert(node.id.clone()) {
+                    matched.push((*node).clone());
                 }
             }
         }
@@ -669,6 +674,13 @@ fn row_to_edge(row: &rusqlite::Row, offset: usize) -> CodeEdge {
         tier: row.get(offset + 4).unwrap_or(None),
         step: row.get(offset + 5).unwrap_or(None),
     }
+}
+
+fn is_structural_node(label: NodeLabel) -> bool {
+    matches!(
+        label,
+        NodeLabel::File | NodeLabel::Module | NodeLabel::Community | NodeLabel::Process
+    )
 }
 
 fn append_unique_nodes(
@@ -861,6 +873,39 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "parse_path");
+    }
+
+    #[test]
+    fn symbols_at_lines_prefers_nested_symbol_over_container() {
+        let store = GraphStore::open_in_memory().unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Impl,
+                "GraphStore",
+                "src/storage.rs",
+                10,
+                40,
+                "rust",
+            ))
+            .unwrap();
+        store
+            .upsert_node(&CodeNode::new(
+                NodeLabel::Method,
+                "search_nodes",
+                "src/storage.rs",
+                20,
+                30,
+                "rust",
+            ))
+            .unwrap();
+
+        let symbols = store
+            .symbols_at_lines("src/storage.rs", &[(22, 22)])
+            .unwrap();
+
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].label, NodeLabel::Method);
+        assert_eq!(symbols[0].name, "search_nodes");
     }
 
     #[test]
