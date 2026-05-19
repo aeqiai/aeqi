@@ -354,14 +354,18 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         )}
 
         {/* ── Bottom — AccountDropdown (with Admin link inside its menu
-            for admin users) + HelpMenu pinned right. The account block
-            moved back here from the top-left on 2026-05-19; the
-            wordmark now anchors the rail's top edge. ── */}
+            for admin users) + HelpMenu pinned right. Uses the same
+            `.sidebar-surface-nav` / `.sidebar-nav-row` wrapping as the
+            top Inbox+Search row so widths, hover reveal of the right-
+            cap action, and collapsed-mode hiding all behave identically
+            across the rail (2026-05-19). ── */}
         <div className="sidebar-bottom-group">
-          <div className="sidebar-action-row sidebar-action-row--account">
-            <AccountDropdown />
-            <HelpMenu />
-          </div>
+          <nav className="sidebar-surface-nav sidebar-zone" aria-label="Account">
+            <div className="sidebar-nav-row sidebar-nav-row--account">
+              <AccountDropdown />
+              <HelpMenu />
+            </div>
+          </nav>
         </div>
       </div>
 

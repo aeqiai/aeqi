@@ -750,26 +750,10 @@
  * flex:1; the right child is a small ghost circle whose center aligns
  * with the chevrons on the rows above (group titles, CompanySwitcher,
  * etc.) — same right-edge x distance from the rail. */
-.sidebar-action-row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin: 0 8px;
-}
-.sidebar-action-row > :first-child {
-  flex: 1;
-  min-width: 0;
-}
-.left-sidebar.collapsed .sidebar-action-row {
-  flex-direction: column;
-  align-items: center;
-  margin: 0 auto;
-  gap: 2px;
-}
-/* Account row gets a small bottom inset so the avatar+name doesn't
- * touch the rail's bottom edge — matches the breathing room the
- * sidebar's outer padding gives every other rail row. */
-.sidebar-action-row--account {
+/* Bottom account row gets a small extra bottom inset so the avatar+name
+ * doesn't touch the rail's bottom edge — matches the breathing room
+ * the sidebar's outer padding gives every other rail row. */
+.sidebar-nav-row--account {
   padding-bottom: 4px;
 }
 
@@ -6618,7 +6602,13 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  /* width:100% (not flex:1) — the Popover wrapper between this button and
+   * the row is `display: inline-block` (Popover.module.css `.root`), which
+   * kills the flex chain. The button needs an explicit width fill so its
+   * hover background and clickable area extend across the full row width
+   * like every other `.sidebar-nav-item` does, instead of clipping at the
+   * text. (Fix 2026-05-19.) */
+  width: 100%;
   min-width: 0;
   min-height: var(--sidebar-row-h);
   padding: 0 8px;
@@ -7835,25 +7825,6 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 .home-picker-link:hover {
   color: var(--color-text-primary);
-}
-
-/* ── Bottom row: Admin (if applicable) left, HelpMenu always right. The
-   `.sidebar-action-row > :first-child { flex: 1 }` rule already pins the
-   first child to take the row's growth, so the nav (Admin) or the spacer
-   (placeholder when Admin isn't rendered) takes that slot and HelpMenu
-   stays flush-right. ── */
-.sidebar-action-row--bottom {
-  margin: 0 8px 8px;
-}
-.sidebar-action-row-nav {
-  /* Strip the nav element's own margins/padding so the Admin row aligns
-     visually with the HelpMenu icon button beside it. */
-  margin: 0;
-  padding: 0;
-}
-.sidebar-action-row-spacer {
-  display: block;
-  min-height: 1px;
 }
 
 /* ── Home dashboard — surface at `/`. Cards-v2 (2026-05-19):
