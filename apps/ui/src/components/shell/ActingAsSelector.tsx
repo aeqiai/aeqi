@@ -6,11 +6,18 @@ import BlockAvatar from "@/components/BlockAvatar";
 
 /**
  * Acting-as selector — the trust credential card in the sidebar's TRUST
- * group. Vertical layout: trust avatar at top, trust name beneath, role
- * caption below in caps. Reads as "you are <ROLE> inside <TRUST>".
+ * group. Horizontal flow:
  *
- * Sits directly inside `.sidebar-surface-nav` (no extra wrapper) so the
- * black card spans the same outer width as the nav rows above and below.
+ *   [avatar]  Trust Name              ›
+ *             DIRECTOR
+ *
+ * Avatar anchors the left edge (identifies the trust), name + role stack
+ * in the middle (carries the credential payload), chevron sits centered
+ * on the right edge (signals interactivity to switch context).
+ *
+ * The card is given a small horizontal outer inset so the black panel
+ * reads as a deliberately set-back credential — slightly narrower than
+ * the nav rows above and below.
  *
  * Click navigates to `/identity` where the user can switch contexts.
  *
@@ -32,17 +39,19 @@ export default function ActingAsSelector() {
       onClick={() => navigate("/identity")}
       aria-label={`Switch context · currently ${roleName} at ${trustName}`}
     >
-      <span className="acting-as-chevron" aria-hidden="true">
-        <ChevronRight size={12} strokeWidth={2} />
-      </span>
       <span className="acting-as-badge acting-as-badge--expanded" aria-hidden="true">
-        <BlockAvatar name={trustName} size={36} />
+        <BlockAvatar name={trustName} size={32} />
       </span>
       <span className="acting-as-badge acting-as-badge--collapsed" aria-hidden="true">
         <BlockAvatar name={trustName} size={18} />
       </span>
-      <span className="acting-as-trust">{trustName}</span>
-      <span className="acting-as-role">{roleName}</span>
+      <span className="acting-as-meta">
+        <span className="acting-as-trust">{trustName}</span>
+        <span className="acting-as-role">{roleName}</span>
+      </span>
+      <span className="acting-as-chevron" aria-hidden="true">
+        <ChevronRight size={14} strokeWidth={1.9} />
+      </span>
     </button>
   );
 }

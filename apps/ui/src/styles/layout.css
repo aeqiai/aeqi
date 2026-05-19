@@ -7524,25 +7524,30 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 }
 
 /* ── Acting-as selector — trust credential card in the sidebar's TRUST
-   group. Vertical stack: avatar (top) → trust name → role caption.
-   Reads as "you are <ROLE> inside <TRUST>". Sits directly inside the
-   surface-nav so the card's outer edges align flush with the nav rows
-   above/below (no extra horizontal inset). ── */
+   group. Horizontal flow:
+
+     [avatar]  Trust Name              ›
+               DIRECTOR
+
+   Avatar on the left anchors trust identity; name + role stack in the
+   middle carries the credential payload; chevron centered on the right
+   signals "switch context." A small horizontal outer inset (4px each
+   side) sets the black panel slightly back from the nav-row width so
+   it reads as a deliberately recessed credential, not another row. ── */
 .acting-as-trigger {
-  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 16px 12px 14px;
+  gap: 12px;
+  width: calc(100% - 8px);
+  margin: 0 4px;
+  padding: 10px 12px;
   background: var(--color-accent);
   border: 0;
   border-radius: var(--radius-md);
   font-family: inherit;
   color: var(--btn-primary-text);
   cursor: pointer;
-  text-align: center;
+  text-align: left;
   transition: background 0.12s ease;
 }
 .acting-as-trigger:hover {
@@ -7555,13 +7560,14 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
     0 0 0 3px var(--color-accent);
 }
 
-/* Trust visual at the top of the credential. The BlockAvatar's
+/* Trust visual on the left edge of the credential. The BlockAvatar's
    rounded-square geometry gives the card an anchor that immediately
    identifies WHICH trust this is. */
 .acting-as-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
@@ -7569,10 +7575,19 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   display: none;
 }
 
-/* Trust name — the headline of the credential, full-width crop on
-   overflow so long names get an ellipsis rather than wrapping. */
+/* Middle column — trust name on top, role caption below. min-width: 0
+   on a flex child enables ellipsis on the trust name when the rail is
+   narrow or the name runs long. */
+.acting-as-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Trust name — the headline of the credential, ellipsis on overflow. */
 .acting-as-trust {
-  max-width: 100%;
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.2;
@@ -7582,11 +7597,10 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   text-overflow: ellipsis;
 }
 
-/* Role caption — uppercase + tracked, reads as a credential rank.
-   Muted so the trust name remains the headline; the role is the
-   capacity in which the actor is operating. */
+/* Role caption — uppercase + tracked, reads as a credential rank. Muted
+   so the trust name remains the headline; the role is the capacity in
+   which the actor is operating. */
 .acting-as-role {
-  margin-top: 2px;
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
@@ -7595,25 +7609,22 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   opacity: 0.62;
 }
 
-/* Chevron tucked into the top-right corner. Subtle at rest, brightens
-   on hover. Signals "this card opens the identity switcher" without
-   competing with the credential content. */
+/* Right-edge chevron — vertically centered with the avatar via the
+   row-flex parent. Subtle at rest, brightens on hover. */
 .acting-as-chevron {
-  position: absolute;
-  top: 8px;
-  right: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.4;
+  flex-shrink: 0;
+  opacity: 0.45;
   color: var(--btn-primary-text);
   transition:
     opacity 0.12s ease,
     transform 0.12s ease;
 }
 .acting-as-trigger:hover .acting-as-chevron {
-  opacity: 0.85;
-  transform: translateX(1px);
+  opacity: 0.9;
+  transform: translateX(2px);
 }
 
 /* Collapsed sidebar — single small avatar tile, drop everything else.
@@ -7624,13 +7635,13 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   padding: 6px;
   width: var(--sidebar-row-h);
   height: var(--sidebar-row-h);
+  margin: 0 auto;
   align-items: center;
   justify-content: center;
   gap: 0;
 }
 .left-sidebar.collapsed .acting-as-badge--expanded,
-.left-sidebar.collapsed .acting-as-trust,
-.left-sidebar.collapsed .acting-as-role,
+.left-sidebar.collapsed .acting-as-meta,
 .left-sidebar.collapsed .acting-as-chevron {
   display: none;
 }
