@@ -1,13 +1,21 @@
-/* Trust overview — v2 (2026-05-19).
+/* Trust overview — v3 (2026-05-19).
  *
- * Layout: hero → state band → identity strip → ops grid → modules →
- * health. Hero + state band + ops + modules are real cards painted
- * --color-card-elevated (cards-on-paper per .impeccable.md). The
- * identity strip is a quiet inline row that proves on-chain reality.
+ * Page composition:
+ *   1. Hero — full-width identity card.
+ *   2. Programmable execution GROUP — header bar (runtime status + CTA)
+ *      followed by a 4-card row (Agents · Quests · Events · Ideas).
+ *   3. Programmable ownership GROUP — header bar (TRUST address +
+ *      signers) followed by a 4-card row (Assets · Equity · Quorum ·
+ *      Incorporation).
+ *   4. Public row — half/half (Updates + Data Room).
  *
- * Token discipline: only canonical primitives.css tokens. No literal
- * colors, no 1px borders, no drop shadows. Depth comes from value
- * contrast across the paper → card-elevated ladder.
+ * The "group" is the visual primitive: a bar that anchors the row of
+ * cards underneath as a single beat. No outer box wrapping; the bar
+ * IS the visual cue.
+ *
+ * All cards paint --color-card-elevated (cards-on-paper canon). Color
+ * is the v6 atmospheric warm palette; --color-warmth carries every
+ * "alive" indicator on this surface.
  */
 
 /* ── Page ─────────────────────────────────────────────────────────── */
@@ -15,7 +23,7 @@
 .trust-overview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
   padding: var(--space-6);
   width: 100%;
   max-width: 1280px;
@@ -27,32 +35,16 @@
 
 /* ── Shared card shell ────────────────────────────────────────────── */
 
-.trust-overview-card {
+.trust-card {
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   min-width: 0;
   box-sizing: border-box;
-}
-
-.trust-overview-section-head {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: var(--space-3);
-}
-.trust-overview-section-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-lg);
-  font-weight: 500;
-  letter-spacing: -0.015em;
   color: var(--color-text-primary);
-}
-.trust-overview-section-sub {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  text-decoration: none;
 }
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
@@ -66,7 +58,6 @@
   border-radius: var(--radius-lg);
   min-width: 0;
 }
-
 .trust-hero-avatar {
   width: 88px;
   height: 88px;
@@ -78,7 +69,6 @@
   flex-shrink: 0;
   overflow: hidden;
 }
-
 .trust-hero-body {
   flex: 1;
   min-width: 0;
@@ -86,7 +76,6 @@
   flex-direction: column;
   gap: 4px;
 }
-
 .trust-hero-eyebrow {
   font-family: var(--font-sans);
   font-size: 10px;
@@ -95,7 +84,6 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-
 .trust-hero-name,
 .trust-hero-name-input {
   margin: 0;
@@ -122,7 +110,6 @@
   line-height: 1.1;
   letter-spacing: -0.025em;
 }
-
 .trust-hero-tagline,
 .trust-hero-tagline-input {
   margin: 2px 0 0 0;
@@ -149,7 +136,6 @@
 .trust-hero-tagline--empty {
   color: var(--color-text-muted);
 }
-
 .trust-hero-chrome {
   display: flex;
   align-items: center;
@@ -183,41 +169,69 @@
   accent-color: var(--color-accent);
 }
 
-/* ── State band (the 120% beat) ───────────────────────────────────── */
+/* ── Group (Execution / Ownership) ────────────────────────────────── */
 
-.trust-overview-state {
+.trust-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Group header bar — full width, ~half the height of a card. Carries
+   the group's context (runtime status / on-chain identity) + optional
+   primary CTA. Visually anchors the 4-card row underneath. */
+.trust-group-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-4) var(--space-5);
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
 }
-
-.trust-overview-state-dot {
-  width: 10px;
-  height: 10px;
+.trust-group-bar-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trust-group-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.trust-group-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.trust-group-state-dot {
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   flex-shrink: 0;
   background: var(--color-text-muted);
 }
-.trust-overview-state-dot[data-tone="operational"] {
+.trust-group-state-dot[data-tone="live"] {
   background: var(--color-warmth);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warmth) 22%, transparent);
+  box-shadow: 0 0 0 4px var(--color-warmth-bg);
 }
-.trust-overview-state-dot[data-tone="provisioning"] {
+.trust-group-state-dot[data-tone="provisioning"] {
   background: var(--color-warmth);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warmth) 22%, transparent);
   animation: trust-pulse 1.6s ease-in-out infinite;
 }
-.trust-overview-state-dot[data-tone="static"] {
+.trust-group-state-dot[data-tone="static"] {
   background: var(--color-text-muted);
 }
-.trust-overview-state-dot[data-tone="error"] {
-  background: var(--color-error);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-error) 18%, transparent);
-}
-
 @keyframes trust-pulse {
   0%,
   100% {
@@ -227,34 +241,53 @@
     opacity: 0.45;
   }
 }
-
-.trust-overview-state-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.trust-overview-state-headline {
-  margin: 0;
+.trust-group-headline {
   font-family: var(--font-display);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: 500;
   letter-spacing: -0.015em;
-  line-height: 1.2;
   color: var(--color-text-primary);
 }
-.trust-overview-state-sub {
-  margin: 0;
+.trust-group-sub {
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
-
-.trust-overview-state-cta {
+.trust-group-sub-sep {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+.trust-group-addr {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--color-card-muted);
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.trust-group-addr:hover {
+  background: var(--color-card-subtle);
+}
+.trust-group-addr:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.trust-group-addr span {
+  font-variant-numeric: tabular-nums;
+}
+.trust-group-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
   background: var(--color-text-primary);
   color: var(--btn-primary-text);
   border: 0;
@@ -262,233 +295,59 @@
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  cursor: pointer;
   text-decoration: none;
+  cursor: pointer;
   flex-shrink: 0;
   transition:
     filter 0.12s ease,
     transform 0.12s ease;
 }
-.trust-overview-state-cta:hover {
+.trust-group-cta:hover {
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
-.trust-overview-state-cta:focus-visible {
+.trust-group-cta:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-/* ── On-chain identity strip ──────────────────────────────────────── */
-
-.trust-overview-identity {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-2);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  flex-wrap: wrap;
-}
-.trust-overview-identity-label {
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.trust-overview-identity-addr {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: var(--color-card-elevated);
-  border: 0;
-  border-radius: 999px;
-  font-family: var(--font-mono, monospace);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-.trust-overview-identity-addr:hover {
-  background: var(--color-card-muted);
-  color: var(--color-text-primary);
-}
-.trust-overview-identity-addr:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-.trust-overview-identity-addr span {
-  font-variant-numeric: tabular-nums;
-}
-.trust-overview-identity-sep {
-  opacity: 0.4;
-}
-.trust-overview-identity-num {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-/* ── Operations grid ──────────────────────────────────────────────── */
-
-.trust-overview-ops {
+/* Group's 4-card row — symmetry between execution and ownership. */
+.trust-group-cards {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: stretch;
-}
-
-.trust-overview-ops-pulse {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-.trust-overview-ops-pulse-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.trust-overview-ops-stats {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-/* ── Pulse cards ──────────────────────────────────────────────────── */
-
-.trust-overview-pulse {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
 }
-.trust-overview-pulse--primary {
-  padding: var(--space-6);
-  min-height: 200px;
-}
-.trust-overview-pulse--quiet {
-  padding: var(--space-4);
-  min-height: 160px;
-}
-.trust-overview-pulse-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.trust-overview-pulse--primary .trust-overview-pulse-title {
-  font-family: var(--font-display);
-  font-size: var(--font-size-lg);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-.trust-overview-pulse-title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  letter-spacing: 0;
-}
-.trust-overview-pulse-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  transition: color 0.12s ease;
-}
-.trust-overview-pulse-link:hover {
-  color: var(--color-text-primary);
-}
-.trust-overview-pulse-empty {
-  margin: var(--space-2) 0 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-.trust-overview-pulse-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.trust-overview-pulse-row {
-  margin: 0;
-}
-.trust-overview-pulse-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  margin: 0 -12px;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-.trust-overview-pulse-btn:hover {
-  background: var(--color-card-muted);
-}
-.trust-overview-pulse-meta {
-  display: flex;
-  align-items: center;
+
+/* ── Primitive card (used in both groups) ─────────────────────────── */
+
+.trust-primitive-card {
   gap: 8px;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  padding: var(--space-5);
+  min-height: 140px;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
 }
-.trust-overview-pulse-avatar {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.trust-overview-pulse-from {
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-.trust-overview-pulse-time {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-}
-.trust-overview-pulse-text {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Stat tiles ───────────────────────────────────────────────────── */
-
-.trust-overview-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-4) var(--space-5);
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.12s ease;
-}
-.trust-overview-stat:hover {
+.trust-primitive-card:hover {
   transform: translateY(-1px);
+  background: var(--color-card-elevated);
 }
-.trust-overview-stat-label {
+.trust-primitive-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.trust-primitive-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--color-card-muted);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+.trust-primitive-label {
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
@@ -496,7 +355,7 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-.trust-overview-stat-value {
+.trust-primitive-value {
   font-family: var(--font-display);
   font-size: 28px;
   font-weight: 500;
@@ -507,7 +366,7 @@
   display: inline-flex;
   align-items: baseline;
 }
-.trust-overview-stat-hint {
+.trust-primitive-hint {
   margin-left: 6px;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
@@ -515,33 +374,34 @@
   color: var(--color-text-muted);
   letter-spacing: 0;
 }
-.trust-overview-stat-delta {
+.trust-primitive-sub {
+  margin-top: auto;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-}
-.trust-overview-stat-delta--positive {
-  color: var(--color-warmth);
-}
-.trust-overview-stat-delta--negative {
-  color: var(--color-error);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* ── Module card (Genesis curve etc) ──────────────────────────────── */
+/* ── Public row (Updates + Data Room) ─────────────────────────────── */
 
-.trust-overview-module {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
+.trust-public-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
 }
-.trust-overview-module-head {
+.trust-public-card {
+  gap: var(--space-3);
+  padding: var(--space-6);
+  min-height: 200px;
+}
+.trust-public-head {
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
-.trust-overview-module-icon {
+.trust-public-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -552,14 +412,14 @@
   color: var(--color-text-primary);
   flex-shrink: 0;
 }
-.trust-overview-module-titles {
+.trust-public-titles {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.trust-overview-module-eyebrow {
+.trust-public-eyebrow {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 10px;
@@ -568,7 +428,7 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-.trust-overview-module-title {
+.trust-public-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
@@ -576,147 +436,61 @@
   letter-spacing: -0.015em;
   color: var(--color-text-primary);
 }
-.trust-overview-module-state {
+.trust-public-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+.trust-public-lede {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+.trust-public-aside {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.trust-public-foot {
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+.trust-public-cta {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  background: var(--color-card-muted);
-  border-radius: 999px;
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-}
-.trust-overview-module-state[data-tone="live"] {
-  background: var(--color-warmth-bg);
-  color: var(--color-warmth);
-}
-
-.trust-overview-module-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-}
-.trust-overview-module-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.trust-overview-module-field dt {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-.trust-overview-module-field dd {
-  margin: 0;
-  min-width: 0;
-}
-.trust-overview-module-field code {
-  font-family: var(--font-mono, monospace);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  background: transparent;
-  padding: 0;
-}
-
-.trust-overview-module-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-top: var(--space-3);
-}
-.trust-overview-module-foot-text {
-  min-width: 0;
-  flex: 1;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-}
-.trust-overview-module-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-secondary);
-}
-.trust-overview-module-success {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-warmth);
-}
-.trust-overview-module-error {
-  color: var(--color-error);
-  overflow-wrap: anywhere;
-}
-.trust-overview-module-cta {
-  flex-shrink: 0;
-  padding: 10px 16px;
-  background: var(--color-text-primary);
-  color: var(--btn-primary-text);
-  border: 0;
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 500;
-  cursor: pointer;
-  transition:
-    filter 0.12s ease,
-    transform 0.12s ease;
-}
-.trust-overview-module-cta:hover:not(:disabled) {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-.trust-overview-module-cta:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.trust-overview-module-cta:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-
-/* ── Health / modules section wrappers ────────────────────────────── */
-
-.trust-overview-health,
-.trust-overview-modules {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  color: var(--color-warmth);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
-  .trust-overview-ops {
-    grid-template-columns: 1fr;
-  }
-  .trust-overview-ops-stats {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .trust-overview-ops-stats > * {
-    flex: 1 1 200px;
+  .trust-group-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 720px) {
   .trust-overview {
     padding: var(--space-4);
+    gap: var(--space-5);
   }
   .trust-hero {
     flex-direction: column;
     align-items: flex-start;
-    text-align: left;
     padding: var(--space-5);
   }
   .trust-hero-name,
@@ -724,25 +498,17 @@
   .trust-hero-name-input {
     font-size: 28px;
   }
-  .trust-overview-state {
+  .trust-group-bar {
     flex-wrap: wrap;
-    padding: var(--space-4);
   }
-  .trust-overview-state-cta {
+  .trust-group-cta {
     width: 100%;
     justify-content: center;
   }
-  .trust-overview-ops-pulse-pair {
+  .trust-group-cards {
     grid-template-columns: 1fr;
   }
-  .trust-overview-module-grid {
+  .trust-public-row {
     grid-template-columns: 1fr;
-  }
-  .trust-overview-module-foot {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .trust-overview-module-cta {
-    width: 100%;
   }
 }
