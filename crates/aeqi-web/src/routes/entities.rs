@@ -80,6 +80,22 @@ async fn list_trusts(State(state): State<AppState>, scope: Scope) -> Response {
         .or_else(|| resp.get("entities"))
         .cloned()
         .unwrap_or_else(|| serde_json::json!([]));
+    let trusts = match trusts {
+        serde_json::Value::Array(rows) => serde_json::Value::Array(
+            rows.into_iter()
+                .map(|mut trust| {
+                    if let serde_json::Value::Object(obj) = &mut trust {
+                        obj.insert(
+                            "type".to_string(),
+                            serde_json::Value::String("trust".to_string()),
+                        );
+                    }
+                    trust
+                })
+                .collect(),
+        ),
+        other => other,
+    };
     Json(serde_json::json!({
         "ok": true,
         "trusts": trusts,
