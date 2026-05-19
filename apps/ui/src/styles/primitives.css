@@ -220,8 +220,11 @@
   --key-pill-border: rgba(0, 0, 0, 0.07);
   --key-pill-radius: var(--radius-xs);
 
-  /* Section heading rhythm — date groups, group headers */
-  --section-label-color: rgba(0, 0, 0, 0.42);
+  /* Section heading rhythm — date groups, group headers, sidebar group
+     titles. The warm-muted ink reads native to the dawn palette without
+     the cold grey cast that an alpha-on-black token produces on tinted
+     paper. */
+  --section-label-color: #9a9287;
   --section-label-size: var(--font-size-micro);
 
   /* Stat card accent — top border on settings/quests stats */

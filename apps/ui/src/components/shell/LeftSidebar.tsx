@@ -5,13 +5,13 @@ import {
   LayoutDashboard,
   Coins,
   PieChart,
-  Vote,
+  Scale,
   Workflow,
   Bot,
-  Webhook,
+  Activity,
   Target,
   Lightbulb,
-  ScrollText,
+  Landmark,
   Search,
   Plus,
   PanelLeftClose,
@@ -43,19 +43,23 @@ const HomeIcon = () => <House />;
 // institution semantic so this glyph doesn't need to.
 const OverviewIcon = () => <LayoutDashboard />;
 const AgentsIcon = () => <Bot />;
-const EventsIcon = () => <Webhook />;
+// Events — Activity: single-line waveform reads as the event stream
+// without the busy three-node pretzel of the prior Webhook glyph.
+const EventsIcon = () => <Activity />;
 const QuestsIcon = () => <Target />;
 const IdeasIcon = () => <Lightbulb />;
 
 // AEQI Ownership primitives — Lucide picks anchored to each row's semantic.
 // Assets (a) → Coins: stacked-coin = stored value.
 // Equity (e) → PieChart: cap-table slice.
-// Quorum (q) → Vote: ballot-into-box = decision/governance.
-// Incorporation (i) → ScrollText: founding document / charter.
+// Quorum (q) → Scale: balance-of-votes; cleaner symmetry than the prior
+//   Vote glyph (hand-with-ballot) and reads as institutional gravity.
+// Incorporation (i) → Landmark: columned facade = the institution itself,
+//   replacing the curled ScrollText whose ornament didn't hold at 16px.
 const AssetsIcon = () => <Coins />;
 const EquityIcon = () => <PieChart />;
-const QuorumIcon = () => <Vote />;
-const IncorporationIcon = () => <ScrollText />;
+const QuorumIcon = () => <Scale />;
+const IncorporationIcon = () => <Landmark />;
 // Roles — its own peer slot under Trust, outside both AEQI groups. The
 // org-chart authority graph (RoleNewPage / RoleDetailPage et al). Workflow
 // reads parent + child boxes = hierarchy.
