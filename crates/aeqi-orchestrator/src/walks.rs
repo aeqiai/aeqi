@@ -401,9 +401,7 @@ async fn poll_for_genesis(
     let deadline = Instant::now() + LAUNCH_POLL_MAX;
     loop {
         let resp = client
-            .get(format!(
-                "{platform_url}/api/start/launch/status/{trust_id}"
-            ))
+            .get(format!("{platform_url}/api/start/launch/status/{trust_id}"))
             .bearer_auth(token)
             .send()
             .await

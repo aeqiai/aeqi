@@ -811,10 +811,7 @@ fn ensure_agent_entity_id_column(conn: &Connection) -> rusqlite::Result<()> {
     let has_canonical = cols.iter().any(|c| c == "trust_id");
     if has_legacy && !has_canonical {
         // Live-DB carryover from before the ae-062 phase-B rename.
-        conn.execute(
-            "ALTER TABLE agents RENAME COLUMN entity_id TO trust_id",
-            [],
-        )?;
+        conn.execute("ALTER TABLE agents RENAME COLUMN entity_id TO trust_id", [])?;
     } else if !has_canonical {
         conn.execute_batch(
             "ALTER TABLE agents ADD COLUMN trust_id TEXT REFERENCES entities(id) ON DELETE SET NULL;",
@@ -1848,74 +1845,73 @@ impl AgentRegistry {
 
         // Resolve entity (and parent role when relevant). Three distinct
         // IDs for fresh root spawns; reused entity for child spawns.
-        let (trust_id, parent_role_id): (String, Option<String>) = if let Some(pid) =
-            parent_agent_id
-        {
-            let parent_entity_id: String = db
-                .query_row(
-                    "SELECT trust_id FROM agents WHERE id = ?1",
-                    params![pid],
-                    |row| row.get::<_, Option<String>>(0),
-                )
-                .optional()?
-                .flatten()
-                .ok_or_else(|| {
-                    anyhow::anyhow!("parent agent '{pid}' has no trust_id; cannot attach child")
-                })?;
+        let (trust_id, parent_role_id): (String, Option<String>) =
+            if let Some(pid) = parent_agent_id {
+                let parent_entity_id: String = db
+                    .query_row(
+                        "SELECT trust_id FROM agents WHERE id = ?1",
+                        params![pid],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .optional()?
+                    .flatten()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("parent agent '{pid}' has no trust_id; cannot attach child")
+                    })?;
 
-            // Look up the parent's primary role inside this entity.
-            let parent_pos: Option<String> = db
-                .query_row(
-                    "SELECT id FROM roles
+                // Look up the parent's primary role inside this entity.
+                let parent_pos: Option<String> = db
+                    .query_row(
+                        "SELECT id FROM roles
                          WHERE trust_id = ?1 AND occupant_kind = 'agent' AND occupant_id = ?2
                          ORDER BY created_at ASC
                          LIMIT 1",
-                    params![parent_entity_id, pid],
-                    |row| row.get(0),
-                )
-                .optional()?;
-
-            (parent_entity_id, parent_pos)
-        } else {
-            let fresh_entity_id = entity_id_override
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            // When the caller supplied an explicit entity_id_override, skip the
-            // INSERT if that entity already exists — the agent is being attached
-            // to an existing Company, not creating a new one.  When no override
-            // was given (fresh root spawn, e.g. signup flow) always insert.
-            let already_exists = entity_id_override.is_some() && {
-                let count: i64 = db
-                    .query_row(
-                        "SELECT COUNT(*) FROM entities WHERE id = ?1",
-                        params![fresh_entity_id],
+                        params![parent_entity_id, pid],
                         |row| row.get(0),
                     )
-                    .unwrap_or(0);
-                count > 0
-            };
-            if !already_exists {
-                // Decouple entities.slug from the root agent's canonical_name.
-                // When the caller supplied a slug override (the canonical
-                // path: blueprints carry their own brand slug), use it. The
-                // entity name still mirrors the canonical_name so existing
-                // platform code that reads it stays unaffected.
-                let entity_slug = entity_slug_override
-                    .map(str::to_string)
-                    .unwrap_or_else(|| canonical_name.clone());
-                db.execute(
-                    "INSERT INTO entities (id, type, name, slug, metadata, created_at)
+                    .optional()?;
+
+                (parent_entity_id, parent_pos)
+            } else {
+                let fresh_entity_id = entity_id_override
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+                // When the caller supplied an explicit entity_id_override, skip the
+                // INSERT if that entity already exists — the agent is being attached
+                // to an existing Company, not creating a new one.  When no override
+                // was given (fresh root spawn, e.g. signup flow) always insert.
+                let already_exists = entity_id_override.is_some() && {
+                    let count: i64 = db
+                        .query_row(
+                            "SELECT COUNT(*) FROM entities WHERE id = ?1",
+                            params![fresh_entity_id],
+                            |row| row.get(0),
+                        )
+                        .unwrap_or(0);
+                    count > 0
+                };
+                if !already_exists {
+                    // Decouple entities.slug from the root agent's canonical_name.
+                    // When the caller supplied a slug override (the canonical
+                    // path: blueprints carry their own brand slug), use it. The
+                    // entity name still mirrors the canonical_name so existing
+                    // platform code that reads it stays unaffected.
+                    let entity_slug = entity_slug_override
+                        .map(str::to_string)
+                        .unwrap_or_else(|| canonical_name.clone());
+                    db.execute(
+                        "INSERT INTO entities (id, type, name, slug, metadata, created_at)
                          VALUES (?1, 'company', ?2, ?3, '{}', ?4)",
-                    params![
-                        fresh_entity_id,
-                        canonical_name,
-                        entity_slug,
-                        now.to_rfc3339(),
-                    ],
-                )?;
-            }
-            (fresh_entity_id, None)
-        };
+                        params![
+                            fresh_entity_id,
+                            canonical_name,
+                            entity_slug,
+                            now.to_rfc3339(),
+                        ],
+                    )?;
+                }
+                (fresh_entity_id, None)
+            };
 
         let agent = Agent {
             id: agent_id.clone(),
@@ -5393,10 +5389,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(agent.name, "Shadow");
-        assert!(
-            agent.trust_id.is_some(),
-            "spawned agent must own an entity"
-        );
+        assert!(agent.trust_id.is_some(), "spawned agent must own an entity");
         assert_ne!(
             agent.trust_id.as_deref(),
             Some(agent.id.as_str()),

@@ -319,11 +319,7 @@ impl RoleRegistry {
     /// Used by `handle_create_role` to detect an existing spawn-time role and
     /// avoid minting a duplicate when the caller only wants to set the title,
     /// role_type, and org-chart edge.
-    pub async fn get_by_occupant(
-        &self,
-        trust_id: &str,
-        occupant_id: &str,
-    ) -> Result<Option<Role>> {
+    pub async fn get_by_occupant(&self, trust_id: &str, occupant_id: &str) -> Result<Option<Role>> {
         let db = self.db.lock().await;
         let result = db
             .query_row(
@@ -377,12 +373,7 @@ impl RoleRegistry {
 
     /// Returns true iff the user holds at least one role at `trust_id` that
     /// carries `grant`.
-    pub async fn user_has_grant(
-        &self,
-        trust_id: &str,
-        user_id: &str,
-        grant: &str,
-    ) -> Result<bool> {
+    pub async fn user_has_grant(&self, trust_id: &str, user_id: &str, grant: &str) -> Result<bool> {
         let grants = self.user_grants_for_entity(trust_id, user_id).await?;
         Ok(grants.iter().any(|g| g == grant))
     }
