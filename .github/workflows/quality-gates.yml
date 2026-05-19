@@ -2,6 +2,7 @@ name: Quality Gates
 
 on:
   workflow_call:
+  workflow_dispatch:
   pull_request:
     branches: [main]
   schedule:
@@ -21,6 +22,7 @@ jobs:
 
     steps:
       - name: Checkout repository
+        id: checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -48,14 +50,33 @@ jobs:
 
       # 2. Cache optimization
       - name: Rust cache
+        id: rust_cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "rust-cache-${{ runner.os }}-${{ steps.rust_toolchain.outputs.toolchain }}"
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      # 3. Install quality gate tools
+      # 3. Cheap gates first — fail fast BEFORE the expensive cargo-install chain.
+      #    public-surface-scan (~4s) and rust-strict-lints (fmt + clippy, ~30s
+      #    under cache) are the most common failure modes; running them ahead
+      #    of the ~3min install step saves 5-10min on the average failing PR.
+
+      # 3a. Public repository surface guard
+      - name: Public surface scan
+        id: public_surface
+        run: |
+          echo "=== Checking Public Repository Surface ==="
+          scripts/public-surface-scan.sh
+
+      # 3b. Formatting and strict clippy lints
+      - name: Rust strict lints
+        id: rust_strict_lints
+        run: scripts/rust-strict-lints.sh
+
+      # 4. Install quality gate tools (heavy — only runs once the cheap gates pass)
       - name: Install quality gate tools
+        id: install_tools
         run: |
           echo "=== Installing Quality Gate Tools ==="
 
@@ -71,27 +92,20 @@ jobs:
           echo "Installing cargo-udeps..."
           cargo install cargo-udeps --locked
 
-          # Install cargo-tarpaulin for code coverage
-          echo "Installing cargo-tarpaulin..."
-          cargo install cargo-tarpaulin --locked
-
           # Install additional utilities
           sudo apt-get update
           sudo apt-get install -y ripgrep jq
 
-      # 4. Public repository surface guard
-      - name: Public surface scan
-        run: |
-          echo "=== Checking Public Repository Surface ==="
-          scripts/public-surface-scan.sh
-
       # 5. JavaScript/TypeScript security scanning (npm audit)
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        id: setup_node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
       - name: JavaScript security audit with npm audit
+        id: npm_audit
         run: |
           echo "=== Running JavaScript Security Audit ==="
 
@@ -127,26 +141,26 @@ jobs:
             echo "Found npm projects:"
             echo "$npm_projects"
             echo ""
-            
+
             # Install Node.js if not already installed
             if ! command -v npm &> /dev/null; then
               echo "Installing Node.js..."
               curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
               sudo apt-get install -y nodejs
             fi
-            
+
             any_vulnerabilities=false
-            
+
             for project in $npm_projects; do
               project_dir=$(dirname "$project")
               echo "Scanning project: $project_dir"
-              
+
               cd "$project_dir"
-              
+
               # Check if package-lock.json exists
               if [ -f "package-lock.json" ]; then
                 echo "Running npm audit..."
-                
+
                 # PR gate runs at --audit-level=high so transitive moderate
                 # findings in pinned wallet SDKs (axios/uuid/postcss via
                 # @coinbase/cdp-sdk, @metamask/sdk, wagmi, @rainbow-me/rainbowkit)
@@ -160,7 +174,7 @@ jobs:
                 else
                   echo "❌ npm audit found high/critical vulnerabilities in $project_dir"
                   any_vulnerabilities=true
-                  
+
                   # Show audit report
                   echo "Audit report:"
                   npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities | "  Critical: \(.critical)\n  High: \(.high)\n  Moderate: \(.moderate)\n  Low: \(.low)"' || echo "  Could not generate detailed report"
@@ -168,11 +182,11 @@ jobs:
               else
                 echo "⚠️  No package-lock.json found in $project_dir. Skipping audit."
               fi
-              
+
               cd - > /dev/null
               echo ""
             done
-            
+
             if [ "$any_vulnerabilities" = true ]; then
               echo "❌ JavaScript security audit failed - vulnerabilities found"
               echo "Consider running 'npm audit fix' to automatically fix issues"
@@ -183,6 +197,7 @@ jobs:
 
       # 6. Security vulnerability scanning (cargo-audit)
       - name: Security audit with cargo-audit
+        id: cargo_audit
         run: |
           echo "=== Running Security Audit ==="
           cargo audit
@@ -190,6 +205,7 @@ jobs:
 
       # 7. Dependency analysis (cargo-deny)
       - name: Dependency analysis with cargo-deny
+        id: cargo_deny
         run: |
           echo "=== Running Dependency Analysis ==="
           cargo deny check
@@ -197,6 +213,7 @@ jobs:
 
       # 8. Unused dependency detection (cargo-udeps)
       - name: Unused dependency detection with cargo-udeps
+        id: cargo_udeps
         run: |
           echo "=== Checking for Unused Dependencies ==="
           # Install nightly toolchain for cargo-udeps
@@ -204,42 +221,26 @@ jobs:
           cargo +nightly udeps --workspace --all-targets
         continue-on-error: false
 
-      # 9. Formatting and strict clippy lints
-      - name: Rust strict lints
-        run: scripts/rust-strict-lints.sh
-
-      # 10. Build verification
+      # 9. Build verification
       - name: Build verification
+        id: build
         run: |
           echo "=== Building Workspace ==="
           cargo build --workspace --verbose
 
-      # 11. Test execution
+      # 10. Test execution
       - name: Run tests
+        id: tests
         run: |
           echo "=== Running Tests ==="
           cargo test --workspace --verbose
 
-      # 12. Code coverage with cargo-tarpaulin
-      - name: Code coverage with cargo-tarpaulin
-        run: |
-          echo "=== Measuring Code Coverage ==="
-          cargo tarpaulin --workspace --out Lcov --output-dir ./coverage
-        continue-on-error: false
-
-      # 13. Documentation generation
+      # 11. Documentation generation
       - name: Generate documentation
+        id: docs
         run: |
           echo "=== Generating Documentation ==="
           cargo doc --workspace --no-deps --document-private-items
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-report
-          path: ./coverage/
-          retention-days: 30
 
       - name: Upload documentation
         if: always()
@@ -249,21 +250,134 @@ jobs:
           path: ./target/doc/
           retention-days: 30
 
-      # 15. Summary report
-      - name: Generate quality gate summary
-        if: always()
+      # 12. Summary — success path. Only fires when every preceding step passed.
+      - name: Quality gates summary (success)
+        if: success()
         run: |
           echo "=== QUALITY GATES SUMMARY ==="
-          echo "✅ JavaScript security audit: npm audit"
           echo "✅ Public surface scan"
+          echo "✅ Rust strict lints: fmt + clippy all targets/features"
+          echo "✅ JavaScript security audit: npm audit"
           echo "✅ Security audit: cargo-audit"
           echo "✅ Dependency analysis: cargo-deny"
           echo "✅ Unused dependencies: cargo-udeps (nightly)"
-          echo "✅ Rust strict lints: fmt + clippy all targets/features"
           echo "✅ Build verification"
           echo "✅ Test execution"
-          echo "✅ Code coverage: cargo-tarpaulin"
           echo "✅ Documentation generation"
           echo ""
           echo "All quality gates completed successfully!"
+          echo "Coverage (cargo-tarpaulin) runs weekly via the code-coverage job."
           echo "=========================================="
+
+      # 13. Summary — failure path. Names the step(s) that actually died so the
+      #     log surface and check-list both reflect ground truth instead of a
+      #     blanket "all gates passed" message printed by an `if: always()` step.
+      - name: Quality gates summary (failure)
+        if: failure()
+        run: |
+          echo "=== QUALITY GATES FAILED ==="
+          echo ""
+          echo "Step conclusions:"
+          echo "  checkout              : ${{ steps.checkout.conclusion }}"
+          echo "  rust_toolchain        : ${{ steps.rust_toolchain.conclusion }}"
+          echo "  rust_cache            : ${{ steps.rust_cache.conclusion }}"
+          echo "  public_surface        : ${{ steps.public_surface.conclusion }}"
+          echo "  rust_strict_lints     : ${{ steps.rust_strict_lints.conclusion }}"
+          echo "  install_tools         : ${{ steps.install_tools.conclusion }}"
+          echo "  setup_node            : ${{ steps.setup_node.conclusion }}"
+          echo "  npm_audit             : ${{ steps.npm_audit.conclusion }}"
+          echo "  cargo_audit           : ${{ steps.cargo_audit.conclusion }}"
+          echo "  cargo_deny            : ${{ steps.cargo_deny.conclusion }}"
+          echo "  cargo_udeps           : ${{ steps.cargo_udeps.conclusion }}"
+          echo "  build                 : ${{ steps.build.conclusion }}"
+          echo "  tests                 : ${{ steps.tests.conclusion }}"
+          echo "  docs                  : ${{ steps.docs.conclusion }}"
+          echo ""
+          echo "Failed step(s):"
+          fail=0
+          for pair in \
+            "checkout:${{ steps.checkout.conclusion }}" \
+            "rust_toolchain:${{ steps.rust_toolchain.conclusion }}" \
+            "rust_cache:${{ steps.rust_cache.conclusion }}" \
+            "public_surface:${{ steps.public_surface.conclusion }}" \
+            "rust_strict_lints:${{ steps.rust_strict_lints.conclusion }}" \
+            "install_tools:${{ steps.install_tools.conclusion }}" \
+            "setup_node:${{ steps.setup_node.conclusion }}" \
+            "npm_audit:${{ steps.npm_audit.conclusion }}" \
+            "cargo_audit:${{ steps.cargo_audit.conclusion }}" \
+            "cargo_deny:${{ steps.cargo_deny.conclusion }}" \
+            "cargo_udeps:${{ steps.cargo_udeps.conclusion }}" \
+            "build:${{ steps.build.conclusion }}" \
+            "tests:${{ steps.tests.conclusion }}" \
+            "docs:${{ steps.docs.conclusion }}"; do
+            name="${pair%%:*}"
+            outcome="${pair##*:}"
+            if [ "$outcome" = "failure" ]; then
+              echo "  ❌ $name"
+              fail=$((fail + 1))
+            fi
+          done
+          if [ "$fail" -eq 0 ]; then
+            echo "  (no per-step failure recorded — job likely cancelled or timed out)"
+          fi
+          echo ""
+          echo "=========================================="
+          exit 1
+
+  # Code coverage — heaviest single check (~5-10min). Pulled out of the
+  # PR-blocking job because coverage is a trend signal, not a merge gate.
+  # Runs weekly via the same cron the security audit uses, and on-demand
+  # via workflow_dispatch. Does NOT run on pull_request or workflow_call.
+  code-coverage:
+    name: Code coverage (cargo-tarpaulin)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust toolchain
+        id: rust_toolchain
+        run: |
+          if [ -f rust-toolchain.toml ]; then
+            EXPECTED_CHANNEL=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml)
+            echo "Installing Rust $EXPECTED_CHANNEL"
+            rustup toolchain install "$EXPECTED_CHANNEL" --profile minimal \
+              --component clippy \
+              --component rustfmt \
+              --component rust-src
+            rustup default $EXPECTED_CHANNEL
+            echo "toolchain=$EXPECTED_CHANNEL" >> $GITHUB_OUTPUT
+          else
+            echo "No rust-toolchain.toml found, using stable"
+            rustup default stable
+            echo "toolchain=stable" >> $GITHUB_OUTPUT
+          fi
+          rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache-${{ runner.os }}-${{ steps.rust_toolchain.outputs.toolchain }}"
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Code coverage with cargo-tarpaulin
+        run: |
+          echo "=== Measuring Code Coverage ==="
+          cargo tarpaulin --workspace --out Lcov --output-dir ./coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: ./coverage/
+          retention-days: 30
