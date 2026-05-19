@@ -52,25 +52,28 @@
 
      Canonical terminology is the semantic role set above. */
 
-  /* Tier 1 (top): pure white — only for elements lifted ABOVE the card. */
-  --color-card-elevated: #ffffff;
-  --color-section-alt: #ffffff;
+  /* v6 (2026-05-19) — atmospheric warm shift. The pure-neutral ladder
+     (whites with zero chroma) didn't meet the dawn-pale hero imagery
+     that defines the brand atmosphere. The new ladder keeps the same
+     tier separations (elevated > card > paper > slab) but slides every
+     value 2–4° toward warm — barely perceptible side-by-side, but in
+     continuous use the surfaces *feel* warm against the cool grey they
+     replaced. Text + accent stay pure near-black so the ink-on-paper
+     contrast stays grounded; only the paper tints. */
 
-  /* Tier 2: card — whisper-tinted off-white, the primary reading
-     surface. Tight 3-point gap to elevated keeps the elevation real
-     but unforced; v5.1 (2026-04-27) compressed the ladder from
-     #fafafa → #fcfcfd to read more "Linear / Notion clean" instead of
-     "darker grey panel". */
-  --color-card: #fcfcfd;
+  /* Tier 1 (top): warm off-white. Surfaces lifted ABOVE the card. */
+  --color-card-elevated: #fffefb;
+  --color-section-alt: #fffefb;
 
-  /* Tier 3: paper — page bg + sidebar shell. Single tone for the
-     outer frame; cards float above it as a clear tier. */
-  --color-paper: #f3f3f4;
+  /* Tier 2: card — whisper-warm paper, the primary reading surface. */
+  --color-card: #faf9f5;
 
-  /* Tier 4/5: inset family inside the card (deeper greys) — separate
-     from the outer page bg now that page bg lifts to paper. */
-  --color-slab: #ededf0;
-  --color-slab-elevated: #f8f8f9; /* hover inside slab */
+  /* Tier 3: paper — page bg + sidebar shell. Warm pale. */
+  --color-paper: #f4f2ec;
+
+  /* Tier 4/5: inset family inside the card. */
+  --color-slab: #ecebe5;
+  --color-slab-elevated: #f6f5ef; /* hover inside slab */
   --color-slab-border: rgba(0, 0, 0, 0.06);
   --color-slab-border-hover: rgba(0, 0, 0, 0.12);
   --color-slab-border-focus: rgba(0, 0, 0, 0.3);
@@ -156,6 +159,13 @@
   --color-error: #b85c5c;
   --color-warning: #b98a47;
   --color-info: var(--color-accent);
+
+  /* Warmth — the dawn-glow accent. Echoes the golden light in the
+     architectural hero renders. Used sparingly for "alive" moments —
+     activity pulses, the portal glow on hover, special-state
+     highlights. Never as a surface fill. */
+  --color-warmth: #c89860;
+  --color-warmth-bg: rgba(200, 152, 96, 0.08);
 
   /* Status — backgrounds (10-14% opacity, tuned for light surfaces) */
   --color-success-bg: rgba(46, 143, 113, 0.1);
