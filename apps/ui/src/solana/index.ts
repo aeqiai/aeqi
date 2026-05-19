@@ -23,6 +23,22 @@ export {
 } from "./programs";
 export { readTrust, readModules } from "./incorporation";
 export type { TrustAccount, ModuleAccount, ModuleAccountWithPda } from "./incorporation";
+export {
+  readTreasuryModuleState,
+  readVaultHoldings,
+  readBudgets,
+  readVestingCount,
+  lookupTokenMeta,
+  TOKEN_REGISTRY,
+} from "./assets";
+export type {
+  BudgetAccount,
+  BudgetAccountWithPda,
+  TreasuryModuleStateAccount,
+  TreasuryVault,
+  VaultHolding,
+  VestingPositionAccount,
+} from "./assets";
 export { AEQI_PROGRAM_NAMES, getAeqiProgramName } from "./program-names";
 export {
   AEQI_BUDGET_PROGRAM_ID,

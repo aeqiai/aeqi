@@ -157,7 +157,7 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
   if (tab === "assets") {
     return (
       <Suspense>
-        <AssetsPage />
+        <AssetsPage trustId={trustId} />
       </Suspense>
     );
   }
