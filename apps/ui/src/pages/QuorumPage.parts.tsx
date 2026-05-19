@@ -11,6 +11,7 @@ import { useState } from "react";
 import { findRoleTypeById, isSnapshotPending, isTokenModeId, votingModeFor } from "@/solana";
 import type { ProposalAccount, ProposalStatus, RoleTypeWithPda } from "@/solana";
 import { Badge, Button, Stack, Tooltip, type BadgeVariant } from "@/components/ui";
+import { formatDate } from "@/lib/i18n";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Cell components                                                     */
@@ -287,8 +288,7 @@ export function voteWindowLabel(proposal: ProposalAccount): string {
 
 export function formatTimestamp(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) return "—";
-  const date = new Date(seconds * 1000);
-  return date.toLocaleString(undefined, {
+  return formatDate(seconds * 1000, {
     year: "numeric",
     month: "short",
     day: "numeric",
