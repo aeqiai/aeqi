@@ -150,7 +150,7 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
   if (tab === "incorporation") {
     return (
       <Suspense>
-        <IncorporationPage />
+        <IncorporationPage trustId={trustId} />
       </Suspense>
     );
   }

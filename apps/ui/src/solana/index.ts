@@ -21,6 +21,9 @@ export {
   getUnifuturesProgram,
   getVestingProgram,
 } from "./programs";
+export { readTrust, readModules } from "./incorporation";
+export type { TrustAccount, ModuleAccount, ModuleAccountWithPda } from "./incorporation";
+export { AEQI_PROGRAM_NAMES, getAeqiProgramName } from "./program-names";
 export {
   AEQI_BUDGET_PROGRAM_ID,
   AEQI_FACTORY_PROGRAM_ID,

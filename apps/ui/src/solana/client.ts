@@ -14,8 +14,15 @@
  * validator port declared in `projects/aeqi-solana/Anchor.toml`. Set the env
  * var to a mainnet RPC URL when the cluster flips.
  */
-import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
-import { Connection, Keypair, type ConfirmOptions, type Commitment } from "@solana/web3.js";
+import { AnchorProvider, type Wallet } from "@coral-xyz/anchor";
+import {
+  Connection,
+  Keypair,
+  type ConfirmOptions,
+  type Commitment,
+  type Transaction,
+  type VersionedTransaction,
+} from "@solana/web3.js";
 
 const DEFAULT_RPC_URL = "http://127.0.0.1:9120";
 const DEFAULT_COMMITMENT: Commitment = "confirmed";
@@ -46,6 +53,43 @@ export function getConnection(): Connection {
 }
 
 /**
+ * Read-only wallet stub used to satisfy Anchor's `AnchorProvider` API in
+ * the browser. `@coral-xyz/anchor`'s built-in `Wallet` class is exported
+ * only from the Node bundle (it loads keypairs from `fs`); the browser
+ * bundle has no `Wallet` symbol at all. Re-implementing the minimal
+ * interface here keeps the browser bundle Node-free while still giving
+ * Anchor a `publicKey` + signing seam.
+ *
+ * The keypair is ephemeral and never reaches the chain — `sign*`
+ * surfaces below will sign with it, and any resulting transaction would
+ * be (correctly) rejected by the cluster. The right surfaces in the
+ * browser are `program.account.<name>.fetch(...)` and
+ * `program.methods.<ix>().view()`; writes belong on aeqi-platform.
+ */
+class ReadOnlyBrowserWallet implements Wallet {
+  readonly payer: Keypair;
+  readonly publicKey: Keypair["publicKey"];
+
+  constructor(payer: Keypair) {
+    this.payer = payer;
+    this.publicKey = payer.publicKey;
+  }
+
+  async signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T> {
+    if ("partialSign" in tx) {
+      (tx as Transaction).partialSign(this.payer);
+    } else {
+      (tx as VersionedTransaction).sign([this.payer]);
+    }
+    return tx;
+  }
+
+  async signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]> {
+    return Promise.all(txs.map((tx) => this.signTransaction(tx)));
+  }
+}
+
+/**
  * Returns a process-wide read-only `AnchorProvider`. The wallet is a fresh
  * ephemeral keypair — useful only to satisfy Anchor's API; do NOT sign or
  * send transactions from this provider. Reads (`fetch`, `view`) are safe.
@@ -53,7 +97,7 @@ export function getConnection(): Connection {
 export function getAnchorProvider(): AnchorProvider {
   if (!cachedProvider) {
     const connection = getConnection();
-    const wallet = new Wallet(Keypair.generate());
+    const wallet = new ReadOnlyBrowserWallet(Keypair.generate());
     const opts: ConfirmOptions = {
       commitment: DEFAULT_COMMITMENT,
       preflightCommitment: DEFAULT_COMMITMENT,
