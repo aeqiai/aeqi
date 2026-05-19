@@ -255,29 +255,32 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Global group — top-level destinations that live above the
-            trust scope. Both Inbox and Economy are cross-trust surfaces
-            (Inbox aggregates notifications across every trust the user
-            is in), so they're always visible — no hasCompany gate. ── */}
+        {/* ── Start row — standalone, sits above the Global group. The
+            user's anchor home — clicking returns to the welcome /
+            arrival surface from anywhere in the shell. ── */}
+        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Start">
+          {topLevelItem("/", "Start", <StartIcon />, isStart)}
+        </nav>
+
+        {/* ── Global group — cross-trust destinations. ── */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="Global">
           <div className="sidebar-section-label">Global</div>
-          {topLevelItem("/", "Start", <StartIcon />, isStart)}
           {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
         </nav>
 
-        {/* ── Acting-as selector — the main accent block in the rail.
-            Only mounts when a trust is active. At `/` (the identity
-            picker) nothing has been picked yet, so the selector would
-            falsely claim a context; hiding it keeps the rail honest
-            about state and lines up with the Trust/Ownership/Execution
-            groups below (which are also `hasCompany`-gated). ── */}
+        {/* ── Network group — the operating-context selector. Only mounts
+            when a trust is active. Clicking the selector navigates to
+            /network where you can switch contexts. ── */}
         {hasCompany && (
-          <div className="sidebar-user-zone">
-            <ActingAsSelector />
-          </div>
+          <nav className="sidebar-surface-nav sidebar-zone" aria-label="Network">
+            <div className="sidebar-section-label">Network</div>
+            <div className="sidebar-user-zone">
+              <ActingAsSelector />
+            </div>
+          </nav>
         )}
 
         {/* ── Company-scope items. Visible only when a company is

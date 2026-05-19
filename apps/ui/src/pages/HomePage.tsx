@@ -2,144 +2,104 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import BlockAvatar from "@/components/BlockAvatar";
-import UserAvatar from "@/components/UserAvatar";
-import { useAuthStore } from "@/store/auth";
-import { useEntities } from "@/queries/entities";
+import { useUIStore } from "@/store/ui";
+import { useEntities, useActiveEntity } from "@/queries/entities";
 
 /**
- * Network — the dominion / constellation view at `/network`. The user is
- * the centre node; each trust they hold a role in radiates out from
- * them; the line between user and trust IS the role (the connection in
- * the authority graph). Picking a node enters that operating context.
+ * Network — `/network`. The operating-context surface. Shows the trust
+ * the user is currently in as a big visual anchor (avatar + name + role)
+ * and provides the means to switch below.
  *
- * Layout: static concentric ring (not force-directed). Trusts position
- * themselves evenly around the centre starting from 12 o'clock. The
- * "+" tile sits as one extra node on the ring so creation reads as a
- * peer affordance to selection — exactly the shape the user described.
+ * Page composition:
+ *   1. Current trust hero — large BlockAvatar + trust name in display
+ *      type + role label. Tells the user where they are.
+ *   2. Switcher — quiet grid of OTHER trusts. The current one isn't
+ *      repeated; it's the anchor above. Trailing "+ New trust" tile
+ *      makes creation a peer to selection.
  *
- * Per .impeccable.md: no decorative motion, no gradients. Lines are
- * pure-neutral stroke. Hover scales node + brightens line; that's it.
+ * Per .impeccable.md: no gradients, no decorative motion. The feel
+ * comes from composition, scale, and restraint.
  */
 export default function HomePage() {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
+  const activeEntityId = useUIStore((s) => s.activeEntity);
+  const activeEntity = useActiveEntity(activeEntityId);
   const entities = useEntities();
 
-  const actorName = useMemo(
-    () => user?.name?.trim() || user?.email?.split("@")[0] || "you",
-    [user],
+  // Stub: the runtime doesn't surface a "current acting role" yet. When
+  // it does, this resolves to a real value per (user × trust).
+  const currentRole = "Director";
+
+  const otherContexts = useMemo(
+    () =>
+      entities
+        .filter((e) => e.id !== activeEntityId)
+        .map((entity) => ({
+          id: entity.id,
+          role: "Director",
+          trust: entity.name,
+          href: `/trust/${encodeURIComponent(entity.id)}`,
+        })),
+    [entities, activeEntityId],
   );
 
-  const nodes = useMemo(() => {
-    const trusts = entities.map((entity) => ({
-      kind: "trust" as const,
-      id: entity.id,
-      label: entity.name,
-      role: "Director",
-      href: `/trust/${encodeURIComponent(entity.id)}`,
-    }));
-    return [...trusts, { kind: "create" as const, id: "__create" }];
-  }, [entities]);
-
-  const positions = useMemo(() => {
-    const n = nodes.length;
-    const radius = n === 1 ? 30 : 36;
-    return nodes.map((_, i) => {
-      const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-      return {
-        leftPct: 50 + radius * Math.cos(angle),
-        topPct: 50 + radius * Math.sin(angle),
-      };
-    });
-  }, [nodes]);
-
   return (
-    <div className="constellation-page">
-      <div className="constellation-canvas" role="list" aria-label="Your network">
-        <svg
-          className="constellation-lines"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          {nodes.map((node, i) => {
-            const { leftPct, topPct } = positions[i];
-            const isCreate = node.kind === "create";
-            return (
-              <line
-                key={`line-${node.id}`}
-                x1={50}
-                y1={50}
-                x2={leftPct}
-                y2={topPct}
-                className={`constellation-line${isCreate ? " constellation-line--create" : ""}`}
-              />
-            );
-          })}
-        </svg>
-
-        {nodes.map((node, i) => {
-          if (node.kind !== "trust") return null;
-          const { leftPct, topPct } = positions[i];
-          const midLeft = (50 + leftPct) / 2;
-          const midTop = (50 + topPct) / 2;
-          return (
-            <span
-              key={`role-${node.id}`}
-              className="constellation-role-label"
-              style={{ left: `${midLeft}%`, top: `${midTop}%` }}
-              aria-hidden="true"
-            >
-              {node.role}
+    <div className="network-page">
+      <header className="network-anchor">
+        {activeEntity ? (
+          <>
+            <span className="network-anchor-avatar">
+              <BlockAvatar name={activeEntity.name} size={112} />
             </span>
-          );
-        })}
+            <div className="network-anchor-text">
+              <p className="network-anchor-eyebrow">Currently operating</p>
+              <h1 className="network-anchor-trust">{activeEntity.name}</h1>
+              <p className="network-anchor-role">as {currentRole}</p>
+            </div>
+          </>
+        ) : (
+          <div className="network-anchor-text network-anchor-text--empty">
+            <p className="network-anchor-eyebrow">No active context</p>
+            <h1 className="network-anchor-trust">Step into a trust</h1>
+            <p className="network-anchor-role">Pick or create one below.</p>
+          </div>
+        )}
+      </header>
 
-        <div className="constellation-self">
-          <span className="constellation-self-avatar">
-            <UserAvatar name={actorName} src={user?.avatar_url} size={80} />
-          </span>
-          <span className="constellation-self-label">{actorName}</span>
-        </div>
-
-        {nodes.map((node, i) => {
-          const { leftPct, topPct } = positions[i];
-          if (node.kind === "create") {
-            return (
-              <button
-                key={node.id}
-                type="button"
-                role="listitem"
-                className="constellation-node constellation-node--create"
-                style={{ left: `${leftPct}%`, top: `${topPct}%` }}
-                onClick={() => navigate("/launch")}
-                aria-label="Create a new trust"
-              >
-                <span className="constellation-node-avatar constellation-node-avatar--ghost">
-                  <Plus size={22} strokeWidth={1.5} />
-                </span>
-                <span className="constellation-node-label">New trust</span>
-              </button>
-            );
-          }
-          return (
+      <section className="network-switcher" aria-label="Other contexts">
+        <p className="network-switcher-label">
+          {otherContexts.length > 0 ? "Switch context" : "Start something new"}
+        </p>
+        <div className="network-switcher-grid">
+          {otherContexts.map((ctx) => (
             <button
-              key={node.id}
+              key={ctx.id}
               type="button"
-              role="listitem"
-              className="constellation-node"
-              style={{ left: `${leftPct}%`, top: `${topPct}%` }}
-              onClick={() => navigate(node.href)}
-              aria-label={`${node.role} at ${node.label}`}
+              className="network-tile"
+              onClick={() => navigate(ctx.href)}
+              aria-label={`${ctx.role} at ${ctx.trust}`}
             >
-              <span className="constellation-node-avatar">
-                <BlockAvatar name={node.label} size={64} />
+              <span className="network-tile-avatar">
+                <BlockAvatar name={ctx.trust} size={56} />
               </span>
-              <span className="constellation-node-label">{node.label}</span>
+              <span className="network-tile-trust">{ctx.trust}</span>
+              <span className="network-tile-role">{ctx.role}</span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+          <button
+            type="button"
+            className="network-tile network-tile--create"
+            onClick={() => navigate("/launch")}
+            aria-label="Create a new trust"
+          >
+            <span className="network-tile-avatar network-tile-avatar--ghost">
+              <Plus size={22} strokeWidth={1.5} />
+            </span>
+            <span className="network-tile-trust">New trust</span>
+            <span className="network-tile-role">Start fresh</span>
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

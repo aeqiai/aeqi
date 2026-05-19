@@ -7509,25 +7509,28 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
    for the eyebrow + actor + role·trust stack. ── */
 .acting-as-trigger {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 12px 12px 14px;
   background: var(--color-accent);
   border: 0;
   border-radius: var(--radius-md);
   font-family: inherit;
-  color: var(--btn-primary-text, #fff);
+  color: var(--btn-primary-text);
   cursor: pointer;
   text-align: left;
   transition:
     background 0.12s ease,
-    color 0.12s ease;
+    transform 0.12s ease;
 }
 .acting-as-trigger:hover {
   background: var(--color-accent-hover);
+}
+.acting-as-trigger:hover .acting-as-chevron {
+  opacity: 1;
+  transform: translateX(2px);
 }
 .acting-as-trigger:focus-visible {
   outline: none;
@@ -7535,12 +7538,22 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
     0 0 0 2px var(--color-card),
     0 0 0 3px var(--color-accent);
 }
-.acting-as-actor {
+.acting-as-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.acting-as-role {
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.acting-as-context {
+.acting-as-trust {
   font-size: var(--font-size-xs);
   font-weight: 400;
   opacity: 0.78;
@@ -7548,10 +7561,19 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
-/* Collapsed sidebar — hide the eyebrow + context, keep just the actor's
-   first letter as a circular avatar-like square. */
+.acting-as-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+/* Collapsed sidebar — drop the chevron + trust line, leave just the
+   role pip so the rail width stays narrow. */
 .left-sidebar.collapsed .acting-as-trigger {
   padding: 0;
   width: var(--sidebar-row-h);
@@ -7560,10 +7582,11 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   justify-content: center;
   gap: 0;
 }
-.left-sidebar.collapsed .acting-as-context {
+.left-sidebar.collapsed .acting-as-trust,
+.left-sidebar.collapsed .acting-as-chevron {
   display: none;
 }
-.left-sidebar.collapsed .acting-as-actor {
+.left-sidebar.collapsed .acting-as-role {
   font-size: var(--font-size-sm);
 }
 
@@ -7900,145 +7923,136 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   color: var(--btn-primary-text);
 }
 
-/* ── Constellation view — the /network dominion picker. The user sits
-   at the centre of the canvas; each trust they have a role in radiates
-   out as an outer-ring node. The line between user and trust IS the
-   role (the authority graph edge); the role label rides the line
-   midpoint, kept horizontal for legibility. ── */
-.constellation-page {
+/* ── Network page — `/network`. Trust-anchored surface. Big current-
+   trust hero at the top (avatar + name + role), quiet switcher grid
+   below for stepping into other contexts. Composition + scale carry
+   the gravitas; no decorative motion or gradient. ── */
+.network-page {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-.constellation-canvas {
-  position: relative;
-  width: 100%;
-  max-width: 880px;
-  aspect-ratio: 1 / 1;
-  max-height: calc(100vh - 96px);
-}
-.constellation-lines {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.constellation-line {
-  stroke: var(--color-border-subtle, var(--color-text-muted));
-  stroke-width: 0.15;
-  stroke-linecap: round;
-  opacity: 0.5;
-  vector-effect: non-scaling-stroke;
-  transition: opacity 0.12s ease;
-}
-.constellation-line--create {
-  stroke-dasharray: 1 1.2;
-  opacity: 0.35;
-}
-.constellation-self,
-.constellation-node {
-  position: absolute;
-  transform: translate(-50%, -50%);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
-  background: var(--color-card);
-  border: 0;
-  border-radius: 999px;
-  font-family: inherit;
-  text-align: center;
-  cursor: pointer;
-  transition:
-    transform 0.12s ease,
-    background 0.12s ease;
+  gap: 64px;
+  padding: 64px 48px 56px;
 }
-.constellation-self {
-  top: 50%;
-  left: 50%;
-  cursor: default;
-  background: transparent;
-  z-index: 2;
+.network-anchor {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  max-width: 720px;
+  width: 100%;
 }
-.constellation-self-avatar {
+.network-anchor-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
-.constellation-self-label {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 300;
-  letter-spacing: -0.015em;
-  color: var(--color-text-primary);
-  background: var(--color-card);
-  padding: 2px 10px;
-  border-radius: 999px;
-}
-.constellation-node {
-  width: 120px;
-  background: transparent;
-  z-index: 1;
-}
-.constellation-node:hover {
-  transform: translate(-50%, calc(-50% - 2px));
-}
-.constellation-node:focus-visible {
-  outline: none;
-}
-.constellation-node:focus-visible .constellation-node-avatar {
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-.constellation-node-avatar {
+.network-anchor-text {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--color-card);
-  padding: 4px;
-  transition: box-shadow 0.12s ease;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
-.constellation-node-avatar--ghost {
-  width: 64px;
-  height: 64px;
-  color: var(--color-text-muted);
-  background: var(--bg-row);
+.network-anchor-text--empty {
+  text-align: left;
 }
-.constellation-node-label {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-primary);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: var(--color-card);
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.constellation-node--create .constellation-node-label {
-  color: var(--color-text-secondary);
-}
-.constellation-role-label {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
+.network-anchor-eyebrow {
+  margin: 0;
+  font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--color-text-muted);
-  background: var(--color-card);
-  padding: 2px 8px;
-  border-radius: 999px;
-  pointer-events: none;
-  z-index: 0;
 }
-.constellation-node:hover ~ .constellation-lines .constellation-line {
-  opacity: 0.9;
+.network-anchor-trust {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+.network-anchor-role {
+  margin: 0;
+  font-size: var(--font-size-md, 15px);
+  color: var(--color-text-secondary);
+}
+.network-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 880px;
+}
+.network-switcher-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+.network-switcher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.network-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  background: var(--color-card);
+  border: 0;
+  border-radius: var(--radius-lg, 12px);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    transform 0.12s ease;
+}
+.network-tile:hover {
+  background: var(--bg-row);
+  transform: translateY(-2px);
+}
+.network-tile:focus-visible {
+  outline: none;
+  background: var(--bg-row);
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.network-tile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.network-tile-avatar--ghost {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+}
+.network-tile-trust {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.network-tile-role {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.network-tile--create {
+  background: transparent;
+}
+.network-tile--create:hover {
+  background: var(--bg-row);
+}
+.network-tile--create .network-tile-trust {
+  color: var(--color-text-secondary);
 }
