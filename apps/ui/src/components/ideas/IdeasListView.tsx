@@ -1,6 +1,6 @@
-import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FolderOpen } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import { Button, Icon, IconButton } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
@@ -12,6 +12,8 @@ import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import IdeasToolbar from "./IdeasToolbar";
 import IdeasListFilterChips from "./IdeasListFilterChips";
+import IdeasFolderScopeBar from "./IdeasFolderScopeBar";
+import { buildIdeaTree, flattenIdeaTree } from "./ideaTree";
 import {
   type FilterState,
   type IdeasFilter,
@@ -33,56 +35,6 @@ function ScopeChip({ scope }: { scope: ScopeValue }) {
   return <span className={`scope-chip scope-chip--${scope}`}>{SCOPE_LABEL[scope]}</span>;
 }
 
-interface IdeaTreeNode {
-  idea: Idea;
-  children: IdeaTreeNode[];
-}
-
-interface IdeaTreeRow {
-  node: IdeaTreeNode;
-  depth: number;
-}
-
-function buildIdeaTree(ideas: Idea[]): IdeaTreeNode[] {
-  const byParent = new Map<string | null, Idea[]>();
-  const idSet = new Set(ideas.map((idea) => idea.id));
-  const order = new Map(ideas.map((idea, index) => [idea.id, index]));
-
-  for (const idea of ideas) {
-    const parent =
-      idea.parent_idea_id && idSet.has(idea.parent_idea_id) ? idea.parent_idea_id : null;
-    const siblings = byParent.get(parent) ?? [];
-    siblings.push(idea);
-    byParent.set(parent, siblings);
-  }
-
-  const sortByCurrentOrder = (a: Idea, b: Idea) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
-  const build = (parentId: string | null): IdeaTreeNode[] =>
-    (byParent.get(parentId) ?? []).sort(sortByCurrentOrder).map((idea) => ({
-      idea,
-      children: build(idea.id),
-    }));
-
-  return build(null);
-}
-
-function flattenIdeaTree(
-  nodes: IdeaTreeNode[],
-  expanded: Record<string, boolean>,
-  depth = 0,
-): IdeaTreeRow[] {
-  const rows: IdeaTreeRow[] = [];
-  for (const node of nodes) {
-    rows.push({ node, depth });
-    const defaultExpanded = depth === 0;
-    const isExpanded = expanded[node.idea.id] ?? defaultExpanded;
-    if (node.children.length > 0 && isExpanded) {
-      rows.push(...flattenIdeaTree(node.children, expanded, depth + 1));
-    }
-  }
-  return rows;
-}
-
 export interface IdeasListViewProps {
   agentId: string;
   ideas: Idea[];
@@ -94,6 +46,11 @@ export interface IdeasListViewProps {
   onFilter: (patch: Partial<FilterState>) => void;
   view: import("./IdeasViewPopover").IdeasView;
   onViewChange: (next: import("./IdeasViewPopover").IdeasView) => void;
+  folderId?: string | null;
+  folderIdea?: Idea | null;
+  folderAncestors?: Idea[];
+  childCounts?: Map<string, number>;
+  onFolderChange?: (ideaId: string | null) => void;
 }
 
 export default function IdeasListView({
@@ -107,6 +64,11 @@ export default function IdeasListView({
   onFilter,
   view,
   onViewChange,
+  folderId = null,
+  folderIdea = null,
+  folderAncestors = [],
+  childCounts = new Map(),
+  onFolderChange,
 }: IdeasListViewProps) {
   const { goEntity, entityPath, trustId } = useNav();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -158,8 +120,15 @@ export default function IdeasListView({
     : Math.min(TAG_CHIP_LIMIT, tagCounts.length);
   const hiddenTagCount = Math.max(0, tagCounts.length - visibleTagCount);
 
-  const fireNew = (name?: string) =>
-    window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
+  const fireNew = useCallback(
+    (name?: string) =>
+      window.dispatchEvent(
+        new CustomEvent("aeqi:new-idea", {
+          detail: { ...(name ? { name } : {}), ...(folderId ? { parentIdeaId: folderId } : {}) },
+        }),
+      ),
+    [folderId],
+  );
   const clearAll = () => onFilter({ search: "", scope: "all", tags: [], needsReview: false });
 
   const { invalidateIdeas } = useAgentIdeasCache(agentId);
@@ -297,7 +266,7 @@ export default function IdeasListView({
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [view, onViewChange]);
+  }, [view, onViewChange, fireNew]);
 
   const noMatchTrimmed = filter.search.trim();
   const totalInScope = scoped.length;
@@ -308,6 +277,13 @@ export default function IdeasListView({
   );
   const rankedFirstId = treeRows[0]?.node.idea.id ?? ranked[0]?.id ?? null;
   const filteredCount = filtered.length;
+  const folderSearch = folderId ? { folder: folderId } : undefined;
+  const folderHref = (ideaId: string) => {
+    const path = entityPath(trustId, "ideas", ideaId);
+    if (!folderId) return path;
+    const params = new URLSearchParams({ folder: folderId });
+    return `${path}?${params.toString()}`;
+  };
 
   return (
     <div className="ideas-list">
@@ -325,7 +301,7 @@ export default function IdeasListView({
           if (e.key === "Enter") {
             e.preventDefault();
             if (filteredCount > 0 && rankedFirstId) {
-              goEntity(trustId, "ideas", rankedFirstId);
+              goEntity(trustId, "ideas", rankedFirstId, { search: folderSearch });
             } else if (noMatchTrimmed) {
               fireNew(noMatchTrimmed);
             }
@@ -341,7 +317,7 @@ export default function IdeasListView({
             blueprintTitle="Import ideas from a Blueprint"
             accept="*/*"
             fileLabel="From files"
-            onMarkdownPicked={(files) => void handleFileImport(files)}
+            onMarkdownPicked={(files) => void handleFileImport(files, folderId)}
             onBlueprintSpawned={() => void invalidateIdeas()}
           />
         }
@@ -366,12 +342,19 @@ export default function IdeasListView({
         />
       )}
 
+      <IdeasFolderScopeBar
+        folderIdea={folderIdea}
+        folderAncestors={folderAncestors}
+        childCounts={childCounts}
+        onFolderChange={onFolderChange}
+      />
+
       <div
         className="ideas-list-body"
         onDragOver={(event) => {
           if (event.dataTransfer.types.includes("Files")) event.preventDefault();
         }}
-        onDrop={(event) => handleDropFiles(event)}
+        onDrop={(event) => handleDropFiles(event, folderId)}
       >
         {filtered.length === 0 ? (
           ideas.length === 0 ? (
@@ -483,7 +466,10 @@ export default function IdeasListView({
                     resolvedScope !== "self" &&
                     filter.scope !== resolvedScope;
                   const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
-                  const hasChildren = node.children.length > 0;
+                  const nestedChildCount = node.children.length;
+                  const childCount = childCounts.get(idea.id) ?? nestedChildCount;
+                  const hasNestedChildren = nestedChildCount > 0;
+                  const hasChildren = childCount > 0;
                   const depthClass = `ideas-list-row-depth-${Math.min(depth, 6)}`;
                   const defaultExpanded = depth === 0;
                   const isExpanded = expandedIdeas[idea.id] ?? defaultExpanded;
@@ -497,7 +483,7 @@ export default function IdeasListView({
                       }}
                       onDrop={(event) => handleDropFiles(event, idea.id)}
                     >
-                      {hasChildren ? (
+                      {hasNestedChildren ? (
                         <IconButton
                           size="xs"
                           className={`ideas-list-row-disclosure${isExpanded ? " is-open" : ""}`}
@@ -514,7 +500,7 @@ export default function IdeasListView({
                         ref={(el) => {
                           rowRefs.current[myIndex] = el;
                         }}
-                        to={entityPath(trustId, "ideas", idea.id)}
+                        to={folderHref(idea.id)}
                         className="ideas-list-row"
                         data-testid="idea-row"
                         data-idea-id={idea.id}
@@ -533,10 +519,13 @@ export default function IdeasListView({
                           } else if (e.key === "Escape") {
                             e.preventDefault();
                             searchRef.current?.focus();
-                          } else if (e.key === "ArrowRight" && hasChildren && !isExpanded) {
+                          } else if (e.key === "ArrowRight" && hasNestedChildren && !isExpanded) {
                             e.preventDefault();
                             toggleIdea(idea.id, defaultExpanded);
-                          } else if (e.key === "ArrowLeft" && hasChildren && isExpanded) {
+                          } else if (e.key === "ArrowRight" && hasChildren && !hasNestedChildren) {
+                            e.preventDefault();
+                            onFolderChange?.(idea.id);
+                          } else if (e.key === "ArrowLeft" && hasNestedChildren && isExpanded) {
                             e.preventDefault();
                             toggleIdea(idea.id, defaultExpanded);
                           }
@@ -551,14 +540,6 @@ export default function IdeasListView({
                             )}
                             {highlightMatches(idea.name, filter.search)}
                           </span>
-                          {hasChildren && (
-                            <span
-                              className="ideas-list-row-child-count"
-                              aria-label={`${node.children.length} child ideas`}
-                            >
-                              {node.children.length}
-                            </span>
-                          )}
                           {isCandidate && (
                             <span
                               className="ideas-list-row-candidate"
@@ -590,6 +571,19 @@ export default function IdeasListView({
                           </div>
                         )}
                       </Link>
+                      {hasChildren && onFolderChange && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="ideas-list-row-folder"
+                          aria-label={`Open folder for ${idea.name}, ${childCount} child ideas`}
+                          onClick={() => onFolderChange(idea.id)}
+                          leadingIcon={<Icon icon={FolderOpen} size="xs" />}
+                        >
+                          <span className="ideas-list-row-child-count">{childCount}</span>
+                        </Button>
+                      )}
                     </div>
                   );
                 })}

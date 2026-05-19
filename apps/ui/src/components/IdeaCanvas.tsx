@@ -86,6 +86,7 @@ export interface IdeaCanvasProps {
   agentId: string;
   idea?: Idea;
   initialName?: string;
+  parentIdeaId?: string | null;
   onBack: () => void;
   onNew: () => void;
   /**
@@ -131,6 +132,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     agentId,
     idea,
     initialName,
+    parentIdeaId,
     onBack,
     onNew,
     embedded = false,
@@ -310,6 +312,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         tags,
         agent_id: agentId,
         scope: composeScope,
+        parent_idea_id: parentIdeaId ?? undefined,
       });
       const created: Idea = {
         id: res.id,
@@ -318,9 +321,14 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         tags,
         scope: composeScope,
         agent_id: agentId,
+        parent_idea_id: parentIdeaId ?? undefined,
       };
       addIdea(created);
-      track(Events.IdeaCreated, { surface: "idea-canvas", scope: composeScope });
+      track(Events.IdeaCreated, {
+        surface: "idea-canvas",
+        scope: composeScope,
+        has_parent: parentIdeaId ? "true" : "false",
+      });
       // Replay the locally-collected references against the freshly-
       // persisted idea. We fire and-forget — if any individual edge
       // fails the user still has the idea, and they can re-add the ref
@@ -350,7 +358,18 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setError(e instanceof Error ? e.message : "Save failed");
       throw e;
     }
-  }, [isEdit, agentId, trustId, addIdea, goEntity, composeScope, pendingRefs, onPersisted, track]);
+  }, [
+    isEdit,
+    agentId,
+    parentIdeaId,
+    trustId,
+    addIdea,
+    goEntity,
+    composeScope,
+    pendingRefs,
+    onPersisted,
+    track,
+  ]);
 
   // Edit-mode revert: drop the in-memory snapshot back to the
   // persisted idea. Used by both the canvas's own Cancel button

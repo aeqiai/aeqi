@@ -1,5 +1,5 @@
 import { type ReactNode, Fragment } from "react";
-import type { ScopeValue } from "@/lib/types";
+import type { Idea, ScopeValue } from "@/lib/types";
 
 export const IDEA_SCOPE_VALUES: ScopeValue[] = ["self", "siblings", "children", "branch", "global"];
 export const SCOPE_PICKER_VALUES: ScopeValue[] = ["self", "children", "global"];
@@ -170,4 +170,48 @@ export function matchRank(idea: { name: string; content: string }, query: string
   if (name.includes(q)) return 2;
   if (idea.content.toLowerCase().includes(q)) return 3;
   return 4;
+}
+
+export function ideaParentId(idea: Pick<Idea, "parent_idea_id">): string | null {
+  return idea.parent_idea_id || null;
+}
+
+export function isRootIdea(idea: Idea, knownIds: Set<string>): boolean {
+  const parentId = ideaParentId(idea);
+  return !parentId || !knownIds.has(parentId);
+}
+
+export function isDirectIdeaChildOf(
+  idea: Idea,
+  parentId: string | null,
+  knownIds: Set<string>,
+): boolean {
+  if (parentId) return ideaParentId(idea) === parentId;
+  return isRootIdea(idea, knownIds);
+}
+
+export function childCountsByIdeaParent(ideas: Idea[]): Map<string, number> {
+  const knownIds = new Set(ideas.map((idea) => idea.id));
+  const counts = new Map<string, number>();
+  for (const idea of ideas) {
+    const parentId = ideaParentId(idea);
+    if (!parentId || !knownIds.has(parentId)) continue;
+    counts.set(parentId, (counts.get(parentId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export function ideaAncestors(id: string, ideas: Idea[]): Idea[] {
+  const byId = new Map(ideas.map((idea) => [idea.id, idea]));
+  const ancestors: Idea[] = [];
+  let cursor = byId.get(id);
+  const seen = new Set<string>();
+  while (cursor?.parent_idea_id && !seen.has(cursor.parent_idea_id)) {
+    seen.add(cursor.parent_idea_id);
+    const parent = byId.get(cursor.parent_idea_id);
+    if (!parent) break;
+    ancestors.unshift(parent);
+    cursor = parent;
+  }
+  return ancestors;
 }

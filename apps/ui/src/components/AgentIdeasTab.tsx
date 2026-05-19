@@ -20,6 +20,9 @@ import {
   parseSort,
   parseTags,
   serializeTags,
+  childCountsByIdeaParent,
+  ideaAncestors,
+  isDirectIdeaChildOf,
 } from "./ideas/types";
 
 const NO_IDEAS: Idea[] = [];
@@ -62,6 +65,7 @@ export default function AgentIdeasTab({
     return "list";
   })();
   const composing = searchParams.get("compose") === "1";
+  const folderParam = searchParams.get("folder");
 
   const filter: FilterState = {
     scope: parseScope(searchParams.get("scope")),
@@ -187,6 +191,34 @@ export default function AgentIdeasTab({
     return scoped.filter((idea) => (idea.tags || []).some((t) => wanted.has(t)));
   }, [scoped, filter.tags]);
 
+  const folderIdea = useMemo(
+    () => (folderParam ? scoped.find((idea) => idea.id === folderParam) : undefined),
+    [folderParam, scoped],
+  );
+  const activeFolderId = folderIdea?.id ?? null;
+  const folderAncestors = useMemo(
+    () => (activeFolderId ? ideaAncestors(activeFolderId, scoped) : []),
+    [activeFolderId, scoped],
+  );
+  const childCounts = useMemo(() => childCountsByIdeaParent(scoped), [scoped]);
+  const folderFiltered = useMemo(() => {
+    const knownIds = new Set(filtered.map((idea) => idea.id));
+    return filtered.filter((idea) => isDirectIdeaChildOf(idea, activeFolderId, knownIds));
+  }, [filtered, activeFolderId]);
+
+  const setFolder = useCallback(
+    (nextFolderId: string | null) => {
+      patchParams((p) => {
+        if (nextFolderId) p.set("folder", nextFolderId);
+        else p.delete("folder");
+        p.delete("compose");
+        p.delete("name");
+        p.delete("parent");
+      });
+    },
+    [patchParams],
+  );
+
   // Mirror IdeasListView's needsReview count so the shared toolbar can
   // render the popover badge with real volume — scoped to the agent's
   // full idea set, not the currently-filtered slice.
@@ -253,16 +285,30 @@ export default function AgentIdeasTab({
   // same predicate as an id-set, then prunes its nodes and edges so the
   // dots on screen match the rows the user just filtered.
   const filteredGraph = useMemo(() => {
-    if (filter.scope === "all" && filter.tags.length === 0 && !filter.search.trim())
+    const graphIdeas = activeFolderId ? folderFiltered : filtered;
+    if (
+      !activeFolderId &&
+      filter.scope === "all" &&
+      filter.tags.length === 0 &&
+      !filter.search.trim()
+    )
       return graphData;
-    const allowed = new Set(filtered.map((i) => i.id));
+    const allowed = new Set(graphIdeas.map((i) => i.id));
     const nodes = graphData.nodes.filter((n) => allowed.has(n.id));
     const allowedNodeIds = new Set(nodes.map((n) => n.id));
     const edges = graphData.edges.filter(
       (e) => allowedNodeIds.has(e.source) && allowedNodeIds.has(e.target),
     );
     return { nodes, edges };
-  }, [graphData, filtered, filter.scope, filter.tags, filter.search]);
+  }, [
+    graphData,
+    filtered,
+    folderFiltered,
+    activeFolderId,
+    filter.scope,
+    filter.tags,
+    filter.search,
+  ]);
 
   // Graph → detail: push a new history entry so browser-back returns to
   // the graph view. Using `replace: true` here stranded the user on the
@@ -270,30 +316,42 @@ export default function AgentIdeasTab({
   // mode entirely.
   const handleGraphSelect = (node: GraphNode | null) => {
     if (!node) return;
-    goEntity(trustId, "ideas", node.id);
+    goEntity(trustId, "ideas", node.id, {
+      search: activeFolderId ? { folder: activeFolderId } : undefined,
+    });
   };
 
   // "+ New idea" — compose mode is an explicit search param so the default
   // no-itemId state stays on the inline picker. Optional `name` survives
   // the navigate so a create-from-query click lands on a pre-filled canvas.
+  // When the list is scoped to a folder idea, compose inherits that parent
+  // so the new row lands exactly where the user started it.
   useEffect(() => {
     const handler = (e: Event) => {
-      const name = (e as CustomEvent<{ name?: string }>).detail?.name;
-      goEntity(trustId, "ideas", undefined, { replace: true });
-      requestAnimationFrame(() => {
-        const next = new URLSearchParams(window.location.search);
-        next.set("compose", "1");
-        if (name) next.set("name", name);
-        else next.delete("name");
-        setSearchParams(next, { replace: true });
-      });
+      const detail = (e as CustomEvent<{ name?: string; parentIdeaId?: string | null }>).detail;
+      const name = detail?.name;
+      const parentIdeaId = detail?.parentIdeaId ?? activeFolderId;
+      const search: Record<string, string> = { compose: "1" };
+      if (name) search.name = name;
+      if (parentIdeaId) {
+        search.parent = parentIdeaId;
+        search.folder = parentIdeaId;
+      }
+      goEntity(trustId, "ideas", undefined, { replace: true, search });
     };
     window.addEventListener("aeqi:new-idea", handler);
     return () => window.removeEventListener("aeqi:new-idea", handler);
-  }, [trustId, goEntity, setSearchParams]);
+  }, [trustId, goEntity, activeFolderId]);
 
-  const fireNewIdea = (name?: string) =>
-    window.dispatchEvent(new CustomEvent("aeqi:new-idea", { detail: name ? { name } : {} }));
+  const fireNewIdea = useCallback(
+    (name?: string, parentIdeaId: string | null = activeFolderId) =>
+      window.dispatchEvent(
+        new CustomEvent("aeqi:new-idea", {
+          detail: { ...(name ? { name } : {}), ...(parentIdeaId ? { parentIdeaId } : {}) },
+        }),
+      ),
+    [activeFolderId],
+  );
 
   // Graph-mode keyboard: `n` / `l` while the canvas is focused so the user
   // never has to grab the mouse to flip back. Gated so it never fires
@@ -318,7 +376,7 @@ export default function AgentIdeasTab({
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [view, setView]);
+  }, [view, setView, fireNewIdea]);
 
   if (view === "graph") {
     return (
@@ -346,7 +404,7 @@ export default function AgentIdeasTab({
       <Suspense fallback={viewFallback}>
         <IdeasTableView
           agentId={agentId}
-          ideas={filtered}
+          ideas={folderFiltered}
           filter={filter}
           scopeCounts={scopeCounts}
           needsReviewCount={needsReviewCount}
@@ -354,7 +412,11 @@ export default function AgentIdeasTab({
           view={view}
           onViewChange={setView}
           onNew={() => fireNewIdea()}
-          onOpen={(id) => goEntity(trustId, "ideas", id)}
+          onOpen={(id) =>
+            goEntity(trustId, "ideas", id, {
+              search: activeFolderId ? { folder: activeFolderId } : undefined,
+            })
+          }
         />
       </Suspense>
     );
@@ -364,13 +426,16 @@ export default function AgentIdeasTab({
 
   if (selected || composing) {
     const presetName = composing ? (searchParams.get("name") ?? "") : "";
+    const composeParentId = composing ? (searchParams.get("parent") ?? activeFolderId) : null;
+    const backSearch = activeFolderId ? { folder: activeFolderId } : undefined;
     return (
       <Suspense fallback={viewFallback}>
         <IdeasCanvasView
           agentId={agentId}
           idea={selected}
           presetName={presetName}
-          onBack={() => goEntity(trustId, "ideas")}
+          parentIdeaId={composeParentId}
+          onBack={() => goEntity(trustId, "ideas", undefined, { search: backSearch })}
           onNew={() => fireNewIdea()}
         />
       </Suspense>
@@ -393,13 +458,18 @@ export default function AgentIdeasTab({
       agentId={agentId}
       ideas={ideas}
       scoped={scoped}
-      filtered={filtered}
+      filtered={folderFiltered}
       tagCounts={tagCounts}
       scopeCounts={scopeCounts}
       filter={filter}
       onFilter={setFilter}
       view={view}
       onViewChange={setView}
+      folderId={activeFolderId}
+      folderIdea={folderIdea ?? null}
+      folderAncestors={folderAncestors}
+      childCounts={childCounts}
+      onFolderChange={setFolder}
     />
   );
 }

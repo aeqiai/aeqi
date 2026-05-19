@@ -5,6 +5,7 @@ export interface IdeasCanvasViewProps {
   agentId: string;
   idea?: Idea;
   presetName: string;
+  parentIdeaId?: string | null;
   onBack: () => void;
   onNew: () => void;
 }
@@ -13,6 +14,7 @@ export default function IdeasCanvasView({
   agentId,
   idea,
   presetName,
+  parentIdeaId,
   onBack,
   onNew,
 }: IdeasCanvasViewProps) {
@@ -27,6 +29,7 @@ export default function IdeasCanvasView({
         agentId={agentId}
         idea={idea}
         initialName={presetName}
+        parentIdeaId={parentIdeaId}
         onBack={onBack}
         onNew={onNew}
       />
