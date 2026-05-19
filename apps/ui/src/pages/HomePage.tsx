@@ -62,7 +62,7 @@ export default function HomePage() {
         ) : (
           <div className="network-anchor-text network-anchor-text--empty">
             <p className="network-anchor-eyebrow">No active context</p>
-            <h1 className="network-anchor-trust">Step into a trust</h1>
+            <h1 className="network-anchor-trust">Step into a TRUST</h1>
             <p className="network-anchor-role">Pick or create one below.</p>
           </div>
         )}
@@ -92,12 +92,12 @@ export default function HomePage() {
             type="button"
             className="network-tile network-tile--create"
             onClick={() => navigate("/launch")}
-            aria-label="Create a new trust"
+            aria-label="Create a new TRUST"
           >
             <span className="network-tile-avatar network-tile-avatar--ghost">
               <Plus size={22} strokeWidth={1.5} />
             </span>
-            <span className="network-tile-trust">New trust</span>
+            <span className="network-tile-trust">New TRUST</span>
             <span className="network-tile-role">Start fresh</span>
           </button>
         </div>

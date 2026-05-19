@@ -29,7 +29,7 @@ export default function ActingAsSelector() {
   const activeEntityId = useUIStore((s) => s.activeEntity);
   const activeEntity = useActiveEntity(activeEntityId);
 
-  const trustName = activeEntity?.name?.trim() || "Select a trust";
+  const trustName = activeEntity?.name?.trim() || "Select a TRUST";
   const roleName = "Director";
 
   return (

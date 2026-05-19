@@ -54,7 +54,7 @@ function roleLabelFor(type: TrustType | undefined): string {
     case "protocol":
       return "Protocol";
     default:
-      return "Trust";
+      return "TRUST";
   }
 }
 
@@ -89,7 +89,7 @@ export default function StartPage() {
           <div className="home-hero-text">
             <h1 className="home-hero-title">Welcome, {actorName}.</h1>
             <p className="home-hero-subtitle">
-              Launch a trust, review what needs approval, or step into the economy already forming
+              Launch a TRUST, review what needs approval, or step into the economy already forming
               around you.
             </p>
           </div>
@@ -170,8 +170,13 @@ export default function StartPage() {
             </ul>
           ) : (
             <div className="home-inbox-empty">
-              <p>Nothing waiting on you right now.</p>
-              <p className="home-inbox-empty-hint">Approvals and proposals will appear here.</p>
+              <span className="home-inbox-empty-icon" aria-hidden="true">
+                <InboxIcon size={28} strokeWidth={1.4} />
+              </span>
+              <p className="home-inbox-empty-title">Inbox is clear.</p>
+              <p className="home-inbox-empty-hint">
+                Approvals and proposals appear here when an agent needs you.
+              </p>
             </div>
           )}
           <footer className="home-card-foot">
@@ -195,7 +200,7 @@ export default function StartPage() {
           </header>
           <div className="home-economy-body">
             <p className="home-economy-lede">
-              Discover trusts, agents, markets, and capital activity across the network.
+              Discover TRUSTs, agents, markets, and capital activity across the network.
             </p>
             <p className="home-economy-aside">
               The places where TRUSTs meet — and where the value moves between them.
@@ -258,12 +263,12 @@ function TrustCard({
 }: TrustCardProps) {
   const hasEntities = entities.length > 0;
   return (
-    <section className="home-card home-card--trusts" aria-label="Your trusts">
+    <section className="home-card home-card--trusts" aria-label="Your TRUSTs">
       <header className="home-card-head">
-        <span className="home-card-title">Step into a trust</span>
+        <span className="home-card-title">Step into a TRUST</span>
         <span className="home-card-meta">
           {hasEntities
-            ? `${entities.length} trust${entities.length === 1 ? "" : "s"}`
+            ? `${entities.length} TRUST${entities.length === 1 ? "" : "s"}`
             : "Nothing yet"}
         </span>
         {hasEntities && (
@@ -281,7 +286,7 @@ function TrustCard({
             type="button"
             className="home-trust-tile"
             onClick={() => onPickTrust(entity)}
-            aria-label={`Step into ${entity.name}`}
+            aria-label={`Step into TRUST ${entity.name}`}
           >
             <span className="home-trust-tile-avatar" aria-hidden="true">
               <BlockAvatar name={entity.name} size={40} />
@@ -299,7 +304,7 @@ function TrustCard({
             onClick={onViewAll}
           >
             <span className="home-trust-tile-overflow-count">+{trustOverflow}</span>
-            <span className="home-trust-tile-overflow-label">more trusts</span>
+            <span className="home-trust-tile-overflow-label">more TRUSTs</span>
           </button>
         )}
         <button
@@ -311,7 +316,7 @@ function TrustCard({
             <Plus size={18} strokeWidth={1.8} />
           </span>
           <span className="home-trust-tile-body">
-            <span className="home-trust-tile-name">New trust</span>
+            <span className="home-trust-tile-name">New TRUST</span>
             <span className="home-trust-tile-role">Start from scratch</span>
           </span>
         </button>

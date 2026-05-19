@@ -7957,12 +7957,14 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-/* Card shell — shared by trust card, inbox, economy, and thesis. */
+/* Card shell — shared by trust card, inbox, economy, and thesis.
+   Generous padding (28px) so every card reads as a deliberate
+   component, not a thin row. */
 .home-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 22px;
+  gap: 20px;
+  padding: 28px;
   background: var(--color-card);
   border: 0;
   border-radius: var(--radius-lg, 12px);
@@ -7988,14 +7990,14 @@ button.home-card:focus-visible {
 .home-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .home-card-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   background: var(--bg-row);
   color: var(--color-text-primary);
@@ -8005,8 +8007,9 @@ button.home-card:hover .home-card-icon {
   background: var(--color-card);
 }
 .home-card-title {
-  font-size: var(--font-size-md, 15px);
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.005em;
 }
 .home-card-meta {
   margin-left: auto;
@@ -8051,10 +8054,10 @@ button.home-card:hover .home-card-icon {
 }
 
 /* Trust card — full-width row above the two-column preview. Holds
-   per-trust tiles plus the [+ New trust] and [Browse blueprints]
+   per-trust tiles plus the [+ New TRUST] and [Browse blueprints]
    action tiles, wrapping on narrow viewports. */
 .home-card--trusts {
-  padding: 22px 24px;
+  padding: 28px;
 }
 .home-trusts-grid {
   display: grid;
@@ -8175,7 +8178,7 @@ button.home-card:hover .home-card-icon {
 }
 .home-card--inbox,
 .home-card--economy {
-  min-height: 340px;
+  min-height: 360px;
 }
 
 /* Inbox preview — richer rows: avatar + (from + time) + subject + last
@@ -8262,46 +8265,77 @@ button.home-card:hover .home-inbox-link:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Inbox empty state — centered illustration with quiet icon, a
+   confident headline ("Inbox is clear."), and a secondary hint. The
+   icon acts as the editorial anchor since there's no real content to
+   render; sits in a soft circle to read as a deliberate element. */
 .home-inbox-empty {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex: 1;
+  align-items: center;
   justify-content: center;
-  padding: 12px 0;
+  gap: 12px;
+  flex: 1;
+  padding: 24px 0;
+  text-align: center;
 }
-.home-inbox-empty p {
+.home-inbox-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+button.home-card:hover .home-inbox-empty-icon {
+  background: var(--color-card);
+}
+.home-inbox-empty-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 300;
+  letter-spacing: -0.015em;
   color: var(--color-text-primary);
 }
 .home-inbox-empty-hint {
-  color: var(--color-text-secondary) !important;
-  font-size: var(--font-size-xs) !important;
+  margin: 0;
+  max-width: 280px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 
 /* Economy preview — minimal, no fake feature tags. Just the lede +
    one quieter aside line. */
+/* Economy preview — minimal, no fake feature tags. Display-weight
+   lede gives the card editorial gravitas equal to the inbox + thesis
+   surfaces; the aside trails as a quiet second line. */
 .home-economy-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   flex: 1;
 }
 .home-economy-lede {
   margin: 0;
-  font-size: var(--font-size-md, 15px);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
   color: var(--color-text-primary);
-  line-height: 1.5;
-  font-weight: 500;
-  max-width: 420px;
+  max-width: 440px;
 }
 .home-economy-aside {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  line-height: 1.5;
-  max-width: 420px;
+  line-height: 1.55;
+  max-width: 440px;
 }
 
 /* Thesis card — full-width editorial moment. Title in display weight,
