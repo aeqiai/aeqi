@@ -10,6 +10,17 @@ ignore = [
     # clear when syntect updates (or we drop it). Tracking:
     # https://rustsec.org/advisories/RUSTSEC-2025-0141
     "RUSTSEC-2025-0141",
+
+    # rsa 0.9.x Marvin attack (timing sidechannel on private-key decryption).
+    # Reaches us transitively via jsonwebtoken 10.4.x. No fixed `rsa` release
+    # is available upstream — the entire Rust ecosystem with `jsonwebtoken`
+    # is in the same position. Attack surface is not reachable in our usage:
+    # jsonwebtoken's RSA path is signature verification (public key
+    # operations only); we never use it to decrypt with the private key, so
+    # there is no decryption-timing oracle to attack. Severity 5.9 medium.
+    # Clear when either `rsa` ships a fix or `jsonwebtoken` drops `rsa` as a
+    # dependency. Tracking: https://rustsec.org/advisories/RUSTSEC-2023-0071
+    "RUSTSEC-2023-0071",
 ]
 
 [licenses]
