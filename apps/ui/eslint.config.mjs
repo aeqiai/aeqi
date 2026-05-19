@@ -85,6 +85,6 @@ export default tseslint.config(
     /* scripts/ is Node code (postinstall + hygiene check); the React/TS rule
      * set isn't right for it, and Node globals like process/console are
      * legitimate. Lint scripts/ separately if needed. */
-    ignores: ["dist/**", "node_modules/**", "scripts/**"],
+    ignores: ["dist/**", "node_modules/**", "scripts/**", "src/solana/generated/**"],
   },
 );

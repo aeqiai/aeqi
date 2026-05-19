@@ -1,0 +1,1241 @@
+{
+  "address": "8dCM5qRnfMAZGdsC8pYYQzomVdQpihL9jgwAXoPaie3U",
+  "metadata": {
+    "name": "aeqi_funding",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "AEQI Funding module — capital raise orchestration over Unifutures + Budget"
+  },
+  "instructions": [
+    {
+      "name": "activate_bonding_curve",
+      "docs": [
+        "Activate a BondingCurve-kind funding request — CPIs into",
+        "`aeqi_unifutures::create_curve`."
+      ],
+      "discriminator": [
+        146,
+        108,
+        229,
+        90,
+        192,
+        83,
+        53,
+        123
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.trust",
+                "account": "FundingRequest"
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "FundingRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "budget"
+        },
+        {
+          "name": "trust"
+        },
+        {
+          "name": "unifutures_module_state",
+          "writable": true
+        },
+        {
+          "name": "curve",
+          "writable": true
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "aeqi_unifutures_program",
+          "address": "CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "curve_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "curve_type",
+          "type": "u8"
+        },
+        {
+          "name": "start_price",
+          "type": "u128"
+        },
+        {
+          "name": "end_price",
+          "type": "u128"
+        },
+        {
+          "name": "max_supply",
+          "type": "u64"
+        },
+        {
+          "name": "reserve_ratio_ppm",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "activate_commitment_sale",
+      "docs": [
+        "Activate a CommitmentSale-kind funding request — CPIs into",
+        "`aeqi_unifutures::create_commitment_sale` with the request's params.",
+        "Sets status = Activated, primitive_id = the new sale's id.",
+        "(BondingCurve + Exit activation follow the same shape; this iteration",
+        "covers kind=0 only.)"
+      ],
+      "discriminator": [
+        164,
+        192,
+        119,
+        43,
+        55,
+        190,
+        195,
+        208
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.trust",
+                "account": "FundingRequest"
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "FundingRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "budget"
+        },
+        {
+          "name": "trust"
+        },
+        {
+          "name": "unifutures_module_state",
+          "writable": true
+        },
+        {
+          "name": "sale",
+          "writable": true
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "aeqi_unifutures_program",
+          "address": "CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "sale_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "overflow_quote",
+          "type": "u64"
+        },
+        {
+          "name": "duration_secs",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "activate_exit",
+      "docs": [
+        "Activate an Exit-kind funding request — CPIs into",
+        "`aeqi_unifutures::create_exit`."
+      ],
+      "discriminator": [
+        172,
+        26,
+        206,
+        49,
+        238,
+        241,
+        102,
+        5
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.trust",
+                "account": "FundingRequest"
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "FundingRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "budget"
+        },
+        {
+          "name": "trust"
+        },
+        {
+          "name": "unifutures_module_state",
+          "writable": true
+        },
+        {
+          "name": "exit",
+          "writable": true
+        },
+        {
+          "name": "asset_mint",
+          "docs": [
+            "deserializes it as a Mint and pins it onto the Exit account."
+          ]
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "aeqi_unifutures_program",
+          "address": "CAz7bt2gLYTe3VUZ4xEyF8AA8syth4NkUKb5c1NRq8JF"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "exit_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "exit_quote",
+          "type": "u64"
+        },
+        {
+          "name": "total_supply_snapshot",
+          "type": "u64"
+        },
+        {
+          "name": "duration_secs",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "cancel_funding_request",
+      "docs": [
+        "Cancel a pending funding request. Only the creator can cancel."
+      ],
+      "discriminator": [
+        213,
+        31,
+        142,
+        101,
+        67,
+        12,
+        104,
+        156
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.trust",
+                "account": "FundingRequest"
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "FundingRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_funding_request",
+      "docs": [
+        "Declare a funding request. Records the intent without activating.",
+        "`kind` is 0 (CommitmentSale), 1 (BondingCurve), or 2 (Exit)."
+      ],
+      "discriminator": [
+        33,
+        171,
+        45,
+        145,
+        98,
+        160,
+        250,
+        111
+      ],
+      "accounts": [
+        {
+          "name": "trust"
+        },
+        {
+          "name": "module_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "trust"
+              }
+            ]
+          }
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "trust"
+              },
+              {
+                "kind": "arg",
+                "path": "request_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "budget"
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "request_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "budget_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "asset_amount",
+          "type": "u64"
+        },
+        {
+          "name": "target_quote",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "finalize_funding_request",
+      "docs": [
+        "Finalize an Activated funding request — closes the lifecycle once",
+        "the underlying Unifutures primitive has settled. Caller is the",
+        "creator (they own request lifecycle), and finalize is permanent;",
+        "downstream excess-budget refund / vesting role hooks will read",
+        "`status == Finalized` as their gate."
+      ],
+      "discriminator": [
+        36,
+        15,
+        0,
+        164,
+        202,
+        62,
+        88,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.trust",
+                "account": "FundingRequest"
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "FundingRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init",
+      "docs": [
+        "Module init — gated to the trust authority during creation mode so",
+        "the module_state PDA cannot be squatted by an attacker."
+      ],
+      "discriminator": [
+        220,
+        59,
+        207,
+        236,
+        108,
+        250,
+        47,
+        100
+      ],
+      "accounts": [
+        {
+          "name": "trust",
+          "docs": [
+            "Trust PDA — must be a real Trust account owned by aeqi_trust."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "trust.trust_id",
+                "account": "Trust"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                166,
+                105,
+                93,
+                107,
+                50,
+                178,
+                23,
+                242,
+                187,
+                64,
+                51,
+                167,
+                56,
+                170,
+                206,
+                1,
+                133,
+                135,
+                194,
+                231,
+                203,
+                235,
+                211,
+                217,
+                50,
+                144,
+                58,
+                163,
+                182,
+                136,
+                137,
+                104
+              ]
+            }
+          }
+        },
+        {
+          "name": "module_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100,
+                  105,
+                  110,
+                  103,
+                  95,
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "trust"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Budget",
+      "discriminator": [
+        35,
+        151,
+        58,
+        65,
+        187,
+        148,
+        119,
+        218
+      ]
+    },
+    {
+      "name": "FundingModuleState",
+      "discriminator": [
+        125,
+        235,
+        179,
+        163,
+        60,
+        130,
+        149,
+        174
+      ]
+    },
+    {
+      "name": "FundingRequest",
+      "discriminator": [
+        78,
+        109,
+        168,
+        114,
+        238,
+        219,
+        124,
+        44
+      ]
+    },
+    {
+      "name": "Trust",
+      "discriminator": [
+        71,
+        85,
+        171,
+        132,
+        199,
+        242,
+        21,
+        62
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "FundingRequestActivated",
+      "discriminator": [
+        182,
+        156,
+        228,
+        91,
+        183,
+        128,
+        158,
+        71
+      ]
+    },
+    {
+      "name": "FundingRequestCancelled",
+      "discriminator": [
+        166,
+        115,
+        41,
+        79,
+        214,
+        196,
+        62,
+        142
+      ]
+    },
+    {
+      "name": "FundingRequestCreated",
+      "discriminator": [
+        60,
+        88,
+        249,
+        130,
+        176,
+        93,
+        151,
+        213
+      ]
+    },
+    {
+      "name": "FundingRequestFinalized",
+      "discriminator": [
+        109,
+        205,
+        147,
+        128,
+        20,
+        188,
+        10,
+        20
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidKind",
+      "msg": "kind must be 0 (CommitmentSale), 1 (BondingCurve), or 2 (Exit)"
+    },
+    {
+      "code": 6001,
+      "name": "ZeroAmount",
+      "msg": "amount must be > 0"
+    },
+    {
+      "code": 6002,
+      "name": "MathOverflow",
+      "msg": "math overflow"
+    },
+    {
+      "code": 6003,
+      "name": "Unauthorized",
+      "msg": "only creator can cancel a request"
+    },
+    {
+      "code": 6004,
+      "name": "TrustMismatch",
+      "msg": "trust account does not match the funding request"
+    },
+    {
+      "code": 6005,
+      "name": "CannotCancel",
+      "msg": "request is not in Pending status — can't cancel"
+    },
+    {
+      "code": 6006,
+      "name": "CannotActivate",
+      "msg": "request is not in Pending status — can't activate"
+    },
+    {
+      "code": 6007,
+      "name": "CannotFinalize",
+      "msg": "request is not in Activated status — can't finalize"
+    },
+    {
+      "code": 6008,
+      "name": "WrongKind",
+      "msg": "request kind doesn't match this activation ix (kind=0 for CommitmentSale)"
+    },
+    {
+      "code": 6009,
+      "name": "BudgetMismatch",
+      "msg": "budget account does not match the funding request"
+    },
+    {
+      "code": 6010,
+      "name": "BudgetUnavailable",
+      "msg": "budget is frozen or expired"
+    },
+    {
+      "code": 6011,
+      "name": "BudgetCapacityExceeded",
+      "msg": "budget has insufficient remaining allocation"
+    },
+    {
+      "code": 6012,
+      "name": "TrustNotInCreationMode",
+      "msg": "trust must be in creation mode to initialize the funding module"
+    }
+  ],
+  "types": [
+    {
+      "name": "Budget",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "budget_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "grantor",
+            "type": "pubkey"
+          },
+          {
+            "name": "target_role_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "parent_budget_id",
+            "docs": [
+              "Parent budget if hierarchical; [0u8; 32] if sourced from TRUST directly."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "spent",
+            "type": "u64"
+          },
+          {
+            "name": "expiry",
+            "type": "i64"
+          },
+          {
+            "name": "frozen",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundingModuleState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_count",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundingRequest",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "budget_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "asset_amount",
+            "type": "u64"
+          },
+          {
+            "name": "target_quote",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "primitive_id",
+            "docs": [
+              "Set on activation to the underlying Unifutures primitive's id",
+              "(sale_id / curve_id / exit_id depending on kind)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundingRequestActivated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "primitive_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundingRequestCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundingRequestCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "budget_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "asset_amount",
+            "type": "u64"
+          },
+          {
+            "name": "target_quote",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundingRequestFinalized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "primitive_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Trust",
+      "docs": [
+        "Core TRUST account — one per AEQI company. PDA seeded `[b\"trust\", trust_id]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "trust_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "creation_mode",
+            "type": "bool"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "module_count",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
