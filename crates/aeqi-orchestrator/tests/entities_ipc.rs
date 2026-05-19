@@ -102,31 +102,9 @@ async fn create_entity_company_creates_agent() {
     );
 }
 
-#[tokio::test]
-async fn create_entity_non_company_no_agent() {
-    let h = TestHarness::build().await.unwrap();
-    let ctx = h.ctx();
-
-    let resp = handle_create_entity(
-        &ctx,
-        &serde_json::json!({"name": "test-fund", "type": "fund"}),
-        &None,
-    )
-    .await;
-    assert_eq!(resp["ok"], true);
-    let trust_id = resp["id"].as_str().unwrap();
-
-    // Entity row exists.
-    let entity = ctx.entity_registry.get(trust_id).await.unwrap();
-    assert!(entity.is_some());
-
-    // No backing agent for non-company type.
-    let backing = h.registry().list(Some(trust_id), None).await.unwrap();
-    assert!(
-        backing.is_empty(),
-        "non-company entity must NOT spawn a backing agent"
-    );
-}
+// `create_entity_non_company_no_agent` retired with the vestigial EntityType
+// taxonomy — every entity is now a Company and the create path always spawns a
+// backing agent. See AEQI idea `architecture/entitytype-enum-is-vestigial`.
 
 // ── handle_update_entity ─────────────────────────────────────────────────────
 

@@ -1,6 +1,12 @@
 import type { QuestMetadata, QuestRuntime } from "./runtime";
 
-export type TrustType = "company" | "human" | "agent" | "fund" | "dao" | "holding" | "protocol";
+/**
+ * Single-variant alias for the on-the-wire `type` field on a Trust. The
+ * pre-2026-05-19 multi-variant taxonomy (human / agent / fund / dao /
+ * holding / protocol) was vestigial — every production path resolves to
+ * `"company"`. See AEQI idea `architecture/entitytype-enum-is-vestigial`.
+ */
+export type TrustType = "company";
 
 export interface Trust {
   id: string;
@@ -12,7 +18,7 @@ export interface Trust {
   budget_usd?: number;
   created_at: string;
   last_active?: string;
-  /** On-chain TRUST identity (bytes32 hex). NULL until DAO bridge fires. */
+  /** On-chain TRUST identity (bytes32 hex). NULL until TRUST bridge fires. */
   trust_id?: string;
   /** On-chain TRUST proxy address. NULL until indexer-confirmed. */
   trust_address?: string;

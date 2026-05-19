@@ -1,7 +1,7 @@
 /**
  * Thin GraphQL client for the aeqi-indexer.
  *
- * Phase C of the click→DAO milestone. Treasury / Ownership / Governance
+ * Phase C of the click→TRUST milestone. Treasury / Ownership / Governance
  * tabs use this to pull on-chain state (TRUSTs, modules, role assignments,
  * token holders, proposals) for the entity's mirrored TRUST.
  *

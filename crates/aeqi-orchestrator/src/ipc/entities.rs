@@ -6,8 +6,6 @@
 //! The `roots` key name is preserved here for the platform proxy that
 //! reshapes it into the `{ entities: [...] }` HTTP response the UI expects.
 
-use crate::entity_registry::EntityType;
-
 use super::tenancy::is_allowed;
 
 pub async fn handle_entities(
@@ -123,53 +121,30 @@ pub async fn handle_create_entity(
         return serde_json::json!({"ok": false, "error": "invalid name"});
     }
 
-    let type_str = request
-        .get("type")
-        .and_then(|v| v.as_str())
-        .unwrap_or("company");
-    let type_ = type_str
-        .parse::<EntityType>()
-        .unwrap_or(EntityType::Company);
-
     let slug = request.get("slug").and_then(|v| v.as_str()).unwrap_or(name);
 
-    let parent_entity_id = request.get("parent_entity_id").and_then(|v| v.as_str());
-    let owner_user_id = request.get("owner_user_id").and_then(|v| v.as_str());
-
-    // For company-type entities, also spawn a backing root agent so the
-    // agent surface stays consistent and quest counts work immediately. The
-    // spawn path mints a fresh entity UUID alongside the agent UUID; the
-    // entity is the canonical identifier exposed on the wire.
-    let (trust_id, agent_spawned) = if type_ == EntityType::Company {
-        match ctx.agent_registry.spawn(name, None, None).await {
-            Ok(agent) => {
-                let eid = agent.trust_id.ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "spawned company agent has no trust_id (post-Phase-4 invariant)",
-                    )
+    // Every entity is a Company (the multi-type taxonomy was vestigial —
+    // see AEQI idea `architecture/entitytype-enum-is-vestigial`). Spawn a
+    // backing root agent so the agent surface stays consistent and quest
+    // counts work immediately. The spawn path mints a fresh entity UUID
+    // alongside the agent UUID; the entity is the canonical identifier
+    // exposed on the wire.
+    let trust_id = match ctx.agent_registry.spawn(name, None, None).await {
+        Ok(agent) => match agent.trust_id {
+            Some(eid) => eid,
+            None => {
+                return serde_json::json!({
+                    "ok": false,
+                    "error": "spawned company agent has no trust_id (post-Phase-4 invariant)",
                 });
-                match eid {
-                    Ok(eid) => (eid, true),
-                    Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
-                }
             }
-            Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
-        }
-    } else {
-        // Non-company entity: no backing agent; mint a fresh entity row directly.
-        match ctx
-            .entity_registry
-            .create_new(name, slug, type_, parent_entity_id, owner_user_id)
-            .await
-        {
-            Ok(entity) => (entity.id, false),
-            Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
-        }
+        },
+        Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
 
-    // For agent-backed entities, ensure the project directory exists
-    // (mirrors `handle_create_default_agent` behaviour).
-    if agent_spawned && let Ok(cwd) = std::env::current_dir() {
+    // Ensure the project directory exists (mirrors
+    // `handle_create_default_agent` behaviour).
+    if let Ok(cwd) = std::env::current_dir() {
         let project_dir = cwd.join("projects").join(name);
         let _ = std::fs::create_dir_all(&project_dir);
     }
@@ -180,7 +155,7 @@ pub async fn handle_create_entity(
         "trust": {
             "id": trust_id,
             "name": name,
-            "type": type_str,
+            "type": "company",
             "slug": slug,
         }
     })

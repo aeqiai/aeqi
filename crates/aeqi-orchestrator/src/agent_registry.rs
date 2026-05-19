@@ -1526,7 +1526,7 @@ impl AgentRegistry {
             "CREATE TABLE IF NOT EXISTS entities (
                  id TEXT PRIMARY KEY,
                  type TEXT NOT NULL DEFAULT 'company'
-                     CHECK (type IN ('company','human','agent','fund','dao','holding','protocol')),
+                     CHECK (type IN ('company')),
                  name TEXT NOT NULL,
                  slug TEXT NOT NULL,
                  parent_entity_id TEXT REFERENCES entities(id) ON DELETE SET NULL,

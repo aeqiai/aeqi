@@ -18,29 +18,24 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// The type discriminator for an entity.
+///
+/// Single-variant enum retained as a typed wrapper around the on-the-wire
+/// `"company"` string. The pre-2026-05-19 multi-variant taxonomy (Human,
+/// Agent, Fund, Dao, Holding, Protocol) was vestigial — every production
+/// call site hardcoded `Company` and no business logic ever branched on
+/// the other variants. See AEQI idea
+/// `architecture/entitytype-enum-is-vestigial`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum EntityType {
     #[default]
     Company,
-    Human,
-    Agent,
-    Fund,
-    Dao,
-    Holding,
-    Protocol,
 }
 
 impl std::fmt::Display for EntityType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EntityType::Company => write!(f, "company"),
-            EntityType::Human => write!(f, "human"),
-            EntityType::Agent => write!(f, "agent"),
-            EntityType::Fund => write!(f, "fund"),
-            EntityType::Dao => write!(f, "dao"),
-            EntityType::Holding => write!(f, "holding"),
-            EntityType::Protocol => write!(f, "protocol"),
         }
     }
 }
@@ -51,12 +46,6 @@ impl std::str::FromStr for EntityType {
     fn from_str(s: &str) -> Result<Self> {
         match s {
             "company" => Ok(EntityType::Company),
-            "human" => Ok(EntityType::Human),
-            "agent" => Ok(EntityType::Agent),
-            "fund" => Ok(EntityType::Fund),
-            "dao" => Ok(EntityType::Dao),
-            "holding" => Ok(EntityType::Holding),
-            "protocol" => Ok(EntityType::Protocol),
             other => bail!("unknown entity type: {}", other),
         }
     }
@@ -393,7 +382,7 @@ mod tests {
                 "ent-2",
                 "Acme Duplicate",
                 "acme",
-                EntityType::Fund,
+                EntityType::Company,
                 None,
                 None,
             )
@@ -409,7 +398,7 @@ mod tests {
                 "parent-1",
                 "Parent Corp",
                 "parent-corp",
-                EntityType::Holding,
+                EntityType::Company,
                 None,
                 None,
             )
