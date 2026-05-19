@@ -1,7 +1,9 @@
+import { FolderOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { dueLabel, isOverdue, timeAgo } from "@/lib/format";
 import { formatDateTime } from "@/lib/i18n";
 import type { Quest, QuestStatus, User } from "@/lib/types";
+import { Icon } from "../ui";
 import AssigneeAvatar from "./AssigneeAvatar";
 import AssigneePicker from "./AssigneePicker";
 import PriorityIcon from "./PriorityIcon";
@@ -92,6 +94,7 @@ export default function QuestActiveCard({
         </span>
         {childCount > 0 && (
           <span className="quest-child-count" aria-label={`${childCount} subquests`}>
+            <Icon icon={FolderOpen} size="xs" />
             {childCount}
           </span>
         )}

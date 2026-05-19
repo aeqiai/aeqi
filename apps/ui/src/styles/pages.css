@@ -3164,13 +3164,47 @@
 
 .quest-board-scopebar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: 38px;
-  padding: 0 20px;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-faint);
   background: var(--color-card);
+}
+
+.quest-board-scope-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+}
+
+.quest-board-scope-title {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.quest-board-scope-kicker {
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.quest-board-scope-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .quest-board-breadcrumb {
@@ -3186,6 +3220,7 @@
   align-items: center;
   min-width: 0;
   gap: var(--space-1);
+  color: var(--color-text-muted);
 }
 
 .quest-board-crumb {
@@ -3237,6 +3272,107 @@ button.quest-board-crumb:focus-visible {
   font-size: 11px;
   color: var(--color-text-secondary);
   white-space: nowrap;
+}
+
+.quest-board-projects {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.quest-board-projects-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.quest-board-project-list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quest-board-project-list::-webkit-scrollbar {
+  display: none;
+}
+
+.quest-board-project-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 220px;
+  height: 26px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-faint);
+  border-radius: 999px;
+  background: var(--color-card-elevated);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.quest-board-project-chip:hover,
+.quest-board-project-chip:focus-visible,
+.quest-board-project-chip[data-active] {
+  outline: none;
+  border-color: var(--border);
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+}
+
+.quest-board-project-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-board-project-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quest-board-project-chip:hover .quest-board-project-count,
+.quest-board-project-chip:focus-visible .quest-board-project-count,
+.quest-board-project-chip[data-active] .quest-board-project-count {
+  background: var(--color-card);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 860px) {
+  .quest-board-scope-main,
+  .quest-board-projects {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quest-board-breadcrumb,
+  .quest-board-scope-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
 }
 
 .quest-board-columns {
@@ -3436,6 +3572,7 @@ button.quest-board-crumb:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   min-width: 18px;
   height: 16px;
   padding: 0 5px;

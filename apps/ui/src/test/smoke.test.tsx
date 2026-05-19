@@ -211,12 +211,18 @@ describe("AgentQuestsTab smoke", () => {
       </StrictMode>,
     );
 
-    expect(screen.getByText("Root quest")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
+    expect(screen.getByText("Projects")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Scope to Root quest, 1 subquests/ }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
 
     expect(screen.getByText("Child quest")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /New subquest/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Up" })).toBeInTheDocument();
   });
 
   it("does not log a React error during render", () => {

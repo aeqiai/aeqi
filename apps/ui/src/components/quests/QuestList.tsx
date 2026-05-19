@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { Button } from "../ui";
+import { FolderOpen } from "lucide-react";
+import { Button, Icon } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
 import { dueLabel, isOverdue, timeAgo } from "@/lib/format";
@@ -180,6 +181,7 @@ export default function QuestList({
                             className="quest-child-count"
                             aria-label={`${childCount} subquests`}
                           >
+                            <Icon icon={FolderOpen} size="xs" />
                             {childCount}
                           </span>
                         )}
