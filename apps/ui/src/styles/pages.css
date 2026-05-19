@@ -3164,13 +3164,17 @@
 
 .quest-board-columns {
   display: grid;
-  grid-template-columns: repeat(5, minmax(188px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(264px, 1fr));
+  gap: 10px;
   flex: 1;
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 18px 28px 28px;
+  padding: 14px 20px 22px;
+  scroll-padding: 20px;
+}
+.quest-board-columns[data-column-count="6"] {
+  grid-template-columns: repeat(6, minmax(224px, 1fr));
 }
 
 /* v5.2: columns drop the heavy 1px border in favour of a soft tier
@@ -3182,7 +3186,7 @@
   flex-direction: column;
   min-height: 0;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--bg-row);
   overflow: hidden;
   transition:
@@ -3219,7 +3223,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  min-height: 36px;
+  padding: 8px 10px;
 }
 .quest-col-label {
   flex: 1;
@@ -3270,10 +3275,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px;
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .quest-col-empty {
   padding: 14px 6px;
@@ -3290,10 +3295,10 @@
    comes from the tier shift, not a heavy outline. */
 .quest-card {
   position: relative;
-  padding: 10px 12px;
+  padding: 9px 10px;
   background: var(--color-card-elevated);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   cursor: grab;
   transition:
     border-color 0.12s,
@@ -3304,10 +3309,15 @@
 }
 .quest-card:hover {
   border-color: var(--border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 .quest-card:active {
   cursor: grabbing;
+}
+.quest-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
 }
 .quest-card[data-dragging] {
   opacity: 0.35;
@@ -3326,7 +3336,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
 .quest-card-head .quest-status-dot {
   margin-top: 5px;
@@ -3347,8 +3357,22 @@
 .quest-card-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   justify-content: space-between;
+  min-width: 0;
+}
+.quest-card-meta-left,
+.quest-card-meta-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.quest-card-meta-left {
+  flex: 1;
+}
+.quest-card-meta-right {
+  flex-shrink: 0;
 }
 .quest-take-btn {
   display: inline-flex;
@@ -3384,7 +3408,6 @@
   font-size: 11px;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-  margin-left: auto;
 }
 
 /* ── Quest due-date chip ─────────────────────────────────────────────
@@ -3510,116 +3533,21 @@
   background: var(--color-text-muted);
 }
 
-/* ───────────────────────────────────────────────────────────────────
-   Quest archive strips — Backlog + Cancelled rendered as collapsible
-   horizontal lanes below the main board on the TRUST-scope standalone
-   Quests app. The main board keeps the four ACTIVE columns
-   (Todo · In progress · In review · Done) at full rhythm; demoted
-   states sit here so the eye reads "in-flight" first, "parked" /
-   "archived" second.
-
-   Card shape: 32px-tall chip on `--color-card-elevated`, same StatusDot
-   + truncated subject + priority glyph as the main board. Drag-to-
-   promote works from chip back into any active column.
-   ─────────────────────────────────────────────────────────────────── */
-.quest-archive-strips {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 16px;
-  padding-bottom: 24px;
-}
-.quest-archive-strip {
-  display: flex;
-  flex-direction: column;
-  border-radius: 4px;
-  transition: background-color var(--transition-fast, 150ms) ease;
-}
-.quest-archive-strip[data-drop-target] {
-  background: var(--color-card-subtle);
-}
-.quest-archive-strip-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  text-align: left;
-  border-radius: 4px;
-  transition: color var(--transition-fast, 150ms) ease;
-}
-.quest-archive-strip-head:hover {
-  color: var(--color-text-primary);
-}
-.quest-archive-strip-chevron {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
-}
-.quest-archive-strip-label {
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-.quest-archive-strip-count {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-.quest-archive-strip-body {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 12px 8px;
-  scrollbar-width: thin;
-}
-.quest-archive-strip-empty {
-  flex: 1;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  padding: 0 4px;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-style: italic;
-}
-.quest-archive-chip {
-  flex: 0 0 240px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  background: var(--color-card-elevated);
-  border-radius: 4px;
-  cursor: grab;
-  color: var(--color-text-primary);
-  transition:
-    background-color var(--transition-fast, 150ms) ease,
-    opacity var(--transition-fast, 150ms) ease;
-}
-.quest-archive-chip:hover {
-  background: var(--color-card);
-}
-.quest-archive-chip[data-dragging] {
-  opacity: 0.5;
-  cursor: grabbing;
-}
-.quest-archive-chip[data-focused] {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
-}
-.quest-archive-chip-subject {
-  flex: 1;
-  white-space: nowrap;
+/* Backlog + Cancelled stay visible as secondary Kanban lanes beneath
+   the four active columns. They use the same card and drop-target
+   language as the active board, but get less height so the primary
+   workflow remains Todo → In progress → In review → Done. */
+.quest-secondary-lanes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(264px, 1fr));
+  gap: 10px;
+  flex: 0 0 min(32vh, 260px);
+  min-height: 156px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 13px;
+  padding: 0 20px 22px;
+}
+.quest-secondary-lane {
+  min-width: 0;
 }
 
 /* Priority mark — same 7px disc language as status. Critical fills

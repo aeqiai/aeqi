@@ -435,7 +435,7 @@ export default function QuestBoard({
           users={users}
         />
       ) : (
-        <div className="quest-board-columns">
+        <div className="quest-board-columns" data-column-count={columns.length}>
           {columns.map((col) => {
             const list = grouped[col.status] || [];
             const isTarget = dropTarget === col.status;
@@ -531,6 +531,11 @@ export default function QuestBoard({
           optimistic={optimistic}
           focusId={focusId}
           onPick={onPick}
+          onTake={handleTake}
+          onCreated={onCreated}
+          onError={setErr}
+          agents={agents}
+          users={users}
         />
       )}
     </div>

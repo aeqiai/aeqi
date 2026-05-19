@@ -60,6 +60,9 @@ export default function QuestActiveCard({
       data-dragging={dragging === q.id || undefined}
       data-focused={focusId === q.id || undefined}
       draggable
+      role="button"
+      tabIndex={0}
+      aria-label={`Open quest ${q.idea?.name ?? q.id}`}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", q.id);
@@ -70,69 +73,80 @@ export default function QuestActiveCard({
         setDropTarget(null);
       }}
       onClick={() => onPick(q.id)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        onPick(q.id);
+      }}
     >
       <div className="quest-card-head">
         <StatusDot status={optimistic[q.id] ?? q.status} />
-        <span className="quest-card-subject">{q.idea?.name ?? q.id}</span>
+        <span className="quest-card-subject" title={q.idea?.name ?? q.id}>
+          {q.idea?.name ?? q.id}
+        </span>
       </div>
       <div className="quest-card-meta">
-        <PriorityIcon priority={q.priority} />
-        {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-        {canTake && (
-          <button
-            type="button"
-            className="quest-take-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              void onTake(q.id);
-            }}
-          >
-            Take
-          </button>
-        )}
-        <span
-          className="quest-card-assignee"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <AssigneePicker
-            assignee={q.assignee}
-            agents={agents}
-            users={users}
-            onChange={async (next) => {
-              try {
-                await api.updateQuest(q.id, { assignee: next });
-                onCreated();
-              } catch (e) {
-                onError(e instanceof Error ? e.message : "Failed to reassign");
-              }
-            }}
-            renderTrigger={({ open }) => (
-              <button
-                type="button"
-                className={`quest-row-assignee${open ? " open" : ""}`}
-                aria-haspopup="dialog"
-                aria-expanded={open}
-                aria-label={
-                  q.assignee
-                    ? `Assigned: ${q.assignee}. Click to reassign.`
-                    : "Unassigned. Click to assign."
-                }
-              >
-                <AssigneeAvatar assignee={q.assignee} agents={agents} users={users} size={18} />
-              </button>
-            )}
-          />
+        <span className="quest-card-meta-left">
+          <PriorityIcon priority={q.priority} />
+          {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+          {canTake && (
+            <button
+              type="button"
+              className="quest-take-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onTake(q.id);
+              }}
+            >
+              Take
+            </button>
+          )}
         </span>
-        {q.due_at && (
+        <span className="quest-card-meta-right">
           <span
-            className={`quest-due-chip${isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""}`}
-            title={`Due ${formatDateTime(q.due_at)}`}
+            className="quest-card-assignee"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            {dueLabel(q.due_at)}
+            <AssigneePicker
+              assignee={q.assignee}
+              agents={agents}
+              users={users}
+              onChange={async (next) => {
+                try {
+                  await api.updateQuest(q.id, { assignee: next });
+                  onCreated();
+                } catch (e) {
+                  onError(e instanceof Error ? e.message : "Failed to reassign");
+                }
+              }}
+              renderTrigger={({ open }) => (
+                <button
+                  type="button"
+                  className={`quest-row-assignee${open ? " open" : ""}`}
+                  aria-haspopup="dialog"
+                  aria-expanded={open}
+                  aria-label={
+                    q.assignee
+                      ? `Assigned: ${q.assignee}. Click to reassign.`
+                      : "Unassigned. Click to assign."
+                  }
+                >
+                  <AssigneeAvatar assignee={q.assignee} agents={agents} users={users} size={18} />
+                </button>
+              )}
+            />
           </span>
-        )}
-        {q.updated_at && <span className="quest-card-time">{timeAgo(q.updated_at)}</span>}
+          {q.due_at && (
+            <span
+              className={`quest-due-chip${isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""}`}
+              title={`Due ${formatDateTime(q.due_at)}`}
+            >
+              {dueLabel(q.due_at)}
+            </span>
+          )}
+          {q.updated_at && <span className="quest-card-time">{timeAgo(q.updated_at)}</span>}
+        </span>
       </div>
     </article>
   );

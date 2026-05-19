@@ -4294,6 +4294,10 @@
 .quest-card-assignee + .quest-card-time {
   margin-left: 6px;
 }
+.quest-card-meta-right .quest-card-assignee,
+.quest-card-meta-right .quest-card-assignee + .quest-card-time {
+  margin-left: 0;
+}
 
 /* Detail-header trigger — the assignee picker in the canvas toolbar.
    Mirrors `.ideas-scope-btn` chrome but the leading glyph is the
