@@ -407,13 +407,28 @@
   gap: var(--space-2);
   min-width: 0;
 }
+/* The trigger pin carries the event's PHASE in the Quests accent ladder:
+   armed = violet (live, watching) · fired = ink (settled, has history) ·
+   dormant = muted ring (operator-disabled). The lifecycle GROUP — runtime
+   vs webhooks vs routines — is already carried by the group-section
+   header dot above, so the row pin is free to express phase instead. */
 .events-overview-row-pin {
   width: 4px;
   height: 14px;
   border-radius: 2px;
-  background: var(--color-accent);
+  background: var(--color-text-muted);
   align-self: center;
   flex-shrink: 0;
+}
+.events-overview-row-pin--armed {
+  background: #7c6cd6;
+}
+.events-overview-row-pin--fired {
+  background: var(--color-accent);
+}
+.events-overview-row-pin--dormant {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--color-text-muted);
 }
 .events-overview-row-name {
   font-family: var(--font-sans);
@@ -493,8 +508,10 @@
   margin: 0 4px;
 }
 
-/* Tone-colored trigger pin — one per lifecycle group (matches canvas stripes) */
-.events-overview-row-pin.events-overview-tone-runtime,
+/* Group tones — the section header dot and the in-row trigger chip
+   carry the lifecycle group (runtime / webhooks / routines), matching
+   the canvas-node tone stripes. Runtime is graphite, webhooks jade,
+   routines warmth. */
 .events-overview-group-dot.events-overview-tone-runtime {
   background: var(--color-accent);
 }
@@ -503,7 +520,6 @@
   background: var(--color-accent-bg, rgba(0, 0, 0, 0.06));
   border-color: var(--color-accent-bg, rgba(0, 0, 0, 0.14));
 }
-.events-overview-row-pin.events-overview-tone-webhooks,
 .events-overview-group-dot.events-overview-tone-webhooks {
   background: var(--event-tone-webhook, #5aa373);
 }
@@ -512,7 +528,6 @@
   background: rgba(90, 163, 115, 0.14);
   border-color: rgba(90, 163, 115, 0.32);
 }
-.events-overview-row-pin.events-overview-tone-routines,
 .events-overview-group-dot.events-overview-tone-routines {
   background: var(--event-tone-context, #d9a64d);
 }
@@ -520,6 +535,16 @@
   color: #8f6b20;
   background: rgba(217, 166, 77, 0.14);
   border-color: rgba(217, 166, 77, 0.32);
+}
+
+/* Phase echo on the "N fires" / "never" label — a tiny weight shift so
+   the phase reads consistently across the row (pin + count agree). */
+.events-overview-row[data-phase="armed"] .events-overview-row-fires {
+  color: #7c6cd6;
+}
+.events-overview-row[data-phase="fired"] .events-overview-row-fires {
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 /* Inline hint after the group label — keeps the eyebrow lean. */

@@ -33,6 +33,23 @@ function toolScope(tc: ToolCall): string {
   return dot === -1 ? name : name.slice(0, dot);
 }
 
+/**
+ * An event's lifecycle phase — the WHEN-primitive equivalent of a quest's
+ * status. Mirrors the Quests accent ladder:
+ *   armed   → violet  (live, watching for the pattern, hasn't fired yet)
+ *   fired   → ink     (has fired at least once — settled, history exists)
+ *   dormant → muted   (disabled by the operator; pattern won't match)
+ *
+ * We deliberately don't model "firing right now" here — the overview row
+ * has no live signal. That belongs to the detail/fires panel.
+ */
+type EventPhase = "armed" | "fired" | "dormant";
+
+function eventPhase(ev: AgentEvent): EventPhase {
+  if (!ev.enabled) return "dormant";
+  return ev.fire_count > 0 ? "fired" : "armed";
+}
+
 export default function EventsOverview({ events, onSelect, onNew }: EventsOverviewProps) {
   const grouped = useMemo(() => {
     const map = new Map<LifecycleGroup, AgentEvent[]>();
@@ -103,19 +120,30 @@ function OverviewRow({
 }) {
   const tools = event.tool_calls ?? [];
   const isGlobal = event.agent_id == null;
+  const phase = eventPhase(event);
+  // Description for screen readers — the pin and the "N fires" / "never"
+  // text both carry phase info, but neither is announced naturally.
+  const phaseLabel = phase === "armed" ? "armed" : phase === "fired" ? "fired" : "dormant";
 
   return (
-    <li className={`events-overview-row${!event.enabled ? " is-dimmed" : ""}`}>
+    <li
+      className={`events-overview-row${!event.enabled ? " is-dimmed" : ""}`}
+      data-phase={phase}
+      data-group={group}
+    >
       <button
         type="button"
         className="events-overview-row-btn"
         data-testid="event-row"
         data-event-id={event.id}
         onClick={() => onSelect(event.id)}
-        aria-label={`Open ${event.name}`}
+        aria-label={`Open ${event.name} (${phaseLabel})`}
       >
         <div className="events-overview-row-head">
-          <span className={`events-overview-row-pin events-overview-tone-${group}`} aria-hidden />
+          <span
+            className={`events-overview-row-pin events-overview-row-pin--${phase}`}
+            aria-hidden
+          />
           <span className="events-overview-row-name">{event.name}</span>
           {isGlobal && <span className="events-overview-row-badge">{SCOPE_LABEL.global}</span>}
           <span className="events-overview-row-pattern">{event.pattern}</span>
