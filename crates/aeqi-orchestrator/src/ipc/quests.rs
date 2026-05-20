@@ -8,6 +8,46 @@ use crate::quest_assignee::{
 };
 
 use super::tenancy::{check_agent_access, is_allowed};
+
+/// Quest 67-213 phase-1: resolve the `caller_entity_id` for `role:<id>`
+/// assignee validation.
+///
+/// Resolution order:
+///   1. Explicit `trust_id` field on the request (canonical wire shape).
+///   2. The calling agent's `trust_id`, if `caller_agent_id` is present.
+///   3. The single allowed-root, if the proxy gated this call to exactly
+///      one root via `x-aeqi-allowed-roots`.
+///
+/// Returns `None` when none of those produce an entity — `role:<id>`
+/// assignees are then rejected by `validate_assignee` with a clear error.
+async fn resolve_caller_entity_id(
+    ctx: &super::CommandContext,
+    request: &serde_json::Value,
+    allowed: &Option<Vec<String>>,
+) -> Option<String> {
+    if let Some(s) = request
+        .get("trust_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+    {
+        return Some(s.trim().to_string());
+    }
+    if let Some(agent_id) = request
+        .get("caller_agent_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        && let Ok(Some(agent)) = ctx.agent_registry.get(agent_id.trim()).await
+        && let Some(t) = agent.trust_id
+    {
+        return Some(t);
+    }
+    if let Some(list) = allowed.as_ref()
+        && list.len() == 1
+    {
+        return Some(list[0].clone());
+    }
+    None
+}
 pub async fn handle_quests(
     ctx: &super::CommandContext,
     request: &serde_json::Value,
@@ -611,7 +651,7 @@ pub async fn handle_update_quest(
         _ => {
             return serde_json::json!({
                 "ok": false,
-                "error": "Invalid assignee. Use 'user:<uuid>', 'agent:<uuid>', empty string, or null."
+                "error": "Invalid assignee. Use 'user:<uuid>', 'agent:<uuid>', 'role:<uuid>', empty string, or null."
             });
         }
     };
@@ -686,7 +726,14 @@ pub async fn handle_update_quest(
         Ok(update) => update,
         Err(e) => return serde_json::json!({"ok": false, "error": e}),
     };
-    let assignee_update = match validate_assignee_update(&ctx.agent_registry, assignee_update).await
+    let caller_entity_id = resolve_caller_entity_id(ctx, request, allowed).await;
+    let assignee_update = match validate_assignee_update(
+        &ctx.agent_registry,
+        &ctx.role_registry,
+        caller_entity_id.as_deref(),
+        assignee_update,
+    )
+    .await
     {
         Ok(update) => update,
         Err(e) => return serde_json::json!({"ok": false, "error": e}),
@@ -993,7 +1040,14 @@ pub async fn handle_close_quest(
         Ok(update) => update,
         Err(e) => return serde_json::json!({"ok": false, "error": e}),
     };
-    let assignee_update = match validate_assignee_update(&ctx.agent_registry, assignee_update).await
+    let caller_entity_id = resolve_caller_entity_id(ctx, request, allowed).await;
+    let assignee_update = match validate_assignee_update(
+        &ctx.agent_registry,
+        &ctx.role_registry,
+        caller_entity_id.as_deref(),
+        assignee_update,
+    )
+    .await
     {
         Ok(update) => update,
         Err(e) => return serde_json::json!({"ok": false, "error": e}),

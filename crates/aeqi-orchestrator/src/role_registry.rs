@@ -9,6 +9,7 @@
 //! [`EntityRegistry`] so all three operate on the same `aeqi.db`.
 
 use crate::agent_registry::ConnectionPool;
+use crate::quest_assignee::QuestCallerPrincipal;
 use anyhow::{Result, bail};
 use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
@@ -643,6 +644,110 @@ impl RoleRegistry {
         )?;
         db.execute("DELETE FROM roles WHERE trust_id = ?1", params![trust_id])?;
         Ok(())
+    }
+
+    // ── Quest 67-213 phase-1: quest assignee role-binding ────────────────────
+
+    /// Cheap existence check scoped to an entity. Returns true iff a role
+    /// with `role_id` exists AND belongs to `trust_id`. Used by the
+    /// `validate_assignee` cross-entity guard to keep `role:<id>` from
+    /// leaking across TRUSTs.
+    pub async fn role_exists(&self, role_id: &str, trust_id: &str) -> Result<bool> {
+        let db = self.db.lock().await;
+        let exists: Option<i64> = db
+            .query_row(
+                "SELECT 1 FROM roles WHERE id = ?1 AND trust_id = ?2",
+                params![role_id, trust_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(exists.is_some())
+    }
+
+    /// Authority check for `role:<id>`-assigned quests.
+    ///
+    /// Returns true iff `caller` is allowed to claim a quest whose assignee
+    /// is `role:<target_role_id>` within `trust_id`. The semantic (per idea
+    /// `f1b46048` / quest 67-213) is:
+    ///
+    /// - `caller` is the direct occupant of `target_role_id`, OR
+    /// - `caller` occupies a role R' such that there is a directed path
+    ///   R' → … → target via `role_edges` (transitive ancestor).
+    ///
+    /// All checks are scoped to `trust_id`: a principal occupying a role in
+    /// another entity cannot reach into this entity's quests. Returns false
+    /// (not error) when the target role does not exist or belongs to a
+    /// different entity — the validate path is responsible for surfacing
+    /// missing-role / cross-entity errors before this is called.
+    pub async fn can_claim_role(
+        &self,
+        caller: &QuestCallerPrincipal,
+        target_role_id: &str,
+        trust_id: &str,
+    ) -> Result<bool> {
+        let (occupant_kind, occupant_id) = match caller {
+            QuestCallerPrincipal::User(id) => ("human", id.as_str()),
+            QuestCallerPrincipal::Agent(id) => ("agent", id.as_str()),
+        };
+
+        let db = self.db.lock().await;
+
+        // Guard: target must belong to this entity. Cheap and avoids
+        // surprising authority reads when callers misuse the API.
+        let target_belongs: Option<i64> = db
+            .query_row(
+                "SELECT 1 FROM roles WHERE id = ?1 AND trust_id = ?2",
+                params![target_role_id, trust_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if target_belongs.is_none() {
+            return Ok(false);
+        }
+
+        // Direct-occupant short-circuit.
+        let direct: Option<i64> = db
+            .query_row(
+                "SELECT 1 FROM roles
+                 WHERE id = ?1
+                   AND trust_id = ?2
+                   AND occupant_kind = ?3
+                   AND occupant_id = ?4",
+                params![target_role_id, trust_id, occupant_kind, occupant_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if direct.is_some() {
+            return Ok(true);
+        }
+
+        // Transitive: any role occupied by the caller that has a directed
+        // path through `role_edges` to `target_role_id`. The recursive CTE
+        // expands the descendant set rooted at each role the caller occupies
+        // and checks whether `target_role_id` is in the set. All edges
+        // joined back through `roles` to enforce same-entity scoping; cross-
+        // entity edges are not possible today but the join keeps the check
+        // honest if that invariant ever drifts.
+        let via_ancestor: Option<i64> = db
+            .query_row(
+                "WITH RECURSIVE controlled(role_id) AS (
+                     SELECT id FROM roles
+                     WHERE trust_id = ?1
+                       AND occupant_kind = ?2
+                       AND occupant_id = ?3
+                     UNION
+                     SELECT e.child_role_id
+                     FROM role_edges e
+                     JOIN controlled c ON c.role_id = e.parent_role_id
+                     JOIN roles cr ON cr.id = e.child_role_id
+                     WHERE cr.trust_id = ?1
+                 )
+                 SELECT 1 FROM controlled WHERE role_id = ?4 LIMIT 1",
+                params![trust_id, occupant_kind, occupant_id, target_role_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(via_ancestor.is_some())
     }
 
     /// Idempotent: create the founding Director role for this entity if one

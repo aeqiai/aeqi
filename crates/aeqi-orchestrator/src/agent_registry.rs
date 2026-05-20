@@ -391,6 +391,22 @@ fn ensure_quest_assignee_column(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Quest 67-213 phase-1: partial index for `assignee LIKE 'role:%'` lookups.
+///
+/// The full `idx_quests_assignee` index already covers exact-match queries
+/// on `role:<uuid>`. This partial index is the fanout helper for "which
+/// quests target role X?" listings (and any future indexer that scans
+/// role-bound quests separately from principal-bound quests). Cheap to
+/// maintain — only role-assigned rows pay write cost. Idempotent.
+fn ensure_quest_assignee_role_index(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_quests_assignee_role
+         ON quests(assignee)
+         WHERE assignee LIKE 'role:%'",
+    )?;
+    Ok(())
+}
+
 /// Idempotent: add the `due_at` column on legacy DBs that pre-date
 /// the Phase-2 due-date feature. Stored as a Unix-second integer (no
 /// timezone games — UTC). NULL = no deadline. Fresh DBs include the
@@ -1699,6 +1715,13 @@ impl AgentRegistry {
         // upgrade-path DBs; fresh DBs already carry it from CREATE
         // TABLE and this is a short-circuit no-op.
         ensure_quest_assignee_column(&sconn)?;
+
+        // ── Quest 67-213 phase-1: role-bound assignee fanout index ──────────
+        // Partial index on `assignee LIKE 'role:%'` for the role fanout
+        // query path. Idempotent. Co-located with the assignee column
+        // migration so the index is guaranteed to exist on every DB that
+        // accepts the new `role:<id>` write shape.
+        ensure_quest_assignee_role_index(&sconn)?;
 
         // ── Phase-2 due-date column (idempotent) ────────────────────────────
         // `due_at INTEGER` (Unix-second timestamp; nullable). Linear-style

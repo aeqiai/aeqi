@@ -9,6 +9,7 @@ use crate::agent_registry::AgentRegistry;
 use crate::quest_assignee::{
     QuestCallerPrincipal, auto_assignee_for_status, validate_assignee_update,
 };
+use crate::role_registry::RoleRegistry;
 
 /// Read the canonical GitHub-issue URL attached to a quest (quest 67-218).
 ///
@@ -224,6 +225,18 @@ impl QuestsTool {
     /// Resolve the calling agent UUID from the bound session context.
     async fn calling_uuid(&self) -> Option<String> {
         Some(self.agent_id.clone())
+    }
+
+    /// Quest 67-213 phase-1: resolve the entity context for `role:<id>`
+    /// assignee validation. The tool runs inside an agent session, so the
+    /// caller's entity is the agent's `trust_id`.
+    async fn caller_entity_id(&self) -> Option<String> {
+        self.agent_registry
+            .get(&self.agent_id)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|a| a.trust_id)
     }
 
     /// Set the session ID of the calling session. Used to propagate
@@ -537,7 +550,7 @@ impl QuestsTool {
             Some(serde_json::Value::String(s)) => Some(Some(s.clone())),
             _ => {
                 return Ok(ToolResult::error(
-                    "Invalid assignee. Use 'agent:<id>', 'user:<id>', empty string, or null.",
+                    "Invalid assignee. Use 'agent:<id>', 'user:<id>', 'role:<id>', empty string, or null.",
                 ));
             }
         };
@@ -601,11 +614,19 @@ impl QuestsTool {
             Ok(update) => update,
             Err(e) => return Ok(ToolResult::error(e)),
         };
-        let assignee_update =
-            match validate_assignee_update(&self.agent_registry, assignee_update).await {
-                Ok(update) => update,
-                Err(e) => return Ok(ToolResult::error(e)),
-            };
+        let role_registry = RoleRegistry::open(self.agent_registry.db());
+        let caller_entity_id = self.caller_entity_id().await;
+        let assignee_update = match validate_assignee_update(
+            &self.agent_registry,
+            &role_registry,
+            caller_entity_id.as_deref(),
+            assignee_update,
+        )
+        .await
+        {
+            Ok(update) => update,
+            Err(e) => return Ok(ToolResult::error(e)),
+        };
 
         let updated = self
             .agent_registry
@@ -681,11 +702,19 @@ impl QuestsTool {
             Ok(update) => update,
             Err(e) => return Ok(ToolResult::error(e)),
         };
-        let assignee_update =
-            match validate_assignee_update(&self.agent_registry, assignee_update).await {
-                Ok(update) => update,
-                Err(e) => return Ok(ToolResult::error(e)),
-            };
+        let role_registry = RoleRegistry::open(self.agent_registry.db());
+        let caller_entity_id = self.caller_entity_id().await;
+        let assignee_update = match validate_assignee_update(
+            &self.agent_registry,
+            &role_registry,
+            caller_entity_id.as_deref(),
+            assignee_update,
+        )
+        .await
+        {
+            Ok(update) => update,
+            Err(e) => return Ok(ToolResult::error(e)),
+        };
 
         let result_owned = result.to_string();
         match self
@@ -961,7 +990,7 @@ impl Tool for QuestsTool {
                     },
                     "status": { "type": "string", "enum": ["backlog", "todo", "in_progress", "done", "cancelled"], "description": "Filter or new status (for list, update). Legacy 'pending'/'blocked' values still accepted." },
                     "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "description": "Priority (for create, update)" },
-                    "assignee": { "type": ["string", "null"], "description": "Polymorphic assignee for update: agent:<id>, user:<id>, empty string, or null to unassign" },
+                    "assignee": { "type": ["string", "null"], "description": "Polymorphic assignee for update: agent:<id>, user:<id>, role:<id>, empty string, or null to unassign. Role-bound quests stay claimable by any principal occupying that role or controlling it via role_edges." },
                     "result": { "type": "string", "description": "Completion result (for close)" },
                     "reason": { "type": "string", "description": "Cancellation reason (for cancel)" },
                     "url": { "type": "string", "description": "GitHub issue URL (for attach_github_issue). Must match https://github.com/<owner>/<repo>/issues/<n>." },

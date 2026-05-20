@@ -7,7 +7,13 @@ import type { Agent, User } from "@/lib/types";
  * Polymorphic assignee avatar. Block (square) for agents, round for
  * humans — the codebase already locked that axis via `AgentAvatar` /
  * `UserAvatar`, this component just routes the polymorphic
- * `agent:<id>` | `user:<id>` string to the right primitive.
+ * `agent:<id>` | `user:<id>` | `role:<id>` string to the right primitive.
+ *
+ * Roles render as a block avatar (square slot) — they are positions,
+ * not principals, and the block silhouette reads as "structural" the
+ * same way agents do. Phase-1 doesn't pass a roles dictionary in
+ * yet, so the rendered name falls back to the role id (the resolver
+ * handles that gracefully). See `assignee.ts` TODO.
  *
  * Unassigned renders a dotted ring placeholder so the assignment slot
  * is always present (the affordance reads "click me to assign", not
@@ -28,11 +34,10 @@ export default function AssigneeAvatar({
   if (!identity) return <UnassignedDot size={size} />;
   const display = resolveAssigneeDisplay(identity, agents, users);
   if (!display) return <UnassignedDot size={size} />;
-  return display.kind === "agent" ? (
-    <BlockAvatar name={display.name} size={size} />
-  ) : (
-    <RoundAvatar name={display.name} size={size} src={display.avatarUrl} />
-  );
+  if (display.kind === "agent" || display.kind === "role") {
+    return <BlockAvatar name={display.name} size={size} />;
+  }
+  return <RoundAvatar name={display.name} size={size} src={display.avatarUrl} />;
 }
 
 function UnassignedDot({ size }: { size: number }) {
