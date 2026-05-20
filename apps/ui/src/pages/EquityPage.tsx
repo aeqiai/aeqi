@@ -6,11 +6,12 @@ import { EquityShareControls } from "@/components/EquityShareControls";
 import { EquityVestingControls } from "@/components/EquityVestingControls";
 import EquityFundingRoundControl from "@/components/EquityFundingRoundControl";
 import { EquityPrefillProvider, useEquityPrefill } from "@/components/equity/equityPrefillContext";
+import { HolderDrawer } from "@/components/equity/HolderDrawer";
 import { MintIdentitySection } from "@/components/equity/MintIdentitySection";
 import { VestingSection } from "@/components/equity/VestingSection";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
-import type { TokenHolder } from "@/solana";
+import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
   EmptyState,
   Loading,
@@ -20,6 +21,7 @@ import {
   PageHeader,
   PageSection,
   Table,
+  ToolbarRadioPopover,
   Tooltip,
   type TableColumn,
 } from "@/components/ui";
@@ -165,11 +167,14 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             supply={mint.supply}
             decimals={mint.decimals}
             maxSupplyCap={tokenModuleState.maxSupplyCap}
+            mintAuthority={mint.mintAuthority}
+            freezeAuthority={mint.freezeAuthority}
           />
           <CapTableSection
             holders={holders ?? []}
             totalSupply={mint.supply}
             decimals={mint.decimals}
+            vestingPositions={vesting ?? []}
           />
           <EquityShareControls trustId={trustId} />
           <EquityGenesisCurveSection trustId={trustId} />
@@ -186,24 +191,111 @@ export default function EquityPage({ trustId }: { trustId: string }) {
 /* Sections                                                            */
 /* ────────────────────────────────────────────────────────────────── */
 
+/* Toolbar glyphs — match the canonical set used by Agents/Ideas/Quests
+   toolbars so the cap-table sort/filter affordance reads identically to
+   every other "view this primitive" surface in the app. */
+const CAP_TABLE_GLYPHS = {
+  sort: (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
+      <path d="M3 3.5h7M3 6.5h5M3 9.5h3" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  ),
+  filter: (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" aria-hidden>
+      <path d="M2 3.25h9M3.5 6.5h6M5 9.75h3" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
+/* Cap-table sort options. `largest` is iter-3's default; `smallest` and
+   `address` give the operator a way to find tiny holdings + spot
+   address-sort patterns when reconciling against an external list. */
+type CapTableSort = "largest" | "smallest" | "address";
+const CAP_TABLE_SORT_LABELS: Record<CapTableSort, string> = {
+  largest: "Largest first",
+  smallest: "Smallest first",
+  address: "By address",
+};
+
+/* Cap-table filters. `vested` and `no_vesting` lean on the
+   page-wide vesting list — same plumbing the drawer uses. */
+type CapTableFilter = "all" | "vested" | "no_vesting";
+const CAP_TABLE_FILTER_LABELS: Record<CapTableFilter, string> = {
+  all: "All holders",
+  vested: "With vesting",
+  no_vesting: "No vesting",
+};
+
 function CapTableSection({
   holders,
   totalSupply,
   decimals,
+  vestingPositions,
 }: {
   holders: TokenHolder[];
   totalSupply: bigint;
   decimals: number;
+  vestingPositions: VestingPositionWithPda[];
 }) {
   const { mintTo, transferTo, vestingRecipient } = useEquityPrefill();
+  const [drawerHolder, setDrawerHolder] = useState<TokenHolder | null>(null);
+  const [sort, setSort] = useState<CapTableSort>("largest");
+  const [filter, setFilter] = useState<CapTableFilter>("all");
+
+  // Pre-compute "owners with at least one vesting position" — sub-linear
+  // for cap-table filters. Built once per vesting list change.
+  const vestedOwners = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of vestingPositions) set.add(p.account.recipient.toBase58());
+    return set;
+  }, [vestingPositions]);
+
+  const filteredHolders = useMemo(() => {
+    const after = holders.filter((h) => {
+      if (filter === "all") return true;
+      const isVested = vestedOwners.has(h.owner.toBase58());
+      return filter === "vested" ? isVested : !isVested;
+    });
+    return [...after].sort((a, b) => {
+      if (sort === "largest") {
+        if (a.amount === b.amount) return 0;
+        return a.amount > b.amount ? -1 : 1;
+      }
+      if (sort === "smallest") {
+        if (a.amount === b.amount) return 0;
+        return a.amount < b.amount ? -1 : 1;
+      }
+      return a.owner.toBase58().localeCompare(b.owner.toBase58());
+    });
+  }, [holders, filter, sort, vestedOwners]);
 
   const columns: Array<TableColumn<TokenHolder>> = [
     {
       key: "owner",
       header: "Holder",
-      cell: (row) => (
-        <CopyableMono full={row.owner.toBase58()} display={shortAddress(row.owner.toBase58())} />
-      ),
+      cell: (row) => {
+        const owner = row.owner.toBase58();
+        const hasVesting = vestedOwners.has(owner);
+        return (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <CopyableMono full={owner} display={shortAddress(owner)} />
+            {hasVesting && (
+              <Tooltip content="Holder has at least one vesting position.">
+                <span
+                  aria-label="Has vesting"
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "var(--color-success)",
+                  }}
+                />
+              </Tooltip>
+            )}
+          </span>
+        );
+      },
     },
     {
       key: "amount",
@@ -237,6 +329,11 @@ function CapTableSection({
               <button
                 type="button"
                 aria-label={`Holder actions for ${shortAddress(owner)}`}
+                /* Prevent the row-click drawer from opening when the
+                   operator is targeting the menu trigger. The Table
+                   primitive's onRowClick fires on the row's onClick;
+                   stopping propagation here keeps the drawer closed. */
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   background: "transparent",
                   border: 0,
@@ -252,6 +349,11 @@ function CapTableSection({
               </button>
             }
             items={[
+              {
+                key: "open",
+                label: "Open holder",
+                onSelect: () => setDrawerHolder(row),
+              },
               {
                 key: "mint",
                 label: "Mint more to holder",
@@ -274,28 +376,80 @@ function CapTableSection({
     },
   ];
 
+  const description = useMemo(() => {
+    if (holders.length === 0) {
+      return "No holders yet — mint the first LAUNCH from Share controls below.";
+    }
+    const total = holders.length;
+    const shown = filteredHolders.length;
+    const noun = total === 1 ? "holder" : "holders";
+    if (filter === "all") {
+      return `${total} ${noun}. Click a row to open the holder drawer; ⋯ menu prefills the action forms below.`;
+    }
+    return `${shown} of ${total} ${noun} match the active filter.`;
+  }, [holders.length, filteredHolders.length, filter]);
+
   return (
-    <PageSection
-      title="Cap table"
-      description={
-        holders.length === 0
-          ? "No holders yet — mint the first LAUNCH from Share controls below."
-          : `${holders.length} ${holders.length === 1 ? "holder" : "holders"}. Open the row menu to prefill an action below.`
-      }
-    >
-      <Table
-        columns={columns}
-        data={holders}
-        rowKey={(row) => row.tokenAccount.toBase58()}
-        empty={
-          <EmptyState
-            title="No holders"
-            description="Once the cap-table token is minted to a wallet, holders appear here."
-          />
+    <>
+      <PageSection
+        title="Cap table"
+        description={description}
+        actions={
+          holders.length > 1 ? (
+            <span style={{ display: "inline-flex", gap: "var(--space-2)", alignItems: "center" }}>
+              <ToolbarRadioPopover
+                label="Sort"
+                current={CAP_TABLE_SORT_LABELS[sort]}
+                glyph={CAP_TABLE_GLYPHS.sort}
+                options={(Object.keys(CAP_TABLE_SORT_LABELS) as CapTableSort[]).map((id) => ({
+                  id,
+                  label: CAP_TABLE_SORT_LABELS[id],
+                }))}
+                value={sort}
+                onChange={(next) => setSort(next as CapTableSort)}
+              />
+              <ToolbarRadioPopover
+                label="Filter"
+                current={CAP_TABLE_FILTER_LABELS[filter]}
+                glyph={CAP_TABLE_GLYPHS.filter}
+                options={(Object.keys(CAP_TABLE_FILTER_LABELS) as CapTableFilter[]).map((id) => ({
+                  id,
+                  label: CAP_TABLE_FILTER_LABELS[id],
+                }))}
+                value={filter}
+                onChange={(next) => setFilter(next as CapTableFilter)}
+                indicator={filter !== "all"}
+              />
+            </span>
+          ) : undefined
         }
-        ariaLabel="Cap table holders"
+      >
+        <Table
+          columns={columns}
+          data={filteredHolders}
+          rowKey={(row) => row.tokenAccount.toBase58()}
+          onRowClick={(row) => setDrawerHolder(row)}
+          empty={
+            <EmptyState
+              title={filter === "all" ? "No holders" : "No holders match the filter"}
+              description={
+                filter === "all"
+                  ? "Once the cap-table token is minted to a wallet, holders appear here."
+                  : "Try clearing the filter or grant a vesting position from the form below."
+              }
+            />
+          }
+          ariaLabel="Cap table holders"
+        />
+      </PageSection>
+      <HolderDrawer
+        holder={drawerHolder}
+        totalSupply={totalSupply}
+        decimals={decimals}
+        vestingPositions={vestingPositions}
+        onClose={() => setDrawerHolder(null)}
       />
-    </PageSection>
+    </>
   );
 }
 

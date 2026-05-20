@@ -36,6 +36,36 @@
   color: var(--color-error);
 }
 
+/* iter-4 simulator row — sits one click below the Sell row. Soft tint
+   on the row background so it reads as "projection" not "execution",
+   distinct from the live trade rows above without a hairline. */
+.curve-trade-row--sim {
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.curve-sim-output {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.curve-sim-output__main {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.curve-sim-output__delta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* ja-017b: recent-trades log under the chart. Compact, tabular row
    per trade with the dot-color affordance carrying through from the
    chart (jade = buy, warmth/amber = sell). */

@@ -18,6 +18,7 @@
  * `--color-card-subtle`; mono `--font-mono` for hex chars.
  */
 import { useState } from "react";
+import type { PublicKey } from "@solana/web3.js";
 import { Badge, MetricCard, MetricGrid, PageSection, Tooltip } from "@/components/ui";
 
 import "./MintIdentitySection.css";
@@ -101,6 +102,17 @@ export interface MintIdentitySectionProps {
   supply: bigint;
   decimals: number;
   maxSupplyCap: { toString(): string } | bigint;
+  /**
+   * Authority surfaces straight off the Token-2022 mint extension layer.
+   * `null` is the meaningful state for both — the underlying SPL Token
+   * convention is `mintAuthority === null` ↦ fixed-supply (no further
+   * mints possible), `freezeAuthority === null` ↦ non-freezable
+   * (account-freezes cannot be issued). Iter-4 surfaces them as badges
+   * so operators can see the cap-table mint's static guarantees without
+   * round-tripping to an explorer.
+   */
+  mintAuthority?: PublicKey | null;
+  freezeAuthority?: PublicKey | null;
 }
 
 export function MintIdentitySection({
@@ -108,6 +120,8 @@ export function MintIdentitySection({
   supply,
   decimals,
   maxSupplyCap,
+  mintAuthority,
+  freezeAuthority,
 }: MintIdentitySectionProps) {
   const [copied, setCopied] = useState(false);
   const capString = bnLikeToString(maxSupplyCap);
@@ -115,6 +129,12 @@ export function MintIdentitySection({
   const capBigint = isUncapped ? 0n : BigInt(capString);
   const capUsage = isUncapped ? null : formatCapUsage(supply, capBigint);
   const monogram = mintMonogram(mintAddress);
+  // `undefined` ↦ the caller didn't supply the field (older callers
+  // pre-iter-4). Skip the badge row entirely in that case so we don't
+  // emit a misleading "freezable" badge for an unknown authority state.
+  const showAuthorities = mintAuthority !== undefined || freezeAuthority !== undefined;
+  const isMintable = mintAuthority != null;
+  const isFreezable = freezeAuthority != null;
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(mintAddress);
@@ -158,6 +178,32 @@ export function MintIdentitySection({
                 <span className="mint-identity__explorerLabel">Explorer</span>
               </a>
             </div>
+            {showAuthorities && (
+              <div className="mint-identity__badgeRow" aria-label="Mint authority flags">
+                <Tooltip
+                  content={
+                    isMintable
+                      ? "Mint authority is set — new tokens can still be issued."
+                      : "Mint authority is null — supply is permanently fixed."
+                  }
+                >
+                  <Badge variant={isMintable ? "info" : "muted"} size="sm">
+                    {isMintable ? "mintable" : "fixed supply"}
+                  </Badge>
+                </Tooltip>
+                <Tooltip
+                  content={
+                    isFreezable
+                      ? "Freeze authority is set — token accounts can be frozen."
+                      : "Freeze authority is null — accounts cannot be frozen."
+                  }
+                >
+                  <Badge variant={isFreezable ? "warning" : "muted"} size="sm">
+                    {isFreezable ? "freezable" : "non-freezable"}
+                  </Badge>
+                </Tooltip>
+              </div>
+            )}
           </div>
         </div>
         <MetricGrid columns={3}>

@@ -58,6 +58,12 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
   const [sellSignature, setSellSignature] = useState<string | null>(null);
   const [sellError, setSellError] = useState<string | null>(null);
 
+  // iter-4: trade simulator. `simAmount` is the user-typed LAUNCH amount
+  // in human units; the projection panel renders the avg cost + price
+  // delta + supply-after using the same linear-curve math the on-chain
+  // program executes. No API call — pure forward projection.
+  const [simAmount, setSimAmount] = useState("");
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -122,6 +128,69 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
       return null;
     }
   }, [sellAmount]);
+
+  // iter-4: parse simulator input the same way (LAUNCH human units →
+  // base units), so the simulator math runs against the same scale as
+  // the on-chain numbers.
+  const simAmountBaseUnits = useMemo(() => {
+    const trimmed = simAmount.trim();
+    if (!trimmed) return null;
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+    const [integerPart, fractionalPart = ""] = trimmed.split(".");
+    const padded = fractionalPart.padEnd(TOKEN_DECIMALS, "0").slice(0, TOKEN_DECIMALS);
+    const combined = `${integerPart}${padded}`.replace(/^0+(?=\d)/, "");
+    try {
+      const value = BigInt(combined);
+      return value > 0n ? value : null;
+    } catch {
+      return null;
+    }
+  }, [simAmount]);
+
+  // iter-4: simulator projection — pure forward math against the live
+  // curve state. Mirrors `aeqi_unifutures::buy_linear` cost integration:
+  // for a linear curve P(s) = start + (end - start) * s / max, buying
+  // ΔS tokens from supply s costs the trapezoid (P(s) + P(s + ΔS)) / 2
+  // × ΔS. Returns null when input is invalid or curve state is missing.
+  const simProjection: SimProjection | null = useMemo(() => {
+    if (!state || simAmountBaseUnits === null) return null;
+    try {
+      const startPrice = BigInt(state.start_price);
+      const endPrice = BigInt(state.end_price);
+      const maxSupply = BigInt(state.max_supply);
+      const currentSupply = BigInt(state.current_supply);
+      if (maxSupply === 0n) return null;
+      const buyAmount = simAmountBaseUnits;
+      // Cap at remaining headroom — buying past max supply is a no-op
+      // on chain (the call would revert), so we surface the projection
+      // against the legal upper bound.
+      const headroom = currentSupply >= maxSupply ? 0n : maxSupply - currentSupply;
+      if (headroom === 0n) return { kind: "saturated" };
+      const effectiveBuy = buyAmount > headroom ? headroom : buyAmount;
+      const supplyAfter = currentSupply + effectiveBuy;
+      // P(s) in u128-scaled USDC.
+      const priceSpan = endPrice >= startPrice ? endPrice - startPrice : 0n;
+      const priceBefore = startPrice + (priceSpan * currentSupply) / maxSupply;
+      const priceAfter = startPrice + (priceSpan * supplyAfter) / maxSupply;
+      // Trapezoid cost in (u128 × base-units). Decimals scaling: the
+      // result is in (USDC_1e18 × token_base_units). To convert into
+      // 1e18-scaled USDC we divide by 10^TOKEN_DECIMALS so the value
+      // re-uses `formatCurvePrice` directly.
+      const avgPrice = (priceBefore + priceAfter) / 2n;
+      const decimalsScale = 10n ** BigInt(TOKEN_DECIMALS);
+      const cost = (avgPrice * effectiveBuy) / decimalsScale;
+      return {
+        kind: "ok",
+        capped: effectiveBuy < buyAmount,
+        cost,
+        priceBefore,
+        priceAfter,
+        supplyAfter,
+      };
+    } catch {
+      return null;
+    }
+  }, [state, simAmountBaseUnits]);
 
   const handleSell = async () => {
     if (sellAmountBaseUnits === null) return;
@@ -253,6 +322,20 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
           idle="Burns the amount back to the curve at the current price."
         />
       </div>
+      {/* iter-4 trade simulator. Read-only — no API call. Projects cost
+          and price impact against the live curve so operators can size
+          a buy before committing. */}
+      <div className="curve-trade-row curve-trade-row--sim">
+        <Input
+          label="Simulate buy"
+          inputMode="decimal"
+          placeholder="0.0"
+          value={simAmount}
+          onChange={(e) => setSimAmount(e.target.value)}
+          size="sm"
+        />
+        <CurveSimulatorOutput amountBaseUnits={simAmountBaseUnits} projection={simProjection} />
+      </div>
       <RecentTradesLog
         trades={state.recent_trades ?? []}
         unavailable={state.recent_trades_unavailable === true}
@@ -288,4 +371,60 @@ function TradeStatus({
     return <span className="curve-trade-status curve-trade-status--error">{error}</span>;
   }
   return <span className="curve-trade-status">{idle}</span>;
+}
+
+/**
+ * Discriminated union for the simulator output. `saturated` collapses
+ * to a single error-toned line; `ok` carries the projection numbers.
+ */
+type SimProjection =
+  | { kind: "saturated" }
+  | {
+      kind: "ok";
+      capped: boolean;
+      cost: bigint;
+      priceBefore: bigint;
+      priceAfter: bigint;
+      supplyAfter: bigint;
+    };
+
+/**
+ * iter-4: trade-simulator output. Three states:
+ *  - Empty: idle help text.
+ *  - Saturated: curve has no headroom left.
+ *  - Projected: cost + price-before/after + supply-after.
+ *
+ * Math runs in the caller (`simProjection`); this component renders.
+ */
+function CurveSimulatorOutput({
+  amountBaseUnits,
+  projection,
+}: {
+  amountBaseUnits: bigint | null;
+  projection: SimProjection | null;
+}) {
+  if (amountBaseUnits === null || projection === null) {
+    return (
+      <span className="curve-trade-status">
+        Type a LAUNCH amount to see the projected USDC cost and price impact.
+      </span>
+    );
+  }
+  if (projection.kind === "saturated") {
+    return (
+      <span className="curve-trade-status curve-trade-status--error">
+        Curve saturated — no headroom left for additional buys.
+      </span>
+    );
+  }
+  return (
+    <span className="curve-sim-output">
+      <span className="curve-sim-output__main">≈ {formatCurvePrice(projection.cost)} USDC</span>
+      <span className="curve-sim-output__delta">
+        price {formatCurvePrice(projection.priceBefore)} → {formatCurvePrice(projection.priceAfter)}{" "}
+        USDC
+        {projection.capped && " (capped at headroom)"}
+      </span>
+    </span>
+  );
 }

@@ -138,3 +138,13 @@
 .mint-identity__metricValue--muted {
   font-family: var(--font-base);
 }
+
+/* Mint authority badge row — sits under the address line. Loose gap so
+   the badges read as a discrete chip cluster, not a hairline strip. */
+.mint-identity__badgeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}
