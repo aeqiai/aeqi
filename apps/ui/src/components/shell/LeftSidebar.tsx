@@ -323,17 +323,11 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("roles", "Roles", <RolesIcon />)}
             </nav>
 
-            {/* AEQI ownership grammar — assets · equity · quorum · incorporation.
-                The four rows spell the wordmark in order. Section label
-                reinforces "this is who owns / runs the TRUST". */}
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Ownership">
-              <div className="sidebar-section-label">Ownership</div>
-              {navItem("assets", "Assets", <AssetsIcon />)}
-              {navItem("equity", "Equity", <EquityIcon />)}
-              {navItem("quorum", "Quorum", <QuorumIcon />)}
-              {navItem("incorporation", "Incorporation", <IncorporationIcon />)}
-            </nav>
-
+            {/* IA order on the sidebar mirrors the user-facing mental
+                model: Roles (TRUST section above) → Execution (who runs
+                it) → Ownership (who owns it). Execution sits closer to
+                the TRUST/Roles section because day-to-day work lives
+                there; ownership is the longer-term layer below. */}
             <nav className="sidebar-surface-nav sidebar-zone" aria-label="Execution">
               <div className="sidebar-section-label">Execution</div>
               {navItem("agents", "Agents", <AgentsIcon />, {
@@ -364,6 +358,16 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   navigate(`${base}/ideas?compose=1`);
                 }),
               })}
+            </nav>
+
+            {/* AEQI ownership grammar — assets · equity · quorum · incorporation.
+                The four rows spell the wordmark in order. */}
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Ownership">
+              <div className="sidebar-section-label">Ownership</div>
+              {navItem("assets", "Assets", <AssetsIcon />)}
+              {navItem("equity", "Equity", <EquityIcon />)}
+              {navItem("quorum", "Quorum", <QuorumIcon />)}
+              {navItem("incorporation", "Incorporation", <IncorporationIcon />)}
             </nav>
           </>
         )}

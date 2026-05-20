@@ -264,31 +264,31 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-roles">
-      <div className="trust-roles-main">
-        <header className="trust-roles-header">
-          <div className="trust-roles-header-titles">
-            <h1 className="trust-roles-title">Roles</h1>
-          </div>
-          <div className="trust-roles-header-actions">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-              leadingIcon={<Mail size={13} strokeWidth={1.6} />}
-            >
-              Invite
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-              leadingIcon={<Plus size={13} strokeWidth={1.8} />}
-            >
-              Role
-            </Button>
-          </div>
-        </header>
+      <header className="trust-roles-header">
+        <div className="trust-roles-header-titles">
+          <h1 className="trust-roles-title">Roles</h1>
+        </div>
+        <div className="trust-roles-header-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
+            leadingIcon={<Mail size={13} strokeWidth={1.6} />}
+          >
+            Invite
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+          >
+            Role
+          </Button>
+        </div>
+      </header>
 
+      <div className="trust-roles-main">
         <section className="trust-roles-snapshot" aria-label="Snapshot">
           <SnapshotCard
             singular="Role"

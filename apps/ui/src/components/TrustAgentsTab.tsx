@@ -226,23 +226,23 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-agents">
-      <div className="trust-agents-main">
-        <header className="trust-agents-header">
-          <div className="trust-agents-header-titles">
-            <h1 className="trust-agents-title">Agents</h1>
-          </div>
-          <div className="trust-agents-header-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={openPicker}
-              leadingIcon={<Plus size={13} strokeWidth={1.8} />}
-            >
-              Agent
-            </Button>
-          </div>
-        </header>
+      <header className="trust-agents-header">
+        <div className="trust-agents-header-titles">
+          <h1 className="trust-agents-title">Agents</h1>
+        </div>
+        <div className="trust-agents-header-actions">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={openPicker}
+            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+          >
+            Agent
+          </Button>
+        </div>
+      </header>
 
+      <div className="trust-agents-main">
         <section className="trust-agents-snapshot" aria-label="Snapshot">
           <AgentSnapshotCard
             label={snapshot.total === 1 ? "Agent" : "Agents"}

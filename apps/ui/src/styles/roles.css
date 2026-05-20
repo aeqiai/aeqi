@@ -320,33 +320,46 @@
  * the content uses the shared `.ideas-list-head` grammar so the page
  * matches Ideas/Quests rhythm. */
 
-/* Shell — shared between Roles and Agents pages. Two-column grid:
-   discovery on the left, selected-detail inspector on the right.
-   Both columns span the full content height. Selectors include both
-   prefixes so adding a third tab is one comma, not a duplication. */
+/* Shell — shared between Roles and Agents pages. Grid layout with
+   a full-width header row above two columns: discovery on the left,
+   selected-detail inspector on the right. The header spans both
+   columns so the title + CTAs sit at the page top, not stacked
+   into the discovery column. */
 .trust-roles,
 .trust-agents {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "header header"
+    "main side";
   height: 100%;
   overflow: hidden;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6) 0;
 }
+.trust-roles-header,
+.trust-agents-header {
+  grid-area: header;
+}
 .trust-roles-main,
 .trust-agents-main {
+  grid-area: main;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 .trust-roles-side,
 .trust-agents-side {
+  grid-area: side;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: var(--space-5);
 }
@@ -838,6 +851,11 @@
   .trust-roles,
   .trust-agents {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "main"
+      "side";
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
   .trust-roles-side,
   .trust-agents-side {
