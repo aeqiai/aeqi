@@ -138,23 +138,15 @@
   position: relative;
   z-index: 1;
 }
-/* TRUST sample avatar — white-paper rounded-square frame with the
-   ink Landmark glyph centered. Same rounded-square shape as the
-   agent Bot avatar; inverted color (white bg + black icon vs
-   charcoal bg + white icon) so a TRUST and an agent never read as
-   the same primitive at a glance. When a custom image lands later
-   it'll fill this slot via object-fit: cover. */
+/* TRUST hero avatar slot — sized container only. The TrustAvatar
+   primitive inside owns the shape, background, and brandmark-or-
+   image rendering so the hero matches every other surface that
+   shows a TRUST avatar. */
 .trust-hero-avatar {
-  width: 144px;
-  height: 144px;
-  border-radius: var(--radius-md);
-  background: var(--color-card-elevated);
-  color: var(--color-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  overflow: hidden;
 }
 .trust-hero-body {
   flex: 1;

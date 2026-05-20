@@ -99,7 +99,7 @@
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 347,
+      "count": 349,
       "topFiles": [
         {
           "file": "apps/ui/src/pages/RoleDetailPage.tsx",
@@ -185,7 +185,7 @@
     },
     "literalRgb": {
       "label": "literal rgb/rgba color",
-      "count": 114,
+      "count": 116,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
@@ -289,7 +289,7 @@
     },
     "primitiveSubpathImport": {
       "label": "primitive subpath import",
-      "count": 7,
+      "count": 6,
       "topFiles": [
         {
           "file": "apps/ui/src/components/sessions/AddParticipantModal.tsx",
@@ -297,10 +297,6 @@
         },
         {
           "file": "apps/ui/src/App.tsx",
-          "count": 1
-        },
-        {
-          "file": "apps/ui/src/components/RoleBudgetControl.tsx",
           "count": 1
         },
         {

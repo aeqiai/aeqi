@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { useUIStore } from "@/store/ui";
 import { useActiveEntity } from "@/queries/entities";
-import BlockAvatar from "@/components/BlockAvatar";
+import TrustAvatar from "@/components/TrustAvatar";
 
 /**
  * Acting-as selector — the trust credential card in the sidebar's TRUST
@@ -40,10 +40,10 @@ export default function ActingAsSelector() {
       aria-label={`Switch context · currently ${roleName} at ${trustName}`}
     >
       <span className="acting-as-badge acting-as-badge--expanded" aria-hidden="true">
-        <BlockAvatar name={trustName} size={32} />
+        <TrustAvatar name={trustName} size={32} />
       </span>
       <span className="acting-as-badge acting-as-badge--collapsed" aria-hidden="true">
-        <BlockAvatar name={trustName} size={18} />
+        <TrustAvatar name={trustName} size={18} />
       </span>
       <span className="acting-as-meta">
         <span className="acting-as-trust">{trustName}</span>

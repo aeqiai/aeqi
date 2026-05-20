@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, Plus } from "lucide-react";
 import { Popover, SelectOption } from "@/components/ui";
-import BlockAvatar from "@/components/BlockAvatar";
+import TrustAvatar from "@/components/TrustAvatar";
 import { useEntities, useActiveEntity } from "@/queries/entities";
 import { useUIStore } from "@/store/ui";
 import { entityPath } from "@/lib/entityPath";
@@ -63,7 +63,7 @@ export default function CompanySwitcher() {
   const triggerEntity = activeEntity ?? null;
   const triggerLabel = triggerEntity?.name ?? "Select an organization";
   const triggerAvatar = triggerEntity ? (
-    <BlockAvatar name={triggerEntity.name} size={16} />
+    <TrustAvatar name={triggerEntity.name} size={16} />
   ) : (
     <span className="company-switcher-avatar-empty" aria-hidden="true" />
   );
@@ -110,7 +110,7 @@ export default function CompanySwitcher() {
                 selected={isCurrent}
                 noIndicator
                 onClick={() => select(entity)}
-                leadingIcon={<BlockAvatar name={entity.name} size={16} />}
+                leadingIcon={<TrustAvatar name={entity.name} size={16} />}
               >
                 {entity.name}
               </SelectOption>
