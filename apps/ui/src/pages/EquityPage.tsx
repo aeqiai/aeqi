@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSection";
@@ -11,6 +11,8 @@ import { MintIdentitySection } from "@/components/equity/MintIdentitySection";
 import { VestingSection } from "@/components/equity/VestingSection";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
+import { api } from "@/lib/api";
+import type { CurveTrade } from "@/components/equity/RecentTradesLog";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
   EmptyState,
@@ -68,6 +70,33 @@ export default function EquityPage({ trustId }: { trustId: string }) {
     error,
     isFoundation,
   } = useEquity(trustAddress);
+
+  // iter-5: fetch curve recent_trades once at the page level so the
+  // HolderDrawer's per-holder activity stream can filter against the
+  // same projection the genesis curve chart uses. The genesis curve
+  // section still owns its own re-fetch on Buy/Sell — this top-level
+  // fetch is one-shot for the drawer view (acceptable staleness; the
+  // drawer is investigative, not order-entry).
+  const [recentTrades, setRecentTrades] = useState<CurveTrade[]>([]);
+  useEffect(() => {
+    if (!trustId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const state = await api.getCurveState(trustId);
+        if (cancelled) return;
+        setRecentTrades(state.recent_trades ?? []);
+      } catch {
+        // Curve may not be provisioned (Foundation TRUST, or pre-genesis
+        // Venture) — silently leave trades empty. The drawer renders a
+        // quiet empty state in that case.
+        if (!cancelled) setRecentTrades([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trustId]);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
   if (!trustAddress) {
@@ -145,6 +174,26 @@ export default function EquityPage({ trustId }: { trustId: string }) {
     );
   }
 
+  // iter-5 supply distribution arc inputs:
+  //   - topHolderAmount  = the single largest cap-table balance. Drives
+  //     the "concentration" middle ring on MintIdentitySection.
+  //   - vestingTotalAmount = sum(account.totalAmount) across every active
+  //     vesting position, in base units. Drives the inner "still under
+  //     vesting" ring. Cheap O(n) reductions — no extra fetches.
+  const holderList = holders ?? [];
+  const topHolderAmount = holderList.reduce(
+    (max, h) => (h.amount > max ? h.amount : max),
+    0n as bigint,
+  );
+  const vestingList = vesting ?? [];
+  const vestingTotalAmount = vestingList.reduce<bigint>((sum, p) => {
+    try {
+      return sum + BigInt(p.account.totalAmount.toString());
+    } catch {
+      return sum;
+    }
+  }, 0n);
+
   return (
     <EquityPrefillProvider>
       <Page>
@@ -169,12 +218,15 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             maxSupplyCap={tokenModuleState.maxSupplyCap}
             mintAuthority={mint.mintAuthority}
             freezeAuthority={mint.freezeAuthority}
+            topHolderAmount={topHolderAmount}
+            vestingTotal={vestingTotalAmount}
           />
           <CapTableSection
             holders={holders ?? []}
             totalSupply={mint.supply}
             decimals={mint.decimals}
             vestingPositions={vesting ?? []}
+            recentTrades={recentTrades}
           />
           <EquityShareControls trustId={trustId} />
           <EquityGenesisCurveSection trustId={trustId} />
@@ -231,11 +283,13 @@ function CapTableSection({
   totalSupply,
   decimals,
   vestingPositions,
+  recentTrades,
 }: {
   holders: TokenHolder[];
   totalSupply: bigint;
   decimals: number;
   vestingPositions: VestingPositionWithPda[];
+  recentTrades: CurveTrade[];
 }) {
   const { mintTo, transferTo, vestingRecipient } = useEquityPrefill();
   const [drawerHolder, setDrawerHolder] = useState<TokenHolder | null>(null);
@@ -429,6 +483,7 @@ function CapTableSection({
           data={filteredHolders}
           rowKey={(row) => row.tokenAccount.toBase58()}
           onRowClick={(row) => setDrawerHolder(row)}
+          stickyHeader
           empty={
             <EmptyState
               title={filter === "all" ? "No holders" : "No holders match the filter"}
@@ -447,6 +502,7 @@ function CapTableSection({
         totalSupply={totalSupply}
         decimals={decimals}
         vestingPositions={vestingPositions}
+        recentTrades={recentTrades}
         onClose={() => setDrawerHolder(null)}
       />
     </>

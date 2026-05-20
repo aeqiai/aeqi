@@ -21,6 +21,7 @@ import { useState } from "react";
 import type { PublicKey } from "@solana/web3.js";
 import { Badge, MetricCard, MetricGrid, PageSection, Tooltip } from "@/components/ui";
 
+import { SupplyDistributionArc } from "./SupplyDistributionArc";
 import "./MintIdentitySection.css";
 
 const SOLANA_CLUSTER =
@@ -113,6 +114,16 @@ export interface MintIdentitySectionProps {
    */
   mintAuthority?: PublicKey | null;
   freezeAuthority?: PublicKey | null;
+  /**
+   * iter-5 supply distribution arc inputs. Surfaced beneath the
+   * "Supply minted" MetricCard as a small concentric ring chart.
+   * `topHolderAmount` is the largest single holder balance;
+   * `vestingTotal` is the sum of TOTAL across every active vesting
+   * position keyed to the mint. Both default to 0 (renders the ring's
+   * track only) when the caller hasn't computed them.
+   */
+  topHolderAmount?: bigint;
+  vestingTotal?: bigint;
 }
 
 export function MintIdentitySection({
@@ -122,6 +133,8 @@ export function MintIdentitySection({
   maxSupplyCap,
   mintAuthority,
   freezeAuthority,
+  topHolderAmount = 0n,
+  vestingTotal = 0n,
 }: MintIdentitySectionProps) {
   const [copied, setCopied] = useState(false);
   const capString = bnLikeToString(maxSupplyCap);
@@ -210,8 +223,16 @@ export function MintIdentitySection({
           <MetricCard
             label="Supply minted"
             value={
-              <span className="mint-identity__metricValue">
-                {formatBaseUnits(supply, decimals)}
+              <span className="mint-identity__supplyValueRow">
+                <span className="mint-identity__metricValue">
+                  {formatBaseUnits(supply, decimals)}
+                </span>
+                <SupplyDistributionArc
+                  supply={supply}
+                  maxSupply={capBigint}
+                  topHolderAmount={topHolderAmount}
+                  vestingTotal={vestingTotal}
+                />
               </span>
             }
             detail={capUsage !== null ? `${capUsage} of cap` : "Uncapped issuance"}

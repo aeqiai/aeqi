@@ -58,3 +58,12 @@
 .vesting-row__result--err {
   color: var(--color-error);
 }
+
+/* iter-5: schedule chart cell. Constrains the chart's width so it
+   doesn't dominate the row, and gives the SVG room to breathe vertically. */
+.vesting-row__chart {
+  display: block;
+  width: 100%;
+  max-width: 140px;
+  min-width: 80px;
+}

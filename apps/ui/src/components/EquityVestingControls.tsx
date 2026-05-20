@@ -1,10 +1,75 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
-import { Button, Input, PageSection } from "@/components/ui";
+import { Button, Input, PageSection, Select, Tooltip } from "@/components/ui";
 import { EQUITY_ANCHORS, useEquityPrefill } from "@/components/equity/equityPrefillContext";
 import type { TokenHolder } from "@/solana";
 import "./EquityVestingControls.css";
+
+/**
+ * Cohort presets — iter-5 functional polish. Pressing a preset fills
+ * Start (today), Cliff, and End with shapes that match the common
+ * vesting templates teams actually use, instead of forcing the operator
+ * to remember "3 months / 12 months / 4 years" by hand.
+ *
+ * Days are calendar days, not 30-day months — the date input rounds to
+ * a UTC midnight via dateToUnix so the calendar-vs-30 discrepancy
+ * doesn't surface as off-by-one bugs at year boundaries.
+ *
+ * The "custom" option exists as the default so we don't silently
+ * overwrite an operator's hand-typed dates the first time they open
+ * the form.
+ */
+const COHORT_PRESETS = {
+  custom: {
+    label: "Custom",
+    description: "No preset — type dates by hand.",
+    cliffDays: null,
+    endDays: null,
+  },
+  founder: {
+    label: "Founder (4yr / 1yr cliff)",
+    description: "Industry standard: 1-year cliff, 4-year linear vest from start.",
+    cliffDays: 365,
+    endDays: 365 * 4,
+  },
+  early_team: {
+    label: "Early team (3yr / 6mo cliff)",
+    description: "Tighter than founders: 6-month cliff, 3-year linear vest.",
+    cliffDays: 180,
+    endDays: 365 * 3,
+  },
+  advisor: {
+    label: "Advisor (2yr / 3mo cliff)",
+    description: "Shorter commitment: 3-month cliff, 2-year linear vest.",
+    cliffDays: 90,
+    endDays: 365 * 2,
+  },
+  contributor: {
+    label: "Contributor (1yr / no cliff)",
+    description: "Continuous contributors: no cliff, 1-year straight line.",
+    cliffDays: 0,
+    endDays: 365,
+  },
+} as const;
+
+type CohortId = keyof typeof COHORT_PRESETS;
+
+/** Stringify a Date as YYYY-MM-DD in UTC — matches HTML date input. */
+function dateInputValue(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Today + offset days, normalized to UTC midnight. */
+function todayPlusDays(offset: number): string {
+  const now = new Date();
+  const utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  utc.setUTCDate(utc.getUTCDate() + offset);
+  return dateInputValue(utc);
+}
 
 /**
  * Grant a vesting position to a recipient — wires the platform's
@@ -34,6 +99,7 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
   const [startDate, setStartDate] = useState("");
   const [cliffDate, setCliffDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [cohort, setCohort] = useState<CohortId>("custom");
   const [granting, setGranting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [positionId, setPositionId] = useState<string | null>(null);
@@ -64,6 +130,22 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [suggestOpen]);
+
+  /**
+   * Apply a cohort preset. "custom" no-ops so the dropdown can serve as
+   * a "what shape did this grant follow" tag without losing typed-in
+   * dates. The preset stamps the start time at today UTC and offsets
+   * cliff/end relative to it.
+   */
+  const applyCohort = (next: CohortId) => {
+    setCohort(next);
+    const preset = COHORT_PRESETS[next];
+    if (preset.cliffDays === null || preset.endDays === null) return;
+    const start = todayPlusDays(0);
+    setStartDate(start);
+    setCliffDate(todayPlusDays(preset.cliffDays));
+    setEndDate(todayPlusDays(preset.endDays));
+  };
 
   const amountBaseUnits = useMemo(() => toBaseUnits(amount), [amount]);
 
@@ -116,6 +198,7 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
       setStartDate("");
       setCliffDate("");
       setEndDate("");
+      setCohort("custom");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Grant failed.");
     } finally {
@@ -180,6 +263,26 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
           disabled={granting}
           size="sm"
         />
+      </div>
+      <div className="vesting-grant-row vesting-grant-row--cohort">
+        <label className="vesting-grant-cohort">
+          <span className="vesting-grant-cohort__label">Cohort</span>
+          <Tooltip content={COHORT_PRESETS[cohort].description}>
+            <span style={{ display: "block" }}>
+              <Select
+                value={cohort}
+                onChange={(v) => applyCohort(v as CohortId)}
+                disabled={granting}
+                size="sm"
+                fullWidth
+                options={(Object.keys(COHORT_PRESETS) as CohortId[]).map((id) => ({
+                  value: id,
+                  label: COHORT_PRESETS[id].label,
+                }))}
+              />
+            </span>
+          </Tooltip>
+        </label>
       </div>
       <div className="vesting-grant-row">
         <Input

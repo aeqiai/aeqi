@@ -35,6 +35,7 @@ import { formatShortDate } from "@/lib/i18n";
 import type { VestingPositionWithPda } from "@/solana";
 import { api } from "@/lib/api";
 
+import { VestingScheduleChart } from "./VestingScheduleChart";
 import "./VestingSection.css";
 
 export interface VestingSectionProps {
@@ -192,6 +193,23 @@ export function VestingSection({ trustId, positions, decimals }: VestingSectionP
         <span className="vesting-row__num">
           {formatBaseUnits(bnLikeToBigInt(row.account.claimedAmount), decimals)}
         </span>
+      ),
+    },
+    {
+      key: "schedule",
+      header: "Schedule",
+      cell: (row) => (
+        <div className="vesting-row__chart">
+          <VestingScheduleChart
+            startTime={bnLikeToBigInt(row.account.startTime)}
+            cliffTime={bnLikeToBigInt(row.account.cliffTime)}
+            endTime={bnLikeToBigInt(row.account.endTime)}
+            totalAmount={bnLikeToBigInt(row.account.totalAmount)}
+            claimedAmount={bnLikeToBigInt(row.account.claimedAmount)}
+            fdvMilestoneUnlocked={Boolean(row.account.fdvMilestoneUnlocked)}
+            now={now}
+          />
+        </div>
       ),
     },
     {

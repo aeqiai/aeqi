@@ -72,3 +72,25 @@
   background: var(--color-card-subtle);
   outline: none;
 }
+
+/* iter-5: cohort presets dropdown — sits in its own row above the date
+   inputs so the operator picks "Founder / Early team / …" and the dates
+   below populate to match. */
+.vesting-grant-row--cohort {
+  max-width: 360px;
+}
+
+.vesting-grant-cohort {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.vesting-grant-cohort__label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}

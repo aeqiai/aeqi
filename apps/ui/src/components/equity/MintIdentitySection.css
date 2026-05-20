@@ -148,3 +148,14 @@
   margin-top: var(--space-2);
   flex-wrap: wrap;
 }
+
+/* iter-5: Supply-minted MetricCard pairs the bigint reading with the
+   concentric SupplyDistributionArc. Stacks below the number on narrow
+   widths, sits beside it when there's room — flex-wrap handles both
+   without a media query. */
+.mint-identity__supplyValueRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}

@@ -36,6 +36,7 @@ import { Badge, Button, Modal, Tooltip } from "@/components/ui";
 import { useEquityPrefill } from "@/components/equity/equityPrefillContext";
 import { formatShortDate } from "@/lib/i18n";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
+import type { CurveTrade } from "./RecentTradesLog";
 
 import "./HolderDrawer.css";
 
@@ -101,6 +102,25 @@ function formatUnixTime(seconds: bigint): string {
 }
 
 /**
+ * Render a USDC quote amount (raw on-chain 6-decimal lamports) as a
+ * compact human number. Trims trailing zeros; falls back to "0" when
+ * the input rounds below the displayed precision. Mirrors how the
+ * RecentTradesLog formats trade quote rows so the eye reads them as
+ * the same kind of number.
+ */
+function formatLamports(amount: bigint): string {
+  const decimals = 6;
+  if (amount === 0n) return "0";
+  const divisor = 10n ** BigInt(decimals);
+  const integerPart = amount / divisor;
+  const fractionalPart = amount % divisor;
+  const integerStr = groupThousands(integerPart.toString());
+  if (fractionalPart === 0n) return integerStr;
+  const fracStr = fractionalPart.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr.length > 0 ? `${integerStr}.${fracStr.slice(0, 4)}` : integerStr;
+}
+
+/**
  * Mirror of on-chain `vested_amount_at` math. Returns vested amount at
  * `now`. Conservative — treats unset schedules as "fully claimed".
  */
@@ -128,6 +148,12 @@ export interface HolderDrawerProps {
   decimals: number;
   /** All vesting positions for the cap-table mint (filtered client-side here). */
   vestingPositions: VestingPositionWithPda[];
+  /**
+   * All recent curve trades projected by the indexer (full page-level
+   * list). The drawer filters to trades whose counterparty matches the
+   * inspected holder. Empty / unset is rendered as a quiet empty state.
+   */
+  recentTrades?: CurveTrade[];
   /** True when this drawer is mounted but the cap-table is hidden behind it. */
   onClose(): void;
 }
@@ -137,6 +163,7 @@ export function HolderDrawer({
   totalSupply,
   decimals,
   vestingPositions,
+  recentTrades = [],
   onClose,
 }: HolderDrawerProps) {
   const { mintTo, transferTo, vestingRecipient } = useEquityPrefill();
@@ -161,6 +188,17 @@ export function HolderDrawer({
   }, [holder, vestingPositions]);
 
   const now = useMemo(() => BigInt(Math.floor(Date.now() / 1000)), []);
+
+  // iter-5: per-holder activity stream. Filter the page-wide curve
+  // trades down to "trades where this holder is the counterparty". For
+  // a buy that means the holder acquired LAUNCH from the curve; for a
+  // sell they returned LAUNCH to the reserve. Top 8 most recent rows so
+  // the drawer stays scannable.
+  const holderTrades = useMemo(() => {
+    if (!holder) return [] as CurveTrade[];
+    const owner = holder.owner.toBase58();
+    return recentTrades.filter((t) => t.counterparty_b58 === owner).slice(0, 8);
+  }, [holder, recentTrades]);
 
   // Roll-up: total vesting granted (whether vested or not) + total
   // claimable RIGHT NOW across every position that targets this holder.
@@ -370,6 +408,54 @@ export function HolderDrawer({
               })}
             </div>
           </>
+        )}
+      </div>
+
+      <div className="holder-drawer__section">
+        <div className="holder-drawer__sectionLabel">
+          Recent curve activity · {holderTrades.length}
+        </div>
+        {holderTrades.length === 0 ? (
+          <span className="holder-drawer__emptyVesting">
+            No recent buys or sells against the genesis curve by this holder.
+          </span>
+        ) : (
+          <ul className="holder-drawer__activityList">
+            {holderTrades.map((trade) => {
+              let tokenAmount: bigint;
+              let quoteAmount: bigint;
+              try {
+                tokenAmount = BigInt(trade.token_amount);
+                quoteAmount = BigInt(trade.quote_amount);
+              } catch {
+                return null;
+              }
+              return (
+                <li
+                  className="holder-drawer__activityRow"
+                  key={`${trade.signature_b58}-${trade.log_index}`}
+                >
+                  <span
+                    className={
+                      trade.kind === "buy"
+                        ? "holder-drawer__activityDot holder-drawer__activityDot--buy"
+                        : "holder-drawer__activityDot holder-drawer__activityDot--sell"
+                    }
+                    aria-hidden="true"
+                  />
+                  <span className="holder-drawer__activityKind">
+                    {trade.kind === "buy" ? "Bought" : "Sold"}
+                  </span>
+                  <span className="holder-drawer__activityAmount">
+                    {formatBaseUnits(tokenAmount, decimals)} LAUNCH
+                  </span>
+                  <span className="holder-drawer__activityQuote">
+                    {formatLamports(quoteAmount)} USDC
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 
