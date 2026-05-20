@@ -84,7 +84,9 @@
   color: var(--color-text-primary);
 }
 
-/* Capitalize section "View on explorer" — its own row beneath the address. */
+/* Capitalize section "View on explorer" — sits in the action row beside
+   the Deposit / Receive / Withdraw buttons (iter-5 promotion). Stays a
+   quiet link so the three buttons keep the action hierarchy. */
 .capitalizeExplorer {
   display: inline-flex;
   align-items: center;
@@ -99,6 +101,13 @@
 .capitalizeExplorer:hover,
 .capitalizeExplorer:focus-visible {
   color: var(--color-text-primary);
+}
+
+/* Capitalize section action row — Deposit / Receive / Withdraw / link.
+   Wraps on narrow surfaces so the three CTAs never overflow the card. */
+.capitalizeActions {
+  flex-wrap: wrap;
+  padding-top: var(--space-1);
 }
 
 /* Holdings stablecoin total — sits below the table on the same surface. */
@@ -291,10 +300,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+.activityStripDelta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.activityStripDelta[data-tone="up"] {
+  color: var(--success);
+}
+
+.activityStripDelta[data-tone="down"] {
+  color: var(--color-warmth);
+}
+
 .activityStripSvg {
   width: 100%;
   height: 36px;
   color: var(--color-accent);
+}
+
+.activityStripSvg[data-mode="usd"] {
+  color: var(--success);
 }
 
 .activityStripNote {
@@ -348,6 +374,66 @@
 .modulesName {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+/* Vault identity per-module row — surfaces program + slot + initialized
+   state + version inline. Lives on the same recessed surface family as
+   the holding detail panel so it reads as inset detail. */
+.moduleRowsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moduleRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+}
+
+.moduleRowHead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.moduleVersion {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.moduleRowMeta {
+  display: inline-flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+}
+
+.moduleRowField {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.moduleRowFieldLabel {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--text-xs);
+}
+
+.monoCellInline {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: var(--color-text-primary);
 }
 
@@ -580,5 +666,84 @@
 
 .budgetSignatureLink:hover,
 .budgetSignatureLink:focus-visible {
+  color: var(--color-accent);
+}
+
+/* Iter-5: decoded spend table inside the BudgetDetailModal. Each row
+   carries timestamp + decoded amount, an inline "To" + "Memo" detail
+   strip when the parsed transaction yielded them, and the signature
+   deep-link kept as a quiet anchor at the bottom. */
+.budgetSpendList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.budgetSpendItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+
+.budgetSpendHead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.budgetSpendWhen {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.budgetSpendAmount {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.budgetSpendBody {
+  display: inline-flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.budgetSpendField {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.budgetSpendFieldLabel {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.budgetSpendMemo {
+  color: var(--color-text-primary);
+  font-style: italic;
+}
+
+.budgetSpendLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  width: fit-content;
+}
+
+.budgetSpendLink:hover,
+.budgetSpendLink:focus-visible {
   color: var(--color-accent);
 }

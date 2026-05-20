@@ -41,7 +41,7 @@ import {
   Stack,
 } from "@/components/ui";
 
-import { CopyableMono, shortAddress } from "./AssetsSections";
+import { CopyableMono, bytesIdLabel, shortAddress } from "./AssetsSections";
 import styles from "./AssetsPage.module.css";
 
 /**
@@ -76,46 +76,101 @@ export interface HoldingRow {
 /**
  * Compact vault-activity sparkline strip — sits beneath the four
  * MetricCards in the overview to give the operator a one-glance answer
- * to "is the vault active". Renders the trailing 30-day signature count
- * as a polyline; pure chrome — clicking the section header is how the
- * operator drills into recent activity.
+ * to "how has this vault moved". Iter-5 introduces a real USD curve
+ * (`mode: "usd"`) replayed from decoded stablecoin deposits/withdraws.
+ * When no decoded stable events exist we fall back to the trailing
+ * 30-day signature count (`mode: "count"`).
  *
- * Honest scope: this is a count of on-chain signatures that touched the
- * vault authority PDA, not a USD curve. We have no oracle for
- * non-stablecoin mints and parsed token-balance scan across N days is
- * an order of magnitude more expensive than counting touches. When the
- * empty state hits we explain the dependency: "indexer rail not yet
- * available — counting on-chain signatures instead".
+ * Both modes share one SVG renderer. The USD mode tags the curve as a
+ * line + faint area-fill so the value-over-time reads more naturally
+ * than a flat count polyline. The header label, value, and footnote
+ * change so the operator never wonders what the line represents.
  */
-export function VaultActivityStrip({ series, total }: { series: number[]; total: number }) {
+export interface VaultActivityStripProps {
+  /** Numeric series, oldest-first, length = windowDays (30). */
+  series: number[];
+  /** Renderer mode — "usd" treats values as USD balances; "count" treats
+   *  them as signature counts. */
+  mode: "usd" | "count";
+  /** Right-edge value displayed in the header. Total signatures for
+   *  "count" mode, current USD balance for "usd" mode. */
+  total: number;
+  /** Optional headline suffix — e.g. "Treasury value · 30d". */
+  label?: string;
+}
+
+export function VaultActivityStrip({ series, mode, total, label }: VaultActivityStripProps) {
   const max = series.length ? Math.max(...series) : 0;
-  const min = 0;
-  const isEmpty = max === min;
+  const min = mode === "usd" ? Math.min(...series, max) : 0;
+  const isFlat = max === min;
   const width = 720;
   const height = 36;
   const padding = 4;
   const innerH = height - padding * 2;
 
-  const line = useMemo(() => {
+  const linePoints = useMemo(() => {
     if (series.length === 0) return "";
     const range = max - min || 1;
     return series
       .map((v, i) => {
         const x = (i / Math.max(series.length - 1, 1)) * width;
-        const y = isEmpty ? height - padding : height - padding - ((v - min) / range) * innerH;
+        const y = isFlat ? height - padding : height - padding - ((v - min) / range) * innerH;
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(" ");
-  }, [series, min, max, isEmpty, innerH]);
+  }, [series, min, max, isFlat, innerH]);
+
+  // Area fill path for USD mode — same coords, but closed back to the
+  // baseline so the polyline reads as a treasury "filled" curve.
+  const areaPath = useMemo(() => {
+    if (mode !== "usd" || series.length === 0) return "";
+    const coords = linePoints.split(" ");
+    if (coords.length === 0) return "";
+    const first = coords[0]?.split(",")[0];
+    const last = coords[coords.length - 1]?.split(",")[0];
+    if (!first || !last) return "";
+    return `M ${first},${height - padding} L ${coords.join(" L ")} L ${last},${height - padding} Z`;
+  }, [linePoints, series, mode]);
+
+  const headerLabel = label ?? (mode === "usd" ? "Treasury value · 30d" : "Vault activity · 30d");
+  const headerValue =
+    mode === "usd"
+      ? total > 0
+        ? formatCurrency(total, "USD", { maximumFractionDigits: 0 })
+        : "$0"
+      : total > 0
+        ? `${formatInteger(total)} on-chain signature${total === 1 ? "" : "s"}`
+        : "No signatures yet";
+
+  // USD curve delta vs the curve's earliest non-zero value — the operator
+  // wants "how has this moved" at a glance. We avoid claiming a delta
+  // when the floor is zero (would render an infinite-percent gain).
+  const usdDelta = useMemo(() => {
+    if (mode !== "usd" || series.length === 0) return null;
+    const first = series.find((v) => v > 0) ?? 0;
+    const last = series[series.length - 1] ?? 0;
+    if (first === 0 || !Number.isFinite(first)) return null;
+    const diff = last - first;
+    const pct = (diff / first) * 100;
+    return { diff, pct };
+  }, [series, mode]);
 
   return (
     <div className={styles.activityStrip}>
       <div className={styles.activityStripHead}>
-        <span className={styles.activityStripLabel}>Vault activity · 30d</span>
+        <span className={styles.activityStripLabel}>{headerLabel}</span>
         <span className={styles.activityStripValue}>
-          {total > 0
-            ? `${formatInteger(total)} on-chain signature${total === 1 ? "" : "s"}`
-            : "No signatures yet"}
+          {headerValue}
+          {usdDelta && (
+            <span
+              className={styles.activityStripDelta}
+              data-tone={usdDelta.diff >= 0 ? "up" : "down"}
+            >
+              {" "}
+              {usdDelta.diff >= 0 ? "+" : ""}
+              {formatCurrency(usdDelta.diff, "USD", { maximumFractionDigits: 0 })}
+            </span>
+          )}
         </span>
       </div>
       <svg
@@ -123,10 +178,16 @@ export function VaultActivityStrip({ series, total }: { series: number[]; total:
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label="Vault touches per day, last 30 days"
+        aria-label={
+          mode === "usd"
+            ? "Stablecoin USD balance per day, last 30 days"
+            : "Vault touches per day, last 30 days"
+        }
+        data-mode={mode}
       >
+        {mode === "usd" && areaPath && <path d={areaPath} fill="currentColor" opacity="0.08" />}
         <polyline
-          points={line}
+          points={linePoints}
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
@@ -134,10 +195,16 @@ export function VaultActivityStrip({ series, total }: { series: number[]; total:
           strokeLinejoin="round"
         />
       </svg>
-      {isEmpty && (
+      {isFlat && mode === "count" && (
         <span className={styles.activityStripNote}>
-          Counted from on-chain signatures (no indexer rail yet) — a USD curve will land once a
-          treasury indexer feed exists.
+          No on-chain signatures touched the vault in the last 30 days.
+        </span>
+      )}
+      {mode === "usd" && (
+        <span className={styles.activityStripNote}>
+          Replayed from decoded stablecoin deposits and withdraws. Older flows beyond the decode
+          window approximate to the current balance; AEQI-issued shares and unpriced SPLs are not
+          included.
         </span>
       )}
     </div>
@@ -345,18 +412,41 @@ export function VaultIdentitySection({
   const clusterPretty = formatClusterLabel(cluster);
   const clusterVariant = clusterTone(cluster);
 
-  // Distinct on-chain program IDs registered with this TRUST. Multiple
-  // module slots can point at the same program (rare, but valid), so
-  // dedupe before counting and rendering.
-  const registeredPrograms = useMemo(() => {
-    const seen = new Map<string, { programId: string; name: string | null }>();
-    for (const m of modules) {
+  // Per-module rows — one row per module *slot* (not per distinct
+  // program). Two slots pointing at the same program ID is rare but
+  // valid; surfacing both keeps the operator honest about the TRUST's
+  // module count. Iter-5: surfacing the `initialized` flag + version
+  // turns "modules registered" from a count into a real provisioning
+  // table — the operator sees which slots have actually been initialized
+  // on-chain vs which are still pending the post-deploy module-init
+  // instruction.
+  const moduleRows = useMemo(() => {
+    return modules.map((m) => {
       const pid = m.account.programId.toBase58();
-      if (seen.has(pid)) continue;
-      seen.set(pid, { programId: pid, name: getAeqiProgramName(pid) });
-    }
-    return [...seen.values()];
+      return {
+        key: m.publicKey.toBase58(),
+        programId: pid,
+        programName: getAeqiProgramName(pid),
+        moduleLabel: bytesIdLabel(m.account.moduleId),
+        // `initialized` is a u8 flag on the on-chain Module struct; the
+        // post-deploy module-init instruction flips it from 0 → 1.
+        initialized: Number(m.account.initialized) > 0,
+        // Anchor returns u64 as BN; toString avoids the bigint coercion
+        // hassle for a value we only render.
+        version: m.account.implementationVersion.toString(),
+        provider: m.account.provider.toBase58(),
+      };
+    });
   }, [modules]);
+
+  // Aggregate provisioning state for the section header — initialized
+  // count vs total slots. "Fully provisioned" only when every slot is
+  // initialized; "partial" when some are. "Not initialized" when none.
+  const provisioning = useMemo(() => {
+    if (moduleRows.length === 0) return { initialized: 0, total: 0 };
+    const initialized = moduleRows.filter((m) => m.initialized).length;
+    return { initialized, total: moduleRows.length };
+  }, [moduleRows]);
 
   return (
     <PageSection title="Vault identity">
@@ -401,20 +491,41 @@ export function VaultIdentitySection({
           {moduleInitialized ? "Initialized" : "Not initialized"}
         </Badge>
       </DetailField>
-      <DetailField label={`Modules registered (${formatInteger(registeredPrograms.length)})`}>
-        {registeredPrograms.length === 0 ? (
+      <DetailField
+        label={
+          moduleRows.length === 0
+            ? "Modules registered"
+            : `Modules registered (${formatInteger(provisioning.initialized)}/${formatInteger(provisioning.total)} initialized)`
+        }
+      >
+        {moduleRows.length === 0 ? (
           <span className={styles.mutedDash}>None yet</span>
         ) : (
-          <ul className={styles.modulesList}>
-            {registeredPrograms.map((m) => (
-              <li key={m.programId} className={styles.modulesItem}>
-                <span className={styles.modulesName}>{m.name ?? "External program"}</span>
-                <CopyableMono
-                  full={m.programId}
-                  display={shortAddress(m.programId)}
-                  tone="muted"
-                  withExplorer
-                />
+          <ul className={styles.moduleRowsList}>
+            {moduleRows.map((m) => (
+              <li key={m.key} className={styles.moduleRow}>
+                <div className={styles.moduleRowHead}>
+                  <span className={styles.modulesName}>{m.programName ?? "External program"}</span>
+                  <Badge variant={m.initialized ? "success" : "muted"} size="sm" dot>
+                    {m.initialized ? "Initialized" : "Not initialized"}
+                  </Badge>
+                  {m.version !== "0" && <span className={styles.moduleVersion}>v{m.version}</span>}
+                </div>
+                <div className={styles.moduleRowMeta}>
+                  <span className={styles.moduleRowField}>
+                    <span className={styles.moduleRowFieldLabel}>Slot</span>
+                    <span className={styles.monoCellInline}>{m.moduleLabel}</span>
+                  </span>
+                  <span className={styles.moduleRowField}>
+                    <span className={styles.moduleRowFieldLabel}>Program</span>
+                    <CopyableMono
+                      full={m.programId}
+                      display={shortAddress(m.programId)}
+                      tone="muted"
+                      withExplorer
+                    />
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
