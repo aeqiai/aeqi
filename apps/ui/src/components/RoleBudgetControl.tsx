@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/ui";
-import { Input } from "@/components/ui/Input";
+import { Button, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import "./RoleBudgetControl.css";
 

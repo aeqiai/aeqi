@@ -843,6 +843,50 @@ export const api = {
     }),
 
   /**
+   * One-time per trust: allocate the FundingModuleState PDA. Must be
+   * called before the trust is finalized (on-chain creation_mode guard).
+   */
+  fundingModuleInit: (data: { entity_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      module_state_pubkey_b58: string;
+    }>("/solana/funding-module-init", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Declare a funding round. `kind`: 0 CommitmentSale, 1 BondingCurve,
+   * 2 Exit. `budget_id` accepts hex (0x-prefixed 32-byte) OR free-text
+   * label (keccak256-hashed); must reference an existing Budget PDA.
+   * CommitmentSale-kind rounds require asset_amount > 0 AND
+   * target_quote > 0; BondingCurve/Exit can pass 0 (their params land
+   * in activation).
+   */
+  fundingRequestCreate: (data: {
+    entity_id: string;
+    kind: 0 | 1 | 2;
+    budget_id: string;
+    asset_amount: number;
+    target_quote: number;
+    request_label?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      request_pubkey_b58: string;
+      request_id_hex: string;
+      budget_id_hex: string;
+      kind: number;
+      asset_amount: number;
+      target_quote: number;
+    }>("/solana/funding-request-create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.
