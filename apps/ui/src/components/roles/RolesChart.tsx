@@ -57,14 +57,21 @@ export default function RolesChart({
   onSelectRole,
   selectedRoleId,
 }: RolesChartProps) {
-  const directors = roles.filter((r) => r.role_type === "director");
-  const advisors = roles.filter((r) => r.role_type === "advisor");
-  const operational = roles.filter((r) => r.role_type === "operational");
+  // Memoize the type-split lists so identity is stable between renders
+  // — the cross-zone measurement effect depends transitively on these
+  // (via crossEdges) and a fresh array ref per render fires the effect
+  // on every state write the effect itself triggers (React #185).
+  const directors = useMemo(() => roles.filter((r) => r.role_type === "director"), [roles]);
+  const advisors = useMemo(() => roles.filter((r) => r.role_type === "advisor"), [roles]);
+  const operational = useMemo(() => roles.filter((r) => r.role_type === "operational"), [roles]);
 
   const opIds = useMemo(() => new Set(operational.map((r) => r.id)), [operational]);
   const directorIds = useMemo(() => new Set(directors.map((r) => r.id)), [directors]);
-  const opEdges = edges.filter((e) => opIds.has(e.parent_role_id) && opIds.has(e.child_role_id));
-  const treeLayout = layoutChart(operational, opEdges);
+  const opEdges = useMemo(
+    () => edges.filter((e) => opIds.has(e.parent_role_id) && opIds.has(e.child_role_id)),
+    [edges, opIds],
+  );
+  const treeLayout = useMemo(() => layoutChart(operational, opEdges), [operational, opEdges]);
 
   // Governance edges — director → operational. These cross the band
   // boundary between the director roster and the operational tree.
@@ -91,6 +98,11 @@ export default function RolesChart({
   useLayoutEffect(() => {
     const stack = stackRef.current;
     if (!stack) return;
+    // ResizeObserver fires when our own state writes change layout —
+    // guard each setState with a content-equality check or we'll
+    // bounce between identical values via fresh object refs (React
+    // #185). Compare numeric fields rather than JSON.stringify so the
+    // hot path stays cheap.
     const measure = () => {
       const stackW = stack.offsetWidth;
       const stackH = stack.offsetHeight;
@@ -108,14 +120,16 @@ export default function RolesChart({
           y2: op.y,
         });
       }
-      setStackSize({ w: stackW, h: stackH });
-      setCrossConnectors(next);
+      setStackSize((prev) =>
+        prev.w === stackW && prev.h === stackH ? prev : { w: stackW, h: stackH },
+      );
+      setCrossConnectors((prev) => (sameConnectors(prev, next) ? prev : next));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(stack);
     return () => ro.disconnect();
-  }, [crossEdges, directors, operational, advisors, treeLayout.width, treeLayout.height]);
+  }, [crossEdges]);
 
   if (roles.length === 0) return null;
 
@@ -234,6 +248,18 @@ export default function RolesChart({
  * getBoundingClientRect would return scaled values that don't match
  * the SVG's own (pre-transform) coordinate space.
  */
+function sameConnectors(a: CrossConnector[], b: CrossConnector[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ai = a[i];
+    const bi = b[i];
+    if (ai.x1 !== bi.x1 || ai.y1 !== bi.y1 || ai.x2 !== bi.x2 || ai.y2 !== bi.y2) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function offsetRelative(el: HTMLElement, ancestor: HTMLElement): { x: number; y: number } {
   let x = 0;
   let y = 0;
