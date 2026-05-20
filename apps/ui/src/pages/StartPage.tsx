@@ -89,6 +89,14 @@ export default function StartPage() {
       : inboxCount > 0
         ? `${inboxCount} in inbox`
         : "Inbox clear";
+  // Hero pill carries the home page's at-a-glance state signal. The inbox
+  // stat takes the board status grammar: amber (in_review) when something
+  // is awaiting the user, indigo (in_progress) when items are live but not
+  // blocked, muted when the inbox is clear. This puts the same dot
+  // vocabulary used on the inbox preview rows below into the surface above
+  // them, so the pill summary and the per-row dots read as one signal.
+  const inboxPillState: "review" | "progress" | "idle" =
+    awaitingCount > 0 ? "review" : inboxCount > 0 ? "progress" : "idle";
 
   return (
     <div className="home-page">
@@ -118,7 +126,13 @@ export default function StartPage() {
           <span className="home-hero-pill-sep" aria-hidden>
             ·
           </span>
-          <span className="home-hero-pill-stat">{inboxLabel}</span>
+          <span className="home-hero-pill-stat home-hero-pill-stat--inbox">
+            <span
+              className={`home-hero-pill-dot home-hero-pill-dot--${inboxPillState}`}
+              aria-hidden="true"
+            />
+            {inboxLabel}
+          </span>
           <span className="home-hero-pill-sep" aria-hidden>
             ·
           </span>

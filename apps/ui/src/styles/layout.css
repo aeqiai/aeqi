@@ -7789,6 +7789,36 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero-pill-stat {
   font-variant-numeric: tabular-nums;
 }
+.home-hero-pill-stat--inbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Hero-pill status dot — same 7px / 999px shape as `.home-inbox-status`
+   and `.quest-status-dot`, so the family vocabulary stays one shape with
+   three colors. Amber when something awaits the user (rhymes with the
+   amber dots on awaiting rows below), indigo when items are live, muted
+   when the inbox is clear. The dot upgrades the inbox stat from a piece
+   of text to a live status surface — the same signal users scan for in
+   the rows below now sits in the surface above them. */
+.home-hero-pill-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+}
+.home-hero-pill-dot--progress {
+  background: var(--state-progress);
+}
+.home-hero-pill-dot--review {
+  background: var(--state-review);
+}
+.home-hero-pill-dot--idle {
+  background: var(--color-text-muted);
+  opacity: 0.45;
+}
 .home-hero-pill-sep {
   color: var(--color-text-muted);
   opacity: 0.55;
@@ -8185,10 +8215,10 @@ button.home-card:focus-visible {
   background: var(--color-text-muted);
 }
 .home-inbox-status--in_progress {
-  background: #7c6cd6;
+  background: var(--state-progress);
 }
 .home-inbox-status--in_review {
-  background: var(--color-warmth);
+  background: var(--state-review);
 }
 .home-inbox-avatar {
   display: flex;
