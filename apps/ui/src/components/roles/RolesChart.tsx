@@ -38,6 +38,14 @@ interface CrossConnector {
    *  explicit chips for the focused row) so canvas and inspector tell
    *  the same focal story bidirectionally. */
   directorId: string;
+  /** Apex-operator role id that terminates this edge. Mirror of
+   *  `directorId` for the operator side: hover on an apex operator's
+   *  "implicit" head-row hint scopes the brighten-stroke effect to
+   *  just the dashed edges INBOUND to THAT operator (c8). Completes
+   *  the bidirectional inspector↔chart correspondence — the c7
+   *  outbound beam from directors now has a matching inbound beam
+   *  into operators. */
+  operatorId: string;
 }
 
 const ZOOM_MIN = 0.25;
@@ -222,6 +230,15 @@ export default function RolesChart({
   // surface tells the same focal story when a board node is interrogated.
   // null = no scoped highlight; default dashed treatment paints.
   const [hoveredImplicitDir, setHoveredImplicitDir] = useState<string | null>(null);
+  // Apex-operator role id whose head-row "implicit" hint is currently
+  // hovered/focused. Mirror of `hoveredImplicitDir` for the operator
+  // side — scopes the brighten/dim treatment to dashed cross-edges
+  // INBOUND to THAT operator. Completes the bidirectional inspector↔
+  // chart correspondence: c7 wired the director-side outbound beam,
+  // c8 wires the operator-side inbound beam. The two are mutually
+  // exclusive — entering one hint clears the other — so only one
+  // focal story plays at a time.
+  const [hoveredImplicitOp, setHoveredImplicitOp] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     const stack = stackRef.current;
@@ -248,6 +265,7 @@ export default function RolesChart({
           y2: op.y,
           implicit: e.implicit,
           directorId: e.parent_role_id,
+          operatorId: e.child_role_id,
         });
       }
       setStackSize((prev) =>
@@ -283,18 +301,25 @@ export default function RolesChart({
               // dashed + muted, labelled "implicit" so the canvas
               // tells the same provenance story as the inspector.
               //
-              // Scoped hover overlay (c7): when a director's head-row
-              // "implicit" hint is hovered, brighten only the dashed
-              // edges originating from THAT director, and dim every
-              // other implicit edge so the focal beam reads cleanly.
-              // Explicit edges are unaffected — hovering an implicit
-              // marker is about provenance, not action. The class
-              // suffix is applied to the whole <g> so the label pill
-              // can ride along.
-              const hoveringSomeDir = hoveredImplicitDir !== null;
-              const isFocused =
-                c.implicit && hoveringSomeDir && hoveredImplicitDir === c.directorId;
-              const isDimmed = c.implicit && hoveringSomeDir && hoveredImplicitDir !== c.directorId;
+              // Scoped hover overlay: c7 wired the director-side
+              // outbound beam (`hoveredImplicitDir` -> edges leaving
+              // that director). c8 mirrors it on the operator side
+              // (`hoveredImplicitOp` -> edges inbound to that apex
+              // operator) so the inspector↔chart focal correspondence
+              // reads bidirectionally. The two hints are mutually
+              // exclusive in practice (entering one clears the other),
+              // but the match condition tolerates either being active:
+              // an edge is focused when EITHER endpoint hint targets
+              // it, dimmed when SOME hint is active but neither
+              // endpoint matches. Explicit edges are unaffected —
+              // hovering an implicit marker is about provenance, not
+              // action. The class suffix is applied to the whole <g>
+              // so the label pill can ride along.
+              const hoveringSomeHint = hoveredImplicitDir !== null || hoveredImplicitOp !== null;
+              const matchesDir = hoveredImplicitDir !== null && hoveredImplicitDir === c.directorId;
+              const matchesOp = hoveredImplicitOp !== null && hoveredImplicitOp === c.operatorId;
+              const isFocused = c.implicit && (matchesDir || matchesOp);
+              const isDimmed = c.implicit && hoveringSomeHint && !isFocused;
               const focusClass = isFocused
                 ? " roles-chart-cross-edge-path--focused"
                 : isDimmed
@@ -358,7 +383,14 @@ export default function RolesChart({
                   implicit={implicitDirectorIds.has(r.id)}
                   onImplicitHintHover={
                     implicitDirectorIds.has(r.id)
-                      ? (hovering) => setHoveredImplicitDir(hovering ? r.id : null)
+                      ? (hovering) => {
+                          // Mutually exclusive with the operator-side
+                          // beam — entering the director hint clears
+                          // any active operator hint so only one focal
+                          // story plays at a time.
+                          if (hovering) setHoveredImplicitOp(null);
+                          setHoveredImplicitDir(hovering ? r.id : null);
+                        }
                       : undefined
                   }
                   style={{ width: NODE_W, height: NODE_H }}
@@ -405,6 +437,17 @@ export default function RolesChart({
                   nodeRef={setNodeRef(n.role.id)}
                   className={n.layer === 0 ? "role-node--apex" : undefined}
                   implicit={implicitOperatorIds.has(n.role.id)}
+                  onImplicitHintHover={
+                    implicitOperatorIds.has(n.role.id)
+                      ? (hovering) => {
+                          // Mirror of the director hint: mutually
+                          // exclusive with the director-side beam so
+                          // only one focal story plays at a time.
+                          if (hovering) setHoveredImplicitDir(null);
+                          setHoveredImplicitOp(hovering ? n.role.id : null);
+                        }
+                      : undefined
+                  }
                   style={{
                     position: "absolute",
                     left: n.x,
@@ -467,7 +510,8 @@ function sameConnectors(a: CrossConnector[], b: CrossConnector[]): boolean {
       ai.x2 !== bi.x2 ||
       ai.y2 !== bi.y2 ||
       ai.implicit !== bi.implicit ||
-      ai.directorId !== bi.directorId
+      ai.directorId !== bi.directorId ||
+      ai.operatorId !== bi.operatorId
     ) {
       return false;
     }

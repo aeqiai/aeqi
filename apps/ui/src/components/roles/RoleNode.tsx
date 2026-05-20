@@ -28,13 +28,14 @@ export interface RoleNodeProps {
    *  identical to one with explicit director delegates. */
   implicit?: boolean;
   /** Fired when the head-row "implicit" hint receives or loses
-   *  hover/focus. RolesChart uses this on directors to scope a
-   *  brighten/dim treatment to the dashed cross-edges originating from
-   *  THIS director — mirrors the c6 inspector hover so the chart tells
-   *  the same focal story bidirectionally (inspector chip-fade →
-   *  node-glow; node hint-hover → edge-glow). Only Director nodes wire
-   *  this; Operator nodes carry `implicit` for the tile decoration
-   *  but no callback. */
+   *  hover/focus. RolesChart wires this on BOTH ends of an implicit
+   *  governance edge: on directors (c7) to scope the brighten effect
+   *  to dashed cross-edges leaving THIS director, and on apex operators
+   *  (c8) to scope it to dashed cross-edges INBOUND to THIS operator.
+   *  The two beams are mutually exclusive — entering one hint clears
+   *  the other — so only one focal story plays at a time. Mirrors the
+   *  c6 inspector chip-fade so chart and inspector tell the same focal
+   *  story bidirectionally. */
   onImplicitHintHover?: (hovering: boolean) => void;
 }
 
@@ -126,9 +127,11 @@ export default function RoleNode({
              marker mirrors `.role-inspector-edge-hint` so the canvas
              tells the same provenance story the inspector does.
              Hover/focus on this hint scopes a brighten effect to the
-             dashed cross-edges leaving THIS director (c7), so the chart
-             tells the same focal story the c6 inspector tells about
-             explicit-vs-implicit relationships. */
+             dashed cross-edges touching THIS node — outbound on
+             directors (c7) and inbound on apex operators (c8) — so the
+             chart tells the same focal story the c6 inspector tells
+             about explicit-vs-implicit relationships, in both
+             directions. */
           <span
             className="role-node-edge-hint"
             aria-label="Implicit governance"
