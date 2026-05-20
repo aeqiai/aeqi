@@ -1047,7 +1047,10 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   text-decoration: none;
-  transition: background 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease;
 }
 .role-inspector-chip:hover {
   background: var(--color-card-subtle);
@@ -1095,9 +1098,71 @@
     color 0.12s ease,
     background 0.12s ease;
 }
-.role-inspector-edge-hint--partial:hover {
+.role-inspector-edge-hint--partial:hover,
+.role-inspector-edge-hint--partial:focus-visible {
   color: var(--color-text-secondary);
   background: var(--color-card-muted);
+}
+.role-inspector-edge-hint--partial:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Ghost chips — implicit-destination chips kept in the DOM at rest in
+   a near-invisible state, then glow into view when the partial-implicit
+   pill is hovered. Compressed width + zero opacity at rest keeps the
+   inspector's resting visual weight identical to before; the hover
+   state names the count's referents in-place. */
+.role-inspector-chip--ghost {
+  background: var(--color-card-subtle);
+  color: var(--color-text-muted);
+  font-style: italic;
+  opacity: 0;
+  max-width: 0;
+  padding-inline: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    max-width 0.12s ease,
+    padding 0.12s ease,
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.role-inspector-meta--ghost {
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    max-width 0.12s ease;
+}
+
+/* Hover-driven inversion: when the partial-implicit pill is hovered
+   the field flips its emphasis — explicit chips fade to muted (they
+   are NOT what the pill is naming) while ghost chips glow up with
+   the implicit-destination titles. Transition matches the rest of
+   the inspector's 0.12s ease motion vocabulary. */
+.role-inspector-field--implicit-hover .role-inspector-chip--explicit {
+  background: var(--color-card-subtle);
+  color: var(--color-text-muted);
+  opacity: 0.55;
+}
+.role-inspector-field--implicit-hover .role-inspector-chip--ghost {
+  opacity: 1;
+  max-width: 240px;
+  padding-inline: 10px;
+  color: var(--color-text-primary);
+  background: var(--color-card-muted);
+  pointer-events: auto;
+}
+.role-inspector-field--implicit-hover .role-inspector-meta--ghost {
+  opacity: 1;
+  max-width: 120px;
 }
 .role-inspector-link {
   display: inline-flex;

@@ -183,6 +183,11 @@ export default function RoleInspector({
   }, [role, agentNamesById, entityNameById]);
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Hover flag for the "+n implicit" pill in the "Delegates to" row.
+  // When true, the explicit-delegate chips fade to muted and the
+  // implicit-destination ghost chips glow into view — so the count's
+  // referents are visually identified without leaving the inspector.
+  const [hoveringImplicitPill, setHoveringImplicitPill] = useState(false);
   const copy = (value: string, fieldId: string) => {
     navigator.clipboard.writeText(value);
     setCopiedField(fieldId);
@@ -477,7 +482,10 @@ export default function RoleInspector({
           )}
 
           {childRoles.children.length > 0 && (
-            <Field label="Delegates to">
+            <Field
+              label="Delegates to"
+              className={hoveringImplicitPill ? "role-inspector-field--implicit-hover" : undefined}
+            >
               {/* Chips for visual symmetry with "Reports to". When the
                  underlying edges are IMPLICIT (no explicit wiring on
                  the role row, but the chart synthesizes a director→apex-
@@ -492,7 +500,7 @@ export default function RoleInspector({
                   className={
                     childRoles.implicit
                       ? "role-inspector-chip role-inspector-chip--implicit"
-                      : "role-inspector-chip"
+                      : "role-inspector-chip role-inspector-chip--explicit"
                   }
                   title={childRoles.implicit ? "Implicit delegation edge" : undefined}
                 >
@@ -510,20 +518,54 @@ export default function RoleInspector({
               {/* Partial-implicit hint — director with some wired chips
                  plus one or more synthesized apex destinations. The
                  chips above stay ink (they're real edges); the pill
-                 here names the count and lists the synthesized
-                 destinations in its title attribute so the user can
-                 hover to see WHICH apex ops are inferred. Distinct from
-                 the fully-implicit "implicit" pill above (which paints
+                 here names the count. Hover surfaces the implicit
+                 destinations as ghost chips inline (rendered below) so
+                 the user can identify WHICH apex ops are inferred
+                 without leaving the inspector. Distinct from the
+                 fully-implicit "implicit" pill above (which paints
                  italic+muted on its own row). */}
               {!childRoles.implicit && childRoles.implicitChildren.length > 0 && (
-                <span
-                  className="role-inspector-edge-hint role-inspector-edge-hint--partial"
-                  title={`Also implicitly delegates to ${childRoles.implicitChildren
-                    .map((c) => c.title)
-                    .join(", ")}`}
-                >
-                  +{childRoles.implicitChildren.length} implicit
-                </span>
+                <>
+                  <span
+                    className="role-inspector-edge-hint role-inspector-edge-hint--partial"
+                    title={`Also implicitly delegates to ${childRoles.implicitChildren
+                      .map((c) => c.title)
+                      .join(", ")}`}
+                    onMouseEnter={() => setHoveringImplicitPill(true)}
+                    onMouseLeave={() => setHoveringImplicitPill(false)}
+                    onFocus={() => setHoveringImplicitPill(true)}
+                    onBlur={() => setHoveringImplicitPill(false)}
+                    tabIndex={0}
+                  >
+                    +{childRoles.implicitChildren.length} implicit
+                  </span>
+                  {/* Ghost chips — kept in the DOM at rest with a
+                     compressed/faded treatment so they can glow into
+                     view when the partial-implicit pill is hovered.
+                     They link to the same role surface as explicit
+                     chips; the visual treatment encodes the inferred
+                     vs wired distinction. */}
+                  {childRoles.implicitChildren.slice(0, 3).map((c) => (
+                    <Link
+                      key={`ghost-${c.id}`}
+                      to={`${basePath}/roles?role=${encodeURIComponent(c.id)}`}
+                      className="role-inspector-chip role-inspector-chip--ghost"
+                      title="Implicit delegation edge"
+                      aria-hidden={!hoveringImplicitPill}
+                      tabIndex={hoveringImplicitPill ? 0 : -1}
+                    >
+                      {c.title}
+                    </Link>
+                  ))}
+                  {childRoles.implicitChildren.length > 3 && (
+                    <span
+                      className="role-inspector-meta role-inspector-meta--ghost"
+                      aria-hidden={!hoveringImplicitPill}
+                    >
+                      +{childRoles.implicitChildren.length - 3} more
+                    </span>
+                  )}
+                </>
               )}
             </Field>
           )}
@@ -567,12 +609,16 @@ interface FieldProps {
    * the section title already names the field (Mandate section's
    * single Mandate field, etc.) so we don't stack the same word twice. */
   label?: string;
+  /** Optional extra class applied to the field root — used to drive
+   * field-scoped hover states (e.g. fading explicit chips when the
+   * partial-implicit pill is hovered). */
+  className?: string;
   children: React.ReactNode;
 }
 
-function Field({ label, children }: FieldProps) {
+function Field({ label, className, children }: FieldProps) {
   return (
-    <div className="role-inspector-field">
+    <div className={className ? `role-inspector-field ${className}` : "role-inspector-field"}>
       {label && <span className="role-inspector-field-label">{label}</span>}
       <div className="role-inspector-field-value">{children}</div>
     </div>
