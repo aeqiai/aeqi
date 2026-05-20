@@ -992,6 +992,34 @@
 .role-inspector-chip:hover {
   background: var(--color-card-subtle);
 }
+/* Implicit edge variant — the link is real (you can click through to
+   the inferred role) but the data underneath is synthesised, not
+   wired. Quieter background + secondary text colour so the eye
+   weights it below explicit chips on the same row. Pairs with the
+   "implicit" hint pill rendered alongside the chips. */
+.role-inspector-chip--implicit {
+  background: var(--color-card-subtle);
+  color: var(--color-text-secondary);
+}
+.role-inspector-chip--implicit:hover {
+  background: var(--color-card-muted);
+  color: var(--color-text-primary);
+}
+.role-inspector-edge-hint {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 18px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  font-style: italic;
+  align-self: center;
+}
 .role-inspector-link {
   display: inline-flex;
   align-items: center;

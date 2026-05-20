@@ -62,41 +62,65 @@ export default function RoleInspector({
   // operators with no explicit parent inherit the implicit governance
   // relation from every director (mirrors the synthesized canvas
   // connectors in RolesChart, so the inspector tells the same story
-  // the chart shows). Multiple parents render as "Reports to: A, B".
+  // the chart shows). The `implicit` flag drives a quieter visual
+  // treatment downstream — explicit wiring reads ink, implicit
+  // governance reads muted, so the user can tell at a glance which
+  // edges are data and which are inferred.
   const parentRoles = useMemo(() => {
-    const parents: Role[] = [];
+    const explicit: Role[] = [];
     for (const e of edges) {
       if (e.child_role_id === role.id) {
         const parent = rolesById.get(e.parent_role_id);
-        if (parent) parents.push(parent);
+        if (parent) explicit.push(parent);
       }
     }
-    if (parents.length === 0 && role.role_type === "operational") {
+    if (explicit.length > 0) return { roles: explicit, implicit: false };
+    if (role.role_type === "operational") {
+      const directors: Role[] = [];
       for (const candidate of rolesById.values()) {
-        if (candidate.role_type === "director") parents.push(candidate);
+        if (candidate.role_type === "director") directors.push(candidate);
       }
+      return { roles: directors, implicit: directors.length > 0 };
     }
-    return parents;
+    return { roles: [], implicit: false };
   }, [edges, rolesById, role]);
 
-  // Children (delegates) — every role that points up at this one.
-  // Mirror the implicit-edge story: a director with no explicit
-  // children but operators in the same TRUST implicitly delegates to
-  // each operator.
+  // Children (delegates) — every role that points down from this one.
+  // Mirror the implicit-edge story in RolesChart: a director with no
+  // explicit children implicitly delegates only to the APEX operators
+  // (operators with no operational parent), not to every operator in
+  // the TRUST. Enumerating all 9 operators here was authority fiction —
+  // the chart already drew the relationship correctly, the inspector
+  // was the one telling a louder story than the data.
   const childRoles = useMemo(() => {
-    const children: Role[] = [];
+    const explicit: Role[] = [];
     for (const e of edges) {
       if (e.parent_role_id === role.id) {
         const child = rolesById.get(e.child_role_id);
-        if (child) children.push(child);
+        if (child) explicit.push(child);
       }
     }
-    if (children.length === 0 && role.role_type === "director") {
+    if (explicit.length > 0) return { children: explicit, implicit: false };
+    if (role.role_type === "director") {
+      // Apex = operational roles with no operational parent. Same
+      // definition as RolesChart's governance-edge synthesis.
+      const opParentIds = new Set<string>();
+      for (const e of edges) {
+        const parent = rolesById.get(e.parent_role_id);
+        const child = rolesById.get(e.child_role_id);
+        if (parent?.role_type === "operational" && child?.role_type === "operational") {
+          opParentIds.add(child.id);
+        }
+      }
+      const apex: Role[] = [];
       for (const candidate of rolesById.values()) {
-        if (candidate.role_type === "operational") children.push(candidate);
+        if (candidate.role_type === "operational" && !opParentIds.has(candidate.id)) {
+          apex.push(candidate);
+        }
       }
+      return { children: apex, implicit: apex.length > 0 };
     }
-    return children;
+    return { children: [], implicit: false };
   }, [edges, rolesById, role]);
 
   // Active quests held by THIS role's occupant when it's an agent.
@@ -396,46 +420,72 @@ export default function RoleInspector({
             )}
           </Field>
 
-          {parentRoles.length > 0 && (
+          {parentRoles.roles.length > 0 && (
             <Field label="Reports to">
-              {parentRoles.map((p) => (
+              {parentRoles.roles.slice(0, 3).map((p) => (
                 <Link
                   key={p.id}
                   to={`${basePath}/roles?role=${encodeURIComponent(p.id)}`}
-                  className="role-inspector-chip"
+                  className={
+                    parentRoles.implicit
+                      ? "role-inspector-chip role-inspector-chip--implicit"
+                      : "role-inspector-chip"
+                  }
+                  title={parentRoles.implicit ? "Implicit governance edge" : undefined}
                 >
                   {p.title}
                 </Link>
               ))}
+              {parentRoles.roles.length > 3 && (
+                <span className="role-inspector-meta">+{parentRoles.roles.length - 3} more</span>
+              )}
+              {parentRoles.implicit && (
+                <span className="role-inspector-edge-hint" title="No explicit edge wired">
+                  implicit
+                </span>
+              )}
             </Field>
           )}
 
           {/* Top-of-tree directors don't report up; they ARE the apex.
               "Scope" instead of "Authority" so we don't stack the same
               word twice inside the Authority section. */}
-          {parentRoles.length === 0 && role.role_type === "director" && (
+          {parentRoles.roles.length === 0 && role.role_type === "director" && (
             <Field label="Scope">
               <span className="role-inspector-meta">Root authority</span>
             </Field>
           )}
 
-          {childRoles.length > 0 && (
+          {childRoles.children.length > 0 && (
             <Field label="Delegates to">
-              {/* Render as chips for visual symmetry with "Reports to"
-                 above. Both fields express adjacent roles, so they
-                 should be visually parallel and individually clickable.
-                 Overflow above 3 collapses to a "+N more" tail. */}
-              {childRoles.slice(0, 3).map((c) => (
+              {/* Chips for visual symmetry with "Reports to". When the
+                 underlying edges are IMPLICIT (no explicit wiring on
+                 the role row, but the chart synthesizes a director→apex-
+                 operator governance edge) the chips get a muted treatment
+                 + an "implicit" hint pill — explicit data reads ink,
+                 inferred reads quieter. Apex-only enumeration mirrors
+                 RolesChart so the two surfaces tell the same story. */}
+              {childRoles.children.slice(0, 3).map((c) => (
                 <Link
                   key={c.id}
                   to={`${basePath}/roles?role=${encodeURIComponent(c.id)}`}
-                  className="role-inspector-chip"
+                  className={
+                    childRoles.implicit
+                      ? "role-inspector-chip role-inspector-chip--implicit"
+                      : "role-inspector-chip"
+                  }
+                  title={childRoles.implicit ? "Implicit delegation edge" : undefined}
                 >
                   {c.title}
                 </Link>
               ))}
-              {childRoles.length > 3 && (
-                <span className="role-inspector-meta">+{childRoles.length - 3} more</span>
+              {childRoles.children.length > 3 && (
+                <span className="role-inspector-meta">+{childRoles.children.length - 3} more</span>
+              )}
+              {childRoles.implicit && (
+                <span className="role-inspector-edge-hint" title="No explicit edge wired">
+                  implicit
+                </span>
               )}
             </Field>
           )}
