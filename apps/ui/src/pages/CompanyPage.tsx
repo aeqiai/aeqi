@@ -25,6 +25,7 @@ const IncorporationPage = lazy(() => import("@/pages/IncorporationPage"));
 const AgentEventsTab = lazy(() => import("@/components/AgentEventsTab"));
 const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
+const TrustSettingsTab = lazy(() => import("@/components/TrustSettingsTab"));
 
 interface CompanyPageProps {
   agentId: string;
@@ -228,6 +229,13 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
     return (
       <Suspense>
         <AgentIdeasTab agentId={agentId} scope="entity" />
+      </Suspense>
+    );
+  }
+  if (tab === "settings") {
+    return (
+      <Suspense>
+        <TrustSettingsTab trustId={trustId} />
       </Suspense>
     );
   }

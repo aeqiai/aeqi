@@ -86,6 +86,10 @@ const COMPANY_PAGE_TABS = new Set([
   "events",
   "quests",
   "ideas",
+  // Trust-level Settings surface: irreversible administrative actions
+  // (ownership transfer; future archival / principal rotation). Reachable
+  // from the Ownership group footer link on TrustOverviewTab.
+  "settings",
 ]);
 
 export function resolveDefaultAgent(

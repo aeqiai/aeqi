@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
-import { Wallet, PieChart, Vote, FileText } from "lucide-react";
+import { Wallet, PieChart, Vote, FileText, Settings } from "lucide-react";
 import { useAssets } from "@/hooks/useAssets";
 import { useEquity } from "@/hooks/useEquity";
 import { useQuorum } from "@/hooks/useQuorum";
 import { useIncorporation } from "@/hooks/useIncorporation";
 import { deriveProposalStatus, lookupTokenMeta } from "@/solana";
-import TrustOwnershipTransferControl from "./TrustOwnershipTransferControl";
 
 interface TrustOwnershipGroupProps {
   trustAddress: string | null | undefined;
@@ -117,7 +116,10 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           sub={trustOnchain ? "" : trustAddress ? "No agreement yet" : "Setting up on Solana"}
         />
       </section>
-      <TrustOwnershipTransferControl hasTrustAddress={!!trustAddress} />
+      <Link to={`${basePath}/settings`} className="trust-ownership-settings-link">
+        <Settings size={14} strokeWidth={1.5} />
+        <span>Settings — transfer ownership, archival</span>
+      </Link>
     </div>
   );
 }
