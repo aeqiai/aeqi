@@ -490,22 +490,39 @@ export default function MeInboxPage() {
       </>
     );
 
-    const archiveButton = (
-      <Tooltip content={dismissAvailable === false ? "Coming soon" : "Archive this thread"}>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="inbox-archive-btn"
-          onClick={() => void handleDismiss()}
-          disabled={dismissAvailable === false || dismissAvailable === null}
-          loading={dismissing}
-          aria-label={dismissAvailable === false ? "Archive (coming soon)" : "Archive"}
-          leadingIcon={<ArchiveIcon />}
-        >
-          Archive
-        </Button>
-      </Tooltip>
-    );
+    // ── Archive placement audit (c7) ──────────────────────────────────────
+    // Surfaces considered:
+    //   (A) move next to Reply on the awaiting strip
+    //   (B) keep in composerExtraActions (current)
+    // Decision: (B). The awaiting strip only renders when `awaiting === true`,
+    // so moving Archive there would orphan it on resolved threads (any thread
+    // can be archived). `composerExtraActions` is the slot the universal
+    // SessionDetail primitive defines for thread-level actions; the agent
+    // surface (the other consumer) renders SessionDetail with `hideComposer`
+    // so there is no contract collision. Archive sits in the composer footer's
+    // action zone alongside Send — both are "I'm done with this turn" verbs.
+    //
+    // Probe gate: only render when the backend endpoint is confirmed live.
+    // A disabled "Coming soon" button is dead pixels on the canonical
+    // composer surface; per the prune test, if it can't do its job, it
+    // shouldn't take up space. The probe is localStorage-cached so the
+    // chrome stabilises on the first call after login.
+    const archiveButton =
+      dismissAvailable === true ? (
+        <Tooltip content="Archive this thread">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="inbox-archive-btn"
+            onClick={() => void handleDismiss()}
+            loading={dismissing}
+            aria-label="Archive"
+            leadingIcon={<ArchiveIcon />}
+          >
+            Archive
+          </Button>
+        </Tooltip>
+      ) : undefined;
 
     // The subject line is informationally redundant with the rail row's
     // primary, but reading it large in the detail pane is part of the
