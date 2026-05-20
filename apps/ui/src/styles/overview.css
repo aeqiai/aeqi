@@ -938,6 +938,30 @@
   background: var(--color-card);
 }
 
+/* Quest signal-row footer — three board accents (in_progress · in_review
+   · done in 24h) rendered as a quiet dot+count cluster underneath the
+   headline value of the Quests tile. Uses the canonical
+   `.quest-status-dot--*` vocabulary from pages.css so the overview reads
+   as a quiet echo of the board itself. Tokens only — color comes from
+   the dots, the row stays in muted ink at xs weight so the value above
+   keeps the visual lead. */
+.trust-quest-signals {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.trust-quest-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+
 /* ── Activity card sparklines ─────────────────────────────────────── */
 
 .trust-activity-grid {

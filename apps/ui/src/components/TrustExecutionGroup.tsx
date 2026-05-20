@@ -16,6 +16,12 @@ interface TrustExecutionGroupProps {
  * right-side overview panel (TrustHeroOverview) on 2026-05-20, so
  * this component is now just the card grid. No outer container; the
  * hero overview is the visual anchor that groups these cards.
+ *
+ * Cycle 1 (2026-05-20): the Quests tile now carries the three board
+ * accents as a live signal-row — in_progress (lavender) · in_review
+ * (warmth) · done in 24h (jade). It uses the canonical
+ * `.quest-status-dot--*` vocabulary from pages.css so the overview
+ * reads as a quiet echo of the board itself.
  */
 export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutionGroupProps) {
   const agents = useDaemonStore((s) => s.agents);
@@ -38,18 +44,29 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
     [subtreeAgents],
   );
 
-  const inflightQuests = useMemo(
+  const trustQuests = useMemo(
     () =>
-      quests.filter(
-        (q) =>
-          (q.status === "in_progress" ||
-            q.status === "in_review" ||
-            q.status === "todo" ||
-            q.status === "backlog") &&
-          (q.agent_id === trustId || (q.agent_id && subtreeNames.has(q.agent_id))),
-      ).length,
+      quests.filter((q) => q.agent_id === trustId || (q.agent_id && subtreeNames.has(q.agent_id))),
     [quests, subtreeNames, trustId],
   );
+
+  const questBreakdown = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    let inProgress = 0;
+    let inReview = 0;
+    let doneRecent = 0;
+    for (const q of trustQuests) {
+      if (q.status === "in_progress") inProgress += 1;
+      else if (q.status === "in_review") inReview += 1;
+      else if (q.status === "done") {
+        const closed = q.closed_at ? Date.parse(q.closed_at) : NaN;
+        if (!Number.isNaN(closed) && closed >= cutoff) doneRecent += 1;
+      }
+    }
+    return { inProgress, inReview, doneRecent };
+  }, [trustQuests]);
+
+  const inflightQuests = questBreakdown.inProgress + questBreakdown.inReview;
 
   const recent24hEvents = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -81,7 +98,22 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           label="Quests"
           value={String(inflightQuests)}
           hint="in flight"
-          sub=""
+          footer={
+            <span className="trust-quest-signals" aria-label="quest status breakdown">
+              <span className="trust-quest-signal" title="In progress">
+                <span className="quest-status-dot quest-status-dot--in_progress" aria-hidden />
+                {questBreakdown.inProgress}
+              </span>
+              <span className="trust-quest-signal" title="In review">
+                <span className="quest-status-dot quest-status-dot--in_review" aria-hidden />
+                {questBreakdown.inReview}
+              </span>
+              <span className="trust-quest-signal" title="Done in last 24h">
+                <span className="quest-status-dot quest-status-dot--done" aria-hidden />
+                {questBreakdown.doneRecent}
+              </span>
+            </span>
+          }
         />
         <PrimitiveCard
           to={`${basePath}/events`}
@@ -89,7 +121,6 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           label="Events"
           value={String(recent24hEvents)}
           hint="last 24h"
-          sub=""
         />
         <PrimitiveCard
           to={`${basePath}/ideas`}
@@ -97,7 +128,6 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           label="Ideas"
           value="—"
           hint=""
-          sub=""
         />
       </div>
     </section>
@@ -110,10 +140,12 @@ interface PrimitiveCardProps {
   label: string;
   value: string;
   hint: string;
-  sub: string;
+  sub?: string;
+  /** Optional rich footer (e.g. status-dot signal row). Takes precedence over `sub`. */
+  footer?: React.ReactNode;
 }
 
-function PrimitiveCard({ to, icon, label, value, hint, sub }: PrimitiveCardProps) {
+function PrimitiveCard({ to, icon, label, value, hint, sub, footer }: PrimitiveCardProps) {
   return (
     <Link to={to} className="trust-cockpit-mini">
       <span className="trust-primitive-icon" aria-hidden>
@@ -124,7 +156,7 @@ function PrimitiveCard({ to, icon, label, value, hint, sub }: PrimitiveCardProps
         {value}
         {hint && <span className="trust-primitive-hint"> {hint}</span>}
       </span>
-      {sub && <span className="trust-primitive-sub">{sub}</span>}
+      {footer ? footer : sub ? <span className="trust-primitive-sub">{sub}</span> : null}
     </Link>
   );
 }
