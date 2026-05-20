@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowUpRight, BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
-import BlockAvatar from "@/components/BlockAvatar";
+import TrustAvatar from "@/components/TrustAvatar";
 import PageRail from "@/components/PageRail";
 import {
   Badge,
@@ -197,7 +197,7 @@ export default function EconomyPage() {
         header: "Trust",
         cell: (trust) => (
           <span className={styles.trustCell}>
-            <BlockAvatar name={trust.name} size={28} />
+            <TrustAvatar name={trust.name} size={28} />
             <span className={styles.trustCellText}>
               <span className={styles.trustName}>{trust.name}</span>
               <span className={styles.trustMeta}>

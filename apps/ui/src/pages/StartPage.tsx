@@ -17,6 +17,7 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { timeShort } from "@/lib/format";
 import { launchPlanById } from "@/lib/pricing";
 import BlockAvatar from "@/components/BlockAvatar";
+import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
 import type { Trust } from "@/lib/types";
 
@@ -302,7 +303,7 @@ function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProp
     >
       <div className="home-personal-body">
         <span className="home-personal-avatar" aria-hidden="true">
-          <BlockAvatar name={personal.name} size={64} />
+          <TrustAvatar name={personal.name} size={64} />
         </span>
         <h3 className="home-personal-name">{personal.name}</h3>
         <p className="home-personal-role">Your TRUST</p>
@@ -390,7 +391,7 @@ function AllTrustsCard({ others, onViewAll, onPick }: AllTrustsCardProps) {
                 aria-label={`Step into ${t.name}`}
                 title={t.name}
               >
-                <BlockAvatar name={t.name} size={32} />
+                <TrustAvatar name={t.name} size={32} />
               </button>
             </li>
           ))}

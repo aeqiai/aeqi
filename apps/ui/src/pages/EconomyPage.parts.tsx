@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import BlockAvatar from "@/components/BlockAvatar";
+import TrustAvatar from "@/components/TrustAvatar";
 import { Badge, Button, EmptyState, Loading, PageSection } from "@/components/ui";
 import type { Trust } from "@/lib/types";
 import styles from "./EconomyPage.module.css";
@@ -44,7 +44,7 @@ export function TrustDirectory({
             <article key={trust.id} className={styles.trustCard}>
               <button type="button" className={styles.trustCardMain} onClick={() => onOpen(trust)}>
                 <span className={styles.trustCardHead}>
-                  <BlockAvatar name={trust.name} size={36} />
+                  <TrustAvatar name={trust.name} size={36} />
                   <span className={styles.trustCellText}>
                     <span className={styles.trustName}>{trust.name}</span>
                     <span className={styles.trustMeta}>{trust.tagline || "Operating trust"}</span>

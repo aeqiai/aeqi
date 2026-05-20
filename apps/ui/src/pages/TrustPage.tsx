@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import BlockAvatar from "@/components/BlockAvatar";
+import TrustAvatar from "@/components/TrustAvatar";
 import { useUIStore } from "@/store/ui";
 import { useTrusts, useActiveTrust } from "@/queries/trusts";
 
@@ -51,7 +51,7 @@ export default function TrustPage() {
         {activeTrust ? (
           <>
             <span className="network-anchor-avatar">
-              <BlockAvatar name={activeTrust.name} size={112} />
+              <TrustAvatar name={activeTrust.name} size={112} />
             </span>
             <div className="network-anchor-text">
               <p className="network-anchor-eyebrow">Currently operating</p>
@@ -82,7 +82,7 @@ export default function TrustPage() {
               aria-label={`${ctx.role} at ${ctx.trust}`}
             >
               <span className="network-tile-avatar">
-                <BlockAvatar name={ctx.trust} size={56} />
+                <TrustAvatar name={ctx.trust} size={56} />
               </span>
               <span className="network-tile-trust">{ctx.trust}</span>
               <span className="network-tile-role">{ctx.role}</span>
