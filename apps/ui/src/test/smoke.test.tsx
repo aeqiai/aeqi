@@ -222,7 +222,9 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
-    expect(screen.getByText("Workspace · Root")).toBeInTheDocument();
+    expect(
+      screen.getByText("Drop a quest here to scope the board to its children"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
 

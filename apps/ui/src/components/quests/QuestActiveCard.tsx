@@ -39,6 +39,11 @@ export interface QuestActiveCardProps {
    *  drop target — letting the card be its own drag source would
    *  re-fire the drop on itself. Default: true. */
   draggable?: boolean;
+  /** When true, the card paints the scope highlight ring — visual
+   *  cue that this quest is the active board scope. The card stays
+   *  fully draggable so the user can change its status without
+   *  leaving the scoped view. */
+  isScope?: boolean;
 }
 
 export default function QuestActiveCard({
@@ -56,6 +61,7 @@ export default function QuestActiveCard({
   users,
   childCount = 0,
   draggable = true,
+  isScope = false,
 }: QuestActiveCardProps) {
   const canTake =
     q.status !== "in_progress" &&
@@ -69,6 +75,7 @@ export default function QuestActiveCard({
       data-priority={q.priority}
       data-dragging={dragging === q.id || undefined}
       data-focused={focusId === q.id || undefined}
+      data-scope={isScope || undefined}
       draggable={draggable}
       role="button"
       tabIndex={0}

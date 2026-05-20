@@ -632,13 +632,14 @@ export default function QuestBoard({
                                 focusId={focusId}
                                 setDragging={setDragging}
                                 setDropTarget={setDropTarget}
-                                onPick={onPick}
+                                onPick={q.id === boardScopeId ? () => onOpenQuest(q.id) : onPick}
                                 onTake={handleTake}
                                 onCreated={onCreated}
                                 onError={setErr}
                                 agents={agents}
                                 users={users}
                                 childCount={childCounts.get(q.id) ?? 0}
+                                isScope={q.id === boardScopeId}
                               />
                             ))
                           )}

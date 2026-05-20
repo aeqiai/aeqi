@@ -3210,89 +3210,57 @@
   border-radius: var(--radius-sm);
 }
 
-/* Quest scope band — header row plus a single card slot below.
+/* Quest scope band — its own kanban-column-style slab above the board.
  *
- * The header is the row's column-header equivalent ("Scope" label +
- * right-edge Up / Clear actions). The slot below holds either a real
- * QuestActiveCard (when scoped) or a dashed-border drop placeholder
- * (at root). The whole slot is a drop target keyed off the kanban's
- * dataTransfer payload — drag any quest up to re-scope. */
+ * Visual identity mirrors Backlog / Cancelled: --bg-row slab,
+ * 44px column-style header with the section label + right-edge
+ * actions, body below carrying either the empty placeholder or a
+ * real QuestActiveCard. Label is always "Scope" — the row's purpose
+ * is constant regardless of what's inside. */
 .quest-scope {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 12px 20px 0;
-  min-width: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
+  overflow: hidden;
 }
 
 .quest-scope-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 28px;
-  padding: 0 4px;
+  min-height: 44px;
+  padding: 10px 14px;
 }
 
 .quest-scope-header-label {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.quest-scope-header-sub {
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--color-text-muted);
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
 }
 
 .quest-scope-header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
-.quest-scope-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.quest-scope-action:hover,
-.quest-scope-action:focus-visible {
-  outline: none;
-  background: var(--bg-row);
-  color: var(--color-text-primary);
-}
-
-/* Slot wraps the QuestActiveCard (or the empty placeholder). On scoped
- * state the slot is transparent so the QuestActiveCard's own surface
- * carries the visual identity. On empty state the slot becomes the
- * dashed-border placeholder. */
+/* The slot sits inside the slab with a small inset so the slab
+ * border still reads around the body. On scoped state the
+ * QuestActiveCard fills the slot; on empty state the slot itself
+ * becomes the dashed-border drop placeholder. */
 .quest-scope-slot {
   display: flex;
-  min-height: 88px;
-  border-radius: var(--radius-md);
+  align-items: stretch;
+  margin: 0 8px 8px;
+  min-height: 76px;
+  border-radius: var(--radius-sm);
   transition:
     background 0.15s ease,
     outline-color 0.15s ease;
@@ -3309,9 +3277,6 @@
   border-color: transparent;
 }
 
-/* The QuestActiveCard inside the scope slot stretches to fill the
- * slot. The card's own chrome (status dot, name, child count, priority,
- * Take, assignee, age) does all the visual work. */
 .quest-scope-slot > .quest-card {
   flex: 1;
   min-width: 0;
@@ -3329,8 +3294,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   background: var(--color-card);
   color: var(--color-text-secondary);
@@ -3694,6 +3659,26 @@
   /* j/k keyboard-navigation focus. Subtle accent ring, not a full redesign. */
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-dim);
+}
+/* Active scope — this card is the parent the board is filtering by.
+   The user can still drag it to change its status without leaving the
+   scoped view; the ring is the visual cue that it's the "anchor". */
+.quest-card[data-scope] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  background: color-mix(in oklch, var(--accent) 4%, var(--color-card-elevated));
+}
+.quest-card[data-scope]::before {
+  content: "SCOPE";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  pointer-events: none;
 }
 /* Card head — status dot leads the subject line, mirroring the list
    row idiom. Subject still clamps at two lines; the dot keeps a fixed

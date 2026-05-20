@@ -179,7 +179,13 @@ export default function AgentQuestsTab({
         : visibleQuests.filter((q) => matchesQuestFilter(q, questFilter, agent?.id ?? agentId));
     const visibleQuestIds = new Set(filteredQuests.map((q) => q.id));
     const activeScopeId = boardScopeId && visibleQuestIds.has(boardScopeId) ? boardScopeId : null;
-    const scopedQuests = filteredQuests.filter((q) => isDirectChildOf(q, activeScopeId));
+    // When scoped, the board renders the parent quest itself alongside
+    // its direct children — the parent appears in its own status column
+    // with the scope-highlight ring so it's clear the user can still
+    // drag-move it without leaving the scoped view.
+    const scopedQuests = activeScopeId
+      ? filteredQuests.filter((q) => q.id === activeScopeId || isDirectChildOf(q, activeScopeId))
+      : filteredQuests.filter((q) => isDirectChildOf(q, null));
     const childCounts = childCountsByParent(filteredQuests);
     const scopeQuest = activeScopeId ? filteredQuests.find((q) => q.id === activeScopeId) : null;
     const scopeAncestors = activeScopeId ? questAncestors(activeScopeId, filteredQuests) : [];
