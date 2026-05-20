@@ -79,10 +79,21 @@ function cooldownSummary(event: AgentEvent): string {
  * has no live signal. That belongs to the detail/fires panel.
  */
 type EventPhase = "armed" | "fired" | "dormant";
+type EventTraceTone = "trace-complete" | "trace-pending" | "trace-empty";
 
 function eventPhase(ev: AgentEvent): EventPhase {
   if (!ev.enabled) return "dormant";
   return ev.fire_count > 0 ? "fired" : "armed";
+}
+
+function fireStateSummary(phase: EventPhase): string {
+  if (phase === "dormant") return "disabled";
+  return phase;
+}
+
+function traceTone(event: AgentEvent): EventTraceTone {
+  if (event.last_fired) return "trace-complete";
+  return event.fire_count > 0 ? "trace-pending" : "trace-empty";
 }
 
 export default function EventsOverview({ events, onSelect, onNew }: EventsOverviewProps) {
@@ -159,10 +170,12 @@ function OverviewRow({
   const when = whenSummary(event, group);
   const toolCount = toolsSummary(tools.length);
   const trace = traceSummary(event);
+  const state = fireStateSummary(phase);
+  const traceState = traceTone(event);
   const cooldown = cooldownSummary(event);
   // Description for screen readers — the pin and the "N fires" / "never"
   // text both carry phase info, but neither is announced naturally.
-  const phaseLabel = phase === "armed" ? "armed" : phase === "fired" ? "fired" : "dormant";
+  const phaseLabel = state;
 
   return (
     <li
@@ -223,6 +236,12 @@ function OverviewRow({
             <span className="events-overview-row-meta-value">{toolCount}</span>
           </span>
           <span className={`events-overview-row-meta-item events-overview-row-meta-item--${phase}`}>
+            <span className="events-overview-row-meta-label">State</span>
+            <span className="events-overview-row-meta-value">{state}</span>
+          </span>
+          <span
+            className={`events-overview-row-meta-item events-overview-row-meta-item--${traceState}`}
+          >
             <span className="events-overview-row-meta-label">Trace</span>
             <span className="events-overview-row-meta-value">{trace}</span>
           </span>

@@ -619,6 +619,16 @@
 .events-overview-row-meta-item--fired .events-overview-row-meta-value {
   color: var(--color-success);
 }
+.events-overview-row-meta-item--dormant .events-overview-row-meta-value,
+.events-overview-row-meta-item--trace-empty .events-overview-row-meta-value {
+  color: var(--color-text-muted);
+}
+.events-overview-row-meta-item--trace-complete .events-overview-row-meta-value {
+  color: var(--color-success);
+}
+.events-overview-row-meta-item--trace-pending .events-overview-row-meta-value {
+  color: var(--color-warning);
+}
 .events-overview-row-meta-item--guard .events-overview-row-meta-value {
   color: var(--color-warning);
 }
