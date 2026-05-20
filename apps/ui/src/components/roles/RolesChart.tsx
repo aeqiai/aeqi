@@ -24,6 +24,13 @@ interface CrossConnector {
   y1: number;
   x2: number;
   y2: number;
+  /** Explicit edges come from `role_edges` data — they were wired by an
+   *  operator and read as solid ink. Implicit edges are synthesized
+   *  (director → apex operator) when no explicit governance wiring
+   *  exists; they render dashed + muted to match the inspector's
+   *  implicit chip treatment so canvas and inspector tell the same
+   *  story about edge provenance. */
+  implicit: boolean;
 }
 
 const ZOOM_MIN = 0.25;
@@ -91,11 +98,17 @@ export default function RolesChart({
   // a connection from each director to each operational APEX role
   // (roles with no operational parent). The relationship is structural,
   // not data-driven, and not showing it makes the board look orphaned.
-  const crossEdges = useMemo<RoleEdge[]>(() => {
+  // Each cross-zone edge carries an `implicit` flag so downstream
+  // rendering can distinguish wired governance from synthesized
+  // governance. The inspector already encodes this distinction via
+  // chip variants; the canvas should too — otherwise a quick glance
+  // at the chart misreads "definitely wired" for what is in fact
+  // "structurally implied because the schema is empty here".
+  const crossEdges = useMemo<Array<RoleEdge & { implicit: boolean }>>(() => {
     const explicit = edges.filter(
       (e) => directorIds.has(e.parent_role_id) && opIds.has(e.child_role_id),
     );
-    if (explicit.length > 0) return explicit;
+    if (explicit.length > 0) return explicit.map((e) => ({ ...e, implicit: false }));
     if (directors.length === 0 || operational.length === 0) return [];
     // Apex = operational roles with no operational parent.
     const opChildIds = new Set<string>();
@@ -105,10 +118,10 @@ export default function RolesChart({
       }
     }
     const apexOps = operational.filter((r) => !opChildIds.has(r.id));
-    const implicit: RoleEdge[] = [];
+    const implicit: Array<RoleEdge & { implicit: boolean }> = [];
     for (const dir of directors) {
       for (const apex of apexOps) {
-        implicit.push({ parent_role_id: dir.id, child_role_id: apex.id });
+        implicit.push({ parent_role_id: dir.id, child_role_id: apex.id, implicit: true });
       }
     }
     return implicit;
@@ -149,6 +162,7 @@ export default function RolesChart({
           y1: dir.y + dirEl.offsetHeight,
           x2: op.x + opEl.offsetWidth / 2,
           y2: op.y,
+          implicit: e.implicit,
         });
       }
       setStackSize((prev) =>
@@ -179,19 +193,27 @@ export default function RolesChart({
               const midX = (c.x1 + c.x2) / 2;
               const midY = (c.y1 + c.y2) / 2;
               const d = `M ${c.x1} ${c.y1} C ${c.x1} ${midY}, ${c.x2} ${midY}, ${c.x2} ${c.y2}`;
+              // Explicit edges = wired role_edges -> solid ink, no
+              // hedge. Implicit edges = structurally synthesized ->
+              // dashed + muted, labelled "implicit" so the canvas
+              // tells the same provenance story as the inspector.
+              const pathClass = c.implicit
+                ? "roles-chart-cross-edge-path roles-chart-cross-edge-path--implicit"
+                : "roles-chart-cross-edge-path";
+              const label = c.implicit ? "implicit governance" : "delegates execution";
+              const labelW = c.implicit ? 132 : 128;
               return (
                 <g key={i}>
-                  <path d={d} className="roles-chart-cross-edge-path" />
+                  <path d={d} className={pathClass} />
                   {/* Label rendered as a paper-coloured pill in the middle
-                     of the line so the dashed stroke visibly threads
-                     through it. Encodes what the line MEANS — without
-                     the label, a director→operator line is just a
-                     visual hierarchy hint; with it, the line says
-                     "delegates execution". */}
+                     of the line so the stroke visibly threads through it.
+                     For implicit edges the pill carries the provenance
+                     hint ("implicit governance") so a reader can see at
+                     a glance that the edge is inferred, not wired. */}
                   <rect
-                    x={midX - 64}
+                    x={midX - labelW / 2}
                     y={midY - 8}
-                    width={128}
+                    width={labelW}
                     height={16}
                     rx={8}
                     className="roles-chart-cross-edge-label-bg"
@@ -199,10 +221,14 @@ export default function RolesChart({
                   <text
                     x={midX}
                     y={midY + 3}
-                    className="roles-chart-cross-edge-label"
+                    className={
+                      c.implicit
+                        ? "roles-chart-cross-edge-label roles-chart-cross-edge-label--implicit"
+                        : "roles-chart-cross-edge-label"
+                    }
                     textAnchor="middle"
                   >
-                    delegates execution
+                    {label}
                   </text>
                 </g>
               );
@@ -320,7 +346,13 @@ function sameConnectors(a: CrossConnector[], b: CrossConnector[]): boolean {
   for (let i = 0; i < a.length; i++) {
     const ai = a[i];
     const bi = b[i];
-    if (ai.x1 !== bi.x1 || ai.y1 !== bi.y1 || ai.x2 !== bi.x2 || ai.y2 !== bi.y2) {
+    if (
+      ai.x1 !== bi.x1 ||
+      ai.y1 !== bi.y1 ||
+      ai.x2 !== bi.x2 ||
+      ai.y2 !== bi.y2 ||
+      ai.implicit !== bi.implicit
+    ) {
       return false;
     }
   }
