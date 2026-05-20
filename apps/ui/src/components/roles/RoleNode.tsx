@@ -27,6 +27,15 @@ export interface RoleNodeProps {
    *  this flag, an apex operator under implicit governance looks
    *  identical to one with explicit director delegates. */
   implicit?: boolean;
+  /** Fired when the head-row "implicit" hint receives or loses
+   *  hover/focus. RolesChart uses this on directors to scope a
+   *  brighten/dim treatment to the dashed cross-edges originating from
+   *  THIS director — mirrors the c6 inspector hover so the chart tells
+   *  the same focal story bidirectionally (inspector chip-fade →
+   *  node-glow; node hint-hover → edge-glow). Only Director nodes wire
+   *  this; Operator nodes carry `implicit` for the tile decoration
+   *  but no callback. */
+  onImplicitHintHover?: (hovering: boolean) => void;
 }
 
 const AVATAR_SIZE = 32;
@@ -64,6 +73,7 @@ export default function RoleNode({
   style,
   nodeRef,
   implicit = false,
+  onImplicitHintHover,
 }: RoleNodeProps) {
   // Entity name lookup for `occupant_kind === "trust"` holders (parent
   // holding's TRUST in a Director / board seat). Falls back to "a TRUST"
@@ -114,8 +124,17 @@ export default function RoleNode({
           /* "implicit" tag — sits beside the authority pill on directors
              whose governance edges are all synthesized. Lowercase italic
              marker mirrors `.role-inspector-edge-hint` so the canvas
-             tells the same provenance story the inspector does. */
-          <span className="role-node-edge-hint" aria-label="Implicit governance">
+             tells the same provenance story the inspector does.
+             Hover/focus on this hint scopes a brighten effect to the
+             dashed cross-edges leaving THIS director (c7), so the chart
+             tells the same focal story the c6 inspector tells about
+             explicit-vs-implicit relationships. */
+          <span
+            className="role-node-edge-hint"
+            aria-label="Implicit governance"
+            onMouseEnter={onImplicitHintHover ? () => onImplicitHintHover(true) : undefined}
+            onMouseLeave={onImplicitHintHover ? () => onImplicitHintHover(false) : undefined}
+          >
             implicit
           </span>
         )}

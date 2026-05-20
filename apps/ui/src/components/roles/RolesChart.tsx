@@ -31,6 +31,13 @@ interface CrossConnector {
    *  implicit chip treatment so canvas and inspector tell the same
    *  story about edge provenance. */
   implicit: boolean;
+  /** Director role id that originates this edge. Carried on the
+   *  connector so hover on a director's "implicit" head-row hint can
+   *  scope the brighten-stroke effect to just the dashed edges leaving
+   *  THAT director — mirrors the c6 inspector hover (which fades
+   *  explicit chips for the focused row) so canvas and inspector tell
+   *  the same focal story bidirectionally. */
+  directorId: string;
 }
 
 const ZOOM_MIN = 0.25;
@@ -208,6 +215,13 @@ export default function RolesChart({
   );
   const [crossConnectors, setCrossConnectors] = useState<CrossConnector[]>([]);
   const [stackSize, setStackSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  // Director role id whose head-row "implicit" hint is currently
+  // hovered/focused. Drives a scoped highlight on the dashed cross-edges
+  // originating from that director — mirrors the c6 inspector hover
+  // (which fades explicit chips for the focused row) so the chart
+  // surface tells the same focal story when a board node is interrogated.
+  // null = no scoped highlight; default dashed treatment paints.
+  const [hoveredImplicitDir, setHoveredImplicitDir] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     const stack = stackRef.current;
@@ -233,6 +247,7 @@ export default function RolesChart({
           x2: op.x + opEl.offsetWidth / 2,
           y2: op.y,
           implicit: e.implicit,
+          directorId: e.parent_role_id,
         });
       }
       setStackSize((prev) =>
@@ -267,13 +282,36 @@ export default function RolesChart({
               // hedge. Implicit edges = structurally synthesized ->
               // dashed + muted, labelled "implicit" so the canvas
               // tells the same provenance story as the inspector.
+              //
+              // Scoped hover overlay (c7): when a director's head-row
+              // "implicit" hint is hovered, brighten only the dashed
+              // edges originating from THAT director, and dim every
+              // other implicit edge so the focal beam reads cleanly.
+              // Explicit edges are unaffected — hovering an implicit
+              // marker is about provenance, not action. The class
+              // suffix is applied to the whole <g> so the label pill
+              // can ride along.
+              const hoveringSomeDir = hoveredImplicitDir !== null;
+              const isFocused =
+                c.implicit && hoveringSomeDir && hoveredImplicitDir === c.directorId;
+              const isDimmed = c.implicit && hoveringSomeDir && hoveredImplicitDir !== c.directorId;
+              const focusClass = isFocused
+                ? " roles-chart-cross-edge-path--focused"
+                : isDimmed
+                  ? " roles-chart-cross-edge-path--dimmed"
+                  : "";
               const pathClass = c.implicit
-                ? "roles-chart-cross-edge-path roles-chart-cross-edge-path--implicit"
+                ? `roles-chart-cross-edge-path roles-chart-cross-edge-path--implicit${focusClass}`
                 : "roles-chart-cross-edge-path";
+              const groupClass = isFocused
+                ? "roles-chart-cross-edge--focused"
+                : isDimmed
+                  ? "roles-chart-cross-edge--dimmed"
+                  : undefined;
               const label = c.implicit ? "implicit governance" : "delegates execution";
               const labelW = c.implicit ? 132 : 128;
               return (
-                <g key={i}>
+                <g key={i} className={groupClass}>
                   <path d={d} className={pathClass} />
                   {/* Label rendered as a paper-coloured pill in the middle
                      of the line so the stroke visibly threads through it.
@@ -318,6 +356,11 @@ export default function RolesChart({
                   selected={r.id === selectedRoleId}
                   nodeRef={setNodeRef(r.id)}
                   implicit={implicitDirectorIds.has(r.id)}
+                  onImplicitHintHover={
+                    implicitDirectorIds.has(r.id)
+                      ? (hovering) => setHoveredImplicitDir(hovering ? r.id : null)
+                      : undefined
+                  }
                   style={{ width: NODE_W, height: NODE_H }}
                 />
               ))}
@@ -423,7 +466,8 @@ function sameConnectors(a: CrossConnector[], b: CrossConnector[]): boolean {
       ai.y1 !== bi.y1 ||
       ai.x2 !== bi.x2 ||
       ai.y2 !== bi.y2 ||
-      ai.implicit !== bi.implicit
+      ai.implicit !== bi.implicit ||
+      ai.directorId !== bi.directorId
     ) {
       return false;
     }

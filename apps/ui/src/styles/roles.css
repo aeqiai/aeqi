@@ -258,6 +258,51 @@
   stroke-width: 1.25;
   stroke-dasharray: 5 4;
   opacity: 0.85;
+  transition:
+    stroke var(--transition-fast, 150ms) ease,
+    stroke-width var(--transition-fast, 150ms) ease,
+    opacity var(--transition-fast, 150ms) ease;
+}
+/* Scoped focus state (c7) — hovering a director's head-row "implicit"
+   hint brightens only the dashed edges leaving THAT director. Picks up
+   the same secondary ink that explicit edges use, widens the stroke a
+   half-point, and full-opacity it so the inferred relationship reads
+   like a wired one for the duration of the hover. Pairs with the c6
+   inspector hover (which fades explicit chips for the focused row) so
+   canvas and inspector tell the same focal story bidirectionally. */
+.roles-chart-cross-edge-path--implicit.roles-chart-cross-edge-path--focused {
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.75;
+  opacity: 1;
+}
+/* Companion dim state — other implicit edges recede so the focused beam
+   reads cleanly. Explicit edges (in the same SVG layer) stay full
+   weight: hovering an implicit marker is about provenance, not action. */
+.roles-chart-cross-edge-path--implicit.roles-chart-cross-edge-path--dimmed {
+  opacity: 0.3;
+}
+/* Mid-line label brightens with its focused edge — pill bg goes
+   elevated (pure white) and the italic text picks up secondary ink so
+   the readable "implicit governance" caption matches the beam weight. */
+.roles-chart-cross-edge--focused .roles-chart-cross-edge-label-bg {
+  fill: var(--color-card-elevated);
+}
+.roles-chart-cross-edge--focused .roles-chart-cross-edge-label--implicit {
+  fill: var(--color-text-secondary);
+}
+/* And the label dims when its edge dims, so the recede effect is
+   uniform across stroke + caption. */
+.roles-chart-cross-edge--dimmed .roles-chart-cross-edge-label-bg,
+.roles-chart-cross-edge--dimmed .roles-chart-cross-edge-label--implicit {
+  opacity: 0.3;
+}
+.roles-chart-cross-edge--focused .roles-chart-cross-edge-label-bg,
+.roles-chart-cross-edge--focused .roles-chart-cross-edge-label--implicit,
+.roles-chart-cross-edge--dimmed .roles-chart-cross-edge-label-bg,
+.roles-chart-cross-edge--dimmed .roles-chart-cross-edge-label--implicit {
+  transition:
+    fill var(--transition-fast, 150ms) ease,
+    opacity var(--transition-fast, 150ms) ease;
 }
 /* Mid-line label — paper-coloured pill so the stroke visibly threads
    through. Default carries the action ("delegates execution"); the
@@ -1292,6 +1337,16 @@
   text-transform: lowercase;
   font-style: italic;
   line-height: 1;
+  cursor: help;
+  transition: color var(--transition-fast, 150ms) ease;
+}
+/* Hover affordance (c7) — picks up secondary ink to acknowledge the
+   pointer and hint that the marker is interactive. The scoped
+   brighten of dashed edges that originate from this director is the
+   real payoff; the color shift just signals "this hint does
+   something" without pulling attention away from the chart. */
+.role-node-edge-hint:hover {
+  color: var(--color-text-secondary);
 }
 
 /* Quieter selected ring for implicit-governance nodes — half-weight
