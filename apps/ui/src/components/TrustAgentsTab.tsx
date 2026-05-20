@@ -7,7 +7,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatCurrency } from "@/lib/i18n";
 import "@/styles/roles.css"; // shared trust-snapshot card primitives
-import { Button, ToolbarRadioPopover } from "./ui";
+import { Button, Icon, Tooltip, ToolbarRadioPopover } from "./ui";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import AgentsEmptyState from "./agents/AgentsEmptyState";
 import AgentsList from "./agents/AgentsList";
@@ -235,14 +235,16 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           <h1 className="trust-agents-title">Agents</h1>
         </div>
         <div className="trust-agents-header-actions">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={openPicker}
-            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
-          >
-            Agent
-          </Button>
+          <Tooltip content="New agent (N)">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={openPicker}
+              leadingIcon={<Icon icon={Plus} size="sm" />}
+            >
+              New
+            </Button>
+          </Tooltip>
         </div>
       </header>
 
