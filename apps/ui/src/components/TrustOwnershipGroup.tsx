@@ -6,6 +6,7 @@ import { useEquity } from "@/hooks/useEquity";
 import { useQuorum } from "@/hooks/useQuorum";
 import { useIncorporation } from "@/hooks/useIncorporation";
 import { deriveProposalStatus, lookupTokenMeta } from "@/solana";
+import TrustOwnershipTransferControl from "./TrustOwnershipTransferControl";
 
 interface TrustOwnershipGroupProps {
   trustAddress: string | null | undefined;
@@ -63,58 +64,61 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
   const trustOnchain = !!incorporation.trust;
 
   return (
-    <section className="trust-group-cards" aria-label="Programmable ownership">
-      <OwnershipPrimitiveCard
-        to={`${basePath}/assets`}
-        icon={<Wallet size={16} strokeWidth={1.5} />}
-        label="Assets"
-        value={assets.vault?.moduleState ? (treasuryUsdc ?? "—") : "—"}
-        hint={assets.vault?.moduleState && treasuryUsdc ? "USDC" : ""}
-        sub={
-          assets.vault?.moduleState
-            ? ""
-            : trustAddress
-              ? "No treasury vault"
-              : "Setting up on Solana"
-        }
-      />
-      <OwnershipPrimitiveCard
-        to={`${basePath}/equity`}
-        icon={<PieChart size={16} strokeWidth={1.5} />}
-        label="Equity"
-        value={hasToken ? (holdersCount === null ? "—" : String(holdersCount)) : "—"}
-        hint={hasToken ? (holdersCount === 1 ? "holder" : "holders") : ""}
-        sub={hasToken ? "" : trustAddress ? "No equity token" : "Setting up on Solana"}
-      />
-      <OwnershipPrimitiveCard
-        to={`${basePath}/quorum`}
-        icon={<Vote size={16} strokeWidth={1.5} />}
-        label="Quorum"
-        value={
-          configsCount && configsCount > 0
-            ? activeProposalsCount === null
-              ? "—"
-              : String(activeProposalsCount)
-            : "—"
-        }
-        hint={configsCount && configsCount > 0 ? "open" : ""}
-        sub={
-          configsCount && configsCount > 0
-            ? ""
-            : trustAddress
-              ? "No voting yet"
-              : "Setting up on Solana"
-        }
-      />
-      <OwnershipPrimitiveCard
-        to={`${basePath}/incorporation`}
-        icon={<FileText size={16} strokeWidth={1.5} />}
-        label="Incorporation"
-        value={modulesCount === null ? "—" : String(modulesCount)}
-        hint={modulesCount === 1 ? "module" : "modules"}
-        sub={trustOnchain ? "" : trustAddress ? "No agreement yet" : "Setting up on Solana"}
-      />
-    </section>
+    <div className="trust-ownership-group">
+      <section className="trust-group-cards" aria-label="Programmable ownership">
+        <OwnershipPrimitiveCard
+          to={`${basePath}/assets`}
+          icon={<Wallet size={16} strokeWidth={1.5} />}
+          label="Assets"
+          value={assets.vault?.moduleState ? (treasuryUsdc ?? "—") : "—"}
+          hint={assets.vault?.moduleState && treasuryUsdc ? "USDC" : ""}
+          sub={
+            assets.vault?.moduleState
+              ? ""
+              : trustAddress
+                ? "No treasury vault"
+                : "Setting up on Solana"
+          }
+        />
+        <OwnershipPrimitiveCard
+          to={`${basePath}/equity`}
+          icon={<PieChart size={16} strokeWidth={1.5} />}
+          label="Equity"
+          value={hasToken ? (holdersCount === null ? "—" : String(holdersCount)) : "—"}
+          hint={hasToken ? (holdersCount === 1 ? "holder" : "holders") : ""}
+          sub={hasToken ? "" : trustAddress ? "No equity token" : "Setting up on Solana"}
+        />
+        <OwnershipPrimitiveCard
+          to={`${basePath}/quorum`}
+          icon={<Vote size={16} strokeWidth={1.5} />}
+          label="Quorum"
+          value={
+            configsCount && configsCount > 0
+              ? activeProposalsCount === null
+                ? "—"
+                : String(activeProposalsCount)
+              : "—"
+          }
+          hint={configsCount && configsCount > 0 ? "open" : ""}
+          sub={
+            configsCount && configsCount > 0
+              ? ""
+              : trustAddress
+                ? "No voting yet"
+                : "Setting up on Solana"
+          }
+        />
+        <OwnershipPrimitiveCard
+          to={`${basePath}/incorporation`}
+          icon={<FileText size={16} strokeWidth={1.5} />}
+          label="Incorporation"
+          value={modulesCount === null ? "—" : String(modulesCount)}
+          hint={modulesCount === 1 ? "module" : "modules"}
+          sub={trustOnchain ? "" : trustAddress ? "No agreement yet" : "Setting up on Solana"}
+        />
+      </section>
+      <TrustOwnershipTransferControl hasTrustAddress={!!trustAddress} />
+    </div>
   );
 }
 
