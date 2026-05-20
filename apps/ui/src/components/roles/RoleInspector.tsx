@@ -96,13 +96,21 @@ export default function RoleInspector({
     ).length;
   }, [quests, role]);
 
+  // Resolved human/agent display name OR null when only a raw UUID is
+  // available. The HOLDER chip below already shows the truncated ID;
+  // the inspector header line should NOT echo a 36-char UUID as prose.
+  // Renders as "Held by …" only when we have a real name.
   const occupantDisplayName = useMemo(() => {
     if (role.occupant_kind === "vacant") return null;
     if (role.occupant_kind === "human") {
-      return role.occupant_name || role.occupant_id || "Unknown";
+      // Real name OR null — never the raw id (which is a UUID/address
+      // with no human signal).
+      return role.occupant_name || null;
     }
     if (role.occupant_kind === "agent" && role.occupant_id) {
-      return agentNamesById.get(role.occupant_id) || role.occupant_id;
+      // Daemon-store name lookup; null if the agent lives outside this
+      // trust's runtime scope (cross-trust agent occupants are common).
+      return agentNamesById.get(role.occupant_id) || null;
     }
     return null;
   }, [role, agentNamesById]);
@@ -170,6 +178,11 @@ export default function RoleInspector({
           <h2 className="role-inspector-title">{role.title}</h2>
           {!isVacant && occupantDisplayName && (
             <p className="role-inspector-holder">Held by {occupantDisplayName}</p>
+          )}
+          {!isVacant && !occupantDisplayName && (
+            <p className="role-inspector-holder">
+              Held by {isHuman ? "a human" : "an agent"} · see ID below
+            </p>
           )}
           {isVacant && <p className="role-inspector-holder">Seat open</p>}
         </div>
