@@ -5408,25 +5408,77 @@
   min-height: 0;
   overflow: hidden;
 }
+/* Graph canvas — wrap the force-directed surface in a real slab so it
+   reads as a defined working canvas, not floating dots on page paper.
+   The `.ideas-graph-canvas` is the outer flex container that owns the
+   remaining viewport; the inner `.ideas-graph-surface` is the tinted
+   slab itself (matches `.quest-col` background tone with `--radius-sm`
+   so it reads as part of the same primitive family). */
 .ideas-graph-canvas {
   flex: 1;
   min-height: 0;
   display: flex;
   position: relative;
-  padding: 16px 28px 20px;
+  padding: 4px 28px 20px;
   overflow: hidden;
 }
-.ideas-graph-canvas > * {
+.ideas-graph-surface {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  background: var(--bg-row);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.ideas-graph-surface > * {
   flex: 1;
   min-height: 0;
 }
 .ideas-graph-loading {
-  display: inline-flex;
+  flex: 1;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   color: var(--color-text-muted);
   font-size: 13px;
-  padding: 40px 0 0;
+}
+/* Graph empty state — mirrors the centered icon + title + hint pattern
+   from `.quest-col-empty--centered` and `.ideas-table-empty-inner` so an
+   empty graph reads as encouragement, not absence. */
+.ideas-graph-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+  text-align: center;
+}
+.ideas-graph-empty-icon {
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+.ideas-graph-empty-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+}
+.ideas-graph-empty-hint {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  max-width: 42ch;
+}
+.ideas-graph-empty-action {
+  margin-top: var(--space-3);
 }
 
 /* ------------------------------------------------------------------

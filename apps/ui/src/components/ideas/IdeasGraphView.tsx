@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { Plus } from "lucide-react";
-import { Button, EmptyState, Icon, Loading, Tooltip } from "../ui";
+import { Lightbulb, Plus } from "lucide-react";
+import { Button, Icon, Loading, Tooltip } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
 import IdeasToolbar from "./IdeasToolbar";
 import { type IdeasView } from "./IdeasViewPopover";
@@ -90,42 +90,52 @@ export default function IdeasGraphView({
         }
       />
       <div className="ideas-graph-canvas">
-        {graphLoading ? (
-          <div className="ideas-graph-loading">
-            <Loading size="sm" />
-            <span>Loading graph…</span>
-          </div>
-        ) : filteredGraph.nodes.length === 0 ? (
-          <EmptyState
-            title={hasFilter ? "Nothing in scope" : "No ideas to graph"}
-            description={
-              hasFilter
-                ? "Widen scope or drop the tag to see more nodes."
-                : "Create ideas to see them connected here."
-            }
-            action={
-              hasFilter ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => onFilterChange({ scope: "all", tags: [], search: "" })}
-                >
-                  Reset filters
-                </Button>
-              ) : (
-                <Button variant="primary" onClick={onNew}>
-                  New idea
-                </Button>
-              )
-            }
-          />
-        ) : (
-          <IdeaGraph
-            nodes={filteredGraph.nodes}
-            edges={filteredGraph.edges}
-            onSelect={onSelect}
-            selectedId={selectedId}
-          />
-        )}
+        <div className="ideas-graph-surface">
+          {graphLoading ? (
+            <div className="ideas-graph-loading">
+              <Loading size="sm" />
+              <span>Loading graph…</span>
+            </div>
+          ) : filteredGraph.nodes.length === 0 ? (
+            <div className="ideas-graph-empty">
+              <Lightbulb
+                size={22}
+                strokeWidth={1.5}
+                className="ideas-graph-empty-icon"
+                aria-hidden
+              />
+              <p className="ideas-graph-empty-title">
+                {hasFilter ? "Nothing in scope" : "No ideas to graph"}
+              </p>
+              <p className="ideas-graph-empty-hint">
+                {hasFilter
+                  ? "Widen scope or drop the tag to see more nodes."
+                  : "Capture decisions, mandates, and memories your agents will reuse."}
+              </p>
+              <div className="ideas-graph-empty-action">
+                {hasFilter ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => onFilterChange({ scope: "all", tags: [], search: "" })}
+                  >
+                    Reset filters
+                  </Button>
+                ) : (
+                  <Button variant="primary" onClick={onNew}>
+                    New idea
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <IdeaGraph
+              nodes={filteredGraph.nodes}
+              edges={filteredGraph.edges}
+              onSelect={onSelect}
+              selectedId={selectedId}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
