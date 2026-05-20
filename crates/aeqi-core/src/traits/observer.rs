@@ -243,6 +243,13 @@ pub struct PrometheusObserver {
     pub llm_requests: AtomicU64,
     pub llm_prompt_tokens: AtomicU64,
     pub llm_completion_tokens: AtomicU64,
+    /// Total LLM responses that returned zero completion tokens.
+    ///
+    /// Pairs with `llm_requests_total` so dashboards can alert on
+    /// `rate(empty / requests) > 0.2 for 5m` — the 2026-05-17 +
+    /// 2026-05-18 outages went undetected because request counts kept
+    /// ticking while tokens-served dropped to zero (SA24/SA42).
+    pub llm_empty_completions: AtomicU64,
     pub tool_calls: AtomicU64,
     pub tool_errors: AtomicU64,
     pub tool_duration_ms: AtomicU64,
@@ -256,6 +263,7 @@ impl PrometheusObserver {
             llm_requests: AtomicU64::new(0),
             llm_prompt_tokens: AtomicU64::new(0),
             llm_completion_tokens: AtomicU64::new(0),
+            llm_empty_completions: AtomicU64::new(0),
             tool_calls: AtomicU64::new(0),
             tool_errors: AtomicU64::new(0),
             tool_duration_ms: AtomicU64::new(0),
@@ -280,6 +288,9 @@ impl PrometheusObserver {
              # HELP aeqi_llm_completion_tokens_total Total completion tokens\n\
              # TYPE aeqi_llm_completion_tokens_total counter\n\
              aeqi_llm_completion_tokens_total {}\n\
+             # HELP aeqi_llm_empty_completions_total Total LLM responses that returned zero completion tokens\n\
+             # TYPE aeqi_llm_empty_completions_total counter\n\
+             aeqi_llm_empty_completions_total {}\n\
              # HELP aeqi_tool_calls_total Total tool calls\n\
              # TYPE aeqi_tool_calls_total counter\n\
              aeqi_tool_calls_total {}\n\
@@ -294,6 +305,7 @@ impl PrometheusObserver {
             self.llm_requests.load(Ordering::Relaxed),
             self.llm_prompt_tokens.load(Ordering::Relaxed),
             self.llm_completion_tokens.load(Ordering::Relaxed),
+            self.llm_empty_completions.load(Ordering::Relaxed),
             self.tool_calls.load(Ordering::Relaxed),
             self.tool_errors.load(Ordering::Relaxed),
             self.tool_duration_ms.load(Ordering::Relaxed),
@@ -329,6 +341,9 @@ impl Observer for PrometheusObserver {
                     .fetch_add(*prompt_tokens as u64, Ordering::Relaxed);
                 self.llm_completion_tokens
                     .fetch_add(*completion_tokens as u64, Ordering::Relaxed);
+                if *completion_tokens == 0 {
+                    self.llm_empty_completions.fetch_add(1, Ordering::Relaxed);
+                }
             }
             Event::ToolCall { duration_ms, .. } => {
                 self.tool_calls.fetch_add(1, Ordering::Relaxed);
@@ -344,5 +359,47 @@ impl Observer for PrometheusObserver {
 
     fn name(&self) -> &str {
         "prometheus"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn empty_completions_counter_increments_on_zero_tokens() {
+        let obs = PrometheusObserver::new();
+        assert_eq!(obs.llm_empty_completions.load(Ordering::Relaxed), 0);
+
+        obs.record(Event::LlmResponse {
+            model: "test-model".to_string(),
+            prompt_tokens: 100,
+            completion_tokens: 0,
+        })
+        .await;
+
+        assert_eq!(obs.llm_empty_completions.load(Ordering::Relaxed), 1);
+        // The request counter for completion tokens stays at 0 too.
+        assert_eq!(obs.llm_completion_tokens.load(Ordering::Relaxed), 0);
+
+        // Render output should expose the new counter.
+        let body = obs.render();
+        assert!(body.contains("aeqi_llm_empty_completions_total 1"));
+    }
+
+    #[tokio::test]
+    async fn empty_completions_counter_does_not_increment_on_normal_response() {
+        let obs = PrometheusObserver::new();
+        assert_eq!(obs.llm_empty_completions.load(Ordering::Relaxed), 0);
+
+        obs.record(Event::LlmResponse {
+            model: "test-model".to_string(),
+            prompt_tokens: 100,
+            completion_tokens: 42,
+        })
+        .await;
+
+        assert_eq!(obs.llm_empty_completions.load(Ordering::Relaxed), 0);
+        assert_eq!(obs.llm_completion_tokens.load(Ordering::Relaxed), 42);
     }
 }
