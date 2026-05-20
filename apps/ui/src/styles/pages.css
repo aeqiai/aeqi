@@ -1718,6 +1718,28 @@
   transform: none;
 }
 
+/* Agents empty state — the Agents page is otherwise sparse (no kanban
+ * board, no dense row counts), so the empty state carries the whole
+ * surface. Bump the title to display weight, widen the description column
+ * for a readable measure, and add a touch of bottom breath so the CTA
+ * doesn't hug the scroll edge. Scoped tightly via `.agents-empty` so the
+ * shared `EmptyState` primitive stays neutral elsewhere. Descendant
+ * `h3 / p` selectors are safe here — `EmptyState.module.css` only scopes
+ * its class names, not its tag selectors. */
+
+.agents-empty {
+  padding-block: var(--space-4) var(--space-6);
+}
+
+.agents-empty h3 {
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+
+.agents-empty p {
+  max-width: 56ch;
+}
+
 /* Inline save pill — sits next to the "Model" heading. Replaces the top-
  * banner toast for silent per-field saves so the confirmation lands where
  * the user's eye already is. */
