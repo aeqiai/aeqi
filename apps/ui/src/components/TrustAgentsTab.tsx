@@ -226,168 +226,183 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-agents">
-      <header className="trust-agents-header">
-        <div className="trust-agents-header-titles">
-          <h1 className="trust-agents-title">Agents</h1>
-          <p className="trust-agents-subtitle">Execution capacity for this TRUST.</p>
-        </div>
-        <div className="trust-agents-header-actions">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={openPicker}
-            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
-          >
-            Agent
-          </Button>
-        </div>
-      </header>
-
-      <section className="trust-agents-snapshot" aria-label="Snapshot">
-        <AgentSnapshotCard
-          label={snapshot.total === 1 ? "Agent" : "Agents"}
-          value={snapshot.total}
-          sublabel="Total in this TRUST"
-        />
-        <AgentSnapshotCard
-          label="Active"
-          value={snapshot.active}
-          sublabel={
-            snapshot.active === 0
-              ? "None online"
-              : snapshot.active === snapshot.total
-                ? "All online"
-                : "Currently online"
-          }
-        />
-        <AgentSnapshotCard
-          label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
-          value={snapshot.runningQuests}
-          sublabel="In progress now"
-        />
-        <AgentSnapshotCard
-          label="Lifetime spend"
-          value={formatCurrency(snapshot.totalSpend, "USD")}
-          sublabel="Across every inference call"
-        />
-      </section>
-
-      <div className="ideas-list-head">
-        <div className="ideas-toolbar">
-          <span className="ideas-list-search-field">
-            <svg
-              className="ideas-list-search-glyph"
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              aria-hidden
+      <div className="trust-agents-main">
+        <header className="trust-agents-header">
+          <div className="trust-agents-header-titles">
+            <h1 className="trust-agents-title">Agents</h1>
+          </div>
+          <div className="trust-agents-header-actions">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={openPicker}
+              leadingIcon={<Plus size={13} strokeWidth={1.8} />}
             >
-              <circle cx="5.2" cy="5.2" r="3.2" />
-              <path d="M7.6 7.6 L10 10" />
-            </svg>
-            <input
-              ref={searchRef}
-              className="ideas-list-search"
-              type="text"
-              placeholder="Search agents"
-              value={search}
-              onChange={(e) => setSearchParam("q", e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  if (search) setSearchParam("q", "");
-                  else (e.target as HTMLInputElement).blur();
-                }
-              }}
-            />
-            {!search && (
-              <kbd className="ideas-list-search-kbd" aria-hidden>
-                /
-              </kbd>
-            )}
-            {search && (
-              <button
-                type="button"
-                className="ideas-list-search-clear"
-                onClick={() => setSearchParam("q", "")}
-                aria-label="Clear search"
+              Agent
+            </Button>
+          </div>
+        </header>
+
+        <section className="trust-agents-snapshot" aria-label="Snapshot">
+          <AgentSnapshotCard
+            label={snapshot.total === 1 ? "Agent" : "Agents"}
+            value={snapshot.total}
+            sublabel="Total in this TRUST"
+          />
+          <AgentSnapshotCard
+            label="Active"
+            value={snapshot.active}
+            sublabel={
+              snapshot.active === 0
+                ? "None online"
+                : snapshot.active === snapshot.total
+                  ? "All online"
+                  : "Currently online"
+            }
+          />
+          <AgentSnapshotCard
+            label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
+            value={snapshot.runningQuests}
+            sublabel="In progress now"
+          />
+          <AgentSnapshotCard
+            label="Lifetime spend"
+            value={formatCurrency(snapshot.totalSpend, "USD")}
+            sublabel="Across every inference call"
+          />
+        </section>
+
+        <div className="ideas-list-head">
+          <div className="ideas-toolbar">
+            <span className="ideas-list-search-field">
+              <svg
+                className="ideas-list-search-glyph"
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                aria-hidden
               >
-                ×
-              </button>
-            )}
-          </span>
-
-          <ToolbarRadioPopover
-            label="Sort"
-            current={SORT_LABELS[sort]}
-            glyph={GLYPHS.sort}
-            options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
-            value={sort}
-            onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
-          />
-
-          <ToolbarRadioPopover
-            label="Filter"
-            current={STATUS_LABELS[status]}
-            glyph={GLYPHS.filter}
-            options={STATUS_ORDER.map((s) => ({ id: s, label: STATUS_LABELS[s] }))}
-            value={status}
-            onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
-            indicator={status !== "all"}
-          />
-
-          <ToolbarRadioPopover
-            label="View"
-            current={VIEW_LABELS[view]}
-            glyph={GLYPHS.view}
-            options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
-            value={view}
-            onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
-          />
-        </div>
-      </div>
-
-      {activeChips.length > 0 && (
-        <div className="ideas-tags-strip">
-          <div className="ideas-list-chips" role="list" aria-label="Active filters">
-            {activeChips.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                role="listitem"
-                className="ideas-list-chip"
-                onClick={c.onRemove}
-                title={`Remove ${c.label}`}
-              >
-                <span className="ideas-list-chip-label">{c.label}</span>
-                <span className="ideas-list-chip-x" aria-hidden>
+                <circle cx="5.2" cy="5.2" r="3.2" />
+                <path d="M7.6 7.6 L10 10" />
+              </svg>
+              <input
+                ref={searchRef}
+                className="ideas-list-search"
+                type="text"
+                placeholder="Search agents"
+                value={search}
+                onChange={(e) => setSearchParam("q", e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    if (search) setSearchParam("q", "");
+                    else (e.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+              {!search && (
+                <kbd className="ideas-list-search-kbd" aria-hidden>
+                  /
+                </kbd>
+              )}
+              {search && (
+                <button
+                  type="button"
+                  className="ideas-list-search-clear"
+                  onClick={() => setSearchParam("q", "")}
+                  aria-label="Clear search"
+                >
                   ×
-                </span>
-              </button>
-            ))}
+                </button>
+              )}
+            </span>
+
+            <ToolbarRadioPopover
+              label="Sort"
+              current={SORT_LABELS[sort]}
+              glyph={GLYPHS.sort}
+              options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
+              value={sort}
+              onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
+            />
+
+            <ToolbarRadioPopover
+              label="Filter"
+              current={STATUS_LABELS[status]}
+              glyph={GLYPHS.filter}
+              options={STATUS_ORDER.map((s) => ({ id: s, label: STATUS_LABELS[s] }))}
+              value={status}
+              onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
+              indicator={status !== "all"}
+            />
+
+            <ToolbarRadioPopover
+              label="View"
+              current={VIEW_LABELS[view]}
+              glyph={GLYPHS.view}
+              options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
+              value={view}
+              onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
+            />
           </div>
         </div>
-      )}
 
-      {entityAgents.length === 0 ? (
-        <div className="ideas-list-body">
-          <AgentsEmptyState onNew={openPicker} />
+        {activeChips.length > 0 && (
+          <div className="ideas-tags-strip">
+            <div className="ideas-list-chips" role="list" aria-label="Active filters">
+              {activeChips.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  role="listitem"
+                  className="ideas-list-chip"
+                  onClick={c.onRemove}
+                  title={`Remove ${c.label}`}
+                >
+                  <span className="ideas-list-chip-label">{c.label}</span>
+                  <span className="ideas-list-chip-x" aria-hidden>
+                    ×
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entityAgents.length === 0 ? (
+          <div className="ideas-list-body">
+            <AgentsEmptyState onNew={openPicker} />
+          </div>
+        ) : view === "list" ? (
+          <AgentsList agents={filtered} onSelect={openAgent} />
+        ) : (
+          <AgentsChart
+            positions={positions}
+            edges={edges}
+            entityAgents={entityAgents}
+            loading={rolesLoading}
+            error={chartError}
+            onSelect={openAgent}
+          />
+        )}
+
+        <SuggestedAgents onPick={openPicker} />
+      </div>
+
+      <aside className="trust-agents-side" aria-label="Selected agent">
+        {/* Placeholder inspector — selection wiring + full Identity /
+           Role & authority / Model & runtime / Capabilities / Activity
+           / Budget / Meta sections land in a follow-up cycle. */}
+        <div className="trust-agents-side-empty">
+          <p className="trust-agents-side-empty-title">Select an agent</p>
+          <p className="trust-agents-side-empty-hint">
+            Click a row in the list to see model, role, runtime, and spend details.
+          </p>
         </div>
-      ) : view === "list" ? (
-        <AgentsList agents={filtered} onSelect={openAgent} />
-      ) : (
-        <AgentsChart
-          positions={positions}
-          edges={edges}
-          entityAgents={entityAgents}
-          loading={rolesLoading}
-          error={chartError}
-          onSelect={openAgent}
-        />
-      )}
+      </aside>
 
       <BlueprintPickerModal
         open={pickerOpen}
@@ -395,6 +410,68 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         trustId={trustId}
       />
     </div>
+  );
+}
+
+interface SuggestedAgentSpec {
+  title: string;
+  desc: string;
+}
+
+const SUGGESTED_AGENTS: SuggestedAgentSpec[] = [
+  {
+    title: "Research Agent",
+    desc: "Tracks markets, documents, and strategic context.",
+  },
+  {
+    title: "Treasury Agent",
+    desc: "Monitors budgets, wallets, and capital movement.",
+  },
+  {
+    title: "Governance Agent",
+    desc: "Prepares proposals, quorum updates, and decisions.",
+  },
+];
+
+/**
+ * Suggested agents — three template cards below the table. Tells the
+ * reader "this TRUST can grow execution capacity along these axes" so
+ * the page never reads as terminal at one agent. Each card opens the
+ * blueprint picker; per-template prefill happens at the picker layer
+ * (out of scope for this component).
+ */
+function SuggestedAgents({ onPick }: { onPick: () => void }) {
+  return (
+    <section className="trust-agents-suggest" aria-label="Suggested agents">
+      <header className="trust-agents-suggest-head">
+        <div className="trust-agents-suggest-titles">
+          <h2 className="trust-agents-suggest-title">Suggested agents</h2>
+          <p className="trust-agents-suggest-subtitle">
+            Add specialized execution capacity to this TRUST.
+          </p>
+        </div>
+        <button type="button" className="trust-agents-suggest-all" onClick={onPick}>
+          View all templates
+        </button>
+      </header>
+      <div className="trust-agents-suggest-grid">
+        {SUGGESTED_AGENTS.map((s) => (
+          <article key={s.title} className="trust-agents-suggest-card">
+            <h3 className="trust-agents-suggest-card-title">{s.title}</h3>
+            <p className="trust-agents-suggest-card-desc">{s.desc}</p>
+            <button
+              type="button"
+              className="trust-agents-suggest-card-cta"
+              onClick={onPick}
+              aria-label={`Add ${s.title}`}
+            >
+              <Plus size={12} strokeWidth={1.8} />
+              Add agent
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

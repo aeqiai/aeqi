@@ -264,119 +264,118 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-roles">
-      <header className="trust-roles-header">
-        <div className="trust-roles-header-titles">
-          <h1 className="trust-roles-title">Roles</h1>
-          <p className="trust-roles-subtitle">Authority for this TRUST.</p>
-        </div>
-        <div className="trust-roles-header-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-            leadingIcon={<Mail size={13} strokeWidth={1.6} />}
-          >
-            Invite
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
-          >
-            Role
-          </Button>
-        </div>
-      </header>
-
-      <section className="trust-roles-snapshot" aria-label="Snapshot">
-        <SnapshotCard
-          singular="Role"
-          plural="Roles"
-          value={snapshot.total}
-          sublabel="Across this TRUST"
-          breakdown={breakdownText(snapshot.agents, snapshot.humans, snapshot.vacant)}
-        />
-        <SnapshotCard
-          singular="Director"
-          plural="Directors"
-          value={snapshot.directors.total}
-          sublabel="Stewardship authority"
-          breakdown={breakdownText(
-            snapshot.directors.agents,
-            snapshot.directors.humans,
-            snapshot.directors.vacant,
-          )}
-        />
-        <SnapshotCard
-          singular="Operator"
-          plural="Operators"
-          value={snapshot.operators.total}
-          sublabel="Execution authority"
-          breakdown={breakdownText(
-            snapshot.operators.agents,
-            snapshot.operators.humans,
-            snapshot.operators.vacant,
-          )}
-        />
-        <SnapshotCard
-          singular="Vacant seat"
-          plural="Vacant seats"
-          value={snapshot.vacant}
-          sublabel={snapshot.vacant === 0 ? "All seats filled" : "Awaiting an occupant"}
-          tone={snapshot.vacant > 0 ? "warmth" : undefined}
-        />
-      </section>
-
-      <div className="ideas-list-head">
-        <div className="ideas-toolbar">
-          <span className="ideas-list-search-field">
-            <svg
-              className="ideas-list-search-glyph"
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              aria-hidden
+      <div className="trust-roles-main">
+        <header className="trust-roles-header">
+          <div className="trust-roles-header-titles">
+            <h1 className="trust-roles-title">Roles</h1>
+          </div>
+          <div className="trust-roles-header-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
+              leadingIcon={<Mail size={13} strokeWidth={1.6} />}
             >
-              <circle cx="5.2" cy="5.2" r="3.2" />
-              <path d="M7.6 7.6 L10 10" />
-            </svg>
-            <input
-              className="ideas-list-search"
-              type="text"
-              placeholder="Search roles"
-              value={search}
-              onChange={(e) => setFilter({ search: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && search) setFilter({ search: "" });
-              }}
-            />
-            {search && (
-              <button
-                type="button"
-                className="ideas-list-search-clear"
-                onClick={() => setFilter({ search: "" })}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            )}
-          </span>
-          <RolesSortPopover sort={sort} onChange={(next) => setFilter({ sort: next })} />
-          <RolesFilterPopover
-            filter={filter}
-            occupantCounts={occupantCounts}
-            onChange={setFilter}
-          />
-          <RolesViewPopover view={view} onChange={setView} />
-        </div>
-      </div>
+              Invite
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+              leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+            >
+              Role
+            </Button>
+          </div>
+        </header>
 
-      <div className="trust-roles-content">
+        <section className="trust-roles-snapshot" aria-label="Snapshot">
+          <SnapshotCard
+            singular="Role"
+            plural="Roles"
+            value={snapshot.total}
+            sublabel="Across this TRUST"
+            breakdown={breakdownText(snapshot.agents, snapshot.humans, snapshot.vacant)}
+          />
+          <SnapshotCard
+            singular="Director"
+            plural="Directors"
+            value={snapshot.directors.total}
+            sublabel="Stewardship authority"
+            breakdown={breakdownText(
+              snapshot.directors.agents,
+              snapshot.directors.humans,
+              snapshot.directors.vacant,
+            )}
+          />
+          <SnapshotCard
+            singular="Operator"
+            plural="Operators"
+            value={snapshot.operators.total}
+            sublabel="Execution authority"
+            breakdown={breakdownText(
+              snapshot.operators.agents,
+              snapshot.operators.humans,
+              snapshot.operators.vacant,
+            )}
+          />
+          <SnapshotCard
+            singular="Vacant seat"
+            plural="Vacant seats"
+            value={snapshot.vacant}
+            sublabel={snapshot.vacant === 0 ? "All seats filled" : "Awaiting an occupant"}
+            tone={snapshot.vacant > 0 ? "warmth" : undefined}
+          />
+        </section>
+
+        <div className="ideas-list-head">
+          <div className="ideas-toolbar">
+            <span className="ideas-list-search-field">
+              <svg
+                className="ideas-list-search-glyph"
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <circle cx="5.2" cy="5.2" r="3.2" />
+                <path d="M7.6 7.6 L10 10" />
+              </svg>
+              <input
+                className="ideas-list-search"
+                type="text"
+                placeholder="Search roles"
+                value={search}
+                onChange={(e) => setFilter({ search: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && search) setFilter({ search: "" });
+                }}
+              />
+              {search && (
+                <button
+                  type="button"
+                  className="ideas-list-search-clear"
+                  onClick={() => setFilter({ search: "" })}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </span>
+            <RolesSortPopover sort={sort} onChange={(next) => setFilter({ sort: next })} />
+            <RolesFilterPopover
+              filter={filter}
+              occupantCounts={occupantCounts}
+              onChange={setFilter}
+            />
+            <RolesViewPopover view={view} onChange={setView} />
+          </div>
+        </div>
+
         <div className="trust-roles-canvas">
           {loading && <RolesLoading />}
           {error && <RolesError message={error} />}
@@ -418,6 +417,8 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             </div>
           )}
         </div>
+      </div>
+      <aside className="trust-roles-side">
         {selectedRole && (
           <RoleInspector
             role={selectedRole}
@@ -427,7 +428,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             basePath={basePath}
           />
         )}
-      </div>
+      </aside>
     </div>
   );
 }

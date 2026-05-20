@@ -320,18 +320,169 @@
  * the content uses the shared `.ideas-list-head` grammar so the page
  * matches Ideas/Quests rhythm. */
 
-/* Shell + header — shared between Roles and Agents pages (and any
-   future tab that adopts the same "title + subtitle + CTAs" pattern).
-   Selectors include both prefixes so adding a new page is a single
-   comma, not a CSS duplication. */
+/* Shell — shared between Roles and Agents pages. Two-column grid:
+   discovery on the left, selected-detail inspector on the right.
+   Both columns span the full content height. Selectors include both
+   prefixes so adding a third tab is one comma, not a duplication. */
 .trust-roles,
 .trust-agents {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
   height: 100%;
   overflow: hidden;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6) 0;
+}
+.trust-roles-main,
+.trust-agents-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow: hidden;
+}
+.trust-roles-side,
+.trust-agents-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-5);
+}
+.trust-agents-side-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+}
+.trust-agents-side-empty-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.trust-agents-side-empty-hint {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* Suggested agents — three template cards below the agents table.
+   Reads as "this TRUST can grow along these axes" not as a promotional
+   row. Same elevated-card vocabulary as the snapshot cards above. */
+.trust-agents-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+.trust-agents-suggest-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.trust-agents-suggest-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.trust-agents-suggest-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+}
+.trust-agents-suggest-subtitle {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+.trust-agents-suggest-all {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.trust-agents-suggest-all:hover {
+  color: var(--color-text-primary);
+}
+.trust-agents-suggest-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.trust-agents-suggest-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+.trust-agents-suggest-card-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.trust-agents-suggest-card-desc {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  flex: 1;
+}
+.trust-agents-suggest-card-cta {
+  appearance: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed var(--border-strong, var(--border));
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.trust-agents-suggest-card-cta:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+  background: var(--color-card);
+}
+
+@media (max-width: 900px) {
+  .trust-agents-suggest-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .trust-roles-header,
 .trust-agents-header {
@@ -356,13 +507,6 @@
   letter-spacing: -0.025em;
   line-height: 1.1;
   color: var(--color-text-primary);
-}
-.trust-roles-subtitle,
-.trust-agents-subtitle {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
 }
 .trust-roles-header-actions,
 .trust-agents-header-actions {
@@ -438,20 +582,13 @@
   letter-spacing: 0.01em;
 }
 
-/* Content row — graph canvas on the left, inspector on the right.
-   Canvas owns the flex space; inspector is a fixed 320px sidecar that
-   collapses below 1100px to a full-width row underneath. */
-.trust-roles-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: var(--space-4);
-  flex: 1;
-  min-height: 0;
-  padding-bottom: var(--space-6);
-}
+/* Content row — graph canvas. The 2-column page shell owns the
+   discovery/inspector split now; .trust-roles-canvas just fills the
+   remaining vertical space inside the main column. */
 .trust-roles-canvas {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   background: var(--color-card-elevated);
@@ -698,10 +835,12 @@
 }
 
 @media (max-width: 1100px) {
-  .trust-roles-content {
+  .trust-roles,
+  .trust-agents {
     grid-template-columns: 1fr;
   }
-  .role-inspector {
+  .trust-roles-side,
+  .trust-agents-side {
     max-height: 480px;
   }
 }

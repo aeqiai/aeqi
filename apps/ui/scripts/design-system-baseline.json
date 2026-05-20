@@ -3,7 +3,7 @@
   "rules": {
     "rawButton": {
       "label": "raw <button>",
-      "count": 175,
+      "count": 177,
       "topFiles": [
         {
           "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
@@ -99,7 +99,7 @@
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 349,
+      "count": 347,
       "topFiles": [
         {
           "file": "apps/ui/src/pages/RoleDetailPage.tsx",
