@@ -4863,16 +4863,21 @@
   flex: 1;
   min-width: 0;
 }
+/* Folder scope band — mirrors the canonical Quests scope-band slab
+   (`.quest-scope` on `--bg-row`). Drops the two 1px hairlines per the
+   locked no-hairlines rule; the tier shift between page paper and the
+   slab is enough to express the boundary, and the `--radius-sm`
+   corners + inset margin match the Quests scope shape language. */
 .ideas-folder-scopebar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   min-height: 36px;
-  padding: 6px 16px 6px 18px;
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-base);
+  margin: 8px 16px 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
 }
 .ideas-folder-breadcrumb {
   display: flex;
