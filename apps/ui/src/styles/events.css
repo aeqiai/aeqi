@@ -2,8 +2,11 @@
    Events are AEQI's WHEN primitive: a pattern fires and an ordered tool
    chain runs. The canvas view is a read-only flow diagram:
      trigger → (context) → tool₁ → tool₂ → … → fire record
-   Color tones distinguish transports (session, telegram, webhook, …);
-   nodes are paper-white pills with a tinted top stripe and a mono body.
+   Tone stripes carry the same lifecycle vocabulary as the overview row
+   chips — see `.events-overview-tone-*` below — mapped onto the
+   canonical `--state-*` ladder so canvas and list register in one
+   language. Nodes are paper-white pills with a tinted top stripe and a
+   mono body.
    ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── ── */
 
 /* ── Shared surface shell ──────────────────────────────────────────────
@@ -142,15 +145,19 @@
   color: var(--color-accent);
 }
 
-/* Tone stripes — one per lifecycle group */
+/* Tone stripes — one per lifecycle group. Same vocabulary as the
+   overview row chips: graphite for runtime (the agent's own loop),
+   jade `--state-verified` for webhooks (settled, incoming traffic),
+   warmth `--state-review` for routines (paused/scheduled cadence).
+   Canvas + overview share one accent ladder; no parallel orange/gold. */
 .event-canvas-node--tone-runtime::before {
-  background: var(--color-accent); /* graphite — the agent's own loop */
+  background: var(--color-accent);
 }
 .event-canvas-node--tone-webhooks::before {
-  background: var(--event-tone-webhook, #5aa373);
+  background: var(--state-verified);
 }
 .event-canvas-node--tone-routines::before {
-  background: var(--event-tone-context, #d9a64d);
+  background: var(--state-review);
 }
 .event-canvas-node--tone-tool::before {
   background: var(--border);
