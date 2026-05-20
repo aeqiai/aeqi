@@ -68,7 +68,20 @@ export default function EconomyPage() {
   const activeTab = isEconomyTab(tab) ? tab : "overview";
   const { data: entities = [], isLoading: entitiesLoading } = useEntitiesQuery();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState("");
+
+  // Search query round-trips through `?q=` so a filtered Economy view is
+  // bookmarkable / shareable. Mirrors Blueprints' `?q=` convention. Empty
+  // string means no filter.
+  const search = searchParams.get("q") ?? "";
+  const setSearch = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams);
+      if (next === "") params.delete("q");
+      else params.set("q", next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   // Pool kind chip selection round-trips through `?kind=genesis|amm` so a
   // refresh keeps the operator's scope. Missing/invalid param = "all".
