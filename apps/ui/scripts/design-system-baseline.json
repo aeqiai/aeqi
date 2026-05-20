@@ -18,10 +18,6 @@
           "count": 6
         },
         {
-          "file": "apps/ui/src/components/quests/QuestBoard.tsx",
-          "count": 6
-        },
-        {
           "file": "apps/ui/src/components/events/EventsFilterPopover.tsx",
           "count": 5
         },
@@ -35,6 +31,10 @@
         },
         {
           "file": "apps/ui/src/components/AgentOverviewTab.tsx",
+          "count": 4
+        },
+        {
+          "file": "apps/ui/src/components/ideas/IdeasFilterPopover.tsx",
           "count": 4
         }
       ]
@@ -245,15 +245,15 @@
     },
     "linearGradient": {
       "label": "linear-gradient",
-      "count": 8,
+      "count": 10,
       "topFiles": [
+        {
+          "file": "apps/ui/src/styles/pages.css",
+          "count": 4
+        },
         {
           "file": "apps/ui/src/styles/layout.css",
           "count": 3
-        },
-        {
-          "file": "apps/ui/src/styles/pages.css",
-          "count": 2
         },
         {
           "file": "apps/ui/src/styles/chat.css",

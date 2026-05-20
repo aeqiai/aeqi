@@ -1,6 +1,5 @@
-/* eslint-disable max-lines */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, ChevronRight, ExternalLink, FolderOpen, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, Icon } from "../ui";
 import { ImportMenu } from "../blueprints/ImportMenu";
@@ -15,6 +14,7 @@ import QuestList from "./QuestList";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestArchiveStrips from "./QuestArchiveStrips";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
+import QuestBoardScope from "./QuestBoardScope";
 import {
   importQuestFromMarkdown,
   isDirectChildOf,
@@ -54,7 +54,7 @@ export default function QuestBoard({
   childCounts,
   onBoardScopeChange,
   onOpenQuest,
-  onOpenParent,
+  onOpenParent: _onOpenParent,
   splitLayout = false,
 }: {
   agentId: string;
@@ -131,13 +131,6 @@ export default function QuestBoard({
       ),
     [allQuests, childCounts, scopeParentId],
   );
-  const scopeTitle = boardScopeQuest ? (boardScopeQuest.idea?.name ?? boardScopeQuest.id) : "Root";
-  const scopeChildCount = boardScopeQuest
-    ? (childCounts.get(boardScopeQuest.id) ?? 0)
-    : scopeOptions.length;
-  const scopeSummary = boardScopeQuest
-    ? `${scopeChildCount} subquests`
-    : `${scopeOptions.length} projects`;
 
   // Drag-and-drop state. `dragging` is the quest id being dragged so cards can
   // dim themselves; `dropTarget` is the column that'll receive the drop so its
@@ -146,6 +139,7 @@ export default function QuestBoard({
   // simply reverts when we clear the entry.
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<QuestStatus | null>(null);
+  const [scopeDropActive, setScopeDropActive] = useState(false);
   const [optimistic, setOptimistic] = useState<Record<string, QuestStatus>>({});
   // Backlog + Cancelled collapse to header-only by default; user can
   // toggle each one via the chevron in the column header. Backlog
@@ -454,98 +448,37 @@ export default function QuestBoard({
           <QuestsViewPopover view={view} onChange={onViewChange} />
         </div>
       </div>
-      <div className="quest-board-scopebar">
-        <div className="quest-board-scope-main">
-          <div className="quest-board-scope-title">
-            <Icon icon={FolderOpen} size="sm" />
-            <span className="quest-board-scope-kicker">
-              {boardScopeQuest ? "Project" : "Workspace"}
-            </span>
-            <span className="quest-board-scope-name" title={scopeTitle}>
-              {scopeTitle}
-            </span>
-            <span className="quest-board-scope-count">{scopeSummary}</span>
-          </div>
-          <nav className="quest-board-breadcrumb" aria-label="Quest board scope">
-            <button
-              type="button"
-              className="quest-board-crumb"
-              data-active={!boardScopeId || undefined}
-              onClick={() => onBoardScopeChange(null)}
-            >
-              Root
-            </button>
-            {boardScopeAncestors.map((ancestor) => (
-              <span key={ancestor.id} className="quest-board-crumb-wrap">
-                <Icon icon={ChevronRight} size="xs" />
-                <button
-                  type="button"
-                  className="quest-board-crumb"
-                  onClick={() => onBoardScopeChange(ancestor.id)}
-                >
-                  {ancestor.idea?.name ?? ancestor.id}
-                </button>
-              </span>
-            ))}
-            {boardScopeQuest && (
-              <span className="quest-board-crumb-wrap">
-                <Icon icon={ChevronRight} size="xs" />
-                <span className="quest-board-crumb" data-active>
-                  {boardScopeQuest.idea?.name ?? boardScopeQuest.id}
-                </span>
-              </span>
-            )}
-          </nav>
-          <div className="quest-board-scope-actions">
-            {boardScopeQuest && (
-              <>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onOpenParent(boardScopeQuest.id)}
-                  leadingIcon={<Icon icon={ArrowUp} size="xs" />}
-                >
-                  Up
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onOpenQuest(boardScopeQuest.id)}
-                  leadingIcon={<Icon icon={ExternalLink} size="xs" />}
-                >
-                  Open
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-        {scopeOptions.length > 0 && (
-          <div className="quest-board-projects" aria-label="Quest project scopes">
-            <span className="quest-board-projects-label">
-              {boardScopeId ? "Sibling projects" : "Projects"}
-            </span>
-            <div className="quest-board-project-list">
-              {scopeOptions.map((q) => {
-                const count = childCounts.get(q.id) ?? 0;
-                return (
-                  <button
-                    key={q.id}
-                    type="button"
-                    className="quest-board-project-chip"
-                    data-active={q.id === boardScopeId || undefined}
-                    onClick={() => onBoardScopeChange(q.id)}
-                    aria-label={`Scope to ${q.idea?.name ?? q.id}, ${count} subquests`}
-                  >
-                    <Icon icon={FolderOpen} size="xs" />
-                    <span className="quest-board-project-name">{q.idea?.name ?? q.id}</span>
-                    <span className="quest-board-project-count">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      <QuestBoardScope
+        scope={boardScopeQuest}
+        childCount={
+          boardScopeQuest ? (childCounts.get(boardScopeQuest.id) ?? 0) : scopeOptions.length
+        }
+        parentScopeId={
+          boardScopeAncestors.length > 0
+            ? boardScopeAncestors[boardScopeAncestors.length - 1].id
+            : null
+        }
+        projectCount={scopeOptions.length}
+        dragging={dragging}
+        dropActive={scopeDropActive}
+        onDropActiveChange={setScopeDropActive}
+        onDrop={(id) => {
+          onBoardScopeChange(id);
+          setDragging(null);
+          setDropTarget(null);
+        }}
+        onUp={() =>
+          onBoardScopeChange(
+            boardScopeAncestors.length > 0
+              ? boardScopeAncestors[boardScopeAncestors.length - 1].id
+              : null,
+          )
+        }
+        onClear={() => onBoardScopeChange(null)}
+        onOpen={() => {
+          if (boardScopeQuest) onOpenQuest(boardScopeQuest.id);
+        }}
+      />
       {err && <div className="quest-board-error">{err}</div>}
 
       {view === "list" ? (

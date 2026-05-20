@@ -222,16 +222,14 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
-    expect(screen.getByText("Projects")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Scope to Root quest, 1 subquests/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Workspace · Root")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
 
     expect(screen.getByText("Child quest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /New subquest/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Up" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back to workspace/ })).toBeInTheDocument();
+    expect(screen.getByText("Project scope")).toBeInTheDocument();
   });
 
   it("does not log a React error during render", () => {
