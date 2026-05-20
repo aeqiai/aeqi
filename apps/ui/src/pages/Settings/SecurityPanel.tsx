@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/store/auth";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { logError } from "@/lib/logging";
 import { goExternal } from "@/lib/navigation";
@@ -48,9 +47,6 @@ function validateSecurityPhrase(raw: string, accountEmail: string): string | nul
  * Login/IP history and connected devices live under the Devices tab.
  */
 export default function SecurityPanel() {
-  const navigate = useNavigate();
-  const logout = useAuthStore((s) => s.logout);
-
   const [provider, setProvider] = useState<string>("local");
   const [connectedAuthKinds, setConnectedAuthKinds] = useState<string[]>([]);
   const [accountEmail, setAccountEmail] = useState<string>("");
@@ -78,6 +74,7 @@ export default function SecurityPanel() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<Feedback>(null);
 
   useEffect(() => {
     api
@@ -176,14 +173,25 @@ export default function SecurityPanel() {
     setDeleteOpen(true);
   };
 
+  // TODO(67-205-deletion-policy): wire backend deletion flow per SA47 PR-C; until policy decided, this collects intent only
   const performDeleteAccount = async () => {
     if (deleteConfirm !== "DELETE") return;
     setDeletingAccount(true);
     try {
-      await api.deleteAccount();
-      logout();
-      navigate("/login");
-    } catch {
+      // Intentionally NOT calling api.deleteAccount() — the backend currently
+      // returns 404 and the founder has not yet decided full-erasure vs
+      // soft-deactivate policy. Collect the user's intent and acknowledge.
+      console.warn(
+        "[SecurityPanel] account deletion requested; backend not yet wired (SA47 PR-C pending)",
+      );
+      setDeleteOpen(false);
+      setDeleteConfirm("");
+      setDeleteFeedback({
+        type: "success",
+        msg: "Deletion request received. We'll process within 30 days and email you when it's done.",
+      });
+      setTimeout(() => setDeleteFeedback(null), 8000);
+    } finally {
       setDeletingAccount(false);
     }
   };
@@ -373,11 +381,13 @@ export default function SecurityPanel() {
       <section className="account-section account-section--danger">
         <h3 className="account-section-title">Danger zone</h3>
         <p className="account-field-desc">
-          Permanently delete your account and all associated data. This cannot be undone.
+          Request deletion of your account. We'll process within 30 days. Some data (legal records,
+          on-chain TRUST relationships) may be retained as required by law.
         </p>
         <Button variant="danger" type="button" onClick={handleDeleteAccount}>
-          Delete account
+          Request account deletion
         </Button>
+        {deleteFeedback && <Banner kind={deleteFeedback.type}>{deleteFeedback.msg}</Banner>}
       </section>
 
       <ConfirmDialog
@@ -419,15 +429,16 @@ export default function SecurityPanel() {
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         onConfirm={performDeleteAccount}
-        title="Delete account"
-        confirmLabel="Delete forever"
+        title="Request account deletion"
+        confirmLabel="Submit request"
         destructive
         loading={deletingAccount}
         message={
           <div className="account-form-stack">
             <p>
-              This permanently deletes your account, every Company you own, and all data we hold for
-              you. There is no undo.
+              We'll process your deletion request within 30 days. Some data (legal records, on-chain
+              TRUST relationships) may be retained as required by law. You'll receive an email
+              confirmation when the request is processed.
             </p>
             <p>
               Type <strong>DELETE</strong> to confirm.
