@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Settings } from "lucide-react";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
+import { entityBasePath } from "@/lib/entityPath";
 import BlockAvatar from "./BlockAvatar";
 import { Textarea } from "./ui";
 
@@ -109,13 +112,24 @@ export default function TrustHeroStrip({
 
   const name = isPublicMode ? (publicEntity?.display_name ?? trustId) : (entity?.name ?? trustId);
   const tagline = isPublicMode ? (publicEntity?.tagline ?? "") : (entity?.tagline ?? "");
+  const settingsPath = !isPublicMode && entity ? `${entityBasePath(entity)}/settings` : null;
 
   return (
     <header
       className={`trust-hero${aside ? " trust-hero--with-bar" : ""}`}
       aria-label="Trust identity"
     >
-      <img src="/welcome/start-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
+      <img src="/welcome/trust-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
+      {settingsPath && (
+        <Link
+          to={settingsPath}
+          className="trust-hero-settings"
+          aria-label="Open TRUST settings"
+          title="TRUST settings"
+        >
+          <Settings size={16} strokeWidth={1.6} />
+        </Link>
+      )}
       <div className="trust-hero-identity">
         <div className="trust-hero-avatar" aria-hidden>
           <BlockAvatar name={name} size={144} />

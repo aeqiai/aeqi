@@ -76,6 +76,10 @@
   /* keeps the column layout — the footer pins to the bottom of the
      card via `justify-content: space-between` above. */
 }
+/* Dark photo-backed hero. The image fills the card (no mask); text
+   reads white over the dark cityscape, with a soft left-to-right
+   gradient overlay to keep the identity area legible regardless of
+   image variance. */
 .trust-hero-image {
   position: absolute;
   inset: 0;
@@ -86,12 +90,51 @@
   border-radius: var(--radius-lg);
   pointer-events: none;
   z-index: 0;
-  mask-image: radial-gradient(circle farthest-corner at 100% 100%, black 50%, transparent 100%);
-  -webkit-mask-image: radial-gradient(
-    circle farthest-corner at 100% 100%,
-    black 50%,
-    transparent 100%
+}
+.trust-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.32) 45%,
+    rgba(0, 0, 0, 0.12) 100%
   );
+  pointer-events: none;
+  z-index: 0;
+}
+/* Top-right gear shortcut to /trust/<addr>/settings. Mirrors the
+   `.home-hero-settings` pattern on the start page so the affordance
+   reads identically across the app. */
+.trust-hero-settings {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+  z-index: 2;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    transform 0.12s ease;
+}
+.trust-hero-settings:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+.trust-hero-settings:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
 }
 .trust-hero-identity {
   display: flex;
@@ -125,7 +168,7 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.65);
 }
 .trust-hero-name,
 .trust-hero-name-input {
@@ -135,7 +178,7 @@
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.025em;
-  color: var(--color-text-primary);
+  color: #ffffff;
   padding: 0;
   border: 0;
   background: transparent;
@@ -152,6 +195,7 @@
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.025em;
+  color: #ffffff;
 }
 .trust-hero-tagline,
 .trust-hero-tagline-input {
@@ -160,7 +204,7 @@
   font-size: var(--font-size-sm);
   font-style: italic;
   line-height: 1.5;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.82);
   padding: 0;
   border: 0;
   background: transparent;
@@ -174,10 +218,10 @@
   font: inherit;
   font-style: italic;
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.82);
 }
 .trust-hero-tagline--empty {
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.55);
 }
 .trust-hero-chrome {
   display: flex;
@@ -667,23 +711,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.trust-ownership-settings-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  align-self: flex-end;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  text-decoration: none;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition: color 0.12s ease;
-}
-
-.trust-ownership-settings-link:hover {
-  color: var(--color-text);
 }
 
 /* Footer-row under the ownership cards — quiet danger-zone affordance
