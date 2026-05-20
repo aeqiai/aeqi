@@ -108,9 +108,9 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
         <OwnershipPrimitiveCard
           icon={<FileText size={16} strokeWidth={1.5} />}
           label="Incorporation"
-          value="—"
+          value=""
           hint=""
-          sub="Coming soon"
+          sub=""
           comingSoon
         />
       </div>
@@ -145,7 +145,14 @@ function OwnershipPrimitiveCard({
         {icon}
       </span>
       <span className="trust-primitive-label">{label}</span>
-      {provisioning ? (
+      {comingSoon ? (
+        // Permanently-soon tile (Incorporation). The graphite badge sits
+        // in the payload slot so the row's icon+label+payload rhythm
+        // stays uniform across provisioning / soon / live states. Muted
+        // ink on chrome surface — no semantic accent, reads as
+        // "scheduled for later" rather than "awaiting work".
+        <span className="trust-primitive-pending trust-primitive-pending--graphite">v2</span>
+      ) : provisioning ? (
         // Awaiting on-chain bridge. The 28px display value would render
         // as a giant "—" and dominate the row; swap it for a quiet
         // warmth-toned badge so the tile reads as "alive, awaiting"
@@ -161,7 +168,7 @@ function OwnershipPrimitiveCard({
           {hint && <span className="trust-primitive-hint"> {hint}</span>}
         </span>
       )}
-      {sub && !provisioning && <span className="trust-primitive-sub">{sub}</span>}
+      {sub && !provisioning && !comingSoon && <span className="trust-primitive-sub">{sub}</span>}
     </>
   );
   if (comingSoon || !to) {

@@ -1017,8 +1017,24 @@
   margin-bottom: 4px;
 }
 
+/* Graphite variant (c5, 2026-05-21) — used by the Incorporation tile,
+   which is permanently-soon rather than transiently provisioning. The
+   warmth tier ("Bridge pending") would mis-signal awaiting work; the
+   graphite tier reads as "scheduled for later" — chrome muted ink on
+   a chrome surface, no semantic accent. Same badge shape so the row's
+   icon+label+payload rhythm stays uniform whether the tile is
+   provisioning, soon, or live. */
+.trust-primitive-pending--graphite {
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+}
+
+/* `--soon` tiles (e.g. Incorporation) carry their own "v2" graphite
+   badge in the payload slot, so whole-tile opacity dimming (the pre-c5
+   treatment) is redundant and reads as sickly rather than reserved.
+   Keep the cursor signal and suppress hover transforms so the tile
+   reads as non-interactive without flattening the row's rhythm. */
 .trust-cockpit-mini--soon {
-  opacity: 0.5;
   cursor: not-allowed;
 }
 .trust-cockpit-mini--soon:hover {
