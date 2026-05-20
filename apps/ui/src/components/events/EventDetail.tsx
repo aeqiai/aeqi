@@ -287,6 +287,9 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
           eventName={event.name}
           pattern={event.pattern}
           fireCountHint={event.fire_count}
+          lastFired={event.last_fired ?? null}
+          cooldownSecs={event.cooldown_secs ?? 0}
+          toolCalls={event.tool_calls ?? []}
         />
       )}
     </div>

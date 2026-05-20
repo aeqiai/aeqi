@@ -1034,6 +1034,54 @@
   color: var(--color-text-primary);
   border-color: var(--border-hover);
 }
+.events-fires-context {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--space-2);
+  padding: 0 0 var(--space-3);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+}
+.events-fires-context-item {
+  min-width: 0;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-1);
+}
+@media (min-width: 720px) {
+  .events-fires-context-item--wide {
+    grid-column: span 2;
+  }
+}
+.events-fires-context-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.events-fires-context-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.events-fires-context-item--runtime .events-fires-context-value,
+.events-fires-context-item--webhooks .events-fires-context-value {
+  color: var(--color-info);
+}
+.events-fires-context-item--routines .events-fires-context-value,
+.events-fires-context-item--pending .events-fires-context-value {
+  color: var(--color-warning);
+}
+.events-fires-context-item--ready .events-fires-context-value {
+  color: var(--color-success);
+}
 .events-fires-loading,
 .events-fires-empty {
   display: flex;
@@ -1076,16 +1124,26 @@
   background: var(--state-hover);
   border-color: var(--border-faint);
 }
-/* Row typography rhythm: `when` is the temporal coordinate (muted, tabular,
-   fixed width so timestamps stack vertically), `session` is the row's
-   identity (primary tone, mono ID separated from a small sans label),
-   `dur` is trailing metadata (muted tabular). Three tiers, one rhythm. */
+/* Row typography rhythm: status/caller identify the execution path, `when`
+   anchors time, `session` carries the trace identity, and `dur` stays trailing
+   metadata. Tabular fields keep rows steady as traces update. */
+.events-fires-row-status {
+  min-width: 42px;
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-weight: 500;
+}
 .events-fires-row-when {
   color: var(--color-text-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
-  min-width: 72px;
+  min-width: 90px;
+}
+.events-fires-row-caller {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  min-width: 64px;
 }
 .events-fires-row-session {
   display: inline-flex;
@@ -1110,6 +1168,11 @@
   background: transparent;
   padding: 0;
 }
+.events-fires-row-calls {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
 .events-fires-row-dur {
   margin-left: auto;
   color: var(--color-text-muted);
@@ -1124,13 +1187,13 @@
   flex-shrink: 0;
 }
 .events-fires-dot--ok {
-  background: var(--success, #5aa373);
+  background: var(--color-success);
 }
 .events-fires-dot--err {
-  background: var(--error, #c44);
+  background: var(--color-warning);
 }
 .events-fires-dot--idle {
-  background: var(--color-text-muted);
+  background: var(--color-info);
 }
 
 /* ── Step detail — drilled into one invocation ───────────────────────── */
@@ -1213,6 +1276,44 @@
 .events-step-detail-session code {
   font-family: var(--font-mono);
   font-size: 11px;
+}
+.events-step-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-faint);
+  border-bottom: 1px solid var(--border-faint);
+}
+.events-step-summary-item {
+  min-width: 0;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.events-step-summary-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.events-step-summary-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.events-step-summary-item--ok .events-step-summary-value {
+  color: var(--color-success);
+}
+.events-step-summary-item--error .events-step-summary-value {
+  color: var(--color-warning);
 }
 .events-step-detail-loading,
 .events-step-detail-empty {

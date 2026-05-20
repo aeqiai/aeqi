@@ -20,6 +20,43 @@ export function StatusDot({ status }: { status: string }) {
   return <span className={cls} aria-label={status} />;
 }
 
+function countLabel(count: number | null): string {
+  if (count == null) return "unknown";
+  return `${count} call${count === 1 ? "" : "s"}`;
+}
+
+function stepCountLabel(count: number): string {
+  return `${count} step${count === 1 ? "" : "s"}`;
+}
+
+function toolCallNames(toolCallsJson: string): string[] | null {
+  try {
+    const parsed = JSON.parse(toolCallsJson) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.map((call, i) => {
+      if (
+        call != null &&
+        typeof call === "object" &&
+        "tool" in call &&
+        typeof call.tool === "string" &&
+        call.tool.trim()
+      ) {
+        return call.tool.trim();
+      }
+      return `step ${i + 1}`;
+    });
+  } catch {
+    return null;
+  }
+}
+
+function planLabel(names: string[] | null): string {
+  if (names == null) return "unknown";
+  if (names.length === 0) return "observer";
+  if (names.length <= 2) return names.join(" -> ");
+  return `${names.slice(0, 2).join(" -> ")} +${names.length - 2}`;
+}
+
 interface StepDetailProps {
   invocationId: number;
   onClose: () => void;
@@ -30,6 +67,7 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
   const [steps, setSteps] = useState<InvocationStepRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const plannedToolNames = inv ? toolCallNames(inv.tool_calls_json) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +115,17 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
           <span className="events-step-detail-session">
             session <code>{inv.session_id.slice(0, 8)}</code>
           </span>
+        </div>
+      )}
+
+      {inv && (
+        <div className="events-step-summary" aria-label="Trace summary">
+          <TraceMetric label="Status" value={inv.status} tone={inv.status} />
+          <TraceMetric label="Caller" value={inv.caller_kind} />
+          <TraceMetric label="Duration" value={durationMs(inv.started_at, inv.finished_at)} />
+          <TraceMetric label="Tool Calls" value={countLabel(plannedToolNames?.length ?? null)} />
+          <TraceMetric label="Trace Steps" value={stepCountLabel(steps.length)} />
+          <TraceMetric label="Plan" value={planLabel(plannedToolNames)} />
         </div>
       )}
 
@@ -128,5 +177,22 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
         );
       })}
     </div>
+  );
+}
+
+function TraceMetric({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  const classes = [
+    "events-step-summary-item",
+    tone === "ok" ? "events-step-summary-item--ok" : null,
+    tone === "error" ? "events-step-summary-item--error" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <span className={classes}>
+      <span className="events-step-summary-label">{label}</span>
+      <span className="events-step-summary-value">{value}</span>
+    </span>
   );
 }

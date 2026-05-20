@@ -64,7 +64,7 @@ function traceSummary(event: AgentEvent): string {
   return event.fire_count > 0 ? "trace pending" : "no trace";
 }
 
-function guardSummary(event: AgentEvent): string {
+function cooldownSummary(event: AgentEvent): string {
   return event.cooldown_secs > 0 ? `${formatInteger(event.cooldown_secs)}s cooldown` : "none";
 }
 
@@ -159,7 +159,7 @@ function OverviewRow({
   const when = whenSummary(event, group);
   const toolCount = toolsSummary(tools.length);
   const trace = traceSummary(event);
-  const guard = guardSummary(event);
+  const cooldown = cooldownSummary(event);
   // Description for screen readers — the pin and the "N fires" / "never"
   // text both carry phase info, but neither is announced naturally.
   const phaseLabel = phase === "armed" ? "armed" : phase === "fired" ? "fired" : "dormant";
@@ -176,7 +176,7 @@ function OverviewRow({
         data-testid="event-row"
         data-event-id={event.id}
         onClick={() => onSelect(event.id)}
-        aria-label={`Open ${event.name} (${phaseLabel}; when ${when}; ${toolCount}; ${trace}; guard ${guard})`}
+        aria-label={`Open ${event.name} (${phaseLabel}; when ${when}; ${toolCount}; ${trace}; cooldown ${cooldown})`}
       >
         <div className="events-overview-row-head">
           <span
@@ -231,8 +231,8 @@ function OverviewRow({
               event.cooldown_secs > 0 ? " events-overview-row-meta-item--guard" : ""
             }`}
           >
-            <span className="events-overview-row-meta-label">Guard</span>
-            <span className="events-overview-row-meta-value">{guard}</span>
+            <span className="events-overview-row-meta-label">Cooldown</span>
+            <span className="events-overview-row-meta-value">{cooldown}</span>
           </span>
         </div>
       </button>
