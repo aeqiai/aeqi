@@ -524,7 +524,20 @@
 .role-inspector-body {
   display: flex;
   flex-direction: column;
+  gap: var(--space-4);
+}
+.role-inspector-section {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
+}
+.role-inspector-section-title {
+  margin: 0 0 2px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.005em;
 }
 .role-inspector-field {
   display: flex;

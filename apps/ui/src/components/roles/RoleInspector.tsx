@@ -215,122 +215,146 @@ export default function RoleInspector({
         </Link>
       )}
 
-      {/* Body sections */}
+      {/* Body — grouped into Identity / Mandate / Authority / Activity
+         sections so a fresh visitor reads top-to-bottom in a clear
+         narrative arc (who is this, what can they do, what authority
+         do they have, what has happened). Section titles use sentence-
+         case bold-muted instead of uppercase eyebrow caps to stay on
+         the right side of the design-system editorial-flourish rule. */}
       <div className="role-inspector-body">
-        {!isVacant && role.occupant_id && (
-          <Field label="Holder">
-            <code>{compactAddress(role.occupant_id)}</code>
+        <Section title="Identity">
+          {!isVacant && role.occupant_id && (
+            <Field label="Holder">
+              <code>{compactAddress(role.occupant_id)}</code>
+              <button
+                type="button"
+                className="role-inspector-copy"
+                onClick={() => copy(role.occupant_id!, "holder")}
+                title={copiedField === "holder" ? "Copied" : "Copy ID"}
+              >
+                {copiedField === "holder" ? (
+                  <Check size={12} strokeWidth={1.8} />
+                ) : (
+                  <Copy size={12} strokeWidth={1.5} />
+                )}
+              </button>
+            </Field>
+          )}
+
+          <Field label="Role ID">
+            <code>{compactAddress(role.id)}</code>
             <button
               type="button"
               className="role-inspector-copy"
-              onClick={() => copy(role.occupant_id!, "holder")}
-              title={copiedField === "holder" ? "Copied" : "Copy ID"}
+              onClick={() => copy(role.id, "roleId")}
+              title={copiedField === "roleId" ? "Copied" : "Copy ID"}
             >
-              {copiedField === "holder" ? (
+              {copiedField === "roleId" ? (
                 <Check size={12} strokeWidth={1.8} />
               ) : (
                 <Copy size={12} strokeWidth={1.5} />
               )}
             </button>
           </Field>
-        )}
+        </Section>
 
-        <Field label="Role ID">
-          <code>{compactAddress(role.id)}</code>
-          <button
-            type="button"
-            className="role-inspector-copy"
-            onClick={() => copy(role.id, "roleId")}
-            title={copiedField === "roleId" ? "Copied" : "Copy ID"}
-          >
-            {copiedField === "roleId" ? (
-              <Check size={12} strokeWidth={1.8} />
-            ) : (
-              <Copy size={12} strokeWidth={1.5} />
-            )}
-          </button>
-        </Field>
-
-        <Field label="Mandate">
-          <span className="role-inspector-mandate">
-            {/* Mandate is not yet a stored field on Role — until backend
-                exposes one, surface a placeholder that's honest about it
-                rather than fabricating prose. The edit pencil goes to
-                the existing edit page which DOES support narrative
-                updates today via the grants list. */}
-            <em className="role-inspector-mandate-empty">
-              No mandate defined yet. Describe what this role can decide, execute, or delegate.
-            </em>
-          </span>
-          <Link
-            to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
-            className="role-inspector-copy"
-            title="Edit role"
-          >
-            <Pencil size={12} strokeWidth={1.6} />
-          </Link>
-        </Field>
-
-        <Field label="Grants">
-          <span className="role-inspector-stat">{role.grants.length}</span>
-          {role.grants.length > 0 && (
-            <span className="role-inspector-meta">
-              {role.grants.slice(0, 2).join(" · ")}
-              {role.grants.length > 2 ? ` · +${role.grants.length - 2}` : ""}
+        <Section title="Mandate">
+          <Field label="Mandate">
+            <span className="role-inspector-mandate">
+              {/* Mandate is not yet a stored field on Role — until backend
+                  exposes one, surface a placeholder that's honest about it
+                  rather than fabricating prose. The edit pencil goes to
+                  the existing edit page. */}
+              <em className="role-inspector-mandate-empty">
+                No mandate defined yet. Describe what this role can decide, execute, or delegate.
+              </em>
             </span>
-          )}
-        </Field>
-
-        {parentRoles.length > 0 && (
-          <Field label="Reports to">
-            {parentRoles.map((p) => (
-              <Link
-                key={p.id}
-                to={`${basePath}/roles?role=${encodeURIComponent(p.id)}`}
-                className="role-inspector-chip"
-              >
-                {p.title}
-              </Link>
-            ))}
-          </Field>
-        )}
-
-        {/* Top-of-tree directors get an explicit "Root authority" cell
-            instead of an empty "Reports to" — they don't report up; they
-            ARE the apex. */}
-        {parentRoles.length === 0 && role.role_type === "director" && (
-          <Field label="Authority">
-            <span className="role-inspector-meta">Root authority</span>
-          </Field>
-        )}
-
-        {childRoles.length > 0 && (
-          <Field label="Delegates to">
-            <span className="role-inspector-stat">{childRoles.length}</span>
-            <span className="role-inspector-meta">
-              {childRoles
-                .slice(0, 2)
-                .map((c) => c.title)
-                .join(" · ")}
-              {childRoles.length > 2 ? ` · +${childRoles.length - 2}` : ""}
-            </span>
-          </Field>
-        )}
-
-        {role.occupant_kind === "agent" && activeQuests > 0 && (
-          <Field label="Active quests">
-            <Link to={`${basePath}/quests`} className="role-inspector-link">
-              {activeQuests}
-              <ArrowRight size={12} strokeWidth={1.8} />
+            <Link
+              to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
+              className="role-inspector-copy"
+              title="Edit role"
+            >
+              <Pencil size={12} strokeWidth={1.6} />
             </Link>
           </Field>
-        )}
+        </Section>
 
-        <Field label="Created">
-          <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
-        </Field>
+        <Section title="Authority">
+          <Field label="Grants">
+            <span className="role-inspector-stat">{role.grants.length}</span>
+            {role.grants.length > 0 && (
+              <span className="role-inspector-meta">
+                {role.grants.slice(0, 2).join(" · ")}
+                {role.grants.length > 2 ? ` · +${role.grants.length - 2}` : ""}
+              </span>
+            )}
+          </Field>
+
+          {parentRoles.length > 0 && (
+            <Field label="Reports to">
+              {parentRoles.map((p) => (
+                <Link
+                  key={p.id}
+                  to={`${basePath}/roles?role=${encodeURIComponent(p.id)}`}
+                  className="role-inspector-chip"
+                >
+                  {p.title}
+                </Link>
+              ))}
+            </Field>
+          )}
+
+          {/* Top-of-tree directors don't report up; they ARE the apex. */}
+          {parentRoles.length === 0 && role.role_type === "director" && (
+            <Field label="Authority">
+              <span className="role-inspector-meta">Root authority</span>
+            </Field>
+          )}
+
+          {childRoles.length > 0 && (
+            <Field label="Delegates to">
+              <span className="role-inspector-stat">{childRoles.length}</span>
+              <span className="role-inspector-meta">
+                {childRoles
+                  .slice(0, 2)
+                  .map((c) => c.title)
+                  .join(" · ")}
+                {childRoles.length > 2 ? ` · +${childRoles.length - 2}` : ""}
+              </span>
+            </Field>
+          )}
+        </Section>
+
+        <Section title="Activity">
+          {role.occupant_kind === "agent" && activeQuests > 0 && (
+            <Field label="Active quests">
+              <Link to={`${basePath}/quests`} className="role-inspector-link">
+                {activeQuests}
+                <ArrowRight size={12} strokeWidth={1.8} />
+              </Link>
+            </Field>
+          )}
+
+          <Field label="Created">
+            <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
+          </Field>
+        </Section>
       </div>
     </aside>
+  );
+}
+
+interface SectionProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function Section({ title, children }: SectionProps) {
+  return (
+    <div className="role-inspector-section">
+      <p className="role-inspector-section-title">{title}</p>
+      {children}
+    </div>
   );
 }
 
