@@ -209,13 +209,18 @@
   flex-shrink: 0;
 }
 
+/* Awaiting strip — detail-pane echo of the rail's amber awaiting dot.
+ * Tinted with the same `--color-warmth` family accent the rail uses
+ * so the row's `in_review` state reads continuously from the list
+ * cue into the detail header. Tint percentages stay conservative
+ * (4% / 12%) to keep the strip readable as chrome, not a banner. */
 .inbox-awaiting-strip {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: 44px;
   padding: var(--space-2) var(--space-5);
-  background: color-mix(in srgb, var(--color-ink-primary) 4%, var(--color-card));
+  background: color-mix(in srgb, var(--color-warmth) 4%, var(--color-card));
   box-shadow: inset 0 -1px 0 var(--border);
   flex-shrink: 0;
 }
@@ -228,7 +233,7 @@
   height: 26px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-ink-primary) 9%, var(--color-card));
+  background: color-mix(in srgb, var(--color-warmth) 12%, var(--color-card));
   color: var(--color-ink-text);
 }
 
@@ -460,15 +465,26 @@
   flex-shrink: 0;
 }
 
-/* ── Sessions-rail awaiting dot (lives on the per-agent sidebar) ── */
-
+/* ── Sessions-rail awaiting dot ─────────────────────────────────
+ * Awaiting = pending decision-request. Pulls the locked family amber
+ * (`--color-warmth`) — the same "in_review" accent used by the quest
+ * board's `.quest-status-dot--in_review` and the events `--warning`
+ * tone. The inbox is the operator's first read; broadcasting awaiting
+ * rows in the family vocabulary lets the eye triage `in_review` rows
+ * at-a-glance instead of treating every unread the same.
+ *
+ * 6px / 999px / amber fill, sized to read at the rail's 12px primary
+ * line without crowding the row's status gutter. Halo uses the
+ * surrounding card surface so the dot stays legible across the
+ * row's hover (`--state-hover`) and selected (`--state-selected`)
+ * background transitions. */
 .sessions-rail-awaiting-dot {
   display: inline-block;
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  background: var(--color-ink-primary);
-  box-shadow: 0 0 0 2px var(--bg-sidebar);
+  background: var(--color-warmth);
+  box-shadow: 0 0 0 2px var(--color-card);
 }
 
 /* ── Legacy intro classes kept for reference — not rendered ─────
