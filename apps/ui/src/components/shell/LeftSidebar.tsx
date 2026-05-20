@@ -371,7 +371,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               {navItem("assets", "Assets", <AssetsIcon />)}
               {navItem("equity", "Equity", <EquityIcon />)}
               {navItem("quorum", "Quorum", <QuorumIcon />)}
-              {navItem("incorporation", "Incorporation", <IncorporationIcon />)}
+              {navItem("incorporation", "Incorporation", <IncorporationIcon />, { soon: true })}
             </nav>
           </>
         )}

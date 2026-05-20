@@ -4,7 +4,6 @@ import { Wallet, PieChart, Vote, FileText } from "lucide-react";
 import { useAssets } from "@/hooks/useAssets";
 import { useEquity } from "@/hooks/useEquity";
 import { useQuorum } from "@/hooks/useQuorum";
-import { useIncorporation } from "@/hooks/useIncorporation";
 import { deriveProposalStatus, lookupTokenMeta } from "@/solana";
 
 interface TrustOwnershipGroupProps {
@@ -26,7 +25,6 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
   const assets = useAssets(trustAddress);
   const equity = useEquity(trustAddress);
   const quorum = useQuorum(trustAddress);
-  const incorporation = useIncorporation(trustAddress);
 
   const holdersCount = equity.holders?.length ?? null;
   const hasToken = !!equity.tokenModuleState;
@@ -59,8 +57,6 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
     if (decimals === null) return null;
     return formatUsdc(totalRaw, decimals);
   }, [assets.holdings]);
-  const modulesCount = incorporation.modules?.length ?? null;
-  const trustOnchain = !!incorporation.trust;
 
   return (
     <div className="trust-ownership-group">
@@ -108,12 +104,12 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           }
         />
         <OwnershipPrimitiveCard
-          to={`${basePath}/incorporation`}
           icon={<FileText size={16} strokeWidth={1.5} />}
           label="Incorporation"
-          value={modulesCount === null ? "—" : String(modulesCount)}
-          hint={modulesCount === 1 ? "module" : "modules"}
-          sub={trustOnchain ? "" : trustAddress ? "No agreement yet" : "Setting up on Solana"}
+          value="—"
+          hint=""
+          sub="Coming soon"
+          comingSoon
         />
       </section>
     </div>
@@ -121,12 +117,13 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
 }
 
 interface OwnershipPrimitiveCardProps {
-  to: string;
+  to?: string;
   icon: React.ReactNode;
   label: string;
   value: string;
   hint: string;
   sub: string;
+  comingSoon?: boolean;
 }
 
 function OwnershipPrimitiveCard({
@@ -136,9 +133,10 @@ function OwnershipPrimitiveCard({
   value,
   hint,
   sub,
+  comingSoon,
 }: OwnershipPrimitiveCardProps) {
-  return (
-    <Link to={to} className="trust-card trust-primitive-card">
+  const body = (
+    <>
       <span className="trust-primitive-icon" aria-hidden>
         {icon}
       </span>
@@ -148,6 +146,22 @@ function OwnershipPrimitiveCard({
         {hint && <span className="trust-primitive-hint"> {hint}</span>}
       </span>
       {sub && <span className="trust-primitive-sub">{sub}</span>}
+    </>
+  );
+  if (comingSoon || !to) {
+    return (
+      <div
+        className="trust-card trust-primitive-card trust-primitive-card--soon"
+        aria-disabled="true"
+        title={`${label} — coming soon`}
+      >
+        {body}
+      </div>
+    );
+  }
+  return (
+    <Link to={to} className="trust-card trust-primitive-card">
+      {body}
     </Link>
   );
 }

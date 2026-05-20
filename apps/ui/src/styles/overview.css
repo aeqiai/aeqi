@@ -579,6 +579,18 @@
 .trust-primitive-card--warmth .trust-primitive-value {
   color: var(--color-warmth);
 }
+/* "Coming soon" variant — non-clickable card; same shape as the live
+   tiles so the row reads as cohesive, but muted so it doesn't look
+   broken or empty. Cursor and hover are suppressed so it's plainly
+   inert. */
+.trust-primitive-card--soon {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.trust-primitive-card--soon:hover {
+  transform: none;
+  background: var(--color-card);
+}
 .trust-primitive-hint {
   margin-left: 6px;
   font-family: var(--font-sans);
