@@ -143,23 +143,32 @@ export default function StartPage() {
             </div>
           </div>
         </div>
-        <div className="home-hero-pill" role="status" aria-label="Account snapshot">
-          <span className="home-hero-pill-stat">{trustsLabel}</span>
-          <span className="home-hero-pill-sep" aria-hidden>
-            ·
-          </span>
-          <span className="home-hero-pill-stat home-hero-pill-stat--inbox">
-            <span
-              className={`home-hero-pill-dot home-hero-pill-dot--${inboxPillState}`}
-              aria-hidden="true"
-            />
-            {inboxLabel}
-          </span>
-          <span className="home-hero-pill-sep" aria-hidden>
-            ·
-          </span>
-          <span className="home-hero-pill-stat">{planLabel} plan</span>
-        </div>
+        {/* Hero pill is a status snapshot of the user's TRUSTs and inbox.
+            First-touch (no entities yet) has no status to snapshot —
+            "0 TRUSTs · Inbox clear · Free plan" reads as a deficit
+            ledger, not a welcome. Suppress it until the user has at
+            least one TRUST; PersonalTrustCard's empty state below
+            carries the create-your-first-TRUST affordance without
+            competing chrome. */}
+        {entities.length > 0 && (
+          <div className="home-hero-pill" role="status" aria-label="Account snapshot">
+            <span className="home-hero-pill-stat">{trustsLabel}</span>
+            <span className="home-hero-pill-sep" aria-hidden>
+              ·
+            </span>
+            <span className="home-hero-pill-stat home-hero-pill-stat--inbox">
+              <span
+                className={`home-hero-pill-dot home-hero-pill-dot--${inboxPillState}`}
+                aria-hidden="true"
+              />
+              {inboxLabel}
+            </span>
+            <span className="home-hero-pill-sep" aria-hidden>
+              ·
+            </span>
+            <span className="home-hero-pill-stat">{planLabel} plan</span>
+          </div>
+        )}
       </header>
 
       <section className="home-row-trusts" aria-label="Your TRUSTs">
