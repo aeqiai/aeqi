@@ -3716,8 +3716,12 @@
     transform 0.12s;
 }
 .quest-card:hover {
-  border-color: var(--border);
-  box-shadow: var(--shadow-sm);
+  /* Lift is a real tier shift + shadow rather than a 1px hairline.
+     The card was already at `--color-card-elevated`; on hover it
+     pops to white-most paper (`--color-card`) plus `--shadow-md`
+     for an obvious "this is grabbable" register. No border ornament. */
+  background: var(--color-card);
+  box-shadow: var(--shadow-md);
 }
 .quest-card:active {
   cursor: grabbing;
