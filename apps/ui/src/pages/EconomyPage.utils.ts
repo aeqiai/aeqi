@@ -44,6 +44,12 @@ export function isEconomyTab(tab: string | undefined): tab is EconomyTab {
   return !!tab && ECONOMY_TABS.some((item) => item.id === tab);
 }
 
+const POOL_KINDS: readonly PoolKind[] = ["genesis", "amm"];
+
+export function isPoolKind(value: string | null | undefined): value is PoolKind {
+  return !!value && (POOL_KINDS as readonly string[]).includes(value);
+}
+
 export function compactAddress(value: string | null | undefined): string {
   if (!value) return "Not on-chain";
   if (value.length <= 14) return value;

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import PageRail from "@/components/PageRail";
@@ -35,6 +35,7 @@ import {
   compactAddress,
   ECONOMY_TABS,
   isEconomyTab,
+  isPoolKind,
   matchesPoolQuery,
   matchesRoleQuery,
   matchesTrustQuery,
@@ -66,8 +67,22 @@ export default function EconomyPage() {
   const { tab } = useParams<{ tab?: string }>();
   const activeTab = isEconomyTab(tab) ? tab : "overview";
   const { data: entities = [], isLoading: entitiesLoading } = useEntitiesQuery();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [poolKindFilter, setPoolKindFilter] = useState<PoolKindFilter>("all");
+
+  // Pool kind chip selection round-trips through `?kind=genesis|amm` so a
+  // refresh keeps the operator's scope. Missing/invalid param = "all".
+  const kindParam = searchParams.get("kind");
+  const poolKindFilter: PoolKindFilter = isPoolKind(kindParam) ? kindParam : "all";
+  const setPoolKindFilter = useCallback(
+    (next: PoolKindFilter) => {
+      const params = new URLSearchParams(searchParams);
+      if (next === "all") params.delete("kind");
+      else params.set("kind", next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
   const [roleState, setRoleState] = useState<Record<string, RoleLoadState>>({});
   const [launchState, setLaunchState] = useState<Record<string, LaunchLoadState>>({});
 
