@@ -7400,12 +7400,21 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   line-height: 1.3;
   max-width: 36ch;
 }
+/* Body rows rest on the page paper (`--color-card`) and LIFT on hover
+   to `--color-card-elevated` + `--shadow-sm` — the same tier-shift the
+   `.quest-card` register uses, just in the row direction. The previous
+   hover sank rows down to `--color-card-muted` (the same tone the table
+   header sits on), which read as "selecting and recessing" instead of
+   "this is grabbable." Tier-shift is the lift; no hairline border. */
 .ideas-table-row {
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .ideas-table-row:hover {
-  background: var(--color-card-muted);
+  background: var(--color-card-elevated);
+  box-shadow: var(--shadow-sm);
 }
 .ideas-table-row:focus-visible {
   outline: none;
