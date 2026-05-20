@@ -7,6 +7,7 @@ import type { Role, RoleInvitation } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { Badge, Button, Loading } from "@/components/ui";
+import RoleBudgetControl from "@/components/RoleBudgetControl";
 
 const ROLE_TYPE_LABEL: Record<string, string> = {
   director: "Director",
@@ -157,6 +158,8 @@ export default function RoleDetailPage() {
           </div>
         </div>
       </div>
+
+      <RoleBudgetControl trustId={trustId} roleId={role.id} roleTitle={role.title || "this role"} />
 
       {/* Holder section */}
       <section style={{ marginBottom: "var(--space-8)" }}>

@@ -801,6 +801,48 @@ export const api = {
     }),
 
   /**
+   * One-time per trust: allocate the BudgetModuleState PDA. Must be
+   * called once before any budgetCreate against the same trust.
+   * On-chain init rejects a second call with "account already in use".
+   */
+  budgetModuleInit: (data: { entity_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      module_state_pubkey_b58: string;
+    }>("/solana/budget-module-init", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Trust authority grants a spending budget capped at `amount` against
+   * a target role. `target_role_id` accepts hex (0x-prefixed 32-byte) OR
+   * a free-text label which the platform hashes with keccak256.
+   * `expiry = 0` means no expiry. `budget_label` similarly resolves to a
+   * budget id (random if omitted).
+   */
+  budgetCreate: (data: {
+    entity_id: string;
+    target_role_id: string;
+    amount: number;
+    expiry?: number;
+    parent_budget_id?: string | null;
+    budget_label?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      budget_pubkey_b58: string;
+      budget_id_hex: string;
+      target_role_id_hex: string;
+      amount: number;
+    }>("/solana/budget-create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.
