@@ -22,7 +22,7 @@ import { entityBasePath } from "@/lib/entityPath";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
 import type { Role, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
-import { MetricStatus, RegistryCard, TrustDirectory } from "./EconomyPage.parts";
+import { MetricStatus, RegistryCard, TableStatus, TrustDirectory } from "./EconomyPage.parts";
 import {
   compactAddress,
   ECONOMY_TABS,
@@ -213,11 +213,12 @@ export default function EconomyPage() {
         key: "public",
         header: "Public",
         cell: (trust) => (
-          <Badge variant={trust.public ? "success" : "muted"} size="sm">
-            {trust.public ? "Public" : "Private"}
-          </Badge>
+          <TableStatus
+            state={trust.public ? "done" : "backlog"}
+            label={trust.public ? "Public" : "Private"}
+          />
         ),
-        width: "110px",
+        width: "96px",
         sortable: true,
         sortAccessor: (trust) => (trust.public ? 1 : 0),
       },

@@ -96,6 +96,15 @@ export function MetricStatus({ state, label }: { state: MetricStatusState; label
   );
 }
 
+export function TableStatus({ state, label }: { state: MetricStatusState; label: string }) {
+  return (
+    <span className={styles.tableStatus}>
+      <span className={`quest-status-dot quest-status-dot--${state}`} aria-hidden />
+      <span className={styles.tableStatusLabel}>{label}</span>
+    </span>
+  );
+}
+
 function registryToneLabel(tone: RegistryTone, value: number): string {
   if (value === 0) {
     if (tone === "live") return "No live offers";
