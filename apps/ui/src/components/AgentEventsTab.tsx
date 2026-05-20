@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
 import * as eventsApi from "@/api/events";
 import { useAgentEvents, useAgentEventsCache } from "@/queries/events";
 import type { AgentEvent, ScopeValue } from "@/lib/types";
-import { Button, Select, Loading } from "./ui";
+import { Button, Icon, Select, Loading, Tooltip } from "./ui";
 import { Events as TrackEvents, useTrack } from "@/lib/analytics";
 import EventsToolbar from "./events/EventsToolbar";
 import {
@@ -429,6 +430,25 @@ export default function AgentEventsTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="asv-main events-surface">
+      {/* Page header — matches the Quests-page pattern: display title on
+         the left, primary CTA on the right, then the toolbar row beneath
+         (search + filter). Anchors the surface with a destination label
+         instead of jumping straight into the search field. */}
+      <header className="events-list-header">
+        <h1 className="events-list-title">Events</h1>
+        <div className="events-list-header-actions">
+          <Tooltip content="New event (N)">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={openCompose}
+              leadingIcon={<Icon icon={Plus} size="sm" />}
+            >
+              New
+            </Button>
+          </Tooltip>
+        </div>
+      </header>
       <EventsToolbar
         filter={filter}
         onFilter={onFilter}

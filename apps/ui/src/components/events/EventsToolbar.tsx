@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Button, Tooltip } from "../ui";
 import EventsFilterPopover, {
   type EventsFilterPopoverProps,
   type EventsFilterState,
@@ -10,10 +9,13 @@ export interface EventsToolbarProps {
   onFilter: (patch: Partial<EventsFilterState>) => void;
   scopeCounts: EventsFilterPopoverProps["scopeCounts"];
   groupCounts: EventsFilterPopoverProps["groupCounts"];
+  /** Bound to the `/` keyboard hint. The list-header owns the visible
+   *  "+ New" button — the toolbar only listens for the `n` hotkey so
+   *  power users can compose without lifting hands from the home row. */
   onNew: () => void;
   /** Optional left-side content (e.g. back link). Rendered before search. */
   lead?: ReactNode;
-  /** Optional right-side content slotted between filter and "+". */
+  /** Optional right-side content slotted after the filter popover. */
   rightExtra?: ReactNode;
 }
 
@@ -106,29 +108,6 @@ export default function EventsToolbar({
           onChange={onFilter}
         />
         {rightExtra}
-        <Tooltip content="New event (N)">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onNew}
-            leadingIcon={
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
-            }
-          >
-            New
-          </Button>
-        </Tooltip>
       </div>
     </div>
   );

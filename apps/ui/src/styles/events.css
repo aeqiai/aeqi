@@ -25,6 +25,34 @@
   overflow-y: auto;
 }
 
+/* ── Page header — title left + primary CTA right ─────────────────────
+   Mirrors `.quest-board-header` so the destination label registers at
+   the same display-font scale and rhythm. Toolbar (`.ideas-list-head`)
+   sits in the row beneath. */
+.events-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-3);
+  flex-shrink: 0;
+}
+.events-list-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+.events-list-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
 /* ── Canvas — per-event flow diagram ───────────────────────────────── */
 .event-canvas {
   margin: 20px 0 16px;
