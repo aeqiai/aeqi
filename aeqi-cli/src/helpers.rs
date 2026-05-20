@@ -15,7 +15,9 @@ fn resolve_env_value(value: &str) -> String {
     }
 }
 use aeqi_ideas::SqliteIdeas;
-use aeqi_providers::{AnthropicProvider, OllamaProvider, OpenRouterEmbedder, OpenRouterProvider};
+use aeqi_providers::{
+    AnthropicProvider, OllamaProvider, OpenRouterEmbedder, OpenRouterProvider, ReliableProvider,
+};
 use aeqi_quests::QuestBoard;
 use aeqi_tools::{
     ExecutePlanTool, FileEditTool, FileReadTool, FileWriteTool, GitWorktreeTool, GlobTool,
@@ -233,16 +235,15 @@ fn get_anthropic_api_key(config: &AEQIConfig) -> Result<String> {
     anyhow::bail!("ANTHROPIC_API_KEY not set. Use `aeqi secrets set ANTHROPIC_API_KEY <key>`");
 }
 
-pub(crate) fn build_provider_for_runtime(
+/// Build a single concrete provider for the given kind, using the supplied
+/// model. Returns an error if the provider isn't configured or the API key
+/// is missing. Used as the building block for the failover-wrapped runtime
+/// provider.
+fn build_single_provider(
     config: &AEQIConfig,
     provider_kind: ProviderKind,
-    model_override: Option<&str>,
+    model: String,
 ) -> Result<Arc<dyn Provider>> {
-    let model = model_override
-        .filter(|m| !m.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| config.default_model_for_provider(provider_kind));
-
     match provider_kind {
         ProviderKind::OpenRouter => {
             let api_key = get_api_key(config)?;
@@ -266,6 +267,72 @@ pub(crate) fn build_provider_for_runtime(
             Ok(Arc::new(OllamaProvider::new(url, model)?))
         }
     }
+}
+
+/// Opportunistically build a secondary cloud provider to serve as a
+/// failover for `primary_kind`. Returns `None` when no suitable secondary
+/// is configured (missing config block, empty API key, or local-only
+/// primary). Ollama is intentionally never auto-paired — it's a local
+/// dev provider and pairing it with a remote primary would silently
+/// downgrade a request on a transient remote blip.
+fn build_secondary_provider(
+    config: &AEQIConfig,
+    primary_kind: ProviderKind,
+) -> Option<Arc<dyn Provider>> {
+    let secondary_kind = match primary_kind {
+        // Per the 2026-05-17 + 2026-05-18 outage class (OpenRouter
+        // weekly cap exhausted), the canonical cloud-to-cloud failover
+        // is OpenRouter <-> Anthropic.
+        ProviderKind::OpenRouter => ProviderKind::Anthropic,
+        ProviderKind::Anthropic => ProviderKind::OpenRouter,
+        // Local primary: no remote secondary auto-wired. The caller
+        // explicitly chose local and likely expects it to either succeed
+        // or fail locally rather than silently leaking traffic to a
+        // cloud provider.
+        ProviderKind::Ollama => return None,
+    };
+
+    let model = config.default_model_for_provider(secondary_kind);
+    match build_single_provider(config, secondary_kind, model) {
+        Ok(provider) => Some(provider),
+        Err(err) => {
+            tracing::debug!(
+                secondary = ?secondary_kind,
+                error = %err,
+                "no secondary provider available for failover; primary only"
+            );
+            None
+        }
+    }
+}
+
+pub(crate) fn build_provider_for_runtime(
+    config: &AEQIConfig,
+    provider_kind: ProviderKind,
+    model_override: Option<&str>,
+) -> Result<Arc<dyn Provider>> {
+    let model = model_override
+        .filter(|m| !m.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| config.default_model_for_provider(provider_kind));
+
+    let primary = build_single_provider(config, provider_kind, model)?;
+
+    // Wrap the primary in ReliableProvider for retry + circuit-break
+    // behaviour even when only one provider is configured. When a
+    // sibling cloud provider is available, add it as a secondary so a
+    // primary outage (cap-exhaust, 401, network blip) fails over
+    // instead of dropping the request.
+    let mut providers: Vec<Arc<dyn Provider>> = Vec::with_capacity(2);
+    providers.push(primary);
+    if let Some(secondary) = build_secondary_provider(config, provider_kind) {
+        tracing::info!(
+            primary = ?provider_kind,
+            "runtime provider built with failover secondary"
+        );
+        providers.push(secondary);
+    }
+    Ok(Arc::new(ReliableProvider::new(providers)))
 }
 
 pub(crate) fn one_shot_agent_name(config: &AEQIConfig, _project_name: Option<&str>) -> String {
