@@ -18,6 +18,14 @@ interface TrustRolesGroupProps {
  *
  * Each card links into the Roles page; the Vacant card surfaces in
  * the warmth tone when there's an open seat to fill.
+ *
+ * Cycle 3 (2026-05-21): the leading Roles tile (total count) now
+ * carries a status-dot signal-row footer — directors (verified jade)
+ * · operators (progress indigo) · vacant (review warmth) — echoing
+ * the Agents/Quests footer pattern shipped in c1+c2 on the Operations
+ * card. The breakdown still has its own dedicated tiles to the right,
+ * but the signal-row turns the bare total into a glanceable health
+ * read in the same dot grammar used across the cockpit.
  */
 export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupProps) {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -66,8 +74,26 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           icon={<Users2 size={16} strokeWidth={1.5} />}
           label="Roles"
           value={String(total)}
-          hint={total === 1 ? "in this TRUST" : "in this TRUST"}
+          hint="in this TRUST"
           sub={total === 0 ? "No roles yet" : ""}
+          footer={
+            total > 0 ? (
+              <span className="trust-quest-signals" aria-label="role composition breakdown">
+                <span className="trust-quest-signal" title="Directors">
+                  <span className="trust-role-dot trust-role-dot--director" aria-hidden />
+                  {directors}
+                </span>
+                <span className="trust-quest-signal" title="Operators">
+                  <span className="trust-role-dot trust-role-dot--operator" aria-hidden />
+                  {operators}
+                </span>
+                <span className="trust-quest-signal" title="Vacant">
+                  <span className="trust-role-dot trust-role-dot--vacant" aria-hidden />
+                  {vacant}
+                </span>
+              </span>
+            ) : undefined
+          }
         />
         <PrimitiveCard
           to={`${basePath}/roles?occupant=all&filter=director`}
@@ -107,9 +133,11 @@ interface PrimitiveCardProps {
   hint: string;
   sub: string;
   tone?: "warmth";
+  /** Optional rich footer (e.g. status-dot signal row). Takes precedence over `sub`. */
+  footer?: React.ReactNode;
 }
 
-function PrimitiveCard({ to, icon, label, value, hint, sub, tone }: PrimitiveCardProps) {
+function PrimitiveCard({ to, icon, label, value, hint, sub, tone, footer }: PrimitiveCardProps) {
   return (
     <Link
       to={to}
@@ -123,7 +151,7 @@ function PrimitiveCard({ to, icon, label, value, hint, sub, tone }: PrimitiveCar
         {value}
         {hint && <span className="trust-primitive-hint"> {hint}</span>}
       </span>
-      {sub && <span className="trust-primitive-sub">{sub}</span>}
+      {footer ? footer : sub ? <span className="trust-primitive-sub">{sub}</span> : null}
     </Link>
   );
 }

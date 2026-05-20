@@ -1014,6 +1014,34 @@
   opacity: 0.6;
 }
 
+/* Roles tile signal dots — same shape + tier as quest-status-dot and
+   trust-agent-dot, mapped to the three role composition states on the
+   leading Roles tile (c3, 2026-05-21):
+     · director → state-verified (jade)   — stewardship, settled
+     · operator → state-progress (indigo) — execution, active
+     · vacant   → state-review (warmth)   — awaiting / open seat
+   The Vacant tile to the right also uses warmth via
+   `.trust-cockpit-mini--warmth` on its value; the two surfaces share
+   the same accent so the eye traces the open-seat signal from the
+   total breakdown straight to its dedicated tile. */
+.trust-role-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.trust-role-dot--director {
+  background: var(--state-verified);
+}
+.trust-role-dot--operator {
+  background: var(--state-progress);
+}
+.trust-role-dot--vacant {
+  background: var(--state-review);
+}
+
 /* Cycle 2 secondary row — Events + Ideas as a quiet inline pair under
    the prominent Agents + Quests tiles. No icon-above-value stack; the
    row reads inline (icon · label · value · hint) so the two cells
