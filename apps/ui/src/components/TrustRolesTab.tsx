@@ -154,28 +154,39 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   // snapshot card carries WHO holds the role in that tier, not just
   // how many seats exist. Internal `founder` boolean stays unused
   // here — board members are Directors.
+  // Snapshot — three-tier role model (Owners · Directors · Operators).
+  // Order on the row: [Roles + Vacant together] · Owners · Directors ·
+  // Operators. The first card carries the TOTAL count of role seats
+  // plus the vacant count as its breakdown — vacant collapses into
+  // the roles card instead of standing alone. Owners count today is 0
+  // (no `"owner"` role_type rows in the schema yet — see the role-
+  // tier pivot decision memo); the slot is here so the new concept
+  // is visible the moment it's added.
   const snapshot = useMemo(() => {
     let total = 0;
-    let agents = 0;
-    let humans = 0;
     let vacant = 0;
+    const owners = { total: 0, agents: 0, humans: 0, vacant: 0 };
     const directors = { total: 0, agents: 0, humans: 0, vacant: 0 };
     const operators = { total: 0, agents: 0, humans: 0, vacant: 0 };
     for (const r of roles) {
       total += 1;
       const tier =
-        r.role_type === "director" ? directors : r.role_type === "operational" ? operators : null;
+        r.role_type === "owner"
+          ? owners
+          : r.role_type === "director"
+            ? directors
+            : r.role_type === "operational"
+              ? operators
+              : null;
       if (tier) {
         tier.total += 1;
         if (r.occupant_kind === "agent") tier.agents += 1;
         else if (r.occupant_kind === "human") tier.humans += 1;
         else if (r.occupant_kind === "vacant") tier.vacant += 1;
       }
-      if (r.occupant_kind === "agent") agents += 1;
-      else if (r.occupant_kind === "human") humans += 1;
-      else if (r.occupant_kind === "vacant") vacant += 1;
+      if (r.occupant_kind === "vacant") vacant += 1;
     }
-    return { total, agents, humans, vacant, directors, operators };
+    return { total, vacant, owners, directors, operators };
   }, [roles]);
 
   const occupantCounts = useMemo(() => {
@@ -290,12 +301,35 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
       <div className="trust-roles-main">
         <section className="trust-roles-snapshot" aria-label="Snapshot">
+          {/* Three-tier model. Card 1 carries the total count of role
+             seats AND the vacant-seat count as its breakdown line —
+             "vacant" is a state, not a tier, so it collapses into
+             Roles instead of standing as a peer card. Cards 2-4 are
+             the Owner / Director / Operator tiers in canonical order:
+             Owners hold the upside, Directors govern the bridge,
+             Operators execute. */}
           <SnapshotCard
             singular="Role"
             plural="Roles"
             value={snapshot.total}
             sublabel="Across this TRUST"
-            breakdown={breakdownText(snapshot.agents, snapshot.humans, snapshot.vacant)}
+            breakdown={
+              snapshot.vacant === 0
+                ? "All seats filled"
+                : `${snapshot.vacant} ${snapshot.vacant === 1 ? "vacant seat" : "vacant seats"}`
+            }
+            tone={snapshot.vacant > 0 ? "warmth" : undefined}
+          />
+          <SnapshotCard
+            singular="Owner"
+            plural="Owners"
+            value={snapshot.owners.total}
+            sublabel="Ownership authority"
+            breakdown={breakdownText(
+              snapshot.owners.agents,
+              snapshot.owners.humans,
+              snapshot.owners.vacant,
+            )}
           />
           <SnapshotCard
             singular="Director"
@@ -312,19 +346,12 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             singular="Operator"
             plural="Operators"
             value={snapshot.operators.total}
-            sublabel="Execution authority"
+            sublabel="Operations authority"
             breakdown={breakdownText(
               snapshot.operators.agents,
               snapshot.operators.humans,
               snapshot.operators.vacant,
             )}
-          />
-          <SnapshotCard
-            singular="Vacant seat"
-            plural="Vacant seats"
-            value={snapshot.vacant}
-            sublabel={snapshot.vacant === 0 ? "All seats filled" : "Awaiting an occupant"}
-            tone={snapshot.vacant > 0 ? "warmth" : undefined}
           />
         </section>
 

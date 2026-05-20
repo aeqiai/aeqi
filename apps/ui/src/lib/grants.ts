@@ -36,6 +36,11 @@ export const GRANT_CATALOG = [
 export type GrantId = (typeof GRANT_CATALOG)[number]["id"];
 
 export const DEFAULT_GRANTS: Record<RoleType, string[]> = {
+  // Owner — ownership rights only. Reads treasury/governance for
+  // visibility; no operational grants. Wire schema for the "owner"
+  // role_type is not finalized yet; this is a placeholder until the
+  // three-tier-role-model migration ships.
+  owner: ["treasury.read", "governance.read"],
   director: GRANT_CATALOG.map((g) => g.id),
   operational: ["roles.manage", "agents.spawn", "agents.configure", "treasury.read"],
   advisor: ["treasury.read", "governance.read"],

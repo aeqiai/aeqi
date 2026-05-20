@@ -496,7 +496,23 @@ export function isSingleBlueprint(bp: Blueprint): bp is SingleBlueprint {
 
 export type OccupantKind = "human" | "agent" | "vacant";
 
-export type RoleType = "director" | "operational" | "advisor";
+/**
+ * Role tier in the three-tier authority model.
+ *
+ *   "owner"       — Ownership rights only. Holds equity, distributions,
+ *                   and reserved votes; does not operate. NEW 2026-05-20
+ *                   under the Owners/Directors/Operators pivot; backend
+ *                   schema work outstanding (see
+ *                   .observations/roles-iteration/DECISION-three-tier-role-model.md).
+ *   "director"    — Constitutional bridge: holds ownership AND operations
+ *                   rights, governs the boundary between them.
+ *   "operational" — Operator. Operations rights only — executes work
+ *                   within delegated limits. (Wire value stays
+ *                   "operational"; UI renders "Operator".)
+ *   "advisor"     — Read-only legacy tier. Slated for retirement once the
+ *                   Owner migration ships.
+ */
+export type RoleType = "owner" | "director" | "operational" | "advisor";
 
 /** A single org-chart slot inside an entity. Occupant is a human, an
  *  agent, or vacant ("we're hiring"). Authority is resolved by transitive
