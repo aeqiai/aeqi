@@ -8,12 +8,11 @@
 //! Foundation), per `feedback_use_public_solana_rpc.md` — we run the
 //! indexer service ourselves but don't run a validator/RPC node.
 
-mod backfill;
-mod events;
-mod manifest;
-mod registry;
-mod sink;
-mod snapshot;
+// Modules live in `lib.rs` (`aeqi_indexer::*`) so auxiliary bins under
+// `src/bin/` can call into them. `main.rs` re-imports the same modules
+// through the crate's library surface — there's only ever one
+// compilation per module.
+use aeqi_indexer::{backfill, events, manifest, registry, sink, snapshot};
 
 use anyhow::{Context, Result};
 use clap::Parser;

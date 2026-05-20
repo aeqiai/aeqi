@@ -870,6 +870,20 @@ export const api = {
       reserve_balance: string;
       reserve_ratio_ppm: number;
       proceeds_collected: string;
+      // ja-017: recent trades projected by the indexer (curve_trades).
+      // Up to 50 rows, ordered slot DESC. `recent_trades_unavailable`
+      // flags the indexer-DB-missing case so the UI can hide trade dots
+      // gracefully without losing the chart.
+      recent_trades?: Array<{
+        kind: "buy" | "sell";
+        counterparty_b58: string;
+        token_amount: string;
+        quote_amount: string;
+        slot: number;
+        signature_b58: string;
+        log_index: number;
+      }>;
+      recent_trades_unavailable?: boolean;
     }>(`/curves/${encodeURIComponent(trustId)}/state`),
 
   spawnAgent: (data: {

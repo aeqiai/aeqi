@@ -153,6 +153,7 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
         currentPrice={BigInt(state.current_price)}
         maxSupply={BigInt(state.max_supply)}
         currentSupply={BigInt(state.current_supply)}
+        recentTrades={state.recent_trades ?? []}
       />
       <div
         style={{
@@ -229,12 +230,22 @@ function CurveChart({
   currentPrice,
   maxSupply,
   currentSupply,
+  recentTrades,
 }: {
   startPrice: bigint;
   endPrice: bigint;
   currentPrice: bigint;
   maxSupply: bigint;
   currentSupply: bigint;
+  recentTrades: Array<{
+    kind: "buy" | "sell";
+    counterparty_b58: string;
+    token_amount: string;
+    quote_amount: string;
+    slot: number;
+    signature_b58: string;
+    log_index: number;
+  }>;
 }) {
   const W = 600;
   const H = 220;
@@ -268,6 +279,74 @@ function CurveChart({
   const areaPath = `M ${xStart} ${PAD_T + innerH} L ${xStart} ${yStart} L ${xEnd} ${yEnd} L ${xEnd} ${PAD_T + innerH} Z`;
   const linePath = `M ${xStart} ${yStart} L ${xEnd} ${yEnd}`;
 
+  // Inline helper used by tradeDots: linear interpolation of price across
+  // the supply axis. Mirrors the on-chain math
+  // `start + (end - start) * supply / max_supply` so dot Y-positions sit
+  // on the rendered linear curve segment.
+  const priceForSupply = (supply: bigint): bigint => {
+    if (supplySafe === 0n) return startPrice;
+    const span = endPrice >= startPrice ? endPrice - startPrice : 0n;
+    return startPrice + (span * supply) / supplySafe;
+  };
+
+  // ja-017: compute supply-at-trade by integrating trades in slot order
+  // (oldest → newest, buys add, sells subtract). API returns DESC; we
+  // walk it as-is and step `runningSupply` BACKWARDS to recover the
+  // supply state at each historic trade.
+  const tradeDots = (() => {
+    if (recentTrades.length === 0)
+      return [] as Array<{
+        x: number;
+        y: number;
+        kind: "buy" | "sell";
+        signature_b58: string;
+        tokenAmount: bigint;
+        quoteAmount: bigint;
+      }>;
+    // Start from the live current_supply and walk BACKWARDS through the
+    // DESC-ordered trades to recover the supply state at each trade.
+    // For a buy: supply_before = supply_after - token_amount.
+    // For a sell: supply_before = supply_after + token_amount.
+    // We snapshot supply_at_trade as the post-trade supply value, since
+    // that's "where the curve was after this trade landed".
+    let runningSupply = currentSupply;
+    const dots: Array<{
+      x: number;
+      y: number;
+      kind: "buy" | "sell";
+      signature_b58: string;
+      tokenAmount: bigint;
+      quoteAmount: bigint;
+    }> = [];
+    for (const trade of recentTrades) {
+      let tokenAmount: bigint;
+      let quoteAmount: bigint;
+      try {
+        tokenAmount = BigInt(trade.token_amount);
+        quoteAmount = BigInt(trade.quote_amount);
+      } catch {
+        continue;
+      }
+      // Post-trade supply (what we render the dot against).
+      const supplyAtTrade = runningSupply;
+      dots.push({
+        x: xForSupply(supplyAtTrade),
+        y: yForPrice(priceForSupply(supplyAtTrade)),
+        kind: trade.kind,
+        signature_b58: trade.signature_b58,
+        tokenAmount,
+        quoteAmount,
+      });
+      // Step backwards to recover supply_before this trade.
+      if (trade.kind === "buy") {
+        runningSupply = runningSupply > tokenAmount ? runningSupply - tokenAmount : 0n;
+      } else {
+        runningSupply = runningSupply + tokenAmount;
+      }
+    }
+    return dots;
+  })();
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -292,6 +371,26 @@ function CurveChart({
       />
       <path d={areaPath} fill="var(--accent)" fillOpacity={0.08} />
       <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} />
+      {/* ja-017: trade dots — green = buy, red = sell. Rendered under the
+          current-supply marker so the live position remains the dominant
+          visual anchor. Hover `<title>` surfaces the trade payload. */}
+      {tradeDots.map((dot, i) => (
+        <circle
+          key={`${dot.signature_b58}-${i}`}
+          cx={dot.x}
+          cy={dot.y}
+          r={3.5}
+          fill={dot.kind === "buy" ? "var(--color-success)" : "var(--color-warning)"}
+          stroke="var(--color-card)"
+          strokeWidth={1}
+          opacity={0.85}
+        >
+          <title>
+            {dot.kind === "buy" ? "Buy" : "Sell"} · {formatBigintCompact(dot.tokenAmount)} LAUNCH
+            for {formatCurvePrice(dot.quoteAmount)} USDC · {formatCurveAddress(dot.signature_b58)}
+          </title>
+        </circle>
+      ))}
       <line
         x1={xCur}
         x2={xCur}

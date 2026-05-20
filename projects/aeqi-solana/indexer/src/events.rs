@@ -50,6 +50,7 @@ pub enum TypedEvent {
     Governance(GovernanceEvent),
     Capital(CapitalEvent),
     Feed(FeedEvent),
+    Curve(CurveEvent),
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +167,56 @@ pub enum FeedEvent {
 }
 
 // ---------------------------------------------------------------------------
+// CURVE family — bonding-curve lifecycle + trades (ja-017)
+// ---------------------------------------------------------------------------
+//
+// Genesis bonding curves are aeqi_unifutures's primary primitive. CurveCreated
+// is the one-shot lifecycle event; CurveBuy / CurveSell are the trade stream.
+// We split the family into TWO sink tables: `curves` (one row per
+// (trust, curve_id), natural-keyed) and `curve_trades` (one row per trade,
+// uniqued on (signature, log_index)). The single TypedEvent::Curve variant
+// carries either shape; sink.rs::record_typed routes by the inner enum
+// discriminant.
+
+#[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
+pub struct CurveCreated {
+    pub trust: [u8; 32],
+    pub curve_id: [u8; 32],
+    pub creator: [u8; 32],
+    pub asset_mint: [u8; 32],
+    pub quote_mint: [u8; 32],
+    pub curve_type: u8,
+    pub start_price: u128,
+    pub end_price: u128,
+    pub max_supply: u64,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
+pub struct CurveBuy {
+    pub trust: [u8; 32],
+    pub curve_id: [u8; 32],
+    pub buyer: [u8; 32],
+    pub token_amount: u64,
+    pub cost: u64,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Debug, Clone)]
+pub struct CurveSell {
+    pub trust: [u8; 32],
+    pub curve_id: [u8; 32],
+    pub seller: [u8; 32],
+    pub token_amount: u64,
+    pub return_amount: u64,
+}
+
+#[derive(Debug, Clone)]
+pub enum CurveEvent {
+    Created(CurveCreated),
+    Buy(CurveBuy),
+    Sell(CurveSell),
+}
+
+// ---------------------------------------------------------------------------
 // Decoder dispatch
 // ---------------------------------------------------------------------------
 
@@ -197,6 +248,15 @@ pub fn decode(program: &str, event: &str, payload: &[u8]) -> Result<Option<Typed
         ("aeqi_fund", "NavUpdated") => {
             Some(TypedEvent::Feed(FeedEvent::NavUpdated(NavUpdated::try_from_slice(payload)?)))
         }
+        ("aeqi_unifutures", "CurveCreated") => {
+            Some(TypedEvent::Curve(CurveEvent::Created(CurveCreated::try_from_slice(payload)?)))
+        }
+        ("aeqi_unifutures", "CurveBuy") => {
+            Some(TypedEvent::Curve(CurveEvent::Buy(CurveBuy::try_from_slice(payload)?)))
+        }
+        ("aeqi_unifutures", "CurveSell") => {
+            Some(TypedEvent::Curve(CurveEvent::Sell(CurveSell::try_from_slice(payload)?)))
+        }
         _ => None,
     };
     Ok(typed)
@@ -212,6 +272,9 @@ pub fn family_kind(event: &TypedEvent) -> &'static str {
         TypedEvent::Governance(GovernanceEvent::ProposalCreated(_)) => "created",
         TypedEvent::Capital(CapitalEvent::Deposit(_)) => "deposit",
         TypedEvent::Feed(FeedEvent::NavUpdated(_)) => "nav_updated",
+        TypedEvent::Curve(CurveEvent::Created(_)) => "created",
+        TypedEvent::Curve(CurveEvent::Buy(_)) => "buy",
+        TypedEvent::Curve(CurveEvent::Sell(_)) => "sell",
     }
 }
 
@@ -356,6 +419,76 @@ mod tests {
     }
 
     #[test]
+    fn decode_curve_created_round_trip() {
+        let original = CurveCreated {
+            trust: [60u8; 32],
+            curve_id: [61u8; 32],
+            creator: [62u8; 32],
+            asset_mint: [63u8; 32],
+            quote_mint: [64u8; 32],
+            curve_type: 0,
+            start_price: 1_000_000_000_000_000_000u128,
+            end_price: 10_000_000_000_000_000_000u128,
+            max_supply: 1_000_000_000_000u64,
+        };
+        let bytes = wire_payload("CurveCreated", &original);
+        let typed = decode("aeqi_unifutures", "CurveCreated", &bytes[8..]).unwrap().unwrap();
+        match typed {
+            TypedEvent::Curve(CurveEvent::Created(decoded)) => {
+                assert_eq!(decoded.curve_type, 0);
+                assert_eq!(decoded.start_price, original.start_price);
+                assert_eq!(decoded.end_price, original.end_price);
+                assert_eq!(decoded.max_supply, original.max_supply);
+                assert_eq!(decoded.curve_id, original.curve_id);
+                assert_eq!(decoded.asset_mint, original.asset_mint);
+            }
+            other => panic!("expected CurveCreated, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decode_curve_buy_round_trip() {
+        let original = CurveBuy {
+            trust: [70u8; 32],
+            curve_id: [71u8; 32],
+            buyer: [72u8; 32],
+            token_amount: 1_000_000,
+            cost: 1_200_000,
+        };
+        let bytes = wire_payload("CurveBuy", &original);
+        let typed = decode("aeqi_unifutures", "CurveBuy", &bytes[8..]).unwrap().unwrap();
+        match typed {
+            TypedEvent::Curve(CurveEvent::Buy(decoded)) => {
+                assert_eq!(decoded.token_amount, 1_000_000);
+                assert_eq!(decoded.cost, 1_200_000);
+                assert_eq!(decoded.buyer, original.buyer);
+            }
+            other => panic!("expected CurveBuy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decode_curve_sell_round_trip() {
+        let original = CurveSell {
+            trust: [80u8; 32],
+            curve_id: [81u8; 32],
+            seller: [82u8; 32],
+            token_amount: 500_000,
+            return_amount: 480_000,
+        };
+        let bytes = wire_payload("CurveSell", &original);
+        let typed = decode("aeqi_unifutures", "CurveSell", &bytes[8..]).unwrap().unwrap();
+        match typed {
+            TypedEvent::Curve(CurveEvent::Sell(decoded)) => {
+                assert_eq!(decoded.token_amount, 500_000);
+                assert_eq!(decoded.return_amount, 480_000);
+                assert_eq!(decoded.seller, original.seller);
+            }
+            other => panic!("expected CurveSell, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn unknown_event_returns_none_not_err() {
         // Vesting events aren't mirrored yet — registry knows them but
         // decoder should pass them through as raw-only.
@@ -417,6 +550,31 @@ mod tests {
                 gross_nav: 0,
                 high_water_mark: 0,
                 accrued_carry: 0,
+            }))),
+            family_kind(&TypedEvent::Curve(CurveEvent::Created(CurveCreated {
+                trust: [0; 32],
+                curve_id: [0; 32],
+                creator: [0; 32],
+                asset_mint: [0; 32],
+                quote_mint: [0; 32],
+                curve_type: 0,
+                start_price: 0,
+                end_price: 0,
+                max_supply: 0,
+            }))),
+            family_kind(&TypedEvent::Curve(CurveEvent::Buy(CurveBuy {
+                trust: [0; 32],
+                curve_id: [0; 32],
+                buyer: [0; 32],
+                token_amount: 0,
+                cost: 0,
+            }))),
+            family_kind(&TypedEvent::Curve(CurveEvent::Sell(CurveSell {
+                trust: [0; 32],
+                curve_id: [0; 32],
+                seller: [0; 32],
+                token_amount: 0,
+                return_amount: 0,
             }))),
         ] {
             assert!(!kind.is_empty());

@@ -11,9 +11,17 @@ license = "MIT"
 authors = ["aeqi"]
 description = "Solana indexer for the AEQI protocol — programSubscribe live tail + signature backfill, decodes Anchor events from logs into a DB-friendly stream."
 
+[lib]
+name = "aeqi_indexer"
+path = "src/lib.rs"
+
 [[bin]]
 name = "aeqi-indexer"
 path = "src/main.rs"
+
+[[bin]]
+name = "aeqi-backfill-indexer-curves"
+path = "src/bin/backfill_indexer_curves.rs"
 
 [dependencies]
 # Solana RPC + pubsub clients. Use 2.x (stable, well-tested); Agave 3.x

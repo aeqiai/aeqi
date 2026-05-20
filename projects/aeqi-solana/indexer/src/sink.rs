@@ -40,7 +40,8 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use crate::events::{
-    self, AclEvent, CapitalEvent, FeedEvent, GovernanceEvent, ModuleEvent, TrustEvent, TypedEvent,
+    self, AclEvent, CapitalEvent, CurveEvent, FeedEvent, GovernanceEvent, ModuleEvent, TrustEvent,
+    TypedEvent,
 };
 
 const SCHEMA: &str = r#"
@@ -180,6 +181,48 @@ CREATE TABLE IF NOT EXISTS feed_events (
     UNIQUE(signature, log_index)
 );
 CREATE INDEX IF NOT EXISTS feed_events_subject_slot_idx ON feed_events(feed_subject, slot);
+
+-- ja-017: curves + curve_trades (v4, additive). Genesis bonding-curve lifecycle
+-- and trade history projected from aeqi_unifutures events. u128 prices stored
+-- as decimal TEXT to preserve full precision (the rest of the platform
+-- serialises them the same way; JSON numbers cap at 2^53 and curve prices
+-- live in the ~1e18 range). Natural-keyed on (trust, curve_id) so INSERT OR
+-- IGNORE handles CurveCreated replay deterministically.
+
+CREATE TABLE IF NOT EXISTS curves (
+    trust              TEXT NOT NULL,            -- base58 (Pubkey)
+    curve_id           TEXT NOT NULL,            -- base58 of [u8;32]
+    curve_type         INTEGER NOT NULL,         -- u8
+    start_price        TEXT NOT NULL,            -- u128 decimal
+    end_price          TEXT NOT NULL,            -- u128 decimal
+    max_supply         INTEGER NOT NULL,         -- u64 → i64 (1e12 fits)
+    creator            TEXT NOT NULL,            -- base58
+    asset_mint         TEXT NOT NULL,            -- base58
+    quote_mint         TEXT NOT NULL,            -- base58
+    created_slot       INTEGER NOT NULL,
+    created_signature  TEXT NOT NULL,
+    created_log_index  INTEGER NOT NULL,
+    created_at         INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    PRIMARY KEY (trust, curve_id)
+);
+CREATE INDEX IF NOT EXISTS curves_trust_idx ON curves(trust);
+
+CREATE TABLE IF NOT EXISTS curve_trades (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    trust         TEXT NOT NULL,
+    curve_id      TEXT NOT NULL,
+    kind          TEXT NOT NULL CHECK (kind IN ('buy', 'sell')),
+    counterparty  TEXT NOT NULL,            -- buyer (buy) or seller (sell), base58
+    token_amount  INTEGER NOT NULL,         -- u64 → i64
+    quote_amount  INTEGER NOT NULL,         -- buy: cost, sell: return_amount
+    slot          INTEGER NOT NULL,
+    signature     TEXT NOT NULL,
+    log_index     INTEGER NOT NULL,
+    created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    UNIQUE(signature, log_index)
+);
+CREATE INDEX IF NOT EXISTS curve_trades_trust_curve_idx ON curve_trades(trust, curve_id);
+CREATE INDEX IF NOT EXISTS curve_trades_slot_idx ON curve_trades(slot DESC);
 "#;
 
 /// Connection wrapped in Mutex so `Arc<Sink>` is `Send + Sync` for the
@@ -371,8 +414,187 @@ impl Sink {
                     log_i,
                 ],
             )?,
+            TypedEvent::Curve(CurveEvent::Created(e)) => conn.execute(
+                r#"INSERT OR IGNORE INTO curves
+                     (trust, curve_id, curve_type, start_price, end_price,
+                      max_supply, creator, asset_mint, quote_mint,
+                      created_slot, created_signature, created_log_index)
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
+                params![
+                    events::b58(&e.trust),
+                    events::b58(&e.curve_id),
+                    e.curve_type as i64,
+                    e.start_price.to_string(),
+                    e.end_price.to_string(),
+                    e.max_supply as i64,
+                    events::b58(&e.creator),
+                    events::b58(&e.asset_mint),
+                    events::b58(&e.quote_mint),
+                    slot_i,
+                    signature,
+                    log_i,
+                ],
+            )?,
+            TypedEvent::Curve(CurveEvent::Buy(e)) => conn.execute(
+                r#"INSERT OR IGNORE INTO curve_trades
+                     (trust, curve_id, kind, counterparty,
+                      token_amount, quote_amount, slot, signature, log_index)
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
+                params![
+                    events::b58(&e.trust),
+                    events::b58(&e.curve_id),
+                    kind,
+                    events::b58(&e.buyer),
+                    e.token_amount as i64,
+                    e.cost as i64,
+                    slot_i,
+                    signature,
+                    log_i,
+                ],
+            )?,
+            TypedEvent::Curve(CurveEvent::Sell(e)) => conn.execute(
+                r#"INSERT OR IGNORE INTO curve_trades
+                     (trust, curve_id, kind, counterparty,
+                      token_amount, quote_amount, slot, signature, log_index)
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
+                params![
+                    events::b58(&e.trust),
+                    events::b58(&e.curve_id),
+                    kind,
+                    events::b58(&e.seller),
+                    e.token_amount as i64,
+                    e.return_amount as i64,
+                    slot_i,
+                    signature,
+                    log_i,
+                ],
+            )?,
         };
         Ok(changed > 0)
+    }
+
+    /// One-shot backfill — scan the existing raw `events` table for
+    /// `aeqi_unifutures` curve events and project them into the new typed
+    /// tables. Idempotent (INSERT OR IGNORE on both targets). Returns
+    /// `(curves_inserted, trades_inserted, decode_failures)`.
+    ///
+    /// Designed for the v3→v4 transition: the raw rows already exist
+    /// (the indexer was subscribed to aeqi_unifutures even when the
+    /// decoder had no match arm), so the projection happens with zero
+    /// RPC traffic. Safe to invoke at every startup — replays no-op.
+    pub fn replay_unifutures_curves(&self) -> Result<ReplayCounts> {
+        use base64::Engine;
+
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"SELECT slot, signature, log_index, event_type, payload_b64
+               FROM events
+               WHERE program = 'aeqi_unifutures'
+                 AND event_type IN ('CurveCreated', 'CurveBuy', 'CurveSell')
+               ORDER BY slot, id"#,
+        )?;
+        let rows: Vec<(i64, String, i64, String, String)> = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        drop(stmt);
+
+        let mut curves_inserted = 0i64;
+        let mut trades_inserted = 0i64;
+        let mut decode_failures = 0i64;
+
+        for (slot, signature, log_index, event_type, payload_b64) in rows {
+            let bytes = match base64::engine::general_purpose::STANDARD.decode(&payload_b64) {
+                Ok(b) if b.len() >= 8 => b,
+                _ => {
+                    decode_failures += 1;
+                    continue;
+                }
+            };
+            let payload = &bytes[8..];
+            let typed = match events::decode("aeqi_unifutures", &event_type, payload) {
+                Ok(Some(t)) => t,
+                _ => {
+                    decode_failures += 1;
+                    continue;
+                }
+            };
+
+            let slot_u = slot.max(0) as u64;
+            let log_u = log_index.max(0) as u32;
+            let kind = events::family_kind(&typed);
+            let changed = match &typed {
+                TypedEvent::Curve(CurveEvent::Created(e)) => conn.execute(
+                    r#"INSERT OR IGNORE INTO curves
+                         (trust, curve_id, curve_type, start_price, end_price,
+                          max_supply, creator, asset_mint, quote_mint,
+                          created_slot, created_signature, created_log_index)
+                       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"#,
+                    params![
+                        events::b58(&e.trust),
+                        events::b58(&e.curve_id),
+                        e.curve_type as i64,
+                        e.start_price.to_string(),
+                        e.end_price.to_string(),
+                        e.max_supply as i64,
+                        events::b58(&e.creator),
+                        events::b58(&e.asset_mint),
+                        events::b58(&e.quote_mint),
+                        slot_u as i64,
+                        signature,
+                        log_u as i64,
+                    ],
+                )?,
+                TypedEvent::Curve(CurveEvent::Buy(e)) => conn.execute(
+                    r#"INSERT OR IGNORE INTO curve_trades
+                         (trust, curve_id, kind, counterparty,
+                          token_amount, quote_amount, slot, signature, log_index)
+                       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
+                    params![
+                        events::b58(&e.trust),
+                        events::b58(&e.curve_id),
+                        kind,
+                        events::b58(&e.buyer),
+                        e.token_amount as i64,
+                        e.cost as i64,
+                        slot_u as i64,
+                        signature,
+                        log_u as i64,
+                    ],
+                )?,
+                TypedEvent::Curve(CurveEvent::Sell(e)) => conn.execute(
+                    r#"INSERT OR IGNORE INTO curve_trades
+                         (trust, curve_id, kind, counterparty,
+                          token_amount, quote_amount, slot, signature, log_index)
+                       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"#,
+                    params![
+                        events::b58(&e.trust),
+                        events::b58(&e.curve_id),
+                        kind,
+                        events::b58(&e.seller),
+                        e.token_amount as i64,
+                        e.return_amount as i64,
+                        slot_u as i64,
+                        signature,
+                        log_u as i64,
+                    ],
+                )?,
+                _ => continue,
+            };
+            match event_type.as_str() {
+                "CurveCreated" => curves_inserted += changed as i64,
+                "CurveBuy" | "CurveSell" => trades_inserted += changed as i64,
+                _ => {}
+            }
+        }
+        Ok(ReplayCounts { curves_inserted, trades_inserted, decode_failures })
     }
 
     /// Family counts — exposed for tests + ops introspection. Returns one
@@ -392,6 +614,8 @@ impl Sink {
             governance: q("governance_events")?,
             capital: q("capital_events")?,
             feed: q("feed_events")?,
+            curves: q("curves")?,
+            curve_trades: q("curve_trades")?,
         })
     }
 }
@@ -405,6 +629,21 @@ pub struct TypedCounts {
     pub governance: i64,
     pub capital: i64,
     pub feed: i64,
+    pub curves: i64,
+    pub curve_trades: i64,
+}
+
+/// Counts returned by [`Sink::replay_unifutures_curves`]. `curves_inserted`
+/// reports new CurveCreated rows landed (0 if already present);
+/// `trades_inserted` reports new curve_trades rows; `decode_failures` flags
+/// raw rows whose `payload_b64` could not be Borsh-decoded into a known
+/// curve event (typically a schema-drift signal worth investigating).
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReplayCounts {
+    pub curves_inserted: i64,
+    pub trades_inserted: i64,
+    pub decode_failures: i64,
 }
 
 /// v1 → v2 migration. v1 events table lacks `log_index` and has the
@@ -747,6 +986,176 @@ mod tests {
         let counts = sink2.typed_counts().unwrap();
         assert_eq!(counts.trust, 0);
         assert_eq!(counts.module, 0);
+    }
+
+    #[test]
+    fn curve_projection_lands_into_two_tables() {
+        // CurveCreated → curves row; CurveBuy/CurveSell → curve_trades rows.
+        // Verify counts, the trade kind values, and that replays no-op.
+        use crate::events::{CurveBuy, CurveCreated, CurveEvent, CurveSell, TypedEvent};
+
+        let dir = tempfile::tempdir().unwrap();
+        let sink = Sink::open(dir.path().join("curves.db")).unwrap();
+
+        let created = TypedEvent::Curve(CurveEvent::Created(CurveCreated {
+            trust: [1u8; 32],
+            curve_id: [2u8; 32],
+            creator: [3u8; 32],
+            asset_mint: [4u8; 32],
+            quote_mint: [5u8; 32],
+            curve_type: 0,
+            start_price: 1_000_000_000_000_000_000u128,
+            end_price: 10_000_000_000_000_000_000u128,
+            max_supply: 1_000_000_000_000u64,
+        }));
+        assert!(sink.record_typed(&created, 100, "sigCreate", 0).unwrap());
+        // Replay no-ops on (trust, curve_id) primary key.
+        assert!(!sink.record_typed(&created, 100, "sigCreate", 0).unwrap());
+
+        let buy = TypedEvent::Curve(CurveEvent::Buy(CurveBuy {
+            trust: [1u8; 32],
+            curve_id: [2u8; 32],
+            buyer: [6u8; 32],
+            token_amount: 1_000_000,
+            cost: 1_200_000,
+        }));
+        assert!(sink.record_typed(&buy, 101, "sigBuy", 0).unwrap());
+
+        let sell = TypedEvent::Curve(CurveEvent::Sell(CurveSell {
+            trust: [1u8; 32],
+            curve_id: [2u8; 32],
+            seller: [7u8; 32],
+            token_amount: 500_000,
+            return_amount: 480_000,
+        }));
+        assert!(sink.record_typed(&sell, 102, "sigSell", 0).unwrap());
+
+        let counts = sink.typed_counts().unwrap();
+        assert_eq!(counts.curves, 1);
+        assert_eq!(counts.curve_trades, 2);
+
+        // Inspect column shape: kinds correct, quote_amounts assigned from
+        // the right inner field (cost vs return_amount).
+        let conn = sink.conn.lock().unwrap();
+        let (buy_q, buy_kind): (i64, String) = conn
+            .query_row(
+                "SELECT quote_amount, kind FROM curve_trades WHERE signature = 'sigBuy'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(buy_q, 1_200_000);
+        assert_eq!(buy_kind, "buy");
+        let (sell_q, sell_kind): (i64, String) = conn
+            .query_row(
+                "SELECT quote_amount, kind FROM curve_trades WHERE signature = 'sigSell'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(sell_q, 480_000);
+        assert_eq!(sell_kind, "sell");
+
+        // Curves row carries u128 prices as decimal TEXT.
+        let start_text: String =
+            conn.query_row("SELECT start_price FROM curves LIMIT 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(start_text, "1000000000000000000");
+    }
+
+    #[test]
+    fn replay_unifutures_curves_projects_from_raw() {
+        // End-to-end: write raw `events` rows the way the live tail would
+        // (base64 payload = anchor disc + borsh body), call the backfill,
+        // assert counts + idempotency.
+        use crate::events::{CurveBuy, CurveCreated, CurveSell};
+        use crate::registry::anchor_event_disc;
+        use base64::Engine;
+        use borsh::BorshSerialize;
+
+        fn wire(event_name: &str, body: &[u8]) -> String {
+            let disc = anchor_event_disc(event_name);
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(&disc);
+            bytes.extend_from_slice(body);
+            base64::engine::general_purpose::STANDARD.encode(&bytes)
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let sink = Sink::open(dir.path().join("replay.db")).unwrap();
+
+        let created = CurveCreated {
+            trust: [11u8; 32],
+            curve_id: [12u8; 32],
+            creator: [13u8; 32],
+            asset_mint: [14u8; 32],
+            quote_mint: [15u8; 32],
+            curve_type: 0,
+            start_price: 2_000_000_000_000_000_000u128,
+            end_price: 9_000_000_000_000_000_000u128,
+            max_supply: 500_000_000_000u64,
+        };
+        let mut body = Vec::new();
+        created.serialize(&mut body).unwrap();
+        sink.record_event(
+            "aeqi_unifutures",
+            "CurveCreated",
+            200,
+            "sigC1",
+            0,
+            &wire("CurveCreated", &body),
+        )
+        .unwrap();
+
+        let buy = CurveBuy {
+            trust: [11u8; 32],
+            curve_id: [12u8; 32],
+            buyer: [16u8; 32],
+            token_amount: 2_000_000,
+            cost: 2_400_000,
+        };
+        let mut body = Vec::new();
+        buy.serialize(&mut body).unwrap();
+        sink.record_event("aeqi_unifutures", "CurveBuy", 201, "sigB1", 0, &wire("CurveBuy", &body))
+            .unwrap();
+
+        let sell = CurveSell {
+            trust: [11u8; 32],
+            curve_id: [12u8; 32],
+            seller: [17u8; 32],
+            token_amount: 1_000_000,
+            return_amount: 950_000,
+        };
+        let mut body = Vec::new();
+        sell.serialize(&mut body).unwrap();
+        sink.record_event(
+            "aeqi_unifutures",
+            "CurveSell",
+            202,
+            "sigS1",
+            0,
+            &wire("CurveSell", &body),
+        )
+        .unwrap();
+
+        // Projection tables empty before backfill.
+        let before = sink.typed_counts().unwrap();
+        assert_eq!(before.curves, 0);
+        assert_eq!(before.curve_trades, 0);
+
+        let r = sink.replay_unifutures_curves().unwrap();
+        assert_eq!(r.curves_inserted, 1);
+        assert_eq!(r.trades_inserted, 2);
+        assert_eq!(r.decode_failures, 0);
+
+        let after = sink.typed_counts().unwrap();
+        assert_eq!(after.curves, 1);
+        assert_eq!(after.curve_trades, 2);
+
+        // Idempotency: re-running yields zero new inserts.
+        let again = sink.replay_unifutures_curves().unwrap();
+        assert_eq!(again.curves_inserted, 0);
+        assert_eq!(again.trades_inserted, 0);
+        assert_eq!(again.decode_failures, 0);
     }
 
     #[test]
