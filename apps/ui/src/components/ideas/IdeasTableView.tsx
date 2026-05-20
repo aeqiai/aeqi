@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, Plus } from "lucide-react";
+import { Button, Icon, Tooltip } from "../ui";
 import IdeasToolbar from "./IdeasToolbar";
 import { type IdeasView } from "./IdeasViewPopover";
 import { blockTreeToPlainText } from "../editor/blockEditorContent";
@@ -66,7 +67,22 @@ export default function IdeasTableView({
   }, [ideas]);
 
   return (
-    <div className="ideas-list-body">
+    <div className="ideas-list">
+      <header className="ideas-page-header">
+        <h1 className="ideas-page-title">Ideas</h1>
+        <div className="ideas-page-header-actions">
+          <Tooltip content="New idea (N)">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onNew}
+              leadingIcon={<Icon icon={Plus} size="sm" />}
+            >
+              New
+            </Button>
+          </Tooltip>
+        </div>
+      </header>
       <IdeasToolbar
         filter={filter}
         scopeCounts={scopeCounts}
@@ -74,7 +90,6 @@ export default function IdeasTableView({
         onFilter={onFilter}
         view={view}
         onViewChange={onViewChange}
-        onNew={onNew}
       />
       <div className="ideas-table-wrap" role="region" aria-label="Ideas table">
         <table className="ideas-table">

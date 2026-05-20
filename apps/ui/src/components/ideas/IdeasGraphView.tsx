@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Button, EmptyState, Loading } from "../ui";
+import { Plus } from "lucide-react";
+import { Button, EmptyState, Icon, Loading, Tooltip } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
 import IdeasToolbar from "./IdeasToolbar";
 import { type IdeasView } from "./IdeasViewPopover";
@@ -60,6 +61,21 @@ export default function IdeasGraphView({
 
   return (
     <div className="ideas-graph">
+      <header className="ideas-page-header">
+        <h1 className="ideas-page-title">Ideas</h1>
+        <div className="ideas-page-header-actions">
+          <Tooltip content="New idea (N)">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onNew}
+              leadingIcon={<Icon icon={Plus} size="sm" />}
+            >
+              New
+            </Button>
+          </Tooltip>
+        </div>
+      </header>
       <IdeasToolbar
         filter={filter}
         scopeCounts={scopeCounts}
@@ -67,7 +83,6 @@ export default function IdeasGraphView({
         onFilter={onFilterChange}
         view={view}
         onViewChange={onViewChange}
-        onNew={onNew}
         toolbarMeta={
           <span className="ideas-toolbar-meta" title={`${nodeCount} nodes · ${edgeCount} links`}>
             {countLabel}

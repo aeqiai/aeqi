@@ -1,5 +1,4 @@
 import type React from "react";
-import { Button, Tooltip } from "../ui";
 import IdeasFilterPopover from "./IdeasFilterPopover";
 import IdeasSortPopover from "./IdeasSortPopover";
 import IdeasViewPopover, { type IdeasView } from "./IdeasViewPopover";
@@ -8,7 +7,11 @@ import type { FilterState, IdeasFilter } from "./types";
 /**
  * Canonical toolbar for every Ideas view (List, Table, Kanban, Graph).
  *
- * Required surface is the locked search · sort · filter · view · +New row.
+ * Required surface is the locked search · sort · filter · view row. The
+ * primary "New idea" CTA lives in the page header above the toolbar
+ * (mirrors Quests / Events), so the toolbar stays focused on
+ * find / narrow / switch-view affordances. The `n` keyboard hotkey is
+ * owned by each view's own window listener.
  * View-specific extensions land via optional slots:
  *
  * - `searchInputRef` + `onSearchKeyDown` — list-style keyboard navigation
@@ -31,7 +34,6 @@ export interface IdeasToolbarProps {
   onFilter: (patch: Partial<FilterState>) => void;
   view: IdeasView;
   onViewChange: (next: IdeasView) => void;
-  onNew: () => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   onSearchKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   showKbdHint?: boolean;
@@ -46,7 +48,6 @@ export default function IdeasToolbar({
   onFilter,
   view,
   onViewChange,
-  onNew,
   searchInputRef,
   onSearchKeyDown,
   showKbdHint = false,
@@ -121,29 +122,6 @@ export default function IdeasToolbar({
         />
         <IdeasViewPopover view={view} onChange={onViewChange} />
         {importMenu}
-        <Tooltip content="New idea (N)">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onNew}
-            leadingIcon={
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
-            }
-          >
-            New
-          </Button>
-        </Tooltip>
       </div>
     </div>
   );
