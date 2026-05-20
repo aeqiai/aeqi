@@ -946,14 +946,39 @@
   background: var(--state-hover);
   border-color: var(--border-faint);
 }
+/* Row typography rhythm: `when` is the temporal coordinate (muted, tabular,
+   fixed width so timestamps stack vertically), `session` is the row's
+   identity (primary tone, mono ID separated from a small sans label),
+   `dur` is trailing metadata (muted tabular). Three tiers, one rhythm. */
 .events-fires-row-when {
-  color: var(--color-text-primary);
-  min-width: 90px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  min-width: 72px;
 }
 .events-fires-row-session {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+}
+.events-fires-row-session-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--color-text-muted);
+}
+.events-fires-row-session code {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  background: transparent;
+  padding: 0;
 }
 .events-fires-row-dur {
   margin-left: auto;

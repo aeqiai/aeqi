@@ -103,7 +103,8 @@ export default function FiresPanel({ eventName, pattern, fireCountHint }: FiresP
                 <StatusDot status={r.status} />
                 <span className="events-fires-row-when">{relativeWhen(r.started_at)}</span>
                 <span className="events-fires-row-session">
-                  session <code>{r.session_id.slice(0, 8)}</code>
+                  <span className="events-fires-row-session-label">session</span>
+                  <code>{r.session_id.slice(0, 8)}</code>
                 </span>
                 <span className="events-fires-row-dur">
                   {durationMs(r.started_at, r.finished_at)}
