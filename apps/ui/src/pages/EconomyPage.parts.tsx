@@ -69,25 +69,51 @@ export function TrustDirectory({
   );
 }
 
+export type RegistryTone = "live" | "pending" | "settled";
+
+const TONE_TO_DOT: Record<RegistryTone, string> = {
+  live: "in_progress",
+  pending: "in_review",
+  settled: "done",
+};
+
+function registryToneLabel(tone: RegistryTone, value: number): string {
+  if (value === 0) {
+    if (tone === "live") return "No live offers";
+    if (tone === "pending") return "None pending";
+    return "Nothing settled";
+  }
+  if (tone === "live") return value === 1 ? "1 live" : `${value} live`;
+  if (tone === "pending") return value === 1 ? "1 pending" : `${value} pending`;
+  return value === 1 ? "1 settled" : `${value} settled`;
+}
+
 export function RegistryCard({
   icon,
   title,
   value,
   body,
+  tone,
   onOpen,
 }: {
   icon: ReactNode;
   title: string;
   value: number;
   body: string;
+  tone: RegistryTone;
   onOpen: () => void;
 }) {
+  const dotState = value === 0 ? "backlog" : TONE_TO_DOT[tone];
   return (
     <button type="button" className={styles.registryCard} onClick={onOpen}>
       <span className={styles.registryCardHead}>
         <span className={styles.registryIcon}>{icon}</span>
         <span className={styles.registryTitle}>{title}</span>
         <span className={styles.registryValue}>{value}</span>
+      </span>
+      <span className={styles.registryStatus}>
+        <span className={`quest-status-dot quest-status-dot--${dotState}`} aria-hidden />
+        <span className={styles.registryStatusLabel}>{registryToneLabel(tone, value)}</span>
       </span>
       <span className={styles.registryBody}>{body}</span>
     </button>

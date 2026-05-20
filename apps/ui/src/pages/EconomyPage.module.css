@@ -133,6 +133,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+.registryStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.registryStatusLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  text-transform: none;
+}
+
 .registryBody {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);

@@ -449,6 +449,7 @@ export default function EconomyPage() {
                     icon={<Droplets size={16} strokeWidth={1.6} />}
                     title="Liquidity pools"
                     value={poolRows.length}
+                    tone="live"
                     body="Genesis curves and pool addresses surface here as soon as launch status confirms the on-chain pool."
                     onOpen={() => navigate("/economy/pools")}
                   />
@@ -456,6 +457,7 @@ export default function EconomyPage() {
                     icon={<CircleDollarSign size={16} strokeWidth={1.6} />}
                     title="Funding rounds"
                     value={0}
+                    tone="pending"
                     body="The funding module lane is wired into the economy surface; live rounds land here when the indexer exposes funding requests."
                     onOpen={() => navigate("/economy/funding")}
                   />
@@ -463,6 +465,7 @@ export default function EconomyPage() {
                     icon={<BriefcaseBusiness size={16} strokeWidth={1.6} />}
                     title="Open roles"
                     value={visibleRoleOpenings.length}
+                    tone="pending"
                     body="Vacant roles across visible trusts become the apply surface for joining a trust."
                     onOpen={() => navigate("/economy/roles")}
                   />
