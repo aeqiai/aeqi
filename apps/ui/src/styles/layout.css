@@ -8585,6 +8585,23 @@ button.home-card:focus-visible {
   max-width: none;
   color: var(--color-text-muted);
 }
+/* All-TRUSTs satellite (c9) reuses the same quiet pattern: when the user
+   has no other TRUSTs to step into, the display-weight headline and the
+   empty Users-icon circle stage an empty state the user can't act on.
+   Step the body type down to secondary ink and quiet the empty avatar
+   slot so StepIntoTrustCard becomes the row's gravity center until a
+   second TRUST exists. Eyebrow already paints secondary by default. */
+.home-card--quiet .home-all-title {
+  color: var(--color-text-secondary);
+  font-weight: 300;
+}
+.home-card--quiet .home-all-hint {
+  color: var(--color-text-muted);
+}
+.home-card--quiet .home-all-empty {
+  background: transparent;
+  color: var(--color-text-muted);
+}
 
 /* Economy preview — minimal, no fake feature tags. Just the lede +
    one quieter aside line. */

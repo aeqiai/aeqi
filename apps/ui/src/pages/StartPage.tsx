@@ -482,8 +482,21 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
     return acc;
   }, null);
 
+  // First-touch parity with the Inbox card (c8). When the user has no
+  // other TRUSTs to step into, the "No other TRUSTs" headline + empty
+  // Users-icon circle stages an empty state the user can't act on yet
+  // — the same anti-pattern muted on Inbox. Apply `home-card--quiet`
+  // so the satellite recedes and StepIntoTrustCard (the actual CTA in
+  // this row) becomes the visual focal point during onboarding. Once
+  // a second TRUST exists, the modifier drops and the card returns to
+  // full weight. Reordering the grid was the alternative; muting wins
+  // because the 2fr/1fr/1fr asymmetry of `.home-row-trusts` is the
+  // anchor pattern (Personal = "where you live") — disturbing the
+  // column order to compensate for a transient state would forfeit
+  // that signal.
+  const isQuiet = others.length === 0;
   return (
-    <article className="home-card home-card--all">
+    <article className={`home-card home-card--all${isQuiet ? " home-card--quiet" : ""}`}>
       <header className="home-card-head">
         <span className="home-card-eyebrow home-all-eyebrow">
           {eyebrowState && (
