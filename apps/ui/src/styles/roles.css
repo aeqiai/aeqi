@@ -545,6 +545,19 @@
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
   min-width: 0;
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+/* Lift on hover via real tier shift + shadow rather than a hairline border —
+   mirrors the QuestActiveCard register so the suggest tiles read as
+   grabbable in the same vocabulary. No border ornament. */
+.trust-agents-suggest-card:hover {
+  background: var(--color-card);
+  box-shadow: var(--shadow-md);
+}
+.trust-agents-suggest-card:hover .trust-agents-suggest-card-cta {
+  color: var(--color-text-primary);
 }
 .trust-agents-suggest-card-title {
   margin: 0;
@@ -561,30 +574,26 @@
   line-height: 1.4;
   flex: 1;
 }
+/* Quiet inline action — no dashed-border hairline. The card itself is the
+   surface that lights up; the CTA is just a labeled affordance. */
 .trust-agents-suggest-card-cta {
   appearance: none;
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border: 1px dashed var(--border-strong, var(--border));
-  border-radius: var(--radius-md);
+  padding: 4px 0;
+  border: 0;
   background: transparent;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition:
-    color 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
+  transition: color 0.12s ease;
 }
 .trust-agents-suggest-card-cta:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-text-secondary);
-  background: var(--color-card);
 }
 
 @media (max-width: 900px) {
