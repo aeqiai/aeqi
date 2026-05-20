@@ -183,10 +183,7 @@ function OwnershipPrimitiveCard({
     );
   }
   return (
-    <Link
-      to={to}
-      className={`trust-cockpit-mini${provisioning ? " trust-cockpit-mini--provisioning" : ""}`}
-    >
+    <Link to={to} className="trust-cockpit-mini">
       {body}
     </Link>
   );
