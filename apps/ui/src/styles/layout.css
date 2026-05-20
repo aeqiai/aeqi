@@ -8171,9 +8171,20 @@ button.home-card:focus-visible {
   border-radius: 999px;
   flex-shrink: 0;
 }
+/* First-touch ghost avatar — c10 lifts it from --bg-row/secondary
+   (which read as quiet/inactive) to the ink-on-paper treatment used
+   by Step's primary button. With Inbox + All-TRUSTs both muted on
+   first-touch (c8/c9), PersonalTrustCard becomes the row's central
+   CTA — but its empty-state Plus circle was painting at satellite
+   weight, undercutting that role. Same --color-text-primary +
+   --btn-primary-text pair as `.home-step-btn--primary` so the
+   "+ create your first TRUST" affordance reads at the same gravity
+   as the row's other ink action, instead of fading into the card
+   surface. Drops back to the filled state's avatar palette once a
+   TRUST exists. */
 .home-personal-avatar--ghost {
-  background: var(--bg-row);
-  color: var(--color-text-secondary);
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
 }
 .home-personal-name {
   margin: 0;
