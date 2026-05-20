@@ -281,11 +281,12 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       </header>
 
       <section className="trust-roles-snapshot" aria-label="Snapshot">
-        <SnapshotStat label="Roles" value={snapshot.total} />
-        <SnapshotStat label="Directors" value={snapshot.directors} />
-        <SnapshotStat label="Operational" value={snapshot.operational} />
+        <SnapshotStat singular="Role" plural="Roles" value={snapshot.total} />
+        <SnapshotStat singular="Director" plural="Directors" value={snapshot.directors} />
+        <SnapshotStat singular="Operational" plural="Operational" value={snapshot.operational} />
         <SnapshotStat
-          label="Vacant"
+          singular="Vacant"
+          plural="Vacant"
           value={snapshot.vacant}
           tone={snapshot.vacant > 0 ? "warmth" : undefined}
         />
@@ -395,12 +396,16 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 }
 
 interface SnapshotStatProps {
-  label: string;
+  /** Singular form — rendered when `value === 1`. */
+  singular: string;
+  /** Plural form — rendered for any value other than 1 (including 0). */
+  plural: string;
   value: number;
   tone?: "warmth";
 }
 
-function SnapshotStat({ label, value, tone }: SnapshotStatProps) {
+function SnapshotStat({ singular, plural, value, tone }: SnapshotStatProps) {
+  const label = value === 1 ? singular : plural;
   return (
     <div className="trust-roles-snapshot-stat">
       <span
