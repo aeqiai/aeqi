@@ -284,6 +284,25 @@
   }
 }
 
+/* Real-time arrival pulse — inbox-scoped override of the universal
+   SessionRail keyframe. The shared primitive uses graphite
+   `--color-accent-bg`; the inbox speaks the family `--state-progress`
+   (indigo) so a newly-pushed message reads as "active/live" alongside
+   the awaiting strip's amber `--state-review` chip. Scoped via
+   `.inbox-shell` so the global app rail (shell/SessionsRail.tsx) keeps
+   the neutral graphite pulse. */
+@keyframes inbox-rail-pulse-in {
+  from {
+    background: var(--state-progress-bg);
+  }
+  to {
+    background: transparent;
+  }
+}
+.inbox-shell .sessions-rail-row.is-new {
+  animation-name: inbox-rail-pulse-in;
+}
+
 @media (max-width: 1024px) {
   .session-detail-header {
     flex-direction: column;
