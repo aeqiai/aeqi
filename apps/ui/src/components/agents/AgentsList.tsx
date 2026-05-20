@@ -5,6 +5,25 @@ import AgentAvatar from "../AgentAvatar";
 import { relativeTime } from "../ideas/types";
 import { formatSpendUsd } from "@/lib/spend";
 
+// Liveness ladder — three-tone palette per the design language:
+//   online  = currently running / executing (violet)
+//   idle    = armed but waiting (warmth)
+//   offline = stopped / disabled (ink-muted)
+// `active` is the only wire value that maps to online; `stopped` to
+// offline; everything else (including `inactive` / unknown) collapses
+// into idle so the page never paints a row with no readable status.
+type Liveness = "online" | "idle" | "offline";
+const LIVENESS_LABEL: Record<Liveness, string> = {
+  online: "Online",
+  idle: "Idle",
+  offline: "Offline",
+};
+function livenessOf(raw: string | undefined): Liveness {
+  if (raw === "active") return "online";
+  if (raw === "stopped") return "offline";
+  return "idle";
+}
+
 export default function AgentsList({
   agents,
   onSelect,
@@ -41,15 +60,15 @@ export default function AgentsList({
         width: "16%",
         sortable: true,
         sortAccessor: (a) => a.status ?? "unknown",
-        cell: (a) => (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span
-              className={`agent-settings-status-dot${a.status === "active" ? " live" : ""}`}
-              aria-hidden
-            />
-            {a.status || "unknown"}
-          </span>
-        ),
+        cell: (a) => {
+          const liveness = livenessOf(a.status);
+          return (
+            <span className="agent-liveness">
+              <span className={`agent-liveness-dot agent-liveness-dot--${liveness}`} aria-hidden />
+              {LIVENESS_LABEL[liveness]}
+            </span>
+          );
+        },
       },
       {
         key: "lastActive",

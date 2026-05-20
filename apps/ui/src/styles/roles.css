@@ -376,6 +376,39 @@
   padding: 0 24px 24px;
 }
 
+/* Agent liveness dot — mirrors `.quest-status-dot` (7px, token colors).
+   Three-tone palette per the shared design language:
+     online  = violet  (executing / actively running)
+     idle    = warmth  (armed but quiet)
+     offline = ink-muted (stopped / disabled)
+   The label next to the dot rides in sentence case in
+   `--color-text-primary` so the row scans like every other primitive
+   row (Quests, Roles) instead of as a debug string. */
+.agent-liveness {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-primary);
+}
+.agent-liveness-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+}
+.agent-liveness-dot--online {
+  background: #7c6cd6;
+}
+.agent-liveness-dot--idle {
+  background: var(--color-warmth);
+}
+.agent-liveness-dot--offline {
+  background: var(--color-text-muted);
+  opacity: 0.6;
+}
+
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
  * Header + snapshot + content row with inspector. The toolbar above
  * the content uses the shared `.ideas-list-head` grammar so the page
