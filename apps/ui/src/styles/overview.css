@@ -474,11 +474,25 @@
    longer hard-snaps in when the bridge resolves. Closes the bridge arc:
    pending fades in → Solana mark pulses → mark fades to jade (c8) and the
    address pill fades in beside it (c10), one composed gesture. Single
-   iteration, opacity only, gated on prefers-reduced-motion: no-preference. */
+   iteration, opacity only, gated on prefers-reduced-motion: no-preference.
+
+   c11 (2026-05-21): the verified-side handoff originally fired both the
+   Solana mark's verify ramp (c8) and the addr pill's entrance fade (c10)
+   on the same frame. Readable, but two identical 200ms curves landing
+   simultaneously read as a synchronous flash rather than a left-to-right
+   reveal. The addr pill now waits 100ms (half of --transition-normal) so
+   the Solana mark crosses the midpoint of its jade ramp before the pill
+   begins fading in, and settles to full jade just as the pill crosses
+   its own midpoint. Reads as "verified → address", not "verified+address
+   together". The pending pill keeps a 0ms delay — its arrival is the
+   first beat of the bridge arc and has no sibling to coordinate with. */
 @media (prefers-reduced-motion: no-preference) {
-  .trust-hero-bar-pending,
-  .trust-hero-bar-addr-pill {
+  .trust-hero-bar-pending {
     animation: trust-hero-bar-enter var(--transition-normal) 1 forwards;
+  }
+  .trust-hero-bar-addr-pill {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 100ms 1 forwards;
   }
 }
 @keyframes trust-hero-bar-enter {
