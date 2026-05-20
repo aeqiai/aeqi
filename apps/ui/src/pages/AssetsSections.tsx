@@ -17,17 +17,7 @@ import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { BudgetAccountWithPda, VestingPositionWithPda } from "@/solana/assets";
 import { formatMediumDate, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
-import {
-  Badge,
-  DetailField,
-  Icon,
-  Modal,
-  PageSection,
-  Stack,
-  Table,
-  Tooltip,
-  type TableColumn,
-} from "@/components/ui";
+import { Badge, Icon, PageSection, Stack, Table, Tooltip, type TableColumn } from "@/components/ui";
 
 import styles from "./AssetsPage.module.css";
 
@@ -261,7 +251,7 @@ export function VestingPositionsSection({
 const MAINNET_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const LOCALNET_USDC = "BscBtSVDbZCzSHikQSwmCuszX4f4nbESdnfrFYkbv3F3";
 
-function budgetDecimals(metas: TokenMetaMap): number {
+export function budgetDecimals(metas: TokenMetaMap): number {
   return metas[MAINNET_USDC]?.decimals ?? metas[LOCALNET_USDC]?.decimals ?? 6;
 }
 
@@ -460,7 +450,7 @@ export function CopyableMono({
   );
 }
 
-function ExpiryCell({ expiry }: { expiry: number }) {
+export function ExpiryCell({ expiry }: { expiry: number }) {
   // Expiry is a unix-seconds timestamp; 0 means "no expiry".
   if (expiry === 0) {
     return <span className={styles.mutedDash}>—</span>;
@@ -564,117 +554,4 @@ export function bytesIdLabel(bytes: Uint8Array | number[]): string {
     return new TextDecoder("ascii").decode(arr.slice(0, asciiLen));
   }
   return `0x${bytesToHex(arr).slice(0, 12)}…`;
-}
-
-/* ────────────────────────────────────────────────────────────────── */
-/* Budget detail modal                                                 */
-/* ────────────────────────────────────────────────────────────────── */
-
-/**
- * Side-panel-style modal that exposes the full Budget record. Iter-2
- * surfaces the data the table compresses: full PDA + explorer link,
- * full budget/role IDs (the table renders pad32 ASCII prefix only),
- * grantor + parent budget chaining, raw spend numbers, and the
- * lifecycle posture (frozen / expiry).
- *
- * Spend history is intentionally not rendered — the platform indexer
- * does not feed back per-budget BudgetSpent events to the dashboard
- * yet, and synthesising one from `getSignaturesForAddress(pda)` would
- * be a separate quest. The footer note states that gap honestly.
- */
-export function BudgetDetailModal({
-  budget,
-  metas,
-  onClose,
-}: {
-  budget: BudgetAccountWithPda | null;
-  metas: TokenMetaMap;
-  onClose: () => void;
-}) {
-  if (!budget) {
-    return <Modal open={false} onClose={onClose} title="Budget" children={null} />;
-  }
-  const acc = budget.account;
-  const decimals = budgetDecimals(metas);
-  // BN is the on-chain numeric (Anchor maps `u64` → bn.js); convert
-  // through string into the bigint our formatter expects so we don't
-  // bleed BN's runtime arithmetic into the type surface.
-  const amountBI = toBigInt(acc.amount);
-  const spentBI = toBigInt(acc.spent);
-  const spentFmt = formatTokenAmount(spentBI, decimals);
-  const totalFmt = formatTokenAmount(amountBI, decimals);
-  const remainingRaw = amountBI - spentBI;
-  const remaining = remainingRaw > BigInt(0) ? remainingRaw : BigInt(0);
-  const remainingFmt = formatTokenAmount(remaining, decimals);
-  const pct = amountBI > BigInt(0) ? Number((spentBI * BigInt(10000)) / amountBI) / 100 : 0;
-  const idLabel = bytesIdLabel(acc.budgetId);
-  const idHex = `0x${bytesToHex(acc.budgetId)}`;
-  const roleLabel = bytesIdLabel(acc.targetRoleId);
-  const parentHex = `0x${bytesToHex(acc.parentBudgetId)}`;
-  const parentBytes =
-    acc.parentBudgetId instanceof Uint8Array
-      ? acc.parentBudgetId
-      : Uint8Array.from(acc.parentBudgetId);
-  const hasParent = Array.from(parentBytes).some((b) => b !== 0);
-
-  return (
-    <Modal open={true} onClose={onClose} title={`Budget · ${idLabel}`}>
-      <Stack gap="4">
-        <DetailField label="Budget ID">
-          <CopyableMono full={idHex} display={idLabel} mode="short" />
-        </DetailField>
-        <DetailField label="Target role">
-          <span className={styles.monoCell}>{roleLabel}</span>
-        </DetailField>
-        {hasParent && (
-          <DetailField label="Parent budget">
-            <CopyableMono full={parentHex} display={`${parentHex.slice(0, 14)}…`} mode="short" />
-          </DetailField>
-        )}
-        <DetailField label="Budget PDA">
-          <CopyableMono
-            full={budget.publicKey.toBase58()}
-            display={shortAddress(budget.publicKey.toBase58())}
-            withExplorer
-          />
-        </DetailField>
-        <DetailField label="Grantor">
-          <CopyableMono
-            full={acc.grantor.toBase58()}
-            display={shortAddress(acc.grantor.toBase58())}
-            withExplorer
-          />
-        </DetailField>
-        <DetailField label="Allocation">
-          <Stack gap="1">
-            <span className={styles.numCell}>
-              {spentFmt} / {totalFmt} USDC ·{" "}
-              <span className={styles.mutedLabel}>
-                {formatNumber(pct, { maximumFractionDigits: 1 })}%
-              </span>
-            </span>
-            <span className={styles.modalDetailNote}>{remainingFmt} USDC remaining</span>
-          </Stack>
-        </DetailField>
-        <DetailField label="Expiry">
-          <ExpiryCell expiry={Number(acc.expiry)} />
-        </DetailField>
-        <DetailField label="Status">
-          {acc.frozen ? (
-            <Badge variant="warning" dot>
-              Frozen
-            </Badge>
-          ) : (
-            <Badge variant="success" dot>
-              Active
-            </Badge>
-          )}
-        </DetailField>
-        <p className={styles.modalFooterNote}>
-          Spend history is not surfaced here yet — per-budget BudgetSpent events are emitted
-          on-chain but not fed back into the dashboard until the indexer rail lands.
-        </p>
-      </Stack>
-    </Modal>
-  );
 }

@@ -3,13 +3,14 @@ import { ExternalLink } from "lucide-react";
 
 import { useDaemonStore } from "@/store/daemon";
 import { useAssets } from "@/hooks/useAssets";
+import { useIncorporation } from "@/hooks/useIncorporation";
 import { useTokenMetas } from "@/hooks/useTokenMetas";
+import { useVaultActivity } from "@/hooks/useVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from "@/solana/assets";
 import { formatCurrency, formatInteger, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
 import {
-  Badge,
   Banner,
   Button,
   Card,
@@ -32,7 +33,6 @@ import {
 } from "@/components/ui";
 
 import {
-  BudgetDetailModal,
   BudgetsSection,
   CopyableMono,
   VestingPositionsSection,
@@ -42,6 +42,15 @@ import {
   shortAddress,
   type TokenMetaMap,
 } from "./AssetsSections";
+import { BudgetDetailModal } from "./AssetsBudgetModal";
+import {
+  HoldingDetailPanel,
+  VaultActivitySection,
+  VaultActivityStrip,
+  VaultIdentitySection,
+  WithdrawFormShell,
+  type HoldingRow,
+} from "./AssetsExtras";
 import styles from "./AssetsPage.module.css";
 
 /**
@@ -81,6 +90,8 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
 
   const { vault, holdings, budgets, vestingPositions, isLoading, isFetching, error, refetch } =
     useAssets(trustAddress);
+  const incorporation = useIncorporation(trustAddress);
+  const vaultActivity = useVaultActivity(vault?.vaultAuthorityPda.toBase58() ?? null);
 
   // Gather every mint that any row on the page references (holdings,
   // vesting positions, budget-denomination USDC) and resolve them in one
@@ -181,13 +192,20 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           budgets={budgets ?? []}
           vestingPositions={vestingPositions ?? []}
           metas={metas}
+          activitySparkline={vaultActivity.data?.sparkline ?? []}
         />
         <CapitalizeSection vaultAuthority={vault.vaultAuthorityPda.toBase58()} />
         <VaultIdentitySection
           moduleStatePda={vault.moduleStatePda.toBase58()}
           vaultAuthorityPda={vault.vaultAuthorityPda.toBase58()}
           treasuryAuthority={vault.moduleState?.treasuryAuthority.toBase58() ?? null}
+          trustAuthority={incorporation.trust?.authority.toBase58() ?? null}
           moduleInitialized={!!vault.moduleState}
+          modules={incorporation.modules ?? []}
+        />
+        <VaultActivitySection
+          signatures={vaultActivity.data?.signatures ?? []}
+          isLoading={vaultActivity.isLoading}
         />
         <HoldingsSection holdings={holdings ?? []} metas={metas} />
         {(budgets?.length ?? 0) > 0 && (
@@ -228,11 +246,13 @@ function TreasuryOverviewSection({
   budgets,
   vestingPositions,
   metas,
+  activitySparkline,
 }: {
   holdings: VaultHolding[];
   budgets: BudgetAccountWithPda[];
   vestingPositions: VestingPositionWithPda[];
   metas: TokenMetaMap;
+  activitySparkline: number[];
 }) {
   const { stableUsd, nonZeroCount, mintCount } = useMemo(() => {
     let stable = 0;
@@ -254,6 +274,11 @@ function TreasuryOverviewSection({
   const claimableCount = useMemo(
     () => vestingPositions.filter((p) => p.account.claimedAmount < p.account.totalAmount).length,
     [vestingPositions],
+  );
+
+  const activityTotal = useMemo(
+    () => activitySparkline.reduce((a, b) => a + b, 0),
+    [activitySparkline],
   );
 
   return (
@@ -294,6 +319,7 @@ function TreasuryOverviewSection({
           }
         />
       </MetricGrid>
+      <VaultActivityStrip series={activitySparkline} total={activityTotal} />
     </PageSection>
   );
 }
@@ -334,65 +360,14 @@ function CapitalizeSection({ vaultAuthority }: { vaultAuthority: string }) {
           </Stack>
         </Inline>
       </Card>
+      <WithdrawFormShell />
     </PageSection>
   );
-}
-
-function VaultIdentitySection({
-  moduleStatePda,
-  vaultAuthorityPda,
-  treasuryAuthority,
-  moduleInitialized,
-}: {
-  moduleStatePda: string;
-  vaultAuthorityPda: string;
-  treasuryAuthority: string | null;
-  moduleInitialized: boolean;
-}) {
-  return (
-    <PageSection title="Vault identity">
-      <DetailField label="Vault authority (PDA)">
-        <CopyableMono
-          full={vaultAuthorityPda}
-          display={shortAddress(vaultAuthorityPda)}
-          withExplorer
-        />
-      </DetailField>
-      <DetailField label="Module state (PDA)">
-        <CopyableMono full={moduleStatePda} display={shortAddress(moduleStatePda)} withExplorer />
-      </DetailField>
-      <DetailField label="Treasury authority">
-        {treasuryAuthority ? (
-          <CopyableMono
-            full={treasuryAuthority}
-            display={shortAddress(treasuryAuthority)}
-            withExplorer
-          />
-        ) : (
-          <span className={styles.mutedDash}>—</span>
-        )}
-      </DetailField>
-      <DetailField label="Module">
-        <Badge variant={moduleInitialized ? "success" : "muted"} dot>
-          {moduleInitialized ? "Initialized" : "Not initialized"}
-        </Badge>
-      </DetailField>
-    </PageSection>
-  );
-}
-
-interface HoldingRow {
-  mint: string;
-  amount: bigint;
-  tokenAccount: string;
-  symbol: string | null;
-  decimals: number | null;
-  /** Stablecoin USD value at par, or null when not a registered stable. */
-  usdValue: number | null;
 }
 
 function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas: TokenMetaMap }) {
   const [hideZero, setHideZero] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   // Group by mint so multiple ATAs against the same mint collapse to one
   // row with aggregate amount. Rare in practice (one mint normally has
@@ -421,6 +396,8 @@ function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas:
           symbol: meta.symbol,
           decimals: meta.decimals,
           usdValue: isStable ? rawToFloat(h.amount, meta.decimals as number) : null,
+          tokenProgram: h.programId.toBase58(),
+          metaResolvedOnChain: meta.resolvedOnChain,
         });
       }
     }
@@ -509,6 +486,8 @@ function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas:
       </Button>
     ) : null;
 
+  const expandedRow = expanded ? (rows.find((r) => r.mint === expanded) ?? null) : null;
+
   return (
     <PageSection title="Holdings" description={description} actions={sectionActions}>
       <TreasuryCompositionBar rows={allRows} totalUsd={totalUsd} />
@@ -516,6 +495,7 @@ function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas:
         columns={columns}
         data={rows}
         rowKey={(row) => row.mint}
+        onRowClick={(row) => setExpanded((cur) => (cur === row.mint ? null : row.mint))}
         empty={
           <EmptyState
             title="No holdings yet"
@@ -524,6 +504,7 @@ function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas:
         }
         ariaLabel="Vault holdings"
       />
+      {expandedRow && <HoldingDetailPanel row={expandedRow} onClose={() => setExpanded(null)} />}
       {totalUsd > 0 && rows.length > 0 && (
         <div className={styles.totalsRow}>
           <span>Stablecoin total</span>
