@@ -131,22 +131,32 @@ export default function EquityPage({ trustId }: { trustId: string }) {
     <Page>
       <PageHeader title="Equity" description="The TRUST's cap table." />
       <PageBody>
+        {/* Coherent ownership story top-to-bottom:
+         *   1. Mint identity — the on-chain anchor for this cap table.
+         *   2. Cap table — who holds what right now.
+         *   3. Share controls — mint / transfer / burn (the primary
+         *      action surface against the cap table above).
+         *   4. Genesis curve — live linear bonding curve + Buy/Sell.
+         *   5. Funding round — declare a structured raise.
+         *   6. Vesting positions — outstanding grants tied to this mint.
+         *   7. Grant vesting — issue a new position.
+         */}
         <MintIdentitySection
           mintAddress={mintAddress}
           supply={mint.supply}
           decimals={mint.decimals}
           maxSupplyCap={tokenModuleState.maxSupplyCap}
         />
-        <EquityShareControls trustId={trustId} />
-        <EquityGenesisCurveSection trustId={trustId} />
         <CapTableSection
           holders={holders ?? []}
           totalSupply={mint.supply}
           decimals={mint.decimals}
         />
-        <EquityVestingControls trustId={trustId} />
-        <VestingSection positions={vesting ?? []} decimals={mint.decimals} />
+        <EquityShareControls trustId={trustId} />
+        <EquityGenesisCurveSection trustId={trustId} />
         <EquityFundingRoundControl trustId={trustId} />
+        <VestingSection positions={vesting ?? []} decimals={mint.decimals} />
+        <EquityVestingControls trustId={trustId} />
       </PageBody>
     </Page>
   );

@@ -1,6 +1,14 @@
-/* Layout for the Buy/Sell rows under the genesis-curve chart.
-   Two horizontal rows; each carries a primary action + status text.
-   Tokens only — no literal colors, no inline px. */
+/* Layout for the Buy/Sell rows and recent-trades log under the
+   genesis-curve chart. Rows separate by rhythm, not hairlines. */
+
+.curve-metric-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-metric-unit {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
 
 .curve-trade-row {
   display: flex;
@@ -11,20 +19,90 @@
 }
 
 .curve-trade-row--first {
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  margin-top: var(--space-5);
 }
 
 .curve-trade-status {
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .curve-trade-status--signature {
   font-family: var(--font-mono);
+  color: var(--color-success);
 }
 
 .curve-trade-status--error {
-  color: var(--color-danger);
+  color: var(--color-error);
+}
+
+/* ja-017b: recent-trades log under the chart. Compact, tabular row
+   per trade with the dot-color affordance carrying through from the
+   chart (jade = buy, warmth/amber = sell). */
+.curve-trades-log {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+}
+
+.curve-trades-log__title {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-2) 0;
+}
+
+.curve-trades-log__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.curve-trades-log__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-trades-log__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  align-self: center;
+}
+
+.curve-trades-log__dot--buy {
+  background: var(--color-success);
+}
+
+.curve-trades-log__dot--sell {
+  background: var(--color-warmth);
+}
+
+.curve-trades-log__kind {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.curve-trades-log__counterparty {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.curve-trades-log__amount {
+  color: var(--color-text-primary);
+}
+
+.curve-trades-log__quote {
+  color: var(--color-text-muted);
 }

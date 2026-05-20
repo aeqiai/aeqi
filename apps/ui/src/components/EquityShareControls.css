@@ -1,32 +1,31 @@
 /* Row layout for share-control forms (mint / transfer / burn).
-   One row per action: paired inputs + action button + status text.
-   Tokens only — no literal colors, no hard-coded px. */
+   Three rows per action: paired inputs + action button + status text.
+   Rows separate by rhythm (margin), not by hairline — design-system rule
+   "no 1px borders for dividers". */
 
 .share-control-row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  margin-top: var(--space-4);
 }
 
 .share-control-row:first-of-type {
-  padding-top: 0;
-  border-top: none;
+  margin-top: 0;
 }
 
 .share-control-status {
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-bottom: var(--space-1);
 }
 
 .share-control-status--signature {
   font-family: var(--font-mono);
+  color: var(--color-success);
 }
 
 .share-control-status--error {
-  color: var(--color-danger);
+  color: var(--color-error);
 }

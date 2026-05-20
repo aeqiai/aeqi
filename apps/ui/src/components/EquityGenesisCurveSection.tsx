@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
-import { Button, DetailField, Input, PageSection } from "@/components/ui";
+import { Button, EmptyState, Input, MetricCard, MetricGrid, PageSection } from "@/components/ui";
 import "./EquityGenesisCurveSection.css";
 
 /**
@@ -138,8 +138,33 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
     }
   };
 
-  if (missing) return null;
-  if (loadError) return null;
+  // Foundation TRUSTs and partially-provisioned ventures: the on-chain
+  // curve PDA is not backed yet. Surface a quiet empty state rather than
+  // hiding the section silently — Equity readers expect to see "why" the
+  // chart isn't here.
+  if (missing) {
+    return (
+      <PageSection
+        title="Genesis curve"
+        description="Live linear bonding curve for the LAUNCH cap-table token."
+      >
+        <EmptyState
+          title="Curve not provisioned yet"
+          description="This TRUST's bonding-curve PDA is not backed on the configured cluster. Once provisioning lands, the live curve and Buy/Sell rails appear here."
+        />
+      </PageSection>
+    );
+  }
+  if (loadError) {
+    return (
+      <PageSection
+        title="Genesis curve"
+        description="Live linear bonding curve for the LAUNCH cap-table token."
+      >
+        <EmptyState title="Couldn't read curve state" description={loadError} />
+      </PageSection>
+    );
+  }
   if (!state) return null;
 
   return (
@@ -155,30 +180,35 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
         currentSupply={BigInt(state.current_supply)}
         recentTrades={state.recent_trades ?? []}
       />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: "var(--space-3)",
-          marginTop: "var(--space-3)",
-        }}
-      >
-        <DetailField label="Current price">
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>
-            {formatCurvePrice(BigInt(state.current_price))} USDC
-          </span>
-        </DetailField>
-        <DetailField label="Supply minted">
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>
-            {formatCurveSupply(BigInt(state.current_supply), BigInt(state.max_supply))}
-          </span>
-        </DetailField>
-        <DetailField label="Reserve balance">
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>
-            {formatCurvePrice(BigInt(state.reserve_balance))} USDC
-          </span>
-        </DetailField>
-      </div>
+      <MetricGrid columns={3}>
+        <MetricCard
+          label="Current price"
+          value={
+            <span className="curve-metric-value">
+              {formatCurvePrice(BigInt(state.current_price))}
+              <span className="curve-metric-unit"> USDC</span>
+            </span>
+          }
+        />
+        <MetricCard
+          label="Supply minted"
+          value={
+            <span className="curve-metric-value">
+              {formatCurveSupply(BigInt(state.current_supply), BigInt(state.max_supply))}
+            </span>
+          }
+          detail={`${formatCurveSupplyPercent(BigInt(state.current_supply), BigInt(state.max_supply))} of cap`}
+        />
+        <MetricCard
+          label="Reserve balance"
+          value={
+            <span className="curve-metric-value">
+              {formatCurvePrice(BigInt(state.reserve_balance))}
+              <span className="curve-metric-unit"> USDC</span>
+            </span>
+          }
+        />
+      </MetricGrid>
       <div className="curve-trade-row curve-trade-row--first">
         <Button variant="primary" size="sm" loading={buying} onClick={handleBuy}>
           Buy 1 USDC of LAUNCH
@@ -214,7 +244,73 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
           idle="Burns the amount back to the curve at the current price."
         />
       </div>
+      <RecentTradesLog trades={state.recent_trades ?? []} />
     </PageSection>
+  );
+}
+
+/**
+ * Recent trades — compact tabular log under the curve. Mirrors the chart
+ * dot affordance (jade=buy, warmth=sell) so the eye can pivot between
+ * the chart marker and the row that produced it. Hidden when the
+ * indexer flagged the projection unavailable OR there are no trades.
+ */
+function RecentTradesLog({
+  trades,
+}: {
+  trades: Array<{
+    kind: "buy" | "sell";
+    counterparty_b58: string;
+    token_amount: string;
+    quote_amount: string;
+    slot: number;
+    signature_b58: string;
+    log_index: number;
+  }>;
+}) {
+  if (trades.length === 0) return null;
+  // Cap at the most recent 8 — the chart already plots dots for the full
+  // window. The log is for the operator who wants names + sigs, not a
+  // full ledger.
+  const rows = trades.slice(0, 8);
+  return (
+    <div className="curve-trades-log">
+      <h3 className="curve-trades-log__title">Recent trades</h3>
+      <ul className="curve-trades-log__list">
+        {rows.map((trade) => {
+          let tokenAmount: bigint;
+          let quoteAmount: bigint;
+          try {
+            tokenAmount = BigInt(trade.token_amount);
+            quoteAmount = BigInt(trade.quote_amount);
+          } catch {
+            return null;
+          }
+          return (
+            <li key={`${trade.signature_b58}-${trade.log_index}`} className="curve-trades-log__row">
+              <span
+                className={
+                  trade.kind === "buy"
+                    ? "curve-trades-log__dot curve-trades-log__dot--buy"
+                    : "curve-trades-log__dot curve-trades-log__dot--sell"
+                }
+                aria-hidden="true"
+              />
+              <span className="curve-trades-log__kind">
+                {trade.kind === "buy" ? "Buy" : "Sell"}
+              </span>
+              <span className="curve-trades-log__counterparty">
+                {formatCurveAddress(trade.counterparty_b58)}
+              </span>
+              <span className="curve-trades-log__amount">
+                {formatBigintCompact(tokenAmount)} LAUNCH
+              </span>
+              <span className="curve-trades-log__quote">{formatCurvePrice(quoteAmount)} USDC</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -469,6 +565,22 @@ function formatCurvePrice(price: bigint): string {
 /** Compact summary of supply progress: "100,000 / 1,000,000,000,000". */
 function formatCurveSupply(current: bigint, max: bigint): string {
   return `${groupThousands(current.toString())} / ${groupThousands(max.toString())}`;
+}
+
+/**
+ * Render `current / max` as a two-decimal percentage. Two-decimal
+ * resolution matters early in the curve where supply / max_supply rounds
+ * to 0.00% for any value < ~10^10 base units on a 10^12 cap.
+ */
+function formatCurveSupplyPercent(current: bigint, max: bigint): string {
+  if (max === 0n) return "—";
+  // basisPoints out of 1_000_000 keeps 4 fractional digits of precision
+  // and renders as XX.XX%.
+  const tenThousandths = (current * 1_000_000n) / max;
+  const whole = tenThousandths / 10_000n;
+  const frac = tenThousandths % 10_000n;
+  const fracStr = frac.toString().padStart(4, "0").slice(0, 2);
+  return `${whole.toString()}.${fracStr}%`;
 }
 
 /** Truncate a base58 pubkey to "8Yvuqq…SdWQ" shape. */

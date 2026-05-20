@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Input, PageSection, Select } from "@/components/ui";
 import { api } from "@/lib/api";
 import "./EquityFundingRoundControl.css";
 
@@ -114,15 +114,10 @@ export default function EquityFundingRoundControl({ trustId }: EquityFundingRoun
   const activeKind = KIND_OPTIONS.find((k) => k.value === kind);
 
   return (
-    <section className="equity-funding-control" aria-labelledby="equity-funding-heading">
-      <header className="equity-funding-header">
-        <h2 id="equity-funding-heading" className="equity-funding-title">
-          Funding round
-        </h2>
-        <p className="equity-funding-subtitle">
-          Declare an on-chain capital raise sourced from a Budget. Activation lands separately.
-        </p>
-      </header>
+    <PageSection
+      title="Funding round"
+      description="Declare an on-chain capital raise sourced from a Budget. Activation lands separately."
+    >
       <form className="equity-funding-form" onSubmit={handleSubmit}>
         <div className="equity-funding-row">
           <label className="equity-funding-label" htmlFor="equity-funding-kind">
@@ -212,10 +207,10 @@ export default function EquityFundingRoundControl({ trustId }: EquityFundingRoun
           <div
             className={`equity-funding-result ${result.ok ? "equity-funding-result-ok" : "equity-funding-result-err"}`}
           >
-            {result.message}
+            {result.ok ? `✓ ${result.message}` : result.message}
           </div>
         )}
       </form>
-    </section>
+    </PageSection>
   );
 }

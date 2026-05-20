@@ -1,5 +1,5 @@
 /* Vesting grant form — two rows: identity + schedule + action.
-   Tokens only. */
+   Status line separates by rhythm, not hairline. */
 
 .vesting-grant-row {
   display: flex;
@@ -14,17 +14,16 @@
 }
 
 .vesting-grant-status {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  margin-top: var(--space-4);
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .vesting-grant-status--signature {
   font-family: var(--font-mono);
+  color: var(--color-success);
 }
 
 .vesting-grant-status--error {
-  color: var(--color-danger);
+  color: var(--color-error);
 }
