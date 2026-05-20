@@ -258,7 +258,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       <header className="trust-roles-header">
         <div className="trust-roles-header-titles">
           <h1 className="trust-roles-title">Roles</h1>
-          <p className="trust-roles-subtitle">Authority for this Trust.</p>
+          <p className="trust-roles-subtitle">Authority for this TRUST.</p>
         </div>
         <div className="trust-roles-header-actions">
           <Button
