@@ -15,13 +15,21 @@
 
 /* ------------------------------------------------------------------
    Role tile — shared between chart and cards.
+
+   v2 layout (2026-05-20): TOP HALF is canonical role identity
+   (title + role-type pill — stays with the seat) and BOTTOM HALF is
+   the current occupant (avatar + holder name — rotates as the seat
+   fills). Vertical stack instead of the old avatar-left layout — the
+   role title is the primary signal a viewer reads on the chart, not
+   the holder photo.
    ------------------------------------------------------------------ */
 .role-node {
   position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 14px;
   background: var(--color-card-elevated);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
@@ -32,6 +40,22 @@
     background 0.12s ease,
     box-shadow 0.12s ease,
     color 0.12s ease;
+}
+/* Top half — title + pill on the same row, pill pushed right. */
+.role-node-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+/* Bottom half — avatar + holder label. Centered vertically so a 32px
+   avatar reads alongside a 13px label without baseline drift. */
+.role-node-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 .role-node.is-clickable {
   cursor: pointer;
@@ -118,30 +142,36 @@
   color: var(--color-text-secondary);
 }
 
-.role-node-body {
-  display: inline-flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 2px;
-  flex: 1;
-}
+/* Title — the primary identity of the seat. Larger + heavier than the
+   holder label below so a viewer reads the role first, the occupant
+   second. The pill sits on the same row, pushed right by .role-node-
+   head's space-between. */
 .role-node-title {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
+  flex: 1;
+  font-size: var(--font-size-md);
+  font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.005em;
 }
-.role-node-occupant {
-  font-size: var(--font-size-micro);
-  color: var(--color-text-muted);
+/* Holder label — secondary signal. Reads as a continuation of the
+   avatar, not as a competing title. */
+.role-node-holder {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .role-node--vacant .role-node-title {
   color: var(--color-text-secondary);
+}
+.role-node--vacant .role-node-holder {
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 /* Cards-grid variant — same tile, taller breathing room. */
@@ -936,17 +966,18 @@
    "what kind of role is this" at a glance outside the chart's banded
    layout. Tone token differs by type; founder uses warmth to align
    with the snapshot stat highlight. */
+/* Authority pill — top-right of the role card's head row. v2 layout
+   uses flex flow (was absolute) so it sits cleanly next to the title
+   without overlapping long titles. */
 .role-node-pill {
-  position: absolute;
-  top: 6px;
-  right: 8px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  height: 16px;
-  padding: 0 6px;
+  height: 18px;
+  padding: 0 8px;
   border-radius: 999px;
   font-family: var(--font-sans);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;

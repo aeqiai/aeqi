@@ -91,50 +91,54 @@ export default function RoleNode({
       style={style}
       aria-label={`${role.title || "Untitled role"} — ${occupant.label}`}
     >
-      <span className="role-node-avatar" aria-hidden>
-        {isVacant ? (
-          <span className="role-node-avatar-vacant">
-            <svg
-              width={AVATAR_SIZE - 8}
-              height={AVATAR_SIZE - 8}
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-            >
-              <circle cx="7" cy="5" r="2.4" strokeWidth="1.2" />
-              <path d="M2.5 11.5 C3.5 9 10.5 9 11.5 11.5" strokeWidth="1.2" strokeLinecap="round" />
-            </svg>
-          </span>
-        ) : isHuman ? (
-          <RoundAvatar
-            name={occupant.label}
-            src={role.occupant_avatar_url ?? null}
-            size={AVATAR_SIZE}
-          />
-        ) : isTrust ? (
-          <span className="role-node-avatar-trust">
-            <Landmark size={AVATAR_SIZE - 12} strokeWidth={1.6} />
-          </span>
-        ) : isAgent ? (
-          <span className="role-node-avatar-agent">
-            <Bot size={AVATAR_SIZE - 12} strokeWidth={1.6} />
-          </span>
-        ) : null}
-      </span>
-      <span className="role-node-body">
+      {/* Top half — canonical role identity. Title is the primary
+         signal (what the seat IS); pill carries the authority tier
+         (Director / Operator / Advisor). Both stay with the seat
+         even when the occupant rotates. */}
+      <span className="role-node-head">
         <span className="role-node-title">{role.title || "Untitled"}</span>
-        <span className="role-node-occupant">
-          {/* "Held by X" makes the relation between role and holder
-             explicit — three distinct pieces of info on the card:
-             role title (what the seat IS), holder identity (WHO sits
-             in it), and role type via the pill (what authority it
-             carries). The verb keeps identity visually adjacent to
-             the avatar that shows the same person. */}
-          {role.occupant_kind === "vacant" ? "Seat open" : <>Held by {occupant.label}</>}
+        <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
+          {pillLabel(role)}
         </span>
       </span>
-      <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
-        {pillLabel(role)}
+      {/* Bottom half — who currently holds the seat. Avatar + name;
+         "Seat open" + dashed silhouette when vacant. */}
+      <span className="role-node-foot">
+        <span className="role-node-avatar" aria-hidden>
+          {isVacant ? (
+            <span className="role-node-avatar-vacant">
+              <svg
+                width={AVATAR_SIZE - 8}
+                height={AVATAR_SIZE - 8}
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+              >
+                <circle cx="7" cy="5" r="2.4" strokeWidth="1.2" />
+                <path
+                  d="M2.5 11.5 C3.5 9 10.5 9 11.5 11.5"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+          ) : isHuman ? (
+            <RoundAvatar
+              name={occupant.label}
+              src={role.occupant_avatar_url ?? null}
+              size={AVATAR_SIZE}
+            />
+          ) : isTrust ? (
+            <span className="role-node-avatar-trust">
+              <Landmark size={AVATAR_SIZE - 12} strokeWidth={1.6} />
+            </span>
+          ) : isAgent ? (
+            <span className="role-node-avatar-agent">
+              <Bot size={AVATAR_SIZE - 12} strokeWidth={1.6} />
+            </span>
+          ) : null}
+        </span>
+        <span className="role-node-holder">{isVacant ? "Seat open" : occupant.label}</span>
       </span>
     </button>
   );
