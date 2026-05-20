@@ -473,17 +473,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.events-overview-row-badge {
-  font-family: var(--font-sans);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--color-accent);
-  text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--color-accent-bg, rgba(0, 0, 0, 0.06));
-}
 .events-overview-row-pattern {
   font-family: var(--font-sans);
   font-size: 11px;

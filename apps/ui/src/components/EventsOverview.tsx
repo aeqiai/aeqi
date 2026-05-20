@@ -145,7 +145,7 @@ function OverviewRow({
             aria-hidden
           />
           <span className="events-overview-row-name">{event.name}</span>
-          {isGlobal && <span className="events-overview-row-badge">{SCOPE_LABEL.global}</span>}
+          {isGlobal && <span className="scope-chip scope-chip--global">{SCOPE_LABEL.global}</span>}
           <span className="events-overview-row-pattern">{event.pattern}</span>
           <span className="events-overview-row-spacer" />
           <span className="events-overview-row-fires">
