@@ -101,45 +101,32 @@ export default function RoleNode({
           {pillLabel(role)}
         </span>
       </span>
-      {/* Bottom half — who currently holds the seat. Avatar + name;
-         "Seat open" + dashed silhouette when vacant. */}
-      <span className="role-node-foot">
-        <span className="role-node-avatar" aria-hidden>
-          {isVacant ? (
-            <span className="role-node-avatar-vacant">
-              <svg
-                width={AVATAR_SIZE - 8}
-                height={AVATAR_SIZE - 8}
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-              >
-                <circle cx="7" cy="5" r="2.4" strokeWidth="1.2" />
-                <path
-                  d="M2.5 11.5 C3.5 9 10.5 9 11.5 11.5"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-          ) : isHuman ? (
-            <RoundAvatar
-              name={occupant.label}
-              src={role.occupant_avatar_url ?? null}
-              size={AVATAR_SIZE}
-            />
-          ) : isTrust ? (
-            <span className="role-node-avatar-trust">
-              <Landmark size={AVATAR_SIZE - 12} strokeWidth={1.6} />
-            </span>
-          ) : isAgent ? (
-            <span className="role-node-avatar-agent">
-              <Bot size={AVATAR_SIZE - 12} strokeWidth={1.6} />
-            </span>
-          ) : null}
+      {/* Bottom half — who currently holds the seat. Skipped entirely
+         when vacant (the seat title in the top half already says
+         everything; "Seat open" prose + dashed silhouette was visual
+         noise on cards that intentionally have no occupant). */}
+      {!isVacant && (
+        <span className="role-node-foot">
+          <span className="role-node-avatar" aria-hidden>
+            {isHuman ? (
+              <RoundAvatar
+                name={occupant.label}
+                src={role.occupant_avatar_url ?? null}
+                size={AVATAR_SIZE}
+              />
+            ) : isTrust ? (
+              <span className="role-node-avatar-trust">
+                <Landmark size={AVATAR_SIZE - 12} strokeWidth={1.6} />
+              </span>
+            ) : isAgent ? (
+              <span className="role-node-avatar-agent">
+                <Bot size={AVATAR_SIZE - 12} strokeWidth={1.6} />
+              </span>
+            ) : null}
+          </span>
+          <span className="role-node-holder">{occupant.label}</span>
         </span>
-        <span className="role-node-holder">{isVacant ? "Seat open" : occupant.label}</span>
-      </span>
+      )}
     </button>
   );
 }
@@ -177,11 +164,22 @@ function pillTone(role: Role): "director" | "advisor" | "operational" {
 function describeOccupant(role: Role, agentName?: string, entityName?: string): { label: string } {
   if (role.occupant_kind === "vacant") return { label: "vacant" };
   if (role.occupant_kind === "agent") {
-    return { label: agentName ?? "an agent" };
+    // Prefer the daemon-store-resolved agent name; fall back to a
+    // truncated agent ID rather than the prose "an agent" — the
+    // identity matters, the indefinite article doesn't.
+    return { label: agentName ?? compactId(role.occupant_id) };
   }
   if (role.occupant_kind === "trust") {
-    return { label: entityName ?? "a TRUST" };
+    return { label: entityName ?? compactId(role.occupant_id) };
   }
   if (role.occupant_name) return { label: role.occupant_name };
-  return { label: "a human" };
+  return { label: compactId(role.occupant_id) };
+}
+
+/** 8…4 truncation for unresolved occupant IDs. Mirrors compactAddress
+ *  used by the inspector so both surfaces show the same ID shape. */
+function compactId(id: string | null | undefined): string {
+  if (!id) return "—";
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 8)}…${id.slice(-4)}`;
 }

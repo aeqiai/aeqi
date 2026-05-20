@@ -891,6 +891,31 @@
   color: var(--color-text-muted);
   font-style: italic;
 }
+/* Charter chip — clickable link to the role's mandate idea. Mirrors
+   the `.role-inspector-holder-link` shape so the inspector reads
+   consistently across its fields, but uses a FileText glyph + arrow
+   to telegraph "this is a document, click opens it." */
+.role-inspector-charter {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: color 0.12s ease;
+  min-width: 0;
+}
+.role-inspector-charter:hover,
+.role-inspector-charter:focus-visible {
+  color: var(--accent);
+}
+.role-inspector-charter-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 .role-inspector-stat {
   font-family: var(--font-display);
   font-size: var(--font-size-md);

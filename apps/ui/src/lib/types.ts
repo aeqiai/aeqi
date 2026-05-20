@@ -530,6 +530,11 @@ export interface Role {
   /** Avatar URL for a human occupant, injected by the platform proxy.
    *  Null when the occupant is an agent, vacant, or the user has no photo. */
   occupant_avatar_url?: string | null;
+  /** Idea ID of this role's charter — the canonical "what this role
+   *  can decide, execute, or delegate" document. Surfaces in the
+   *  RoleInspector Mandate section as a clickable chip linking to the
+   *  idea detail page. Null when the role has no charter yet. */
+  description_idea_id?: string | null;
   role_type: RoleType;
   founder: boolean;
   grants: string[];

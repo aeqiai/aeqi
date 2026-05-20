@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Bot, Copy, Check, Landmark, Pencil, Mail } from "lucide-react";
+import { ArrowRight, Bot, Copy, Check, FileText, Landmark, Pencil, Mail } from "lucide-react";
 import RoundAvatar from "@/components/RoundAvatar";
 import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
+import { api } from "@/lib/api";
 import { formatMediumDate } from "@/lib/i18n";
 
 interface RoleInspectorProps {
@@ -144,6 +145,33 @@ export default function RoleInspector({
     setTimeout(() => setCopiedField((cur) => (cur === fieldId ? null : cur)), 1500);
   };
 
+  // Charter idea — the role's mandate document. The role row carries
+  // `description_idea_id`; the Mandate section renders the idea name
+  // as a clickable chip linking to the idea detail page. Falls back
+  // to the empty-state placeholder when no charter is linked.
+  const charterIdeaId = role.description_idea_id ?? null;
+  const [charterName, setCharterName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!charterIdeaId) {
+      setCharterName(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getIdeasByIds([charterIdeaId])
+      .then((resp) => {
+        if (cancelled) return;
+        const idea = resp.ideas?.find((i) => i.id === charterIdeaId);
+        setCharterName(idea?.name ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setCharterName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [charterIdeaId]);
+
   const isVacant = role.occupant_kind === "vacant";
   const isHuman = role.occupant_kind === "human";
   const isTrust = role.occupant_kind === "trust";
@@ -277,18 +305,30 @@ export default function RoleInspector({
         </Section>
 
         <Section title="Mandate">
-          {/* The section title already names the field — no inner
-              "MANDATE" label or the same word stacks twice. */}
+          {/* Section title names the field — no inner label. The
+              mandate IS the charter idea linked from the role row;
+              the chip renders the idea's name + an outgoing arrow so
+              clicking it lands on the canonical idea detail page
+              (the edit happens THERE, not inline — keeps the role
+              inspector compositional, not a mini-editor). */}
           <Field>
-            <span className="role-inspector-mandate">
-              {/* Mandate is not yet a stored field on Role — until backend
-                  exposes one, surface a placeholder that's honest about it
-                  rather than fabricating prose. The edit pencil goes to
-                  the existing edit page. */}
-              <em className="role-inspector-mandate-empty">
-                No mandate defined yet. Describe what this role can decide, execute, or delegate.
-              </em>
-            </span>
+            {charterIdeaId ? (
+              <Link
+                to={`${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`}
+                className="role-inspector-charter"
+                title="Open charter idea"
+              >
+                <FileText size={13} strokeWidth={1.6} aria-hidden />
+                <span className="role-inspector-charter-name">{charterName ?? "View charter"}</span>
+                <ArrowRight size={12} strokeWidth={1.8} aria-hidden />
+              </Link>
+            ) : (
+              <span className="role-inspector-mandate">
+                <em className="role-inspector-mandate-empty">
+                  No mandate defined yet. Describe what this role can decide, execute, or delegate.
+                </em>
+              </span>
+            )}
             <Link
               to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
               className="role-inspector-copy"
