@@ -421,6 +421,48 @@
   padding: 0 24px 24px;
 }
 
+/* Filter-narrowed empty state — when the entity has agents but the
+   active toolbar filters (status / search) drop the visible set to
+   zero. Mirrors `QuestColumnEmptyState`'s centered icon + title + hint
+   register so the table doesn't collapse into left-aligned prose
+   floating on paper. The elevated card frame gives the slab visible
+   weight even when empty so the table footprint stays stable as the
+   user toggles filters; the centered glyph turns the absence into
+   "no match" feedback instead of dead space. */
+.agents-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-8) var(--space-5);
+  min-height: 200px;
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+.agents-list-empty-icon {
+  color: var(--color-text-muted);
+  opacity: 0.85;
+  margin-bottom: var(--space-1);
+}
+.agents-list-empty-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+}
+.agents-list-empty-hint {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  max-width: 32ch;
+}
+
 /* Agent liveness dot — mirrors `.quest-status-dot` (7px, token colors).
    Three-tone palette tokenised through the canonical `--state-*` family
    so every primitive page reads from the same vocabulary:

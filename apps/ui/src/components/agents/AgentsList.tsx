@@ -1,6 +1,7 @@
 import { useMemo } from "react";
+import { SearchX } from "lucide-react";
 import type { Agent } from "@/lib/types";
-import { EmptyState, Table, type TableColumn } from "../ui";
+import { Table, type TableColumn } from "../ui";
 import AgentAvatar from "../AgentAvatar";
 import { relativeTime } from "../ideas/types";
 import { formatSpendUsd } from "@/lib/spend";
@@ -105,13 +106,20 @@ export default function AgentsList({
     [],
   );
 
+  // Filter-narrowed empty state — entity has agents but the active
+  // filters drop the visible set to zero. Centered icon + title + hint
+  // on the elevated card register, mirroring `QuestColumnEmptyState`
+  // so the table footprint stays weighted as the user toggles chips.
   if (agents.length === 0) {
     return (
-      <div className="ideas-list-body">
-        <EmptyState
-          title="No agents match these filters."
-          description="Drop a chip or clear the search to bring rows back."
-        />
+      <div className="agents-list">
+        <div className="agents-list-empty" role="status">
+          <SearchX size={22} strokeWidth={1.5} className="agents-list-empty-icon" aria-hidden />
+          <p className="agents-list-empty-title">No agents match these filters.</p>
+          <p className="agents-list-empty-hint">
+            Drop a chip or clear the search to bring rows back.
+          </p>
+        </div>
       </div>
     );
   }
