@@ -353,6 +353,17 @@
 .trust-hero-bar-solana[data-verified="true"] {
   color: var(--state-verified);
 }
+/* When the on-chain mirror hasn't materialized, the Solana mark echoes the
+   left-side `data-tone="provisioning"` runtime dot — same `trust-pulse`
+   rhythm, gated on `prefers-reduced-motion: no-preference` so the chain side
+   reads as awaiting registration rather than parked. Reuses the existing
+   keyframe; static color stays --color-text-muted so the pulse rides opacity
+   only, matching the dot's behaviour. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-hero-bar-solana[data-pending="true"] {
+    animation: trust-pulse 1.6s ease-in-out infinite;
+  }
+}
 /* On-chain identity reads as one composed pill: address (interactive,
    denser tint) on the left, modules · roles (quiet metadata, lighter
    tint of the same shape) on the right. The two zones share a single
@@ -426,7 +437,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"]. */
+/* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
+   side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
+   chain mirror). One rhythm, two surfaces — execution + ownership both
+   awaiting work read with the same heartbeat. */
 @keyframes trust-pulse {
   0%,
   100% {

@@ -103,8 +103,9 @@ export default function TrustHeroOverview({
         <span
           className="trust-hero-bar-solana"
           data-verified={trustAddress ? "true" : undefined}
+          data-pending={trustAddress ? undefined : "true"}
           aria-hidden
-          title={trustAddress ? "Verified on Solana" : undefined}
+          title={trustAddress ? "Verified on Solana" : "Awaiting on-chain registration"}
         >
           <SolanaMark size={12} />
         </span>
