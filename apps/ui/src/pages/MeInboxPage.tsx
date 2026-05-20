@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MessageCircleQuestion } from "lucide-react";
+import { CornerUpLeft, MessageCircleQuestion } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -556,6 +556,7 @@ export default function MeInboxPage() {
           className="inbox-awaiting-strip-action"
           onClick={() => composerRef.current?.focus()}
           aria-label="Reply to this decision request"
+          leadingIcon={<CornerUpLeft size={13} strokeWidth={1.8} aria-hidden />}
         >
           Reply
         </Button>
