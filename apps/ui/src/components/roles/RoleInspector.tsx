@@ -146,14 +146,19 @@ export default function RoleInspector({
   };
 
   // Charter idea — the role's mandate document. The role row carries
-  // `description_idea_id`; the Mandate section renders the idea name
-  // as a clickable chip linking to the idea detail page. Falls back
-  // to the empty-state placeholder when no charter is linked.
+  // `description_idea_id`; the Mandate section renders the idea as a
+  // preview card (name + content excerpt + tags) that links to the
+  // canonical idea detail page on click. Falls back to the empty-state
+  // placeholder when no charter is linked.
   const charterIdeaId = role.description_idea_id ?? null;
-  const [charterName, setCharterName] = useState<string | null>(null);
+  const [charter, setCharter] = useState<{
+    name: string;
+    content: string;
+    tags: string[];
+  } | null>(null);
   useEffect(() => {
     if (!charterIdeaId) {
-      setCharterName(null);
+      setCharter(null);
       return;
     }
     let cancelled = false;
@@ -162,15 +167,35 @@ export default function RoleInspector({
       .then((resp) => {
         if (cancelled) return;
         const idea = resp.ideas?.find((i) => i.id === charterIdeaId);
-        setCharterName(idea?.name ?? null);
+        if (idea) {
+          setCharter({
+            name: idea.name ?? "",
+            content: idea.content ?? "",
+            tags: idea.tags ?? [],
+          });
+        } else {
+          setCharter(null);
+        }
       })
       .catch(() => {
-        if (!cancelled) setCharterName(null);
+        if (!cancelled) setCharter(null);
       });
     return () => {
       cancelled = true;
     };
   }, [charterIdeaId]);
+
+  // First-paragraph excerpt — the first ~180 chars, stopped at a
+  // sentence boundary when possible. Keeps the preview card compact
+  // and readable; full body lives on the idea detail page.
+  const charterExcerpt = useMemo(() => {
+    if (!charter?.content) return "";
+    const text = charter.content.trim().replace(/\s+/g, " ");
+    if (text.length <= 180) return text;
+    const cut = text.slice(0, 180);
+    const lastDot = cut.lastIndexOf(". ");
+    return lastDot > 80 ? `${cut.slice(0, lastDot + 1)}` : `${cut}…`;
+  }, [charter]);
 
   const isVacant = role.occupant_kind === "vacant";
   const isHuman = role.occupant_kind === "human";
@@ -305,38 +330,59 @@ export default function RoleInspector({
         </Section>
 
         <Section title="Mandate">
-          {/* Section title names the field — no inner label. The
-              mandate IS the charter idea linked from the role row;
-              the chip renders the idea's name + an outgoing arrow so
-              clicking it lands on the canonical idea detail page
-              (the edit happens THERE, not inline — keeps the role
-              inspector compositional, not a mini-editor). */}
-          <Field>
-            {charterIdeaId ? (
-              <Link
-                to={`${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`}
-                className="role-inspector-charter"
-                title="Open charter idea"
-              >
-                <FileText size={13} strokeWidth={1.6} aria-hidden />
-                <span className="role-inspector-charter-name">{charterName ?? "View charter"}</span>
-                <ArrowRight size={12} strokeWidth={1.8} aria-hidden />
-              </Link>
-            ) : (
+          {/* The mandate IS the charter idea linked from the role row.
+              Renders as a preview CARD (icon + name + first-paragraph
+              excerpt + tag chips) that links to the canonical idea
+              detail page on click — edits happen THERE, not inline.
+              Keeps the role inspector compositional rather than a
+              mini-editor. */}
+          {charterIdeaId ? (
+            <Link
+              to={`${basePath}/ideas/${encodeURIComponent(charterIdeaId)}`}
+              className="role-inspector-charter-card"
+              title="Open charter idea"
+            >
+              <div className="role-inspector-charter-card-head">
+                <FileText size={14} strokeWidth={1.6} aria-hidden />
+                <span className="role-inspector-charter-card-name">
+                  {charter?.name ?? "Loading…"}
+                </span>
+                <ArrowRight
+                  size={13}
+                  strokeWidth={1.8}
+                  className="role-inspector-charter-card-arrow"
+                  aria-hidden
+                />
+              </div>
+              {charterExcerpt && (
+                <p className="role-inspector-charter-card-excerpt">{charterExcerpt}</p>
+              )}
+              {charter?.tags && charter.tags.length > 0 && (
+                <div className="role-inspector-charter-card-tags">
+                  {charter.tags.slice(0, 4).map((tag) => (
+                    <span key={tag} className="role-inspector-charter-card-tag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Link>
+          ) : (
+            <Field>
               <span className="role-inspector-mandate">
                 <em className="role-inspector-mandate-empty">
                   No mandate defined yet. Describe what this role can decide, execute, or delegate.
                 </em>
               </span>
-            )}
-            <Link
-              to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
-              className="role-inspector-copy"
-              title="Edit role"
-            >
-              <Pencil size={12} strokeWidth={1.6} />
-            </Link>
-          </Field>
+              <Link
+                to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
+                className="role-inspector-copy"
+                title="Edit role"
+              >
+                <Pencil size={12} strokeWidth={1.6} />
+              </Link>
+            </Field>
+          )}
         </Section>
 
         <Section title="Authority">

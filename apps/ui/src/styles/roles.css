@@ -891,30 +891,80 @@
   color: var(--color-text-muted);
   font-style: italic;
 }
-/* Charter chip — clickable link to the role's mandate idea. Mirrors
-   the `.role-inspector-holder-link` shape so the inspector reads
-   consistently across its fields, but uses a FileText glyph + arrow
-   to telegraph "this is a document, click opens it." */
-.role-inspector-charter {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* Charter preview card — the role's mandate rendered as a clickable
+   card with the idea name + first-paragraph excerpt + tag chips.
+   Click lands on the canonical idea detail page; editing happens
+   there. Hover surface lifts subtly to telegraph clickability without
+   competing with the inspector's other fields. */
+.role-inspector-charter-card {
+  display: block;
+  padding: 12px 14px;
+  background: var(--color-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   text-decoration: none;
-  font-size: var(--font-size-sm);
-  transition: color 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease;
+}
+.role-inspector-charter-card:hover,
+.role-inspector-charter-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.role-inspector-charter-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
-.role-inspector-charter:hover,
-.role-inspector-charter:focus-visible {
-  color: var(--accent);
-}
-.role-inspector-charter-name {
+.role-inspector-charter-card-name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+.role-inspector-charter-card-arrow {
+  color: var(--color-text-muted);
+  transition: transform 0.12s ease;
+}
+.role-inspector-charter-card:hover .role-inspector-charter-card-arrow,
+.role-inspector-charter-card:focus-visible .role-inspector-charter-card-arrow {
+  color: var(--accent);
+  transform: translateX(2px);
+}
+.role-inspector-charter-card-excerpt {
+  margin: 8px 0 0 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+.role-inspector-charter-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.role-inspector-charter-card-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 .role-inspector-stat {
   font-family: var(--font-display);
