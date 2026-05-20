@@ -232,7 +232,9 @@ export default function RoleInspector({
         </Section>
 
         <Section title="Mandate">
-          <Field label="Mandate">
+          {/* The section title already names the field — no inner
+              "MANDATE" label or the same word stacks twice. */}
+          <Field>
             <span className="role-inspector-mandate">
               {/* Mandate is not yet a stored field on Role — until backend
                   exposes one, surface a placeholder that's honest about it
@@ -277,9 +279,11 @@ export default function RoleInspector({
             </Field>
           )}
 
-          {/* Top-of-tree directors don't report up; they ARE the apex. */}
+          {/* Top-of-tree directors don't report up; they ARE the apex.
+              "Scope" instead of "Authority" so we don't stack the same
+              word twice inside the Authority section. */}
           {parentRoles.length === 0 && role.role_type === "director" && (
-            <Field label="Authority">
+            <Field label="Scope">
               <span className="role-inspector-meta">Root authority</span>
             </Field>
           )}
@@ -332,14 +336,17 @@ function Section({ title, children }: SectionProps) {
 }
 
 interface FieldProps {
-  label: string;
+  /** Optional label. When omitted, the field renders bare — useful when
+   * the section title already names the field (Mandate section's
+   * single Mandate field, etc.) so we don't stack the same word twice. */
+  label?: string;
   children: React.ReactNode;
 }
 
 function Field({ label, children }: FieldProps) {
   return (
     <div className="role-inspector-field">
-      <span className="role-inspector-field-label">{label}</span>
+      {label && <span className="role-inspector-field-label">{label}</span>}
       <div className="role-inspector-field-value">{children}</div>
     </div>
   );
