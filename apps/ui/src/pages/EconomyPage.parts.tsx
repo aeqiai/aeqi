@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
-import { Badge, Button, EmptyState, Loading, PageSection } from "@/components/ui";
+import { Button, EmptyState, Loading, PageSection } from "@/components/ui";
 import type { Trust } from "@/lib/types";
 import styles from "./EconomyPage.module.css";
 
@@ -52,9 +52,17 @@ export function TrustDirectory({
                 </span>
               </button>
               <span className={styles.trustCardFoot}>
-                <Badge variant={trust.public ? "success" : "muted"} size="sm">
-                  {trust.public ? "Public" : "Private"}
-                </Badge>
+                <span className={styles.trustStatus}>
+                  <span
+                    className={`quest-status-dot quest-status-dot--${
+                      trust.public ? "done" : "backlog"
+                    }`}
+                    aria-hidden
+                  />
+                  <span className={styles.trustStatusLabel}>
+                    {trust.public ? "Public" : "Private"}
+                  </span>
+                </span>
                 {trust.public && (
                   <Link to={`/${encodeURIComponent(trust.id)}`} className={styles.publicLink}>
                     Profile

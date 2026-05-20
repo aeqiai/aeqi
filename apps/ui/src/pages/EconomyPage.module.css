@@ -180,6 +180,21 @@
   min-width: 0;
 }
 
+.trustStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.trustStatusLabel {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
 .publicLink {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
