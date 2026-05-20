@@ -11,7 +11,7 @@ import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionR
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
 import { useWebSocketChat } from "@/components/session/useWebSocketChat";
-import { Badge, IconButton, Loading, Tooltip } from "@/components/ui";
+import { Badge, Button, Loading, Tooltip } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 import type { Message, SessionInfo } from "@/components/session/types";
@@ -439,25 +439,30 @@ export default function MeInboxPage() {
 
     const headerExtras = (
       <>
-        <IconButton
+        <Button
+          variant="ghost"
+          size="sm"
           className="inbox-detail-back"
           onClick={() => setSelectedId(null)}
           aria-label="Back to inbox list"
+          leadingIcon={
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M7.5 2L3 6l4.5 4" />
+            </svg>
+          }
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M7.5 2L3 6l4.5 4" />
-          </svg>
-        </IconButton>
+          Back
+        </Button>
         <button
           type="button"
           className="inbox-detail-header-open"
@@ -482,15 +487,19 @@ export default function MeInboxPage() {
     );
 
     const archiveButton = (
-      <Tooltip content={dismissAvailable === false ? "Coming soon" : "Archive"}>
-        <IconButton
-          className="sidebar-row-action-btn inbox-archive-btn"
+      <Tooltip content={dismissAvailable === false ? "Coming soon" : "Archive this thread"}>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="inbox-archive-btn"
           onClick={() => void handleDismiss()}
-          disabled={dismissing || dismissAvailable === false || dismissAvailable === null}
+          disabled={dismissAvailable === false || dismissAvailable === null}
+          loading={dismissing}
           aria-label={dismissAvailable === false ? "Archive (coming soon)" : "Archive"}
+          leadingIcon={<ArchiveIcon />}
         >
-          <ArchiveIcon />
-        </IconButton>
+          Archive
+        </Button>
       </Tooltip>
     );
 
