@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Copy, Check, Pencil, Mail } from "lucide-react";
-import BlockAvatar from "@/components/BlockAvatar";
+import { ArrowRight, Bot, Copy, Check, Pencil, Mail } from "lucide-react";
 import RoundAvatar from "@/components/RoundAvatar";
 import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -44,14 +43,6 @@ export default function RoleInspector({
   const agentNamesById = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of agents) m.set(a.id, a.name);
-    return m;
-  }, [agents]);
-
-  const agentAvatarsById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const a of agents) {
-      if (a.avatar) m.set(a.id, a.avatar);
-    }
     return m;
   }, [agents]);
 
@@ -139,7 +130,6 @@ export default function RoleInspector({
 
   const isVacant = role.occupant_kind === "vacant";
   const isHuman = role.occupant_kind === "human";
-  const isAgent = role.occupant_kind === "agent";
   // Role-type label — see RoleNode.pillLabel for why `founder` is NOT
   // a distinct user-facing tier and why "operational" surfaces as
   // "Operator" rather than the adjective form.
@@ -149,9 +139,6 @@ export default function RoleInspector({
       : role.role_type === "advisor"
         ? "ADVISOR"
         : "OPERATOR";
-  const agentAvatarUrl =
-    isAgent && role.occupant_id ? (agentAvatarsById.get(role.occupant_id) ?? null) : null;
-
   return (
     <aside className="role-inspector" aria-label="Selected role">
       {/* Header */}
@@ -168,24 +155,10 @@ export default function RoleInspector({
               src={role.occupant_avatar_url ?? null}
               size={48}
             />
-          ) : agentAvatarUrl ? (
-            <img
-              src={agentAvatarUrl}
-              alt=""
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "var(--radius-sm)",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
           ) : (
-            <BlockAvatar
-              name={occupantDisplayName ?? role.title}
-              size={48}
-              shape="rounded-square"
-            />
+            <span className="role-inspector-avatar-agent">
+              <Bot size={28} strokeWidth={1.5} />
+            </span>
           )}
         </div>
         <div className="role-inspector-titles">

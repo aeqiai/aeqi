@@ -24,12 +24,12 @@ export const GRANT_CATALOG = [
   {
     id: "governance.read",
     label: "View governance",
-    desc: "No proposals yet. Once a Role files one, it'll appear here.",
+    desc: "Read proposals, votes, and treasury motions",
   },
   {
     id: "settings.modify",
     label: "Modify settings",
-    desc: "Change Company name, billing, integrations",
+    desc: "Change TRUST name, billing, integrations",
   },
 ] as const;
 

@@ -10,7 +10,7 @@ import { Button, Input, Select } from "@/components/ui";
 
 const ROLE_TYPE_OPTIONS: { value: RoleType; label: string; desc: string }[] = [
   { value: "director", label: "Director", desc: "Full authority — all grants by default" },
-  { value: "operational", label: "Operational", desc: "Day-to-day execution role" },
+  { value: "operational", label: "Operator", desc: "Day-to-day execution role" },
   { value: "advisor", label: "Advisor", desc: "Read-only advisory access" },
 ];
 

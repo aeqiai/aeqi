@@ -81,6 +81,20 @@
   border: 1px dashed var(--border-strong, var(--border));
   color: var(--color-text-muted);
 }
+/* Agent avatar — solid charcoal rounded-square frame holding a robot
+   glyph. Same shape rule as the rest of the app (agents = rounded
+   square) but the inner mark is a literal Bot, not an identicon —
+   agents are software, the visual should not invite anthropomorphism. */
+.role-node-avatar-agent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--btn-primary-text);
+}
 
 .role-node--vacant {
   background: var(--color-card);
@@ -469,6 +483,19 @@
   font-family: var(--font-display);
   font-size: 20px;
   line-height: 1;
+}
+/* Inspector agent avatar — same charcoal rounded-square + Bot glyph
+   as the chart card. The 48px size matches the inspector header
+   scale. */
+.role-inspector-avatar-agent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--btn-primary-text);
 }
 .role-inspector-titles {
   display: flex;

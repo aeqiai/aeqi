@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { Bot } from "lucide-react";
 import type { Role } from "@/lib/types";
-import BlockAvatar from "../BlockAvatar";
 import RoundAvatar from "../RoundAvatar";
 
 export interface RoleNodeProps {
@@ -23,17 +22,18 @@ const AVATAR_SIZE = 32;
  * Canonical role tile — used by the org chart and the cards view so the
  * two surfaces share one visual language.
  *
- * Avatar render contract follows the app-wide rule (UserAvatar / AgentAvatar
- * / BlockAvatar primitives):
+ * Avatar render contract by occupant kind:
  *
- *   human   → RoundAvatar (circle photo, hue-tinted initials fallback)
- *   agent   → block identicon (rounded-square) or rounded-square photo
- *   vacant  → dashed circle silhouette — seat is open, no occupant shape yet
+ *   human   → RoundAvatar (circle photo or hue-tinted initials)
+ *   agent   → Bot icon in a rounded-square frame (ALWAYS — agents are
+ *             software, not personas; a photo would imply human-likeness
+ *             that the AEQI model deliberately doesn't claim)
+ *   vacant  → dashed circle silhouette
  *
- * `BlockAvatar` is the canonical agent fallback; its default shape is
- * rounded-square so it matches the rest of the app's agent treatment.
- * Don't wrap any of these in a circular monogram — that's the bug the
- * old monogram path was creating (rounded-square inside circle).
+ * The agent-always-robot rule is intentional. Hash-based identicons and
+ * agent profile photos both invite users to anthropomorphise; a literal
+ * robot glyph keeps the line between human and software legible at a
+ * glance.
  */
 export default function RoleNode({
   role,
@@ -49,9 +49,9 @@ export default function RoleNode({
   const isVacant = role.occupant_kind === "vacant";
   const isAgent = role.occupant_kind === "agent";
   const isHuman = role.occupant_kind === "human";
-  const [imgErrored, setImgErrored] = useState(false);
-
-  const agentImageUrl = isAgent && agentAvatar && !imgErrored ? agentAvatar : null;
+  // agentAvatar URL is intentionally NOT used — see avatar-contract doc
+  // comment above. Keeping the prop signature stable for callers.
+  void agentAvatar;
 
   const classNames = [
     "role-node",
@@ -93,22 +93,11 @@ export default function RoleNode({
             src={role.occupant_avatar_url ?? null}
             size={AVATAR_SIZE}
           />
-        ) : agentImageUrl ? (
-          <img
-            src={agentImageUrl}
-            alt=""
-            onError={() => setImgErrored(true)}
-            style={{
-              width: AVATAR_SIZE,
-              height: AVATAR_SIZE,
-              borderRadius: "var(--radius-sm)",
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-        ) : (
-          <BlockAvatar name={occupant.label} size={AVATAR_SIZE} shape="rounded-square" />
-        )}
+        ) : isAgent ? (
+          <span className="role-node-avatar-agent">
+            <Bot size={AVATAR_SIZE - 12} strokeWidth={1.6} />
+          </span>
+        ) : null}
       </span>
       <span className="role-node-body">
         <span className="role-node-title">{role.title || "Untitled"}</span>
