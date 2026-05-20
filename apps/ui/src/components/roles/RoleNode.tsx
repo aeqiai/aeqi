@@ -101,7 +101,15 @@ export default function RoleNode({
       </span>
       <span className="role-node-body">
         <span className="role-node-title">{role.title || "Untitled"}</span>
-        <span className="role-node-occupant">{occupant.label}</span>
+        <span className="role-node-occupant">
+          {/* "Held by X" makes the relation between role and holder
+             explicit — three distinct pieces of info on the card:
+             role title (what the seat IS), holder identity (WHO sits
+             in it), and role type via the pill (what authority it
+             carries). The verb keeps identity visually adjacent to
+             the avatar that shows the same person. */}
+          {role.occupant_kind === "vacant" ? "Seat open" : <>Held by {occupant.label}</>}
+        </span>
       </span>
       <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
         {pillLabel(role)}
