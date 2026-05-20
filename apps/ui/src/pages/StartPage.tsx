@@ -6,6 +6,7 @@ import {
   Store,
   ArrowUpRight,
   ArrowRight,
+  ArrowDown,
   Users,
   Settings,
 } from "lucide-react";
@@ -147,10 +148,15 @@ export default function StartPage() {
             First-touch (no entities yet) has no status to snapshot —
             "0 TRUSTs · Inbox clear · Free plan" reads as a deficit
             ledger, not a welcome. Suppress it until the user has at
-            least one TRUST; PersonalTrustCard's empty state below
-            carries the create-your-first-TRUST affordance without
-            competing chrome. */}
-        {entities.length > 0 && (
+            least one TRUST. The empty-state hint chip (--hint variant)
+            takes the same bottom-left anchor so the hero composition
+            stays balanced — without it, the greeting and gear float at
+            top with no answering weight in the bottom-left, and the
+            mask-faded foreground reads as unfinished rather than
+            quiet. Forward-pointing copy + downward arrow hand the eye
+            off to PersonalTrustCard's create-your-first-TRUST CTA
+            below instead of duplicating it. */}
+        {entities.length > 0 ? (
           <div className="home-hero-pill" role="status" aria-label="Account snapshot">
             <span className="home-hero-pill-stat">{trustsLabel}</span>
             <span className="home-hero-pill-sep" aria-hidden>
@@ -167,6 +173,11 @@ export default function StartPage() {
               ·
             </span>
             <span className="home-hero-pill-stat">{planLabel} plan</span>
+          </div>
+        ) : (
+          <div className="home-hero-pill home-hero-pill--hint" aria-hidden="true">
+            <span className="home-hero-pill-stat">Let&rsquo;s set up your first TRUST</span>
+            <ArrowDown size={12} strokeWidth={1.8} aria-hidden="true" />
           </div>
         )}
       </header>

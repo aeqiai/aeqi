@@ -7915,6 +7915,19 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   color: var(--color-text-muted);
   opacity: 0.55;
 }
+/* First-touch hint chip — same white-pill chrome as `.home-hero-pill` so
+   the bottom-left anchor stays consistent across empty and populated
+   states, but reframes the slot from "status snapshot" to "next step".
+   The downward arrow hands the eye off to PersonalTrustCard's CTA
+   directly below, avoiding a duplicate verb. Quieter ink color than
+   the populated pill — this is a hint, not a stat row. */
+.home-hero-pill--hint {
+  gap: 8px;
+  color: var(--color-text-muted);
+}
+.home-hero-pill--hint > svg {
+  color: var(--color-text-secondary);
+}
 
 /* Card shell — shared by trust card, inbox, economy, and thesis.
    Generous padding (28px) so every card reads as a deliberate
