@@ -135,3 +135,85 @@
 .equity-funding-declared__metaItem--mono {
   font-family: var(--font-mono);
 }
+
+/* Activate CTA sits on the right-hand side of the declared-row head so
+   the badge stays adjacent to the kind label and the action reads as
+   "what's available NOW" without competing with the meta strip below. */
+.equity-funding-declared__activateBtn {
+  margin-left: auto;
+}
+
+/* Activation modal — explains the kind-specific path, surfaces the
+   request id, holds the Activate / Cancel actions. Lives inside the
+   shared Modal primitive's surface; styles here are content-only. */
+.equity-funding-activate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: min(440px, 90vw);
+}
+
+.equity-funding-activate__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.equity-funding-activate__requestId {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.equity-funding-activate__headline {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.equity-funding-activate__explainer {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.equity-funding-activate__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-md);
+}
+
+.equity-funding-activate__meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.equity-funding-activate__meta dt {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.equity-funding-activate__meta dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.equity-funding-activate__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

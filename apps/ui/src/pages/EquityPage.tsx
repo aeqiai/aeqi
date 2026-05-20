@@ -6,13 +6,12 @@ import { EquityShareControls } from "@/components/EquityShareControls";
 import { EquityVestingControls } from "@/components/EquityVestingControls";
 import EquityFundingRoundControl from "@/components/EquityFundingRoundControl";
 import { EquityPrefillProvider, useEquityPrefill } from "@/components/equity/equityPrefillContext";
+import { MintIdentitySection } from "@/components/equity/MintIdentitySection";
+import { VestingSection } from "@/components/equity/VestingSection";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
-import { formatShortDate } from "@/lib/i18n";
-import type { TokenHolder, VestingPositionWithPda } from "@/solana";
+import type { TokenHolder } from "@/solana";
 import {
-  Badge,
-  DetailField,
   EmptyState,
   Loading,
   Menu,
@@ -41,9 +40,15 @@ import {
  *      with recipient + total/claimed/end_time. Empty when no
  *      positions exist; silent when the vesting module isn't deployed.
  *
- * Anti-scope: no write actions (mint, transfer, burn, vesting create or
- * claim), no bonding-curve UI (Overview's genesis-curve section owns
- * that), no share-class editor.
+ * Iter-3 added vesting Claim (per-row jade-tone button, claimable
+ * computed client-side from the on-chain schedule, posts to an honest
+ * stub of `/api/solana/vesting-claim`), funding-round Activate CTAs
+ * (modal on Pending rows, posts to `/api/solana/funding-activate`),
+ * and a polished MintIdentity hero (avatar + explorer link + 3-column
+ * MetricGrid). The bonding-curve chart hover crosshair lives in
+ * `EquityGenesisCurveSection.tsx`.
+ *
+ * Anti-scope: no share-class editor.
  */
 export default function EquityPage({ trustId }: { trustId: string }) {
   const entities = useDaemonStore((s) => s.entities);
@@ -169,7 +174,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
           <EquityShareControls trustId={trustId} />
           <EquityGenesisCurveSection trustId={trustId} />
           <EquityFundingRoundControl trustId={trustId} declaredRounds={fundingRequests ?? []} />
-          <VestingSection positions={vesting ?? []} decimals={mint.decimals} />
+          <VestingSection trustId={trustId} positions={vesting ?? []} decimals={mint.decimals} />
           <EquityVestingControls trustId={trustId} holders={holders ?? []} />
         </PageBody>
       </Page>
@@ -180,48 +185,6 @@ export default function EquityPage({ trustId }: { trustId: string }) {
 /* ────────────────────────────────────────────────────────────────── */
 /* Sections                                                            */
 /* ────────────────────────────────────────────────────────────────── */
-
-function MintIdentitySection({
-  mintAddress,
-  supply,
-  decimals,
-  maxSupplyCap,
-}: {
-  mintAddress: string;
-  supply: bigint;
-  decimals: number;
-  maxSupplyCap: { toString(): string } | bigint;
-}) {
-  const capString = bnLikeToString(maxSupplyCap);
-  const isUncapped = capString === "0";
-
-  return (
-    <PageSection title="Mint">
-      <DetailField label="Mint address">
-        <CopyableMono full={mintAddress} display={shortAddress(mintAddress)} />
-      </DetailField>
-      <DetailField label="Supply">
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatBaseUnits(supply, decimals)}
-        </span>
-      </DetailField>
-      <DetailField label="Max supply cap">
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {isUncapped ? (
-            <Badge variant="muted" size="sm">
-              uncapped
-            </Badge>
-          ) : (
-            formatBaseUnits(BigInt(capString), decimals)
-          )}
-        </span>
-      </DetailField>
-      <DetailField label="Decimals">
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>{decimals}</span>
-      </DetailField>
-    </PageSection>
-  );
-}
 
 function CapTableSection({
   holders,
@@ -336,94 +299,6 @@ function CapTableSection({
   );
 }
 
-function VestingSection({
-  positions,
-  decimals,
-}: {
-  positions: VestingPositionWithPda[];
-  decimals: number;
-}) {
-  // Sort by end_time ascending so the soonest-to-fully-vest sits at the
-  // top. Equal end_time falls back to recipient base58 for stability.
-  const rows = useMemo(
-    () =>
-      [...positions].sort((a, b) => {
-        const ae = bnLikeToBigInt(a.account.endTime);
-        const be = bnLikeToBigInt(b.account.endTime);
-        if (ae !== be) return ae < be ? -1 : 1;
-        return a.account.recipient.toBase58().localeCompare(b.account.recipient.toBase58());
-      }),
-    [positions],
-  );
-
-  const columns: Array<TableColumn<VestingPositionWithPda>> = [
-    {
-      key: "recipient",
-      header: "Recipient",
-      cell: (row) => (
-        <CopyableMono
-          full={row.account.recipient.toBase58()}
-          display={shortAddress(row.account.recipient.toBase58())}
-        />
-      ),
-    },
-    {
-      key: "total",
-      header: "Total",
-      align: "end",
-      cell: (row) => (
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatBaseUnits(bnLikeToBigInt(row.account.totalAmount), decimals)}
-        </span>
-      ),
-    },
-    {
-      key: "claimed",
-      header: "Claimed",
-      align: "end",
-      cell: (row) => (
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatBaseUnits(bnLikeToBigInt(row.account.claimedAmount), decimals)}
-        </span>
-      ),
-    },
-    {
-      key: "endTime",
-      header: "Ends",
-      align: "end",
-      cell: (row) => (
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatUnixTime(bnLikeToBigInt(row.account.endTime))}
-        </span>
-      ),
-    },
-  ];
-
-  return (
-    <PageSection
-      title="Vesting"
-      description={
-        rows.length === 0
-          ? "No vesting positions tied to this mint."
-          : `${rows.length} ${rows.length === 1 ? "position" : "positions"} outstanding.`
-      }
-    >
-      <Table
-        columns={columns}
-        data={rows}
-        rowKey={(row) => row.publicKey.toBase58()}
-        empty={
-          <EmptyState
-            title="No vesting positions"
-            description="Vesting grants tied to the cap-table mint will appear here once issued."
-          />
-        }
-        ariaLabel="Vesting positions"
-      />
-    </PageSection>
-  );
-}
-
 /* ────────────────────────────────────────────────────────────────── */
 /* Helpers                                                             */
 /* ────────────────────────────────────────────────────────────────── */
@@ -462,21 +337,6 @@ function CopyableMono({ full, display }: { full: string; display: string }) {
 function shortAddress(value: string): string {
   if (value.length <= 12) return value;
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
-/**
- * Anchor returns `u64` fields as either `bigint` (Anchor 0.31+ on web)
- * or `BN` (older runtimes); the spl-token `Mint.supply` is always
- * `bigint`. Coerce to a single canonical `bigint`.
- */
-function bnLikeToBigInt(value: bigint | { toString(): string }): bigint {
-  if (typeof value === "bigint") return value;
-  return BigInt(value.toString());
-}
-
-function bnLikeToString(value: bigint | { toString(): string }): string {
-  if (typeof value === "bigint") return value.toString();
-  return value.toString();
 }
 
 /**
@@ -530,16 +390,4 @@ function formatPercent(amount: bigint, total: bigint): string {
   const whole = basisPoints / 100n;
   const frac = basisPoints % 100n;
   return `${whole.toString()}.${frac.toString().padStart(2, "0")}%`;
-}
-
-/**
- * Format a unix timestamp (seconds, on-chain `i64`) as a short
- * locale-aware date. Returns "—" for sentinel zero (no end set) or any
- * value the i18n helper can't parse.
- */
-function formatUnixTime(seconds: bigint): string {
-  if (seconds === 0n) return "—";
-  const ms = Number(seconds) * 1000;
-  if (!Number.isFinite(ms)) return "—";
-  return formatShortDate(new Date(ms));
 }

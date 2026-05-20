@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, EmptyState, Input, PageSection, Select } from "@/components/ui";
+import { Badge, Button, EmptyState, Input, Modal, PageSection, Select } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { FundingRequestWithPda } from "@/solana";
 import "./EquityFundingRoundControl.css";
@@ -137,7 +137,7 @@ export default function EquityFundingRoundControl({
       title="Funding round"
       description="Declare an on-chain capital raise sourced from a Budget. Activation lands separately."
     >
-      <DeclaredRoundsList rounds={sortedRounds} />
+      <DeclaredRoundsList rounds={sortedRounds} trustId={trustId} />
       <form className="equity-funding-form" onSubmit={handleSubmit}>
         <div className="equity-funding-row">
           <label className="equity-funding-label" htmlFor="equity-funding-kind">
@@ -271,7 +271,138 @@ function statusBadgeFor(status: number): {
   }
 }
 
-function DeclaredRoundsList({ rounds }: { rounds: FundingRequestWithPda[] }) {
+/* ────────────────────────────────────────────────────────────────── */
+/* Activation modal — explains the kind-specific activation paths,    */
+/* posts to the (honest-stub) `/api/solana/funding-activate` endpoint */
+/* and surfaces success/failure inline. Iter-3 lands the UI; backend  */
+/* route name is the contract a follow-up wire-up will fulfil.        */
+/* ────────────────────────────────────────────────────────────────── */
+
+const ACTIVATION_KIND_COPY: Record<number, { headline: string; explainer: string }> = {
+  0: {
+    headline: "Open the deposit window",
+    explainer:
+      "Commitment sale activation mints the escrow ATA at target_quote and accepts contributor deposits until the target is filled. Pricing is fixed at the declared asset_amount / target_quote ratio.",
+  },
+  1: {
+    headline: "Boot a fresh bonding curve",
+    explainer:
+      "Bonding-curve activation deploys a new BondingCurve PDA (separate from the genesis curve) with the round's parameters. Buy/Sell against the curve unlocks after this lands.",
+  },
+  2: {
+    headline: "Open pro-rata redemption",
+    explainer:
+      "Exit activation opens pro-rata redemption from the treasury reserve into the activation quote token. Holders burn shares against the reserve until the round is finalized.",
+  },
+};
+
+function ActivateRoundModal({
+  open,
+  onClose,
+  trustId,
+  round,
+}: {
+  open: boolean;
+  onClose: () => void;
+  trustId: string;
+  round: FundingRequestWithPda | null;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Reset state every time a fresh round opens; closing the modal also
+  // clears, so re-opening for the same row doesn't show stale messaging.
+  const handleClose = () => {
+    setResult(null);
+    setSubmitting(false);
+    onClose();
+  };
+
+  if (!round) return null;
+  const kind = Number(round.account.kind);
+  const copy = ACTIVATION_KIND_COPY[kind] ?? {
+    headline: `Activate kind ${kind}`,
+    explainer: "Activation path for this round kind is not documented yet.",
+  };
+  const requestIdHex = fullRequestId(round.account.requestId);
+
+  const handleActivate = async () => {
+    setSubmitting(true);
+    setResult(null);
+    try {
+      const res = await api.fundingActivate({
+        entity_id: trustId,
+        request_id: requestIdHex,
+      });
+      setResult({
+        ok: true,
+        message: `Activated — ${res.signature_b58.slice(0, 12)}…`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setResult({ ok: false, message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Activate round">
+      <div className="equity-funding-activate">
+        <div className="equity-funding-activate__head">
+          <Badge variant="warning" size="sm">
+            {KIND_LABELS[kind] ?? `Kind ${kind}`}
+          </Badge>
+          <span className="equity-funding-activate__requestId" title={requestIdHex}>
+            {formatRequestId(round.account.requestId)}
+          </span>
+        </div>
+        <h3 className="equity-funding-activate__headline">{copy.headline}</h3>
+        <p className="equity-funding-activate__explainer">{copy.explainer}</p>
+        <dl className="equity-funding-activate__meta">
+          <div>
+            <dt>Asset amount</dt>
+            <dd>{formatScaled(bnLikeToBigInt(round.account.assetAmount), ASSET_SCALE)}</dd>
+          </div>
+          <div>
+            <dt>Target quote</dt>
+            <dd>{formatScaled(bnLikeToBigInt(round.account.targetQuote), QUOTE_SCALE)} USDC</dd>
+          </div>
+        </dl>
+        {result && (
+          <div
+            className={
+              result.ok
+                ? "equity-funding-result equity-funding-result-ok"
+                : "equity-funding-result equity-funding-result-err"
+            }
+            role="status"
+          >
+            {result.ok ? `✓ ${result.message}` : result.message}
+          </div>
+        )}
+        <div className="equity-funding-activate__actions">
+          <Button variant="ghost" size="md" onClick={handleClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="md" loading={submitting} onClick={handleActivate}>
+            Activate
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function DeclaredRoundsList({
+  rounds,
+  trustId,
+}: {
+  rounds: FundingRequestWithPda[];
+  trustId: string;
+}) {
+  const [activating, setActivating] = useState<FundingRequestWithPda | null>(null);
+
   if (rounds.length === 0) {
     return (
       <div className="equity-funding-declared equity-funding-declared--empty">
@@ -293,6 +424,7 @@ function DeclaredRoundsList({ rounds }: { rounds: FundingRequestWithPda[] }) {
           const assetRaw = bnLikeToBigInt(r.account.assetAmount);
           const quoteRaw = bnLikeToBigInt(r.account.targetQuote);
           const requestId = formatRequestId(r.account.requestId);
+          const isPending = status === 0;
           return (
             <li key={r.publicKey.toBase58()} className="equity-funding-declared__row">
               <div className="equity-funding-declared__head">
@@ -302,6 +434,16 @@ function DeclaredRoundsList({ rounds }: { rounds: FundingRequestWithPda[] }) {
                 <Badge variant={badge.variant} size="sm">
                   {badge.label}
                 </Badge>
+                {isPending && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="equity-funding-declared__activateBtn"
+                    onClick={() => setActivating(r)}
+                  >
+                    Activate…
+                  </Button>
+                )}
               </div>
               <div className="equity-funding-declared__meta">
                 <span className="equity-funding-declared__metaItem">
@@ -321,6 +463,12 @@ function DeclaredRoundsList({ rounds }: { rounds: FundingRequestWithPda[] }) {
           );
         })}
       </ul>
+      <ActivateRoundModal
+        open={activating !== null}
+        onClose={() => setActivating(null)}
+        trustId={trustId}
+        round={activating}
+      />
     </div>
   );
 }

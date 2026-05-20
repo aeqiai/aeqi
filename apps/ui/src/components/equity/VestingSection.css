@@ -1,0 +1,60 @@
+/* VestingSection — claimable column + jade-tinted Claim affordance.
+   Tokens only. */
+
+.vesting-row__recipient {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.vesting-row__num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+
+/* When something is actually claimable, lift the digit colour toward
+   --color-success so the operator's eye lands on the row that has work.
+   When nothing is claimable, render in muted grey so the column doesn't
+   compete with Total/Claimed for attention. */
+.vesting-row__num--live {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.vesting-row__num--muted {
+  color: var(--color-text-muted);
+}
+
+.vesting-row__claim {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+/* Jade-tint the Claim button when claimable > 0. Overrides the primary
+   variant's accent background with --color-success so the affordance
+   reads "settle / release" instead of "the operator's main action".
+   Lives behind a modifier class so the iter-2 primary-variant baseline
+   stays the canonical "primary" everywhere else. */
+.vesting-row__claimBtn--live {
+  --btn-primary-bg: var(--color-success);
+  --btn-primary-bg-hover: var(--color-success);
+  --btn-primary-text: var(--color-text-on-accent);
+}
+
+.vesting-row__result {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  max-width: 220px;
+  text-align: right;
+  word-break: break-word;
+}
+
+.vesting-row__result--ok {
+  color: var(--color-success);
+}
+
+.vesting-row__result--err {
+  color: var(--color-error);
+}

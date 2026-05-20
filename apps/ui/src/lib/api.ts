@@ -887,6 +887,69 @@ export const api = {
     }),
 
   /**
+   * Activate a previously-declared funding round. Three kind-specific
+   * activation paths sit behind one client helper — the kind on the
+   * declared FundingRequest determines which on-chain ix the platform
+   * fires under the hood:
+   *
+   *   - kind 0 (CommitmentSale) → opens the deposit window, mints the
+   *     escrow ATA at `target_quote`, accepts contributions until fill.
+   *   - kind 1 (BondingCurve) → boots a NEW BondingCurve PDA (separate
+   *     from the genesis curve); accepts on-chain Buy/Sell after this.
+   *   - kind 2 (Exit) → opens pro-rata redemption from the treasury
+   *     reserve into the activation quote token.
+   *
+   * Status: HONEST STUB. The platform handler does not exist yet — this
+   * client surfaces a clear error pointing at the missing route name so
+   * downstream sites (the Equity activate-round modal) can render an
+   * accurate diagnostic rather than a generic network error.
+   */
+  fundingActivate: (data: { entity_id: string; request_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      request_id_hex: string;
+      activation_pubkey_b58: string;
+      kind: number;
+    }>("/solana/funding-activate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Claim vested tokens from a VestingPosition. `position_id` is the
+   * hex-encoded 32-byte position id surfaced by `vesting-create`. The
+   * platform handler validates that:
+   *
+   *   - `now >= cliff_time` (cliff has passed)
+   *   - `vested_amount_at(now) > claimed_amount` (something to claim)
+   *   - contribution gate satisfied (`contributionRequired == 0` OR
+   *     `contributionPaid == true`)
+   *
+   * before firing the on-chain `claim_vested` ix. Returns the actual
+   * amount transferred (`claimed_delta`) and the new `claimed_amount`
+   * on the position.
+   *
+   * Status: HONEST STUB. The on-chain `claim_vested` ix EXISTS (see
+   * `programs/aeqi-vesting/src/lib.rs`), but the platform-side route
+   * `/api/solana/vesting-claim` does not. The client surfaces a clear
+   * "route not implemented yet" error pointing at the path so the
+   * Equity vesting-row Claim button can render an accurate diagnostic.
+   */
+  vestingClaim: (data: { entity_id: string; position_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      position_pubkey_b58: string;
+      position_id_hex: string;
+      claimed_delta: number;
+      claimed_amount: number;
+    }>("/solana/vesting-claim", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.
