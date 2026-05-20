@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Lightbulb } from "lucide-react";
 import IdeasToolbar from "./IdeasToolbar";
 import { type IdeasView } from "./IdeasViewPopover";
 import { blockTreeToPlainText } from "../editor/blockEditorContent";
@@ -96,7 +97,18 @@ export default function IdeasTableView({
             {ideas.length === 0 ? (
               <tr>
                 <td colSpan={2 + propertyColumns.length} className="ideas-table-empty">
-                  No ideas match the current filter.
+                  <div className="ideas-table-empty-inner">
+                    <Lightbulb
+                      size={22}
+                      strokeWidth={1.5}
+                      className="ideas-table-empty-icon"
+                      aria-hidden
+                    />
+                    <p className="ideas-table-empty-title">No ideas here yet</p>
+                    <p className="ideas-table-empty-hint">
+                      Capture decisions, mandates, and memories your agents will reuse.
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : (
