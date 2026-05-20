@@ -3934,11 +3934,11 @@
   align-items: center;
   justify-content: center;
   height: 22px;
-  padding: 0 9px;
-  border: 1px solid var(--border-faint);
+  padding: 0 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--color-card-elevated);
-  color: var(--color-text-primary);
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
@@ -3950,11 +3950,14 @@
     background 0.12s ease,
     color 0.12s ease;
 }
-.quest-take-btn:hover,
-.quest-take-btn:focus-visible {
-  border-color: var(--accent);
+.quest-take-btn:hover {
   background: var(--accent-dim);
   color: var(--accent-strong, var(--accent));
+}
+.quest-take-btn:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent-strong, var(--accent));
+  border-color: var(--accent);
   outline: none;
 }
 /* Card timestamps — same readability lift as the list row. */
