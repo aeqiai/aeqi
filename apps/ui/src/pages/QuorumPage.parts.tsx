@@ -26,16 +26,7 @@ import type {
 import { Badge, Button, Inline, Modal, PageSection, Stack, Tooltip } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
 import styles from "./QuorumPage.module.css";
-import {
-  bytesToHex,
-  countdownLabel,
-  roleTypeLabel,
-  shortAddress,
-  shortBytes32,
-  shortHex,
-  voteWindowLabel,
-  voteWindowSeconds,
-} from "./QuorumPage.format";
+import { bytesToHex, countdownLabel, roleTypeLabel, shortHex } from "./QuorumPage.format";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Cell components                                                     */
@@ -307,8 +298,26 @@ export function KpiGrid({ children }: { children: React.ReactNode }) {
  * Full vote tallies as a 3-row "for / against / abstain" table with
  * absolute counts AND percentages. Used in the proposal detail modal
  * where the compact `TallyBars` row-cell is too small to show counts.
+ *
+ * When the proposal's GovernanceConfig is in scope (`config` passed in)
+ * we also render two threshold markers on the "For" row's track:
+ *
+ *   - A `quorumBps` marker — the participation floor at which the chain
+ *     considers the vote executable. Rendered as a hairline-free dashed
+ *     band on the track via a background-image gradient (no 1px border).
+ *   - A `supportBps` marker — the share of cast votes that must vote
+ *     `for` for the proposal to succeed.
+ *
+ * Both markers are positioned via CSS custom properties so the module
+ * keeps the gradient rule and the cell only emits data.
  */
-export function TallyDetail({ proposal }: { proposal: ProposalAccount }) {
+export function TallyDetail({
+  proposal,
+  config,
+}: {
+  proposal: ProposalAccount;
+  config?: GovernanceConfigWithPda;
+}) {
   const forVotes = BigInt(proposal.forVotes.toString());
   const againstVotes = BigInt(proposal.againstVotes.toString());
   const abstainVotes = BigInt(proposal.abstainVotes.toString());
@@ -320,6 +329,12 @@ export function TallyDetail({ proposal }: { proposal: ProposalAccount }) {
     { key: "abstain", label: "Abstain", count: abstainVotes },
   ];
 
+  // Express thresholds as percentages of the FOR-row track. The chain
+  // uses bps over total cast (for the For-row scale), so dividing by 100
+  // produces a 0-100 percent the CSS can position against.
+  const quorumPct = config ? config.account.quorumBps / 100 : null;
+  const supportPct = config ? config.account.supportBps / 100 : null;
+
   return (
     <div className={styles.tallyTable}>
       {rows.map((row) => {
@@ -327,12 +342,32 @@ export function TallyDetail({ proposal }: { proposal: ProposalAccount }) {
         // Drive the bar width through a CSS custom property on the
         // track so the fill rule lives in the module — keeps the audit
         // clean while still letting per-row data drive width.
-        const trackStyle = { "--tally-pct": `${pct}%` } as React.CSSProperties;
+        // CSS custom properties aren't part of the React.CSSProperties
+        // index signature; cast through a string-keyed bag to assign
+        // them without leaking `any` to the rest of the cell.
+        const trackVars: Record<string, string> = { "--tally-pct": `${pct}%` };
+        // Threshold markers only attach to the "for" track — that's the
+        // axis quorum + support are measured on.
+        if (row.key === "for") {
+          if (quorumPct !== null) trackVars["--quorum-pct"] = `${quorumPct}%`;
+          if (supportPct !== null) trackVars["--support-pct"] = `${supportPct}%`;
+        }
+        const trackStyle = trackVars as React.CSSProperties;
         return (
           <RowFragment key={row.key}>
             <span className={styles.tallyKey}>{row.label}</span>
             <div className={styles.tallyTrack} style={trackStyle} aria-hidden="true">
               <div className={styles.tallyFill} data-key={row.key} />
+              {row.key === "for" && quorumPct !== null ? (
+                <Tooltip content={`Quorum threshold · ${quorumPct.toFixed(2)}% participation`}>
+                  <span className={styles.tallyMarker} data-kind="quorum" aria-hidden="true" />
+                </Tooltip>
+              ) : null}
+              {row.key === "for" && supportPct !== null ? (
+                <Tooltip content={`Support threshold · ${supportPct.toFixed(2)}% for-votes`}>
+                  <span className={styles.tallyMarker} data-kind="support" aria-hidden="true" />
+                </Tooltip>
+              ) : null}
             </div>
             <span className={styles.tallyCount}>
               {formatInteger(Number(row.count))} · {pct.toFixed(1)}%
@@ -340,6 +375,18 @@ export function TallyDetail({ proposal }: { proposal: ProposalAccount }) {
           </RowFragment>
         );
       })}
+      {config ? (
+        <div className={styles.tallyLegend} aria-hidden="true">
+          <span className={styles.tallyLegendItem}>
+            <span className={styles.tallyLegendSwatch} data-kind="quorum" />
+            quorum {quorumPct?.toFixed(0)}%
+          </span>
+          <span className={styles.tallyLegendItem}>
+            <span className={styles.tallyLegendSwatch} data-kind="support" />
+            support {supportPct?.toFixed(0)}%
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -491,106 +538,13 @@ export function KpiStrip({
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Proposal detail modal                                              */
+/* Proposal detail modal + write affordances → `./QuorumPage.write`   */
 /* ────────────────────────────────────────────────────────────────── */
-
-export function ProposalDetailModal({
-  entry,
-  roleTypes,
-  nowSeconds,
-  onClose,
-}: {
-  entry: { proposal: ProposalWithPda; status: ProposalStatus } | null;
-  roleTypes: RoleTypeWithPda[];
-  nowSeconds: number;
-  onClose: () => void;
-}) {
-  const open = entry !== null;
-  return (
-    <Modal open={open} onClose={onClose} title="Proposal detail">
-      {entry ? (
-        <div className={`${styles.scope} ${styles.modalBody}`}>
-          <Stack gap="5">
-            <ProposalSummary entry={entry} roleTypes={roleTypes} nowSeconds={nowSeconds} />
-            <div>
-              <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Tallies</h3>
-              <TallyDetail proposal={entry.proposal.account} />
-            </div>
-            <ProposalMeta proposal={entry.proposal.account} />
-          </Stack>
-        </div>
-      ) : null}
-    </Modal>
-  );
-}
-
-function ProposalSummary({
-  entry,
-  roleTypes,
-  nowSeconds,
-}: {
-  entry: { proposal: ProposalWithPda; status: ProposalStatus };
-  roleTypes: RoleTypeWithPda[];
-  nowSeconds: number;
-}) {
-  const { start, end } = voteWindowSeconds(entry.proposal.account);
-  return (
-    <div className={styles.detailGrid}>
-      <span className={styles.detailLabel}>Proposal ID</span>
-      <span className={styles.detailValue}>
-        <CopyableMono
-          full={`0x${bytesToHex(entry.proposal.account.proposalId)}`}
-          display={shortBytes32(entry.proposal.account.proposalId)}
-        />
-      </span>
-      <span className={styles.detailLabel}>Mode</span>
-      <span className={styles.detailValue}>
-        <ModeBadge configId={entry.proposal.account.governanceConfigId} roleTypes={roleTypes} />
-      </span>
-      <span className={styles.detailLabel}>Status</span>
-      <span className={styles.detailValue}>
-        <ProposalStatusBadge
-          status={entry.status}
-          nowSeconds={nowSeconds}
-          voteStart={start ?? undefined}
-          voteEnd={end ?? undefined}
-        />
-      </span>
-      <span className={styles.detailLabel}>Vote window</span>
-      <span className={`${styles.detailValue} ${styles.detailValueMuted}`}>
-        {voteWindowLabel(entry.proposal.account)}
-      </span>
-      <span className={styles.detailLabel}>Proposer</span>
-      <span className={styles.detailValue}>
-        <CopyableMono
-          full={entry.proposal.account.proposer.toBase58()}
-          display={shortAddress(entry.proposal.account.proposer.toBase58())}
-        />
-      </span>
-      <span className={styles.detailLabel}>Snapshot</span>
-      <span className={styles.detailValue}>
-        <SnapshotIndicator proposal={entry.proposal.account} />
-      </span>
-    </div>
-  );
-}
-
-function ProposalMeta({ proposal }: { proposal: ProposalAccount }) {
-  // The PDA is stable and unique per proposal — surface it so operators
-  // can click straight to the on-chain account in an explorer once that
-  // integration lands. For now it's a copyable mono pair.
-  return (
-    <div className={styles.detailGrid}>
-      <span className={styles.detailLabel}>TRUST</span>
-      <span className={styles.detailValue}>
-        <CopyableMono
-          full={proposal.trust.toBase58()}
-          display={shortAddress(proposal.trust.toBase58())}
-        />
-      </span>
-    </div>
-  );
-}
+//
+// `ProposalDetailModal`, `VoteHistorySection`, `NewProposalModal`,
+// `InlineVoteActions`, and `ProposalsEmptyState` live in the sibling
+// file so this one stays under the 600-line lint cap. `QuorumPage.tsx`
+// imports them directly from `./QuorumPage.write`.
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Helpers re-exported from the pure-formatter module so existing      */

@@ -64,11 +64,13 @@ export {
   readGovernanceConfigs,
   readProposals,
   readRoleTypes,
+  readVoteRecords,
   deriveProposalStatus,
   votingModeFor,
   findRoleTypeById,
   isTokenModeId,
   isSnapshotPending,
+  VOTE_CHOICE_LABEL,
 } from "./quorum";
 export type {
   GovernanceConfigAccount,
@@ -78,6 +80,8 @@ export type {
   ProposalStatus,
   RoleTypeAccount,
   RoleTypeWithPda,
+  VoteRecordAccount,
+  VoteRecordWithPda,
   VotingMode,
 } from "./quorum";
 export { AEQI_PROGRAM_NAMES, getAeqiProgramName } from "./program-names";

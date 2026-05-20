@@ -31,6 +31,7 @@
  */
 import { PublicKey } from "@solana/web3.js";
 import type { IdlAccounts } from "@coral-xyz/anchor";
+import bs58 from "bs58";
 
 import { getGovernanceProgram, getRoleProgram } from "./programs";
 import type { AeqiGovernance } from "./generated/types/aeqi_governance";
@@ -44,6 +45,22 @@ export type ProposalAccount = IdlAccounts<AeqiGovernance>["proposal"];
 
 /** Typed alias for the RoleType account as returned by Anchor's fetch. */
 export type RoleTypeAccount = IdlAccounts<AeqiRole>["roleType"];
+
+/** Typed alias for the VoteRecord account as returned by Anchor's fetch. */
+export type VoteRecordAccount = IdlAccounts<AeqiGovernance>["voteRecord"];
+
+/**
+ * Canonical mapping of the on-chain `VoteChoice` discriminant.
+ *
+ * The chain stores `choice` as a `u8`; the program enforces these three
+ * values via the `VoteChoice` enum. We keep the labels here so the UI
+ * doesn't have to spread `if (choice === 1)` across cells.
+ */
+export const VOTE_CHOICE_LABEL: Record<number, "For" | "Against" | "Abstain"> = {
+  1: "For",
+  0: "Against",
+  2: "Abstain",
+};
 
 /** GovernanceConfig paired with its on-chain address (the PDA). */
 export interface GovernanceConfigWithPda {
@@ -61,6 +78,12 @@ export interface ProposalWithPda {
 export interface RoleTypeWithPda {
   publicKey: PublicKey;
   account: RoleTypeAccount;
+}
+
+/** VoteRecord paired with its on-chain address (the PDA). */
+export interface VoteRecordWithPda {
+  publicKey: PublicKey;
+  account: VoteRecordAccount;
 }
 
 /**
@@ -248,5 +271,48 @@ export async function readRoleTypes(trustPda: string | PublicKey): Promise<RoleT
   return results.map((r) => ({
     publicKey: r.publicKey,
     account: r.account as RoleTypeAccount,
+  }));
+}
+
+/**
+ * List every VoteRecord cast against a specific proposal.
+ *
+ * `VoteRecord` lays out as `[discriminator(8)][trust(32)][proposalId(32)]
+ * [voter(32)][choice(1)][weight(16)][bump(1)]`. We compose two memcmp
+ * filters: trust at offset 8 (base58 PublicKey), proposalId at offset 40
+ * (base58-encoded raw 32 bytes). Anchor's `account.voteRecord.all` is the
+ * same `getProgramAccounts` machinery used everywhere else on the page,
+ * so RPC cost matches the other reads.
+ *
+ * The result is the full audit trail "who voted what, when" for a single
+ * proposal — needed by the detail-modal vote-history table. Empty array
+ * when no votes have been cast yet (chain returns 0 rows; not an error).
+ */
+export async function readVoteRecords(
+  trustPda: string | PublicKey,
+  proposalId: Uint8Array | number[],
+): Promise<VoteRecordWithPda[]> {
+  const program = getGovernanceProgram();
+  const pda = typeof trustPda === "string" ? new PublicKey(trustPda) : trustPda;
+  const proposalIdBytes =
+    proposalId instanceof Uint8Array ? proposalId : Uint8Array.from(proposalId);
+  const proposalIdB58 = bs58.encode(proposalIdBytes);
+  const results = await program.account.voteRecord.all([
+    {
+      memcmp: {
+        offset: 8,
+        bytes: pda.toBase58(),
+      },
+    },
+    {
+      memcmp: {
+        offset: 40,
+        bytes: proposalIdB58,
+      },
+    },
+  ]);
+  return results.map((r) => ({
+    publicKey: r.publicKey,
+    account: r.account as VoteRecordAccount,
   }));
 }

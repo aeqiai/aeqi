@@ -10,7 +10,6 @@ import type {
   RoleTypeWithPda,
 } from "@/solana";
 import {
-  Badge,
   Button,
   EmptyState,
   Inline,
@@ -30,8 +29,6 @@ import {
   KpiStrip,
   ModeBadge,
   NoGovernanceSetup,
-  PROPOSAL_STATUS_LABEL,
-  ProposalDetailModal,
   ProposalStatusBadge,
   SnapshotIndicator,
   TallyBars,
@@ -44,6 +41,13 @@ import {
   voteWindowLabel,
   voteWindowSeconds,
 } from "./QuorumPage.parts";
+import {
+  InlineVoteActions,
+  NewProposalModal,
+  ProposalDetailModal,
+  ProposalsEmptyState,
+} from "./QuorumPage.write";
+import { bytesToHex } from "./QuorumPage.format";
 
 /**
  * Quorum — `q` in the AEQI grammar (assets · equity · quorum · identity).
@@ -79,6 +83,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   const trustAddress = entity?.trust_address ?? null;
 
   const { configs, proposals, roleTypes, isLoading, error } = useQuorum(trustAddress);
+  const [newProposalOpen, setNewProposalOpen] = useState(false);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
   if (!trustAddress) {
@@ -129,9 +134,23 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   // empty state so the user knows the surface is wired correctly.
   const hasAnything = configsList.length > 0 || proposalsList.length > 0;
 
+  // The "+ New proposal" CTA in the page header only makes sense once
+  // at least one voting config exists. Before that, the empty-state
+  // card owns the "set up governance" affordance.
+  const headerActions =
+    hasAnything && configsList.length > 0 ? (
+      <Button variant="primary" size="sm" onClick={() => setNewProposalOpen(true)}>
+        + New proposal
+      </Button>
+    ) : undefined;
+
   return (
     <Page>
-      <PageHeader title="Governance" description="How the TRUST decides — proposals + votes." />
+      <PageHeader
+        title="Governance"
+        description="How the TRUST decides — proposals + votes."
+        actions={headerActions}
+      />
       <PageBody>
         {!hasAnything ? (
           <NoGovernanceSetup trustId={trustId} />
@@ -139,10 +158,23 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
           <>
             <KpiStrip proposals={proposalsList} configs={configsList} />
             <ConfigsSection configs={configsList} roleTypes={roleTypeList} />
-            <ProposalsSection proposals={proposalsList} roleTypes={roleTypeList} />
+            <ProposalsSection
+              proposals={proposalsList}
+              configs={configsList}
+              roleTypes={roleTypeList}
+              trustId={trustId}
+              trustAddress={trustAddress}
+            />
           </>
         )}
       </PageBody>
+      <NewProposalModal
+        open={newProposalOpen}
+        trustId={trustId}
+        configs={configsList}
+        roleTypes={roleTypeList}
+        onClose={() => setNewProposalOpen(false)}
+      />
     </Page>
   );
 }
@@ -249,10 +281,16 @@ type FilterKey = "all" | "active" | "pending" | "succeeded" | "defeated" | "exec
 
 function ProposalsSection({
   proposals,
+  configs,
   roleTypes,
+  trustId,
+  trustAddress,
 }: {
   proposals: ProposalWithPda[];
+  configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
+  trustId: string;
+  trustAddress: string;
 }) {
   const [filter, setFilter] = useState<FilterKey>("active");
   const [detail, setDetail] = useState<{
@@ -381,26 +419,27 @@ function ProposalsSection({
       key: "actions",
       header: "",
       align: "end",
-      cell: (row) => (
-        <Inline gap="2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDetail(row);
-            }}
-            aria-label={`View proposal ${shortBytes32(row.proposal.account.proposalId)}`}
-          >
-            View
-          </Button>
-          <Tooltip content="Vote casting lands in a sibling follow-up ship.">
-            <Badge variant="muted" size="sm">
-              Vote
-            </Badge>
-          </Tooltip>
-        </Inline>
-      ),
+      cell: (row) => {
+        const proposalIdHex = `0x${bytesToHex(row.proposal.account.proposalId)}`;
+        return (
+          <Inline gap="2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDetail(row);
+              }}
+              aria-label={`View proposal ${shortBytes32(row.proposal.account.proposalId)}`}
+            >
+              View
+            </Button>
+            {row.status === "active" ? (
+              <InlineVoteActions trustId={trustId} proposalIdHex={proposalIdHex} />
+            ) : null}
+          </Inline>
+        );
+      },
     },
   ];
 
@@ -436,26 +475,15 @@ function ProposalsSection({
           data={rows}
           rowKey={(row) => row.proposal.publicKey.toBase58()}
           onRowClick={(row) => setDetail(row)}
-          empty={
-            <EmptyState
-              title={
-                filter === "all"
-                  ? "No proposals yet"
-                  : `No ${PROPOSAL_STATUS_LABEL[filter as ProposalStatus]?.toLowerCase() ?? filter} proposals`
-              }
-              description={
-                filter === "all"
-                  ? "When a proposal opens against this TRUST, it lands here."
-                  : `No proposals are currently ${filter}. Switch the filter to see more.`
-              }
-            />
-          }
+          empty={<ProposalsEmptyState filter={filter} />}
           ariaLabel="Governance proposals"
         />
       </Stack>
       <ProposalDetailModal
         entry={detail}
+        configs={configs}
         roleTypes={roleTypes}
+        trustAddress={trustAddress}
         nowSeconds={nowSeconds}
         onClose={() => setDetail(null)}
       />

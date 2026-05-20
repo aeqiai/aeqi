@@ -930,6 +930,78 @@ export const api = {
       recent_trades_unavailable?: boolean;
     }>(`/curves/${encodeURIComponent(trustId)}/state`),
 
+  /**
+   * Open a new proposal against a registered governance config.
+   *
+   * Honest stub: the platform-side handler does not exist yet. The
+   * intended Solana ix is `aeqi_governance::propose` (PDA seeded
+   * `[b"proposal", trust, proposal_id]`); a sibling quest owns the
+   * `/api/solana/proposal-create` endpoint and the gateway → governance
+   * program wire-up (anchor builder, snapshotSlot capture, IPFS pin of
+   * title + description as the `ipfs_cid` field).
+   *
+   * For now the UI POSTs to the canonical path so the network panel
+   * surfaces the call shape exactly as it will land in production. The
+   * platform returns 404 with `endpoint_unimplemented` until shipped;
+   * callers should treat that error code as "platform-side TBD" and
+   * surface it to the operator instead of silently swallowing it.
+   *
+   * `governance_config_id_hex` is a 0x-prefixed 32-byte hex string
+   * (the on-chain `governance_config_id` field). `vote_duration_seconds`
+   * and `execution_delay_seconds` are i64 unix-second deltas; the
+   * platform will compose them with `clock.unix_timestamp` to produce
+   * the proposal's vote window.
+   */
+  proposalCreate: (data: {
+    entity_id: string;
+    governance_config_id_hex: string;
+    title: string;
+    description: string;
+    vote_duration_seconds: number;
+    execution_delay_seconds: number;
+  }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      proposal_pubkey_b58: string;
+      proposal_id_hex: string;
+      ipfs_cid?: string;
+      /** Honest TBD marker — present until the platform handler ships. */
+      platform_side_tbd?: boolean;
+    }>("/solana/proposal-create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Cast a vote on an open proposal.
+   *
+   * Honest stub: the platform-side handler does not exist yet. The
+   * intended Solana ix is `aeqi_governance::cast_vote_token` (for the
+   * canonical token-mode sentinel) or `cast_vote_role` (for role-mode);
+   * both create a `VoteRecord` PDA per (proposal, voter) pair and bump
+   * the proposal's for/against/abstain tally. A sibling quest owns the
+   * `/api/solana/proposal-vote` endpoint with the Merkle proof packaging
+   * for token-mode and the RoleVoteCheckpoint pickup for role-mode.
+   *
+   * `choice`: 0 = against, 1 = for, 2 = abstain (matches the on-chain
+   * `VoteChoice` enum discriminant). The platform returns 404 with
+   * `endpoint_unimplemented` until shipped; treat that as TBD.
+   */
+  castVote: (data: { entity_id: string; proposal_id_hex: string; choice: 0 | 1 | 2 }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      vote_record_pubkey_b58: string;
+      choice: 0 | 1 | 2;
+      weight: string;
+      /** Honest TBD marker — present until the platform handler ships. */
+      platform_side_tbd?: boolean;
+    }>("/solana/proposal-vote", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   spawnAgent: (data: {
     name: string;
     template?: string;
