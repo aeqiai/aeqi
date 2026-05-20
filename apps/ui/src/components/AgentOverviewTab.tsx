@@ -8,8 +8,8 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { entityPathFromId } from "@/lib/entityPath";
 
 /**
- * `/c/<entity>/agents/<agent>/overview` — the agent cockpit. Mirrors
- * the company cockpit at `/c/<entity>/overview`, scoped to a single
+ * `/trust/<addr>/agents/<agent>/overview` — the agent cockpit. Mirrors
+ * the company cockpit at `/trust/<addr>/overview`, scoped to a single
  * agent.
  *
  * Modules:

@@ -105,7 +105,7 @@ function ArchiveIcon() {
 }
 
 /**
- * `/c/<eid>/inbox` and `/trust/<addr>/inbox` — the canonical
+ * `/trust/<addr>/inbox` — the canonical
  * daily-driver Inbox surface.
  *
  * Two-pane layout: toolbar + time-grouped list (left) + SessionDetail

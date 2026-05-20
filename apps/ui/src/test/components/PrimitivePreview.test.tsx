@@ -38,10 +38,10 @@ describe("PrimitivePreview", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/inbox"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/inbox"]}>
           <Routes>
             <Route
-              path="c/:trustId/:tab"
+              path="trust/:trustAddress/:tab"
               element={<PrimitivePreview kind="event" id="event-1" />}
             />
           </Routes>
@@ -77,10 +77,10 @@ describe("PrimitivePreview", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/inbox"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/inbox"]}>
           <Routes>
             <Route
-              path="c/:trustId/:tab"
+              path="trust/:trustAddress/:tab"
               element={<PrimitivePreview kind="quest" id="quest-1" />}
             />
           </Routes>

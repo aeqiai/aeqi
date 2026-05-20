@@ -19,7 +19,7 @@ const AgentOverviewTab = lazy(() => import("@/components/AgentOverviewTab"));
 const AgentIntegrationsTab = lazy(() => import("@/pages/Agent/Integrations"));
 
 /**
- * `/c/<entity>/agents/<agent>/settings[/<sub>[/<itemId>]]` — the
+ * `/trust/<addr>/agents/<agent>/settings[/<sub>[/<itemId>]]` — the
  * settings sub-surface for a drilled agent.
  *
  * Header: breadcrumb [← <Agent>] / <Agent> / Settings

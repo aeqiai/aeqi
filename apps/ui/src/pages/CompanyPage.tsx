@@ -7,7 +7,7 @@ import ProvisionRuntimeUpsell, {
   type UpsellSurface,
 } from "@/components/upsell/ProvisionRuntimeUpsell";
 
-// TrustOverviewTab is the canonical bare-`/c/<id>/` landing — renders
+// TrustOverviewTab is the canonical bare-`/trust/<addr>/` landing — renders
 // TrustHeroStrip + roles / quests / activity. Lazy-loaded to keep this
 // dispatch shell light. Mirrors the lazy pattern used in AgentPage.
 const TrustOverviewTab = lazy(() => import("@/components/TrustOverviewTab"));
@@ -31,7 +31,7 @@ interface CompanyPageProps {
   agentId: string;
   trustId: string;
   /** Resolved tab — defaulted to "overview" upstream. The bare
-   *  `/c/<entity>` URL renders Overview through this tab default. */
+   *  `/trust/<addr>` URL renders Overview through this tab default. */
   tab: string;
   itemId?: string;
 }
@@ -42,16 +42,16 @@ interface CompanyPageProps {
  * dispatches the right component per tab.
  *
  * Routes:
- *   /c/:trustId               → TrustOverviewTab (cockpit — Health folded in)
- *   /c/:trustId/inbox         → MeInboxPage
- *   /c/:trustId/health        → 308 redirect to bare cockpit (legacy URL)
- *   /c/:trustId/roles         → TrustRolesTab (org chart)
- *   /c/:trustId/agents        → TrustAgentsTab (LIST)
- *   /c/:trustId/events        → AgentEventsTab(defaultAgent)
- *   /c/:trustId/quests        → AgentQuestsTab(entity scope)
- *   /c/:trustId/ideas         → AgentIdeasTab(entity scope)
+ *   /trust/:trustAddress               → TrustOverviewTab (cockpit — Health folded in)
+ *   /trust/:trustAddress/inbox         → MeInboxPage
+ *   /trust/:trustAddress/health        → 308 redirect to bare cockpit (legacy URL)
+ *   /trust/:trustAddress/roles         → TrustRolesTab (org chart)
+ *   /trust/:trustAddress/agents        → TrustAgentsTab (LIST)
+ *   /trust/:trustAddress/events        → AgentEventsTab(defaultAgent)
+ *   /trust/:trustAddress/quests        → AgentQuestsTab(entity scope)
+ *   /trust/:trustAddress/ideas         → AgentIdeasTab(entity scope)
  *
- * The former `/c/:trustId/settings` tab was retired — workspace label,
+ * The former `/trust/:trustAddress/settings` tab was retired — workspace label,
  * tagline, public toggle, and plan link now live in the TrustHeroStrip
  * on Overview. Workspace billing remains at `/account/billing`.
  */
@@ -102,7 +102,7 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
       targetPath += `/${encodeURIComponent(itemId)}`;
     }
     // Preserve the query string (`?view=kanban`, `?view=table`, etc.) —
-    // a deep link like `/c/<id>/ideas?view=kanban` would otherwise drop
+    // a deep link like `/trust/<addr>/ideas?view=kanban` would otherwise drop
     // the `view` param on redirect and land on the default list view.
     if (location.search) {
       targetPath += location.search;
@@ -140,7 +140,7 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
     return <Navigate to={target} replace />;
   }
 
-  // Bare `/c/<id>/` Overview renders TrustOverviewTab directly — the
+  // Bare `/trust/<addr>/` Overview renders TrustOverviewTab directly — the
   // canonical entity cockpit (TrustHeroStrip + roles / quests / activity).
   // Routing through AgentPage's `isDrilledAgent` branch was wrong for
   // root agents whose `trust_id` is populated and differs from
@@ -160,7 +160,7 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
   // Trust-scope primitive tabs. Without these explicit branches the
   // fallthrough to AgentPage rendered the root agent's chat surface
   // (AgentPage's `tab` prop has been a no-op since 2026-05-08), which
-  // is why `/c/<id>/agents` and siblings landed on a header with no
+  // is why `/trust/<addr>/agents` and siblings landed on a header with no
   // body. Dispatch hole fix 2026-05-09.
   if (tab === "agents") {
     return (

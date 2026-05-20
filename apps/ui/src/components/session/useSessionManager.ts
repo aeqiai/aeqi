@@ -39,9 +39,9 @@ export function useSessionManager({
   }, [activeSessionId]);
 
   // Navigate helpers — agent-scoped. `setSession(sid)` jumps to the
-  // canonical session URL `/c/<eid>/agents/<aid>/inbox/<sid>` (or trust
-  // equivalent). `setSession(null)` strips the session id and lands at
-  // the agent's bare URL `/c/<eid>/agents/<aid>` — chat-as-default
+  // canonical session URL `/trust/<addr>/agents/<aid>/inbox/<sid>`.
+  // `setSession(null)` strips the session id and lands at
+  // the agent's bare URL `/trust/<addr>/agents/<aid>` — chat-as-default
   // empty state. The first message in that empty state creates the
   // new session via the WS dispatch path; we don't pre-create one.
   const setSession = useCallback(

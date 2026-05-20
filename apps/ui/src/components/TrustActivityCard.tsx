@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTrustHealthMetrics } from "@/hooks/useTrustHealthMetrics";
+import { formatInteger } from "@/lib/i18n";
 
 interface TrustActivityCardProps {
   trustAddress: string | null | undefined;
@@ -127,8 +128,4 @@ function ActivityLine({
       />
     </svg>
   );
-}
-
-function formatInteger(n: number): string {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
 }

@@ -68,12 +68,6 @@ describe("useCurrentCompany", () => {
     expect(result.current.trustId).toBe(ENTITY_ID);
   });
 
-  it("resolves entity by id on /c/ route", () => {
-    const { result } = renderWithRoute(`/c/${ENTITY_ID}/overview`, "/c/:trustId/:tab");
-    expect(result.current.entity).toEqual(ENTITY);
-    expect(result.current.trustId).toBe(ENTITY_ID);
-  });
-
   it("resolves entity by id when /trust/:trustAddress slug is actually the entity id (unbridged placement)", () => {
     // Bug repro: switcher minted `/trust/<entity.id>` for a placement
     // that had no on-chain `trust_address`. Pre-fix, the trust_address-only
@@ -83,12 +77,6 @@ describe("useCurrentCompany", () => {
       `/trust/${PENDING_ENTITY.id}/overview`,
       "/trust/:trustAddress/:tab",
     );
-    expect(result.current.entity).toEqual(PENDING_ENTITY);
-    expect(result.current.trustId).toBe(PENDING_ENTITY.id);
-  });
-
-  it("resolves pending entity (no trust_address) by id on /c/ route", () => {
-    const { result } = renderWithRoute(`/c/${PENDING_ENTITY.id}/overview`, "/c/:trustId/:tab");
     expect(result.current.entity).toEqual(PENDING_ENTITY);
     expect(result.current.trustId).toBe(PENDING_ENTITY.id);
   });

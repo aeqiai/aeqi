@@ -6,7 +6,7 @@ const AgentSessionView = lazy(() => import("./AgentSessionView"));
 const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
 
 /**
- * Default drilled-agent surface (`/c/<entity>/agents/<agent>/[inbox/<sid>]`).
+ * Default drilled-agent surface (`/trust/<addr>/agents/<agent>/[inbox/<sid>]`).
  *
  * No rail. A header (back-to-Agents · agent name · New session ·
  * Settings) anchors the surface; the body is the canonical inbox
@@ -18,7 +18,7 @@ const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
  * AppLayout is responsible for mounting <SessionsRail> and
  * <ComposerRow> as siblings of this body. Here we just render the
  * AgentSurfaceHeader and the AgentSessionView (the chat content
- * column). When the URL is `/c/<eid>/agents/<aid>/inbox/<sid>`
+ * column). When the URL is `/trust/<addr>/agents/<aid>/inbox/<sid>`
  * AppLayout passes itemId; otherwise we open the agent without a
  * specific session selected.
  */
@@ -33,8 +33,8 @@ export default function AgentPage({
   itemId?: string | null;
 }) {
   const params = useParams<{ tab?: string; itemId?: string }>();
-  // The URL `/c/<eid>/agents/<aid>/inbox/<sid>` has tab="inbox" and
-  // itemId=<sid>. Bare `/c/<eid>/agents/<aid>/` has neither.
+  // The URL `/trust/<addr>/agents/<aid>/inbox/<sid>` has tab="inbox" and
+  // itemId=<sid>. Bare `/trust/<addr>/agents/<aid>/` has neither.
   // Either way, what we care about is the optional session id.
   const itemId = itemIdProp ?? params.itemId;
   const sessionId = itemId || null;

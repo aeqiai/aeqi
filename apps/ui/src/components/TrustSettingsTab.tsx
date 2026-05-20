@@ -8,7 +8,7 @@ interface TrustSettingsTabProps {
 }
 
 /**
- * Trust-level settings surface. Lives at `/c/<trustId>/settings`. Home for
+ * Trust-level settings surface. Lives at `/trust/<addr>/settings`. Home for
  * irreversible administrative actions on a TRUST that don't belong inside
  * the day-to-day ownership/governance rails — currently ownership
  * transfer; future tenants: archival, principal rotation, runtime detach.

@@ -27,9 +27,9 @@ import { useUIStore } from "@/store/ui";
  * We render each component under StrictMode + MemoryRouter with realistic
  * URL shapes and watch for React's "error" console output during render.
  *
- * Canonical routes: `/c/:trustId/[:tab[/:itemId]]`. The entity-root
- * agent renders at `/c/:trustId/...`; per-agent drilldowns live at
- * `/c/:trustId/agents/:agentId/...`.
+ * Canonical routes: `/trust/:trustAddress/[:tab[/:itemId]]`. The entity-
+ * root agent renders at `/trust/:trustAddress/...`; per-agent drilldowns
+ * live at `/trust/:trustAddress/agents/:agentId/...`.
  */
 
 /** Inline helper — renders the component tree, returns any errors React logged. */
@@ -105,9 +105,12 @@ describe("AgentQuestsTab smoke", () => {
     expect(() =>
       render(
         <StrictMode>
-          <MemoryRouter initialEntries={["/c/root-1/quests"]}>
+          <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
             <Routes>
-              <Route path="c/:trustId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+              <Route
+                path="trust/:trustAddress/:tab/*"
+                element={<AgentQuestsTab agentId="root-1" />}
+              />
             </Routes>
           </MemoryRouter>
         </StrictMode>,
@@ -118,9 +121,12 @@ describe("AgentQuestsTab smoke", () => {
   it("exposes a New quest button on the empty board", () => {
     const { container } = render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
           <Routes>
-            <Route path="c/:trustId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+            <Route
+              path="trust/:trustAddress/:tab/*"
+              element={<AgentQuestsTab agentId="root-1" />}
+            />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -160,10 +166,10 @@ describe("AgentQuestsTab smoke", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
           <Routes>
             <Route
-              path="c/:trustId/:tab/*"
+              path="trust/:trustAddress/:tab/*"
               element={<AgentQuestsTab agentId="root-1" scope="entity" />}
             />
           </Routes>
@@ -203,9 +209,12 @@ describe("AgentQuestsTab smoke", () => {
 
     render(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
           <Routes>
-            <Route path="c/:trustId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+            <Route
+              path="trust/:trustAddress/:tab/*"
+              element={<AgentQuestsTab agentId="root-1" />}
+            />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -228,9 +237,12 @@ describe("AgentQuestsTab smoke", () => {
   it("does not log a React error during render", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/quests"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/quests"]}>
           <Routes>
-            <Route path="c/:trustId/:tab/*" element={<AgentQuestsTab agentId="root-1" />} />
+            <Route
+              path="trust/:trustAddress/:tab/*"
+              element={<AgentQuestsTab agentId="root-1" />}
+            />
           </Routes>
         </MemoryRouter>
       </StrictMode>,
@@ -298,11 +310,11 @@ describe("shell components smoke", () => {
     const errors = captureRenderErrors(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/c/root-1"]}>
+          <MemoryRouter initialEntries={["/trust/root-1"]}>
             <Routes>
               <Route
                 path="c/:trustId/*"
-                element={<LeftSidebar trustId="root-1" path="/c/root-1" />}
+                element={<LeftSidebar trustId="root-1" path="/trust/root-1" />}
               />
             </Routes>
           </MemoryRouter>
@@ -316,11 +328,11 @@ describe("shell components smoke", () => {
     const errors = captureRenderErrors(
       withQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={["/c/root-1/agents/child-1/inbox"]}>
+          <MemoryRouter initialEntries={["/trust/root-1/agents/child-1/inbox"]}>
             <Routes>
               <Route
                 path="c/:trustId/*"
-                element={<LeftSidebar trustId="root-1" path="/c/root-1/agents/child-1/inbox" />}
+                element={<LeftSidebar trustId="root-1" path="/trust/root-1/agents/child-1/inbox" />}
               />
             </Routes>
           </MemoryRouter>
@@ -333,11 +345,11 @@ describe("shell components smoke", () => {
   it("ComposerRow renders without a mounted chat (pending-message path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1"]}>
+        <MemoryRouter initialEntries={["/trust/root-1"]}>
           <Routes>
             <Route
               path="c/:trustId/*"
-              element={<ComposerRow agentId={null} base="/c/root-1" sessionsMounted={false} />}
+              element={<ComposerRow agentId={null} base="/trust/root-1" sessionsMounted={false} />}
             />
           </Routes>
         </MemoryRouter>
@@ -349,11 +361,11 @@ describe("shell components smoke", () => {
   it("ComposerRow renders with a mounted chat (event-bridge path)", () => {
     const errors = captureRenderErrors(
       <StrictMode>
-        <MemoryRouter initialEntries={["/c/root-1/inbox"]}>
+        <MemoryRouter initialEntries={["/trust/root-1/inbox"]}>
           <Routes>
             <Route
               path="c/:trustId/*"
-              element={<ComposerRow agentId="root-1" base="/c/root-1" sessionsMounted={true} />}
+              element={<ComposerRow agentId="root-1" base="/trust/root-1" sessionsMounted={true} />}
             />
           </Routes>
         </MemoryRouter>
