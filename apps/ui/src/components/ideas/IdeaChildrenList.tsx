@@ -71,34 +71,48 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
   }
 
   const hasChildren = children.length > 0;
+  // While loading, treat the row as not-yet-empty so the head doesn't
+  // flicker into the empty layout before the request resolves. After
+  // load, an empty children set switches the head to a compact row
+  // (`.idea-children--empty`) and surfaces a one-line on-brand hint
+  // instead of a disabled toggle staring back at the user.
+  const isEmpty = !loading && !hasChildren && !error;
 
   return (
-    <div className="idea-children" aria-label="Child ideas">
+    <div
+      className={`idea-children${isEmpty ? " idea-children--empty" : ""}`}
+      aria-label="Child ideas"
+    >
       <div className="idea-children-head">
-        <button
-          type="button"
-          className="idea-children-toggle"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((next) => !next)}
-          disabled={!hasChildren}
-        >
-          <svg
-            className={expanded && hasChildren ? "is-open" : ""}
-            width="10"
-            height="10"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
+        {!isEmpty && (
+          <button
+            type="button"
+            className="idea-children-toggle"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((next) => !next)}
+            disabled={!hasChildren}
           >
-            <path d="M4.5 3 L7.5 6 L4.5 9" />
-          </svg>
-          <span className="idea-children-title">Children</span>
-          <span className="idea-children-count">{children.length}</span>
-        </button>
+            <svg
+              className={expanded && hasChildren ? "is-open" : ""}
+              width="10"
+              height="10"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M4.5 3 L7.5 6 L4.5 9" />
+            </svg>
+            <span className="idea-children-title">Children</span>
+            <span className="idea-children-count">{children.length}</span>
+          </button>
+        )}
+        {isEmpty && (
+          <span className="idea-convo-section-empty">Branch this idea into smaller pieces.</span>
+        )}
         <button type="button" className="idea-property-add" onClick={() => setShowAdd(true)}>
           + Add child
         </button>
