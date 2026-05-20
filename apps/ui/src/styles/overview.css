@@ -49,18 +49,57 @@
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
 
+/* Trust hero — photo-backed card (start-hero portal + radial mask
+   fade in the top-left, matching the / page). Identity on the left,
+   optional aside slot on the right (TrustHeroOverview). When the
+   aside is absent (public-profile read) the identity span the full
+   width. */
 .trust-hero {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-5);
-  padding: var(--space-6);
+  padding: var(--space-5) var(--space-6);
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
   min-width: 0;
+  min-height: 200px;
+  overflow: hidden;
+}
+.trust-hero--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: var(--space-6);
+  align-items: center;
+}
+.trust-hero-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 45%;
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(circle farthest-corner at 100% 100%, black 50%, transparent 100%);
+  -webkit-mask-image: radial-gradient(
+    circle farthest-corner at 100% 100%,
+    black 50%,
+    transparent 100%
+  );
+}
+.trust-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 .trust-hero-avatar {
-  width: 88px;
-  height: 88px;
+  width: 104px;
+  height: 104px;
   border-radius: var(--radius-md);
   background: var(--color-card-muted);
   display: flex;
@@ -74,7 +113,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 .trust-hero-eyebrow {
   font-family: var(--font-sans);
@@ -168,6 +207,130 @@
 .trust-hero-public input[type="checkbox"] {
   accent-color: var(--color-accent);
 }
+
+/* ── Trust hero aside (right-side overview panel) ─────────────────── */
+
+/* Consolidated Execution + Ownership summary that lives inside the
+   hero card. Two rows separated by a hairline. Each row carries an
+   eyebrow + headline + meta line. Address / CTA / dot all live here
+   so the bars below can stay as bare card grids. */
+.trust-hero-aside {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.trust-hero-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-md);
+}
+.trust-hero-overview-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.trust-hero-overview-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.trust-hero-overview-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.trust-hero-overview-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+}
+.trust-hero-overview-dot[data-tone="live"] {
+  background: var(--color-warmth);
+  box-shadow: 0 0 0 3px var(--color-warmth-bg);
+}
+.trust-hero-overview-dot[data-tone="provisioning"] {
+  background: var(--color-warmth);
+  animation: trust-pulse 1.6s ease-in-out infinite;
+}
+.trust-hero-overview-dot[data-tone="static"] {
+  background: var(--color-text-muted);
+}
+.trust-hero-overview-headline {
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+.trust-hero-overview-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.trust-hero-overview-sep {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+.trust-hero-overview-status {
+  color: var(--color-text-secondary);
+}
+.trust-hero-overview-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.12s ease;
+}
+.trust-hero-overview-cta:hover {
+  text-decoration: underline;
+}
+.trust-hero-overview-addr {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--color-card-muted);
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  align-self: flex-start;
+}
+.trust-hero-overview-addr:hover {
+  background: var(--color-card-subtle);
+}
+.trust-hero-overview-addr:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.trust-hero-overview-addr span {
+  font-variant-numeric: tabular-nums;
+}
+/* No divider element between rows — use the row gap (`gap: var(--space-3)`
+   on `.trust-hero-overview`) plus the eyebrows to do the grouping work.
+   `.impeccable.md` bans 1px hairline separators on this surface. */
 
 /* ── Group (Execution / Ownership) ────────────────────────────────── */
 
@@ -493,10 +656,20 @@
     align-items: flex-start;
     padding: var(--space-5);
   }
+  .trust-hero--split {
+    grid-template-columns: 1fr;
+  }
+  .trust-hero-identity {
+    width: 100%;
+  }
+  .trust-hero-avatar {
+    width: 80px;
+    height: 80px;
+  }
   .trust-hero-name,
   .trust-hero-name--button,
   .trust-hero-name-input {
-    font-size: 28px;
+    font-size: 26px;
   }
   .trust-group-bar {
     flex-wrap: wrap;

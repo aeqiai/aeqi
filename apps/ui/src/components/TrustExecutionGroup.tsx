@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Cpu, Users, Compass, Activity, Lightbulb } from "lucide-react";
+import { Users, Compass, Activity, Lightbulb } from "lucide-react";
 import { useDaemonStore } from "@/store/daemon";
-import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { useMemo } from "react";
 import type { Quest } from "@/lib/types";
 
@@ -11,20 +10,17 @@ interface TrustExecutionGroupProps {
 }
 
 /**
- * Programmable Execution group. One header bar (runtime status + plan +
- * primary CTA) followed by a row of four primitive cards: Agents,
- * Quests, Events, Ideas. The bar visually anchors the four cards
- * underneath as a single unit; no container box wraps them.
- *
- * The state band that lived as its own row in v2 folds into this
- * header — runtime = execution, conceptually one beat.
+ * Programmable Execution row — a 4-card row (Agents · Quests · Events
+ * · Ideas) under the trust hero. The header bar (runtime state +
+ * primary CTA) that lived here in v3 was lifted into the hero card's
+ * right-side overview panel (TrustHeroOverview) on 2026-05-20, so
+ * this component is now just the card grid. No outer container; the
+ * hero overview is the visual anchor that groups these cards.
  */
 export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutionGroupProps) {
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const events = useDaemonStore((s) => s.events);
-
-  const runtime = useRuntimeStatus(trustId);
 
   const subtreeAgents = useMemo(
     () => agents.filter((a) => a.trust_id === trustId || a.id === trustId),
@@ -41,6 +37,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
       ).length,
     [subtreeAgents],
   );
+
   const inflightQuests = useMemo(
     () =>
       quests.filter(
@@ -61,87 +58,46 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
     ).length;
   }, [events, subtreeNames]);
 
-  const headlineTone = runtime.hostActive ? "live" : runtime.hasRuntime ? "provisioning" : "static";
-  const headline = runtime.hostActive
-    ? "Runtime live"
-    : runtime.hasRuntime
-      ? "Runtime attached"
-      : "No runtime";
-  const sub = runtime.hostActive
-    ? `${runtime.plan === "pro" ? "Pro" : "Standard"} plan · host active`
-    : runtime.hasRuntime
-      ? `${runtime.plan === "pro" ? "Pro" : "Standard"} plan · host inactive`
-      : "Identity-only TRUST — execution surfaces are dormant.";
-
-  // CTA targets the agents LIST when the runtime is live (the team,
-  // not a singled-out agent). Earlier iterations said "Chat with
-  // <rootAgent.name>" which read as if there was one canonical agent
-  // — the TRUST is multi-agent by design, so naming one in the
-  // primary CTA misframes the whole group. "Open agents" is generic,
-  // plural-implying, and matches the tab name in the trust shell.
-  const ctaPath = runtime.hostActive ? `${basePath}/agents` : "/launch";
-  const ctaLabel = runtime.hostActive ? "Open agents" : "Launch runtime";
-
   return (
-    <section className="trust-group trust-group--execution" aria-labelledby="exec-eyebrow">
-      <header className="trust-group-bar">
-        <div className="trust-group-bar-left">
-          <span className="trust-group-eyebrow" id="exec-eyebrow">
-            <Cpu size={12} strokeWidth={1.8} />
-            Programmable execution
-          </span>
-          <div className="trust-group-bar-row">
-            <span className="trust-group-state-dot" data-tone={headlineTone} aria-hidden />
-            <span className="trust-group-headline">{headline}</span>
-            <span className="trust-group-sub">{sub}</span>
-          </div>
-        </div>
-        <Link to={ctaPath} className="trust-group-cta">
-          {ctaLabel}
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </Link>
-      </header>
-
-      <div className="trust-group-cards">
-        <PrimitiveCard
-          to={`${basePath}/agents`}
-          icon={<Users size={16} strokeWidth={1.5} />}
-          label="Agents"
-          value={String(activeAgents)}
-          hint={`of ${subtreeAgents.length}`}
-          sub={
-            subtreeAgents.length === 0
-              ? "No agents yet"
-              : activeAgents > 0
-                ? "Team online"
-                : "Team standing by"
-          }
-        />
-        <PrimitiveCard
-          to={`${basePath}/quests`}
-          icon={<Compass size={16} strokeWidth={1.5} />}
-          label="Quests"
-          value={String(inflightQuests)}
-          hint="in flight"
-          sub={inflightQuests > 0 ? "Active work" : "Queue is clear"}
-        />
-        <PrimitiveCard
-          to={`${basePath}/events`}
-          icon={<Activity size={16} strokeWidth={1.5} />}
-          label="Events"
-          value={String(recent24hEvents)}
-          hint="last 24h"
-          sub={recent24hEvents > 0 ? "Decisions logged" : "Quiet day"}
-        />
-        <PrimitiveCard
-          to={`${basePath}/ideas`}
-          icon={<Lightbulb size={16} strokeWidth={1.5} />}
-          label="Ideas"
-          value="—"
-          hint=""
-          sub="Knowledge graph"
-        />
-      </div>
+    <section className="trust-group-cards" aria-label="Programmable execution">
+      <PrimitiveCard
+        to={`${basePath}/agents`}
+        icon={<Users size={16} strokeWidth={1.5} />}
+        label="Agents"
+        value={String(activeAgents)}
+        hint={`of ${subtreeAgents.length}`}
+        sub={
+          subtreeAgents.length === 0
+            ? "No agents yet"
+            : activeAgents > 0
+              ? "Team online"
+              : "Team standing by"
+        }
+      />
+      <PrimitiveCard
+        to={`${basePath}/quests`}
+        icon={<Compass size={16} strokeWidth={1.5} />}
+        label="Quests"
+        value={String(inflightQuests)}
+        hint="in flight"
+        sub={inflightQuests > 0 ? "Active work" : "Queue is clear"}
+      />
+      <PrimitiveCard
+        to={`${basePath}/events`}
+        icon={<Activity size={16} strokeWidth={1.5} />}
+        label="Events"
+        value={String(recent24hEvents)}
+        hint="last 24h"
+        sub={recent24hEvents > 0 ? "Decisions logged" : "Quiet day"}
+      />
+      <PrimitiveCard
+        to={`${basePath}/ideas`}
+        icon={<Lightbulb size={16} strokeWidth={1.5} />}
+        label="Ideas"
+        value="—"
+        hint=""
+        sub="Knowledge graph"
+      />
     </section>
   );
 }

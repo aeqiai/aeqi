@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
-import { Shield, Copy, Check, Wallet, PieChart, Vote, FileText } from "lucide-react";
+import { useMemo } from "react";
+import { Wallet, PieChart, Vote, FileText } from "lucide-react";
 import { useAssets } from "@/hooks/useAssets";
 import { useEquity } from "@/hooks/useEquity";
 import { useQuorum } from "@/hooks/useQuorum";
@@ -13,45 +13,20 @@ interface TrustOwnershipGroupProps {
 }
 
 /**
- * Programmable Ownership group. One header bar (TRUST address + signers
- * + smart contract chip) followed by a row of four primitive cards:
- * Assets, Equity, Quorum, Incorporation. Mirrors the Execution group's
- * shape — the symmetry is the design language.
+ * Programmable Ownership row — a 4-card row (Assets · Equity · Quorum
+ * · Incorporation) under the trust hero. The header bar (TRUST address
+ * + signers + on-chain mirror status) that lived here in v3 was lifted
+ * into the hero card's right-side overview panel (TrustHeroOverview)
+ * on 2026-05-20, so this component is now just the card grid.
  *
- * The on-chain identity strip that lived as its own row in v2 folds
- * into this header — address + signers = ownership identity, one beat.
- *
- * All cockpit signals are sourced from on-chain reads on Solana. The
- * EVM-era indexer (`fetchTrust(...).signersCount`, `useTreasury`) silently
- * returned null/zero against Solana TRUST PDAs — replaced here with
- * `useIncorporation` / `useAssets` / `useEquity` / `useQuorum` per the
- * `architecture/trust-6-surface-integration` matrix (ja-001.8).
+ * All cockpit signals are sourced from on-chain reads on Solana via
+ * `useIncorporation` / `useAssets` / `useEquity` / `useQuorum`.
  */
 export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwnershipGroupProps) {
-  const [copied, setCopied] = useState(false);
-  const copyAddress = () => {
-    if (!trustAddress) return;
-    navigator.clipboard.writeText(trustAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   const assets = useAssets(trustAddress);
   const equity = useEquity(trustAddress);
   const quorum = useQuorum(trustAddress);
   const incorporation = useIncorporation(trustAddress);
-
-  // Modules + roles are the constitutional building blocks; "signers"
-  // in the header reads as the count of *initialized* modules, which is
-  // the closest on-chain analogue to the EVM-era `signersCount` slot.
-  // A non-zero `account.initialized` byte marks the module-state PDA as
-  // wired up (see `programs/aeqi-trust/src/lib.rs` Module.initialized).
-  const initializedModulesCount = useMemo(() => {
-    if (!incorporation.modules) return null;
-    return incorporation.modules.filter((m) => Boolean(m.account.initialized)).length;
-  }, [incorporation.modules]);
-  const rolesCount = incorporation.roles?.length ?? null;
-  const modulesCount = incorporation.modules?.length ?? null;
 
   const holdersCount = equity.holders?.length ?? null;
   const hasToken = !!equity.tokenModuleState;
@@ -84,122 +59,63 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
     if (decimals === null) return null;
     return formatUsdc(totalRaw, decimals);
   }, [assets.holdings]);
+  const modulesCount = incorporation.modules?.length ?? null;
   const trustOnchain = !!incorporation.trust;
 
   return (
-    <section className="trust-group trust-group--ownership" aria-labelledby="own-eyebrow">
-      <header className="trust-group-bar">
-        <div className="trust-group-bar-left">
-          <span className="trust-group-eyebrow" id="own-eyebrow">
-            <Shield size={12} strokeWidth={1.8} />
-            Programmable ownership
-          </span>
-          <div className="trust-group-bar-row">
-            {trustAddress ? (
-              <>
-                <button
-                  type="button"
-                  className="trust-group-addr"
-                  onClick={copyAddress}
-                  title={copied ? "Copied" : "Click to copy"}
-                >
-                  <span>{compactAddress(trustAddress)}</span>
-                  {copied ? (
-                    <Check size={12} strokeWidth={1.8} />
-                  ) : (
-                    <Copy size={12} strokeWidth={1.5} />
-                  )}
-                </button>
-                <span className="trust-group-sub-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="trust-group-sub">
-                  {initializedModulesCount === null
-                    ? "— signers"
-                    : `${initializedModulesCount} signer${initializedModulesCount === 1 ? "" : "s"}`}
-                </span>
-                <span className="trust-group-sub-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="trust-group-sub">
-                  {rolesCount === null
-                    ? "— roles"
-                    : `${rolesCount} role${rolesCount === 1 ? "" : "s"}`}
-                </span>
-                <span className="trust-group-sub-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="trust-group-sub">
-                  {trustOnchain ? "On-chain mirror live" : "Bridge pending"}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="trust-group-state-dot" data-tone="static" aria-hidden />
-                <span className="trust-group-headline">Off-chain only</span>
-                <span className="trust-group-sub">No TRUST mirror on Solana yet.</span>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <div className="trust-group-cards">
-        <OwnershipPrimitiveCard
-          to={`${basePath}/assets`}
-          icon={<Wallet size={16} strokeWidth={1.5} />}
-          label="Assets"
-          value={assets.vault?.moduleState ? (treasuryUsdc ?? "—") : "—"}
-          hint={assets.vault?.moduleState && treasuryUsdc ? "USDC" : ""}
-          sub={
-            assets.vault?.moduleState
-              ? "Treasury vault active"
-              : trustAddress
-                ? "No vault yet"
-                : "Bridge pending"
-          }
-        />
-        <OwnershipPrimitiveCard
-          to={`${basePath}/equity`}
-          icon={<PieChart size={16} strokeWidth={1.5} />}
-          label="Equity"
-          value={hasToken ? (holdersCount === null ? "—" : String(holdersCount)) : "—"}
-          hint={hasToken ? (holdersCount === 1 ? "holder" : "holders") : ""}
-          sub={
-            hasToken ? "Cap-table token live" : trustAddress ? "Foundation shape" : "Bridge pending"
-          }
-        />
-        <OwnershipPrimitiveCard
-          to={`${basePath}/quorum`}
-          icon={<Vote size={16} strokeWidth={1.5} />}
-          label="Quorum"
-          value={
-            configsCount && configsCount > 0
-              ? activeProposalsCount === null
-                ? "—"
-                : String(activeProposalsCount)
-              : "—"
-          }
-          hint={
-            configsCount && configsCount > 0 ? (activeProposalsCount === 1 ? "open" : "open") : ""
-          }
-          sub={
-            configsCount && configsCount > 0
-              ? `${configsCount} governance config${configsCount === 1 ? "" : "s"}`
-              : trustAddress
-                ? "Founder-mode"
-                : "Bridge pending"
-          }
-        />
-        <OwnershipPrimitiveCard
-          to={`${basePath}/incorporation`}
-          icon={<FileText size={16} strokeWidth={1.5} />}
-          label="Incorporation"
-          value={modulesCount === null ? "—" : String(modulesCount)}
-          hint={modulesCount === 1 ? "module" : "modules"}
-          sub={trustOnchain ? "On-chain agreement" : trustAddress ? "Not yet" : "Bridge pending"}
-        />
-      </div>
+    <section className="trust-group-cards" aria-label="Programmable ownership">
+      <OwnershipPrimitiveCard
+        to={`${basePath}/assets`}
+        icon={<Wallet size={16} strokeWidth={1.5} />}
+        label="Assets"
+        value={assets.vault?.moduleState ? (treasuryUsdc ?? "—") : "—"}
+        hint={assets.vault?.moduleState && treasuryUsdc ? "USDC" : ""}
+        sub={
+          assets.vault?.moduleState
+            ? "Treasury vault active"
+            : trustAddress
+              ? "No vault yet"
+              : "Bridge pending"
+        }
+      />
+      <OwnershipPrimitiveCard
+        to={`${basePath}/equity`}
+        icon={<PieChart size={16} strokeWidth={1.5} />}
+        label="Equity"
+        value={hasToken ? (holdersCount === null ? "—" : String(holdersCount)) : "—"}
+        hint={hasToken ? (holdersCount === 1 ? "holder" : "holders") : ""}
+        sub={
+          hasToken ? "Cap-table token live" : trustAddress ? "Foundation shape" : "Bridge pending"
+        }
+      />
+      <OwnershipPrimitiveCard
+        to={`${basePath}/quorum`}
+        icon={<Vote size={16} strokeWidth={1.5} />}
+        label="Quorum"
+        value={
+          configsCount && configsCount > 0
+            ? activeProposalsCount === null
+              ? "—"
+              : String(activeProposalsCount)
+            : "—"
+        }
+        hint={configsCount && configsCount > 0 ? "open" : ""}
+        sub={
+          configsCount && configsCount > 0
+            ? `${configsCount} governance config${configsCount === 1 ? "" : "s"}`
+            : trustAddress
+              ? "Founder-mode"
+              : "Bridge pending"
+        }
+      />
+      <OwnershipPrimitiveCard
+        to={`${basePath}/incorporation`}
+        icon={<FileText size={16} strokeWidth={1.5} />}
+        label="Incorporation"
+        value={modulesCount === null ? "—" : String(modulesCount)}
+        hint={modulesCount === 1 ? "module" : "modules"}
+        sub={trustOnchain ? "On-chain agreement" : trustAddress ? "Not yet" : "Bridge pending"}
+      />
     </section>
   );
 }
@@ -236,11 +152,6 @@ function OwnershipPrimitiveCard({
   );
 }
 
-function compactAddress(value: string): string {
-  if (value.length <= 14) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
 /**
  * Format a raw USDC amount (in base units; 6-decimal token by convention)
  * as `$X.YZ` with two decimal places. Uses bigint division to avoid
@@ -251,7 +162,6 @@ function compactAddress(value: string): string {
 function formatUsdc(amountRaw: bigint, decimals: number): string {
   const divisor = BigInt(10) ** BigInt(decimals);
   const whole = amountRaw / divisor;
-  // Scale fractional part to 2 decimal places, truncating the rest.
   const fracScaled =
     decimals <= 2
       ? (amountRaw % divisor) * BigInt(10) ** BigInt(2 - decimals)
