@@ -210,17 +210,21 @@
 }
 
 /* Awaiting strip — detail-pane echo of the rail's amber awaiting dot.
- * Tinted with the same `--color-warmth` family accent the rail uses
- * so the row's `in_review` state reads continuously from the list
- * cue into the detail header. Tint percentages stay conservative
- * (4% / 12%) to keep the strip readable as chrome, not a banner. */
+ * The canonical `.quest-status-dot--in_review` (c9) now carries the
+ * `in_review` semantic continuously from the rail row into this header,
+ * so the strip drops its 4% warmth wash and rests on the page's reading
+ * surface (`--color-card`). The dot signals state; the strip reads as
+ * chrome. Warmth concentrates to one earned moment — the Reply button's
+ * hover, where it doubles as a discoverable call-to-action — so amber
+ * stops appearing at rest in three places at once (dot, wash, button
+ * ink) and starts working harder in fewer. */
 .inbox-awaiting-strip {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: 44px;
   padding: var(--space-2) var(--space-5);
-  background: color-mix(in srgb, var(--color-warmth) 4%, var(--color-card));
+  background: var(--color-card);
   box-shadow: inset 0 -1px 0 var(--border);
   flex-shrink: 0;
 }
