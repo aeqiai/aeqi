@@ -358,10 +358,30 @@
    rhythm, gated on `prefers-reduced-motion: no-preference` so the chain side
    reads as awaiting registration rather than parked. Reuses the existing
    keyframe; static color stays --color-text-muted so the pulse rides opacity
-   only, matching the dot's behaviour. */
+   only, matching the dot's behaviour.
+
+   When the bridge completes, the verified state previously popped from
+   muted-grey to jade instantly — the moment was illegible. A one-shot
+   200ms ease-out fade-in (c8, 2026-05-21) gives the verification a
+   readable beat without veering into delight: opacity ramps from 0.45
+   (the pulse's trough, so the handoff lines up) to 1 once, and the
+   color settles to jade as it lands. Single iteration, no bounce.
+   Uses the existing --transition-normal token for duration + easing so
+   the curve matches the rest of the system. */
 @media (prefers-reduced-motion: no-preference) {
   .trust-hero-bar-solana[data-pending="true"] {
     animation: trust-pulse 1.6s ease-in-out infinite;
+  }
+  .trust-hero-bar-solana[data-verified="true"] {
+    animation: trust-solana-verify var(--transition-normal) 1 forwards;
+  }
+}
+@keyframes trust-solana-verify {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
   }
 }
 /* On-chain identity reads as one composed pill: address (interactive,
