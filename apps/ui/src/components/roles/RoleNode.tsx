@@ -11,6 +11,9 @@ export interface RoleNodeProps {
   onClick?: () => void;
   className?: string;
   style?: React.CSSProperties;
+  /** Ref callback exposed so RolesChart can measure node positions for
+   * cross-zone connector geometry (director → operational lines). */
+  nodeRef?: (el: HTMLButtonElement | null) => void;
 }
 
 /**
@@ -37,6 +40,7 @@ export default function RoleNode({
   onClick,
   className,
   style,
+  nodeRef,
 }: RoleNodeProps) {
   const occupant = describeOccupant(role, agentName);
   const initials = occupant.label ? initialsFor(occupant.label) : "·";
@@ -65,6 +69,7 @@ export default function RoleNode({
 
   return (
     <button
+      ref={nodeRef}
       type="button"
       className={classNames}
       onClick={onClick}
@@ -101,8 +106,25 @@ export default function RoleNode({
         <span className="role-node-title">{role.title || "Untitled"}</span>
         <span className="role-node-occupant">{occupant.label}</span>
       </span>
+      <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
+        {pillLabel(role)}
+      </span>
     </button>
   );
+}
+
+function pillLabel(role: Role): string {
+  if (role.founder) return "Founder";
+  if (role.role_type === "director") return "Director";
+  if (role.role_type === "advisor") return "Advisor";
+  return "Operational";
+}
+
+function pillTone(role: Role): "founder" | "director" | "advisor" | "operational" {
+  if (role.founder) return "founder";
+  if (role.role_type === "director") return "director";
+  if (role.role_type === "advisor") return "advisor";
+  return "operational";
 }
 
 function describeOccupant(role: Role, agentName?: string): { label: string } {

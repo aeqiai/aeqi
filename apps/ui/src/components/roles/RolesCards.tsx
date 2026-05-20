@@ -7,6 +7,7 @@ export interface RolesCardsProps {
   /** Avatar URLs keyed by agent id, sourced from the daemon store. */
   agentAvatars: Map<string, string>;
   onSelectRole: (role: Role) => void;
+  selectedRoleId?: string | null;
 }
 
 export default function RolesCards({
@@ -14,6 +15,7 @@ export default function RolesCards({
   agentNames,
   agentAvatars,
   onSelectRole,
+  selectedRoleId,
 }: RolesCardsProps) {
   return (
     <div className="roles-cards-grid" role="list" aria-label="Roles">
@@ -24,6 +26,7 @@ export default function RolesCards({
           agentName={role.occupant_id ? agentNames.get(role.occupant_id) : undefined}
           agentAvatar={role.occupant_id ? agentAvatars.get(role.occupant_id) : undefined}
           onClick={() => onSelectRole(role)}
+          selected={role.id === selectedRoleId}
           className="role-node--card"
         />
       ))}

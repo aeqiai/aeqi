@@ -4,6 +4,7 @@ import { ArrowRight, Copy, Check, Pencil, Mail } from "lucide-react";
 import BlockAvatar from "@/components/BlockAvatar";
 import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
+import { formatMediumDate } from "@/lib/i18n";
 
 interface RoleInspectorProps {
   role: Role;
@@ -249,7 +250,7 @@ export default function RoleInspector({
         )}
 
         <Field label="Created">
-          <span className="role-inspector-meta">{formatDate(role.created_at)}</span>
+          <span className="role-inspector-meta">{formatMediumDate(role.created_at)}</span>
         </Field>
       </div>
     </aside>
@@ -273,14 +274,4 @@ function Field({ label, children }: FieldProps) {
 function compactAddress(value: string): string {
   if (value.length <= 14) return value;
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
-function formatDate(iso: string): string {
-  const ts = Date.parse(iso);
-  if (Number.isNaN(ts)) return "";
-  return new Date(ts).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }

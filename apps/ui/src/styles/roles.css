@@ -17,6 +17,7 @@
    Role tile — shared between chart and cards.
    ------------------------------------------------------------------ */
 .role-node {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -42,9 +43,25 @@
   outline: 2px solid var(--accent-dim);
   outline-offset: 1px;
 }
+/* Selected tile — visible at a glance from the canvas. Uses warmth
+   (the v6 "alive" accent) so the active card pops against the muted
+   chart while staying tonally consistent with snapshot stats. */
 .role-node.is-selected {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  background: var(
+    --color-warmth-bg,
+    color-mix(in oklch, var(--color-warmth) 12%, var(--color-card-elevated))
+  );
+  box-shadow:
+    0 0 0 2px var(--color-warmth),
+    var(--shadow-sm);
+  outline: none;
+}
+.role-node--vacant.is-selected {
+  background: var(
+    --color-warmth-bg,
+    color-mix(in oklch, var(--color-warmth) 10%, var(--color-card))
+  );
+  border-color: var(--color-warmth);
 }
 
 .role-node-monogram {
@@ -153,12 +170,32 @@
 }
 
 .roles-chart-stack {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 40px;
   flex-shrink: 0;
   padding: 12px;
+}
+
+/* Cross-zone connectors — director → operational. Absolutely positioned
+   on top of the stack; nodes still paint above so line endpoints
+   tuck under tile edges. pointer-events:none so clicks fall through. */
+.roles-chart-cross-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 0;
+}
+.roles-chart-cross-edge-path {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-dasharray: 4 5;
+  opacity: 0.7;
 }
 
 /* Zoom controls — bottom-right corner overlay. */
@@ -172,6 +209,8 @@
   z-index: 10;
 }
 .roles-chart-zone {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -557,4 +596,51 @@
     flex-wrap: wrap;
     gap: var(--space-4);
   }
+}
+
+/* Role-type pill — sits in the top-right of the tile so the card reads
+   "what kind of role is this" at a glance outside the chart's banded
+   layout. Tone token differs by type; founder uses warmth to align
+   with the snapshot stat highlight. */
+.role-node-pill {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+.role-node-pill--founder {
+  background: var(--color-warmth-bg);
+  color: var(--color-warmth);
+}
+.role-node-pill--director {
+  background: var(--color-accent-bg);
+  color: var(--color-text-primary);
+}
+.role-node-pill--advisor {
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+}
+.role-node-pill--operational {
+  background: var(--bg-row);
+  color: var(--color-text-muted);
+}
+
+/* Make room for the pill in the tile body — it overlaps the upper-
+   right corner and reserves a small right-padding so long titles
+   don't crash into it. */
+.role-node {
+  padding-right: 18px;
 }

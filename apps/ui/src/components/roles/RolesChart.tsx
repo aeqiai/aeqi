@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Role, RoleEdge } from "@/lib/types";
 import { IconButton } from "@/components/ui";
 import RoleNode from "./RoleNode";
@@ -11,6 +11,14 @@ export interface RolesChartProps {
   /** Avatar URLs keyed by agent id, sourced from the daemon store. */
   agentAvatars: Map<string, string>;
   onSelectRole: (role: Role) => void;
+  selectedRoleId?: string | null;
+}
+
+interface CrossConnector {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
 const ZOOM_MIN = 0.25;
@@ -47,20 +55,88 @@ export default function RolesChart({
   agentNames,
   agentAvatars,
   onSelectRole,
+  selectedRoleId,
 }: RolesChartProps) {
   const directors = roles.filter((r) => r.role_type === "director");
   const advisors = roles.filter((r) => r.role_type === "advisor");
   const operational = roles.filter((r) => r.role_type === "operational");
 
-  const opIds = new Set(operational.map((r) => r.id));
+  const opIds = useMemo(() => new Set(operational.map((r) => r.id)), [operational]);
+  const directorIds = useMemo(() => new Set(directors.map((r) => r.id)), [directors]);
   const opEdges = edges.filter((e) => opIds.has(e.parent_role_id) && opIds.has(e.child_role_id));
   const treeLayout = layoutChart(operational, opEdges);
+
+  // Governance edges — director → operational. These cross the band
+  // boundary between the director roster and the operational tree.
+  // Layout-wise the roster is a flex row above the canvas; we measure
+  // post-layout DOM positions and draw connectors as an absolute SVG
+  // anchored to .roles-chart-stack.
+  const crossEdges = useMemo(
+    () => edges.filter((e) => directorIds.has(e.parent_role_id) && opIds.has(e.child_role_id)),
+    [edges, directorIds, opIds],
+  );
+
+  const stackRef = useRef<HTMLDivElement>(null);
+  const nodeRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
+  const setNodeRef = useCallback(
+    (roleId: string) => (el: HTMLButtonElement | null) => {
+      if (el) nodeRefs.current.set(roleId, el);
+      else nodeRefs.current.delete(roleId);
+    },
+    [],
+  );
+  const [crossConnectors, setCrossConnectors] = useState<CrossConnector[]>([]);
+  const [stackSize, setStackSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const stack = stackRef.current;
+    if (!stack) return;
+    const measure = () => {
+      const stackW = stack.offsetWidth;
+      const stackH = stack.offsetHeight;
+      const next: CrossConnector[] = [];
+      for (const e of crossEdges) {
+        const dirEl = nodeRefs.current.get(e.parent_role_id);
+        const opEl = nodeRefs.current.get(e.child_role_id);
+        if (!dirEl || !opEl) continue;
+        const dir = offsetRelative(dirEl, stack);
+        const op = offsetRelative(opEl, stack);
+        next.push({
+          x1: dir.x + dirEl.offsetWidth / 2,
+          y1: dir.y + dirEl.offsetHeight,
+          x2: op.x + opEl.offsetWidth / 2,
+          y2: op.y,
+        });
+      }
+      setStackSize({ w: stackW, h: stackH });
+      setCrossConnectors(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(stack);
+    return () => ro.disconnect();
+  }, [crossEdges, directors, operational, advisors, treeLayout.width, treeLayout.height]);
 
   if (roles.length === 0) return null;
 
   return (
     <OrgZoomViewport>
-      <div className="roles-chart-stack">
+      <div className="roles-chart-stack" ref={stackRef}>
+        {crossConnectors.length > 0 && (
+          <svg
+            className="roles-chart-cross-edges"
+            width={stackSize.w}
+            height={stackSize.h}
+            viewBox={`0 0 ${stackSize.w} ${stackSize.h}`}
+            aria-hidden
+          >
+            {crossConnectors.map((c, i) => {
+              const midY = (c.y1 + c.y2) / 2;
+              const d = `M ${c.x1} ${c.y1} C ${c.x1} ${midY}, ${c.x2} ${midY}, ${c.x2} ${c.y2}`;
+              return <path key={i} d={d} className="roles-chart-cross-edge-path" />;
+            })}
+          </svg>
+        )}
         {directors.length > 0 && (
           <section className="roles-chart-zone" aria-label="Director">
             <div className="roles-chart-roster">
@@ -71,6 +147,8 @@ export default function RolesChart({
                   agentName={r.occupant_id ? agentNames.get(r.occupant_id) : undefined}
                   agentAvatar={r.occupant_id ? agentAvatars.get(r.occupant_id) : undefined}
                   onClick={() => onSelectRole(r)}
+                  selected={r.id === selectedRoleId}
+                  nodeRef={setNodeRef(r.id)}
                   style={{ width: NODE_W, height: NODE_H }}
                 />
               ))}
@@ -111,6 +189,8 @@ export default function RolesChart({
                     n.role.occupant_id ? agentAvatars.get(n.role.occupant_id) : undefined
                   }
                   onClick={() => onSelectRole(n.role)}
+                  selected={n.role.id === selectedRoleId}
+                  nodeRef={setNodeRef(n.role.id)}
                   className={n.layer === 0 ? "role-node--apex" : undefined}
                   style={{
                     position: "absolute",
@@ -134,6 +214,8 @@ export default function RolesChart({
                   agentName={r.occupant_id ? agentNames.get(r.occupant_id) : undefined}
                   agentAvatar={r.occupant_id ? agentAvatars.get(r.occupant_id) : undefined}
                   onClick={() => onSelectRole(r)}
+                  selected={r.id === selectedRoleId}
+                  nodeRef={setNodeRef(r.id)}
                   style={{ width: NODE_W, height: NODE_H }}
                 />
               ))}
@@ -143,6 +225,25 @@ export default function RolesChart({
       </div>
     </OrgZoomViewport>
   );
+}
+
+/**
+ * Compute an element's position relative to an ancestor using the
+ * offsetParent chain. Returns layout (pre-transform) coordinates — the
+ * org chart sits inside a CSS-transformed zoom viewport and
+ * getBoundingClientRect would return scaled values that don't match
+ * the SVG's own (pre-transform) coordinate space.
+ */
+function offsetRelative(el: HTMLElement, ancestor: HTMLElement): { x: number; y: number } {
+  let x = 0;
+  let y = 0;
+  let cur: HTMLElement | null = el;
+  while (cur && cur !== ancestor) {
+    x += cur.offsetLeft;
+    y += cur.offsetTop;
+    cur = (cur.offsetParent as HTMLElement | null) ?? null;
+  }
+  return { x, y };
 }
 
 /**

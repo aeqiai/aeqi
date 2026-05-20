@@ -352,6 +352,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               agentNames={agentNames}
               agentAvatars={agentAvatars}
               onSelectRole={handleSelectRole}
+              selectedRoleId={selectedRole?.id ?? null}
             />
           )}
           {!loading && !error && filtered.length > 0 && view === "cards" && (
@@ -361,6 +362,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
                 agentNames={agentNames}
                 agentAvatars={agentAvatars}
                 onSelectRole={handleSelectRole}
+                selectedRoleId={selectedRole?.id ?? null}
               />
             </div>
           )}

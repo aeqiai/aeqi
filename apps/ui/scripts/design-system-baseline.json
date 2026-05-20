@@ -3,7 +3,7 @@
   "rules": {
     "rawButton": {
       "label": "raw <button>",
-      "count": 174,
+      "count": 175,
       "topFiles": [
         {
           "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
@@ -99,7 +99,7 @@
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 361,
+      "count": 348,
       "topFiles": [
         {
           "file": "apps/ui/src/pages/RoleDetailPage.tsx",
@@ -147,7 +147,7 @@
     },
     "literalHex": {
       "label": "literal hex color",
-      "count": 73,
+      "count": 72,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/events.css",
@@ -178,7 +178,7 @@
           "count": 1
         },
         {
-          "file": "apps/ui/src/components/EquityGenesisCurveSection.tsx",
+          "file": "apps/ui/src/pages/InvitationAcceptPage.tsx",
           "count": 1
         }
       ]
