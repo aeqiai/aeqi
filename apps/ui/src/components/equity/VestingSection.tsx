@@ -42,6 +42,20 @@ export interface VestingSectionProps {
   trustId: string;
   positions: VestingPositionWithPda[];
   decimals: number;
+  /**
+   * Iter-7: monotonic tick from `useEquityVesting`. Re-keys the `now`
+   * memo so per-row Schedule charts reflow against a fresh clock after
+   * a Claim settles. Without it, a successful claim leaves the chart
+   * fill pinned to the old `now` until full remount.
+   */
+  refreshTick?: number;
+  /**
+   * Iter-7: called after a successful Claim. The page-level
+   * `useEquityVesting.refresh()` invalidates the RQ vesting query so
+   * the section + the HolderDrawer rollup re-fetch on the same beat.
+   * Optional — standalone embeds keep the legacy claim-then-stale shape.
+   */
+  onClaimSettled?(): void;
 }
 
 function bnLikeToBigInt(value: bigint | { toString(): string } | number): bigint {
@@ -120,7 +134,13 @@ interface RowState {
   pending: boolean;
 }
 
-export function VestingSection({ trustId, positions, decimals }: VestingSectionProps) {
+export function VestingSection({
+  trustId,
+  positions,
+  decimals,
+  refreshTick = 0,
+  onClaimSettled,
+}: VestingSectionProps) {
   // Sort by end_time asc so the soonest-to-fully-vest sits at the top.
   const rows = useMemo(
     () =>
@@ -137,7 +157,13 @@ export function VestingSection({ trustId, positions, decimals }: VestingSectionP
   // multiple in-flight claims don't trample each other.
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
 
-  const now = useMemo(() => BigInt(Math.floor(Date.now() / 1000)), []);
+  // Iter-7: rebind `now` on every refreshTick bump from
+  // `useEquityVesting`. The Schedule chart fill, claimable column, and
+  // Claim-button disabled state all consume this `now`. Without the
+  // rebind, a successful Claim would leave each row visually stale
+  // (chart fill at old progress) until full remount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = useMemo(() => BigInt(Math.floor(Date.now() / 1000)), [refreshTick]);
 
   const handleClaim = async (row: VestingPositionWithPda) => {
     const key = row.publicKey.toBase58();
@@ -154,6 +180,10 @@ export function VestingSection({ trustId, positions, decimals }: VestingSectionP
           pending: false,
         },
       }));
+      // Iter-7: refresh the shared vesting + holders caches so this
+      // section's Schedule chart + the page-level HolderDrawer rollup
+      // pick up the new claimed_amount without a manual reload.
+      onClaimSettled?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setRowStates((s) => ({

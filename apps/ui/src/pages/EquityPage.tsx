@@ -12,6 +12,7 @@ import { VestingSection } from "@/components/equity/VestingSection";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
 import { useCurveTrades } from "@/hooks/useCurveTrades";
+import { useEquityVesting } from "@/hooks/useEquityVesting";
 import type { CurveTrade } from "@/components/equity/RecentTradesLog";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
@@ -87,6 +88,13 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   const [curveTick, setCurveTick] = useState(0);
   const bumpCurveTick = useCallback(() => setCurveTick((t) => t + 1), []);
   const { trades: recentTrades } = useCurveTrades(trustId, curveTick);
+
+  // Iter-7: shared vesting subscriber. The hook holds the canonical
+  // positions list (sourced from the same RQ cache `useEquity` populates)
+  // and exposes a `refresh()` lever. VestingSection calls refresh after
+  // a Claim succeeds; HolderDrawer reads from the same hook so the
+  // claimable-now rollup re-renders on the same beat.
+  const vestingShared = useEquityVesting(trustAddress, vesting ?? []);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
   if (!trustAddress) {
@@ -215,7 +223,8 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             holders={holders ?? []}
             totalSupply={mint.supply}
             decimals={mint.decimals}
-            vestingPositions={vesting ?? []}
+            vestingPositions={vestingShared.positions}
+            vestingTick={vestingShared.tick}
             recentTrades={recentTrades}
           />
           <EquityShareControls trustId={trustId} />
@@ -225,7 +234,13 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             onTradeSettled={bumpCurveTick}
           />
           <EquityFundingRoundControl trustId={trustId} declaredRounds={fundingRequests ?? []} />
-          <VestingSection trustId={trustId} positions={vesting ?? []} decimals={mint.decimals} />
+          <VestingSection
+            trustId={trustId}
+            positions={vestingShared.positions}
+            decimals={mint.decimals}
+            refreshTick={vestingShared.tick}
+            onClaimSettled={vestingShared.refresh}
+          />
           <EquityVestingControls trustId={trustId} holders={holders ?? []} />
         </PageBody>
       </Page>
@@ -277,15 +292,26 @@ function CapTableSection({
   totalSupply,
   decimals,
   vestingPositions,
+  vestingTick,
   recentTrades,
 }: {
   holders: TokenHolder[];
   totalSupply: bigint;
   decimals: number;
   vestingPositions: VestingPositionWithPda[];
+  /**
+   * Iter-7: monotonic tick from `useEquityVesting`. When the section
+   * forwards it into `HolderDrawer`, the drawer's claimable-now rollup
+   * recomputes on every refresh even if the positions array reference
+   * stayed identical (React Query returns the same reference on stale-
+   * while-revalidate cache hits). Without the tick, a freshly settled
+   * Claim would leave the drawer's rollup line out of sync until the
+   * next 30s stale window.
+   */
+  vestingTick: number;
   recentTrades: CurveTrade[];
 }) {
-  const { mintTo, transferTo, vestingRecipient } = useEquityPrefill();
+  const { mintTo, transferTo, vestingRecipient, focusMint } = useEquityPrefill();
   const [drawerHolder, setDrawerHolder] = useState<TokenHolder | null>(null);
   const [sort, setSort] = useState<CapTableSort>("largest");
   const [filter, setFilter] = useState<CapTableFilter>("all");
@@ -497,42 +523,50 @@ function CapTableSection({
         title="Cap table"
         description={description}
         actions={
-          holders.length > 0 ? (
-            <span style={{ display: "inline-flex", gap: "var(--space-2)", alignItems: "center" }}>
-              {holders.length > 1 && (
-                <>
-                  <ToolbarRadioPopover
-                    label="Sort"
-                    current={CAP_TABLE_SORT_LABELS[sort]}
-                    glyph={CAP_TABLE_GLYPHS.sort}
-                    options={(Object.keys(CAP_TABLE_SORT_LABELS) as CapTableSort[]).map((id) => ({
-                      id,
-                      label: CAP_TABLE_SORT_LABELS[id],
-                    }))}
-                    value={sort}
-                    onChange={(next) => setSort(next as CapTableSort)}
-                  />
-                  <ToolbarRadioPopover
-                    label="Filter"
-                    current={CAP_TABLE_FILTER_LABELS[filter]}
-                    glyph={CAP_TABLE_GLYPHS.filter}
-                    options={(Object.keys(CAP_TABLE_FILTER_LABELS) as CapTableFilter[]).map(
-                      (id) => ({
-                        id,
-                        label: CAP_TABLE_FILTER_LABELS[id],
-                      }),
-                    )}
-                    value={filter}
-                    onChange={(next) => setFilter(next as CapTableFilter)}
-                    indicator={filter !== "all"}
-                  />
-                </>
-              )}
+          <span style={{ display: "inline-flex", gap: "var(--space-2)", alignItems: "center" }}>
+            {holders.length > 1 && (
+              <>
+                <ToolbarRadioPopover
+                  label="Sort"
+                  current={CAP_TABLE_SORT_LABELS[sort]}
+                  glyph={CAP_TABLE_GLYPHS.sort}
+                  options={(Object.keys(CAP_TABLE_SORT_LABELS) as CapTableSort[]).map((id) => ({
+                    id,
+                    label: CAP_TABLE_SORT_LABELS[id],
+                  }))}
+                  value={sort}
+                  onChange={(next) => setSort(next as CapTableSort)}
+                />
+                <ToolbarRadioPopover
+                  label="Filter"
+                  current={CAP_TABLE_FILTER_LABELS[filter]}
+                  glyph={CAP_TABLE_GLYPHS.filter}
+                  options={(Object.keys(CAP_TABLE_FILTER_LABELS) as CapTableFilter[]).map((id) => ({
+                    id,
+                    label: CAP_TABLE_FILTER_LABELS[id],
+                  }))}
+                  value={filter}
+                  onChange={(next) => setFilter(next as CapTableFilter)}
+                  indicator={filter !== "all"}
+                />
+              </>
+            )}
+            {holders.length > 0 && (
               <Button variant="secondary" size="sm" onClick={handleExportCsv}>
                 Export CSV
               </Button>
-            </span>
-          ) : undefined
+            )}
+            {/* Iter-7: section-level "+ Issue shares" hero CTA. Mirrors
+                the row-menu "Mint more to holder" path but is always
+                discoverable from the cap-table head — operators no
+                longer have to scroll to the Mint card or hunt for the
+                row menu when issuing a fresh tranche. The button reads
+                as the primary action against the cap table, matching
+                "+ New" CTAs elsewhere in the app. */}
+            <Button variant="primary" size="sm" onClick={focusMint}>
+              + Issue shares
+            </Button>
+          </span>
         }
       >
         {holders.length > 1 && (
@@ -585,6 +619,7 @@ function CapTableSection({
         totalSupply={totalSupply}
         decimals={decimals}
         vestingPositions={vestingPositions}
+        vestingTick={vestingTick}
         recentTrades={recentTrades}
         onClose={() => setDrawerHolder(null)}
       />

@@ -46,6 +46,18 @@
   margin-top: var(--space-4);
 }
 
+/* Iter-7: inverse-mode toggle group. Two pill buttons live inline with
+   the simulator input so the operator sees the active mode adjacent to
+   the value they're typing. Primary variant marks the active mode;
+   secondary marks the inactive one — same affordance pattern the
+   ToolbarRadioPopover surfaces, but inlined because the simulator row
+   already lives in its own subtle-card region. */
+.curve-sim-mode {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-self: flex-start;
+}
+
 .curve-sim-output {
   display: flex;
   flex-direction: column;

@@ -301,11 +301,19 @@ function ActivateRoundModal({
   onClose,
   trustId,
   round,
+  onActivated,
 }: {
   open: boolean;
   onClose: () => void;
   trustId: string;
   round: FundingRequestWithPda | null;
+  /**
+   * Iter-7: fire after a successful activation so the parent
+   * `DeclaredRoundsList` can optimistically flip the row from Pending
+   * to Activated and surface the activation signature without waiting
+   * for the on-chain status field to refresh.
+   */
+  onActivated?: (info: { requestIdHex: string; signatureB58: string }) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -338,6 +346,11 @@ function ActivateRoundModal({
         ok: true,
         message: `Activated — ${res.signature_b58.slice(0, 12)}…`,
       });
+      // Iter-7: notify parent so the DeclaredRoundsList row flips from
+      // Pending → Activated immediately. The on-chain status field
+      // catches up on the next refetch; the optimistic flip removes the
+      // stale "Pending" badge until then.
+      onActivated?.({ requestIdHex, signatureB58: res.signature_b58 });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setResult({ ok: false, message });
@@ -403,6 +416,21 @@ function DeclaredRoundsList({
 }) {
   const [activating, setActivating] = useState<FundingRequestWithPda | null>(null);
 
+  /**
+   * Iter-7: optimistic activation map. Keyed on the full request_id hex
+   * so the row flip survives even if the parent re-orders the rounds
+   * array (sortedRounds upstream re-evaluates on every render). Value
+   * carries the activation signature — surfaced below the row as the
+   * activated-primitive's address until the on-chain status catches up
+   * and `r.account.status` returns 1 (Activated) on the next fetch.
+   *
+   * The map is intentionally session-local. A page refresh re-reads the
+   * canonical on-chain status; this only bridges the gap between
+   * "platform endpoint settled" and "RPC indexer refreshed". Honest:
+   * activation succeeded; we don't pretend it's a finalized round yet.
+   */
+  const [activatedLocal, setActivatedLocal] = useState<Record<string, string>>({});
+
   if (rounds.length === 0) {
     return (
       <div className="equity-funding-declared equity-funding-declared--empty">
@@ -419,12 +447,18 @@ function DeclaredRoundsList({
       <ul className="equity-funding-declared__list">
         {rounds.map((r) => {
           const kind = Number(r.account.kind);
-          const status = Number(r.account.status);
-          const badge = statusBadgeFor(status);
+          const rawStatus = Number(r.account.status);
+          const requestIdHex = fullRequestId(r.account.requestId);
+          const optimisticSig = activatedLocal[requestIdHex];
+          // Honor the local optimistic flip ahead of the on-chain status
+          // field. Once the next fetch settles with status === 1 the
+          // optimistic and canonical states agree.
+          const effectiveStatus = optimisticSig && rawStatus === 0 ? 1 : rawStatus;
+          const badge = statusBadgeFor(effectiveStatus);
           const assetRaw = bnLikeToBigInt(r.account.assetAmount);
           const quoteRaw = bnLikeToBigInt(r.account.targetQuote);
           const requestId = formatRequestId(r.account.requestId);
-          const isPending = status === 0;
+          const isPending = effectiveStatus === 0;
           return (
             <li key={r.publicKey.toBase58()} className="equity-funding-declared__row">
               <div className="equity-funding-declared__head">
@@ -454,11 +488,29 @@ function DeclaredRoundsList({
                 </span>
                 <span
                   className="equity-funding-declared__metaItem equity-funding-declared__metaItem--mono"
-                  title={fullRequestId(r.account.requestId)}
+                  title={requestIdHex}
                 >
                   {requestId}
                 </span>
               </div>
+              {optimisticSig && (
+                /* Iter-7: surface the activation signature so the operator
+                   can verify the transaction on the explorer. Compact
+                   `equity-funding-result-ok` jade tint mirrors the same
+                   "settled" affordance used after Buy/Sell. */
+                <div
+                  className="equity-funding-declared__activatedRow"
+                  role="status"
+                  title={optimisticSig}
+                >
+                  <span className="equity-funding-declared__activatedLabel">
+                    Activated this session
+                  </span>
+                  <span className="equity-funding-declared__activatedSig">
+                    {optimisticSig.slice(0, 6)}…{optimisticSig.slice(-4)}
+                  </span>
+                </div>
+              )}
             </li>
           );
         })}
@@ -468,6 +520,9 @@ function DeclaredRoundsList({
         onClose={() => setActivating(null)}
         trustId={trustId}
         round={activating}
+        onActivated={({ requestIdHex, signatureB58 }) =>
+          setActivatedLocal((m) => ({ ...m, [requestIdHex]: signatureB58 }))
+        }
       />
     </div>
   );

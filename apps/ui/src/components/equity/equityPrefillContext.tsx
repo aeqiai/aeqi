@@ -40,6 +40,13 @@ interface EquityPrefillContextValue {
    * Vest to the given holder. Scrolls vesting-controls into view.
    */
   vestingRecipient(address: string): void;
+  /**
+   * Iter-7: section-level affordance — open the Mint form without
+   * pre-filling a recipient. Used by the cap-table head "+ Issue shares"
+   * CTA: the operator wants to issue, but hasn't picked a recipient yet.
+   * Scrolls to share-controls so the empty Mint form receives focus.
+   */
+  focusMint(): void;
 }
 
 const EquityPrefillContext = createContext<EquityPrefillContextValue | null>(null);
@@ -70,9 +77,20 @@ export function EquityPrefillProvider({ children }: { children: ReactNode }) {
     scrollTo(VESTING_CONTROLS_ANCHOR);
   }, []);
 
+  // Iter-7: focusMint scrolls to share-controls without overwriting
+  // the recipient field. The nonce bumps so the Mint card can
+  // optionally react (e.g. flash a focus ring) the same way row-level
+  // prefills already trigger consumer effects. The `mintTo` payload
+  // intentionally stays absent — consumers depending on prefill.mintTo
+  // won't overwrite their existing recipient state.
+  const focusMint = useCallback(() => {
+    setPrefill((p) => ({ nonce: p.nonce + 1 }));
+    scrollTo(SHARE_CONTROLS_ANCHOR);
+  }, []);
+
   const value = useMemo(
-    () => ({ prefill, mintTo, transferTo, vestingRecipient }),
-    [prefill, mintTo, transferTo, vestingRecipient],
+    () => ({ prefill, mintTo, transferTo, vestingRecipient, focusMint }),
+    [prefill, mintTo, transferTo, vestingRecipient, focusMint],
   );
 
   return <EquityPrefillContext.Provider value={value}>{children}</EquityPrefillContext.Provider>;
@@ -88,6 +106,7 @@ export function useEquityPrefill(): EquityPrefillContextValue {
       mintTo: () => {},
       transferTo: () => {},
       vestingRecipient: () => {},
+      focusMint: () => {},
     };
   }
   return ctx;

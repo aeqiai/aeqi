@@ -143,6 +143,29 @@
   margin-left: auto;
 }
 
+/* Iter-7: optimistic-activation surface — single inline row carrying
+   the jade "Activated" signal and the truncated transaction signature.
+   Sits below the meta strip so the meta row keeps its declared-truth
+   shape and this row reads as a session-local observation. */
+.equity-funding-declared__activatedRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.equity-funding-declared__activatedLabel {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.equity-funding-declared__activatedSig {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Activation modal — explains the kind-specific path, surfaces the
    request id, holds the Activate / Cancel actions. Lives inside the
    shared Modal primitive's surface; styles here are content-only. */

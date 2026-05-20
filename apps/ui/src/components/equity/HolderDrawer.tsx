@@ -149,6 +149,14 @@ export interface HolderDrawerProps {
   /** All vesting positions for the cap-table mint (filtered client-side here). */
   vestingPositions: VestingPositionWithPda[];
   /**
+   * Iter-7: monotonic tick from `useEquityVesting`. The hook bumps this
+   * after every Claim settles so the drawer's "Claimable now" rollup
+   * recomputes against fresh claimed_amount values. Without the tick,
+   * stale-while-revalidate cache hits would return the same positions
+   * array reference and skip the rollup memo.
+   */
+  vestingTick?: number;
+  /**
    * All recent curve trades projected by the indexer (full page-level
    * list). The drawer filters to trades whose counterparty matches the
    * inspected holder. Empty / unset is rendered as a quiet empty state.
@@ -163,6 +171,7 @@ export function HolderDrawer({
   totalSupply,
   decimals,
   vestingPositions,
+  vestingTick = 0,
   recentTrades = [],
   onClose,
 }: HolderDrawerProps) {
@@ -187,7 +196,12 @@ export function HolderDrawer({
       });
   }, [holder, vestingPositions]);
 
-  const now = useMemo(() => BigInt(Math.floor(Date.now() / 1000)), []);
+  // Iter-7: rebind `now` on every vestingTick bump. A successful Claim
+  // shifts the on-chain claimed_amount, so the rollup line must
+  // recompute against a freshly-stamped clock rather than the mount-time
+  // snapshot. The cost is one BigInt allocation per refresh — cheap.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = useMemo(() => BigInt(Math.floor(Date.now() / 1000)), [vestingTick]);
 
   // iter-5: per-holder activity stream. Filter the page-wide curve
   // trades down to "trades where this holder is the counterparty". For
