@@ -2263,90 +2263,16 @@
 
 /* ============================================
    IDEAS
-   ============================================ */
-
-.idea-entry {
-  background: var(--bg-base);
-  border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: 2px;
-  transition:
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.idea-entry:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-surface);
-}
-
-.idea-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-2);
-  gap: var(--space-2);
-}
-
-.idea-key {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--accent);
-}
-
-.idea-tags {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.idea-tag {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-2xs);
-  font-weight: 500;
-  text-transform: lowercase;
-  letter-spacing: 0.01em;
-  padding: 1px 6px;
-  border-radius: var(--key-pill-radius, 4px);
-  background: var(--key-pill-bg, rgba(0, 0, 0, 0.035));
-  color: var(--color-text-muted);
-}
-
-.idea-content {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  margin-bottom: var(--space-2);
-}
-
-.idea-meta {
-  display: flex;
-  gap: var(--space-3);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.idea-entry.selected {
-  background: var(--color-card);
-  outline: 2px solid var(--color-text-primary);
-  outline-offset: -2px;
-}
-
-.idea-entry {
-  cursor: pointer;
-}
+   ============================================
+   Live `.idea*` selectors in this file:
+     - `.idea-graph-canvas` (used by `components/IdeaGraph.tsx`)
+   The rest of the Ideas surface lives in `styles/layout.css`
+   under `.ideas-list*`, `.idea-children*`, `.idea-convo*`, and
+   `.idea-property*`. */
 
 /* ============================================
    INSIGHTS PAGE — Enhanced
    ============================================ */
-
-.ideas-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
 
 /* Agent settings button in content header — twin of Explore, but tied
    to the agent's configure surfaces (settings / tools / channels). */
@@ -2356,14 +2282,6 @@
   border-color: var(--accent-dim);
 }
 /* Tag chips */
-
-.ideas-categories {
-  display: flex;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  margin-bottom: var(--space-3);
-  flex-wrap: wrap;
-}
 
 .tag-chip {
   padding: var(--space-1) var(--space-3);
@@ -2402,38 +2320,7 @@
   text-align: center;
 }
 
-/* Body layout — list/graph + optional detail panel */
-
-.ideas-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  gap: 0;
-}
-
-.ideas-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 var(--space-4) var(--space-4);
-  min-width: 0;
-}
-
-.ideas-body.with-detail .ideas-main {
-  flex: 1;
-}
-
 /* Detail panel */
-
-.ideas-detail {
-  width: 340px;
-  flex-shrink: 0;
-  padding: var(--space-4);
-  overflow-y: auto;
-  background: var(--color-card-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
 
 .detail-header {
   display: flex;
@@ -2536,12 +2423,6 @@
 
 /* Graph container */
 
-.idea-graph-container {
-  position: relative;
-  height: 100%;
-  min-height: 400px;
-}
-
 .idea-graph-canvas {
   width: 100%;
   height: 100%;
@@ -2574,11 +2455,6 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-}
-
-.idea-list {
-  display: flex;
-  flex-direction: column;
 }
 
 /* ============================================
