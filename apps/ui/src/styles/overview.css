@@ -326,6 +326,16 @@
   font-weight: 500;
   transition: color 0.12s ease;
 }
+/* When the runtime is live, the dot to the CTA's left lights indigo
+   (state-progress) — let the "Open →" arrow own the same zone instead
+   of borrowing the brand graphite ink. Brand accent stays reserved for
+   the "Launch" conversion CTA (static state), keeping the ~2% accent
+   ratio honest. Provisioning keeps graphite: the pulsing warmth dot is
+   already the loudest element in the bar; doubling it on the CTA would
+   over-claim attention. */
+.trust-hero-bar-cta[data-tone="live"] {
+  color: var(--state-progress);
+}
 .trust-hero-bar-cta:hover {
   text-decoration: underline;
 }

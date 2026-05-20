@@ -86,7 +86,7 @@ export default function TrustHeroOverview({
             <span className="trust-hero-bar-text">{agentLabel}</span>
           </>
         )}
-        <Link to={ctaPath} className="trust-hero-bar-cta">
+        <Link to={ctaPath} className="trust-hero-bar-cta" data-tone={runtimeTone}>
           {ctaLabel}
           <ArrowRight size={12} strokeWidth={1.8} />
         </Link>
