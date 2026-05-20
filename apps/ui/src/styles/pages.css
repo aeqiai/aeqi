@@ -3982,16 +3982,12 @@
   color: var(--color-text-secondary);
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--color-bg-subtle);
+  background: var(--bg-subtle);
   white-space: nowrap;
 }
 .quest-due-chip--overdue {
-  color: var(--color-error, var(--color-danger, #b85c5c));
-  background: color-mix(
-    in oklab,
-    var(--color-error, var(--color-danger, #b85c5c)) 12%,
-    transparent
-  );
+  color: var(--color-error);
+  background: var(--color-error-bg);
 }
 /* Toolbar trigger morphing — when a due-date is set, the chip glyph
    reads in tabular-nums; when overdue, the trigger picks up the red
@@ -4000,7 +3996,7 @@
   font-variant-numeric: tabular-nums;
 }
 .quest-due-btn.is-overdue {
-  color: var(--color-error, var(--color-danger, #b85c5c));
+  color: var(--color-error);
 }
 /* "Pick a date" row hosts a native date input. Layout is: label on
    the left, native input filling the rest. Stop-propagation on the
