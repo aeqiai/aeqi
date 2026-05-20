@@ -7932,11 +7932,14 @@ button.home-card:focus-visible {
   font-weight: 500;
 }
 /* Inbox card meta dot — same 7px / 999px shape as `.home-hero-pill-dot`
-   and `.home-inbox-status`, so the "N waiting" string in the card head
-   mirrors the hero-pill stat's state grammar. The dot reads amber when
-   anything awaits the user, indigo when items are live but not blocking,
-   muted-idle when the inbox is clear. Same data source as the hero pill
-   (`inboxPillState`), so the two surfaces stay in lockstep. */
+   and `.home-inbox-status`, so the label string in the card head mirrors
+   the hero-pill stat's state grammar. The dot reads amber when anything
+   awaits the user, indigo when items are live but not blocking, muted-
+   idle when the inbox is clear. Both the dot and the label string come
+   from the hero pill's data source (`inboxPillState` / `inboxLabel`):
+   "N awaiting" when awaiting > 0, "N in inbox" when items are live but
+   nothing waits on the user, "Inbox clear" when empty. The card head and
+   the hero pill stat read as one signal, not two adjacent ones. */
 .home-card-meta-dot {
   display: inline-block;
   width: 7px;

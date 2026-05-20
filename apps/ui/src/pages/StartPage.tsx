@@ -187,12 +187,18 @@ export default function StartPage() {
               <InboxIcon size={16} strokeWidth={1.5} />
             </span>
             <span className="home-card-title">Inbox</span>
+            {/* Meta string reuses `inboxLabel` from the hero pill so the
+                card head and the pill stat read as one signal — same
+                three-state vocabulary (N awaiting / N in inbox / Inbox
+                clear), same dot color. Replaces the earlier "N waiting"
+                phrasing, which read the total count as "waiting" even
+                when nothing actually awaited the user. */}
             <span className="home-card-meta">
               <span
                 className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
                 aria-hidden="true"
               />
-              {inboxCount === 0 ? "All clear" : `${inboxCount} waiting`}
+              {inboxLabel}
             </span>
             <button type="button" className="home-card-link" onClick={() => navigate("/inbox")}>
               View all
