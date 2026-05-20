@@ -73,10 +73,20 @@ export default function FiresPanel({ eventName, pattern, fireCountHint }: FiresP
       {error && <div className="events-fires-error">{error}</div>}
 
       {!loading && !error && rows.length === 0 && (
-        <div className="events-fires-empty">
-          {fireCountHint > 0
-            ? "No traces recorded for recent fires yet."
-            : "Never fired. Use Test trigger to dry-run this pipeline."}
+        <div className="events-fires-empty event-empty-block">
+          <span className="event-empty-eyebrow">
+            {fireCountHint > 0 ? "Traces pending" : "Standing by"}
+          </span>
+          <span className="event-empty-title">
+            {fireCountHint > 0
+              ? "Recent fires haven't logged traces yet"
+              : "This trigger hasn't fired"}
+          </span>
+          <span className="event-empty-hint">
+            {fireCountHint > 0
+              ? "Hit refresh in a moment, or open a fire above once it appears."
+              : "Use Test in the toolbar to dry-run the pipeline and seed the log."}
+          </span>
         </div>
       )}
 

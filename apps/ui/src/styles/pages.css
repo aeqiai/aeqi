@@ -2792,6 +2792,47 @@
   padding: var(--space-2);
 }
 
+/* ── Event empty-state blocks (fires panel + step drill) ────────────
+   Compact eyebrow / title / hint stack used inside .events-fires and
+   .events-step-detail when there is nothing to log yet. Mirrors the
+   panel's existing eyebrow typography (.events-fires-title) so the
+   empty state reads as the same surface, not a foreign element. */
+.event-empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-2);
+  max-width: 44ch;
+}
+.event-empty-block--compact {
+  padding: var(--space-3) var(--space-2);
+}
+.event-empty-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.event-empty-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
+}
+.event-empty-block--compact .event-empty-title {
+  font-size: 14px;
+}
+.event-empty-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
 /* ── Modal Overlay ── */
 @keyframes modal-fade-in {
   from {

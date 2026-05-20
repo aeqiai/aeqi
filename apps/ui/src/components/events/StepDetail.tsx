@@ -82,7 +82,13 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
       {error && <div className="events-step-detail-error">{error}</div>}
 
       {!loading && !error && steps.length === 0 && (
-        <div className="events-step-detail-empty">No steps recorded.</div>
+        <div className="events-step-detail-empty event-empty-block event-empty-block--compact">
+          <span className="event-empty-eyebrow">No steps</span>
+          <span className="event-empty-title">This fire didn't run any tools</span>
+          <span className="event-empty-hint">
+            The trigger matched but the pipeline was empty — wire a step on the canvas.
+          </span>
+        </div>
       )}
 
       {steps.map((step) => {
