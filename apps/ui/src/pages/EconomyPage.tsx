@@ -18,7 +18,7 @@ import {
   type TableColumn,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { entityBasePath } from "@/lib/entityPath";
+import { entityBasePath, entityPath } from "@/lib/entityPath";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
 import type { Role, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
@@ -308,7 +308,7 @@ export default function EconomyPage() {
             trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
             onClick={(event) => {
               event.stopPropagation();
-              navigate(entityBasePath(row.trust));
+              navigate(entityPath(row.trust, "equity"));
             }}
           >
             Open
@@ -547,7 +547,7 @@ export default function EconomyPage() {
                   columns={poolColumns}
                   data={visiblePoolRows}
                   rowKey={(row) => row.id}
-                  onRowClick={(row) => navigate(entityBasePath(row.trust))}
+                  onRowClick={(row) => navigate(entityPath(row.trust, "equity"))}
                   loading={loadingSecondaryData && visiblePoolRows.length === 0}
                   skeletonRows={3}
                   scrollWidth="lg"
