@@ -3,7 +3,7 @@
   "rules": {
     "rawButton": {
       "label": "raw <button>",
-      "count": 177,
+      "count": 178,
       "topFiles": [
         {
           "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
@@ -18,15 +18,15 @@
           "count": 6
         },
         {
+          "file": "apps/ui/src/components/quests/QuestBoard.tsx",
+          "count": 6
+        },
+        {
           "file": "apps/ui/src/components/events/EventsFilterPopover.tsx",
           "count": 5
         },
         {
           "file": "apps/ui/src/components/ideas/IdeasListFilterChips.tsx",
-          "count": 5
-        },
-        {
-          "file": "apps/ui/src/components/quests/QuestBoard.tsx",
           "count": 5
         },
         {

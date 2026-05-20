@@ -2997,6 +2997,19 @@
   gap: var(--space-2);
   flex-shrink: 0;
 }
+/* Quest-board scoped — larger search input and toolbar icon-buttons
+   than the default `.ideas-list-head` shape. The board is the
+   highest-density surface in the app; the toolbar reads better when
+   its targets are a touch chunkier. */
+.quest-board .ideas-list-head .ideas-list-search-field {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: var(--font-size-sm);
+}
+.quest-board .ideas-list-head .ideas-toolbar-btn,
+.quest-board .ideas-list-head [class*="ideas-toolbar"] button {
+  min-height: 36px;
+}
 
 /* Priority indicator — three-bar Linear-style glyph, replaces the
    old text-pill in list rows + board cards. Always rendered (even at
@@ -3399,19 +3412,43 @@ button.quest-board-crumb:focus-visible {
   }
 }
 
+/* Two-row grid: the four active columns (Todo · In Progress · In
+ * Review · Done) on top, Backlog spanning Todo+In-Progress and
+ * Cancelled spanning In-Review+Done on the row beneath. Backlog and
+ * Cancelled are archive lanes, so they sit below their active
+ * neighbours rather than as peer columns. */
 .quest-board-columns {
   display: grid;
   grid-template-columns: repeat(4, minmax(264px, 1fr));
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "todo inprog inrev done"
+    "backlog backlog cancelled cancelled";
   gap: 10px;
   flex: 1;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding: 14px 20px 22px;
   scroll-padding: 20px;
 }
-.quest-board-columns[data-column-count="6"] {
-  grid-template-columns: repeat(6, minmax(224px, 1fr));
+.quest-col[data-status="todo"] {
+  grid-area: todo;
+}
+.quest-col[data-status="in_progress"] {
+  grid-area: inprog;
+}
+.quest-col[data-status="in_review"] {
+  grid-area: inrev;
+}
+.quest-col[data-status="done"] {
+  grid-area: done;
+}
+.quest-col[data-status="backlog"] {
+  grid-area: backlog;
+}
+.quest-col[data-status="cancelled"] {
+  grid-area: cancelled;
 }
 
 /* v5.2: columns drop the heavy 1px border in favour of a soft tier
@@ -3489,6 +3526,29 @@ button.quest-board-crumb:focus-visible {
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+/* Chevron toggle for collapsible columns (Backlog, Cancelled). Same
+   ghost-icon shape as the per-column add button; sits in the same
+   slot so the column header reads as: dot · label · count · toggle. */
+.quest-col-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.quest-col-collapse:hover {
+  background: var(--color-card-elevated);
+  color: var(--color-text-primary);
+}
+
 /* Per-column `+` — same ghost icon-button language as the list group's
    add button. Sits flush right of the count so the column header reads
    as: dot · label · count · add. */
@@ -3532,6 +3592,45 @@ button.quest-board-crumb:focus-visible {
   font-size: 11px;
   color: var(--color-text-muted);
   font-style: italic;
+}
+/* Centered icon + title + hint variant — used by In-progress and
+   In-review when empty so the column reads as encouragement, not
+   absence. Sits centered in the column body rather than left-
+   aligned with the cards above. */
+.quest-col-empty--centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-6) var(--space-4);
+  min-height: 160px;
+  text-align: center;
+  font-style: normal;
+}
+.quest-col-empty-icon {
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+.quest-col-empty-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+}
+.quest-col-empty-hint {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+.quest-col-empty--drop {
+  /* Keep the existing drop-target language — overrides centered
+     above when both classes are present. */
+  text-align: left;
 }
 
 /* Cards sit on the column's slab background, lifted to the elevated

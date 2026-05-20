@@ -1,5 +1,6 @@
+/* eslint-disable max-lines */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronRight, ExternalLink, FolderOpen, Plus } from "lucide-react";
+import { ArrowUp, ChevronDown, ChevronRight, ExternalLink, FolderOpen, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, Icon } from "../ui";
 import { ImportMenu } from "../blueprints/ImportMenu";
@@ -13,6 +14,7 @@ import StatusDot from "./StatusDot";
 import QuestList from "./QuestList";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestArchiveStrips from "./QuestArchiveStrips";
+import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
 import {
   importQuestFromMarkdown,
   isDirectChildOf,
@@ -145,6 +147,17 @@ export default function QuestBoard({
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<QuestStatus | null>(null);
   const [optimistic, setOptimistic] = useState<Record<string, QuestStatus>>({});
+  // Backlog + Cancelled collapse to header-only by default; user can
+  // toggle each one via the chevron in the column header. Backlog
+  // tends to be huge (every unstarted seed) and Cancelled is archive
+  // noise; collapsed by default keeps the active board scannable.
+  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({
+    backlog: true,
+    cancelled: true,
+  });
+  const toggleColumn = useCallback((status: QuestStatus) => {
+    setCollapsedCols((prev) => ({ ...prev, [status]: !prev[status] }));
+  }, []);
   // Keyboard-navigation focus. Separate from DOM focus so j/k can traverse
   // cards even when the board root has programmatic focus — and so Esc can
   // clear the outline without blurring anything visible.
@@ -371,10 +384,10 @@ export default function QuestBoard({
           />
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             onClick={() => onCompose()}
             title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
-            leadingIcon={<Icon icon={Plus} size="xs" />}
+            leadingIcon={<Icon icon={Plus} size="sm" />}
           >
             {boardScopeId ? "New subquest" : "New"}
           </Button>
@@ -598,51 +611,69 @@ export default function QuestBoard({
                   <StatusDot status={col.status} />
                   <span className="quest-col-label">{col.label}</span>
                   <span className="quest-col-count">{list.length}</span>
-                  <button
-                    type="button"
-                    className="quest-col-add"
-                    onClick={() => onCompose(col.status)}
-                    aria-label={`New ${col.label.toLowerCase()} quest`}
-                    title={`New quest in ${col.label}`}
-                  >
-                    <svg
-                      width="11"
-                      height="11"
-                      viewBox="0 0 13 13"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                      aria-hidden
+                  {COLLAPSIBLE_STATUSES.has(col.status) ? (
+                    <button
+                      type="button"
+                      className="quest-col-collapse"
+                      onClick={() => toggleColumn(col.status)}
+                      aria-label={collapsedCols[col.status] ? "Expand column" : "Collapse column"}
+                      title={collapsedCols[col.status] ? "Expand" : "Collapse"}
                     >
-                      <path d="M6.5 2.5v8M2.5 6.5h8" />
-                    </svg>
-                  </button>
-                </header>
-                <div className="quest-col-body">
-                  {list.length === 0 ? (
-                    <div className="quest-col-empty">{isTarget ? "Drop here" : "Nothing here"}</div>
+                      {collapsedCols[col.status] ? (
+                        <ChevronRight size={14} strokeWidth={1.8} />
+                      ) : (
+                        <ChevronDown size={14} strokeWidth={1.8} />
+                      )}
+                    </button>
                   ) : (
-                    list.map((q) => (
-                      <QuestActiveCard
-                        key={q.id}
-                        q={q}
-                        optimistic={optimistic}
-                        dragging={dragging}
-                        focusId={focusId}
-                        setDragging={setDragging}
-                        setDropTarget={setDropTarget}
-                        onPick={onPick}
-                        onTake={handleTake}
-                        onCreated={onCreated}
-                        onError={setErr}
-                        agents={agents}
-                        users={users}
-                        childCount={childCounts.get(q.id) ?? 0}
-                      />
-                    ))
+                    <button
+                      type="button"
+                      className="quest-col-add"
+                      onClick={() => onCompose(col.status)}
+                      aria-label={`New ${col.label.toLowerCase()} quest`}
+                      title={`New quest in ${col.label}`}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 13 13"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        aria-hidden
+                      >
+                        <path d="M6.5 2.5v8M2.5 6.5h8" />
+                      </svg>
+                    </button>
                   )}
-                </div>
+                </header>
+                {!collapsedCols[col.status] && (
+                  <div className="quest-col-body">
+                    {list.length === 0 ? (
+                      <QuestColumnEmptyState status={col.status} isDropTarget={isTarget} />
+                    ) : (
+                      list.map((q) => (
+                        <QuestActiveCard
+                          key={q.id}
+                          q={q}
+                          optimistic={optimistic}
+                          dragging={dragging}
+                          focusId={focusId}
+                          setDragging={setDragging}
+                          setDropTarget={setDropTarget}
+                          onPick={onPick}
+                          onTake={handleTake}
+                          onCreated={onCreated}
+                          onError={setErr}
+                          agents={agents}
+                          users={users}
+                          childCount={childCounts.get(q.id) ?? 0}
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
               </section>
             );
           })}
