@@ -15,7 +15,11 @@ import AgentsChart from "./agents/AgentsChart";
 
 type ViewMode = "list" | "chart";
 type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active" | "spend";
-type StatusFilter = "all" | "active" | "stopped" | "inactive";
+// Filter vocabulary mirrors the liveness ladder painted on each row
+// (online / idle / offline) so the toolbar and the row dots speak the
+// same language. The wire field `agent.status` is unchanged — bucketing
+// happens in `bucketLiveness`.
+type LivenessFilter = "all" | "online" | "idle" | "offline";
 
 const VIEW_LABELS: Record<ViewMode, string> = {
   list: "List",
@@ -34,14 +38,14 @@ const SORT_LABELS: Record<SortMode, string> = {
 const SORT_ORDER: SortMode[] = ["recent", "alpha-asc", "alpha-desc", "active", "spend"];
 const SORT_VALUES = new Set<SortMode>(SORT_ORDER);
 
-const STATUS_LABELS: Record<StatusFilter, string> = {
+const LIVENESS_FILTER_LABELS: Record<LivenessFilter, string> = {
   all: "All",
-  active: "Active",
-  stopped: "Stopped",
-  inactive: "Inactive",
+  online: "Online",
+  idle: "Idle",
+  offline: "Offline",
 };
-const STATUS_ORDER: StatusFilter[] = ["all", "active", "stopped", "inactive"];
-const STATUS_VALUES = new Set<StatusFilter>(STATUS_ORDER);
+const LIVENESS_FILTER_ORDER: LivenessFilter[] = ["all", "online", "idle", "offline"];
+const LIVENESS_FILTER_VALUES = new Set<LivenessFilter>(LIVENESS_FILTER_ORDER);
 
 /**
  * Agents tab. Lists every agent inside the active entity — root and seeds —
@@ -75,8 +79,8 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   const viewRaw = searchParams.get("view");
   const view: ViewMode = VIEW_VALUES.has(viewRaw as ViewMode) ? (viewRaw as ViewMode) : "list";
   const statusRaw = searchParams.get("status");
-  const status: StatusFilter = STATUS_VALUES.has(statusRaw as StatusFilter)
-    ? (statusRaw as StatusFilter)
+  const status: LivenessFilter = LIVENESS_FILTER_VALUES.has(statusRaw as LivenessFilter)
+    ? (statusRaw as LivenessFilter)
     : "all";
 
   // `s.agents` is a directory union (every company-root from
@@ -182,7 +186,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     const q = search.trim().toLowerCase();
     let rows = entityAgents.slice();
     if (status !== "all") {
-      rows = rows.filter((a) => bucketStatus(a.status) === status);
+      rows = rows.filter((a) => bucketLiveness(a.status) === status);
     }
     if (q) {
       rows = rows.filter((a) => {
@@ -201,7 +205,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   if (status !== "all") {
     activeChips.push({
       key: "status",
-      label: STATUS_LABELS[status],
+      label: LIVENESS_FILTER_LABELS[status],
       onRemove: () => setSearchParam("status", null),
     });
   }
@@ -331,9 +335,12 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
             <ToolbarRadioPopover
               label="Filter"
-              current={STATUS_LABELS[status]}
+              current={LIVENESS_FILTER_LABELS[status]}
               glyph={GLYPHS.filter}
-              options={STATUS_ORDER.map((s) => ({ id: s, label: STATUS_LABELS[s] }))}
+              options={LIVENESS_FILTER_ORDER.map((s) => ({
+                id: s,
+                label: LIVENESS_FILTER_LABELS[s],
+              }))}
               value={status}
               onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
               indicator={status !== "all"}
@@ -500,13 +507,14 @@ function AgentSnapshotCard({ label, value, sublabel }: AgentSnapshotCardProps) {
   );
 }
 
-// Map raw agent.status string into the three buckets the filter exposes.
-// Anything other than "active" / "stopped" reads as "inactive" (idle,
-// paused, archived, unknown — every quiet state collapses into one).
-function bucketStatus(raw: string | undefined): StatusFilter {
-  if (raw === "active") return "active";
-  if (raw === "stopped") return "stopped";
-  return "inactive";
+// Map raw agent.status wire value into the three liveness buckets the
+// filter exposes. Mirrors `livenessOf` in AgentsList — keep the two
+// aligned so the toolbar pick matches the dot painted on each row.
+// "active" → online, "stopped" → offline, everything else → idle.
+function bucketLiveness(raw: string | undefined): LivenessFilter {
+  if (raw === "active") return "online";
+  if (raw === "stopped") return "offline";
+  return "idle";
 }
 
 function compareAgents(a: Agent, b: Agent, mode: SortMode): number {
