@@ -451,24 +451,13 @@
   }
 }
 
-/* ── Primitive card (used in both groups) ─────────────────────────── */
+/* ── Primitive tile sub-elements (icon · label · value · hint · sub) ── */
 
-.trust-primitive-card {
-  gap: 8px;
-  padding: var(--space-5);
-  min-height: 140px;
-  transition:
-    transform 0.12s ease,
-    background 0.12s ease;
-}
-.trust-primitive-card:hover {
-  transform: translateY(-1px);
-  background: var(--color-card-elevated);
-}
-.trust-primitive-card:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
+/* Shared text + icon parts of the cockpit-mini tiles. The wrapper
+   itself is `.trust-cockpit-mini` (see below) — the old
+   `.trust-primitive-card` base+modifiers were retired when the
+   cockpit row replaced the 4-up primitive-card layout. */
+
 .trust-primitive-icon {
   display: inline-flex;
   align-items: center;
@@ -498,24 +487,6 @@
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: baseline;
-}
-/* Vacant-seat card on the Roles row tints its value in warmth to
-   read as "alive, awaiting" — same accent the snapshot uses on the
-   Roles page itself. */
-.trust-primitive-card--warmth .trust-primitive-value {
-  color: var(--color-warmth);
-}
-/* "Coming soon" variant — non-clickable card; same shape as the live
-   tiles so the row reads as cohesive, but muted so it doesn't look
-   broken or empty. Cursor and hover are suppressed so it's plainly
-   inert. */
-.trust-primitive-card--soon {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.trust-primitive-card--soon:hover {
-  transform: none;
-  background: var(--color-card);
 }
 .trust-primitive-hint {
   margin-left: 6px;
