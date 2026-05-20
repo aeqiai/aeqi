@@ -1,4 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import type { Role, RoleEdge } from "@/lib/types";
 import { IconButton } from "@/components/ui";
 import RoleNode from "./RoleNode";
@@ -12,6 +14,9 @@ export interface RolesChartProps {
   agentAvatars: Map<string, string>;
   onSelectRole: (role: Role) => void;
   selectedRoleId?: string | null;
+  /** Path to the "create role" flow — used by the ghost-add affordance
+   *  below the operational subtree. When omitted, no ghost renders. */
+  newRolePath?: string;
 }
 
 interface CrossConnector {
@@ -56,6 +61,7 @@ export default function RolesChart({
   agentAvatars,
   onSelectRole,
   selectedRoleId,
+  newRolePath,
 }: RolesChartProps) {
   // Memoize the type-split lists so identity is stable between renders
   // — the cross-zone measurement effect depends transitively on these
@@ -268,6 +274,15 @@ export default function RolesChart({
                 />
               ))}
             </div>
+            {/* Ghost-add CTA below the operational tree — turns the
+               canvas empty-state into an intentional "expand here"
+               affordance instead of dead whitespace. */}
+            {newRolePath && (
+              <Link to={newRolePath} className="roles-chart-suggest">
+                <Plus size={14} strokeWidth={1.8} />
+                Add a role
+              </Link>
+            )}
           </section>
         )}
         {advisors.length > 0 && (

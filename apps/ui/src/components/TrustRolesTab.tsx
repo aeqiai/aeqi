@@ -372,6 +372,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
               agentAvatars={agentAvatars}
               onSelectRole={handleSelectRole}
               selectedRoleId={selectedRole?.id ?? null}
+              newRolePath={entityPathFromId(entities, trustId, "roles", "new")}
             />
           )}
           {!loading && !error && filtered.length > 0 && view === "cards" && (

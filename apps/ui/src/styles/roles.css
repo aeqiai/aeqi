@@ -230,6 +230,37 @@
   gap: 12px;
   max-width: min(100%, 1100px);
 }
+
+/* Ghost-add affordance below the operational subtree. Turns dead
+   whitespace into an "expand here" callout — the canvas now reads
+   as "this TRUST has 2 roles AND room to add more" instead of "the
+   chart ran out of data". Dashed shell mirrors the vacant-role
+   treatment; the verb here is creation, not occupancy. */
+.roles-chart-suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px dashed var(--border-strong, var(--border));
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+.roles-chart-suggest:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+  background: var(--color-card-elevated);
+}
+
 .roles-chart-canvas {
   position: relative;
   flex-shrink: 0;
