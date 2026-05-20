@@ -478,6 +478,15 @@ export default function QuestBoard({
         onOpen={() => {
           if (boardScopeQuest) onOpenQuest(boardScopeQuest.id);
         }}
+        optimistic={optimistic}
+        focusId={focusId}
+        setDragging={setDragging}
+        setDropTarget={setDropTarget}
+        onTake={handleTake}
+        onCreated={onCreated}
+        onError={setErr}
+        agents={agents}
+        users={users}
       />
       {err && <div className="quest-board-error">{err}</div>}
 

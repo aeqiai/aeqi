@@ -228,8 +228,8 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByText("Child quest")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /New subquest/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Back to workspace/ })).toBeInTheDocument();
-    expect(screen.getByText("Project scope")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clear scope/ })).toBeInTheDocument();
+    expect(screen.getByText("Scope")).toBeInTheDocument();
   });
 
   it("does not log a React error during render", () => {

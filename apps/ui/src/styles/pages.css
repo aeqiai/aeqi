@@ -3210,41 +3210,111 @@
   border-radius: var(--radius-sm);
 }
 
-/* Quest scope row — a single-row "1-card board" above the kanban.
+/* Quest scope band — header row plus a single card slot below.
  *
- * Empty: dashed-border placeholder inviting drag-from-board (the
- * primary interaction) or click-from-board. Reads as a recessed slot
- * the user can fill.
- *
- * Scoped: solid elevated card carrying the active project (status
- * dot + title + subquest count + age) with right-edge actions
- * (Up to parent, Open detail, Clear back to workspace). Drag a quest
- * onto this row from below to re-scope. */
+ * The header is the row's column-header equivalent ("Scope" label +
+ * right-edge Up / Clear actions). The slot below holds either a real
+ * QuestActiveCard (when scoped) or a dashed-border drop placeholder
+ * (at root). The whole slot is a drop target keyed off the kanban's
+ * dataTransfer payload — drag any quest up to re-scope. */
 .quest-scope {
   display: flex;
-  align-items: stretch;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   margin: 12px 20px 0;
-  min-height: 72px;
-  padding: 8px;
-  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.quest-scope-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 0 4px;
+}
+
+.quest-scope-header-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.quest-scope-header-sub {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-scope-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.quest-scope-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.quest-scope-action:hover,
+.quest-scope-action:focus-visible {
+  outline: none;
   background: var(--bg-row);
+  color: var(--color-text-primary);
+}
+
+/* Slot wraps the QuestActiveCard (or the empty placeholder). On scoped
+ * state the slot is transparent so the QuestActiveCard's own surface
+ * carries the visual identity. On empty state the slot becomes the
+ * dashed-border placeholder. */
+.quest-scope-slot {
+  display: flex;
+  min-height: 88px;
+  border-radius: var(--radius-md);
   transition:
     background 0.15s ease,
     outline-color 0.15s ease;
 }
 
-.quest-scope[data-empty] {
-  padding: 0;
-  background: transparent;
+.quest-scope-slot[data-empty] {
   border: 1.5px dashed color-mix(in oklch, var(--color-text-secondary) 25%, transparent);
 }
 
-.quest-scope[data-drop-target] {
+.quest-scope-slot[data-drop-target] {
   background: var(--color-accent-bg);
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
   border-color: transparent;
+}
+
+/* The QuestActiveCard inside the scope slot stretches to fill the
+ * slot. The card's own chrome (status dot, name, child count, priority,
+ * Take, assignee, age) does all the visual work. */
+.quest-scope-slot > .quest-card {
+  flex: 1;
+  min-width: 0;
 }
 
 .quest-scope-empty {
@@ -3290,115 +3360,9 @@
   letter-spacing: 0;
 }
 
-.quest-scope-empty-sep {
-  display: inline-block;
-  margin: 0 8px;
-  color: var(--color-text-muted);
-}
-
-.quest-scope-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-  padding: 0 16px;
-  border-radius: var(--radius-sm);
-  background: var(--color-card-elevated);
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.quest-scope-card:hover,
-.quest-scope-card:focus-visible {
-  outline: none;
-  background: var(--color-card);
-  box-shadow: 0 0 0 1px var(--border-faint);
-}
-
-.quest-scope-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.quest-scope-kicker {
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.quest-scope-title {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quest-scope-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  color: var(--color-text-secondary);
-}
-
-.quest-scope-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-variant-numeric: tabular-nums;
-}
-
-.quest-scope-age {
-  white-space: nowrap;
-}
-
-.quest-scope-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  flex-shrink: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.quest-scope-action:hover,
-.quest-scope-action:focus-visible {
-  outline: none;
-  background: var(--color-card);
-  color: var(--color-text-primary);
-}
-
-.quest-scope-clear:hover,
-.quest-scope-clear:focus-visible {
-  color: var(--color-text-primary);
-}
-
 @media (max-width: 860px) {
   .quest-scope {
     margin: 10px 14px 0;
-  }
-  .quest-scope-meta {
-    display: none;
   }
 }
 

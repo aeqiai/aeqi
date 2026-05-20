@@ -1,31 +1,30 @@
-import { ArrowUp, ExternalLink, FolderOpen, X } from "lucide-react";
-import { timeAgo } from "@/lib/format";
-import type { Quest } from "@/lib/types";
-import StatusDot from "./StatusDot";
+import { ArrowUp, FolderOpen, X } from "lucide-react";
+import type { Quest, QuestStatus, User } from "@/lib/types";
+import QuestActiveCard from "./QuestActiveCard";
 
 /**
- * Single-row scope band above the kanban. Two display modes:
+ * Scope band above the kanban — header row plus a single card slot.
  *
- *   1. Empty (`scope` undefined) — dashed-border placeholder inviting
- *      drag-from-board or click-from-list. The board below shows every
- *      top-level project as its own scope.
- *   2. Scoped (`scope` set) — one full-width quest card with title,
- *      subquest count, age, and right-edge actions (Up to parent,
- *      Clear back to root, Open the quest detail). The board below
- *      filters to direct children of this scope.
+ * The header is the row's column-header equivalent: "Scope" label on
+ * the left, Up / Clear actions on the right (shown only when scoped).
+ * The slot below is either:
  *
- * Accepts the same drag payload as the kanban columns
- * (`dataTransfer.getData("text/plain") = questId`) so users can promote
- * any quest to scope by dragging it up into the band.
+ *   - empty (no scope) — dashed-border placeholder inviting drag-from-
+ *     board or click-from-board. The whole slot is a drop target;
+ *     dropping promotes the dragged quest to scope.
+ *   - scoped — a real QuestActiveCard rendering the active project
+ *     with the usual chrome (status dot, name, child count, priority,
+ *     Take, assignee, age). Click opens detail; the card opts out of
+ *     drag so the slot itself stays the drop target.
+ *
+ * Drag payload (`dataTransfer text/plain = questId`) matches the kanban
+ * columns', so a user can drag any quest from below up into the slot
+ * and re-scope.
  */
 export interface QuestBoardScopeProps {
   scope?: Quest;
   childCount: number;
-  /** When scoped, the immediate parent quest id (or `null` if the
-   *  scope is a root project). `Up` navigates here. */
   parentScopeId: string | null;
-  /** Total root-level project count, shown as a hint in the empty
-   *  state ("12 projects available — drag one up"). */
   projectCount: number;
   dragging: string | null;
   dropActive: boolean;
@@ -34,6 +33,16 @@ export interface QuestBoardScopeProps {
   onUp: () => void;
   onClear: () => void;
   onOpen: () => void;
+  /** Pass-throughs for the real QuestActiveCard render. */
+  optimistic: Record<string, QuestStatus>;
+  focusId: string | null;
+  setDragging: (id: string | null) => void;
+  setDropTarget: (status: QuestStatus | null) => void;
+  onTake: (id: string) => void | Promise<void>;
+  onCreated: () => void;
+  onError: (msg: string) => void;
+  agents: { id: string; name: string }[];
+  users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
 }
 
 export default function QuestBoardScope({
@@ -48,6 +57,15 @@ export default function QuestBoardScope({
   onUp,
   onClear,
   onOpen,
+  optimistic,
+  focusId,
+  setDragging,
+  setDropTarget,
+  onTake,
+  onCreated,
+  onError,
+  agents,
+  users,
 }: QuestBoardScopeProps) {
   const dragProps = {
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
@@ -69,95 +87,77 @@ export default function QuestBoardScope({
     },
   };
 
-  if (!scope) {
-    return (
+  return (
+    <section className="quest-scope" aria-label="Board scope">
+      <header className="quest-scope-header">
+        <span className="quest-scope-header-label">Scope</span>
+        <span className="quest-scope-header-sub">{scope ? "Project" : "Workspace · Root"}</span>
+        {scope && (
+          <span className="quest-scope-header-actions">
+            {parentScopeId && (
+              <button
+                type="button"
+                className="quest-scope-action"
+                onClick={onUp}
+                title="Up to parent quest"
+                aria-label="Up to parent quest"
+              >
+                <ArrowUp size={15} strokeWidth={1.8} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="quest-scope-action"
+              onClick={onClear}
+              title="Clear scope, back to Workspace"
+              aria-label="Clear scope"
+            >
+              <X size={15} strokeWidth={1.8} />
+            </button>
+          </span>
+        )}
+      </header>
       <div
-        className="quest-scope"
-        data-empty
+        className="quest-scope-slot"
+        data-empty={!scope || undefined}
         data-drop-target={dropActive || undefined}
         {...dragProps}
       >
-        <div className="quest-scope-empty">
-          <span className="quest-scope-empty-icon" aria-hidden>
-            <FolderOpen size={20} strokeWidth={1.6} />
-          </span>
-          <span className="quest-scope-empty-copy">
-            <span className="quest-scope-empty-title">Workspace · Root</span>
-            <span className="quest-scope-empty-hint">
-              Drop a quest here to scope the board to its children
+        {scope ? (
+          <QuestActiveCard
+            q={scope}
+            optimistic={optimistic}
+            dragging={dragging}
+            focusId={focusId}
+            setDragging={setDragging}
+            setDropTarget={setDropTarget}
+            onPick={onOpen}
+            onTake={onTake}
+            onCreated={onCreated}
+            onError={onError}
+            agents={agents}
+            users={users}
+            childCount={childCount}
+            draggable={false}
+          />
+        ) : (
+          <div className="quest-scope-empty">
+            <span className="quest-scope-empty-icon" aria-hidden>
+              <FolderOpen size={20} strokeWidth={1.6} />
+            </span>
+            <span className="quest-scope-empty-copy">
+              <span className="quest-scope-empty-title">
+                Drop a quest here to scope the board to its children
+              </span>
               {projectCount > 0 && (
-                <>
-                  <span className="quest-scope-empty-sep" aria-hidden>
-                    ·
-                  </span>
+                <span className="quest-scope-empty-hint">
                   {projectCount} {projectCount === 1 ? "project" : "projects"} below
-                </>
+                </span>
               )}
             </span>
-          </span>
-        </div>
+          </div>
+        )}
       </div>
-    );
-  }
-
-  const title = scope.idea?.name ?? scope.id;
-  return (
-    <div className="quest-scope" data-drop-target={dropActive || undefined} {...dragProps}>
-      <button
-        type="button"
-        className="quest-scope-action quest-scope-up"
-        onClick={onUp}
-        title={parentScopeId ? "Up to parent quest" : "Back to Workspace"}
-        aria-label={parentScopeId ? "Up to parent quest" : "Back to workspace"}
-      >
-        <ArrowUp size={16} strokeWidth={1.8} />
-      </button>
-      <div
-        className="quest-scope-card"
-        role="button"
-        tabIndex={0}
-        onClick={onOpen}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter" && e.key !== " ") return;
-          e.preventDefault();
-          onOpen();
-        }}
-      >
-        <StatusDot status={scope.status} />
-        <div className="quest-scope-text">
-          <span className="quest-scope-kicker">Project scope</span>
-          <span className="quest-scope-title" title={title}>
-            {title}
-          </span>
-        </div>
-        <span className="quest-scope-meta">
-          <span className="quest-scope-count">
-            <FolderOpen size={12} strokeWidth={1.7} aria-hidden />
-            {childCount} {childCount === 1 ? "subquest" : "subquests"}
-          </span>
-          {scope.updated_at && (
-            <span className="quest-scope-age">updated {timeAgo(scope.updated_at)}</span>
-          )}
-        </span>
-      </div>
-      <button
-        type="button"
-        className="quest-scope-action quest-scope-open"
-        onClick={onOpen}
-        title="Open quest detail"
-        aria-label="Open quest detail"
-      >
-        <ExternalLink size={15} strokeWidth={1.7} />
-      </button>
-      <button
-        type="button"
-        className="quest-scope-action quest-scope-clear"
-        onClick={onClear}
-        title="Clear scope, back to Workspace"
-        aria-label="Clear scope"
-      >
-        <X size={16} strokeWidth={1.8} />
-      </button>
-    </div>
+    </section>
   );
 }

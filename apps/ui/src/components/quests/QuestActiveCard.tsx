@@ -34,6 +34,11 @@ export interface QuestActiveCardProps {
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   childCount?: number;
+  /** When false, the card opts out of HTML5 drag-and-drop. Used by the
+   *  scope band, which renders the same card chrome but is itself a
+   *  drop target — letting the card be its own drag source would
+   *  re-fire the drop on itself. Default: true. */
+  draggable?: boolean;
 }
 
 export default function QuestActiveCard({
@@ -50,6 +55,7 @@ export default function QuestActiveCard({
   agents,
   users,
   childCount = 0,
+  draggable = true,
 }: QuestActiveCardProps) {
   const canTake =
     q.status !== "in_progress" &&
@@ -63,7 +69,7 @@ export default function QuestActiveCard({
       data-priority={q.priority}
       data-dragging={dragging === q.id || undefined}
       data-focused={focusId === q.id || undefined}
-      draggable
+      draggable={draggable}
       role="button"
       tabIndex={0}
       aria-label={
@@ -71,15 +77,23 @@ export default function QuestActiveCard({
           ? `Open board for ${q.idea?.name ?? q.id}, ${childCount} subquests`
           : `Open quest ${q.idea?.name ?? q.id}`
       }
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", q.id);
-        setDragging(q.id);
-      }}
-      onDragEnd={() => {
-        setDragging(null);
-        setDropTarget(null);
-      }}
+      onDragStart={
+        draggable
+          ? (e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", q.id);
+              setDragging(q.id);
+            }
+          : undefined
+      }
+      onDragEnd={
+        draggable
+          ? () => {
+              setDragging(null);
+              setDropTarget(null);
+            }
+          : undefined
+      }
       onClick={() => onPick(q.id)}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return;
