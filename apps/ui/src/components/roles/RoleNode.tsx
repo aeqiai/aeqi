@@ -27,6 +27,17 @@ export interface RoleNodeProps {
    *  this flag, an apex operator under implicit governance looks
    *  identical to one with explicit director delegates. */
   implicit?: boolean;
+  /** True when this tile is the counterpart endpoint of the currently
+   *  active focal beam — i.e. the user is hovering the implicit hint on
+   *  the OTHER end of a dashed cross-zone edge that touches this tile.
+   *  Director-side beam (hovered director hint) sets this on each apex
+   *  operator the director governs implicitly; operator-side beam
+   *  (hovered operator hint) sets this on each director governing the
+   *  operator implicitly. Closes the bidirectional tile↔edge coupling
+   *  gap: c7/c8 wired the EDGES, c10 wires the receiving TILE so the
+   *  inbound endpoint visibly participates in the focal story instead
+   *  of sitting silent under a lit-up beam. */
+  focalCounterpart?: boolean;
   /** Fired when the head-row "implicit" hint receives or loses
    *  hover/focus. RolesChart wires this on BOTH ends of an implicit
    *  governance edge: on directors (c7) to scope the brighten effect
@@ -74,6 +85,7 @@ export default function RoleNode({
   style,
   nodeRef,
   implicit = false,
+  focalCounterpart = false,
   onImplicitHintHover,
 }: RoleNodeProps) {
   // Entity name lookup for `occupant_kind === "trust"` holders (parent
@@ -100,6 +112,7 @@ export default function RoleNode({
     selected ? "is-selected" : "",
     onClick ? "is-clickable" : "",
     implicit ? "role-node--implicit" : "",
+    focalCounterpart ? "role-node--focal-counterpart" : "",
     className ?? "",
   ]
     .filter(Boolean)

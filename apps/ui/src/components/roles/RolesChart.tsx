@@ -240,6 +240,30 @@ export default function RolesChart({
   // focal story plays at a time.
   const [hoveredImplicitOp, setHoveredImplicitOp] = useState<string | null>(null);
 
+  // Counterpart tiles for the active focal beam (c10) — when a director's
+  // implicit hint is hovered, the apex operators that receive its dashed
+  // edges should pulse a subtler tile-level echo so the inbound endpoint
+  // is visibly part of the focal story, not just the line. Mirror on the
+  // operator side: hovering an apex operator's hint pulses the originating
+  // directors. Closes the bidirectional tile↔edge coupling gap — c7/c8
+  // wired the edges; without this the receiving tile sits silent while
+  // its incoming beam lights up.
+  const focalCounterpartIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    if (hoveredImplicitDir !== null) {
+      for (const e of crossEdges) {
+        if (!e.implicit) continue;
+        if (e.parent_role_id === hoveredImplicitDir) ids.add(e.child_role_id);
+      }
+    } else if (hoveredImplicitOp !== null) {
+      for (const e of crossEdges) {
+        if (!e.implicit) continue;
+        if (e.child_role_id === hoveredImplicitOp) ids.add(e.parent_role_id);
+      }
+    }
+    return ids;
+  }, [crossEdges, hoveredImplicitDir, hoveredImplicitOp]);
+
   useLayoutEffect(() => {
     const stack = stackRef.current;
     if (!stack) return;
@@ -381,6 +405,7 @@ export default function RolesChart({
                   selected={r.id === selectedRoleId}
                   nodeRef={setNodeRef(r.id)}
                   implicit={implicitDirectorIds.has(r.id)}
+                  focalCounterpart={focalCounterpartIds.has(r.id)}
                   onImplicitHintHover={
                     implicitDirectorIds.has(r.id)
                       ? (hovering) => {
@@ -437,6 +462,7 @@ export default function RolesChart({
                   nodeRef={setNodeRef(n.role.id)}
                   className={n.layer === 0 ? "role-node--apex" : undefined}
                   implicit={implicitOperatorIds.has(n.role.id)}
+                  focalCounterpart={focalCounterpartIds.has(n.role.id)}
                   onImplicitHintHover={
                     implicitOperatorIds.has(n.role.id)
                       ? (hovering) => {

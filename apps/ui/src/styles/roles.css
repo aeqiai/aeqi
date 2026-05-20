@@ -1390,6 +1390,41 @@
     var(--shadow-sm);
 }
 
+/* Focal counterpart (c10) — the receiving tile of the currently
+   active focal beam. When a director's implicit hint is hovered (c7
+   beam), the apex operators on the other end of those dashed edges
+   pulse this echo; when an apex operator's implicit hint is hovered
+   (c8 beam), the originating directors pulse it. Closes the
+   bidirectional tile↔edge coupling: previously only the EDGE lit up,
+   leaving the receiving tile visually orphaned from the focal story.
+   Weight intentionally lives BELOW selection (`--color-text-secondary`
+   1px ring matches the focused edge's stroke ink, not the graphite
+   accent reserved for selection). Selection still wins visually when
+   the focal counterpart is also the selected tile — the selected
+   2px graphite ring sits outside this 1px secondary ring. Transition
+   matches the dashed-edge focus to keep the two surfaces in lockstep. */
+.role-node--focal-counterpart {
+  box-shadow: 0 0 0 1px var(--color-text-secondary);
+  transition:
+    box-shadow var(--transition-fast, 150ms) ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+/* Selection wins when both stack — the 2px graphite ring (or 1.5px
+   accent-dim ring for implicit nodes) reasserts over the 1px
+   counterpart echo so the user's actively-focused tile stays the
+   strongest signal even while its counterpart pulses. */
+.role-node--focal-counterpart.is-selected {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--shadow-sm);
+}
+.role-node--implicit.role-node--focal-counterpart.is-selected {
+  box-shadow:
+    0 0 0 1.5px var(--accent-dim),
+    var(--shadow-sm);
+}
+
 /* Make room for the pill in the tile body — it overlaps the upper-
    right corner and reserves a small right-padding so long titles
    don't crash into it. */
