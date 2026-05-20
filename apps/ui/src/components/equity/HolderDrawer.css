@@ -293,6 +293,15 @@
   background: var(--color-warning);
 }
 
+/* Iter-8: indigo dot for `mintTo` inflows + transfer-ins. Mirrors the
+   `in_progress` status accent shared with the Quests board so the eye
+   reads it as "actively executing issuance" rather than a settled
+   trade. Honest distinction: curve activity uses jade/warmth (buy/sell
+   = market events); mint-history uses indigo (issuance event). */
+.holder-drawer__activityDot--mint {
+  background: #7c6cd6;
+}
+
 .holder-drawer__activityKind {
   font-size: var(--text-xs);
   letter-spacing: 0.02em;

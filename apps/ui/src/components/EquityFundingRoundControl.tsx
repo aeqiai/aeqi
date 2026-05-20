@@ -431,6 +431,19 @@ function DeclaredRoundsList({
    */
   const [activatedLocal, setActivatedLocal] = useState<Record<string, string>>({});
 
+  /**
+   * Iter-8: hide-history toggle. Once a TRUST has been operating for a
+   * while the declared-rounds list grows past the visible top —
+   * cancelled and finalized rounds are historical record, not active
+   * work. Default ON so the operator opens the section to "what's live
+   * RIGHT NOW", flipping the toggle reveals the full history.
+   *
+   * Honored against the same `effectiveStatus` the badge uses, so
+   * optimistically-activated rounds count as Activated for the filter
+   * (they wouldn't disappear when the toggle is on; they're live).
+   */
+  const [hideHistory, setHideHistory] = useState(true);
+
   if (rounds.length === 0) {
     return (
       <div className="equity-funding-declared equity-funding-declared--empty">
@@ -441,80 +454,116 @@ function DeclaredRoundsList({
       </div>
     );
   }
+
+  // Pre-compute statuses for hide-history filtering. Mirrors the
+  // optimistic-flip logic below so the toggle's "live" definition is
+  // the same as the rendered badge: a row that the operator just
+  // activated stays visible even when hide-history is on.
+  const rowsWithStatus = rounds.map((r) => {
+    const requestIdHex = fullRequestId(r.account.requestId);
+    const optimisticSig = activatedLocal[requestIdHex];
+    const rawStatus = Number(r.account.status);
+    const effectiveStatus = optimisticSig && rawStatus === 0 ? 1 : rawStatus;
+    return { round: r, effectiveStatus, optimisticSig, requestIdHex };
+  });
+
+  const historyCount = rowsWithStatus.filter(
+    (rs) => rs.effectiveStatus === 2 || rs.effectiveStatus === 3,
+  ).length;
+  const visibleRows = hideHistory
+    ? rowsWithStatus.filter((rs) => rs.effectiveStatus !== 2 && rs.effectiveStatus !== 3)
+    : rowsWithStatus;
+
   return (
     <div className="equity-funding-declared">
-      <h3 className="equity-funding-declared__title">Declared rounds</h3>
-      <ul className="equity-funding-declared__list">
-        {rounds.map((r) => {
-          const kind = Number(r.account.kind);
-          const rawStatus = Number(r.account.status);
-          const requestIdHex = fullRequestId(r.account.requestId);
-          const optimisticSig = activatedLocal[requestIdHex];
-          // Honor the local optimistic flip ahead of the on-chain status
-          // field. Once the next fetch settles with status === 1 the
-          // optimistic and canonical states agree.
-          const effectiveStatus = optimisticSig && rawStatus === 0 ? 1 : rawStatus;
-          const badge = statusBadgeFor(effectiveStatus);
-          const assetRaw = bnLikeToBigInt(r.account.assetAmount);
-          const quoteRaw = bnLikeToBigInt(r.account.targetQuote);
-          const requestId = formatRequestId(r.account.requestId);
-          const isPending = effectiveStatus === 0;
-          return (
-            <li key={r.publicKey.toBase58()} className="equity-funding-declared__row">
-              <div className="equity-funding-declared__head">
-                <span className="equity-funding-declared__kind">
-                  {KIND_LABELS[kind] ?? `Kind ${kind}`}
-                </span>
-                <Badge variant={badge.variant} size="sm">
-                  {badge.label}
-                </Badge>
-                {isPending && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="equity-funding-declared__activateBtn"
-                    onClick={() => setActivating(r)}
-                  >
-                    Activate…
-                  </Button>
-                )}
-              </div>
-              <div className="equity-funding-declared__meta">
-                <span className="equity-funding-declared__metaItem">
-                  Asset · {formatScaled(assetRaw, ASSET_SCALE)}
-                </span>
-                <span className="equity-funding-declared__metaItem">
-                  Target · {formatScaled(quoteRaw, QUOTE_SCALE)} USDC
-                </span>
-                <span
-                  className="equity-funding-declared__metaItem equity-funding-declared__metaItem--mono"
-                  title={requestIdHex}
-                >
-                  {requestId}
-                </span>
-              </div>
-              {optimisticSig && (
-                /* Iter-7: surface the activation signature so the operator
-                   can verify the transaction on the explorer. Compact
-                   `equity-funding-result-ok` jade tint mirrors the same
-                   "settled" affordance used after Buy/Sell. */
-                <div
-                  className="equity-funding-declared__activatedRow"
-                  role="status"
-                  title={optimisticSig}
-                >
-                  <span className="equity-funding-declared__activatedLabel">
-                    Activated this session
+      <div className="equity-funding-declared__titleRow">
+        <h3 className="equity-funding-declared__title">Declared rounds</h3>
+        {historyCount > 0 && (
+          /* Iter-8: history toggle. Ghost Button keeps the chrome quiet
+             while inheriting the audited primitive styling. Label flips
+             between states so the affordance reads as "do this next". */
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="equity-funding-declared__historyToggle"
+            onClick={() => setHideHistory((v) => !v)}
+            aria-pressed={!hideHistory}
+          >
+            {hideHistory ? `Show history (${historyCount} cancelled/finalized)` : "Hide history"}
+          </Button>
+        )}
+      </div>
+      {visibleRows.length === 0 ? (
+        <div className="equity-funding-declared__emptyFiltered">
+          All declared rounds are cancelled or finalized. Flip "Show history" to read the trail.
+        </div>
+      ) : (
+        <ul className="equity-funding-declared__list">
+          {visibleRows.map(({ round: r, effectiveStatus, optimisticSig, requestIdHex }) => {
+            const kind = Number(r.account.kind);
+            const badge = statusBadgeFor(effectiveStatus);
+            const assetRaw = bnLikeToBigInt(r.account.assetAmount);
+            const quoteRaw = bnLikeToBigInt(r.account.targetQuote);
+            const requestId = formatRequestId(r.account.requestId);
+            const isPending = effectiveStatus === 0;
+            return (
+              <li key={r.publicKey.toBase58()} className="equity-funding-declared__row">
+                <div className="equity-funding-declared__head">
+                  <span className="equity-funding-declared__kind">
+                    {KIND_LABELS[kind] ?? `Kind ${kind}`}
                   </span>
-                  <span className="equity-funding-declared__activatedSig">
-                    {optimisticSig.slice(0, 6)}…{optimisticSig.slice(-4)}
+                  <Badge variant={badge.variant} size="sm">
+                    {badge.label}
+                  </Badge>
+                  {isPending && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="equity-funding-declared__activateBtn"
+                      onClick={() => setActivating(r)}
+                    >
+                      Activate…
+                    </Button>
+                  )}
+                </div>
+                <div className="equity-funding-declared__meta">
+                  <span className="equity-funding-declared__metaItem">
+                    Asset · {formatScaled(assetRaw, ASSET_SCALE)}
+                  </span>
+                  <span className="equity-funding-declared__metaItem">
+                    Target · {formatScaled(quoteRaw, QUOTE_SCALE)} USDC
+                  </span>
+                  <span
+                    className="equity-funding-declared__metaItem equity-funding-declared__metaItem--mono"
+                    title={requestIdHex}
+                  >
+                    {requestId}
                   </span>
                 </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                {optimisticSig && (
+                  /* Iter-7: surface the activation signature so the operator
+                     can verify the transaction on the explorer. Compact
+                     `equity-funding-result-ok` jade tint mirrors the same
+                     "settled" affordance used after Buy/Sell. */
+                  <div
+                    className="equity-funding-declared__activatedRow"
+                    role="status"
+                    title={optimisticSig}
+                  >
+                    <span className="equity-funding-declared__activatedLabel">
+                      Activated this session
+                    </span>
+                    <span className="equity-funding-declared__activatedSig">
+                      {optimisticSig.slice(0, 6)}…{optimisticSig.slice(-4)}
+                    </span>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <ActivateRoundModal
         open={activating !== null}
         onClose={() => setActivating(null)}

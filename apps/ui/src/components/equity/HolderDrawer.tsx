@@ -34,6 +34,7 @@ import { useMemo, useState } from "react";
 
 import { Badge, Button, Modal, Tooltip } from "@/components/ui";
 import { useEquityPrefill } from "@/components/equity/equityPrefillContext";
+import { useHolderMintHistory } from "@/hooks/useHolderMintHistory";
 import { formatShortDate } from "@/lib/i18n";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import type { CurveTrade } from "./RecentTradesLog";
@@ -213,6 +214,16 @@ export function HolderDrawer({
     const owner = holder.owner.toBase58();
     return recentTrades.filter((t) => t.counterparty_b58 === owner).slice(0, 8);
   }, [holder, recentTrades]);
+
+  // Iter-8 functional gap: on-chain mint + transfer-in history for this
+  // ATA. The hook reads `getSignaturesForAddress(tokenAccount)` and
+  // pattern-matches SPL/Token-2022 `mintTo[Checked]` /
+  // `transfer[Checked]` instructions whose destination equals the
+  // inspected ATA. RQ-keyed per signature so paging back through
+  // multiple holders reuses warm decodes. `tokenAccount` flips null
+  // when the drawer is closed, which disables both queries.
+  const mintHistory = useHolderMintHistory(holder ? tokenAccountAddress : null);
+  const inflowRows = mintHistory.rows.slice(0, 8);
 
   // Roll-up: total vesting granted (whether vested or not) + total
   // claimable RIGHT NOW across every position that targets this holder.
@@ -469,6 +480,50 @@ export function HolderDrawer({
                 </li>
               );
             })}
+          </ul>
+        )}
+      </div>
+
+      <div className="holder-drawer__section">
+        <div className="holder-drawer__sectionLabel">Mint history · {inflowRows.length}</div>
+        {mintHistory.isLoading && !mintHistory.hasAny ? (
+          <span className="holder-drawer__emptyVesting">Reading on-chain history…</span>
+        ) : inflowRows.length === 0 ? (
+          <span className="holder-drawer__emptyVesting">
+            {mintHistory.isEmpty
+              ? "No on-chain inflows touched this token account yet."
+              : "No mints or inbound transfers in the recent signature tail."}
+          </span>
+        ) : (
+          <ul className="holder-drawer__activityList">
+            {inflowRows.map((row) => (
+              <li
+                className="holder-drawer__activityRow holder-drawer__activityRow--mint"
+                key={`mint-${row.signature}`}
+              >
+                <span
+                  className={
+                    row.kind === "mint"
+                      ? "holder-drawer__activityDot holder-drawer__activityDot--buy"
+                      : "holder-drawer__activityDot holder-drawer__activityDot--mint"
+                  }
+                  aria-hidden="true"
+                />
+                <span className="holder-drawer__activityKind">
+                  {row.kind === "mint" ? "Minted" : "Transfer in"}
+                </span>
+                <span className="holder-drawer__activityAmount">
+                  {row.amount === null ? "—" : formatBaseUnits(row.amount, decimals)} LAUNCH
+                </span>
+                <span className="holder-drawer__activityQuote" title={row.signature}>
+                  {row.kind === "transfer-in" && row.source
+                    ? `from ${shortAddress(row.source)}`
+                    : row.blockTime
+                      ? formatShortDate(new Date(row.blockTime * 1000))
+                      : `slot ${row.slot}`}
+                </span>
+              </li>
+            ))}
           </ul>
         )}
       </div>

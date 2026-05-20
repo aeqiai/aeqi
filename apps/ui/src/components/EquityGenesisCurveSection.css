@@ -78,6 +78,49 @@
   color: var(--color-text-muted);
 }
 
+/* Iter-8: structural milestone strip beneath the simulator. Quiet
+   tinted band — same `--color-card-subtle` chrome the declared-rounds
+   list uses so the eye reads both as "structural reference, not
+   action". Two rows max (next 10% mark + FDV) collapse to one when the
+   next mark already equals FDV. */
+.curve-milestones {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.curve-milestones__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-milestones__label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  min-width: 11ch;
+}
+
+.curve-milestones__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.curve-milestones__priceAt {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* ja-017b: recent-trades log under the chart. Compact, tabular row
    per trade with the dot-color affordance carrying through from the
    chart (jade = buy, warmth/amber = sell). */

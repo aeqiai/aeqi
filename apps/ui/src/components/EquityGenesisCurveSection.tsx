@@ -190,6 +190,13 @@ export function EquityGenesisCurveSection({
   // price Z" by binary-searching ΔS on the same trapezoid integral
   // (the cost function is strictly monotonic in ΔS for a non-degenerate
   // linear curve).
+  //
+  // Iter-8 adds `milestones` alongside the user-driven projection: a
+  // pure-derived view of "what does it cost to push supply to the next
+  // 10% mark, and to FDV (max supply)?". Operators sizing a round
+  // against structural levels see those without typing into the
+  // simulator. Math reuses the same trapezoid integral so the milestone
+  // costs agree with the simulator's forward mode at the same ΔS.
   const simProjection: SimProjection | null = useMemo(() => {
     if (!state) return null;
     try {
@@ -294,6 +301,71 @@ export function EquityGenesisCurveSection({
       return null;
     }
   }, [state, simAmountBaseUnits, simAmountUsdc1e18, simMode]);
+
+  // Iter-8: structural milestones. Pure derivation off live curve state
+  // — no user input. Surfaces "next 10% supply mark" (the smallest 10%
+  // increment of max_supply still ahead of current_supply) and "FDV
+  // unlock" (cost from current to full max_supply at end_price). Both
+  // amounts use the same trapezoid integral as the simulator so the
+  // numbers tie out exactly when an operator types the matching ΔS.
+  const milestones = useMemo(() => {
+    if (!state) return null;
+    try {
+      const startPrice = BigInt(state.start_price);
+      const endPrice = BigInt(state.end_price);
+      const maxSupply = BigInt(state.max_supply);
+      const currentSupply = BigInt(state.current_supply);
+      if (maxSupply === 0n) return null;
+      const headroom = currentSupply >= maxSupply ? 0n : maxSupply - currentSupply;
+      if (headroom === 0n) return null;
+      const priceSpan = endPrice >= startPrice ? endPrice - startPrice : 0n;
+      const decimalsScale = 10n ** BigInt(TOKEN_DECIMALS);
+      const priceAt = (supply: bigint) => startPrice + (priceSpan * supply) / maxSupply;
+      const costFor = (deltaSupply: bigint) => {
+        if (deltaSupply <= 0n) return 0n;
+        const after = currentSupply + deltaSupply;
+        const priceBefore = priceAt(currentSupply);
+        const priceAfter = priceAt(after);
+        const avg = (priceBefore + priceAfter) / 2n;
+        return (avg * deltaSupply) / decimalsScale;
+      };
+
+      // Next 10% mark: round the current-supply percentage UP to the
+      // nearest 10% then clip to max. When current is past 90% the next
+      // mark IS the FDV mark; we collapse the two outputs in that case.
+      const tenthSupply = maxSupply / 10n;
+      let nextMark = (currentSupply / tenthSupply + 1n) * tenthSupply;
+      if (nextMark > maxSupply) nextMark = maxSupply;
+      const nextMarkDelta = nextMark > currentSupply ? nextMark - currentSupply : 0n;
+      const nextMarkPctOfMax = Number((nextMark * 10_000n) / maxSupply) / 100; // two-decimal pct
+      const nextMarkCost = costFor(nextMarkDelta);
+      const nextMarkPrice = priceAt(nextMark);
+
+      // FDV mark = max supply, where the curve hits end_price.
+      const fdvDelta = headroom;
+      const fdvCost = costFor(fdvDelta);
+      const isAtFdvAlready = nextMark === maxSupply;
+
+      return {
+        nextMark: {
+          supplyPct: nextMarkPctOfMax,
+          deltaSupply: nextMarkDelta,
+          cost: nextMarkCost,
+          price: nextMarkPrice,
+        },
+        fdv: {
+          deltaSupply: fdvDelta,
+          cost: fdvCost,
+          price: endPrice,
+        },
+        // When the next 10% mark IS already the FDV mark, collapse the
+        // duplicate row in the UI.
+        nextEqualsFdv: isAtFdvAlready,
+      };
+    } catch {
+      return null;
+    }
+  }, [state]);
 
   const handleSell = async () => {
     if (sellAmountBaseUnits === null) return;
@@ -467,6 +539,42 @@ export function EquityGenesisCurveSection({
           projection={simProjection}
         />
       </div>
+      {/* Iter-8: structural milestone strip. Static "what does the next
+          10% supply mark cost, and what does FDV cost?" view; gives
+          operators a structural reference for their inverse / forward
+          projection without typing. Hidden when the curve is saturated
+          (milestones === null) so a closed curve doesn't dangle a row
+          of zero-cost statements. */}
+      {milestones && (
+        <div className="curve-milestones" aria-label="Structural curve milestones">
+          <div className="curve-milestones__row">
+            <span className="curve-milestones__label">
+              {milestones.nextEqualsFdv
+                ? "To FDV (max supply)"
+                : `To ${milestones.nextMark.supplyPct.toFixed(0)}% supply mark`}
+            </span>
+            <span className="curve-milestones__value">
+              {formatLaunchTokens(milestones.nextMark.deltaSupply)} LAUNCH ·{" "}
+              {formatCurvePrice(milestones.nextMark.cost)} USDC
+            </span>
+            <span className="curve-milestones__priceAt">
+              price @ mark {formatCurvePrice(milestones.nextMark.price)} USDC
+            </span>
+          </div>
+          {!milestones.nextEqualsFdv && (
+            <div className="curve-milestones__row">
+              <span className="curve-milestones__label">To FDV unlock</span>
+              <span className="curve-milestones__value">
+                {formatLaunchTokens(milestones.fdv.deltaSupply)} LAUNCH ·{" "}
+                {formatCurvePrice(milestones.fdv.cost)} USDC
+              </span>
+              <span className="curve-milestones__priceAt">
+                price @ FDV {formatCurvePrice(milestones.fdv.price)} USDC
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       <RecentTradesLog
         trades={state.recent_trades ?? []}
         unavailable={state.recent_trades_unavailable === true}

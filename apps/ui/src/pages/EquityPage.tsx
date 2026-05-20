@@ -16,6 +16,7 @@ import { useEquityVesting } from "@/hooks/useEquityVesting";
 import type { CurveTrade } from "@/components/equity/RecentTradesLog";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
+  Banner,
   Button,
   EmptyState,
   Input,
@@ -476,6 +477,49 @@ function CapTableSection({
     return `${shown} of ${total} ${noun} match the active filter.`;
   }, [holders.length, filteredHolders.length, filter, query]);
 
+  // Iter-8: concentration warning. Compute top-1 / top-5 share of supply
+  // from the FULL holder list (not filtered) — the centralization risk
+  // is a property of the cap table, not the current view. Thresholds:
+  //   top-1 > 50%  → "single holder controls majority"
+  //   top-5 > 85%  → "small group controls cap table"
+  // Both fire when both trigger, with the top-1 line taking priority in
+  // the banner copy. Uses bigint math against `totalSupply` so it stays
+  // exact for any cap-table scale. Soft-fails to no banner when supply
+  // is zero or holders is empty.
+  const concentration = useMemo(() => {
+    if (totalSupply === 0n || holders.length === 0) return null;
+    const sortedAmounts = holders
+      .map((h) => h.amount)
+      .sort((a, b) => (a === b ? 0 : a > b ? -1 : 1));
+    const top1 = sortedAmounts[0] ?? 0n;
+    let top5 = 0n;
+    for (const a of sortedAmounts.slice(0, 5)) top5 += a;
+    const top1Bps = Number((top1 * 10_000n) / totalSupply);
+    const top5Bps = Number((top5 * 10_000n) / totalSupply);
+    // Centralization thresholds. 50% / 85% are conventional cap-table
+    // red flags surfaced in seed-stage diligence; soften when only the
+    // top-5 trips (the top-1 case is the louder of the two).
+    const top1Pct = top1Bps / 100;
+    const top5Pct = top5Bps / 100;
+    if (top1Pct > 50) {
+      return {
+        kind: "top1" as const,
+        pct: top1Pct,
+        groupSize: 1,
+        groupPct: top1Pct,
+      };
+    }
+    if (top5Pct > 85 && holders.length > 1) {
+      return {
+        kind: "top5" as const,
+        pct: top5Pct,
+        groupSize: Math.min(5, holders.length),
+        groupPct: top5Pct,
+      };
+    }
+    return null;
+  }, [holders, totalSupply]);
+
   // Iter-6: CSV export. Uses a Blob + revoked object URL so the
   // download lands as a real file ("aeqi-cap-table.csv") on every
   // browser without adding a new dep. Exports the FILTERED set so the
@@ -569,6 +613,22 @@ function CapTableSection({
           </span>
         }
       >
+        {concentration && (
+          /* Iter-8: soft amber concentration banner. Uses the shared
+             Banner primitive (warning kind) so the tint reads as the
+             same "needs attention but not broken" surface as every
+             other warning in the app. Honest scope: this is a
+             centralization observation, not a regulatory verdict — the
+             copy stays neutral ("controls X% of supply") rather than
+             editorialising. */
+          <div style={{ marginBottom: "var(--space-3)" }}>
+            <Banner kind="warning">
+              {concentration.kind === "top1"
+                ? `Single holder controls ${concentration.pct.toFixed(2)}% of supply — concentrated cap table.`
+                : `Top ${concentration.groupSize} holders control ${concentration.pct.toFixed(2)}% of supply — concentrated cap table.`}
+            </Banner>
+          </div>
+        )}
         {holders.length > 1 && (
           <div
             style={{

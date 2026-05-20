@@ -90,6 +90,32 @@
   color: var(--color-text-muted);
 }
 
+/* Iter-8: title row carries the hide-history toggle on the right edge
+   so the live-vs-history affordance reads as one unit. Title left,
+   toggle right; same vertical center. */
+.equity-funding-declared__titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Iter-8: the ghost Button primitive handles base styling; this hook
+   only nudges the typography to muted/xs so the toggle reads as a
+   small affordance in the title row rather than a competing action.
+   `aria-pressed` styling is left to the Button primitive's own focus /
+   active states. */
+.equity-funding-declared__historyToggle {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.equity-funding-declared__emptyFiltered {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0;
+}
+
 .equity-funding-declared__list {
   display: flex;
   flex-direction: column;
