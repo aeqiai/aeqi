@@ -573,19 +573,21 @@
 /* Phase echo on the "N fires" / "never" label — render as a tokenized
    chip pair so the phase reads consistently across the row (pin + chip
    agree). Armed gets violet on tinted ground (live, watching). Fired
-   gets ink (settled, has history). Tabular numerals so the chip width
-   doesn't jitter as the count grows. */
+   gets ink on subtle ground (settled, has history) — same chip register
+   as armed so the pair reads as one vocabulary, just shifted in tone.
+   Tabular numerals so the chip width doesn't jitter as the count grows. */
 .events-overview-row-fires {
   padding: 1px 7px;
   border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="armed"] .events-overview-row-fires {
   color: var(--state-progress);
   background: var(--state-progress-bg);
-  letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="fired"] .events-overview-row-fires {
   color: var(--color-text-primary);
+  background: var(--bg-subtle);
   font-weight: 500;
 }
 
