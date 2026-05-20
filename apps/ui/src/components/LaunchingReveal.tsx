@@ -36,7 +36,7 @@ function truncate(addr: string): string {
  * through the spawn flow.
  *
  * Owns visualization only. Navigation when the placement becomes
- * `ready` is the caller's responsibility (CompanySetupPage's existing
+ * `ready` is the caller's responsibility (TrustSetupPage's existing
  * effect handles it via the entities store).
  */
 export function LaunchingReveal({

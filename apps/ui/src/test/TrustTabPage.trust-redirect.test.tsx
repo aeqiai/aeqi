@@ -33,7 +33,7 @@ function seedEntities(entities: Trust[]) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-describe("CompanyPage — trust-redirect useEffect", () => {
+describe("TrustTabPage — trust-redirect useEffect", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     seedEntities([ENTITY_WITHOUT_TRUST]);

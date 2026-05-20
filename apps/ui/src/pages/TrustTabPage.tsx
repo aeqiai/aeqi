@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import AgentPage from "@/components/AgentPage";
-import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import ProvisionRuntimeUpsell, {
   type UpsellSurface,
@@ -27,7 +27,7 @@ const AgentQuestsTab = lazy(() => import("@/components/AgentQuestsTab"));
 const AgentIdeasTab = lazy(() => import("@/components/AgentIdeasTab"));
 const TrustSettingsTab = lazy(() => import("@/components/TrustSettingsTab"));
 
-interface CompanyPageProps {
+interface TrustTabPageProps {
   agentId: string;
   trustId: string;
   /** Resolved tab — defaulted to "overview" upstream. The bare
@@ -38,7 +38,7 @@ interface CompanyPageProps {
 
 /**
  * Phase-1 sidebar lock: each former Company sub-tab is now a top-level
- * sidebar row. The internal `PageRail` is removed; CompanyPage just
+ * sidebar row. The internal `PageRail` is removed; TrustTabPage just
  * dispatches the right component per tab.
  *
  * Routes:
@@ -67,15 +67,15 @@ const RUNTIME_GATED_TABS: Record<string, UpsellSurface> = {
   ideas: "ideas",
   inbox: "inbox",
   // `sessions` is rewritten upstream in AppLayout (308 to the drilled-
-  // agent inbox URL), so it never lands on CompanyPage. Listed here for
+  // agent inbox URL), so it never lands on TrustTabPage. Listed here for
   // discoverability — gating its drilled-agent rewrite target is a
   // separate concern handled in the drilled-agent surface.
 };
 
-export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPageProps) {
+export default function TrustTabPage({ agentId, trustId, tab, itemId }: TrustTabPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { entity } = useCurrentCompany();
+  const { entity } = useCurrentTrust();
   // Runtime status drives whether the 5 execution tabs render or get
   // upsold. React Query dedupes parallel calls, so the per-tab gate
   // shares a single fetch with TrustOverviewTab.
@@ -146,8 +146,8 @@ export default function CompanyPage({ agentId, trustId, tab, itemId }: CompanyPa
   // root agents whose `trust_id` is populated and differs from
   // `agent.id` (the post-2026-04-29 schema): the branch flagged the
   // root agent as "drilled" and rendered AgentOverviewTab instead, so
-  // TrustHeroStrip never mounted. CompanyPage already knows it's the
-  // bare entity URL (drilled URLs bypass CompanyPage entirely in
+  // TrustHeroStrip never mounted. TrustTabPage already knows it's the
+  // bare entity URL (drilled URLs bypass TrustTabPage entirely in
   // AppLayout) — render the entity surface explicitly.
   if (tab === "overview") {
     return (

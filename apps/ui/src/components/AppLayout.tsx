@@ -13,7 +13,7 @@ import { useShellSurface } from "@/hooks/useShellSurface";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
-import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { AGENT_RAIL_TABS } from "@/components/agentRailTabs";
 import type { Agent, Trust } from "@/lib/types";
 
@@ -24,14 +24,14 @@ const ComposerRow = lazy(() => import("./shell/ComposerRow"));
 const ShortcutsOverlay = lazy(() => import("./ShortcutsOverlay"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
-const CompanySetupPage = lazy(() => import("@/pages/CompanySetupPage"));
+const TrustSetupPage = lazy(() => import("@/pages/TrustSetupPage"));
 const BlueprintsPage = lazy(() => import("@/pages/BlueprintsPage"));
 const EconomyPage = lazy(() => import("@/pages/EconomyPage"));
 const TrustPage = lazy(() => import("@/pages/TrustPage"));
 const MeInboxPage = lazy(() => import("@/pages/MeInboxPage"));
 const StartPage = lazy(() => import("@/pages/StartPage"));
 const BlueprintDetailPage = lazy(() => import("@/pages/BlueprintDetailPage"));
-const CompanyPage = lazy(() => import("@/pages/CompanyPage"));
+const TrustTabPage = lazy(() => import("@/pages/TrustTabPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const RoleNewPage = lazy(() => import("@/pages/RoleNewPage"));
 const RoleDetailPage = lazy(() => import("@/pages/RoleDetailPage"));
@@ -58,18 +58,18 @@ const RELOCATED_AGENT_TABS = new Set([
 // id and dispatches BlueprintDetailPage.
 const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ideas"]);
 
-// Tabs that route through CompanyPage. Each is now a top-level sidebar
-// row in the Phase-1 lock — CompanyPage is a thin per-tab dispatcher.
+// Tabs that route through TrustTabPage. Each is now a top-level sidebar
+// row in the Phase-1 lock — TrustTabPage is a thin per-tab dispatcher.
 // Inbox is the company-scoped action queue; Overview is the cockpit;
 // Roles is the only company organization row that still has a surface.
 //
 // The four primitive tabs (agents/events/quests/ideas) ALSO route through
-// CompanyPage at the entity scope. Without this, `/trust/<addr>/agents`
+// TrustTabPage at the entity scope. Without this, `/trust/<addr>/agents`
 // falls through to AgentPage(defaultAgent) — which ignores its `tab` prop
 // and renders the default agent's chat surface instead of the entity-scope
 // LIST. Dispatch hole fix: 2026-05-09. The drilled-agent route
 // `/trust/<addr>/agents/<aid>/...` is unaffected — that path has a
-// non-null `routeAgentId` and bypasses CompanyPage entirely upstream.
+// non-null `routeAgentId` and bypasses TrustTabPage entirely upstream.
 const COMPANY_PAGE_TABS = new Set([
   "overview",
   "inbox",
@@ -137,7 +137,7 @@ export default function AppLayout() {
   const surface = useShellSurface(path);
 
   // Resolve entity from the canonical trust route and return a stable id.
-  const { entity, trustId: resolvedEntityId } = useCurrentCompany();
+  const { entity, trustId: resolvedEntityId } = useCurrentTrust();
   // The effective route entity id — prefer the resolved id from the trust
   // route and fall back to any raw route token only if one was somehow present.
   const effectiveRouteEntityId = resolvedEntityId || routeEntityId;
@@ -303,7 +303,7 @@ export default function AppLayout() {
   }
 
   // Bare `/trust/<addr>` doesn't render independently — `effectiveTab`
-  // defaults to "overview" so CompanyPage handles the bare URL with
+  // defaults to "overview" so TrustTabPage handles the bare URL with
   // tab="overview". The "Company" sidebar row points at this bare URL
   // and lights up only when no sub-tab is active.
 
@@ -369,9 +369,9 @@ export default function AppLayout() {
     if (isRolesEdit) return <RoleEditPage />;
     if (isRolesDetail) return <RoleDetailPage />;
     if (isLaunch) {
-      // When the URL omits a blueprint id, CompanySetupPage resolves the
+      // When the URL omits a blueprint id, TrustSetupPage resolves the
       // default blueprint internally so the launch surface is a single wizard.
-      return <CompanySetupPage />;
+      return <TrustSetupPage />;
     }
     if (isAdmin) return <AdminPage />;
     if (isAccount) return <ProfilePage />;
@@ -400,7 +400,7 @@ export default function AppLayout() {
     }
     if (isEntityRoute && !drilledAgent && COMPANY_PAGE_TABS.has(effectiveTab)) {
       return (
-        <CompanyPage
+        <TrustTabPage
           agentId={activeAgentId}
           trustId={effectiveRouteEntityId}
           tab={effectiveTab}

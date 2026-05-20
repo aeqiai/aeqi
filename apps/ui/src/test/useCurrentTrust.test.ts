@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { createElement } from "react";
-import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { useDaemonStore } from "@/store/daemon";
 import type { Trust } from "@/lib/types";
 
@@ -35,9 +35,9 @@ function seedEntities(entities: Trust[]) {
   useDaemonStore.setState({ entities });
 }
 
-/** Render useCurrentCompany inside a MemoryRouter at a given path. */
+/** Render useCurrentTrust inside a MemoryRouter at a given path. */
 function renderWithRoute(path: string, routePattern: string) {
-  return renderHook(() => useCurrentCompany(), {
+  return renderHook(() => useCurrentTrust(), {
     wrapper: ({ children }) =>
       createElement(
         MemoryRouter,
@@ -53,7 +53,7 @@ function renderWithRoute(path: string, routePattern: string) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-describe("useCurrentCompany", () => {
+describe("useCurrentTrust", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     seedEntities([ENTITY, PENDING_ENTITY]);

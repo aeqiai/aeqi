@@ -37,7 +37,7 @@ function pickInitialBlueprintId(
   return blueprints[0] ? blueprintId(blueprints[0]) : null;
 }
 
-export default function CompanySetupPage() {
+export default function TrustSetupPage() {
   const navigate = useNavigate();
   const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();

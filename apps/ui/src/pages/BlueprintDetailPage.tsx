@@ -141,7 +141,7 @@ export default function BlueprintDetailPage() {
   const single = template;
 
   // Detail page is preview-only. The launch CTA hands off to
-  // `/launch/<blueprintId>` (CompanySetupPage) where the operator confirms a
+  // `/launch/<blueprintId>` (TrustSetupPage) where the operator confirms a
   // name, stages role overrides, and picks a plan before spawn.
   const launchHref = isImportMode
     ? `/blueprints/${encodeURIComponent(blueprintId(single))}?import_into=${encodeURIComponent(importIntoId ?? "")}`

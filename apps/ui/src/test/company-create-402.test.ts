@@ -4,7 +4,7 @@
  * NOT surfaces a raw error string.
  *
  * Tests the extracted handleCreate logic so we don't need to mount the full
- * CompanySetupPage with all its auth/routing deps.
+ * TrustSetupPage with all its auth/routing deps.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiError } from "@/lib/api";
@@ -26,7 +26,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-// ── Extracted handleCreate logic (mirrors CompanySetupPage.handleCreate) ───
+// ── Extracted handleCreate logic (mirrors TrustSetupPage.handleCreate) ───
 //
 // Tested as a pure async function so we can assert on side-effects
 // (location redirect, error string) without mounting React.

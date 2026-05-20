@@ -10,7 +10,7 @@ import {
   PageSection,
   Loading,
 } from "@/components/ui";
-import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import {
   DEFAULT_HEALTH_WINDOW_DAYS,
   useTrustHealthMetrics,
@@ -30,7 +30,7 @@ import { InterpretationLine, SparklineGrid, TrendBadge } from "./HealthPage";
 import styles from "./HealthPage.module.css";
 
 export default function AgentHealthPage({ agentId }: { agentId: string }) {
-  const { entity } = useCurrentCompany();
+  const { entity } = useCurrentTrust();
   const addr = entity?.trust_address ?? entity?.id ?? null;
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);

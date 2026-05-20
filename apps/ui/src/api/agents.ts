@@ -22,7 +22,7 @@ export function buildAgentDirectory(
     // Hosted runtimes store agents under their runtime-local tenant UUID,
     // not the platform entity UUID the rest of the UI keys off. Stamp the
     // active scope's entity id so every consumer (`agent.trust_id ===
-    // trustId` filters across CompanyPage, TrustAgentsTab,
+    // trustId` filters across TrustTabPage, TrustAgentsTab,
     // AddParticipantModal, AgentSettingsPage, etc.) lines up with the URL
     // shape. The response is already scope-bound by X-Trust, so every
     // agent in `agents` belongs to `scopeEntityId` by definition.

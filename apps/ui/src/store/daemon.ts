@@ -40,7 +40,7 @@ interface DaemonState {
 }
 
 // Hydrate cached trusts and agents from localStorage so the
-// LeftSidebar / CompanySwitcher / agent tree paint the real shape on
+// LeftSidebar / agent tree paint the real shape on
 // hard refresh instead of flashing the empty-list state for the
 // 50-500 ms it takes fetchEntities() and fetchAgents() to round-trip.
 // Same pattern as the auth-store user persistence; cache is overwritten

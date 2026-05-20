@@ -38,7 +38,7 @@ interface BlueprintLaunchPickerProps {
  *   3. Browse all → /blueprints — full catalog.
  *
  * Branches on `mode`:
- *   - spawn-company → navigate to /launch/<blueprintId> (CompanySetupPage)
+ *   - spawn-company → navigate to /launch/<blueprintId> (TrustSetupPage)
  *     so the operator confirms name + mission + plan before launch
  *   - spawn-into-entity → POST /api/blueprints/spawn-into
  *     (a "merge into existing company" flow — no naming or billing

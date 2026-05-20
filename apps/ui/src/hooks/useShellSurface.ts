@@ -44,7 +44,7 @@ export interface ShellSurface {
   isAdmin: boolean;
   /** In-shell Roles sub-pages — rendered inside AppLayout. The Roles
    *  primitive moved out of the AEQI Ownership group on 2026-05-18 to a
-   *  peer slot directly under Trust (see CompanyPage `tab === "roles"`).
+   *  peer slot directly under Trust (see TrustTabPage `tab === "roles"`).
    *  URL slug is `/roles/...`; underlying page components are RoleNewPage /
    *  RoleDetailPage / RoleEditPage / RoleInvitePage. */
   isRolesNew: boolean;

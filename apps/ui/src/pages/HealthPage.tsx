@@ -18,7 +18,7 @@
 import { useMemo } from "react";
 import { Banner, EmptyState, MetricCard, MetricGrid, PageSection, Loading } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
-import { useCurrentCompany } from "@/hooks/useCurrentCompany";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import {
   useTrustHealthMetrics,
   DEFAULT_HEALTH_WINDOW_DAYS,
@@ -38,7 +38,7 @@ import styles from "./HealthPage.module.css";
 const COMPOUNDING_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default function HealthBlock({ trustId }: { trustId: string }) {
-  const { entity } = useCurrentCompany();
+  const { entity } = useCurrentTrust();
   // Prefer trust_address (canonical /trust/<addr>) when present; fall
   // back to the entity id for entities that haven't registered TRUST yet.
   const addr = entity?.trust_address ?? trustId;
