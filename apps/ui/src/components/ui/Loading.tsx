@@ -1,5 +1,4 @@
 import BrandMark from "@/components/BrandMark";
-import Wordmark from "@/components/Wordmark";
 import styles from "./Loading.module.css";
 
 export interface LoadingProps {
@@ -10,16 +9,15 @@ export interface LoadingProps {
   className?: string;
 }
 
-const WORDMARK_SIZE = {
-  sm: 14,
-  md: 20,
-  lg: 48,
-} as const;
-
+// Loading always uses the BrandMark (the connected æ ligature) — the
+// single-glyph form is the runtime's loading-state identity. The full
+// "aeqi" wordmark is for navigation chrome, not waiting states. Page-
+// variant loaders bump to a larger size so the splash reads as
+// deliberate; inline/section loaders sit small.
 const BRAND_MARK_SIZE = {
   sm: 14,
   md: 20,
-  lg: 32,
+  lg: 56,
 } as const;
 
 export function Loading({
@@ -29,14 +27,13 @@ export function Loading({
   showLabel = variant === "section",
   className,
 }: LoadingProps) {
-  const Mark = variant === "page" ? Wordmark : BrandMark;
-  const markSize = variant === "page" ? WORDMARK_SIZE[size] : BRAND_MARK_SIZE[size];
+  const markSize = BRAND_MARK_SIZE[size];
   const cls = [styles.loading, styles[variant], styles[size], className].filter(Boolean).join(" ");
 
   return (
     <span className={cls} role="status" aria-label={label}>
       <span className={styles.mark} aria-hidden="true">
-        <Mark size={markSize} />
+        <BrandMark size={markSize} />
       </span>
       {showLabel && <span className={styles.label}>{label}</span>}
     </span>
