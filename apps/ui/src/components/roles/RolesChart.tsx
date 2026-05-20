@@ -78,10 +78,35 @@ export default function RolesChart({
   // Layout-wise the roster is a flex row above the canvas; we measure
   // post-layout DOM positions and draw connectors as an absolute SVG
   // anchored to .roles-chart-stack.
-  const crossEdges = useMemo(
-    () => edges.filter((e) => directorIds.has(e.parent_role_id) && opIds.has(e.child_role_id)),
-    [edges, directorIds, opIds],
-  );
+  //
+  // When the data has explicit director→operational edges, draw those.
+  // When it doesn't (very common — Foundation TRUSTs rarely encode the
+  // implicit "board governs leadership" relation as an edge), synthesize
+  // a connection from each director to each operational APEX role
+  // (roles with no operational parent). The relationship is structural,
+  // not data-driven, and not showing it makes the board look orphaned.
+  const crossEdges = useMemo<RoleEdge[]>(() => {
+    const explicit = edges.filter(
+      (e) => directorIds.has(e.parent_role_id) && opIds.has(e.child_role_id),
+    );
+    if (explicit.length > 0) return explicit;
+    if (directors.length === 0 || operational.length === 0) return [];
+    // Apex = operational roles with no operational parent.
+    const opChildIds = new Set<string>();
+    for (const e of edges) {
+      if (opIds.has(e.parent_role_id) && opIds.has(e.child_role_id)) {
+        opChildIds.add(e.child_role_id);
+      }
+    }
+    const apexOps = operational.filter((r) => !opChildIds.has(r.id));
+    const implicit: RoleEdge[] = [];
+    for (const dir of directors) {
+      for (const apex of apexOps) {
+        implicit.push({ parent_role_id: dir.id, child_role_id: apex.id });
+      }
+    }
+    return implicit;
+  }, [edges, directorIds, opIds, directors, operational]);
 
   const stackRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
