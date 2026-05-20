@@ -8,8 +8,11 @@
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use solana_sdk::pubkey::Pubkey;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::str::FromStr;
+
+use crate::manifest::Manifest;
 
 pub fn anchor_event_disc(name: &str) -> [u8; 8] {
     let preimage = format!("event:{}", name);
@@ -140,9 +143,66 @@ pub fn event_count() -> usize {
     REGISTRY.len()
 }
 
+pub fn assert_matches_manifest(manifest: &Manifest) -> anyhow::Result<()> {
+    let registry_programs: BTreeMap<&str, &str> =
+        EVENTS.iter().map(|(name, pubkey, _)| (*name, *pubkey)).collect();
+    let manifest_programs: BTreeMap<&str, &str> =
+        manifest.programs.iter().map(|p| (p.name.as_str(), p.pubkey.as_str())).collect();
+
+    let mut errors = Vec::new();
+    for (name, pubkey) in &registry_programs {
+        match manifest_programs.get(name) {
+            Some(manifest_pubkey) if manifest_pubkey == pubkey => {}
+            Some(manifest_pubkey) => errors.push(format!(
+                "program {:?}: registry has {}, manifest has {}",
+                name, pubkey, manifest_pubkey
+            )),
+            None => errors.push(format!(
+                "program {:?} declared in event registry but missing from manifest",
+                name
+            )),
+        }
+    }
+    for name in manifest_programs.keys() {
+        if !registry_programs.contains_key(name) {
+            errors.push(format!(
+                "program {:?} declared in manifest but missing from event registry",
+                name
+            ));
+        }
+    }
+
+    if !errors.is_empty() {
+        anyhow::bail!(
+            "event registry/manifest drift detected ({} mismatch{}):\n  - {}",
+            errors.len(),
+            if errors.len() == 1 { "" } else { "es" },
+            errors.join("\n  - ")
+        );
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::manifest::ProgramEntry;
+
+    fn manifest_from_registry() -> Manifest {
+        Manifest {
+            cluster: "localnet".to_string(),
+            programs: EVENTS
+                .iter()
+                .map(|(name, pubkey, _)| ProgramEntry {
+                    name: (*name).to_string(),
+                    pubkey: (*pubkey).to_string(),
+                    idl_hash: None,
+                    release: None,
+                })
+                .collect(),
+        }
+    }
 
     #[test]
     fn registry_covers_all_emitted_events() {
@@ -158,5 +218,24 @@ mod tests {
         let meta = lookup(&program_id, &disc).unwrap();
         assert_eq!(meta.program, "aeqi_unifutures");
         assert_eq!(meta.event, "SaleCommitted");
+    }
+
+    #[test]
+    fn registry_program_ids_match_manifest() {
+        let manifest = manifest_from_registry();
+        assert_matches_manifest(&manifest).expect("registry and manifest should agree");
+    }
+
+    #[test]
+    fn registry_program_ids_reject_manifest_drift() {
+        let mut manifest = manifest_from_registry();
+        let trust =
+            manifest.programs.iter_mut().find(|program| program.name == "aeqi_trust").unwrap();
+        trust.pubkey = "11111111111111111111111111111111".to_string();
+
+        let err = assert_matches_manifest(&manifest).expect_err("drift should be rejected");
+        let msg = format!("{err}");
+        assert!(msg.contains("aeqi_trust"), "{msg}");
+        assert!(msg.contains("drift detected"), "{msg}");
     }
 }

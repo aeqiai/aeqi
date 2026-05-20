@@ -97,6 +97,7 @@ async fn main() -> Result<()> {
             args.cluster
         );
     }
+    registry::assert_matches_manifest(&manifest)?;
     match manifest.assert_matches_anchor_toml(&manifest_path, None) {
         Ok(toml_path) => info!(
             manifest = %manifest_path.display(),
