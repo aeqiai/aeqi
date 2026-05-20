@@ -262,9 +262,20 @@
   color: var(--color-ink-muted);
 }
 
+/* Chip pulls the family `--state-review` (warmth) accent so the kind
+   tag reads as part of the awaiting strip's amber language instead of
+   the graphite `info` default. Same vocabulary the rail's awaiting dot
+   and strip surface already speak — three surfaces, one accent.
+   Direct-child span override targets Badge's dot (the only element
+   sibling before the text node). */
 .inbox-awaiting-strip-chip {
   flex-shrink: 0;
   white-space: nowrap;
+  color: var(--state-review);
+  background: var(--state-review-bg);
+}
+.inbox-awaiting-strip-chip > span {
+  background-color: var(--state-review);
 }
 
 @media (max-width: 720px) {
