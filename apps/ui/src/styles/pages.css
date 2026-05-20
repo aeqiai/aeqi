@@ -3599,9 +3599,10 @@
    the 12.5px / 450 quest subjects below. Row shape: dot · label · count
    · add. The label sits at 13.5px / 620 with a hair of negative tracking
    for optical density; the count anchors as a quantifier badge (subtle
-   --bg-subtle pill, tabular-nums) so it stops floating as loose mono
-   text co-equal with the label and starts reading as metadata clearly
-   subordinate to the section name. */
+   --bg-subtle pill, sans tabular-nums) so it reads as metadata clearly
+   subordinate to the section name. Sans (not mono) matches the
+   `.quest-status-summary-count` register a slab above — same numerals,
+   same typeface family, same letterforms across the whole page. */
 .quest-col-header {
   display: flex;
   align-items: center;
@@ -3632,10 +3633,10 @@
   padding: 0 6px;
   border-radius: 999px;
   background: var(--bg-subtle);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-family: var(--font-sans);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -3644,8 +3645,12 @@
 /* On the tinted columns (in_progress slate-violet, in_review amber) the
    default --bg-subtle pill disappears into the wash. Give the count a
    white-paper substrate so it stays legible as a quantifier across all
-   six status hues without introducing a new token. */
-.quest-col[data-status="in_progress"] .quest-col-count,
+   six status hues without introducing a new token. Split into two
+   single-selector rules per the Vite-minifier prefix-collapse trap
+   documented in the shared subagent pack. */
+.quest-col[data-status="in_progress"] .quest-col-count {
+  background: var(--color-card-elevated);
+}
 .quest-col[data-status="in_review"] .quest-col-count {
   background: var(--color-card-elevated);
 }
