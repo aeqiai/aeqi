@@ -920,6 +920,16 @@
   gap: var(--space-3);
 }
 
+/* Cycle 2 split: prominent two-column tier for the primitives that
+   actually carry a live signal (Agents + Quests). Events + Ideas
+   move below into `.trust-cockpit-secondary-row`. The row no longer
+   spends 50% real estate on inert tiles, and Agents/Quests each get
+   ~2x width to surface their dot+count signal-rows without
+   crowding. */
+.trust-cockpit-inner-grid--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 /* Inner mini-tile. Reads like the previous primitive-card but tighter:
    no shadow (it lives inside an elevated card), softer surface, same
    icon + label + value + hint + sub stack. */
@@ -982,6 +992,82 @@
   align-items: center;
   gap: 5px;
   line-height: 1;
+}
+
+/* Agents tile signal dots — same shape + tier as quest-status-dot but
+   only two states: online (state-progress, live/streaming semantic) +
+   offline (muted text token, parked semantic). Keeps the family
+   vocabulary aligned without inventing a new color slot. */
+.trust-agent-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.trust-agent-dot--online {
+  background: var(--state-progress);
+}
+.trust-agent-dot--offline {
+  background: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* Cycle 2 secondary row — Events + Ideas as a quiet inline pair under
+   the prominent Agents + Quests tiles. No icon-above-value stack; the
+   row reads inline (icon · label · value · hint) so the two cells
+   carry less visual weight than the primary tiles above. */
+.trust-cockpit-secondary-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.trust-cockpit-secondary-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  min-width: 0;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.trust-cockpit-secondary-cell:hover {
+  background: var(--color-card-muted);
+  color: var(--color-text-primary);
+}
+.trust-cockpit-secondary-cell:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.trust-cockpit-secondary-cell > svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  align-self: center;
+}
+.trust-cockpit-secondary-label {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.trust-cockpit-secondary-value {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.trust-cockpit-secondary-value--placeholder {
+  color: var(--color-text-muted);
+}
+.trust-cockpit-secondary-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 
 /* ── Activity card sparklines ─────────────────────────────────────── */
@@ -1052,6 +1138,9 @@
 
 @media (max-width: 720px) {
   .trust-cockpit-inner-grid {
+    grid-template-columns: 1fr;
+  }
+  .trust-cockpit-secondary-row {
     grid-template-columns: 1fr;
   }
   .trust-activity-grid {

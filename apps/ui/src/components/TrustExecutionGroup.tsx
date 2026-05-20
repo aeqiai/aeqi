@@ -10,18 +10,25 @@ interface TrustExecutionGroupProps {
 }
 
 /**
- * Programmable Execution row — a 4-card row (Agents · Quests · Events
- * · Ideas) under the trust hero. The header bar (runtime state +
- * primary CTA) that lived here in v3 was lifted into the hero card's
- * right-side overview panel (TrustHeroOverview) on 2026-05-20, so
- * this component is now just the card grid. No outer container; the
- * hero overview is the visual anchor that groups these cards.
+ * Programmable Execution card — Agents/Quests/Events/Ideas under the
+ * trust hero. The header bar (runtime state + primary CTA) that lived
+ * here in v3 was lifted into the hero card's right-side overview
+ * panel (TrustHeroOverview) on 2026-05-20, so this component is just
+ * the card grid. The hero overview is the visual anchor that groups
+ * these cards.
  *
- * Cycle 1 (2026-05-20): the Quests tile now carries the three board
+ * Cycle 1 (2026-05-20): the Quests tile carries the three board
  * accents as a live signal-row — in_progress (lavender) · in_review
- * (warmth) · done in 24h (jade). It uses the canonical
- * `.quest-status-dot--*` vocabulary from pages.css so the overview
- * reads as a quiet echo of the board itself.
+ * (warmth) · done in 24h (jade), using the canonical
+ * `.quest-status-dot--*` vocabulary from pages.css.
+ *
+ * Cycle 2 (2026-05-20): collapse the four-tile grid into a denser
+ * two-tier layout. Agents + Quests are the live signals and take the
+ * full row — Agents gains a parallel online/offline signal-row so the
+ * two prominent tiles read in the same language. Events + Ideas drop
+ * into a secondary inline row underneath: Events is a 24h count,
+ * Ideas is a quiet placeholder. The row no longer spends 50% real
+ * estate on inert tiles.
  */
 export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutionGroupProps) {
   const agents = useDaemonStore((s) => s.agents);
@@ -83,7 +90,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
         </h2>
         <span className="trust-cockpit-card-sub">Live runtime activity</span>
       </header>
-      <div className="trust-cockpit-inner-grid">
+      <div className="trust-cockpit-inner-grid trust-cockpit-inner-grid--split">
         <PrimitiveCard
           to={`${basePath}/agents`}
           icon={<Users size={16} strokeWidth={1.5} />}
@@ -91,6 +98,20 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           value={String(activeAgents)}
           hint={`of ${subtreeAgents.length}`}
           sub={subtreeAgents.length === 0 ? "No agents yet" : ""}
+          footer={
+            subtreeAgents.length > 0 ? (
+              <span className="trust-quest-signals" aria-label="agent online breakdown">
+                <span className="trust-quest-signal" title="Online">
+                  <span className="trust-agent-dot trust-agent-dot--online" aria-hidden />
+                  {activeAgents}
+                </span>
+                <span className="trust-quest-signal" title="Offline">
+                  <span className="trust-agent-dot trust-agent-dot--offline" aria-hidden />
+                  {subtreeAgents.length - activeAgents}
+                </span>
+              </span>
+            ) : undefined
+          }
         />
         <PrimitiveCard
           to={`${basePath}/quests`}
@@ -115,20 +136,25 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
             </span>
           }
         />
-        <PrimitiveCard
+      </div>
+      <div className="trust-cockpit-secondary-row">
+        <Link
           to={`${basePath}/events`}
-          icon={<Activity size={16} strokeWidth={1.5} />}
-          label="Events"
-          value={String(recent24hEvents)}
-          hint="last 24h"
-        />
-        <PrimitiveCard
-          to={`${basePath}/ideas`}
-          icon={<Lightbulb size={16} strokeWidth={1.5} />}
-          label="Ideas"
-          value="—"
-          hint=""
-        />
+          className="trust-cockpit-secondary-cell"
+          aria-label="Events in the last 24 hours"
+        >
+          <Activity size={14} strokeWidth={1.5} aria-hidden />
+          <span className="trust-cockpit-secondary-label">Events</span>
+          <span className="trust-cockpit-secondary-value">{recent24hEvents}</span>
+          <span className="trust-cockpit-secondary-hint">last 24h</span>
+        </Link>
+        <Link to={`${basePath}/ideas`} className="trust-cockpit-secondary-cell" aria-label="Ideas">
+          <Lightbulb size={14} strokeWidth={1.5} aria-hidden />
+          <span className="trust-cockpit-secondary-label">Ideas</span>
+          <span className="trust-cockpit-secondary-value trust-cockpit-secondary-value--placeholder">
+            —
+          </span>
+        </Link>
       </div>
     </section>
   );
