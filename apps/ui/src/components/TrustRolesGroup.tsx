@@ -50,40 +50,51 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
   }
 
   return (
-    <section className="trust-group-cards" aria-label="Roles">
-      <PrimitiveCard
-        to={`${basePath}/roles`}
-        icon={<Users2 size={16} strokeWidth={1.5} />}
-        label="Roles"
-        value={String(total)}
-        hint={total === 1 ? "in this TRUST" : "in this TRUST"}
-        sub={total === 0 ? "No roles yet" : ""}
-      />
-      <PrimitiveCard
-        to={`${basePath}/roles?occupant=all&filter=director`}
-        icon={<Crown size={16} strokeWidth={1.5} />}
-        label="Directors"
-        value={String(directors)}
-        hint="stewardship"
-        sub=""
-      />
-      <PrimitiveCard
-        to={`${basePath}/roles?occupant=all&filter=operator`}
-        icon={<Briefcase size={16} strokeWidth={1.5} />}
-        label="Operators"
-        value={String(operators)}
-        hint="execution"
-        sub=""
-      />
-      <PrimitiveCard
-        to={`${basePath}/roles?occupant=vacant`}
-        icon={<UserPlus size={16} strokeWidth={1.5} />}
-        label="Vacant"
-        value={String(vacant)}
-        hint={vacant === 1 ? "open seat" : "open seats"}
-        sub={vacant === 0 && total > 0 ? "All seats filled" : ""}
-        tone={vacant > 0 ? "warmth" : undefined}
-      />
+    <section
+      className="trust-cockpit-card trust-cockpit-card--wide"
+      aria-labelledby="trust-roles-heading"
+    >
+      <header className="trust-cockpit-card-header">
+        <h2 id="trust-roles-heading" className="trust-cockpit-card-title">
+          Roles
+        </h2>
+        <span className="trust-cockpit-card-sub">Authority graph</span>
+      </header>
+      <div className="trust-cockpit-inner-grid">
+        <PrimitiveCard
+          to={`${basePath}/roles`}
+          icon={<Users2 size={16} strokeWidth={1.5} />}
+          label="Roles"
+          value={String(total)}
+          hint={total === 1 ? "in this TRUST" : "in this TRUST"}
+          sub={total === 0 ? "No roles yet" : ""}
+        />
+        <PrimitiveCard
+          to={`${basePath}/roles?occupant=all&filter=director`}
+          icon={<Crown size={16} strokeWidth={1.5} />}
+          label="Directors"
+          value={String(directors)}
+          hint="stewardship"
+          sub=""
+        />
+        <PrimitiveCard
+          to={`${basePath}/roles?occupant=all&filter=operator`}
+          icon={<Briefcase size={16} strokeWidth={1.5} />}
+          label="Operators"
+          value={String(operators)}
+          hint="execution"
+          sub=""
+        />
+        <PrimitiveCard
+          to={`${basePath}/roles?occupant=vacant`}
+          icon={<UserPlus size={16} strokeWidth={1.5} />}
+          label="Vacant"
+          value={String(vacant)}
+          hint={vacant === 1 ? "open seat" : "open seats"}
+          sub={vacant === 0 && total > 0 ? "All seats filled" : ""}
+          tone={vacant > 0 ? "warmth" : undefined}
+        />
+      </div>
     </section>
   );
 }
@@ -102,7 +113,7 @@ function PrimitiveCard({ to, icon, label, value, hint, sub, tone }: PrimitiveCar
   return (
     <Link
       to={to}
-      className={`trust-card trust-primitive-card${tone === "warmth" ? " trust-primitive-card--warmth" : ""}`}
+      className={`trust-cockpit-mini${tone === "warmth" ? " trust-cockpit-mini--warmth" : ""}`}
     >
       <span className="trust-primitive-icon" aria-hidden>
         {icon}

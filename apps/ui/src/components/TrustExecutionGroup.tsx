@@ -59,39 +59,47 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
   }, [events, subtreeNames]);
 
   return (
-    <section className="trust-group-cards" aria-label="Programmable execution">
-      <PrimitiveCard
-        to={`${basePath}/agents`}
-        icon={<Users size={16} strokeWidth={1.5} />}
-        label="Agents"
-        value={String(activeAgents)}
-        hint={`of ${subtreeAgents.length}`}
-        sub={subtreeAgents.length === 0 ? "No agents yet" : ""}
-      />
-      <PrimitiveCard
-        to={`${basePath}/quests`}
-        icon={<Target size={16} strokeWidth={1.5} />}
-        label="Quests"
-        value={String(inflightQuests)}
-        hint="in flight"
-        sub=""
-      />
-      <PrimitiveCard
-        to={`${basePath}/events`}
-        icon={<Activity size={16} strokeWidth={1.5} />}
-        label="Events"
-        value={String(recent24hEvents)}
-        hint="last 24h"
-        sub=""
-      />
-      <PrimitiveCard
-        to={`${basePath}/ideas`}
-        icon={<Lightbulb size={16} strokeWidth={1.5} />}
-        label="Ideas"
-        value="—"
-        hint=""
-        sub=""
-      />
+    <section className="trust-cockpit-card" aria-labelledby="trust-operations-heading">
+      <header className="trust-cockpit-card-header">
+        <h2 id="trust-operations-heading" className="trust-cockpit-card-title">
+          Operations
+        </h2>
+        <span className="trust-cockpit-card-sub">Live runtime activity</span>
+      </header>
+      <div className="trust-cockpit-inner-grid">
+        <PrimitiveCard
+          to={`${basePath}/agents`}
+          icon={<Users size={16} strokeWidth={1.5} />}
+          label="Agents"
+          value={String(activeAgents)}
+          hint={`of ${subtreeAgents.length}`}
+          sub={subtreeAgents.length === 0 ? "No agents yet" : ""}
+        />
+        <PrimitiveCard
+          to={`${basePath}/quests`}
+          icon={<Target size={16} strokeWidth={1.5} />}
+          label="Quests"
+          value={String(inflightQuests)}
+          hint="in flight"
+          sub=""
+        />
+        <PrimitiveCard
+          to={`${basePath}/events`}
+          icon={<Activity size={16} strokeWidth={1.5} />}
+          label="Events"
+          value={String(recent24hEvents)}
+          hint="last 24h"
+          sub=""
+        />
+        <PrimitiveCard
+          to={`${basePath}/ideas`}
+          icon={<Lightbulb size={16} strokeWidth={1.5} />}
+          label="Ideas"
+          value="—"
+          hint=""
+          sub=""
+        />
+      </div>
     </section>
   );
 }
@@ -107,7 +115,7 @@ interface PrimitiveCardProps {
 
 function PrimitiveCard({ to, icon, label, value, hint, sub }: PrimitiveCardProps) {
   return (
-    <Link to={to} className="trust-card trust-primitive-card">
+    <Link to={to} className="trust-cockpit-mini">
       <span className="trust-primitive-icon" aria-hidden>
         {icon}
       </span>

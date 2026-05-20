@@ -59,8 +59,14 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
   }, [assets.holdings]);
 
   return (
-    <div className="trust-ownership-group">
-      <section className="trust-group-cards" aria-label="Programmable ownership">
+    <section className="trust-cockpit-card" aria-labelledby="trust-ownership-heading">
+      <header className="trust-cockpit-card-header">
+        <h2 id="trust-ownership-heading" className="trust-cockpit-card-title">
+          Ownership
+        </h2>
+        <span className="trust-cockpit-card-sub">On-chain state</span>
+      </header>
+      <div className="trust-cockpit-inner-grid">
         <OwnershipPrimitiveCard
           to={`${basePath}/assets`}
           icon={<Wallet size={16} strokeWidth={1.5} />}
@@ -111,8 +117,8 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           sub="Coming soon"
           comingSoon
         />
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -151,7 +157,7 @@ function OwnershipPrimitiveCard({
   if (comingSoon || !to) {
     return (
       <div
-        className="trust-card trust-primitive-card trust-primitive-card--soon"
+        className="trust-cockpit-mini trust-cockpit-mini--soon"
         aria-disabled="true"
         title={`${label} — coming soon`}
       >
@@ -160,7 +166,7 @@ function OwnershipPrimitiveCard({
     );
   }
   return (
-    <Link to={to} className="trust-card trust-primitive-card">
+    <Link to={to} className="trust-cockpit-mini">
       {body}
     </Link>
   );

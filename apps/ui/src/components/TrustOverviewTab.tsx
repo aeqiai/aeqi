@@ -5,6 +5,7 @@ import TrustHeroOverview from "./TrustHeroOverview";
 import TrustRolesGroup from "./TrustRolesGroup";
 import TrustExecutionGroup from "./TrustExecutionGroup";
 import TrustOwnershipGroup from "./TrustOwnershipGroup";
+import TrustActivityCard from "./TrustActivityCard";
 import TrustPublicRow from "./TrustPublicRow";
 import "@/styles/overview.css";
 
@@ -49,18 +50,12 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
           <TrustHeroOverview trustId={trustId} basePath={basePath} trustAddress={trustAddress} />
         }
       />
-      <section className="trust-overview-section">
-        <h2 className="trust-overview-section-title">Roles</h2>
-        <TrustRolesGroup trustId={trustId} basePath={basePath} />
-      </section>
-      <section className="trust-overview-section">
-        <h2 className="trust-overview-section-title">Operations</h2>
+      <TrustRolesGroup trustId={trustId} basePath={basePath} />
+      <div className="trust-cockpit-row">
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
-      </section>
-      <section className="trust-overview-section">
-        <h2 className="trust-overview-section-title">Ownership</h2>
         <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
-      </section>
+      </div>
+      <TrustActivityCard trustAddress={trustAddress} />
       <TrustPublicRow />
     </div>
   );

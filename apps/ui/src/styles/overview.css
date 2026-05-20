@@ -837,3 +837,178 @@
     width: 100%;
   }
 }
+
+/* ── Cockpit cards (v5, 2026-05-20) ───────────────────────────────────
+   Trust overview restructure: each section is its own elevated card
+   with the title rendered INSIDE the card (not as a section heading on
+   the page background). Operations + Ownership sit side-by-side as
+   peer cards; Roles + Activity span full width. The inner mini-tile
+   grid replaces the old 4-up primitive-card row.
+*/
+
+.trust-cockpit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.trust-cockpit-card {
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+.trust-cockpit-card--wide {
+  grid-column: 1 / -1;
+}
+
+.trust-cockpit-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.trust-cockpit-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+}
+
+.trust-cockpit-card-sub {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+.trust-cockpit-inner-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* Inner mini-tile. Reads like the previous primitive-card but tighter:
+   no shadow (it lives inside an elevated card), softer surface, same
+   icon + label + value + hint + sub stack. */
+.trust-cockpit-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-4);
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  min-width: 0;
+  min-height: 120px;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+}
+.trust-cockpit-mini:hover {
+  transform: translateY(-1px);
+  background: var(--color-card-muted);
+}
+.trust-cockpit-mini:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.trust-cockpit-mini--warmth .trust-primitive-value {
+  color: var(--color-warmth);
+}
+
+.trust-cockpit-mini--soon {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.trust-cockpit-mini--soon:hover {
+  transform: none;
+  background: var(--color-card);
+}
+
+/* ── Activity card sparklines ─────────────────────────────────────── */
+
+.trust-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.trust-activity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  min-width: 0;
+  color: var(--color-accent);
+}
+
+.trust-activity-cell-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.trust-activity-cell-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.trust-activity-svg {
+  width: 100%;
+  height: 56px;
+  display: block;
+  margin-top: var(--space-2);
+}
+.trust-activity-svg--empty {
+  opacity: 0.35;
+}
+.trust-activity-area {
+  fill: currentColor;
+  opacity: 0.12;
+}
+
+/* ── Responsive — cockpit ─────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .trust-cockpit-row {
+    grid-template-columns: 1fr;
+  }
+  .trust-cockpit-inner-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .trust-activity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .trust-cockpit-inner-grid {
+    grid-template-columns: 1fr;
+  }
+  .trust-activity-grid {
+    grid-template-columns: 1fr;
+  }
+}
