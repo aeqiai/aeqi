@@ -201,7 +201,20 @@ export default function StartPage() {
       </section>
 
       <section className="home-row-two" aria-label="Inbox and economy">
-        <article className="home-card home-card--inbox">
+        {/* First-touch (no entities) mutes the Inbox card via a modifier
+            class. The empty-state circle + display-font headline + hint
+            paragraph compete with the trust-row CTA for visual gravity
+            during onboarding — but hiding the card collapses the
+            two-column row and orphans Economy. Muting keeps the
+            structural slot (so users learn "this is where inbox lives")
+            without staging an editorial empty-state moment they can't
+            act on yet. Once the user creates a TRUST the modifier
+            drops and the card returns to its normal weight. */}
+        <article
+          className={`home-card home-card--inbox${
+            entities.length === 0 ? " home-card--quiet" : ""
+          }`}
+        >
           <header className="home-card-head">
             <span className="home-card-icon">
               <InboxIcon size={16} strokeWidth={1.5} />
@@ -212,14 +225,19 @@ export default function StartPage() {
                 three-state vocabulary (N awaiting / N in inbox / Inbox
                 clear), same dot color. Replaces the earlier "N waiting"
                 phrasing, which read the total count as "waiting" even
-                when nothing actually awaited the user. */}
-            <span className="home-card-meta">
-              <span
-                className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
-                aria-hidden="true"
-              />
-              {inboxLabel}
-            </span>
+                when nothing actually awaited the user. Suppressed during
+                first-touch — without a TRUST the inbox can't carry any
+                signal, so the meta stat would just repeat "Inbox clear"
+                against a card already muted. */}
+            {entities.length > 0 && (
+              <span className="home-card-meta">
+                <span
+                  className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
+                  aria-hidden="true"
+                />
+                {inboxLabel}
+              </span>
+            )}
             <button type="button" className="home-card-link" onClick={() => navigate("/inbox")}>
               View all
               <ArrowRight size={14} strokeWidth={1.8} />
@@ -288,6 +306,17 @@ export default function StartPage() {
                 );
               })}
             </ul>
+          ) : entities.length === 0 ? (
+            // First-touch: one quiet line instead of the editorial empty
+            // state. No filled icon puck, no display-font headline — both
+            // pull attention the user can't act on yet. Single line of
+            // secondary copy keeps the card's vertical slot honest
+            // without staging a competing moment.
+            <div className="home-inbox-empty home-inbox-empty--quiet">
+              <p className="home-inbox-empty-hint">
+                Approvals and proposals appear here once your TRUST is live.
+              </p>
+            </div>
           ) : (
             <div className="home-inbox-empty">
               <span className="home-inbox-empty-icon" aria-hidden="true">

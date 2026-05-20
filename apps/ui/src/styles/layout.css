@@ -8544,6 +8544,34 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
+/* First-touch quiet variant. The Inbox card stays in its column so the
+   home-row-two grid keeps its two-column composition during onboarding,
+   but its visual weight steps down: the head icon + title fade to
+   secondary ink, and the empty body is a single quiet sentence anchored
+   to the bottom instead of an editorial centerpiece. Once the user has
+   a TRUST, the modifier is dropped by StartPage and the card returns
+   to full weight. */
+.home-card--quiet .home-card-icon {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.home-card--quiet .home-card-title {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+.home-inbox-empty--quiet {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 0;
+  gap: 0;
+}
+.home-inbox-empty--quiet .home-inbox-empty-hint {
+  max-width: none;
+  color: var(--color-text-muted);
+}
 
 /* Economy preview — minimal, no fake feature tags. Just the lede +
    one quieter aside line. */
