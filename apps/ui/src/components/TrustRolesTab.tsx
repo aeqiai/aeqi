@@ -150,23 +150,32 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
-  // Snapshot counts. We surface tier counts the user-facing model
-  // actually exposes: total, directors (board), operational (org
-  // chart), vacant (open seats). The `founder` boolean in the data
-  // model is intentionally not surfaced as a separate counter — see
-  // RoleNode.pillLabel for why founders read as Directors here.
+  // Snapshot counts. Per-tier breakdown by occupant kind so each
+  // snapshot card carries WHO holds the role in that tier, not just
+  // how many seats exist. Internal `founder` boolean stays unused
+  // here — board members are Directors.
   const snapshot = useMemo(() => {
     let total = 0;
-    let directors = 0;
-    let operational = 0;
+    let agents = 0;
+    let humans = 0;
     let vacant = 0;
+    const directors = { total: 0, agents: 0, humans: 0, vacant: 0 };
+    const operators = { total: 0, agents: 0, humans: 0, vacant: 0 };
     for (const r of roles) {
       total += 1;
-      if (r.role_type === "director") directors += 1;
-      else if (r.role_type === "operational") operational += 1;
-      if (r.occupant_kind === "vacant") vacant += 1;
+      const tier =
+        r.role_type === "director" ? directors : r.role_type === "operational" ? operators : null;
+      if (tier) {
+        tier.total += 1;
+        if (r.occupant_kind === "agent") tier.agents += 1;
+        else if (r.occupant_kind === "human") tier.humans += 1;
+        else if (r.occupant_kind === "vacant") tier.vacant += 1;
+      }
+      if (r.occupant_kind === "agent") agents += 1;
+      else if (r.occupant_kind === "human") humans += 1;
+      else if (r.occupant_kind === "vacant") vacant += 1;
     }
-    return { total, directors, operational, vacant };
+    return { total, agents, humans, vacant, directors, operators };
   }, [roles]);
 
   const occupantCounts = useMemo(() => {
@@ -281,25 +290,36 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       </header>
 
       <section className="trust-roles-snapshot" aria-label="Snapshot">
-        <SnapshotStat
+        <SnapshotCard
           singular="Role"
           plural="Roles"
           value={snapshot.total}
           sublabel="Across this TRUST"
+          breakdown={breakdownText(snapshot.agents, snapshot.humans, snapshot.vacant)}
         />
-        <SnapshotStat
+        <SnapshotCard
           singular="Director"
           plural="Directors"
-          value={snapshot.directors}
+          value={snapshot.directors.total}
           sublabel="Stewardship authority"
+          breakdown={breakdownText(
+            snapshot.directors.agents,
+            snapshot.directors.humans,
+            snapshot.directors.vacant,
+          )}
         />
-        <SnapshotStat
+        <SnapshotCard
           singular="Operator"
           plural="Operators"
-          value={snapshot.operational}
+          value={snapshot.operators.total}
           sublabel="Execution authority"
+          breakdown={breakdownText(
+            snapshot.operators.agents,
+            snapshot.operators.humans,
+            snapshot.operators.vacant,
+          )}
         />
-        <SnapshotStat
+        <SnapshotCard
           singular="Vacant seat"
           plural="Vacant seats"
           value={snapshot.vacant}
@@ -412,37 +432,54 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   );
 }
 
-interface SnapshotStatProps {
+interface SnapshotCardProps {
   /** Singular form — rendered when `value === 1`. */
   singular: string;
   /** Plural form — rendered for any value other than 1 (including 0). */
   plural: string;
   value: number;
-  /** Optional one-line teaching text below the label — explains what
-   * the stat means for new TRUST owners (e.g. "Stewardship authority"). */
+  /** Teaching line below the label — explains what the stat means
+   * for new TRUST owners (e.g. "Stewardship authority"). */
   sublabel?: string;
+  /** Optional breakdown — composition of the count by occupant kind
+   * (e.g. "1 agent · 0 humans"). Renders as a footer line on the
+   * card; null/undefined collapses cleanly. */
+  breakdown?: string | null;
   tone?: "warmth";
 }
 
-function SnapshotStat({ singular, plural, value, sublabel, tone }: SnapshotStatProps) {
+function SnapshotCard({ singular, plural, value, sublabel, breakdown, tone }: SnapshotCardProps) {
   const label = value === 1 ? singular : plural;
   return (
-    <div className="trust-roles-snapshot-stat">
-      <span
-        className={
-          tone === "warmth"
-            ? "trust-roles-snapshot-value trust-roles-snapshot-value--warmth"
-            : "trust-roles-snapshot-value"
-        }
-      >
-        {value}
-      </span>
-      <span className="trust-roles-snapshot-text">
+    <article className="trust-roles-snapshot-card">
+      <header className="trust-roles-snapshot-head">
         <span className="trust-roles-snapshot-label">{label}</span>
-        {sublabel && <span className="trust-roles-snapshot-sublabel">{sublabel}</span>}
-      </span>
-    </div>
+        <span
+          className={
+            tone === "warmth"
+              ? "trust-roles-snapshot-value trust-roles-snapshot-value--warmth"
+              : "trust-roles-snapshot-value"
+          }
+        >
+          {value}
+        </span>
+      </header>
+      {sublabel && <p className="trust-roles-snapshot-sublabel">{sublabel}</p>}
+      {breakdown && <p className="trust-roles-snapshot-breakdown">{breakdown}</p>}
+    </article>
   );
+}
+
+/** Compose a per-tier composition line: "1 agent · 0 humans · 0 vacant".
+ * Skips zero-value parts so a fully-staffed tier reads as just its
+ * occupant breakdown without trailing "0 vacant" noise. */
+function breakdownText(agents: number, humans: number, vacant: number): string | null {
+  const parts: string[] = [];
+  if (agents > 0) parts.push(`${agents} ${agents === 1 ? "agent" : "agents"}`);
+  if (humans > 0) parts.push(`${humans} ${humans === 1 ? "human" : "humans"}`);
+  if (vacant > 0) parts.push(`${vacant} ${vacant === 1 ? "vacant" : "vacant"}`);
+  if (parts.length === 0) return null;
+  return parts.join(" · ");
 }
 
 function RolesLoading() {

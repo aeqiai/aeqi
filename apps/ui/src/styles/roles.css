@@ -362,26 +362,44 @@
   flex-shrink: 0;
 }
 
-/* Snapshot — single horizontal row of stat cells separated by quiet
-   spacing. Lighter than a grouped card; reads as a strip. */
+/* Snapshot — four equal-width cards in a row. Each card carries a
+   tier label + count headline, a one-line teaching sublabel, and an
+   optional composition breakdown ("1 agent · 0 humans"). Cards sit
+   on the page background; their own card-elevated fill plus padding
+   gives each one weight without painting the whole row as a strip. */
 .trust-roles-snapshot {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.trust-roles-snapshot-card {
   display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-3) var(--space-5);
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4);
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
+  min-width: 0;
 }
-.trust-roles-snapshot-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
+.trust-roles-snapshot-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.trust-roles-snapshot-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0;
 }
 .trust-roles-snapshot-value {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -389,25 +407,24 @@
 .trust-roles-snapshot-value--warmth {
   color: var(--color-warmth);
 }
-.trust-roles-snapshot-text {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.trust-roles-snapshot-label {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-primary);
-  font-weight: 500;
-  line-height: 1.15;
-}
 .trust-roles-snapshot-sublabel {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+  line-height: 1.3;
+}
+.trust-roles-snapshot-breakdown {
+  margin: 0;
+  margin-top: auto;
+  padding-top: var(--space-2);
   font-family: var(--font-sans);
   font-size: 11px;
   color: var(--color-text-muted);
-  font-weight: 400;
-  line-height: 1.15;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
 }
 
 /* Content row — graph canvas on the left, inspector on the right.
@@ -687,8 +704,8 @@
     gap: var(--space-3);
   }
   .trust-roles-snapshot {
-    flex-wrap: wrap;
-    gap: var(--space-4);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
   }
 }
 
