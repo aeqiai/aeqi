@@ -119,7 +119,7 @@ export default function TrustHeroStrip({
       className={`trust-hero${aside ? " trust-hero--with-bar" : ""}`}
       aria-label="Trust identity"
     >
-      <img src="/welcome/trust-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
+      <img src="/welcome/start-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
       {settingsPath && (
         <Link
           to={settingsPath}

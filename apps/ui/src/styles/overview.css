@@ -69,17 +69,19 @@
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
   min-width: 0;
-  min-height: 260px;
+  min-height: 280px;
   overflow: hidden;
 }
 .trust-hero--with-bar {
   /* keeps the column layout — the footer pins to the bottom of the
      card via `justify-content: space-between` above. */
 }
-/* Dark photo-backed hero. The image fills the card (no mask); text
-   reads white over the dark cityscape, with a soft left-to-right
-   gradient overlay to keep the identity area legible regardless of
-   image variance. */
+/* Photo-backed hero — same image and height as the home-page hero
+   (`.home-hero-image` in layout.css, 280px) so the trust page reads
+   as a continuation of the start surface. Radial corner-fade
+   dissolves the image into the warm paper across the top-left
+   quadrant where the avatar + identity sit; the focal subject (the
+   portal ring on the right) stays sharp. */
 .trust-hero-image {
   position: absolute;
   inset: 0;
@@ -90,51 +92,43 @@
   border-radius: var(--radius-lg);
   pointer-events: none;
   z-index: 0;
-}
-.trust-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.55) 0%,
-    rgba(0, 0, 0, 0.32) 45%,
-    rgba(0, 0, 0, 0.12) 100%
+  mask-image: radial-gradient(circle farthest-corner at 100% 100%, black 50%, transparent 100%);
+  -webkit-mask-image: radial-gradient(
+    circle farthest-corner at 100% 100%,
+    black 50%,
+    transparent 100%
   );
-  pointer-events: none;
-  z-index: 0;
 }
-/* Top-right gear shortcut to /trust/<addr>/settings. Mirrors the
-   `.home-hero-settings` pattern on the start page so the affordance
-   reads identically across the app. */
+/* Top-right gear shortcut to /trust/<addr>/settings. Same affordance
+   grammar as `.home-hero-settings` on the start page so users learn
+   one icon once. */
 .trust-hero-settings {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 20px;
+  right: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.92);
+  background: var(--color-card-elevated);
+  color: var(--color-text-secondary);
   text-decoration: none;
   z-index: 2;
   transition:
-    background 0.12s ease,
     color 0.12s ease,
-    transform 0.12s ease;
+    transform 0.12s ease,
+    filter 0.12s ease;
 }
 .trust-hero-settings:hover {
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
+  color: var(--color-text-primary);
   transform: translateY(-1px);
+  filter: brightness(1.04);
 }
 .trust-hero-settings:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px var(--color-accent);
 }
 .trust-hero-identity {
   display: flex;
@@ -168,7 +162,7 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--color-text-muted);
 }
 .trust-hero-name,
 .trust-hero-name-input {
@@ -178,7 +172,7 @@
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.025em;
-  color: #ffffff;
+  color: var(--color-text-primary);
   padding: 0;
   border: 0;
   background: transparent;
@@ -195,7 +189,6 @@
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -0.025em;
-  color: #ffffff;
 }
 .trust-hero-tagline,
 .trust-hero-tagline-input {
@@ -204,7 +197,7 @@
   font-size: var(--font-size-sm);
   font-style: italic;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-secondary);
   padding: 0;
   border: 0;
   background: transparent;
@@ -218,10 +211,10 @@
   font: inherit;
   font-style: italic;
   font-size: var(--font-size-sm);
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-secondary);
 }
 .trust-hero-tagline--empty {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-text-muted);
 }
 .trust-hero-chrome {
   display: flex;
