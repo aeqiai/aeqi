@@ -2997,18 +2997,29 @@
   gap: var(--space-2);
   flex-shrink: 0;
 }
-/* Quest-board scoped — larger search input and toolbar icon-buttons
-   than the default `.ideas-list-head` shape. The board is the
-   highest-density surface in the app; the toolbar reads better when
-   its targets are a touch chunkier. */
-.quest-board .ideas-list-head .ideas-list-search-field {
-  min-height: 38px;
-  padding: 0 12px;
-  font-size: var(--font-size-sm);
+/* Quest-board scoped toolbar — 40×40 quadratic popover buttons + a
+   40px search field. Matches the page-header md CTAs so every
+   target in the top stack lines up at the same height. Popover
+   buttons go from 30px circles to 40px rounded squares so they
+   read as deliberate chips, not icon nubs. */
+.quest-board .ideas-toolbar {
+  gap: 8px;
+  align-items: center;
 }
-.quest-board .ideas-list-head .ideas-toolbar-btn,
-.quest-board .ideas-list-head [class*="ideas-toolbar"] button {
-  min-height: 36px;
+.quest-board .ideas-list-search {
+  padding: 10px 32px 10px 34px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-md);
+}
+.quest-board .ideas-list-search-glyph {
+  left: 12px;
+  width: 14px;
+  height: 14px;
+}
+.quest-board .ideas-toolbar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
 }
 
 /* Priority indicator — three-bar Linear-style glyph, replaces the

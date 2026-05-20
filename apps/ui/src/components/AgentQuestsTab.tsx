@@ -227,7 +227,7 @@ export default function AgentQuestsTab({
         onSortChange={setSort}
         agents={agents}
         users={assigneeUsers}
-        splitLayout={scope === "entity"}
+        splitLayout={false}
       />
     );
   }
