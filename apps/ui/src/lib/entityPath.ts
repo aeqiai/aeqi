@@ -3,12 +3,19 @@ import type { Trust } from "@/lib/types";
 /**
  * Canonical URL base for an entity.
  *
- * Trust-backed entities use the trust route. Anything without a trust
- * address should not be treated as a live organization surface.
+ * Prefer the on-chain Trust PDA (`trust_address`) when present — that's
+ * the canonical post-bridge slug. Fall back to `entity.id` so unbridged
+ * or mid-provisioning placements still have a routable URL; sending the
+ * user to `/launch` when they click an existing workspace makes the
+ * switcher look broken (the click silently kicks them out of the entity
+ * shell instead of opening it).
  */
 export function entityBasePath(entity: Pick<Trust, "id" | "trust_address">): string {
   if (entity.trust_address) {
     return `/trust/${entity.trust_address}`;
+  }
+  if (entity.id) {
+    return `/trust/${entity.id}`;
   }
   return "/launch";
 }
@@ -47,6 +54,7 @@ export function entityPathFromId(
 ): string {
   const entity = entities.find((e) => e.id === id);
   if (entity) return entityPath(entity, ...segments);
+  if (id) return entityPath({ id, trust_address: undefined }, ...segments);
   return "/launch";
 }
 

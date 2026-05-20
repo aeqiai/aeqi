@@ -23,7 +23,18 @@ export function useCurrentCompany(): {
 
   const entity = useMemo<Trust | null>(() => {
     if (trustAddress) {
-      return entities.find((e) => e.trust_address === trustAddress) ?? null;
+      // Match by `trust_address` first (canonical post-bridge slug),
+      // then fall back to entity.id so unbridged / stranded placements
+      // (no on-chain TRUST yet) and any URL that was minted from
+      // `entity.id` rather than the chain address still resolve. The
+      // pre-fix lookup was trust_address-only, which made every
+      // null-trust_address row in the switcher silently bounce to "/"
+      // via AppLayout's `!entityKnown` redirect.
+      return (
+        entities.find((e) => e.trust_address === trustAddress) ??
+        entities.find((e) => e.id === trustAddress) ??
+        null
+      );
     }
     if (routeEntityId) {
       return entities.find((e) => e.id === routeEntityId) ?? null;
