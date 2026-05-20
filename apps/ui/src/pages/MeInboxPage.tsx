@@ -463,26 +463,30 @@ export default function MeInboxPage() {
         >
           Back
         </Button>
-        <button
-          type="button"
-          className="inbox-detail-header-open"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => navigate(deepUrl)}
           title="Open full session"
+          trailingIcon={
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M2 10 L10 2M6 2h4v4" />
+            </svg>
+          }
+          trailingIconMode="inline"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M2 10 L10 2M6 2h4v4" />
-          </svg>
           Open
-        </button>
+        </Button>
       </>
     );
 

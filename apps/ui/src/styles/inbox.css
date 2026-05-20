@@ -381,31 +381,6 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Open-button + back-button (composed by MeInboxPage as headerExtras).
-   Same visual shape they had on the prior `.inbox-detail-header`. */
-.inbox-detail-header-open {
-  appearance: none;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--color-ink-muted);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition:
-    color var(--transition-normal),
-    background var(--transition-normal);
-  flex-shrink: 0;
-}
-
-.inbox-detail-header-open:hover {
-  color: var(--color-ink-text);
-  background: var(--state-hover);
-}
-
 /* ── Composer wrapper ──────────────────────────────────────────
  * Floating absolute-positioned composer card — visual parity with
  * the agent surface (`.composer-row` + `.composer-wrap` pattern in
