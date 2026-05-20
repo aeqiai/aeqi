@@ -149,6 +149,29 @@ export default function RolesChart({
     return ids;
   }, [crossEdges]);
 
+  // Operator IDs whose inbound governance edges from the director roster
+  // are ALL synthesized — the apex-operator mirror of `implicitDirectorIds`.
+  // Without this, an apex operator under an implicit-governance board
+  // looks identical to one whose director->operator delegation is wired
+  // in `role_edges`. The dashed cross-edge already tells the story for
+  // the line; the receiving node should carry the same provenance hint
+  // so the implication reads bidirectionally on canvas — director AND
+  // apex both marked implicit, mirroring the inspector's chip treatment.
+  const implicitOperatorIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const e of crossEdges) {
+      if (!e.implicit) continue;
+      ids.add(e.child_role_id);
+    }
+    // Any explicit inbound governance edge promotes the operator out of
+    // the implicit set — explicit wiring wins, matching the director
+    // rule above.
+    for (const e of crossEdges) {
+      if (!e.implicit) ids.delete(e.child_role_id);
+    }
+    return ids;
+  }, [crossEdges]);
+
   const stackRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
   const setNodeRef = useCallback(
@@ -313,6 +336,7 @@ export default function RolesChart({
                   selected={n.role.id === selectedRoleId}
                   nodeRef={setNodeRef(n.role.id)}
                   className={n.layer === 0 ? "role-node--apex" : undefined}
+                  implicit={implicitOperatorIds.has(n.role.id)}
                   style={{
                     position: "absolute",
                     left: n.x,

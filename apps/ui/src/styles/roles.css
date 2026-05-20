@@ -1155,13 +1155,17 @@
   color: var(--color-text-muted);
 }
 
-/* "implicit" governance hint — sits in a director tile's head row when
-   every outbound edge to the operational tree is synthesized. Quiet
-   lowercase italic marker mirroring `.role-inspector-edge-hint` so the
-   inspector and the node use the same vocabulary for "structurally
-   implied, not wired". Sized to match the authority pill so the head
-   row reads as a balanced two-marker pair (implicit · DIRECTOR) rather
-   than a stacked label. */
+/* "implicit" governance hint — sits in a node's head row when every
+   governance edge touching the node is synthesized. Painted on the
+   director side (all outbound director→operational edges are
+   synthesized) and on the apex-operator side (all inbound
+   director→operator edges are synthesized), so the implication reads
+   bidirectionally on canvas. Quiet lowercase italic marker mirroring
+   `.role-inspector-edge-hint` so inspector and node share the same
+   vocabulary for "structurally implied, not wired". Sized to match
+   the authority pill so the head row reads as a balanced two-marker
+   pair (implicit · DIRECTOR / implicit · OPERATOR) rather than a
+   stacked label. */
 .role-node-edge-hint {
   flex-shrink: 0;
   display: inline-flex;
@@ -1179,13 +1183,14 @@
   line-height: 1;
 }
 
-/* Quieter selected ring for implicit-governance directors — half-weight
+/* Quieter selected ring for implicit-governance nodes — half-weight
    accent-dim instead of the 2px graphite ring used for explicit nodes.
-   The selection still reads as "this is the focused tile" but stops
-   short of the authoritative full-ink ring reserved for nodes whose
-   governance IS on the record. Pairs with the dashed cross-edge stroke
-   shipped in cycle 2 so canvas, edge, and tile all carry the same
-   weight signal. */
+   Applied to both directors with all-synthesized outbound edges and
+   apex operators with all-synthesized inbound edges. The selection
+   still reads as "this is the focused tile" but stops short of the
+   authoritative full-ink ring reserved for nodes whose governance IS
+   on the record. Pairs with the dashed cross-edge stroke shipped in
+   cycle 2 so canvas, edge, and tile all carry the same weight signal. */
 .role-node--implicit.is-selected {
   box-shadow:
     0 0 0 1.5px var(--accent-dim),

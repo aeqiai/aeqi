@@ -16,13 +16,16 @@ export interface RoleNodeProps {
   /** Ref callback exposed so RolesChart can measure node positions for
    * cross-zone connector geometry (director → operational lines). */
   nodeRef?: (el: HTMLButtonElement | null) => void;
-  /** True when every outbound governance edge from this node is
-   *  synthesized (no `role_edges` wiring) — currently only meaningful
-   *  for director nodes. The tile then renders a quiet "implicit" hint
-   *  in the head row and a quieter selected state, so the node mirrors
-   *  the canvas's dashed cross-edges and the inspector's implicit chip
-   *  treatment. Without this flag, a director with no wired children
-   *  looks identical to a director with explicit delegates. */
+  /** True when every governance edge touching this node is synthesized
+   *  (no `role_edges` wiring). Set on the director side when every
+   *  outbound director→operational edge is synthesized, and on the
+   *  apex-operator side when every inbound director→operator edge is
+   *  synthesized — so the implication reads bidirectionally on canvas.
+   *  The tile renders a quiet "implicit" hint in the head row and a
+   *  quieter selected state, mirroring the dashed cross-edges shipped
+   *  in cycle 2 and the inspector's implicit chip treatment. Without
+   *  this flag, an apex operator under implicit governance looks
+   *  identical to one with explicit director delegates. */
   implicit?: boolean;
 }
 
