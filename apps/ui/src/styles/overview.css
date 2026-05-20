@@ -574,6 +574,12 @@
   display: inline-flex;
   align-items: baseline;
 }
+/* Vacant-seat card on the Roles row tints its value in warmth to
+   read as "alive, awaiting" — same accent the snapshot uses on the
+   Roles page itself. */
+.trust-primitive-card--warmth .trust-primitive-value {
+  color: var(--color-warmth);
+}
 .trust-primitive-hint {
   margin-left: 6px;
   font-family: var(--font-sans);

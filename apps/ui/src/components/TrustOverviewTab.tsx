@@ -2,6 +2,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityBasePath } from "@/lib/entityPath";
 import TrustHeroStrip from "./TrustHeroStrip";
 import TrustHeroOverview from "./TrustHeroOverview";
+import TrustRolesGroup from "./TrustRolesGroup";
 import TrustExecutionGroup from "./TrustExecutionGroup";
 import TrustOwnershipGroup from "./TrustOwnershipGroup";
 import TrustPublicRow from "./TrustPublicRow";
@@ -48,6 +49,10 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
           <TrustHeroOverview trustId={trustId} basePath={basePath} trustAddress={trustAddress} />
         }
       />
+      <section className="trust-overview-section">
+        <h2 className="trust-overview-section-title">Roles</h2>
+        <TrustRolesGroup trustId={trustId} basePath={basePath} />
+      </section>
       <section className="trust-overview-section">
         <h2 className="trust-overview-section-title">Execution</h2>
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
