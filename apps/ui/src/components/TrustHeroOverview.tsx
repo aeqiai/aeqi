@@ -18,7 +18,11 @@ interface TrustHeroOverviewProps {
  *   LEFT  — runtime / server specs (state dot + plan + agent count
  *           + "Open agents →" link). Where the team lives.
  *   RIGHT — on-chain identity (Solana mark + TRUST address +
- *           signers + roles). Where the contract lives.
+ *           modules + roles). Where the contract lives. "Modules"
+ *           rather than "signers" because what we're counting is
+ *           initialized Anchor program modules, not multisig
+ *           signers — those are different concepts in the AEQI
+ *           role-graph model.
  *
  * Reframed 2026-05-20: was a right-sided panel with "Programmable
  * execution" / "Programmable ownership" eyebrows. The eyebrows
@@ -113,7 +117,7 @@ export default function TrustHeroOverview({
                   ·
                 </span>
                 <span className="trust-hero-bar-text">
-                  {initializedModulesCount} signer{initializedModulesCount === 1 ? "" : "s"}
+                  {initializedModulesCount} module{initializedModulesCount === 1 ? "" : "s"}
                 </span>
               </>
             )}

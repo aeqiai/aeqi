@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Users, Compass, Activity, Lightbulb } from "lucide-react";
+import { Users, Target, Activity, Lightbulb } from "lucide-react";
 import { useDaemonStore } from "@/store/daemon";
 import { useMemo } from "react";
 import type { Quest } from "@/lib/types";
@@ -66,21 +66,15 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
         label="Agents"
         value={String(activeAgents)}
         hint={`of ${subtreeAgents.length}`}
-        sub={
-          subtreeAgents.length === 0
-            ? "No agents yet"
-            : activeAgents > 0
-              ? "Team online"
-              : "Team standing by"
-        }
+        sub={subtreeAgents.length === 0 ? "No agents yet" : ""}
       />
       <PrimitiveCard
         to={`${basePath}/quests`}
-        icon={<Compass size={16} strokeWidth={1.5} />}
+        icon={<Target size={16} strokeWidth={1.5} />}
         label="Quests"
         value={String(inflightQuests)}
         hint="in flight"
-        sub={inflightQuests > 0 ? "Active work" : "Queue is clear"}
+        sub=""
       />
       <PrimitiveCard
         to={`${basePath}/events`}
@@ -88,7 +82,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
         label="Events"
         value={String(recent24hEvents)}
         hint="last 24h"
-        sub={recent24hEvents > 0 ? "Decisions logged" : "Quiet day"}
+        sub=""
       />
       <PrimitiveCard
         to={`${basePath}/ideas`}
@@ -96,7 +90,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
         label="Ideas"
         value="—"
         hint=""
-        sub="Knowledge graph"
+        sub=""
       />
     </section>
   );
@@ -122,7 +116,7 @@ function PrimitiveCard({ to, icon, label, value, hint, sub }: PrimitiveCardProps
         {value}
         {hint && <span className="trust-primitive-hint"> {hint}</span>}
       </span>
-      <span className="trust-primitive-sub">{sub}</span>
+      {sub && <span className="trust-primitive-sub">{sub}</span>}
     </Link>
   );
 }

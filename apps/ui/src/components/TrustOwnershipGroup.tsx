@@ -72,10 +72,10 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
         hint={assets.vault?.moduleState && treasuryUsdc ? "USDC" : ""}
         sub={
           assets.vault?.moduleState
-            ? "Treasury vault active"
+            ? ""
             : trustAddress
-              ? "No vault yet"
-              : "Bridge pending"
+              ? "No treasury vault"
+              : "Setting up on Solana"
         }
       />
       <OwnershipPrimitiveCard
@@ -84,9 +84,7 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
         label="Equity"
         value={hasToken ? (holdersCount === null ? "—" : String(holdersCount)) : "—"}
         hint={hasToken ? (holdersCount === 1 ? "holder" : "holders") : ""}
-        sub={
-          hasToken ? "Cap-table token live" : trustAddress ? "Foundation shape" : "Bridge pending"
-        }
+        sub={hasToken ? "" : trustAddress ? "No equity token" : "Setting up on Solana"}
       />
       <OwnershipPrimitiveCard
         to={`${basePath}/quorum`}
@@ -102,10 +100,10 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
         hint={configsCount && configsCount > 0 ? "open" : ""}
         sub={
           configsCount && configsCount > 0
-            ? `${configsCount} governance config${configsCount === 1 ? "" : "s"}`
+            ? ""
             : trustAddress
-              ? "Founder-mode"
-              : "Bridge pending"
+              ? "No voting yet"
+              : "Setting up on Solana"
         }
       />
       <OwnershipPrimitiveCard
@@ -114,7 +112,7 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
         label="Incorporation"
         value={modulesCount === null ? "—" : String(modulesCount)}
         hint={modulesCount === 1 ? "module" : "modules"}
-        sub={trustOnchain ? "On-chain agreement" : trustAddress ? "Not yet" : "Bridge pending"}
+        sub={trustOnchain ? "" : trustAddress ? "No agreement yet" : "Setting up on Solana"}
       />
     </section>
   );
@@ -147,7 +145,7 @@ function OwnershipPrimitiveCard({
         {value}
         {hint && <span className="trust-primitive-hint"> {hint}</span>}
       </span>
-      <span className="trust-primitive-sub">{sub}</span>
+      {sub && <span className="trust-primitive-sub">{sub}</span>}
     </Link>
   );
 }

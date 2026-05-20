@@ -3,10 +3,14 @@
   "rules": {
     "rawButton": {
       "label": "raw <button>",
-      "count": 173,
+      "count": 174,
       "topFiles": [
         {
           "file": "apps/ui/src/components/events/EventCanvasEditor.tsx",
+          "count": 9
+        },
+        {
+          "file": "apps/ui/src/pages/StartPage.tsx",
           "count": 9
         },
         {
@@ -22,26 +26,22 @@
           "count": 5
         },
         {
+          "file": "apps/ui/src/components/quests/QuestBoard.tsx",
+          "count": 5
+        },
+        {
           "file": "apps/ui/src/pages/blueprints/BlueprintsFilterPopover.tsx",
           "count": 5
         },
         {
-          "file": "apps/ui/src/pages/MeInboxPage.tsx",
-          "count": 5
-        },
-        {
           "file": "apps/ui/src/components/AgentOverviewTab.tsx",
-          "count": 4
-        },
-        {
-          "file": "apps/ui/src/components/ideas/IdeasFilterPopover.tsx",
           "count": 4
         }
       ]
     },
     "rawInput": {
       "label": "raw <input>",
-      "count": 55,
+      "count": 53,
       "topFiles": [
         {
           "file": "apps/ui/src/components/AgentEventsTab.tsx",
@@ -72,7 +72,7 @@
           "count": 2
         },
         {
-          "file": "apps/ui/src/components/EntityHeroStrip.tsx",
+          "file": "apps/ui/src/components/events/EventDetail.tsx",
           "count": 2
         }
       ]
@@ -99,19 +99,11 @@
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 429,
+      "count": 361,
       "topFiles": [
-        {
-          "file": "apps/ui/src/pages/OwnershipPage.tsx",
-          "count": 43
-        },
         {
           "file": "apps/ui/src/pages/RoleDetailPage.tsx",
           "count": 31
-        },
-        {
-          "file": "apps/ui/src/pages/GovernancePage.tsx",
-          "count": 29
         },
         {
           "file": "apps/ui/src/pages/RoleNewPage.tsx",
@@ -126,12 +118,20 @@
           "count": 25
         },
         {
-          "file": "apps/ui/src/components/BudgetsBlock.tsx",
+          "file": "apps/ui/src/components/TestTriggerPanel.tsx",
           "count": 24
         },
         {
-          "file": "apps/ui/src/components/TestTriggerPanel.tsx",
-          "count": 24
+          "file": "apps/ui/src/pages/RoleInvitePage.tsx",
+          "count": 23
+        },
+        {
+          "file": "apps/ui/src/pages/PublicProfilePage.tsx",
+          "count": 20
+        },
+        {
+          "file": "apps/ui/src/components/AgentChannelsTab.tsx",
+          "count": 16
         }
       ]
     },
@@ -147,7 +147,7 @@
     },
     "literalHex": {
       "label": "literal hex color",
-      "count": 74,
+      "count": 73,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/events.css",
@@ -178,14 +178,14 @@
           "count": 1
         },
         {
-          "file": "apps/ui/src/components/EntityOverviewTab.tsx",
+          "file": "apps/ui/src/components/EquityGenesisCurveSection.tsx",
           "count": 1
         }
       ]
     },
     "literalRgb": {
       "label": "literal rgb/rgba color",
-      "count": 113,
+      "count": 112,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/layout.css",
@@ -197,7 +197,7 @@
         },
         {
           "file": "apps/ui/src/styles/pages.css",
-          "count": 20
+          "count": 19
         },
         {
           "file": "apps/ui/src/styles/events.css",
@@ -289,26 +289,14 @@
     },
     "primitiveSubpathImport": {
       "label": "primitive subpath import",
-      "count": 14,
+      "count": 6,
       "topFiles": [
-        {
-          "file": "apps/ui/src/pages/OwnershipPage.tsx",
-          "count": 4
-        },
-        {
-          "file": "apps/ui/src/pages/GovernancePage.tsx",
-          "count": 3
-        },
         {
           "file": "apps/ui/src/components/sessions/AddParticipantModal.tsx",
           "count": 2
         },
         {
           "file": "apps/ui/src/App.tsx",
-          "count": 1
-        },
-        {
-          "file": "apps/ui/src/components/BudgetsBlock.tsx",
           "count": 1
         },
         {
