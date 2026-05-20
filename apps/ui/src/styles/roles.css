@@ -377,10 +377,11 @@
 }
 
 /* Agent liveness dot — mirrors `.quest-status-dot` (7px, token colors).
-   Three-tone palette per the shared design language:
-     online  = violet  (executing / actively running)
-     idle    = warmth  (armed but quiet)
-     offline = ink-muted (stopped / disabled)
+   Three-tone palette tokenised through the canonical `--state-*` family
+   so every primitive page reads from the same vocabulary:
+     online  = `--state-progress` (executing / actively running)
+     idle    = `--state-review`   (armed but quiet)
+     offline = ink-muted          (stopped / disabled)
    The label next to the dot rides in sentence case in
    `--color-text-primary` so the row scans like every other primitive
    row (Quests, Roles) instead of as a debug string. */
@@ -399,10 +400,10 @@
   background: var(--color-text-muted);
 }
 .agent-liveness-dot--online {
-  background: #7c6cd6;
+  background: var(--state-progress);
 }
 .agent-liveness-dot--idle {
-  background: var(--color-warmth);
+  background: var(--state-review);
 }
 .agent-liveness-dot--offline {
   background: var(--color-text-muted);
