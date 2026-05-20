@@ -3435,7 +3435,7 @@
  * Tints are color-mix'd at 7–8% so the columns read as "this status
  * has its own identity" without shouting over the cards inside. */
 .quest-col[data-status="in_progress"] {
-  background: color-mix(in oklch, #7c6cd6 8%, var(--bg-row));
+  background: color-mix(in oklch, var(--state-progress) 8%, var(--bg-row));
 }
 .quest-col[data-status="in_review"] {
   background: color-mix(in oklch, var(--color-warmth) 10%, var(--bg-row));
@@ -3893,7 +3893,7 @@
   background: var(--color-text-secondary);
 }
 .quest-status-dot--in_progress {
-  background: #7c6cd6;
+  background: var(--state-progress);
 }
 .quest-status-dot--in_review {
   background: var(--color-warmth);

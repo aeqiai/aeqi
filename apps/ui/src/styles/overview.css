@@ -289,12 +289,17 @@
   flex-shrink: 0;
   background: var(--color-text-muted);
 }
+/* Status accents pulled from the family vocabulary (see primitives.css).
+   Live = indigo (active/streaming) — same color the quest board uses on
+   `in_progress`. Provisioning = warmth (pending/awaiting). Static = muted
+   (parked). Before this pass `live` borrowed warmth, which collided with
+   `in_review` semantics elsewhere in the app. */
 .trust-hero-bar-dot[data-tone="live"] {
-  background: var(--color-warmth);
-  box-shadow: 0 0 0 3px var(--color-warmth-bg);
+  background: var(--state-progress);
+  box-shadow: 0 0 0 3px var(--state-progress-bg);
 }
 .trust-hero-bar-dot[data-tone="provisioning"] {
-  background: var(--color-warmth);
+  background: var(--state-review);
   animation: trust-pulse 1.6s ease-in-out infinite;
 }
 .trust-hero-bar-dot[data-tone="static"] {
@@ -324,12 +329,19 @@
 .trust-hero-bar-cta:hover {
   text-decoration: underline;
 }
+/* Solana mark sits next to the TRUST address. Muted grey when there's
+   no on-chain mirror yet ("Bridge pending"); jade when the TRUST is
+   registered on chain — the "verified on Solana" affordance the brief
+   calls out. Same semantic as `done`/verified across the app. */
 .trust-hero-bar-solana {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
   flex-shrink: 0;
+}
+.trust-hero-bar-solana[data-verified="true"] {
+  color: var(--state-verified);
 }
 .trust-hero-bar-addr {
   display: inline-flex;

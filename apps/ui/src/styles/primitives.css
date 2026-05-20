@@ -89,6 +89,20 @@
   --warning: var(--color-warning);
   --info: var(--color-info);
 
+  /* ── Family status accents (board vocabulary, locked) ──
+     Three tokens that unify status signaling across primitives.
+     Live/active/streaming → indigo. Pending/awaiting/vacant →
+     warmth. Verified/settled/completed → jade. Promoted from the
+     `#7c6cd6` literal in quest column/dot CSS so every primitive
+     surface (quests, trust hero, agents, events) reads from the
+     same vocabulary. */
+  --state-progress: #7c6cd6;
+  --state-progress-bg: rgba(124, 108, 214, 0.14);
+  --state-review: var(--color-warmth);
+  --state-review-bg: var(--color-warmth-bg);
+  --state-verified: var(--success);
+  --state-verified-bg: var(--success-glow);
+
   /* Borders */
   --border-faint: var(--color-border-faint);
   --border: var(--color-border);

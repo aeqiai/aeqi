@@ -93,7 +93,12 @@ export default function TrustHeroOverview({
       </div>
 
       <div className="trust-hero-bar-right">
-        <span className="trust-hero-bar-solana" aria-hidden>
+        <span
+          className="trust-hero-bar-solana"
+          data-verified={trustAddress ? "true" : undefined}
+          aria-hidden
+          title={trustAddress ? "Verified on Solana" : undefined}
+        >
           <SolanaMark size={12} />
         </span>
         {trustAddress ? (
