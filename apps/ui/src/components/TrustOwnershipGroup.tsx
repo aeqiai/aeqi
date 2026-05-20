@@ -84,7 +84,6 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           label="Assets"
           value={treasuryUsdc ?? "—"}
           hint={treasuryUsdc ? "USDC" : ""}
-          sub=""
           provisioning={assetsProvisioning}
         />
         <OwnershipPrimitiveCard
@@ -93,7 +92,6 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           label="Equity"
           value={holdersCount === null ? "—" : String(holdersCount)}
           hint={holdersCount === 1 ? "holder" : "holders"}
-          sub=""
           provisioning={equityProvisioning}
         />
         <OwnershipPrimitiveCard
@@ -102,7 +100,6 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           label="Quorum"
           value={activeProposalsCount === null ? "—" : String(activeProposalsCount)}
           hint="open"
-          sub=""
           provisioning={quorumProvisioning}
         />
         <OwnershipPrimitiveCard
@@ -110,7 +107,6 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           label="Incorporation"
           value=""
           hint=""
-          sub=""
           comingSoon
         />
       </div>
@@ -124,7 +120,6 @@ interface OwnershipPrimitiveCardProps {
   label: string;
   value: string;
   hint: string;
-  sub: string;
   comingSoon?: boolean;
   provisioning?: boolean;
 }
@@ -135,7 +130,6 @@ function OwnershipPrimitiveCard({
   label,
   value,
   hint,
-  sub,
   comingSoon,
   provisioning,
 }: OwnershipPrimitiveCardProps) {
@@ -168,7 +162,6 @@ function OwnershipPrimitiveCard({
           {hint && <span className="trust-primitive-hint"> {hint}</span>}
         </span>
       )}
-      {sub && !provisioning && !comingSoon && <span className="trust-primitive-sub">{sub}</span>}
     </>
   );
   if (comingSoon || !to) {
