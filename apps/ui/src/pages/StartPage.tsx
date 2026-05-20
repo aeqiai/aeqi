@@ -343,7 +343,7 @@ export default function StartPage() {
           </header>
           <div className="home-economy-body">
             <p className="home-economy-lede">
-              Discover TRUSTs, agents, markets, and capital activity across the network.
+              Discover TRUSTs, agents, markets, and capital changing hands.
             </p>
             <p className="home-economy-aside">
               The places where TRUSTs meet — and where the value moves between them.
