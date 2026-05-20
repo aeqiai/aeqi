@@ -353,29 +353,56 @@
 .trust-hero-bar-solana[data-verified="true"] {
   color: var(--state-verified);
 }
+/* On-chain identity reads as one composed pill: address (interactive,
+   denser tint) on the left, modules · roles (quiet metadata, lighter
+   tint of the same shape) on the right. The two zones share a single
+   999px outline and a 1px value step — no hairline divider, just a
+   tint shift between --color-card-subtle (button) and --color-card-muted
+   (tail), per the "no hairlines" rule. */
+.trust-hero-bar-addr-pill {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--color-card-muted);
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 0;
+}
 .trust-hero-bar-addr {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  background: var(--color-card-muted);
+  background: var(--color-card-subtle);
   border: 0;
-  border-radius: 999px;
-  font-family: var(--font-mono, monospace);
+  border-radius: 999px 0 0 999px;
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   cursor: pointer;
   transition: background 0.12s ease;
 }
+/* When the address pill has no metadata tail, the button is the whole
+   pill — restore the full pill radius on the right edge. */
+.trust-hero-bar-addr-pill:not(:has(.trust-hero-bar-addr-meta)) .trust-hero-bar-addr {
+  border-radius: 999px;
+}
 .trust-hero-bar-addr:hover {
-  background: var(--color-card-subtle);
+  background: var(--color-card-muted);
 }
 .trust-hero-bar-addr:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 .trust-hero-bar-addr span {
   font-variant-numeric: tabular-nums;
+}
+.trust-hero-bar-addr-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px 3px 10px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 /* ── Section heading (above each 4-card row) ──────────────────────── */

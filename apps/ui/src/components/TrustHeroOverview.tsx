@@ -29,6 +29,13 @@ interface TrustHeroOverviewProps {
  * shouted; the panel competed with the avatar. Now it's a quiet
  * inset bar that sits inside the hero without competing — runtime
  * + ownership at a glance, nothing more.
+ *
+ * Calibrated 2026-05-21 (c3): the modules · roles tail was promoted
+ * INTO the address pill, so the on-chain identity reads as one
+ * composed object (`[hex copy] | N modules · M roles`) rather than
+ * three loose chunks rolling out of the Solana mark. The button
+ * remains the only click target; the tail is a quiet metadata zone
+ * sharing the pill shape via a tint shift, not a hairline.
  */
 export default function TrustHeroOverview({
   trustId,
@@ -102,7 +109,7 @@ export default function TrustHeroOverview({
           <SolanaMark size={12} />
         </span>
         {trustAddress ? (
-          <>
+          <span className="trust-hero-bar-addr-pill">
             <button
               type="button"
               className="trust-hero-bar-addr"
@@ -116,27 +123,26 @@ export default function TrustHeroOverview({
                 <Copy size={11} strokeWidth={1.5} />
               )}
             </button>
-            {initializedModulesCount !== null && (
-              <>
-                <span className="trust-hero-bar-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="trust-hero-bar-text">
-                  {initializedModulesCount} module{initializedModulesCount === 1 ? "" : "s"}
-                </span>
-              </>
+            {(initializedModulesCount !== null || (rolesCount !== null && rolesCount > 0)) && (
+              <span className="trust-hero-bar-addr-meta">
+                {initializedModulesCount !== null && (
+                  <span className="trust-hero-bar-text">
+                    {initializedModulesCount} module{initializedModulesCount === 1 ? "" : "s"}
+                  </span>
+                )}
+                {initializedModulesCount !== null && rolesCount !== null && rolesCount > 0 && (
+                  <span className="trust-hero-bar-sep" aria-hidden>
+                    ·
+                  </span>
+                )}
+                {rolesCount !== null && rolesCount > 0 && (
+                  <span className="trust-hero-bar-text">
+                    {rolesCount} role{rolesCount === 1 ? "" : "s"}
+                  </span>
+                )}
+              </span>
             )}
-            {rolesCount !== null && rolesCount > 0 && (
-              <>
-                <span className="trust-hero-bar-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="trust-hero-bar-text">
-                  {rolesCount} role{rolesCount === 1 ? "" : "s"}
-                </span>
-              </>
-            )}
-          </>
+          </span>
         ) : (
           <span className="trust-hero-bar-text">Bridge pending</span>
         )}
