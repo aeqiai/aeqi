@@ -3479,11 +3479,15 @@
  * header where the dot + label live. Empty columns no longer flood
  * the viewport with a wash of colour disproportionate to their
  * single card. Uses the canonical --state-*-bg tokens. */
-.quest-col[data-status="in_progress"] > .quest-col-header,
+.quest-col[data-status="in_progress"] > .quest-col-header {
+  background: var(--state-progress-bg);
+}
 .quest-col[data-status="in_progress"] > .quest-col-header--toggle {
   background: var(--state-progress-bg);
 }
-.quest-col[data-status="in_review"] > .quest-col-header,
+.quest-col[data-status="in_review"] > .quest-col-header {
+  background: var(--state-review-bg);
+}
 .quest-col[data-status="in_review"] > .quest-col-header--toggle {
   background: var(--state-review-bg);
 }
