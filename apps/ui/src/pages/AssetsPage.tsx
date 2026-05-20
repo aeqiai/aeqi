@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
+import { ExternalLink } from "lucide-react";
 
 import { useDaemonStore } from "@/store/daemon";
 import { useAssets } from "@/hooks/useAssets";
-import { lookupTokenMeta } from "@/solana";
+import { useTokenMetas } from "@/hooks/useTokenMetas";
+import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from "@/solana/assets";
-import { formatCurrency, formatInteger } from "@/lib/i18n";
+import { formatCurrency, formatInteger, formatNumber } from "@/lib/i18n";
+import { explorerAddressUrl } from "@/lib/solana-explorer";
 import {
   Badge,
   Banner,
@@ -12,6 +15,7 @@ import {
   Card,
   DetailField,
   EmptyState,
+  Icon,
   Inline,
   Loading,
   MetricCard,
@@ -28,6 +32,7 @@ import {
 } from "@/components/ui";
 
 import {
+  BudgetDetailModal,
   BudgetsSection,
   CopyableMono,
   VestingPositionsSection,
@@ -35,6 +40,7 @@ import {
   isStableSymbol,
   rawToFloat,
   shortAddress,
+  type TokenMetaMap,
 } from "./AssetsSections";
 import styles from "./AssetsPage.module.css";
 
@@ -75,6 +81,24 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
 
   const { vault, holdings, budgets, vestingPositions, isLoading, isFetching, error, refetch } =
     useAssets(trustAddress);
+
+  // Gather every mint that any row on the page references (holdings,
+  // vesting positions, budget-denomination USDC) and resolve them in one
+  // batch. `useTokenMetas` short-circuits registry hits so we only spend
+  // RPC on mints we haven't already pinned in `TOKEN_REGISTRY`.
+  const allMints = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    // The budget denomination — mainnet + localnet USDC — so the
+    // "Active budgets" utilization meter picks up decimals.
+    set.add("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    set.add("BscBtSVDbZCzSHikQSwmCuszX4f4nbESdnfrFYkbv3F3");
+    for (const h of holdings ?? []) set.add(h.mint.toBase58());
+    for (const v of vestingPositions ?? []) set.add(v.account.mint.toBase58());
+    return [...set];
+  }, [holdings, vestingPositions]);
+  const metas: TokenMetaMap = useTokenMetas(allMints);
+
+  const [budgetDetail, setBudgetDetail] = useState<BudgetAccountWithPda | null>(null);
 
   if (!trustAddress) {
     return (
@@ -156,6 +180,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           holdings={holdings ?? []}
           budgets={budgets ?? []}
           vestingPositions={vestingPositions ?? []}
+          metas={metas}
         />
         <CapitalizeSection vaultAuthority={vault.vaultAuthorityPda.toBase58()} />
         <VaultIdentitySection
@@ -164,11 +189,22 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           treasuryAuthority={vault.moduleState?.treasuryAuthority.toBase58() ?? null}
           moduleInitialized={!!vault.moduleState}
         />
-        <HoldingsSection holdings={holdings ?? []} />
-        {(budgets?.length ?? 0) > 0 && <BudgetsSection budgets={budgets ?? []} />}
-        {(vestingPositions?.length ?? 0) > 0 && (
-          <VestingPositionsSection positions={vestingPositions ?? []} />
+        <HoldingsSection holdings={holdings ?? []} metas={metas} />
+        {(budgets?.length ?? 0) > 0 && (
+          <BudgetsSection
+            budgets={budgets ?? []}
+            metas={metas}
+            onSelect={(row) => setBudgetDetail(row)}
+          />
         )}
+        {(vestingPositions?.length ?? 0) > 0 && (
+          <VestingPositionsSection positions={vestingPositions ?? []} metas={metas} />
+        )}
+        <BudgetDetailModal
+          budget={budgetDetail}
+          metas={metas}
+          onClose={() => setBudgetDetail(null)}
+        />
       </PageBody>
     </Page>
   );
@@ -191,25 +227,28 @@ function TreasuryOverviewSection({
   holdings,
   budgets,
   vestingPositions,
+  metas,
 }: {
   holdings: VaultHolding[];
   budgets: BudgetAccountWithPda[];
   vestingPositions: VestingPositionWithPda[];
+  metas: TokenMetaMap;
 }) {
   const { stableUsd, nonZeroCount, mintCount } = useMemo(() => {
     let stable = 0;
     let nonZero = 0;
     const mints = new Set<string>();
     for (const h of holdings) {
-      mints.add(h.mint.toBase58());
+      const key = h.mint.toBase58();
+      mints.add(key);
       if (h.amount > 0n) nonZero += 1;
-      const meta = lookupTokenMeta(h.mint);
-      if (meta.symbol && isStableSymbol(meta.symbol) && meta.decimals !== null) {
+      const meta = metas[key];
+      if (meta?.symbol && isStableSymbol(meta.symbol) && meta.decimals !== null) {
         stable += rawToFloat(h.amount, meta.decimals);
       }
     }
     return { stableUsd: stable, nonZeroCount: nonZero, mintCount: mints.size };
-  }, [holdings]);
+  }, [holdings, metas]);
 
   const activeBudgets = useMemo(() => budgets.filter((b) => !b.account.frozen).length, [budgets]);
   const claimableCount = useMemo(
@@ -270,12 +309,28 @@ function CapitalizeSection({ vaultAuthority }: { vaultAuthority: string }) {
           <QRCode value={vaultAuthority} size={160} />
           <Stack gap="3" className={styles.capitalizeStack}>
             <DetailField label="Vault deposit address">
-              <CopyableMono full={vaultAuthority} display={vaultAuthority} mode="full" />
+              <CopyableMono
+                full={vaultAuthority}
+                display={vaultAuthority}
+                mode="full"
+                withExplorer
+              />
             </DetailField>
             <span className={styles.capitalizeNote}>
               The deposit address is a program-owned PDA — only the TRUST&apos;s configured treasury
-              authority can authorize a withdrawal.
+              authority can authorize a withdrawal. Withdrawals route through governance or the
+              runtime-upgrade rail; direct ad-hoc withdraw UI is not exposed here.
             </span>
+            <a
+              href={explorerAddressUrl(vaultAuthority)}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={styles.capitalizeExplorer}
+              aria-label="Open vault address in Solana explorer"
+            >
+              <Icon icon={ExternalLink} size="xs" />
+              <span>View vault on Solana explorer</span>
+            </a>
           </Stack>
         </Inline>
       </Card>
@@ -297,14 +352,22 @@ function VaultIdentitySection({
   return (
     <PageSection title="Vault identity">
       <DetailField label="Vault authority (PDA)">
-        <CopyableMono full={vaultAuthorityPda} display={shortAddress(vaultAuthorityPda)} />
+        <CopyableMono
+          full={vaultAuthorityPda}
+          display={shortAddress(vaultAuthorityPda)}
+          withExplorer
+        />
       </DetailField>
       <DetailField label="Module state (PDA)">
-        <CopyableMono full={moduleStatePda} display={shortAddress(moduleStatePda)} />
+        <CopyableMono full={moduleStatePda} display={shortAddress(moduleStatePda)} withExplorer />
       </DetailField>
       <DetailField label="Treasury authority">
         {treasuryAuthority ? (
-          <CopyableMono full={treasuryAuthority} display={shortAddress(treasuryAuthority)} />
+          <CopyableMono
+            full={treasuryAuthority}
+            display={shortAddress(treasuryAuthority)}
+            withExplorer
+          />
         ) : (
           <span className={styles.mutedDash}>—</span>
         )}
@@ -328,7 +391,7 @@ interface HoldingRow {
   usdValue: number | null;
 }
 
-function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
+function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas: TokenMetaMap }) {
   const [hideZero, setHideZero] = useState(true);
 
   // Group by mint so multiple ATAs against the same mint collapse to one
@@ -338,7 +401,11 @@ function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
     const byMint = new Map<string, HoldingRow>();
     for (const h of holdings) {
       const key = h.mint.toBase58();
-      const meta = lookupTokenMeta(key);
+      const meta: ResolvedTokenMeta = metas[key] ?? {
+        symbol: null,
+        decimals: null,
+        resolvedOnChain: false,
+      };
       const prev = byMint.get(key);
       if (prev) {
         prev.amount = prev.amount + h.amount;
@@ -364,7 +431,7 @@ function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
       if (aZero !== bZero) return aZero ? 1 : -1;
       return a.mint.localeCompare(b.mint);
     });
-  }, [holdings]);
+  }, [holdings, metas]);
 
   const zeroCount = useMemo(() => allRows.filter((r) => r.amount === 0n).length, [allRows]);
   const rows = useMemo(
@@ -379,8 +446,13 @@ function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
       header: "Token",
       cell: (row) => (
         <span className={styles.tokenCell}>
-          <span className={styles.tokenSymbol}>{row.symbol ?? "Unknown"}</span>
-          <span className={styles.tokenMintMono}>{shortAddress(row.mint)}</span>
+          <span className={styles.tokenSymbol}>{row.symbol ?? "SPL"}</span>
+          <CopyableMono
+            full={row.mint}
+            display={shortAddress(row.mint)}
+            tone="muted"
+            withExplorer
+          />
         </span>
       ),
     },
@@ -410,7 +482,13 @@ function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
     {
       key: "ata",
       header: "Token account",
-      cell: (row) => <span className={styles.monoCell}>{shortAddress(row.tokenAccount)}</span>,
+      cell: (row) => (
+        <CopyableMono
+          full={row.tokenAccount}
+          display={shortAddress(row.tokenAccount)}
+          withExplorer
+        />
+      ),
     },
   ];
 
@@ -433,6 +511,7 @@ function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
 
   return (
     <PageSection title="Holdings" description={description} actions={sectionActions}>
+      <TreasuryCompositionBar rows={allRows} totalUsd={totalUsd} />
       <Table
         columns={columns}
         data={rows}
@@ -456,3 +535,82 @@ function HoldingsSection({ holdings }: { holdings: VaultHolding[] }) {
     </PageSection>
   );
 }
+
+/**
+ * Treasury composition — a single stacked bar showing the USD share of
+ * each stablecoin mint in the vault. Honest about its scope: only
+ * registered stablecoins contribute, since we have no oracle for SPL
+ * governance tokens or AEQI-issued equity. When the vault holds no
+ * stablecoins (a Foundation TRUST that just spawned, or a fresh Venture
+ * pre-deposit) the bar collapses and the section renders a small
+ * explainer instead.
+ */
+function TreasuryCompositionBar({ rows, totalUsd }: { rows: HoldingRow[]; totalUsd: number }) {
+  const stableRows = rows.filter((r) => r.usdValue !== null && r.usdValue > 0);
+  if (totalUsd <= 0 || stableRows.length === 0) return null;
+  // Group remaining mints into "Other tracked" when more than four;
+  // small mints visually disappear and the legend gets crowded.
+  const sorted = [...stableRows].sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0));
+  const HEAD = 4;
+  const head = sorted.slice(0, HEAD);
+  const tail = sorted.slice(HEAD);
+  const tailSum = tail.reduce((s, r) => s + (r.usdValue ?? 0), 0);
+
+  const segments = [
+    ...head.map((r, i) => ({
+      key: r.mint,
+      label: r.symbol ?? "SPL",
+      value: r.usdValue ?? 0,
+      // Token-2022 AEQI-issued mints sit in the secondary slot via the
+      // accent ladder — segment 1 = primary, 2..N = step-down tints.
+      tone: COMP_TONES[i % COMP_TONES.length],
+    })),
+    ...(tail.length > 0
+      ? [
+          {
+            key: "other",
+            label: `Other (${tail.length})`,
+            value: tailSum,
+            tone: COMP_TONES[HEAD % COMP_TONES.length],
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <div className={styles.composition}>
+      <div className={styles.compositionBar} role="img" aria-label="Treasury composition">
+        {segments.map((seg) => {
+          const widthPct = (seg.value / totalUsd) * 100;
+          return (
+            <div
+              key={seg.key}
+              className={styles.compositionSegment}
+              data-tone={seg.tone}
+              style={{ width: `${widthPct}%` }}
+              title={`${seg.label} · ${formatCurrency(seg.value, "USD", {
+                maximumFractionDigits: 2,
+              })}`}
+            />
+          );
+        })}
+      </div>
+      <ul className={styles.compositionLegend}>
+        {segments.map((seg) => {
+          const pct = (seg.value / totalUsd) * 100;
+          return (
+            <li key={seg.key} className={styles.compositionLegendItem}>
+              <span className={styles.compositionDot} data-tone={seg.tone} aria-hidden />
+              <span className={styles.compositionLabel}>{seg.label}</span>
+              <span className={styles.compositionPct}>
+                {formatNumber(pct, { maximumFractionDigits: pct < 1 ? 2 : 0 })}%
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+const COMP_TONES = ["accent", "ink", "muted", "subtle", "soft"] as const;

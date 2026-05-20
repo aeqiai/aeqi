@@ -47,6 +47,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+.copyableRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .copyable {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -55,6 +62,43 @@
 
 .copyable[data-mode="full"] {
   word-break: break-all;
+}
+
+.copyable[data-tone="muted"] {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* External-link satellite next to every copyable address. */
+.explorerLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.explorerLink:hover,
+.explorerLink:focus-visible {
+  color: var(--color-text-primary);
+}
+
+/* Capitalize section "View on explorer" — its own row beneath the address. */
+.capitalizeExplorer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  width: fit-content;
+  transition: color var(--transition-fast);
+}
+
+.capitalizeExplorer:hover,
+.capitalizeExplorer:focus-visible {
+  color: var(--color-text-primary);
 }
 
 /* Holdings stablecoin total — sits below the table on the same surface. */
@@ -70,7 +114,7 @@
 
 .totalsValue {
   font-weight: 500;
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 /* Utilization meter — used by Budget + Vesting sections. */
@@ -119,4 +163,120 @@
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* Treasury composition — stacked bar of USD share by mint. Sits inside
+   the Holdings PageSection, above the table. Tone tokens step down
+   through the ink/accent ladder; no chroma added. */
+.composition {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.compositionBar {
+  display: flex;
+  height: 6px;
+  width: 100%;
+  background: var(--color-card-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.compositionSegment {
+  height: 100%;
+  transition: width var(--transition-normal);
+}
+
+.compositionSegment[data-tone="accent"] {
+  background: var(--color-accent);
+}
+
+.compositionSegment[data-tone="ink"] {
+  background: var(--color-text-primary);
+}
+
+.compositionSegment[data-tone="muted"] {
+  background: var(--color-text-secondary);
+}
+
+.compositionSegment[data-tone="subtle"] {
+  background: var(--color-text-muted);
+}
+
+.compositionSegment[data-tone="soft"] {
+  background: var(--color-text-disabled);
+}
+
+.compositionLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.compositionLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.compositionDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.compositionDot[data-tone="accent"] {
+  background: var(--color-accent);
+}
+
+.compositionDot[data-tone="ink"] {
+  background: var(--color-text-primary);
+}
+
+.compositionDot[data-tone="muted"] {
+  background: var(--color-text-secondary);
+}
+
+.compositionDot[data-tone="subtle"] {
+  background: var(--color-text-muted);
+}
+
+.compositionDot[data-tone="soft"] {
+  background: var(--color-text-disabled);
+}
+
+.compositionLabel {
+  color: var(--color-text-primary);
+}
+
+.compositionPct {
+  color: var(--color-text-muted);
+}
+
+/* Budget detail modal — supplementary copy under the allocation field
+   and a footer note about the indexer-pending spend history. */
+.mutedLabel {
+  color: var(--color-text-muted);
+}
+
+.modalDetailNote {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.modalFooterNote {
+  margin: 0;
+  padding-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
 }
