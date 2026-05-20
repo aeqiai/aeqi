@@ -3470,16 +3470,22 @@
     box-shadow 0.15s;
 }
 /* Status hues per the role-tier pivot:
- *   in_progress → soft slate-violet tint (work is moving)
- *   in_review   → warmth/amber tint (paused for review, almost done)
+ *   in_progress → soft slate-violet (work is moving)
+ *   in_review   → warmth/amber (paused for review, almost done)
  *
- * Tints are color-mix'd at 7–8% so the columns read as "this status
- * has its own identity" without shouting over the cards inside. */
-.quest-col[data-status="in_progress"] {
-  background: color-mix(in oklch, var(--state-progress) 8%, var(--bg-row));
+ * v5.3: the tint moves OFF the full column slab and ONTO the header
+ * band. The body now reads as a neutral working lane (--bg-row) like
+ * every other column, and status identity concentrates in the 44px
+ * header where the dot + label live. Empty columns no longer flood
+ * the viewport with a wash of colour disproportionate to their
+ * single card. Uses the canonical --state-*-bg tokens. */
+.quest-col[data-status="in_progress"] > .quest-col-header,
+.quest-col[data-status="in_progress"] > .quest-col-header--toggle {
+  background: var(--state-progress-bg);
 }
-.quest-col[data-status="in_review"] {
-  background: color-mix(in oklch, var(--color-warmth) 10%, var(--bg-row));
+.quest-col[data-status="in_review"] > .quest-col-header,
+.quest-col[data-status="in_review"] > .quest-col-header--toggle {
+  background: var(--state-review-bg);
 }
 /* Active drop target — subtle accent frame + lifted background; children
    keep their own hover so the drop still feels precise. */
