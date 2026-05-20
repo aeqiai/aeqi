@@ -3423,43 +3423,67 @@ button.quest-board-crumb:focus-visible {
   }
 }
 
-/* Two-row grid: the four active columns (Todo · In Progress · In
- * Review · Done) on top, Backlog spanning Todo+In-Progress and
- * Cancelled spanning In-Review+Done on the row beneath. Backlog and
- * Cancelled are archive lanes, so they sit below their active
- * neighbours rather than as peer columns. */
-.quest-board-columns {
+/* Two independent kanban blocks side-by-side. Each block is its own
+ * 2-col grid with its own bottom-row archive lane, so collapsing
+ * Backlog in the LEFT block doesn't reshape the RIGHT block — the
+ * grid-row sizing is scoped per block. Each block carries
+ * `data-archive-collapsed="true"` when its archive is collapsed; the
+ * second row collapses to header-height (auto) while the active row
+ * grows to fill (1fr). When the archive is expanded the row gives
+ * it ~38% of the block height. */
+.quest-board-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(264px, 1fr));
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "todo inprog inrev done"
-    "backlog backlog cancelled cancelled";
-  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
   flex: 1;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 14px 20px 22px;
-  scroll-padding: 20px;
 }
-.quest-col[data-status="todo"] {
-  grid-area: todo;
+.quest-board-block {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "topleft topright"
+    "archive archive";
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
 }
-.quest-col[data-status="in_progress"] {
-  grid-area: inprog;
+.quest-board-block:not([data-archive-collapsed]) {
+  grid-template-rows: minmax(0, 1fr) minmax(120px, 0.6fr);
 }
-.quest-col[data-status="in_review"] {
-  grid-area: inrev;
+.quest-board-block[data-block="left"] .quest-col[data-status="todo"] {
+  grid-area: topleft;
 }
-.quest-col[data-status="done"] {
-  grid-area: done;
+.quest-board-block[data-block="left"] .quest-col[data-status="in_progress"] {
+  grid-area: topright;
 }
-.quest-col[data-status="backlog"] {
-  grid-area: backlog;
+.quest-board-block[data-block="left"] .quest-col[data-status="backlog"] {
+  grid-area: archive;
 }
-.quest-col[data-status="cancelled"] {
-  grid-area: cancelled;
+.quest-board-block[data-block="right"] .quest-col[data-status="in_review"] {
+  grid-area: topleft;
+}
+.quest-board-block[data-block="right"] .quest-col[data-status="done"] {
+  grid-area: topright;
+}
+.quest-board-block[data-block="right"] .quest-col[data-status="cancelled"] {
+  grid-area: archive;
+}
+/* Active columns get a fixed height filling the block; the body
+ * scrolls internally. Standard kanban pattern: a fixed visual
+ * envelope, scroll-within-column for card overflow. */
+.quest-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.quest-col .quest-col-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* v5.2: columns drop the heavy 1px border in favour of a soft tier
@@ -3540,6 +3564,32 @@ button.quest-board-crumb:focus-visible {
 /* Chevron toggle for collapsible columns (Backlog, Cancelled). Same
    ghost-icon shape as the per-column add button; sits in the same
    slot so the column header reads as: dot · label · count · toggle. */
+/* Collapsible header — the whole row is a click target, not just
+   the chevron. Renders as a button so keyboard activation works.
+   Chevron span sits in the same slot as the per-column add button
+   on non-collapsible columns. */
+.quest-col-header--toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.quest-col-header--toggle:hover {
+  background: var(--color-card-elevated);
+}
+.quest-col-header--toggle:focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: -2px;
+}
 .quest-col-collapse {
   display: inline-flex;
   align-items: center;
@@ -3550,7 +3600,6 @@ button.quest-board-crumb:focus-visible {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
-  cursor: pointer;
   transition:
     background 0.12s ease,
     color 0.12s ease;

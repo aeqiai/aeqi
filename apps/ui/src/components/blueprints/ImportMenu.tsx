@@ -47,7 +47,8 @@ export function ImportMenu({
   fileLabel = "From markdown",
   onMarkdownPicked,
   onBlueprintSpawned,
-}: ImportMenuProps) {
+  size = "sm",
+}: ImportMenuProps & { size?: "sm" | "md" | "lg" | "xl" }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -56,7 +57,7 @@ export function ImportMenu({
       <Menu
         placement="bottom-end"
         trigger={
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size={size}>
             <span>Import</span>
             <svg
               width="9"
