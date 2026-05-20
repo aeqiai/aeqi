@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSection";
+import { EquityShareControls } from "@/components/EquityShareControls";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
 import { formatShortDate } from "@/lib/i18n";
@@ -134,6 +135,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
           decimals={mint.decimals}
           maxSupplyCap={tokenModuleState.maxSupplyCap}
         />
+        <EquityShareControls trustId={trustId} />
         <EquityGenesisCurveSection trustId={trustId} />
         <CapTableSection
           holders={holders ?? []}

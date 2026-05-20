@@ -734,6 +734,47 @@ export const api = {
     }),
 
   /**
+   * Mint N LAUNCH to a recipient pubkey (placement owner only). On-chain
+   * `mint_tokens` requires signer == trust.authority; platform gates via
+   * placement owner. Idempotent ATA creation included.
+   */
+  tokenMint: (data: { entity_id: string; recipient_pubkey: string; amount: number }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      recipient_ta_b58: string;
+      amount: number;
+    }>("/solana/token-mint", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /** Burn N LAUNCH from the caller's own ATA. */
+  tokenBurn: (data: { entity_id: string; amount: number }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      burner_ta_b58: string;
+      amount: number;
+    }>("/solana/token-burn", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /** Transfer N LAUNCH from the caller's ATA to recipient's ATA (idempotent ATA create). */
+  tokenTransfer: (data: { entity_id: string; recipient_pubkey: string; amount: number }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      from_ta_b58: string;
+      to_ta_b58: string;
+      amount: number;
+    }>("/solana/token-transfer", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.
