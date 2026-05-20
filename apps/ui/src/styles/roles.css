@@ -677,6 +677,41 @@
   background: var(--accent);
   color: var(--btn-primary-text);
 }
+/* Inspector TRUST-occupant avatar — board / director seat where the
+   occupant is another entity's TRUST address. Outlined rounded-square
+   so it reads as institutional rather than agentic. Landmark glyph
+   echoes the on-chain identity. */
+.role-inspector-avatar-trust {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+}
+/* Holder chip rendered as a Link when occupant is a TRUST — clicking
+   opens the TRUST's own profile page. Inline alignment keeps the
+   landmark glyph, entity name, and truncated address on one line. */
+.role-inspector-holder-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+.role-inspector-holder-link:hover,
+.role-inspector-holder-link:focus-visible {
+  color: var(--accent);
+}
+.role-inspector-holder-link code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
 .role-inspector-titles {
   display: flex;
   flex-direction: column;

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Bot, Copy, Check, Pencil, Mail } from "lucide-react";
+import { ArrowRight, Bot, Copy, Check, Landmark, Pencil, Mail } from "lucide-react";
 import RoundAvatar from "@/components/RoundAvatar";
 import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -39,12 +39,23 @@ export default function RoleInspector({
   void trustId;
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
+  const entities = useDaemonStore((s) => s.entities);
 
   const agentNamesById = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of agents) m.set(a.id, a.name);
     return m;
   }, [agents]);
+
+  // Entity name lookup for `occupant_kind === "trust"` holders (a parent
+  // holding's TRUST occupying a Director / board seat). Falls back to
+  // null when the daemon store hasn't loaded the parent entity into
+  // the current viewer's scope.
+  const entityNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of entities) m.set(e.id, e.name);
+    return m;
+  }, [entities]);
 
   // Parent role(s) — who this role reports to. Explicit edges first;
   // operators with no explicit parent inherit the implicit governance
@@ -102,7 +113,7 @@ export default function RoleInspector({
     ).length;
   }, [quests, role]);
 
-  // Resolved human/agent display name OR null when only a raw UUID is
+  // Resolved holder display name OR null when only a raw UUID is
   // available. The HOLDER chip below already shows the truncated ID;
   // the inspector header line should NOT echo a 36-char UUID as prose.
   // Renders as "Held by …" only when we have a real name.
@@ -118,8 +129,13 @@ export default function RoleInspector({
       // trust's runtime scope (cross-trust agent occupants are common).
       return agentNamesById.get(role.occupant_id) || null;
     }
+    if (role.occupant_kind === "trust" && role.occupant_id) {
+      // TRUST-occupied seats (parent holding's TRUST in a Director seat).
+      // Resolve to the entity name from the daemon store.
+      return entityNameById.get(role.occupant_id) || null;
+    }
     return null;
-  }, [role, agentNamesById]);
+  }, [role, agentNamesById, entityNameById]);
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const copy = (value: string, fieldId: string) => {
@@ -130,6 +146,15 @@ export default function RoleInspector({
 
   const isVacant = role.occupant_kind === "vacant";
   const isHuman = role.occupant_kind === "human";
+  const isTrust = role.occupant_kind === "trust";
+  const isAgent = role.occupant_kind === "agent";
+  const heldByLabel = isHuman
+    ? "a human"
+    : isTrust
+      ? "a TRUST"
+      : isAgent
+        ? "an agent"
+        : "an occupant";
   // Role-type label — see RoleNode.pillLabel for why `founder` is NOT
   // a distinct user-facing tier and why "operational" surfaces as
   // "Operator" rather than the adjective form.
@@ -155,6 +180,10 @@ export default function RoleInspector({
               src={role.occupant_avatar_url ?? null}
               size={48}
             />
+          ) : isTrust ? (
+            <span className="role-inspector-avatar-trust">
+              <Landmark size={28} strokeWidth={1.5} />
+            </span>
           ) : (
             <span className="role-inspector-avatar-agent">
               <Bot size={28} strokeWidth={1.5} />
@@ -168,9 +197,7 @@ export default function RoleInspector({
             <p className="role-inspector-holder">Held by {occupantDisplayName}</p>
           )}
           {!isVacant && !occupantDisplayName && (
-            <p className="role-inspector-holder">
-              Held by {isHuman ? "a human" : "an agent"} · see ID below
-            </p>
+            <p className="role-inspector-holder">Held by {heldByLabel} · see ID below</p>
           )}
           {isVacant && <p className="role-inspector-holder">Seat open</p>}
         </div>
@@ -198,7 +225,25 @@ export default function RoleInspector({
         <Section title="Identity">
           {!isVacant && role.occupant_id && (
             <Field label="Holder">
-              <code>{compactAddress(role.occupant_id)}</code>
+              {isTrust ? (
+                <Link
+                  to={`/trust/${encodeURIComponent(role.occupant_id)}`}
+                  className="role-inspector-holder-link"
+                  title={`Open ${occupantDisplayName ?? "TRUST"} profile`}
+                >
+                  {occupantDisplayName ? (
+                    <>
+                      <Landmark size={13} strokeWidth={1.6} aria-hidden />
+                      <span>{occupantDisplayName}</span>
+                      <code>{compactAddress(role.occupant_id)}</code>
+                    </>
+                  ) : (
+                    <code>{compactAddress(role.occupant_id)}</code>
+                  )}
+                </Link>
+              ) : (
+                <code>{compactAddress(role.occupant_id)}</code>
+              )}
               <button
                 type="button"
                 className="role-inspector-copy"
