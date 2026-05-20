@@ -710,6 +710,30 @@ export const api = {
     }),
 
   /**
+   * Sell N LAUNCH back to the genesis curve. `token_amount` is in raw
+   * u64 base units (matches the on-chain handler); `min_return` is the
+   * slippage guard (default 0 = no slippage protection).
+   *
+   * 200 → CurveSellResponse with on-chain signature + tokens_sold echo.
+   *   UI re-fetches getCurveState to update the marker.
+   * 409 `curve_not_provisioned` → same platform-018 honesty shape.
+   * 400 `token_amount must be > 0` → form-validation safety net.
+   */
+  curveSell: (data: { entity_id: string; token_amount: number; min_return?: number }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      seller_pubkey_b58: string;
+      seller_asset_ta_b58: string;
+      seller_quote_ta_b58: string;
+      tokens_sold: number;
+      min_return: number;
+    }>("/solana/curve-sell", {
+      method: "POST",
+      body: JSON.stringify({ min_return: 0, ...data }),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.

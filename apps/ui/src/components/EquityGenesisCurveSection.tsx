@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
-import { DetailField, PageSection } from "@/components/ui";
+import { Button, DetailField, Input, PageSection } from "@/components/ui";
+import "./EquityGenesisCurveSection.css";
 
 /**
  * Genesis curve — live BondingCurve state pulled from the platform's
@@ -38,6 +39,15 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
   const [buying, setBuying] = useState(false);
   const [buySignature, setBuySignature] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
+  // Sell form — Phase 1b (ja-018b). `sellAmount` is the user-facing
+  // pre-decimal string ("1.0"); converted to u64 base units against the
+  // mint decimals when calling the endpoint. min_return defaults to 0
+  // (no slippage protection); a future iteration can add a slippage
+  // tolerance input.
+  const [sellAmount, setSellAmount] = useState("");
+  const [selling, setSelling] = useState(false);
+  const [sellSignature, setSellSignature] = useState<string | null>(null);
+  const [sellError, setSellError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +91,53 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
     }
   };
 
+  // 6 decimals is the canonical mint setup
+  // (`DEFAULT_TOKEN_DECIMALS = 6` in aeqi_token). Hard-coding here
+  // avoids an extra round-trip through `useEquity` for a value that's
+  // fixed at provisioning time. If the on-chain default ever changes,
+  // this constant moves to a shared `solana/constants` module.
+  const TOKEN_DECIMALS = 6;
+  const sellAmountBaseUnits = useMemo(() => {
+    const trimmed = sellAmount.trim();
+    if (!trimmed) return null;
+    // Reject anything that isn't a non-negative decimal — bad input
+    // surfaces as a disabled button rather than a server-side rejection.
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+    const [integerPart, fractionalPart = ""] = trimmed.split(".");
+    const padded = fractionalPart.padEnd(TOKEN_DECIMALS, "0").slice(0, TOKEN_DECIMALS);
+    const combined = `${integerPart}${padded}`.replace(/^0+(?=\d)/, "");
+    try {
+      const value = BigInt(combined);
+      return value > 0n ? value : null;
+    } catch {
+      return null;
+    }
+  }, [sellAmount]);
+
+  const handleSell = async () => {
+    if (sellAmountBaseUnits === null) return;
+    setSelling(true);
+    setSellError(null);
+    setSellSignature(null);
+    try {
+      // u64 fits in JS Number for any amount up to ~9e15 base units
+      // (= 9 billion LAUNCH at 6 decimals); GENESIS_CURVE_MAX_SUPPLY is
+      // 1e12 base units. Number coercion is safe for every legal value.
+      const result = await api.curveSell({
+        entity_id: trustId,
+        token_amount: Number(sellAmountBaseUnits),
+      });
+      setSellSignature(result.signature_b58);
+      setSellAmount("");
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sell failed.";
+      setSellError(message);
+    } finally {
+      setSelling(false);
+    }
+  };
+
   if (missing) return null;
   if (loadError) return null;
   if (!state) return null;
@@ -121,54 +178,40 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
           </span>
         </DetailField>
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: "var(--space-3)",
-          marginTop: "var(--space-4)",
-          paddingTop: "var(--space-3)",
-          borderTop: "1px solid var(--border)",
-        }}
-      >
-        <button
-          type="button"
-          onClick={handleBuy}
-          disabled={buying}
-          style={{
-            padding: "var(--space-2) var(--space-4)",
-            borderRadius: "999px",
-            background: "var(--accent)",
-            color: "var(--accent-fg, var(--color-card))",
-            border: "none",
-            fontWeight: 500,
-            fontSize: "var(--text-sm)",
-            cursor: buying ? "wait" : "pointer",
-            opacity: buying ? 0.6 : 1,
-          }}
+      <div className="curve-trade-row curve-trade-row--first">
+        <Button variant="primary" size="sm" loading={buying} onClick={handleBuy}>
+          Buy 1 USDC of LAUNCH
+        </Button>
+        <TradeStatus
+          signature={buySignature}
+          error={buyError}
+          idle="Mints 1.0 LAUNCH at the current curve price."
+        />
+      </div>
+      <div className="curve-trade-row">
+        <Input
+          label="Sell amount"
+          inputMode="decimal"
+          placeholder="0.0"
+          value={sellAmount}
+          onChange={(e) => setSellAmount(e.target.value)}
+          disabled={selling}
+          size="sm"
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={selling}
+          disabled={sellAmountBaseUnits === null}
+          onClick={handleSell}
         >
-          {buying ? "Buying…" : "Buy 1 USDC of LAUNCH"}
-        </button>
-        {buySignature ? (
-          <span
-            style={{
-              fontSize: "var(--text-sm)",
-              color: "var(--text-muted)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            ✓ Settled · {formatCurveAddress(buySignature)}
-          </span>
-        ) : buyError ? (
-          <span style={{ fontSize: "var(--text-sm)", color: "var(--color-danger, #c0392b)" }}>
-            {buyError}
-          </span>
-        ) : (
-          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
-            Mints 1.0 LAUNCH at the current curve price. Sell + custom amounts coming in Phase 1b.
-          </span>
-        )}
+          Sell LAUNCH
+        </Button>
+        <TradeStatus
+          signature={sellSignature}
+          error={sellError}
+          idle="Burns the amount back to the curve at the current price."
+        />
       </div>
     </PageSection>
   );
@@ -348,6 +391,35 @@ function formatBigintCompact(value: bigint): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 1)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1)}k`;
   return n.toString();
+}
+
+/**
+ * Status line for a trade action (Buy or Sell). Three states share one
+ * row: idle (help text), pending → settled (signature suffix), or error.
+ * Lives next to the section to keep the row layout cohesive — no need
+ * to lift into the general UI primitives until a second consumer shows
+ * up.
+ */
+function TradeStatus({
+  signature,
+  error,
+  idle,
+}: {
+  signature: string | null;
+  error: string | null;
+  idle: string;
+}) {
+  if (signature) {
+    return (
+      <span className="curve-trade-status curve-trade-status--signature">
+        ✓ Settled · {formatCurveAddress(signature)}
+      </span>
+    );
+  }
+  if (error) {
+    return <span className="curve-trade-status curve-trade-status--error">{error}</span>;
+  }
+  return <span className="curve-trade-status">{idle}</span>;
 }
 
 /** Insert `,` thousands separators into a digit string. */

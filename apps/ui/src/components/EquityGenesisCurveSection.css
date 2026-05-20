@@ -1,0 +1,30 @@
+/* Layout for the Buy/Sell rows under the genesis-curve chart.
+   Two horizontal rows; each carries a primary action + status text.
+   Tokens only — no literal colors, no inline px. */
+
+.curve-trade-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.curve-trade-row--first {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.curve-trade-status {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.curve-trade-status--signature {
+  font-family: var(--font-mono);
+}
+
+.curve-trade-status--error {
+  color: var(--color-danger);
+}
