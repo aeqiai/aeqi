@@ -1347,7 +1347,7 @@ export const api = {
       new_role: {
         title: string;
         role_type?: "director" | "operational" | "advisor";
-        occupant_kind?: "human" | "agent" | "vacant";
+        occupant_kind?: "human" | "agent" | "trust" | "vacant";
         occupant_id?: string;
         grants?: string[];
       };

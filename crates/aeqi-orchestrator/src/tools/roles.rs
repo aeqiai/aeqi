@@ -250,9 +250,9 @@ impl RolesTool {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(str::to_string);
-        if matches!(kind, OccupantKind::Human | OccupantKind::Agent) && occupant_id.is_none() {
+        if matches!(kind, OccupantKind::Human | OccupantKind::Agent | OccupantKind::Trust) && occupant_id.is_none() {
             return Ok(ToolResult::error(
-                "occupant_id is required when occupant_kind is human or agent",
+                "occupant_id is required when occupant_kind is human, agent, or trust",
             ));
         }
         self.role_registry

@@ -190,7 +190,13 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   }, [roles]);
 
   const occupantCounts = useMemo(() => {
-    const counts: Record<OccupantFilter, number> = { all: 0, agent: 0, human: 0, vacant: 0 };
+    const counts: Record<OccupantFilter, number> = {
+      all: 0,
+      agent: 0,
+      human: 0,
+      trust: 0,
+      vacant: 0,
+    };
     for (const r of roles) {
       counts.all += 1;
       counts[r.occupant_kind] += 1;

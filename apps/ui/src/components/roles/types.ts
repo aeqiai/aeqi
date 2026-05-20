@@ -6,7 +6,13 @@ export type OccupantFilter = "all" | OccupantKind;
 
 export const ROLES_VIEW_VALUES: RolesView[] = ["chart", "cards", "list"];
 export const ROLES_SORT_VALUES: RolesSort[] = ["title", "recent", "kind"];
-export const OCCUPANT_FILTER_VALUES: OccupantFilter[] = ["all", "agent", "human", "vacant"];
+export const OCCUPANT_FILTER_VALUES: OccupantFilter[] = [
+  "all",
+  "agent",
+  "human",
+  "trust",
+  "vacant",
+];
 
 export const ROLES_VIEW_LABEL: Record<RolesView, string> = {
   chart: "Org chart",
@@ -24,6 +30,7 @@ export const OCCUPANT_FILTER_LABEL: Record<OccupantFilter, string> = {
   all: "All",
   agent: "Agent",
   human: "Human",
+  trust: "TRUST",
   vacant: "Vacant",
 };
 

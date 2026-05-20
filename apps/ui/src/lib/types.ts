@@ -494,7 +494,7 @@ export function isSingleBlueprint(bp: Blueprint): bp is SingleBlueprint {
   return !bp.kind || bp.kind === "single";
 }
 
-export type OccupantKind = "human" | "agent" | "vacant";
+export type OccupantKind = "human" | "agent" | "trust" | "vacant";
 
 /**
  * Role tier in the three-tier authority model.

@@ -851,13 +851,13 @@ fn bootstrap_role_tables(conn: &Connection) -> rusqlite::Result<()> {
              id TEXT PRIMARY KEY,
              trust_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
              title TEXT NOT NULL DEFAULT '',
-             occupant_kind TEXT NOT NULL CHECK (occupant_kind IN ('human','agent','vacant')),
+             occupant_kind TEXT NOT NULL CHECK (occupant_kind IN ('human','agent','trust','vacant')),
              occupant_id TEXT,
              created_at TEXT NOT NULL,
              updated_at TEXT,
              CHECK (
                  (occupant_kind = 'vacant' AND occupant_id IS NULL)
-                 OR (occupant_kind IN ('human','agent') AND occupant_id IS NOT NULL)
+                 OR (occupant_kind IN ('human','agent','trust') AND occupant_id IS NOT NULL)
              )
          );
          CREATE INDEX IF NOT EXISTS idx_roles_entity ON roles(trust_id);

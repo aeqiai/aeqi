@@ -18,11 +18,16 @@ use std::sync::Arc;
 
 /// Who occupies a role. `Vacant` is a first-class state — useful for
 /// "we're hiring CFO" placeholders that already carry edges in the DAG.
+/// `Trust` is used for board / director seats where the occupant is another
+/// entity's TRUST address (e.g. a parent holding occupies the Director seat
+/// of its child operating Company). Board ≠ org chart: trust-occupied roles
+/// are governance relations, not authority-transit edges in `role_edges`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OccupantKind {
     Human,
     Agent,
+    Trust,
     Vacant,
 }
 
@@ -31,6 +36,7 @@ impl OccupantKind {
         match self {
             OccupantKind::Human => "human",
             OccupantKind::Agent => "agent",
+            OccupantKind::Trust => "trust",
             OccupantKind::Vacant => "vacant",
         }
     }
@@ -43,6 +49,7 @@ impl std::str::FromStr for OccupantKind {
         match s {
             "human" => Ok(OccupantKind::Human),
             "agent" => Ok(OccupantKind::Agent),
+            "trust" => Ok(OccupantKind::Trust),
             "vacant" => Ok(OccupantKind::Vacant),
             other => bail!("unknown occupant kind: {}", other),
         }
