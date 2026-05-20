@@ -466,12 +466,22 @@
   background: var(--state-review-bg);
   font-variant-numeric: tabular-nums;
 }
+/* Shared mount-fade for the right-side identity slot (c10, 2026-05-21).
+   The slot conditionally renders one of two pills: `.trust-hero-bar-pending`
+   while the bridge is mid-flight, then `.trust-hero-bar-addr-pill` once the
+   TRUST is verified on-chain. Both mount the same way React-wise, so both
+   ride the same one-shot opacity ramp — the verified address pill no
+   longer hard-snaps in when the bridge resolves. Closes the bridge arc:
+   pending fades in → Solana mark pulses → mark fades to jade (c8) and the
+   address pill fades in beside it (c10), one composed gesture. Single
+   iteration, opacity only, gated on prefers-reduced-motion: no-preference. */
 @media (prefers-reduced-motion: no-preference) {
-  .trust-hero-bar-pending {
-    animation: trust-hero-bar-pending-enter var(--transition-normal) 1 forwards;
+  .trust-hero-bar-pending,
+  .trust-hero-bar-addr-pill {
+    animation: trust-hero-bar-enter var(--transition-normal) 1 forwards;
   }
 }
-@keyframes trust-hero-bar-pending-enter {
+@keyframes trust-hero-bar-enter {
   from {
     opacity: 0;
   }
