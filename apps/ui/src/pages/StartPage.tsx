@@ -68,6 +68,28 @@ export default function StartPage() {
     [entities, personal],
   );
 
+  // Map trust_id → activity tier from the inbox. This turns the All
+  // TRUSTs avatar grid below from a static set of tiles into "live
+  // contexts": tiles that carry a status dot when something is moving
+  // in that TRUST. Awaiting wins (amber/review) — that's where the
+  // user actually has to step in. Any other inbox item promotes the
+  // tile to indigo/progress — live but not blocking. Tiles with no
+  // inbox signal stay clean. Same dot grammar as the hero-pill and
+  // inbox-status rows so the surface reads as one family.
+  const trustActivity = useMemo(() => {
+    const map = new Map<string, "review" | "progress">();
+    for (const it of inboxItems) {
+      if (!it.trust_id) continue;
+      const prev = map.get(it.trust_id);
+      if (it.awaiting_at) {
+        map.set(it.trust_id, "review");
+      } else if (prev !== "review") {
+        map.set(it.trust_id, "progress");
+      }
+    }
+    return map;
+  }, [inboxItems]);
+
   const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
   const inboxCount = inboxItems.length;
   const awaitingCount = useMemo(
@@ -152,6 +174,7 @@ export default function StartPage() {
         />
         <AllTrustsCard
           others={otherTrusts}
+          activity={trustActivity}
           onViewAll={() => navigate("/trust")}
           onPick={(t) => navigate(entityPath(t))}
         />
@@ -380,18 +403,38 @@ function StepIntoTrustCard({ onNewTrust, onBrowseBlueprints }: StepIntoTrustCard
 
 interface AllTrustsCardProps {
   others: ReadonlyArray<Trust>;
+  activity: ReadonlyMap<string, "review" | "progress">;
   onViewAll: () => void;
   onPick: (trust: Trust) => void;
 }
 
-function AllTrustsCard({ others, onViewAll, onPick }: AllTrustsCardProps) {
+function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardProps) {
   const previewAvatars = others.slice(0, ALL_TRUSTS_AVATAR_LIMIT);
   const overflow = Math.max(0, others.length - previewAvatars.length);
+  // Promote the eyebrow when any visible tile has activity — gives the
+  // card a single at-a-glance signal even when the per-tile dots are
+  // small. Review wins over progress, mirroring the hero pill.
+  const eyebrowState: "review" | "progress" | null = previewAvatars.reduce<
+    "review" | "progress" | null
+  >((acc, t) => {
+    const s = activity.get(t.id);
+    if (s === "review") return "review";
+    if (s === "progress" && acc !== "review") return "progress";
+    return acc;
+  }, null);
 
   return (
     <article className="home-card home-card--all">
       <header className="home-card-head">
-        <span className="home-card-eyebrow">All</span>
+        <span className="home-card-eyebrow home-all-eyebrow">
+          {eyebrowState && (
+            <span
+              className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`}
+              aria-hidden="true"
+            />
+          )}
+          All
+        </span>
         <button type="button" className="home-card-link" onClick={onViewAll}>
           View all
           <ArrowRight size={14} strokeWidth={1.8} />
@@ -409,19 +452,30 @@ function AllTrustsCard({ others, onViewAll, onPick }: AllTrustsCardProps) {
       </div>
       {previewAvatars.length > 0 ? (
         <ul className="home-all-avatars">
-          {previewAvatars.map((t) => (
-            <li key={t.id} className="home-all-avatar-item">
-              <button
-                type="button"
-                className="home-all-avatar-btn"
-                onClick={() => onPick(t)}
-                aria-label={`Step into ${t.name}`}
-                title={t.name}
-              >
-                <TrustAvatar name={t.name} size={32} />
-              </button>
-            </li>
-          ))}
+          {previewAvatars.map((t) => {
+            const state = activity.get(t.id);
+            const label =
+              state === "review" ? "awaiting you" : state === "progress" ? "active" : "";
+            return (
+              <li key={t.id} className="home-all-avatar-item">
+                <button
+                  type="button"
+                  className="home-all-avatar-btn"
+                  onClick={() => onPick(t)}
+                  aria-label={label ? `Step into ${t.name} — ${label}` : `Step into ${t.name}`}
+                  title={label ? `${t.name} · ${label}` : t.name}
+                >
+                  <TrustAvatar name={t.name} size={32} />
+                  {state && (
+                    <span
+                      className={`home-all-avatar-dot home-all-avatar-dot--${state}`}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              </li>
+            );
+          })}
           {overflow > 0 && (
             <li className="home-all-avatar-item">
               <button

@@ -8126,6 +8126,9 @@ button.home-card:focus-visible {
     background 0.12s ease,
     transform 0.12s ease;
 }
+.home-all-avatar-btn {
+  position: relative;
+}
 .home-all-avatar-btn:hover,
 .home-all-avatar-more:hover {
   background: var(--color-card);
@@ -8135,6 +8138,49 @@ button.home-card:focus-visible {
 .home-all-avatar-more:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
+}
+/* Activity indicator on each TRUST tile — promotes the avatar grid from
+   static thumbnails to "live contexts". Same 7px / 999px shape as the
+   hero-pill dot and the inbox-status dots so the home page reads as one
+   dot vocabulary. The 2px halo in --color-card-elevated separates the
+   dot from the avatar's edge regardless of avatar palette. */
+.home-all-avatar-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--color-card-elevated);
+  pointer-events: none;
+}
+.home-all-avatar-dot--progress {
+  background: var(--state-progress);
+}
+.home-all-avatar-dot--review {
+  background: var(--state-review);
+}
+/* Eyebrow rolls up the tiles' activity into one signal at the card head.
+   When any tile has activity, the "All" label gets a leading dot in the
+   highest state (review wins over progress), so a scan of the card head
+   alone tells you whether stepping in is worthwhile. */
+.home-all-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.home-all-eyebrow-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.home-all-eyebrow-dot--progress {
+  background: var(--state-progress);
+}
+.home-all-eyebrow-dot--review {
+  background: var(--state-review);
 }
 .home-all-empty {
   display: flex;
