@@ -97,6 +97,22 @@ impl Manifest {
         let mut seen_names = BTreeMap::new();
         let mut seen_pubkeys = BTreeMap::new();
         for (idx, p) in self.programs.iter().enumerate() {
+            if p.name.trim().is_empty() {
+                bail!("manifest at {} has an empty program name at entry {}", path.display(), idx);
+            }
+            if p.pubkey.trim().is_empty() {
+                bail!("manifest at {} program {:?} has an empty pubkey", path.display(), p.name);
+            }
+            if let Some(idl_hash) = &p.idl_hash {
+                if !is_sha256_hex(idl_hash) {
+                    bail!(
+                        "manifest at {} program {:?} has invalid idl_hash {:?}; expected 64 hex characters",
+                        path.display(),
+                        p.name,
+                        idl_hash
+                    );
+                }
+            }
             if let Some(prev) = seen_names.insert(p.name.clone(), idx) {
                 bail!(
                     "manifest at {} declares program name {:?} twice (entries {} and {})",
@@ -219,6 +235,10 @@ fn default_anchor_toml_for(manifest_path: &Path) -> Result<PathBuf> {
         .parent()
         .ok_or_else(|| anyhow!("manifest parent {} has no parent", parent.display()))?;
     Ok(solana_root.join("Anchor.toml"))
+}
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 #[cfg(test)]
@@ -367,6 +387,24 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
         );
         let err = Manifest::load(&path).expect_err("duplicate names should fail");
         assert!(format!("{err}").contains("twice"));
+    }
+
+    #[test]
+    fn manifest_rejects_malformed_idl_hashes() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("bad-idl-hash.json");
+        write(
+            &path,
+            r#"{ "cluster": "localnet", "programs": [
+              {
+                "name": "aeqi_trust",
+                "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV",
+                "idl_hash": "not-a-sha256"
+              }
+            ] }"#,
+        );
+        let err = Manifest::load(&path).expect_err("malformed idl_hash should fail");
+        assert!(format!("{err}").contains("invalid idl_hash"));
     }
 
     #[test]
