@@ -23,12 +23,17 @@
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  readAllVestingPositions,
   readBudgets,
   readTreasuryModuleState,
   readVaultHoldings,
-  readVestingCount,
 } from "@/solana/assets";
-import type { BudgetAccountWithPda, TreasuryVault, VaultHolding } from "@/solana/assets";
+import type {
+  BudgetAccountWithPda,
+  TreasuryVault,
+  VaultHolding,
+  VestingPositionWithPda,
+} from "@/solana/assets";
 
 const STALE_TIME_MS = 30_000;
 
@@ -36,8 +41,15 @@ export interface UseAssetsResult {
   vault: TreasuryVault | undefined;
   holdings: VaultHolding[] | undefined;
   budgets: BudgetAccountWithPda[] | undefined;
+  /** Full per-position vesting list — drives the Vesting table. */
+  vestingPositions: VestingPositionWithPda[] | undefined;
+  /** Count-only headline, kept for backward compatibility. Equal to
+   *  `vestingPositions?.length ?? undefined`. */
   vestingCount: number | undefined;
   isLoading: boolean;
+  /** True iff the most recent refetch is in-flight. Drives the
+   *  "Refresh" affordance's disabled state. */
+  isFetching: boolean;
   error: Error | null;
   refetch: () => void;
 }
@@ -90,12 +102,15 @@ export function useAssets(trustAddress: string | null | undefined): UseAssetsRes
   });
 
   const vestingQuery = useQuery({
-    queryKey: ["assets", "vesting-count", trustAddress ?? null],
+    queryKey: ["assets", "vesting-positions", trustAddress ?? null],
     queryFn: async () => {
       try {
-        return await readVestingCount(trustAddress as string);
+        return await readAllVestingPositions(trustAddress as string);
       } catch {
-        return 0;
+        // Treasury without vesting-module is a real shape (Foundation
+        // TRUSTs). Swallow scan errors so the surface degrades to "no
+        // positions" instead of "couldn't load assets".
+        return [] as VestingPositionWithPda[];
       }
     },
     enabled,
@@ -113,13 +128,20 @@ export function useAssets(trustAddress: string | null | undefined): UseAssetsRes
     vault: vaultQuery.data,
     holdings: holdingsQuery.data,
     budgets: budgetsQuery.data,
-    vestingCount: vestingQuery.data,
+    vestingPositions: vestingQuery.data,
+    vestingCount: vestingQuery.data?.length,
     isLoading:
       enabled &&
       (vaultQuery.isLoading ||
         holdingsQuery.isLoading ||
         budgetsQuery.isLoading ||
         vestingQuery.isLoading),
+    isFetching:
+      enabled &&
+      (vaultQuery.isFetching ||
+        holdingsQuery.isFetching ||
+        budgetsQuery.isFetching ||
+        vestingQuery.isFetching),
     error:
       (vaultQuery.error as Error | null) ??
       (holdingsQuery.error as Error | null) ??

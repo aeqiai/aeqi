@@ -51,6 +51,11 @@ export interface BudgetAccountWithPda {
   account: BudgetAccount;
 }
 
+export interface VestingPositionWithPda {
+  publicKey: PublicKey;
+  account: VestingPositionAccount;
+}
+
 export interface VaultHolding {
   /** SPL token account address (the ATA — what the chain stores the balance under). */
   tokenAccount: PublicKey;
@@ -222,4 +227,34 @@ export async function readVestingCount(trustPda: string | PublicKey): Promise<nu
     },
   ]);
   return results.length;
+}
+
+/**
+ * List every VestingPosition scoped to one TRUST, across ALL mints.
+ * Same memcmp pattern as `readVestingCount` but returns the decoded
+ * account data so the Assets surface can render per-recipient detail
+ * (claimed vs total, status, FDV milestone, contribution gate).
+ *
+ * Note: this returns positions across every mint the TRUST has granted
+ * against. The equity-side `readVestingPositions` in `./equity.ts`
+ * filters to the cap-table mint only — keep both: Assets is treasury-wide,
+ * Equity is share-only.
+ */
+export async function readAllVestingPositions(
+  trustPda: string | PublicKey,
+): Promise<VestingPositionWithPda[]> {
+  const program = getVestingProgram();
+  const pda = typeof trustPda === "string" ? new PublicKey(trustPda) : trustPda;
+  const results = await program.account.vestingPosition.all([
+    {
+      memcmp: {
+        offset: 8,
+        bytes: pda.toBase58(),
+      },
+    },
+  ]);
+  return results.map((r) => ({
+    publicKey: r.publicKey,
+    account: r.account as VestingPositionAccount,
+  }));
 }

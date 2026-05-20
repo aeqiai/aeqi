@@ -1,0 +1,122 @@
+/*
+ * /trust/<addr>/assets — TRUST treasury surface.
+ *
+ * Every value uses tokens from packages/tokens or
+ * src/styles/primitives.css — no hex, no rgb, no inline-style escape
+ * hatches. Inline progress meters use currentColor so the fill picks
+ * up the surrounding ink/success token.
+ */
+
+.capitalizeStack {
+  flex: 1;
+  min-width: 0;
+}
+
+.capitalizeNote {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.mutedDash {
+  color: var(--color-text-muted);
+}
+
+.tokenCell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tokenSymbol {
+  font-weight: 500;
+}
+
+.tokenMintMono,
+.monoMicro {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.monoCell {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.numCell {
+  font-variant-numeric: tabular-nums;
+}
+
+.copyable {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.copyable[data-mode="full"] {
+  word-break: break-all;
+}
+
+/* Holdings stablecoin total — sits below the table on the same surface. */
+.totalsRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.totalsValue {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Utilization meter — used by Budget + Vesting sections. */
+.utilization {
+  min-width: 140px;
+}
+
+.utilizationWide {
+  min-width: 160px;
+}
+
+.utilizationMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.utilizationTrack {
+  height: 4px;
+  background: var(--color-card-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.utilizationFill {
+  height: 100%;
+  transition: width var(--transition-normal);
+}
+
+.utilizationFill[data-tone="accent"] {
+  background: var(--color-accent);
+}
+
+.utilizationFill[data-tone="success"] {
+  background: var(--success);
+}
+
+/* Vesting schedule cell — multi-line dates. */
+.scheduleCell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
