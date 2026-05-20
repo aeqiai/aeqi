@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { Settings, Landmark } from "lucide-react";
 import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { entityBasePath } from "@/lib/entityPath";
-import BlockAvatar from "./BlockAvatar";
 import { Textarea } from "./ui";
 
 /**
@@ -132,7 +131,14 @@ export default function TrustHeroStrip({
       )}
       <div className="trust-hero-identity">
         <div className="trust-hero-avatar" aria-hidden>
-          <BlockAvatar name={name} size={144} />
+          {/* Canonical TRUST sample image — a Roman-temple Landmark
+             icon in ink on white, same rounded-square frame as the
+             agent Bot avatar shape. Replaces the hash-derived
+             identicon (BlockAvatar) which was random and meaningless
+             per-TRUST. When a TRUST eventually ships custom imagery
+             this slot becomes the photo; until then the institution
+             icon stands in. */}
+          <Landmark size={88} strokeWidth={1.4} />
         </div>
 
         <div className="trust-hero-body">
