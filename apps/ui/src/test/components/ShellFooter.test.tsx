@@ -13,7 +13,7 @@ describe("ShellFooter", () => {
     );
 
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
-    expect(screen.getByText("æqi")).toBeInTheDocument();
+    expect(screen.getByText("aeqi")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "privacy policy" })).toHaveAttribute(
       "href",
       "https://aeqi.ai/privacy",

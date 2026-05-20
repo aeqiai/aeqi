@@ -228,7 +228,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         {!sidebarCollapsed ? (
           <>
             <Link to="/" className="sidebar-brand" aria-label="aeqi — home">
-              <Wordmark size={20} />
+              <Wordmark size={28} />
             </Link>
             <Tooltip content={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}>
               <IconButton
