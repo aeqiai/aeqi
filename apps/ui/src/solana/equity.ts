@@ -41,8 +41,9 @@ import {
 import type { IdlAccounts } from "@coral-xyz/anchor";
 
 import { getConnection } from "./client";
-import { getTokenProgram, getVestingProgram } from "./programs";
+import { getFundingProgram, getTokenProgram, getVestingProgram } from "./programs";
 import { deriveTokenModuleStatePda, deriveTokenMintPda } from "./pdas";
+import type { AeqiFunding } from "./generated/types/aeqi_funding";
 import type { AeqiToken } from "./generated/types/aeqi_token";
 import type { AeqiVesting } from "./generated/types/aeqi_vesting";
 
@@ -51,6 +52,15 @@ export type TokenModuleStateAccount = IdlAccounts<AeqiToken>["tokenModuleState"]
 
 /** Typed alias for the VestingPosition account as returned by Anchor's fetch. */
 export type VestingPositionAccount = IdlAccounts<AeqiVesting>["vestingPosition"];
+
+/** Typed alias for the FundingRequest account as returned by Anchor's fetch. */
+export type FundingRequestAccount = IdlAccounts<AeqiFunding>["fundingRequest"];
+
+/** FundingRequest account paired with its on-chain address (the PDA). */
+export interface FundingRequestWithPda {
+  publicKey: PublicKey;
+  account: FundingRequestAccount;
+}
 
 /** A parsed Token-2022 holder row — one entry per token account that holds this mint. */
 export interface TokenHolder {
@@ -208,4 +218,38 @@ export async function readVestingPositions(
 export function deriveCapTableMintPda(trustPda: string | PublicKey): PublicKey {
   const trustKey = typeof trustPda === "string" ? new PublicKey(trustPda) : trustPda;
   return deriveTokenMintPda(trustKey);
+}
+
+/**
+ * List every `FundingRequest` declared against the given TRUST.
+ *
+ * The on-chain layout is
+ *   `[discriminator(8)][trust(32)][request_id(32)][creator(32)]…`,
+ * so `memcmp(offset=8, trust)` filters to one TRUST in a single
+ * round-trip. Returns `[]` when the funding module isn't deployed or no
+ * rounds have been declared — the section renders a quiet empty state
+ * in that case.
+ *
+ * Soft-fails like vesting: if `aeqi_funding` isn't deployed against the
+ * cluster, Anchor's `account.fundingRequest.all` raises — the hook
+ * downstream catches and treats as empty so the form keeps working.
+ */
+export async function readFundingRequests(
+  trustPda: string | PublicKey,
+): Promise<FundingRequestWithPda[]> {
+  const program = getFundingProgram();
+  const trustKey = typeof trustPda === "string" ? new PublicKey(trustPda) : trustPda;
+
+  const results = await program.account.fundingRequest.all([
+    {
+      memcmp: {
+        offset: 8,
+        bytes: trustKey.toBase58(),
+      },
+    },
+  ]);
+  return results.map((r) => ({
+    publicKey: r.publicKey,
+    account: r.account as FundingRequestAccount,
+  }));
 }

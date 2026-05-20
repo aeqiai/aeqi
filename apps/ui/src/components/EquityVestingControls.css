@@ -27,3 +27,48 @@
 .vesting-grant-status--error {
   color: var(--color-error);
 }
+
+/* Recipient autocomplete — wraps the Input so the floating suggestion
+   panel anchors to it. The panel reuses the popover shadow / radius
+   tokens and never introduces hairlines. */
+.vesting-grant-recipient {
+  position: relative;
+  min-width: 220px;
+  flex: 1 1 220px;
+}
+
+.vesting-grant-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1);
+  list-style: none;
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.vesting-grant-suggestion {
+  width: 100%;
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.vesting-grant-suggestion:hover,
+.vesting-grant-suggestion:focus-visible {
+  background: var(--color-card-subtle);
+  outline: none;
+}

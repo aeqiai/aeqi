@@ -54,6 +54,12 @@
   margin: 0 0 var(--space-2) 0;
 }
 
+.curve-trades-log__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
 .curve-trades-log__list {
   display: flex;
   flex-direction: column;

@@ -20,10 +20,12 @@ import type { Mint } from "@solana/spl-token";
 
 import {
   deriveCapTableMintPda,
+  readFundingRequests,
   readHolders,
   readMint,
   readTokenModuleState,
   readVestingPositions,
+  type FundingRequestWithPda,
   type TokenHolder,
   type TokenModuleStateAccount,
   type VestingPositionWithPda,
@@ -42,6 +44,12 @@ export interface UseEquityResult {
   holders: TokenHolder[] | undefined;
   /** Vesting positions tied to the cap-table mint. Empty when none. */
   vesting: VestingPositionWithPda[] | undefined;
+  /**
+   * Funding requests declared against this TRUST. Empty when none are
+   * declared or the funding module isn't deployed. Soft-fails: errors
+   * collapse to `[]` so the page keeps working without the live list.
+   */
+  fundingRequests: FundingRequestWithPda[] | undefined;
   /** True while ANY enabled query is loading. */
   isLoading: boolean;
   /** First non-null error from any query, or null. */
@@ -112,6 +120,22 @@ export function useEquity(trustAddress: string | null | undefined): UseEquityRes
     staleTime: STALE_TIME_MS,
   });
 
+  // (5) Funding requests — soft-fail to `[]` when the funding module
+  // isn't deployed (early TRUSTs, ledger-reset stranded placements) so
+  // the form section keeps working without the live list.
+  const fundingQuery = useQuery({
+    queryKey: ["equity", "funding", trustAddress ?? null],
+    queryFn: async () => {
+      try {
+        return await readFundingRequests(trustAddress as string);
+      } catch {
+        return [] as FundingRequestWithPda[];
+      }
+    },
+    enabled: heavyEnabled,
+    staleTime: STALE_TIME_MS,
+  });
+
   const firstError =
     (moduleStateQuery.error as Error | null) ??
     (mintQuery.error as Error | null) ??
@@ -124,6 +148,7 @@ export function useEquity(trustAddress: string | null | undefined): UseEquityRes
     mintAddress,
     holders: holdersQuery.data,
     vesting: vestingQuery.data,
+    fundingRequests: fundingQuery.data,
     isLoading:
       moduleStateQuery.isLoading ||
       (heavyEnabled && (mintQuery.isLoading || holdersQuery.isLoading || vestingQuery.isLoading)),

@@ -50,9 +50,16 @@ export {
   readMint,
   readHolders,
   readVestingPositions,
+  readFundingRequests,
   deriveCapTableMintPda,
 } from "./equity";
-export type { TokenModuleStateAccount, VestingPositionWithPda, TokenHolder } from "./equity";
+export type {
+  TokenModuleStateAccount,
+  VestingPositionWithPda,
+  TokenHolder,
+  FundingRequestAccount,
+  FundingRequestWithPda,
+} from "./equity";
 export {
   readGovernanceConfigs,
   readProposals,

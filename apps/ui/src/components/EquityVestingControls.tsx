@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { Button, Input, PageSection } from "@/components/ui";
+import { EQUITY_ANCHORS, useEquityPrefill } from "@/components/equity/equityPrefillContext";
+import type { TokenHolder } from "@/solana";
 import "./EquityVestingControls.css";
 
 /**
@@ -22,9 +24,11 @@ const TOKEN_DECIMALS = 6;
 
 interface EquityVestingControlsProps {
   trustId: string;
+  /** Cap-table holders for recipient autocomplete. */
+  holders?: TokenHolder[];
 }
 
-export function EquityVestingControls({ trustId }: EquityVestingControlsProps) {
+export function EquityVestingControls({ trustId, holders = [] }: EquityVestingControlsProps) {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -34,6 +38,32 @@ export function EquityVestingControls({ trustId }: EquityVestingControlsProps) {
   const [signature, setSignature] = useState<string | null>(null);
   const [positionId, setPositionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Autocomplete suggestion box state — opens on focus when there are
+  // holders to suggest, closes on blur / outside-click / selection.
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const recipientWrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Cap-table → vesting prefill: row menu's "Grant vesting to holder"
+  // pushes the address through context and we copy it in here.
+  const { prefill } = useEquityPrefill();
+  useEffect(() => {
+    if (prefill.vestingRecipient) setRecipient(prefill.vestingRecipient);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill.nonce]);
+
+  // Close suggestions when the user clicks outside the recipient box.
+  useEffect(() => {
+    if (!suggestOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (!recipientWrapRef.current) return;
+      if (!recipientWrapRef.current.contains(e.target as Node)) {
+        setSuggestOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [suggestOpen]);
 
   const amountBaseUnits = useMemo(() => toBaseUnits(amount), [amount]);
 
@@ -45,6 +75,17 @@ export function EquityVestingControls({ trustId }: EquityVestingControlsProps) {
     const t = recipient.trim();
     return t.length >= 32 && t.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(t);
   }, [recipient]);
+
+  // Filter holders by the typed query (prefix or substring on base58
+  // address). Cap at 6 — beyond that the dropdown becomes a list view,
+  // which is the cap table itself.
+  const recipientSuggestions = useMemo(() => {
+    const q = recipient.trim().toLowerCase();
+    const all = holders.map((h) => h.owner.toBase58());
+    if (!q) return all.slice(0, 6);
+    if (all.includes(recipient.trim())) return [];
+    return all.filter((a) => a.toLowerCase().includes(q)).slice(0, 6);
+  }, [holders, recipient]);
 
   const scheduleValid = useMemo(() => {
     if (startUnix === null || cliffUnix === null || endUnix === null) return false;
@@ -84,18 +125,52 @@ export function EquityVestingControls({ trustId }: EquityVestingControlsProps) {
 
   return (
     <PageSection
+      id={EQUITY_ANCHORS.vestingControls}
       title="Grant vesting"
       description="Linear-cliff vesting position for a recipient (owner-only)."
     >
       <div className="vesting-grant-row">
-        <Input
-          label="Recipient"
-          placeholder="recipient pubkey"
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-          disabled={granting}
-          size="sm"
-        />
+        <div className="vesting-grant-recipient" ref={recipientWrapRef}>
+          <Input
+            label="Recipient"
+            placeholder={
+              holders.length > 0 ? "pick a holder or paste a pubkey" : "recipient pubkey"
+            }
+            value={recipient}
+            onChange={(e) => {
+              setRecipient(e.target.value);
+              setSuggestOpen(true);
+            }}
+            onFocus={() => {
+              if (holders.length > 0) setSuggestOpen(true);
+            }}
+            disabled={granting}
+            size="sm"
+          />
+          {suggestOpen && recipientSuggestions.length > 0 && (
+            <ul className="vesting-grant-suggestions" role="listbox" aria-label="Cap table holders">
+              {recipientSuggestions.map((addr) => (
+                <li key={addr}>
+                  <button
+                    type="button"
+                    className="vesting-grant-suggestion"
+                    onMouseDown={(e) => {
+                      // Prevent input blur from closing the panel before
+                      // the click handler runs.
+                      e.preventDefault();
+                    }}
+                    onClick={() => {
+                      setRecipient(addr);
+                      setSuggestOpen(false);
+                    }}
+                  >
+                    {shortAddress(addr)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <Input
           label="Amount"
           inputMode="decimal"
@@ -184,4 +259,9 @@ function dateToUnix(date: string): number | null {
 function formatSignature(sig: string): string {
   if (sig.length <= 12) return sig;
   return `${sig.slice(0, 6)}…${sig.slice(-4)}`;
+}
+
+function shortAddress(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }

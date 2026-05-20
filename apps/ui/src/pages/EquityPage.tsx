@@ -5,6 +5,7 @@ import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSectio
 import { EquityShareControls } from "@/components/EquityShareControls";
 import { EquityVestingControls } from "@/components/EquityVestingControls";
 import EquityFundingRoundControl from "@/components/EquityFundingRoundControl";
+import { EquityPrefillProvider, useEquityPrefill } from "@/components/equity/equityPrefillContext";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
 import { formatShortDate } from "@/lib/i18n";
@@ -14,6 +15,7 @@ import {
   DetailField,
   EmptyState,
   Loading,
+  Menu,
   Page,
   PageBody,
   PageHeader,
@@ -48,8 +50,17 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
   const trustAddress = entity?.trust_address ?? null;
 
-  const { tokenModuleState, mint, mintAddress, holders, vesting, isLoading, error, isFoundation } =
-    useEquity(trustAddress);
+  const {
+    tokenModuleState,
+    mint,
+    mintAddress,
+    holders,
+    vesting,
+    fundingRequests,
+    isLoading,
+    error,
+    isFoundation,
+  } = useEquity(trustAddress);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
   if (!trustAddress) {
@@ -128,37 +139,41 @@ export default function EquityPage({ trustId }: { trustId: string }) {
   }
 
   return (
-    <Page>
-      <PageHeader title="Equity" description="The TRUST's cap table." />
-      <PageBody>
-        {/* Coherent ownership story top-to-bottom:
-         *   1. Mint identity — the on-chain anchor for this cap table.
-         *   2. Cap table — who holds what right now.
-         *   3. Share controls — mint / transfer / burn (the primary
-         *      action surface against the cap table above).
-         *   4. Genesis curve — live linear bonding curve + Buy/Sell.
-         *   5. Funding round — declare a structured raise.
-         *   6. Vesting positions — outstanding grants tied to this mint.
-         *   7. Grant vesting — issue a new position.
-         */}
-        <MintIdentitySection
-          mintAddress={mintAddress}
-          supply={mint.supply}
-          decimals={mint.decimals}
-          maxSupplyCap={tokenModuleState.maxSupplyCap}
-        />
-        <CapTableSection
-          holders={holders ?? []}
-          totalSupply={mint.supply}
-          decimals={mint.decimals}
-        />
-        <EquityShareControls trustId={trustId} />
-        <EquityGenesisCurveSection trustId={trustId} />
-        <EquityFundingRoundControl trustId={trustId} />
-        <VestingSection positions={vesting ?? []} decimals={mint.decimals} />
-        <EquityVestingControls trustId={trustId} />
-      </PageBody>
-    </Page>
+    <EquityPrefillProvider>
+      <Page>
+        <PageHeader title="Equity" description="The TRUST's cap table." />
+        <PageBody>
+          {/* Coherent ownership story top-to-bottom:
+           *   1. Mint identity — the on-chain anchor for this cap table.
+           *   2. Cap table — who holds what right now (row menu → prefill
+           *      Share/Vesting forms below).
+           *   3. Share controls — mint / transfer / burn (the primary
+           *      action surface against the cap table above).
+           *   4. Genesis curve — live linear bonding curve + Buy/Sell.
+           *   5. Funding round — declare a structured raise + see what's
+           *      already declared.
+           *   6. Vesting positions — outstanding grants tied to this mint.
+           *   7. Grant vesting — issue a new position.
+           */}
+          <MintIdentitySection
+            mintAddress={mintAddress}
+            supply={mint.supply}
+            decimals={mint.decimals}
+            maxSupplyCap={tokenModuleState.maxSupplyCap}
+          />
+          <CapTableSection
+            holders={holders ?? []}
+            totalSupply={mint.supply}
+            decimals={mint.decimals}
+          />
+          <EquityShareControls trustId={trustId} />
+          <EquityGenesisCurveSection trustId={trustId} />
+          <EquityFundingRoundControl trustId={trustId} declaredRounds={fundingRequests ?? []} />
+          <VestingSection positions={vesting ?? []} decimals={mint.decimals} />
+          <EquityVestingControls trustId={trustId} holders={holders ?? []} />
+        </PageBody>
+      </Page>
+    </EquityPrefillProvider>
   );
 }
 
@@ -217,6 +232,8 @@ function CapTableSection({
   totalSupply: bigint;
   decimals: number;
 }) {
+  const { mintTo, transferTo, vestingRecipient } = useEquityPrefill();
+
   const columns: Array<TableColumn<TokenHolder>> = [
     {
       key: "owner",
@@ -245,6 +262,53 @@ function CapTableSection({
         </span>
       ),
     },
+    {
+      key: "actions",
+      header: "",
+      align: "end",
+      cell: (row) => {
+        const owner = row.owner.toBase58();
+        return (
+          <Menu
+            trigger={
+              <button
+                type="button"
+                aria-label={`Holder actions for ${shortAddress(owner)}`}
+                style={{
+                  background: "transparent",
+                  border: 0,
+                  color: "var(--color-text-muted)",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-sm)",
+                  padding: "0 var(--space-2)",
+                  lineHeight: 1,
+                }}
+              >
+                ⋯
+              </button>
+            }
+            items={[
+              {
+                key: "mint",
+                label: "Mint more to holder",
+                onSelect: () => mintTo(owner),
+              },
+              {
+                key: "transfer",
+                label: "Transfer to holder",
+                onSelect: () => transferTo(owner),
+              },
+              {
+                key: "vesting",
+                label: "Grant vesting to holder",
+                onSelect: () => vestingRecipient(owner),
+              },
+            ]}
+          />
+        );
+      },
+    },
   ];
 
   return (
@@ -252,8 +316,8 @@ function CapTableSection({
       title="Cap table"
       description={
         holders.length === 0
-          ? "No holders yet."
-          : `${holders.length} ${holders.length === 1 ? "holder" : "holders"}.`
+          ? "No holders yet — mint the first LAUNCH from Share controls below."
+          : `${holders.length} ${holders.length === 1 ? "holder" : "holders"}. Open the row menu to prefill an action below.`
       }
     >
       <Table

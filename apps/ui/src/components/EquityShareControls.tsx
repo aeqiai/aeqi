@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
 import { Button, Input, PageSection } from "@/components/ui";
+import { EQUITY_ANCHORS, useEquityPrefill } from "@/components/equity/equityPrefillContext";
 import "./EquityShareControls.css";
 
 /**
@@ -49,6 +50,17 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
   const [burning, setBurning] = useState(false);
   const [burnSignature, setBurnSignature] = useState<string | null>(null);
   const [burnError, setBurnError] = useState<string | null>(null);
+
+  // Cap-table → ShareControls prefill: each row-menu selection updates
+  // the prefill nonce, which we depend on so identical addresses still
+  // re-prefill (clicking the same holder twice should still highlight
+  // the target field).
+  const { prefill } = useEquityPrefill();
+  useEffect(() => {
+    if (prefill.mintTo) setMintRecipient(prefill.mintTo);
+    if (prefill.transferTo) setTransferRecipient(prefill.transferTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill.nonce]);
 
   const mintBaseUnits = useMemo(() => toBaseUnits(mintAmount), [mintAmount]);
   const transferBaseUnits = useMemo(() => toBaseUnits(transferAmount), [transferAmount]);
@@ -122,7 +134,11 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
   };
 
   return (
-    <PageSection title="Share controls" description="Mint, transfer, and burn cap-table tokens.">
+    <PageSection
+      id={EQUITY_ANCHORS.shareControls}
+      title="Share controls"
+      description="Mint, transfer, and burn cap-table tokens."
+    >
       <div className="share-control-row">
         <Input
           label="Mint to"

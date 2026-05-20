@@ -61,3 +61,77 @@
 .equity-funding-result-err {
   color: var(--color-error);
 }
+
+/* Declared rounds — a compact stack of summary rows above the form. No
+   hairlines; row separation comes from the subtle inset surface and
+   gap rhythm. */
+.equity-funding-declared {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-card-subtle);
+  margin-bottom: var(--space-4);
+}
+
+.equity-funding-declared--empty {
+  /* When empty, the inline EmptyState carries its own padding — drop
+     ours so the surface doesn't compound the padding. */
+  padding: var(--space-2) var(--space-3);
+}
+
+.equity-funding-declared__title {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.equity-funding-declared__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.equity-funding-declared__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card);
+  border-radius: var(--radius-sm);
+}
+
+.equity-funding-declared__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.equity-funding-declared__kind {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.equity-funding-declared__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.equity-funding-declared__metaItem {
+  font-variant-numeric: tabular-nums;
+}
+
+.equity-funding-declared__metaItem--mono {
+  font-family: var(--font-mono);
+}

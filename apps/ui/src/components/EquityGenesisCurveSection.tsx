@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
 import { Button, EmptyState, Input, MetricCard, MetricGrid, PageSection } from "@/components/ui";
+import { RecentTradesLog } from "@/components/equity/RecentTradesLog";
 import "./EquityGenesisCurveSection.css";
 
 /**
@@ -244,73 +245,11 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
           idle="Burns the amount back to the curve at the current price."
         />
       </div>
-      <RecentTradesLog trades={state.recent_trades ?? []} />
+      <RecentTradesLog
+        trades={state.recent_trades ?? []}
+        unavailable={state.recent_trades_unavailable === true}
+      />
     </PageSection>
-  );
-}
-
-/**
- * Recent trades — compact tabular log under the curve. Mirrors the chart
- * dot affordance (jade=buy, warmth=sell) so the eye can pivot between
- * the chart marker and the row that produced it. Hidden when the
- * indexer flagged the projection unavailable OR there are no trades.
- */
-function RecentTradesLog({
-  trades,
-}: {
-  trades: Array<{
-    kind: "buy" | "sell";
-    counterparty_b58: string;
-    token_amount: string;
-    quote_amount: string;
-    slot: number;
-    signature_b58: string;
-    log_index: number;
-  }>;
-}) {
-  if (trades.length === 0) return null;
-  // Cap at the most recent 8 — the chart already plots dots for the full
-  // window. The log is for the operator who wants names + sigs, not a
-  // full ledger.
-  const rows = trades.slice(0, 8);
-  return (
-    <div className="curve-trades-log">
-      <h3 className="curve-trades-log__title">Recent trades</h3>
-      <ul className="curve-trades-log__list">
-        {rows.map((trade) => {
-          let tokenAmount: bigint;
-          let quoteAmount: bigint;
-          try {
-            tokenAmount = BigInt(trade.token_amount);
-            quoteAmount = BigInt(trade.quote_amount);
-          } catch {
-            return null;
-          }
-          return (
-            <li key={`${trade.signature_b58}-${trade.log_index}`} className="curve-trades-log__row">
-              <span
-                className={
-                  trade.kind === "buy"
-                    ? "curve-trades-log__dot curve-trades-log__dot--buy"
-                    : "curve-trades-log__dot curve-trades-log__dot--sell"
-                }
-                aria-hidden="true"
-              />
-              <span className="curve-trades-log__kind">
-                {trade.kind === "buy" ? "Buy" : "Sell"}
-              </span>
-              <span className="curve-trades-log__counterparty">
-                {formatCurveAddress(trade.counterparty_b58)}
-              </span>
-              <span className="curve-trades-log__amount">
-                {formatBigintCompact(tokenAmount)} LAUNCH
-              </span>
-              <span className="curve-trades-log__quote">{formatCurvePrice(quoteAmount)} USDC</span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }
 
@@ -443,6 +382,28 @@ function CurveChart({
     return dots;
   })();
 
+  // Y-axis ticks at 25%, 50%, 75% of the price span — readable
+  // "where am I on the curve" landmarks. The start/end labels keep
+  // their original position next to the line endpoints (inline annotation),
+  // the intermediates render as gridlines + left-margin labels.
+  const yTicks: Array<{ y: number; price: bigint }> = [];
+  if (endPrice > startPrice) {
+    for (let i = 1; i <= 3; i++) {
+      const frac = i / 4;
+      const price =
+        startPrice + ((endPrice - startPrice) * BigInt(Math.round(frac * 1000))) / 1000n;
+      yTicks.push({ y: PAD_T + (1 - frac) * innerH, price });
+    }
+  }
+
+  // X-axis ticks at 25%, 50%, 75% supply milestones.
+  const xTicks: Array<{ x: number; supply: bigint }> = [];
+  for (let i = 1; i <= 3; i++) {
+    const frac = i / 4;
+    const supply = (maxSupply * BigInt(Math.round(frac * 1000))) / 1000n;
+    xTicks.push({ x: PAD_L + frac * innerW, supply });
+  }
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -451,23 +412,39 @@ function CurveChart({
       style={{
         display: "block",
         maxWidth: "100%",
-        backgroundColor: "var(--bg-subtle)",
+        backgroundColor: "var(--color-card-subtle, var(--color-card))",
         borderRadius: "var(--radius-md)",
       }}
       role="img"
       aria-label="Genesis curve price-vs-supply"
     >
+      {/* Subtle horizontal gridlines at the y-tick positions — anchor
+          the eye when reading the curve mid-range. Dashed, very low
+          contrast so the curve and marker stay dominant. */}
+      {yTicks.map((tick, i) => (
+        <line
+          key={`y-grid-${i}`}
+          x1={PAD_L}
+          x2={W - PAD_R}
+          y1={tick.y}
+          y2={tick.y}
+          stroke="var(--color-border-subtle, var(--color-border))"
+          strokeWidth={1}
+          strokeDasharray="2 4"
+          opacity={0.6}
+        />
+      ))}
       <line
         x1={PAD_L}
         x2={W - PAD_R}
         y1={PAD_T + innerH}
         y2={PAD_T + innerH}
-        stroke="var(--border-muted, var(--border))"
+        stroke="var(--color-border-subtle, var(--color-border))"
         strokeWidth={1}
       />
       <path d={areaPath} fill="var(--accent)" fillOpacity={0.08} />
       <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth={2} />
-      {/* ja-017: trade dots — green = buy, red = sell. Rendered under the
+      {/* ja-017: trade dots — green = buy, warmth = sell. Rendered under the
           current-supply marker so the live position remains the dominant
           visual anchor. Hover `<title>` surfaces the trade payload. */}
       {tradeDots.map((dot, i) => (
@@ -492,7 +469,7 @@ function CurveChart({
         x2={xCur}
         y1={yCur}
         y2={PAD_T + innerH}
-        stroke="var(--border)"
+        stroke="var(--color-border)"
         strokeWidth={1}
         strokeDasharray="3 3"
       />
@@ -504,44 +481,76 @@ function CurveChart({
         stroke="var(--color-card)"
         strokeWidth={2}
       />
+      {/* Endpoint price labels (USDC) — inline next to the curve termini. */}
       <text
         x={PAD_L + 4}
         y={yStart - 6}
         fontSize="11"
-        fill="var(--text-muted)"
+        fill="var(--color-text-muted)"
         fontFamily="var(--font-mono)"
       >
-        {formatCurvePrice(startPrice)}
+        {formatCurvePrice(startPrice)} USDC
       </text>
       <text
         x={W - PAD_R - 4}
         y={yEnd - 6}
         fontSize="11"
-        fill="var(--text-muted)"
+        fill="var(--color-text-muted)"
         fontFamily="var(--font-mono)"
         textAnchor="end"
       >
-        {formatCurvePrice(endPrice)}
+        {formatCurvePrice(endPrice)} USDC
       </text>
+      {/* Mid-curve y-tick price labels — sit on the left margin so they
+          don't overlap the curve itself. */}
+      {yTicks.map((tick, i) => (
+        <text
+          key={`y-tick-${i}`}
+          x={PAD_L + 4}
+          y={tick.y - 3}
+          fontSize="10"
+          fill="var(--color-text-muted)"
+          fontFamily="var(--font-mono)"
+          opacity={0.7}
+        >
+          {formatCurvePrice(tick.price)}
+        </text>
+      ))}
+      {/* X-axis: 0 supply on the left, max on the right, with intermediate
+          ticks at 25/50/75% for orientation. */}
       <text
         x={PAD_L + 4}
         y={H - 6}
         fontSize="11"
-        fill="var(--text-muted)"
+        fill="var(--color-text-muted)"
         fontFamily="var(--font-mono)"
       >
-        0
+        0 LAUNCH
       </text>
       <text
         x={W - PAD_R - 4}
         y={H - 6}
         fontSize="11"
-        fill="var(--text-muted)"
+        fill="var(--color-text-muted)"
         fontFamily="var(--font-mono)"
         textAnchor="end"
       >
-        {formatBigintCompact(maxSupply)}
+        {formatBigintCompact(maxSupply)} LAUNCH
       </text>
+      {xTicks.map((tick, i) => (
+        <text
+          key={`x-tick-${i}`}
+          x={tick.x}
+          y={H - 6}
+          fontSize="10"
+          fill="var(--color-text-muted)"
+          fontFamily="var(--font-mono)"
+          textAnchor="middle"
+          opacity={0.6}
+        >
+          {formatBigintCompact(tick.supply)}
+        </text>
+      ))}
     </svg>
   );
 }
