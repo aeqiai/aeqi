@@ -7892,9 +7892,36 @@ button.home-card:focus-visible {
   letter-spacing: -0.005em;
 }
 .home-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   font-weight: 500;
+}
+/* Inbox card meta dot — same 7px / 999px shape as `.home-hero-pill-dot`
+   and `.home-inbox-status`, so the "N waiting" string in the card head
+   mirrors the hero-pill stat's state grammar. The dot reads amber when
+   anything awaits the user, indigo when items are live but not blocking,
+   muted-idle when the inbox is clear. Same data source as the hero pill
+   (`inboxPillState`), so the two surfaces stay in lockstep. */
+.home-card-meta-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+}
+.home-card-meta-dot--progress {
+  background: var(--state-progress);
+}
+.home-card-meta-dot--review {
+  background: var(--state-review);
+}
+.home-card-meta-dot--idle {
+  background: var(--color-text-muted);
+  opacity: 0.45;
 }
 .home-card-link {
   display: inline-flex;

@@ -188,6 +188,10 @@ export default function StartPage() {
             </span>
             <span className="home-card-title">Inbox</span>
             <span className="home-card-meta">
+              <span
+                className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
+                aria-hidden="true"
+              />
               {inboxCount === 0 ? "All clear" : `${inboxCount} waiting`}
             </span>
             <button type="button" className="home-card-link" onClick={() => navigate("/inbox")}>
