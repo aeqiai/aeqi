@@ -25,16 +25,13 @@
  * past 600 lines as more write paths land.
  */
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 
-import {
-  readVoteRecords,
-  VOTE_CHOICE_LABEL,
-  type GovernanceConfigWithPda,
-  type ProposalAccount,
-  type ProposalStatus,
-  type ProposalWithPda,
-  type RoleTypeWithPda,
+import type {
+  GovernanceConfigWithPda,
+  ProposalAccount,
+  ProposalStatus,
+  ProposalWithPda,
+  RoleTypeWithPda,
 } from "@/solana";
 import { ApiError, api } from "@/lib/api";
 import {
@@ -50,7 +47,6 @@ import {
   Textarea,
   Tooltip,
 } from "@/components/ui";
-import { formatInteger } from "@/lib/i18n";
 import styles from "./QuorumPage.module.css";
 import {
   CopyableMono,
@@ -67,6 +63,12 @@ import {
   voteWindowLabel,
   voteWindowSeconds,
 } from "./QuorumPage.format";
+import {
+  ExecutionPayloadSection,
+  ProposalActionBar,
+  VoteHistorySection,
+  useQuorumInvalidator,
+} from "./QuorumPage.actions";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Proposal detail modal                                              */
@@ -76,6 +78,7 @@ export function ProposalDetailModal({
   entry,
   configs,
   roleTypes,
+  trustId,
   trustAddress,
   nowSeconds,
   onClose,
@@ -83,6 +86,7 @@ export function ProposalDetailModal({
   entry: { proposal: ProposalWithPda; status: ProposalStatus } | null;
   configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
+  trustId: string;
   trustAddress: string;
   nowSeconds: number;
   onClose: () => void;
@@ -109,10 +113,17 @@ export function ProposalDetailModal({
         <div className={`${styles.scope} ${styles.modalBody}`}>
           <Stack gap="5">
             <ProposalSummary entry={entry} roleTypes={roleTypes} nowSeconds={nowSeconds} />
+            <ProposalActionBar
+              trustId={trustId}
+              trustAddress={trustAddress}
+              proposal={entry.proposal.account}
+              status={entry.status}
+            />
             <div>
               <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Tallies</h3>
               <TallyDetail proposal={entry.proposal.account} config={matchedConfig} />
             </div>
+            <ExecutionPayloadSection proposal={entry.proposal.account} />
             <VoteHistorySection
               trustAddress={trustAddress}
               proposalId={entry.proposal.account.proposalId}
@@ -191,104 +202,6 @@ function ProposalMeta({ proposal }: { proposal: ProposalAccount }) {
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Vote history — real read off-chain, not aggregate-tally only       */
-/* ────────────────────────────────────────────────────────────────── */
-
-/**
- * Pull `VoteRecord` PDAs scoped to (trust, proposalId) and render the
- * audit trail. This is the real functional gap: the row tallies show
- * the aggregate, but operators need to see WHO voted WHAT to spot
- * delegation patterns, missed signers, or coordination concerns. The
- * RPC cost is one `getProgramAccounts` call with a 2-filter memcmp.
- */
-function VoteHistorySection({
-  trustAddress,
-  proposalId,
-}: {
-  trustAddress: string;
-  proposalId: Uint8Array | number[];
-}) {
-  // proposalId is a fixed-length byte array. Stringify for the key
-  // since arrays don't compare structurally inside React Query.
-  const idKey = useMemo(() => bytesToHex(proposalId), [proposalId]);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["quorum", "voteRecords", trustAddress, idKey],
-    queryFn: () => readVoteRecords(trustAddress, proposalId),
-    staleTime: 30_000,
-  });
-
-  // Sort by weight DESC then voter address — gives the highest-impact
-  // signer first, which is what an operator actually wants to scan for.
-  // `data` is the dependency; the `?? []` is inlined so React Query's
-  // identity-stable reference flows through unchanged.
-  const sortedRecords = useMemo(() => {
-    const records = data ?? [];
-    return [...records].sort((a, b) => {
-      const aw = BigInt(a.account.weight.toString());
-      const bw = BigInt(b.account.weight.toString());
-      if (aw === bw) {
-        return a.account.voter.toBase58().localeCompare(b.account.voter.toBase58());
-      }
-      return bw > aw ? 1 : -1;
-    });
-  }, [data]);
-
-  return (
-    <div>
-      <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Vote history</h3>
-      {isLoading ? (
-        <span className={styles.voteHistoryMuted}>Loading vote records…</span>
-      ) : error ? (
-        <span className={styles.voteHistoryMuted}>
-          {(error as Error).message || "Couldn't read vote records."}
-        </span>
-      ) : sortedRecords.length === 0 ? (
-        <span className={styles.voteHistoryMuted}>No votes cast yet.</span>
-      ) : (
-        <div className={styles.voteHistoryTable} role="table" aria-label="Vote records">
-          <div className={styles.voteHistoryRow} role="row" data-header="true">
-            <span role="columnheader">Voter</span>
-            <span role="columnheader">Choice</span>
-            <span role="columnheader" className={styles.voteHistoryWeight}>
-              Weight
-            </span>
-          </div>
-          {sortedRecords.map((rec) => {
-            const choice = (VOTE_CHOICE_LABEL[rec.account.choice] ?? "?") as
-              | "For"
-              | "Against"
-              | "Abstain"
-              | "?";
-            const tone: "for" | "against" | "abstain" | "unknown" =
-              choice === "For"
-                ? "for"
-                : choice === "Against"
-                  ? "against"
-                  : choice === "Abstain"
-                    ? "abstain"
-                    : "unknown";
-            const weightStr = formatInteger(Number(BigInt(rec.account.weight.toString())));
-            return (
-              <div key={rec.publicKey.toBase58()} className={styles.voteHistoryRow} role="row">
-                <CopyableMono
-                  full={rec.account.voter.toBase58()}
-                  display={shortAddress(rec.account.voter.toBase58())}
-                />
-                <span className={styles.voteHistoryChoice} data-tone={tone}>
-                  {choice}
-                </span>
-                <span className={styles.voteHistoryWeight}>{weightStr}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────── */
 /* New proposal — header CTA opening a write-modal                    */
 /* ────────────────────────────────────────────────────────────────── */
 
@@ -305,21 +218,28 @@ function VoteHistorySection({
 export function NewProposalModal({
   open,
   trustId,
+  trustAddress,
   configs,
   roleTypes,
   onClose,
   onSuccess,
+  initialConfigIdHex,
 }: {
   open: boolean;
   trustId: string;
+  trustAddress: string;
   configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
   onClose: () => void;
   onSuccess?: () => void;
+  /** Optional pre-selection — used by the config switcher chip row. */
+  initialConfigIdHex?: string;
 }) {
-  const [configIdHex, setConfigIdHex] = useState<string>(() =>
-    configs.length > 0 ? configIdHexFor(configs[0].account.governanceConfigId) : "",
-  );
+  const invalidate = useQuorumInvalidator(trustAddress);
+  const [configIdHex, setConfigIdHex] = useState<string>(() => {
+    if (initialConfigIdHex) return initialConfigIdHex;
+    return configs.length > 0 ? configIdHexFor(configs[0].account.governanceConfigId) : "";
+  });
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [voteHours, setVoteHours] = useState("72");
@@ -378,6 +298,10 @@ export function NewProposalModal({
         );
       } else {
         setSuccess(`Proposal opened · ${result.signature_b58.slice(0, 12)}…`);
+        // Wire write to read: when the proposal lands on-chain the
+        // proposals query re-fires immediately so the list updates
+        // without the 30s staleTime gate.
+        invalidate({ kind: "propose" });
       }
       onSuccess?.();
     } catch (err) {
@@ -526,11 +450,16 @@ function configIdHexFor(bytes: Uint8Array | number[]): string {
  */
 export function InlineVoteActions({
   trustId,
+  trustAddress,
   proposalIdHex,
+  proposalIdBytes,
 }: {
   trustId: string;
+  trustAddress: string;
   proposalIdHex: string;
+  proposalIdBytes: Uint8Array | number[];
 }) {
+  const invalidate = useQuorumInvalidator(trustAddress);
   const [pending, setPending] = useState<null | "for" | "against" | "abstain">(null);
   const [done, setDone] = useState<null | { tone: "ok" | "tbd" | "err"; msg: string }>(null);
 
@@ -547,6 +476,10 @@ export function InlineVoteActions({
         setDone({ tone: "tbd", msg: "TBD" });
       } else {
         setDone({ tone: "ok", msg: "Voted" });
+        // Wire write to read: the vote-records query for this proposal
+        // refetches immediately so the detail-modal audit trail and the
+        // row tallies stay in sync with the cluster.
+        invalidate({ proposalId: proposalIdBytes, kind: "vote" });
       }
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 501)) {

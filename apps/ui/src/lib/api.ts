@@ -1065,6 +1065,57 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  /**
+   * Execute a proposal that has succeeded.
+   *
+   * Honest stub: the platform-side handler does not exist yet. The
+   * intended Solana ix is `aeqi_governance::execute_proposal` — it
+   * validates the vote window has ended, that quorum + support
+   * thresholds are met, and flips `Proposal.executed → true`. The
+   * dispatch of the proposal's actual ix payload (via `remaining_accounts`)
+   * is reserved for a follow-up ship.
+   *
+   * The platform returns 404 with `endpoint_unimplemented` until shipped;
+   * treat that as TBD.
+   */
+  proposalExecute: (data: { entity_id: string; proposal_id_hex: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      proposal_pubkey_b58: string;
+      executed_at: number;
+      /** Honest TBD marker — present until the platform handler ships. */
+      platform_side_tbd?: boolean;
+    }>("/solana/proposal-execute", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Cancel a proposal that has not yet been executed.
+   *
+   * Honest stub: the platform-side handler does not exist yet, and the
+   * `aeqi_governance` program itself does not yet expose a `cancel`
+   * instruction — the intent is to add one that's callable only by the
+   * proposer (or a privileged role) during the `pending` and `active`
+   * windows. Flips `Proposal.canceled → true`.
+   *
+   * The platform returns 404 with `endpoint_unimplemented` until shipped;
+   * treat that as TBD.
+   */
+  proposalCancel: (data: { entity_id: string; proposal_id_hex: string; reason?: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      proposal_pubkey_b58: string;
+      canceled_at: number;
+      /** Honest TBD marker — present until the platform handler ships. */
+      platform_side_tbd?: boolean;
+    }>("/solana/proposal-cancel", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   spawnAgent: (data: {
     name: string;
     template?: string;

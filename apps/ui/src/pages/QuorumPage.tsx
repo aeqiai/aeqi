@@ -171,6 +171,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
       <NewProposalModal
         open={newProposalOpen}
         trustId={trustId}
+        trustAddress={trustAddress}
         configs={configsList}
         roleTypes={roleTypeList}
         onClose={() => setNewProposalOpen(false)}
@@ -293,6 +294,11 @@ function ProposalsSection({
   trustAddress: string;
 }) {
   const [filter, setFilter] = useState<FilterKey>("active");
+  // Multi-config TRUSTs (token-mode + role-mode) need a way to pivot
+  // the proposals view by config without going through the New Proposal
+  // modal. `null` = all configs; otherwise the config's id-hex with a
+  // 0x prefix (same shape the new-proposal modal stores).
+  const [configFilter, setConfigFilter] = useState<string | null>(null);
   const [detail, setDetail] = useState<{
     proposal: ProposalWithPda;
     status: ProposalStatus;
@@ -319,9 +325,15 @@ function ProposalsSection({
   );
 
   const filtered = useMemo(() => {
-    if (filter === "all") return withStatus;
-    return withStatus.filter((p) => p.status === filter);
-  }, [withStatus, filter]);
+    return withStatus.filter((p) => {
+      if (filter !== "all" && p.status !== filter) return false;
+      if (configFilter !== null) {
+        const hex = `0x${bytesToHex(p.proposal.account.governanceConfigId)}`;
+        if (hex !== configFilter) return false;
+      }
+      return true;
+    });
+  }, [withStatus, filter, configFilter]);
 
   // Newest first — Anchor returns `i64` as BN; use number compare on
   // voteStart which fits in JS safe-int range for any realistic clock.
@@ -335,9 +347,13 @@ function ProposalsSection({
     [filtered],
   );
 
+  // Counts respect the config filter so the cohort chip labels reflect
+  // "how many active proposals fall under THIS config" rather than the
+  // full set. The "all configs" chip above always shows the unfiltered
+  // total so an operator can see what they're narrowing from.
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = {
-      all: withStatus.length,
+      all: 0,
       active: 0,
       pending: 0,
       succeeded: 0,
@@ -345,14 +361,16 @@ function ProposalsSection({
       executed: 0,
       canceled: 0,
     };
-    for (const { status } of withStatus) {
-      // `status` is a ProposalStatus literal; every value except
-      // `succeeded`/`defeated`/`canceled`/`executed`/`active`/`pending`
-      // would be a type error so the index access is sound here.
+    for (const { proposal, status } of withStatus) {
+      if (configFilter !== null) {
+        const hex = `0x${bytesToHex(proposal.account.governanceConfigId)}`;
+        if (hex !== configFilter) continue;
+      }
+      c.all += 1;
       c[status] += 1;
     }
     return c;
-  }, [withStatus]);
+  }, [withStatus, configFilter]);
 
   const columns: Array<TableColumn<(typeof rows)[number]>> = [
     {
@@ -435,7 +453,12 @@ function ProposalsSection({
               View
             </Button>
             {row.status === "active" ? (
-              <InlineVoteActions trustId={trustId} proposalIdHex={proposalIdHex} />
+              <InlineVoteActions
+                trustId={trustId}
+                trustAddress={trustAddress}
+                proposalIdHex={proposalIdHex}
+                proposalIdBytes={row.proposal.account.proposalId}
+              />
             ) : null}
           </Inline>
         );
@@ -449,6 +472,31 @@ function ProposalsSection({
       description="Every proposal opened against this TRUST. Status derives from tallies + the cluster clock."
     >
       <Stack gap="3">
+        {configs.length > 1 ? (
+          <Inline gap="2" wrap aria-label="Filter by voting config">
+            <FilterChip
+              label="All configs"
+              count={withStatus.length}
+              active={configFilter === null}
+              onClick={() => setConfigFilter(null)}
+            />
+            {configs.map((cfg) => {
+              const hex = `0x${bytesToHex(cfg.account.governanceConfigId)}`;
+              const count = withStatus.filter(
+                (p) => `0x${bytesToHex(p.proposal.account.governanceConfigId)}` === hex,
+              ).length;
+              return (
+                <FilterChip
+                  key={hex}
+                  label={configIdLabel(cfg.account.governanceConfigId, roleTypes)}
+                  count={count}
+                  active={configFilter === hex}
+                  onClick={() => setConfigFilter(hex)}
+                />
+              );
+            })}
+          </Inline>
+        ) : null}
         <Inline gap="2" wrap>
           {(
             [
@@ -483,6 +531,7 @@ function ProposalsSection({
         entry={detail}
         configs={configs}
         roleTypes={roleTypes}
+        trustId={trustId}
         trustAddress={trustAddress}
         nowSeconds={nowSeconds}
         onClose={() => setDetail(null)}
