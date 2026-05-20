@@ -29,6 +29,17 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
   const holdersCount = equity.holders?.length ?? null;
   const hasToken = !!equity.tokenModuleState;
   const configsCount = quorum.configs?.length ?? null;
+  // "Provisioning" = platform-side TRUST registered but the matching
+  // Solana module hasn't materialized yet (no trustAddress, or trust
+  // exists but the per-primitive moduleState is still null). Each
+  // primitive owns its own gate so Assets can render real USDC while
+  // Equity/Quorum are still mid-bridge. Pre-c4 these rendered as a
+  // giant "—" that swallowed the row's visual weight; c4 swaps that
+  // for a quiet "Bridge pending" badge so the row reads as awaiting
+  // rather than empty.
+  const assetsProvisioning = !assets.vault?.moduleState;
+  const equityProvisioning = !hasToken;
+  const quorumProvisioning = !configsCount;
   // Open proposals = `active` status only. Status is derived client-side
   // from the proposal's lifecycle (executed/canceled flags + vote window).
   // When no GovernanceConfig is registered ("Founder-mode"), proposals
@@ -71,43 +82,28 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           to={`${basePath}/assets`}
           icon={<Wallet size={16} strokeWidth={1.5} />}
           label="Assets"
-          value={assets.vault?.moduleState ? (treasuryUsdc ?? "—") : "—"}
-          hint={assets.vault?.moduleState && treasuryUsdc ? "USDC" : ""}
-          sub={
-            assets.vault?.moduleState
-              ? ""
-              : trustAddress
-                ? "No treasury vault"
-                : "Setting up on Solana"
-          }
+          value={treasuryUsdc ?? "—"}
+          hint={treasuryUsdc ? "USDC" : ""}
+          sub=""
+          provisioning={assetsProvisioning}
         />
         <OwnershipPrimitiveCard
           to={`${basePath}/equity`}
           icon={<PieChart size={16} strokeWidth={1.5} />}
           label="Equity"
-          value={hasToken ? (holdersCount === null ? "—" : String(holdersCount)) : "—"}
-          hint={hasToken ? (holdersCount === 1 ? "holder" : "holders") : ""}
-          sub={hasToken ? "" : trustAddress ? "No equity token" : "Setting up on Solana"}
+          value={holdersCount === null ? "—" : String(holdersCount)}
+          hint={holdersCount === 1 ? "holder" : "holders"}
+          sub=""
+          provisioning={equityProvisioning}
         />
         <OwnershipPrimitiveCard
           to={`${basePath}/quorum`}
           icon={<Vote size={16} strokeWidth={1.5} />}
           label="Quorum"
-          value={
-            configsCount && configsCount > 0
-              ? activeProposalsCount === null
-                ? "—"
-                : String(activeProposalsCount)
-              : "—"
-          }
-          hint={configsCount && configsCount > 0 ? "open" : ""}
-          sub={
-            configsCount && configsCount > 0
-              ? ""
-              : trustAddress
-                ? "No voting yet"
-                : "Setting up on Solana"
-          }
+          value={activeProposalsCount === null ? "—" : String(activeProposalsCount)}
+          hint="open"
+          sub=""
+          provisioning={quorumProvisioning}
         />
         <OwnershipPrimitiveCard
           icon={<FileText size={16} strokeWidth={1.5} />}
@@ -130,6 +126,7 @@ interface OwnershipPrimitiveCardProps {
   hint: string;
   sub: string;
   comingSoon?: boolean;
+  provisioning?: boolean;
 }
 
 function OwnershipPrimitiveCard({
@@ -140,6 +137,7 @@ function OwnershipPrimitiveCard({
   hint,
   sub,
   comingSoon,
+  provisioning,
 }: OwnershipPrimitiveCardProps) {
   const body = (
     <>
@@ -147,11 +145,23 @@ function OwnershipPrimitiveCard({
         {icon}
       </span>
       <span className="trust-primitive-label">{label}</span>
-      <span className="trust-primitive-value">
-        {value}
-        {hint && <span className="trust-primitive-hint"> {hint}</span>}
-      </span>
-      {sub && <span className="trust-primitive-sub">{sub}</span>}
+      {provisioning ? (
+        // Awaiting on-chain bridge. The 28px display value would render
+        // as a giant "—" and dominate the row; swap it for a quiet
+        // warmth-toned badge so the tile reads as "alive, awaiting"
+        // rather than "empty". Same accent (--state-review) the Roles
+        // tile uses for vacant seats — keeps the awaiting vocabulary
+        // consistent across the Ownership row.
+        <span className="trust-primitive-pending" role="status">
+          Bridge pending
+        </span>
+      ) : (
+        <span className="trust-primitive-value">
+          {value}
+          {hint && <span className="trust-primitive-hint"> {hint}</span>}
+        </span>
+      )}
+      {sub && !provisioning && <span className="trust-primitive-sub">{sub}</span>}
     </>
   );
   if (comingSoon || !to) {
@@ -166,7 +176,10 @@ function OwnershipPrimitiveCard({
     );
   }
   return (
-    <Link to={to} className="trust-cockpit-mini">
+    <Link
+      to={to}
+      className={`trust-cockpit-mini${provisioning ? " trust-cockpit-mini--provisioning" : ""}`}
+    >
       {body}
     </Link>
   );
