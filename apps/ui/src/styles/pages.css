@@ -3743,16 +3743,21 @@
 }
 /* Centered icon + title + hint variant — used by In-progress and
    In-review when empty so the column reads as encouragement, not
-   absence. Sits centered in the column body rather than left-
-   aligned with the cards above. */
+   absence. Fills the column body so the message lands at the
+   optical center of the empty kanban lane rather than pinned to
+   the top with a tall void below. The column body is `flex: 1` so
+   `height: 100%` here makes the centered group expand into the
+   remaining vertical space; `padding-bottom` clears the alpha-fade
+   region so the title doesn't dissolve into the column floor. */
 .quest-col-empty--centered {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: var(--space-6) var(--space-4);
-  min-height: 160px;
+  height: 100%;
+  min-height: 200px;
+  padding: var(--space-6) var(--space-4) var(--space-8);
   text-align: center;
   font-style: normal;
 }
