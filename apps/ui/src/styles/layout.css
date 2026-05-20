@@ -7217,18 +7217,28 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   font-size: 13px;
   color: var(--color-text-primary);
 }
+/* Tables view header — match the Quests `.quest-col-header` section-label
+   register (13.5px / 620 / sentence case / primary text) and 44px min-height
+   so the table's column headers read as real section labels, not the tiny
+   uppercase eyebrow that "NAME / TAGS" used to render as. Substrate stays on
+   the slab tone (`--bg-row`) so the header zone reads as recessed below the
+   white-paper row surface, matching the column-slab pattern. */
 .ideas-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--bg-row);
   text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  /* 44px min-height matches `.quest-col-header`; horizontal padding aligns
+     with the row cell padding so labels stack vertically with their column. */
+  height: 44px;
+  padding: 10px var(--space-3);
+  vertical-align: middle;
 }
 .ideas-table-col-name {
   width: 36%;
