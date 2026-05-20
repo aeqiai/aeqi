@@ -225,16 +225,15 @@
   flex-shrink: 0;
 }
 
-.inbox-awaiting-strip-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
+/* Awaiting status dot — adopts the canonical `.quest-status-dot--in_review`
+ * grammar (7px / 999px / warmth). The icon+label pair the strip used to
+ * carry compressed into dot+label — same `in_review` semantic, two-element
+ * header instead of three, less visual debt. The `--space-1` margin lifts
+ * the dot to optical-center on the label's cap height (the dot is square
+ * geometry; the label has descenders pulling its bounding box low). */
+.inbox-awaiting-strip-dot {
+  margin-left: var(--space-1);
   flex-shrink: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-warmth) 12%, var(--color-card));
-  color: var(--color-ink-text);
 }
 
 .inbox-awaiting-strip-body {

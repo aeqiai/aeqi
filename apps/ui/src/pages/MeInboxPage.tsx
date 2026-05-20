@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CornerUpLeft, MessageCircleQuestion } from "lucide-react";
+import { CornerUpLeft } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -543,9 +543,10 @@ export default function MeInboxPage() {
       ) : undefined;
     const preThreadSlot = selectedRow.awaiting ? (
       <div className="inbox-awaiting-strip" role="status">
-        <span className="inbox-awaiting-strip-icon" aria-hidden>
-          <MessageCircleQuestion size={15} strokeWidth={1.8} />
-        </span>
+        <span
+          className="inbox-awaiting-strip-dot quest-status-dot quest-status-dot--in_review"
+          aria-hidden
+        />
         <span className="inbox-awaiting-strip-body">
           <span className="inbox-awaiting-strip-label">Awaiting reply</span>
           {subtitle && <span className="inbox-awaiting-strip-subject">{subtitle}</span>}
