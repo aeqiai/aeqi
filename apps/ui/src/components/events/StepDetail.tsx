@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Loading } from "@/components/ui";
+import { Loading, Tooltip } from "@/components/ui";
 import type { EventInvocationRow, InvocationStepRow } from "@/lib/types";
 
 export function durationMs(started: string, finished: string | null): string {
@@ -55,23 +55,30 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
   return (
     <div className="events-step-detail">
       <div className="events-step-detail-head">
-        <button
-          type="button"
-          className="events-step-detail-back"
-          onClick={onClose}
-          aria-label="Close step detail"
-        >
-          ← back
-        </button>
-        {inv && (
-          <span className="events-step-detail-meta">
-            {inv.pattern}
-            {inv.event_name ? ` · ${inv.event_name}` : ""}
-            {" · session "}
-            <code>{inv.session_id.slice(0, 8)}</code>
-          </span>
-        )}
+        <span className="events-step-detail-title">
+          step
+          <span className="events-step-detail-count">{steps.length}</span>
+        </span>
+        <Tooltip content="Back to fires">
+          <button
+            type="button"
+            className="events-step-detail-back"
+            onClick={onClose}
+            aria-label="Close step detail"
+          >
+            ←
+          </button>
+        </Tooltip>
       </div>
+      {inv && (
+        <div className="events-step-detail-sub">
+          <span className="events-step-detail-pattern">{inv.pattern}</span>
+          {inv.event_name && <span className="events-step-detail-event">{inv.event_name}</span>}
+          <span className="events-step-detail-session">
+            session <code>{inv.session_id.slice(0, 8)}</code>
+          </span>
+        </div>
+      )}
 
       {loading && (
         <div className="events-step-detail-loading">
