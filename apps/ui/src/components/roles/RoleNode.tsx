@@ -139,17 +139,18 @@ function pillTone(role: Role): "director" | "advisor" | "operational" {
   return "operational";
 }
 
+// Occupant subtitle for the card. Returns a human-readable label
+// only — never a raw UUID prefix. When the agent or human name can't
+// resolve (cross-trust occupant, missing platform record), fall back
+// to a generic "agent" / "human" tag. The card already shows the
+// role title above; the subtitle is for occupant identity, and a
+// UUID prefix is not identity. Sibling fix to the inspector header
+// fallback shipped at cf32cc78.
 function describeOccupant(role: Role, agentName?: string): { label: string } {
   if (role.occupant_kind === "vacant") return { label: "vacant" };
   if (role.occupant_kind === "agent") {
-    return { label: agentName ?? role.occupant_id?.slice(0, 8) ?? "agent" };
+    return { label: agentName ?? "agent" };
   }
-  // Human occupant: prefer platform-resolved display name, fall back to
-  // email local-part (if the name looks like one), then truncated id.
   if (role.occupant_name) return { label: role.occupant_name };
-  if (role.occupant_id) {
-    const id = role.occupant_id;
-    return { label: `${id.slice(0, 4)}…${id.slice(-4)}` };
-  }
   return { label: "human" };
 }
