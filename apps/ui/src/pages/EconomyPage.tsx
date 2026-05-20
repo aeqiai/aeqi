@@ -264,6 +264,19 @@ export default function EconomyPage() {
         sortAccessor: (row) => row.trust.name,
       },
       {
+        key: "liquidity",
+        header: "Liquidity",
+        cell: (row) => (
+          <TableStatus
+            state={row.buyAmount > 0 ? "in_progress" : "backlog"}
+            label={row.buyAmount > 0 ? "Bonded" : "Dormant"}
+          />
+        ),
+        width: "108px",
+        sortable: true,
+        sortAccessor: (row) => (row.buyAmount > 0 ? 1 : 0),
+      },
+      {
         key: "curve",
         header: "Curve",
         cell: (row) => <span className={styles.mono}>{compactAddress(row.curve)}</span>,
