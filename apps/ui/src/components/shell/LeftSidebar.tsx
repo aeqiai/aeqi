@@ -324,12 +324,16 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             </nav>
 
             {/* IA order on the sidebar mirrors the user-facing mental
-                model: Roles (TRUST section above) → Execution (who runs
-                it) → Ownership (who owns it). Execution sits closer to
-                the TRUST/Roles section because day-to-day work lives
-                there; ownership is the longer-term layer below. */}
-            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Execution">
-              <div className="sidebar-section-label">Execution</div>
+                model: Roles (TRUST section above) → Operations (who runs
+                it) → Ownership (who owns it). Operations sits closer
+                to the TRUST/Roles section because day-to-day work
+                lives there; ownership is the longer-term layer below.
+                "Operations" replaced "Execution" 2026-05-20 as part
+                of the Owners/Directors/Operators role-tier pivot —
+                operators do operations, directors govern the boundary,
+                owners hold the upside. */}
+            <nav className="sidebar-surface-nav sidebar-zone" aria-label="Operations">
+              <div className="sidebar-section-label">Operations</div>
               {navItem("agents", "Agents", <AgentsIcon />, {
                 locked: runtimeLocked,
                 action: rowAction("New agent", <PlusIcon />, () => {

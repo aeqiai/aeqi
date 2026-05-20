@@ -54,7 +54,7 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
         <TrustRolesGroup trustId={trustId} basePath={basePath} />
       </section>
       <section className="trust-overview-section">
-        <h2 className="trust-overview-section-title">Execution</h2>
+        <h2 className="trust-overview-section-title">Operations</h2>
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
       </section>
       <section className="trust-overview-section">
