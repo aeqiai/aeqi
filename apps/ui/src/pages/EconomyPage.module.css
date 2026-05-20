@@ -13,8 +13,19 @@
 }
 
 .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+.searchField {
   position: relative;
+  display: block;
+  width: 100%;
   max-width: 520px;
+  flex: 1 1 260px;
 }
 
 .searchIcon {
@@ -34,11 +45,62 @@
 }
 
 .searchSummary {
-  display: block;
-  margin-top: var(--space-2);
+  flex-basis: 100%;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   line-height: 1.35;
+}
+
+/* Chrome-tier kind chip strip — mirrors the `.ideas-list-sort` segmented
+ * control from the locked toolbar grammar (layout.css:4030). Sits in the
+ * filter zone so the user can scope the pools table without leaving the
+ * chrome row. Resting trough uses `--color-card-subtle` (inset chrome
+ * above page paper); active chip lifts to `--color-card-elevated` with
+ * the graphite accent + dim hairline so the selected state reads as a
+ * lift, not a re-color. */
+.kindChips {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  height: 30px;
+  padding: 3px;
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.kindChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.kindChip:hover:not(.kindChipActive) {
+  color: var(--color-text-primary);
+}
+
+.kindChip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.kindChipActive {
+  color: var(--color-accent);
+  background: var(--color-card-elevated);
+  box-shadow: 0 0 0 1px var(--color-accent-dim);
 }
 
 .registryGrid,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowUpRight, BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
+import { BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import PageRail from "@/components/PageRail";
 import {
@@ -19,10 +19,18 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityBasePath, entityPath } from "@/lib/entityPath";
-import { formatInteger, formatMediumDate } from "@/lib/i18n";
+import { formatMediumDate } from "@/lib/i18n";
 import type { Role, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
-import { MetricStatus, RegistryCard, TableStatus, TrustDirectory } from "./EconomyPage.parts";
+import {
+  makePoolColumns,
+  MetricStatus,
+  PoolKindChips,
+  type PoolRow,
+  RegistryCard,
+  TableStatus,
+  TrustDirectory,
+} from "./EconomyPage.parts";
 import {
   compactAddress,
   ECONOMY_TABS,
@@ -30,6 +38,8 @@ import {
   matchesPoolQuery,
   matchesRoleQuery,
   matchesTrustQuery,
+  type PoolKind,
+  type PoolKindFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
 
@@ -45,24 +55,6 @@ interface LaunchLoadState {
   loading: boolean;
 }
 
-type PoolKind = "genesis" | "amm";
-
-const POOL_KIND_LABEL: Record<PoolKind, string> = {
-  genesis: "Genesis curve",
-  amm: "AMM pool",
-};
-
-interface PoolRow {
-  id: string;
-  trust: Trust;
-  kind: PoolKind;
-  curve: string;
-  assetMint: string;
-  quoteMint: string;
-  buyAmount: number;
-  maxCost: number;
-}
-
 interface RoleOpeningRow {
   id: string;
   trust: Trust;
@@ -75,6 +67,7 @@ export default function EconomyPage() {
   const activeTab = isEconomyTab(tab) ? tab : "overview";
   const { data: entities = [], isLoading: entitiesLoading } = useEntitiesQuery();
   const [search, setSearch] = useState("");
+  const [poolKindFilter, setPoolKindFilter] = useState<PoolKindFilter>("all");
   const [roleState, setRoleState] = useState<Record<string, RoleLoadState>>({});
   const [launchState, setLaunchState] = useState<Record<string, LaunchLoadState>>({});
 
@@ -183,9 +176,22 @@ export default function EconomyPage() {
     [entities, launchState],
   );
 
+  // Kinds present in the indexed pool set, stable order. Chip strip renders
+  // only when >= 1 kind is present; today this is "All | Genesis" — a
+  // no-op selector that documents the axis and is ready for AMM rows.
+  const poolKindsPresent = useMemo<PoolKind[]>(
+    () => (["genesis", "amm"] as PoolKind[]).filter((k) => poolRows.some((r) => r.kind === k)),
+    [poolRows],
+  );
+
   const visiblePoolRows = useMemo(
-    () => poolRows.filter((row) => matchesPoolQuery(row, normalizedSearch)),
-    [poolRows, normalizedSearch],
+    () =>
+      poolRows.filter(
+        (row) =>
+          (poolKindFilter === "all" || row.kind === poolKindFilter) &&
+          matchesPoolQuery(row, normalizedSearch),
+      ),
+    [poolRows, normalizedSearch, poolKindFilter],
   );
   const visibleRoleOpenings = useMemo(
     () => roleOpenings.filter((row) => matchesRoleQuery(row, normalizedSearch)),
@@ -259,74 +265,7 @@ export default function EconomyPage() {
   );
 
   const poolColumns = useMemo<Array<TableColumn<PoolRow>>>(
-    () => [
-      {
-        key: "pool",
-        header: "Pool",
-        cell: (row) => (
-          <span className={styles.trustCellText}>
-            <span className={styles.trustName}>{POOL_KIND_LABEL[row.kind]}</span>
-            <span className={styles.trustMeta}>{row.trust.name}</span>
-          </span>
-        ),
-        sortable: true,
-        sortAccessor: (row) => row.trust.name,
-      },
-      {
-        key: "liquidity",
-        header: "Liquidity",
-        cell: (row) => (
-          <TableStatus
-            state={row.buyAmount > 0 ? "in_progress" : "backlog"}
-            label={row.buyAmount > 0 ? "Bonded" : "Dormant"}
-          />
-        ),
-        width: "108px",
-        sortable: true,
-        sortAccessor: (row) => (row.buyAmount > 0 ? 1 : 0),
-      },
-      {
-        key: "curve",
-        header: "Curve",
-        cell: (row) => <span className={styles.mono}>{compactAddress(row.curve)}</span>,
-      },
-      {
-        key: "asset",
-        header: "Asset",
-        cell: (row) => <span className={styles.mono}>{compactAddress(row.assetMint)}</span>,
-      },
-      {
-        key: "quote",
-        header: "Quote",
-        cell: (row) => <span className={styles.mono}>{compactAddress(row.quoteMint)}</span>,
-      },
-      {
-        key: "buy",
-        header: "First buy",
-        cell: (row) => formatInteger(row.buyAmount),
-        align: "end",
-        width: "110px",
-      },
-      {
-        key: "action",
-        header: "",
-        cell: (row) => (
-          <Button
-            variant="secondary"
-            size="sm"
-            trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(entityPath(row.trust, "equity"));
-            }}
-          >
-            Open
-          </Button>
-        ),
-        width: "92px",
-        align: "end",
-      },
-    ],
+    () => makePoolColumns((row) => navigate(entityPath(row.trust, "equity"))),
     [navigate],
   );
 
@@ -411,16 +350,25 @@ export default function EconomyPage() {
           />
 
           <div className={styles.toolbar}>
-            <span className={styles.searchIcon} aria-hidden>
-              <Search size={13} strokeWidth={1.6} />
+            <span className={styles.searchField}>
+              <span className={styles.searchIcon} aria-hidden>
+                <Search size={13} strokeWidth={1.6} />
+              </span>
+              <Input
+                aria-label="Search trusts"
+                placeholder="Search trusts, roles, pools, addresses"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className={styles.searchInput}
+              />
             </span>
-            <Input
-              aria-label="Search trusts"
-              placeholder="Search trusts, roles, pools, addresses"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className={styles.searchInput}
-            />
+            {activeTab === "pools" && poolKindsPresent.length > 0 && (
+              <PoolKindChips
+                kinds={poolKindsPresent}
+                value={poolKindFilter}
+                onChange={setPoolKindFilter}
+              />
+            )}
             {hasSearch && (
               <span className={styles.searchSummary}>
                 {visibleTrusts.length} trusts / {visiblePoolRows.length} pools /{" "}

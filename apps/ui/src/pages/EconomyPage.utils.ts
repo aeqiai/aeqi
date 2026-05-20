@@ -2,6 +2,22 @@ import type { Role, Trust } from "@/lib/types";
 
 export type EconomyTab = "overview" | "trusts" | "pools" | "funding" | "roles";
 
+export type PoolKind = "genesis" | "amm";
+
+export const POOL_KIND_LABEL: Record<PoolKind, string> = {
+  genesis: "Genesis curve",
+  amm: "AMM pool",
+};
+
+/** Chip-strip label for the pools kind filter. Shorter than the row label so
+ * the chip row stays calm against the table beneath it. */
+export const POOL_KIND_CHIP_LABEL: Record<PoolKind, string> = {
+  genesis: "Genesis",
+  amm: "AMM",
+};
+
+export type PoolKindFilter = "all" | PoolKind;
+
 export interface EconomyPoolSearchRow {
   trust: Trust;
   curve: string;
