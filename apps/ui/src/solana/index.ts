@@ -65,6 +65,7 @@ export {
   readProposals,
   readRoleTypes,
   readVoteRecords,
+  readAllVoteRecords,
   isGovernanceProgramDeployed,
   deriveProposalStatus,
   votingModeFor,

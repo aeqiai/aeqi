@@ -6,21 +6,14 @@
  * beyond the `CopyableMono` clipboard flash; the rest are pure
  * functions of their props.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import {
-  deriveProposalStatus,
-  findRoleTypeById,
-  isSnapshotPending,
-  isTokenModeId,
-  votingModeFor,
-} from "@/solana";
+import { findRoleTypeById, isSnapshotPending, isTokenModeId, votingModeFor } from "@/solana";
 import type {
   GovernanceConfigWithPda,
   ProposalAccount,
   ProposalStatus,
-  ProposalWithPda,
   RoleTypeWithPda,
 } from "@/solana";
 import { Badge, Button, Inline, Modal, PageSection, Stack, Tooltip } from "@/components/ui";
@@ -284,36 +277,6 @@ export function CopyableMono({ full, display }: { full: string; display: string 
       </span>
     </Tooltip>
   );
-}
-
-/* ────────────────────────────────────────────────────────────────── */
-/* KPI strip                                                           */
-/* ────────────────────────────────────────────────────────────────── */
-
-export interface KpiTileProps {
-  label: string;
-  value: number;
-  tone: "in_progress" | "in_review" | "done" | "neutral";
-  hint?: string;
-}
-
-/**
- * Headline KPI tile — used for the four-up Governance health strip
- * above the configs table. Tone drives the inset accent rail per the
- * canonical lifecycle family.
- */
-export function KpiTile({ label, value, tone, hint }: KpiTileProps) {
-  return (
-    <div className={`${styles.scope} ${styles.kpiTile}`} data-tone={tone}>
-      <span className={styles.kpiLabel}>{label}</span>
-      <span className={styles.kpiValue}>{formatInteger(value)}</span>
-      {hint ? <span className={styles.kpiHint}>{hint}</span> : null}
-    </div>
-  );
-}
-
-export function KpiGrid({ children }: { children: React.ReactNode }) {
-  return <div className={styles.kpiGrid}>{children}</div>;
 }
 
 /* ────────────────────────────────────────────────────────────────── */
@@ -590,59 +553,15 @@ export function NoProposalsYetCard({ onOpen }: { onOpen: () => void }) {
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* KPI strip                                                           */
+/* KPI strip — moved to `./QuorumPage.kpi` for the 600-line cap        */
 /* ────────────────────────────────────────────────────────────────── */
+//
+// `KpiStrip` (with the voter-turnout aggregation, sparkline, and the
+// `KpiTile` / `KpiGrid` primitives) lives in the sibling file so this
+// one stays under the line limit. Re-exported below for the parts.tsx
+// import surface so existing callers don't need to update their paths.
 
-export function KpiStrip({
-  proposals,
-  configs,
-}: {
-  proposals: ProposalWithPda[];
-  configs: GovernanceConfigWithPda[];
-}) {
-  const nowSeconds = useMemo(() => Math.floor(Date.now() / 1000), []);
-  const tally = useMemo(() => {
-    let active = 0;
-    let pending = 0;
-    let executed = 0;
-    for (const p of proposals) {
-      const status = deriveProposalStatus(p.account, nowSeconds);
-      if (status === "active") active += 1;
-      else if (status === "pending") pending += 1;
-      else if (status === "executed") executed += 1;
-    }
-    return { active, pending, executed };
-  }, [proposals, nowSeconds]);
-
-  return (
-    <KpiGrid>
-      <KpiTile
-        label="Active"
-        value={tally.active}
-        tone="in_progress"
-        hint={tally.active === 0 ? "no live votes" : "in vote window"}
-      />
-      <KpiTile
-        label="Pending"
-        value={tally.pending}
-        tone="in_review"
-        hint={tally.pending === 0 ? "none queued" : "pre-vote"}
-      />
-      <KpiTile
-        label="Executed"
-        value={tally.executed}
-        tone="done"
-        hint={tally.executed === 0 ? "none settled" : "lifetime"}
-      />
-      <KpiTile
-        label="Configs"
-        value={configs.length}
-        tone="neutral"
-        hint={configs.length === 1 ? "voting mode" : "voting modes"}
-      />
-    </KpiGrid>
-  );
-}
+export { KpiStrip, KpiTile, KpiGrid, type KpiTileProps } from "./QuorumPage.kpi";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Proposal detail modal + write affordances → `./QuorumPage.write`   */

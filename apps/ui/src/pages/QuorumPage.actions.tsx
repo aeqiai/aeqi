@@ -33,6 +33,7 @@ import {
   VOTE_CHOICE_LABEL,
   type ProposalAccount,
   type ProposalStatus,
+  type RoleAccountWithPda,
 } from "@/solana";
 import { ApiError, api } from "@/lib/api";
 import { Banner, Button, Inline, Modal, Stack, Textarea, Tooltip } from "@/components/ui";
@@ -356,12 +357,22 @@ function decodeIpfsCid(bytes: Uint8Array | number[]): DecodedCid {
  * cache invalidator fires and the modal's list/vote-history refresh
  * within one render cycle.
  */
+/**
+ * On-chain Role.status values from `aeqi_role`. The Anchor IDL stores
+ * the discriminant as a u8 — Occupied is the "actually holds a seat"
+ * state and is the only one we extend the cancel allowlist for. Vacant
+ * roles aren't bound to a signer; Resigned/Archived (future states) are
+ * audit-trail markers that shouldn't grant the affordance.
+ */
+const ROLE_STATUS_OCCUPIED = 1;
+
 export function ProposalActionBar({
   trustId,
   trustAddress,
   proposal,
   status,
   viewerCreatorAddress,
+  roles,
   onAction,
 }: {
   trustId: string;
@@ -377,6 +388,15 @@ export function ProposalActionBar({
    * stays usable on TRUSTs whose creator address isn&apos;t yet recorded.
    */
   viewerCreatorAddress: string | null;
+  /**
+   * Occupied role accounts on this TRUST. Iter-5 extends the cancel
+   * allowlist beyond the proposer-only check: if the viewer&apos;s EOA
+   * matches the `account` pubkey on any Occupied role, they also see the
+   * Cancel CTA. The on-chain ix still gates the actual signature, this
+   * is a UX gate to keep board / multisig members from being locked out
+   * of the affordance on proposals they didn&apos;t personally open.
+   */
+  roles?: RoleAccountWithPda[];
   onAction?: () => void;
 }) {
   const invalidate = useQuorumInvalidator(trustAddress);
@@ -475,24 +495,46 @@ export function ProposalActionBar({
 
   const canExecute = status === "succeeded";
 
-  // Cancel is restricted to the proposer (TRUST creator EOA). Two cases:
+  // Cancel allowlist — iter-5 extends beyond proposer-only:
   //   1. viewerCreatorAddress is null — the entity record didn&apos;t carry
   //      a creator address. Fall back to the prior permissive behaviour
   //      so the surface stays usable; tooltip on the button calls out
   //      the broader restriction.
   //   2. viewerCreatorAddress is set — compare against the proposer
-  //      pubkey on the proposal. Solana addresses are case-sensitive
-  //      base58; an exact equality check is correct.
+  //      pubkey on the proposal first. Then, if the viewer isn&apos;t the
+  //      proposer, walk Occupied roles on the TRUST and grant the
+  //      affordance if any role&apos;s `account` matches the viewer EOA.
+  //      That covers the board / multisig case from the brief: a role
+  //      holder reviewing someone else&apos;s proposal can pull it.
   //
   // This is a UX gate, not an authorization gate — the on-chain cancel
-  // ix itself enforces the proposer constraint. Hiding the button just
-  // keeps non-owners from clicking through a TBD banner that doesn&apos;t
-  // explain why their cancel would fail.
+  // ix itself enforces the signer constraint (proposer-only today; a
+  // sibling quest will add `proposal_cancel` grants on roles). Hiding
+  // the button just keeps non-aligned viewers from clicking through a
+  // TBD banner that doesn&apos;t explain why their cancel would fail.
   const proposerB58 = proposal.proposer.toBase58();
-  const isProposer = viewerCreatorAddress !== null && viewerCreatorAddress.trim() === proposerB58;
-  const ownershipKnown = viewerCreatorAddress !== null;
+  const viewer = viewerCreatorAddress?.trim() ?? null;
+  const isProposer = viewer !== null && viewer === proposerB58;
+  const holdsOccupiedRole = useMemo(() => {
+    if (viewer === null || !roles || roles.length === 0) return false;
+    for (const r of roles) {
+      if (r.account.status !== ROLE_STATUS_OCCUPIED) continue;
+      if (r.account.account.toBase58() === viewer) return true;
+    }
+    return false;
+  }, [viewer, roles]);
+  const ownershipKnown = viewer !== null;
+  const allowedSigner = isProposer || holdsOccupiedRole;
   const canCancel =
-    (status === "pending" || status === "active") && (isProposer || !ownershipKnown);
+    (status === "pending" || status === "active") && (allowedSigner || !ownershipKnown);
+  // Compose a precise tooltip so the operator knows WHY they have the
+  // affordance — a role-holder pulling someone else&apos;s proposal should
+  // see the broader rule rather than the proposer-only one.
+  const cancelTooltip = isProposer
+    ? "Cancel withdraws the proposal. The on-chain cancel ix only accepts the proposer&apos;s signature."
+    : holdsOccupiedRole
+      ? "Cancel withdraws the proposal. You hold a role on this TRUST — the proposed cancel grant lets role-holders pull proposals during pending/active."
+      : "Cancel withdraws the proposal. Restricted to the proposer or a role-holder on this TRUST.";
 
   if (!canExecute && !canCancel && !banner) return null;
 
@@ -514,13 +556,7 @@ export function ProposalActionBar({
             </Tooltip>
           ) : null}
           {canCancel ? (
-            <Tooltip
-              content={
-                isProposer
-                  ? "Cancel withdraws the proposal. The on-chain cancel ix only accepts the proposer's signature."
-                  : "Cancel withdraws the proposal. Restricted to the proposer; the on-chain ix will reject anyone else."
-              }
-            >
+            <Tooltip content={cancelTooltip}>
               <Button
                 variant="secondary"
                 size="sm"

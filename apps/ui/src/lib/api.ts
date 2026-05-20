@@ -1022,6 +1022,14 @@ export const api = {
     description: string;
     vote_duration_seconds: number;
     execution_delay_seconds: number;
+    /**
+     * Optional pre-uploaded IPFS CID. When supplied, the platform skips
+     * its own IPFS pin and writes the CID straight into the on-chain
+     * `ipfs_cid` field. Pairs with `api.ipfsUpload` so the modal can
+     * surface the pinned CID to the operator before the on-chain ix
+     * fires — they confirm what they&apos;re committing to.
+     */
+    ipfs_cid?: string;
   }) =>
     request<{
       ok: boolean;
@@ -1032,6 +1040,41 @@ export const api = {
       /** Honest TBD marker — present until the platform handler ships. */
       platform_side_tbd?: boolean;
     }>("/solana/proposal-create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Pre-upload proposal text (title + description) to IPFS and return
+   * the pinned CID. The modal calls this when the operator hits
+   * "Pin payload"; the returned CID is then shown inline and passed
+   * straight through to `proposalCreate` as `ipfs_cid` so the platform
+   * doesn&apos;t need to re-pin.
+   *
+   * Honest stub: the platform-side handler does not exist yet. The
+   * canonical endpoint is `/api/ipfs/pin-proposal`; the platform returns
+   * 404 with `endpoint_unimplemented` until shipped. Until then the
+   * modal surfaces the TBD plainly so the operator knows the pin
+   * didn&apos;t actually happen, and still lets them open the proposal
+   * (the platform will pin it server-side at create time as a fallback).
+   *
+   * The payload shape is content-first — keep it generic enough to
+   * pin any proposal-like blob (title + description + arbitrary
+   * metadata) without re-shaping when the platform ships.
+   */
+  ipfsUpload: (data: {
+    entity_id: string;
+    kind: "proposal" | "role-description" | "operating-agreement";
+    content: { title?: string; description?: string; metadata?: Record<string, unknown> };
+  }) =>
+    request<{
+      ok: boolean;
+      cid: string;
+      gateway_url: string;
+      size_bytes: number;
+      /** Honest TBD marker — present until the platform handler ships. */
+      platform_side_tbd?: boolean;
+    }>("/ipfs/pin-proposal", {
       method: "POST",
       body: JSON.stringify(data),
     }),

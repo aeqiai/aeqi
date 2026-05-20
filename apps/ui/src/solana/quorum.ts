@@ -347,3 +347,34 @@ export async function readVoteRecords(
     account: r.account as VoteRecordAccount,
   }));
 }
+
+/**
+ * List every VoteRecord ever cast against this TRUST — no proposalId
+ * filter. Used by the KPI strip's "voter turnout" tile to compute unique
+ * voters across recent proposals without N round-trips. Same memcmp on
+ * offset 8 as the proposal/config readers; one `getProgramAccounts` call.
+ *
+ * On a TRUST with thousands of historical votes this is heavier than the
+ * single-proposal reader, but the KPI strip is small and cached at the
+ * same 30s staleness as the proposal list, so the page-load cost stays
+ * bounded. For larger TRUSTs the platform indexer eventually owns this
+ * aggregate; until then the direct RPC read keeps the surface honest.
+ */
+export async function readAllVoteRecords(
+  trustPda: string | PublicKey,
+): Promise<VoteRecordWithPda[]> {
+  const program = getGovernanceProgram();
+  const pda = typeof trustPda === "string" ? new PublicKey(trustPda) : trustPda;
+  const results = await program.account.voteRecord.all([
+    {
+      memcmp: {
+        offset: 8,
+        bytes: pda.toBase58(),
+      },
+    },
+  ]);
+  return results.map((r) => ({
+    publicKey: r.publicKey,
+    account: r.account as VoteRecordAccount,
+  }));
+}

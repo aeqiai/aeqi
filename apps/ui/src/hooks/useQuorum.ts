@@ -14,12 +14,16 @@ import { useQuery } from "@tanstack/react-query";
 
 import {
   isGovernanceProgramDeployed,
+  readAllVoteRecords,
   readGovernanceConfigs,
   readProposals,
   readRoleTypes,
+  readRoles,
   type GovernanceConfigWithPda,
   type ProposalWithPda,
+  type RoleAccountWithPda,
   type RoleTypeWithPda,
+  type VoteRecordWithPda,
 } from "@/solana";
 
 const STALE_TIME_MS = 30_000;
@@ -32,6 +36,21 @@ export interface UseQuorumResult {
   configs: GovernanceConfigWithPda[] | undefined;
   proposals: ProposalWithPda[] | undefined;
   roleTypes: RoleTypeWithPda[] | undefined;
+  /**
+   * Occupied role accounts on the TRUST. Used by the proposal action bar
+   * to extend the cancel-eligibility check beyond just the TRUST creator
+   * EOA — anyone holding an occupied role can also see the Cancel CTA
+   * (the on-chain ix still enforces signer constraints, this is the UX
+   * gate so non-empty boards aren't locked out of the affordance).
+   */
+  roles: RoleAccountWithPda[] | undefined;
+  /**
+   * Every VoteRecord ever cast against this TRUST. Used by the KPI strip
+   * to compute "voter turnout" without N round-trips. Soft-failed to
+   * `[]` so the KPI tile degrades gracefully on TRUSTs whose vote-record
+   * scan times out.
+   */
+  voteRecords: VoteRecordWithPda[] | undefined;
   /**
    * `true` when the `aeqi_governance` program is deployed on the active
    * cluster. `false` when the cluster is reachable but the program has
@@ -98,10 +117,44 @@ export function useQuorum(trustAddress: string | null | undefined): UseQuorumRes
     staleTime: STALE_TIME_MS,
   });
 
+  // Roles + all vote-records are auxiliary reads. Both are soft-failed
+  // because a TRUST that hasn't adopted `aeqi_role` or has never opened a
+  // proposal would otherwise throw on a missing program / empty scan and
+  // poison the whole `error` slot. They're not gating the page load —
+  // missing data just means the KPI tile shows "—" and the cancel CTA
+  // falls back to its prior (proposer-only) behaviour.
+  const rolesQuery = useQuery({
+    queryKey: ["quorum", "roles", trustAddress ?? null],
+    queryFn: async () => {
+      try {
+        return await readRoles(trustAddress as string);
+      } catch {
+        return [];
+      }
+    },
+    enabled: enabled && programReady,
+    staleTime: STALE_TIME_MS,
+  });
+
+  const voteRecordsQuery = useQuery({
+    queryKey: ["quorum", "allVoteRecords", trustAddress ?? null],
+    queryFn: async () => {
+      try {
+        return await readAllVoteRecords(trustAddress as string);
+      } catch {
+        return [];
+      }
+    },
+    enabled: enabled && programReady,
+    staleTime: STALE_TIME_MS,
+  });
+
   return {
     configs: configsQuery.data,
     proposals: proposalsQuery.data,
     roleTypes: roleTypesQuery.data,
+    roles: rolesQuery.data,
+    voteRecords: voteRecordsQuery.data,
     programDeployed: programQuery.data,
     isLoading:
       enabled &&
