@@ -189,6 +189,20 @@
   stroke-dasharray: 6 5;
   opacity: 1;
 }
+/* Mid-line label — paper-coloured pill so the dashed stroke visibly
+   threads through. The line goes from "governance hierarchy hint" to
+   "delegates execution" semantically; without the label the relation
+   is implied, with it it's explicit. */
+.roles-chart-cross-edge-label-bg {
+  fill: var(--color-card);
+}
+.roles-chart-cross-edge-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  fill: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
 
 /* Zoom controls — bottom-right corner overlay. */
 .roles-chart-controls {

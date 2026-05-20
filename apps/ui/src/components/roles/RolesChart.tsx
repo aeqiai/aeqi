@@ -170,9 +170,36 @@ export default function RolesChart({
             aria-hidden
           >
             {crossConnectors.map((c, i) => {
+              const midX = (c.x1 + c.x2) / 2;
               const midY = (c.y1 + c.y2) / 2;
               const d = `M ${c.x1} ${c.y1} C ${c.x1} ${midY}, ${c.x2} ${midY}, ${c.x2} ${c.y2}`;
-              return <path key={i} d={d} className="roles-chart-cross-edge-path" />;
+              return (
+                <g key={i}>
+                  <path d={d} className="roles-chart-cross-edge-path" />
+                  {/* Label rendered as a paper-coloured pill in the middle
+                     of the line so the dashed stroke visibly threads
+                     through it. Encodes what the line MEANS — without
+                     the label, a director→operator line is just a
+                     visual hierarchy hint; with it, the line says
+                     "delegates execution". */}
+                  <rect
+                    x={midX - 64}
+                    y={midY - 8}
+                    width={128}
+                    height={16}
+                    rx={8}
+                    className="roles-chart-cross-edge-label-bg"
+                  />
+                  <text
+                    x={midX}
+                    y={midY + 3}
+                    className="roles-chart-cross-edge-label"
+                    textAnchor="middle"
+                  >
+                    delegates execution
+                  </text>
+                </g>
+              );
             })}
           </svg>
         )}
