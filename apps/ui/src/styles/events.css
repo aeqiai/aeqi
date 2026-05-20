@@ -363,7 +363,7 @@
 .events-overview-group-head {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 .events-overview-group-dot {
   width: 8px;
@@ -372,24 +372,44 @@
   background: var(--color-accent);
   flex-shrink: 0;
 }
+/* Section-header register — match `.quest-col-label` so the events page
+   reads in the same vocabulary as the Quests board. Sentence-case +
+   13.5px / 620 / -0.01em / primary, NOT the tiny UPPERCASE eyebrow it
+   used to be. The eyebrow register stays reserved for sidebar group
+   titles ("TRUST", "OPERATIONS") — section-level groupings get the
+   firmer Quests register. */
 .events-overview-group-label {
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
 }
 /* No hairline rule — separation is carried by the spacing-gap between
    groups (26px) and the tier shift of the rows that follow. */
 .events-overview-group-rule {
   flex: 1;
 }
+/* Count pill — port of `.quest-col-count` register so the section header
+   anchors the same way: dot · label · count · hint. Mono tabular-nums,
+   subtle ground, fixed slot. */
 .events-overview-group-count {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
 }
 .events-overview-list {
   list-style: none;

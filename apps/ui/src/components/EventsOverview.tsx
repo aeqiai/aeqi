@@ -94,9 +94,9 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
           <header className="events-overview-group-head">
             <span className={`events-overview-group-dot events-overview-tone-${group}`} />
             <span className="events-overview-group-label">{LIFECYCLE_LABEL[group]}</span>
+            <span className="events-overview-group-count">{list.length}</span>
             <span className="events-overview-group-hint">{LIFECYCLE_HINT[group]}</span>
             <span className="events-overview-group-rule" />
-            <span className="events-overview-group-count">{list.length}</span>
           </header>
           <ul className="events-overview-list" role="list">
             {list.map((ev) => (
