@@ -85,6 +85,17 @@ const TONE_TO_DOT: Record<RegistryTone, string> = {
   settled: "done",
 };
 
+export type MetricStatusState = "backlog" | "in_progress" | "in_review" | "done";
+
+export function MetricStatus({ state, label }: { state: MetricStatusState; label: string }) {
+  return (
+    <span className={styles.metricStatus}>
+      <span className={`quest-status-dot quest-status-dot--${state}`} aria-hidden />
+      <span className={styles.metricStatusLabel}>{label}</span>
+    </span>
+  );
+}
+
 function registryToneLabel(tone: RegistryTone, value: number): string {
   if (value === 0) {
     if (tone === "live") return "No live offers";

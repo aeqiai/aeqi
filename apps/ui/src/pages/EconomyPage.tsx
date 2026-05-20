@@ -22,7 +22,7 @@ import { entityBasePath } from "@/lib/entityPath";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
 import type { Role, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
-import { RegistryCard, TrustDirectory } from "./EconomyPage.parts";
+import { MetricStatus, RegistryCard, TrustDirectory } from "./EconomyPage.parts";
 import {
   compactAddress,
   ECONOMY_TABS,
@@ -411,26 +411,53 @@ export default function EconomyPage() {
               label="Visible Trusts"
               value={entitiesLoading ? "—" : entities.length}
               detail={
-                hasSearch ? `${visibleTrusts.length} matching` : `${publicTrusts.length} public`
+                hasSearch ? (
+                  <MetricStatus state="in_progress" label={`${visibleTrusts.length} matching`} />
+                ) : publicTrusts.length > 0 ? (
+                  <MetricStatus state="done" label={`${publicTrusts.length} public`} />
+                ) : (
+                  <MetricStatus state="backlog" label="No public trusts" />
+                )
               }
             />
             <MetricCard
               label="On-Chain"
               value={onChainTrusts.length}
-              detail="TRUST address present"
+              detail={
+                onChainTrusts.length > 0 ? (
+                  <MetricStatus state="done" label="TRUST address present" />
+                ) : (
+                  <MetricStatus state="backlog" label="No TRUST address" />
+                )
+              }
             />
             <MetricCard
               label="Liquidity Pools"
               value={poolRows.length}
-              detail={hasSearch ? `${visiblePoolRows.length} matching` : "Indexed genesis curves"}
+              detail={
+                hasSearch ? (
+                  <MetricStatus state="in_progress" label={`${visiblePoolRows.length} matching`} />
+                ) : poolRows.length > 0 ? (
+                  <MetricStatus state="in_progress" label="Indexed genesis curves" />
+                ) : (
+                  <MetricStatus state="backlog" label="No indexed pools" />
+                )
+              }
             />
             <MetricCard
               label="Open Roles"
               value={roleOpenings.length}
               detail={
-                hasSearch
-                  ? `${visibleRoleOpenings.length} matching`
-                  : `${allRoles.length} total roles`
+                hasSearch ? (
+                  <MetricStatus
+                    state="in_progress"
+                    label={`${visibleRoleOpenings.length} matching`}
+                  />
+                ) : roleOpenings.length > 0 ? (
+                  <MetricStatus state="in_review" label={`${allRoles.length} total roles`} />
+                ) : (
+                  <MetricStatus state="backlog" label={`${allRoles.length} total roles`} />
+                )
               }
             />
           </MetricGrid>
