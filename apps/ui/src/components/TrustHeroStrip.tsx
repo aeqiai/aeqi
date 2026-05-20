@@ -112,13 +112,13 @@ export default function TrustHeroStrip({
 
   return (
     <header
-      className={`trust-hero${aside ? " trust-hero--split" : ""}`}
+      className={`trust-hero${aside ? " trust-hero--with-bar" : ""}`}
       aria-label="Trust identity"
     >
       <img src="/welcome/start-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
       <div className="trust-hero-identity">
         <div className="trust-hero-avatar" aria-hidden>
-          <BlockAvatar name={name} size={104} />
+          <BlockAvatar name={name} size={144} />
         </div>
 
         <div className="trust-hero-body">
@@ -193,7 +193,7 @@ export default function TrustHeroStrip({
         </div>
       </div>
 
-      {aside && <aside className="trust-hero-aside">{aside}</aside>}
+      {aside && <div className="trust-hero-footer">{aside}</div>}
     </header>
   );
 }

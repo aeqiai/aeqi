@@ -54,23 +54,27 @@
    optional aside slot on the right (TrustHeroOverview). When the
    aside is absent (public-profile read) the identity span the full
    width. */
+/* Trust hero — photo-backed card. Column layout: identity on top
+   (avatar + name + tagline taking the full breathing room), subtle
+   inset bar pinned at the bottom carrying runtime + on-chain
+   summary. Avatar bumped to 144px so the trust feels present, not
+   tokenized. */
 .trust-hero {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: space-between;
   gap: var(--space-5);
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-6);
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
   min-width: 0;
-  min-height: 200px;
+  min-height: 260px;
   overflow: hidden;
 }
-.trust-hero--split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
-  gap: var(--space-6);
-  align-items: center;
+.trust-hero--with-bar {
+  /* keeps the column layout — the footer pins to the bottom of the
+     card via `justify-content: space-between` above. */
 }
 .trust-hero-image {
   position: absolute;
@@ -98,8 +102,8 @@
   z-index: 1;
 }
 .trust-hero-avatar {
-  width: 104px;
-  height: 104px;
+  width: 144px;
+  height: 144px;
   border-radius: var(--radius-md);
   background: var(--color-card-muted);
   display: flex;
@@ -208,106 +212,94 @@
   accent-color: var(--color-accent);
 }
 
-/* ── Trust hero aside (right-side overview panel) ─────────────────── */
+/* ── Trust hero footer bar (subtle inset, sits at the card bottom) ── */
 
-/* Consolidated Execution + Ownership summary that lives inside the
-   hero card. Two rows separated by a hairline. Each row carries an
-   eyebrow + headline + meta line. Address / CTA / dot all live here
-   so the bars below can stay as bare card grids. */
-.trust-hero-aside {
-  display: flex;
+/* Consolidated runtime + on-chain identity summary that sits inside
+   the hero card at the bottom. White inset bar with two columns:
+   LEFT  — state dot + runtime label + agent count + open arrow.
+   RIGHT — Solana mark + TRUST address (copy) + signers + roles.
+   Subtler than v4's right-sided panel so the avatar + name carry
+   the visual weight; the bar reads as "specs at a glance". */
+.trust-hero-footer {
   position: relative;
   z-index: 1;
-  min-width: 0;
-}
-.trust-hero-overview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
   width: 100%;
-  padding: var(--space-4) var(--space-5);
+}
+.trust-hero-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding: 10px 14px;
   background: var(--color-card-elevated);
-  border-radius: var(--radius-md);
-}
-.trust-hero-overview-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.trust-hero-overview-eyebrow {
+  border-radius: 999px;
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
-.trust-hero-overview-line {
-  display: flex;
+.trust-hero-bar-left,
+.trust-hero-bar-right {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex-wrap: wrap;
 }
-.trust-hero-overview-dot {
+.trust-hero-bar-dot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
   flex-shrink: 0;
   background: var(--color-text-muted);
 }
-.trust-hero-overview-dot[data-tone="live"] {
+.trust-hero-bar-dot[data-tone="live"] {
   background: var(--color-warmth);
   box-shadow: 0 0 0 3px var(--color-warmth-bg);
 }
-.trust-hero-overview-dot[data-tone="provisioning"] {
+.trust-hero-bar-dot[data-tone="provisioning"] {
   background: var(--color-warmth);
   animation: trust-pulse 1.6s ease-in-out infinite;
 }
-.trust-hero-overview-dot[data-tone="static"] {
+.trust-hero-bar-dot[data-tone="static"] {
   background: var(--color-text-muted);
 }
-.trust-hero-overview-headline {
-  font-family: var(--font-display);
-  font-size: var(--font-size-md);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+.trust-hero-bar-headline {
+  font-weight: 600;
   color: var(--color-text-primary);
 }
-.trust-hero-overview-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
+.trust-hero-bar-text {
   color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
-.trust-hero-overview-sep {
+.trust-hero-bar-sep {
   color: var(--color-text-muted);
   opacity: 0.5;
 }
-.trust-hero-overview-status {
-  color: var(--color-text-secondary);
-}
-.trust-hero-overview-cta {
+.trust-hero-bar-cta {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin-left: auto;
   color: var(--color-accent);
   text-decoration: none;
   font-weight: 500;
   transition: color 0.12s ease;
 }
-.trust-hero-overview-cta:hover {
+.trust-hero-bar-cta:hover {
   text-decoration: underline;
 }
-.trust-hero-overview-addr {
+.trust-hero-bar-solana {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.trust-hero-bar-addr {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 3px 10px;
   background: var(--color-card-muted);
   border: 0;
   border-radius: 999px;
@@ -316,21 +308,37 @@
   color: var(--color-text-primary);
   cursor: pointer;
   transition: background 0.12s ease;
-  align-self: flex-start;
 }
-.trust-hero-overview-addr:hover {
+.trust-hero-bar-addr:hover {
   background: var(--color-card-subtle);
 }
-.trust-hero-overview-addr:focus-visible {
+.trust-hero-bar-addr:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
-.trust-hero-overview-addr span {
+.trust-hero-bar-addr span {
   font-variant-numeric: tabular-nums;
 }
-/* No divider element between rows — use the row gap (`gap: var(--space-3)`
-   on `.trust-hero-overview`) plus the eyebrows to do the grouping work.
-   `.impeccable.md` bans 1px hairline separators on this surface. */
+
+/* ── Section heading (above each 4-card row) ──────────────────────── */
+
+/* Quiet display title sitting top-left above each primitive-card row.
+   Replaces the v4 "Programmable execution" / "Programmable ownership"
+   header bars. Just "Execution" and "Ownership" — the row of cards
+   under the title carries the rest of the story. */
+.trust-overview-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.trust-overview-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+}
 
 /* ── Group (Execution / Ownership) ────────────────────────────────── */
 
@@ -549,15 +557,22 @@
 
 /* ── Public row (Updates + Data Room) ─────────────────────────────── */
 
+/* Public row — Updates + Data Room. Both cards stretch to fill the
+   row's height (align-items: stretch via grid default) and the row
+   itself flexes within the page column so they grow to fill the rest
+   of the viewport. They're live, not coming-soon — empty states say
+   "nothing posted yet" not "feature pending". */
 .trust-public-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+  flex: 1;
+  min-height: 320px;
 }
 .trust-public-card {
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-6);
-  min-height: 200px;
+  height: 100%;
 }
 .trust-public-head {
   display: flex;
@@ -605,37 +620,41 @@
   gap: var(--space-2);
   flex: 1;
 }
-.trust-public-lede {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-md);
-  font-weight: 400;
-  line-height: 1.4;
-  color: var(--color-text-primary);
-}
-.trust-public-aside {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-.trust-public-foot {
-  display: flex;
+/* Empty state — the surface is live, just unpopulated. Quiet icon
+   + headline + hint, centered vertically so the card reads as "ready
+   for content" rather than "broken / placeholder". */
+.trust-public-body--empty {
   align-items: center;
-  margin-top: auto;
-  padding-top: var(--space-2);
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-4) 0;
 }
-.trust-public-cta {
+.trust-public-empty-icon {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--color-card-muted);
+  color: var(--color-text-secondary);
+}
+.trust-public-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+.trust-public-empty-hint {
+  margin: 0;
+  max-width: 320px;
   font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--color-warmth);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
@@ -652,24 +671,24 @@
     gap: var(--space-5);
   }
   .trust-hero {
-    flex-direction: column;
-    align-items: flex-start;
     padding: var(--space-5);
-  }
-  .trust-hero--split {
-    grid-template-columns: 1fr;
+    min-height: 220px;
   }
   .trust-hero-identity {
-    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
   }
   .trust-hero-avatar {
-    width: 80px;
-    height: 80px;
+    width: 96px;
+    height: 96px;
   }
   .trust-hero-name,
   .trust-hero-name--button,
   .trust-hero-name-input {
     font-size: 26px;
+  }
+  .trust-hero-bar {
+    border-radius: var(--radius-lg);
   }
   .trust-group-bar {
     flex-wrap: wrap;

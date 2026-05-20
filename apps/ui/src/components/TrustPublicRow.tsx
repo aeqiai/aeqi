@@ -1,44 +1,35 @@
-import { Megaphone, FolderOpen, ArrowUpRight } from "lucide-react";
+import { Megaphone, FolderOpen, FileText, MessagesSquare } from "lucide-react";
 
 /**
- * Bottom half-half row for the Trust overview:
- *   · Updates — public timeline (milestones, releases, posts)
- *   · Data Room — public documents (pitch deck, agreements, videos)
+ * Bottom half/half row for the Trust overview: Updates + Data Room.
  *
- * Both surfaces are public-facing — the visitor on /trust/<addr> sees
- * the same thing as the operator viewing /trust/<addr>/overview. This
- * is the TRUST's storefront half of the page: how the world reads it.
+ * Reframed 2026-05-20: dropped the "Public" eyebrow and the "Coming
+ * soon" CTA. Both surfaces are live — they're just empty until the
+ * TRUST posts an update or uploads a document. The empty states now
+ * read as "live, not yet populated" instead of "feature not built".
  *
- * Currently rendered as opt-in placeholder cards. When the backend
- * lands (posts feed, document store), wire data into the inner lists.
+ * Each card flexes to fill the row's height so the surface reads as
+ * a real workspace, not a stub block.
  */
 export default function TrustPublicRow() {
   return (
-    <section className="trust-public-row" aria-label="Public surface">
+    <section className="trust-public-row" aria-label="Updates and Data Room">
       <article className="trust-card trust-public-card">
         <header className="trust-public-head">
           <span className="trust-public-icon" aria-hidden>
             <Megaphone size={16} strokeWidth={1.5} />
           </span>
-          <div className="trust-public-titles">
-            <p className="trust-public-eyebrow">Public</p>
-            <h3 className="trust-public-title">Updates</h3>
-          </div>
+          <h3 className="trust-public-title">Updates</h3>
         </header>
-        <div className="trust-public-body">
-          <p className="trust-public-lede">
-            Milestones, releases, and decisions worth telling the world.
-          </p>
-          <p className="trust-public-aside">
-            The TRUST's public timeline — everything visitors see when they land on this profile.
+        <div className="trust-public-body trust-public-body--empty">
+          <span className="trust-public-empty-icon" aria-hidden>
+            <MessagesSquare size={28} strokeWidth={1.3} />
+          </span>
+          <p className="trust-public-empty-title">Nothing posted yet.</p>
+          <p className="trust-public-empty-hint">
+            Milestones, releases, and decisions worth telling the world show up here.
           </p>
         </div>
-        <footer className="trust-public-foot">
-          <span className="trust-public-cta">
-            Coming soon
-            <ArrowUpRight size={12} strokeWidth={1.8} />
-          </span>
-        </footer>
       </article>
 
       <article className="trust-card trust-public-card">
@@ -46,25 +37,17 @@ export default function TrustPublicRow() {
           <span className="trust-public-icon" aria-hidden>
             <FolderOpen size={16} strokeWidth={1.5} />
           </span>
-          <div className="trust-public-titles">
-            <p className="trust-public-eyebrow">Public</p>
-            <h3 className="trust-public-title">Data room</h3>
-          </div>
+          <h3 className="trust-public-title">Data room</h3>
         </header>
-        <div className="trust-public-body">
-          <p className="trust-public-lede">
-            Documents, pitch deck, videos — what stakeholders need to look at this TRUST seriously.
-          </p>
-          <p className="trust-public-aside">
-            One canonical drop for anything that should outlive a conversation.
+        <div className="trust-public-body trust-public-body--empty">
+          <span className="trust-public-empty-icon" aria-hidden>
+            <FileText size={28} strokeWidth={1.3} />
+          </span>
+          <p className="trust-public-empty-title">No documents yet.</p>
+          <p className="trust-public-empty-hint">
+            Pitch deck, agreements, videos — anything stakeholders need.
           </p>
         </div>
-        <footer className="trust-public-foot">
-          <span className="trust-public-cta">
-            Coming soon
-            <ArrowUpRight size={12} strokeWidth={1.8} />
-          </span>
-        </footer>
       </article>
     </section>
   );

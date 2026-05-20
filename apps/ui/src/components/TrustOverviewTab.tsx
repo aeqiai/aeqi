@@ -48,8 +48,14 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
           <TrustHeroOverview trustId={trustId} basePath={basePath} trustAddress={trustAddress} />
         }
       />
-      <TrustExecutionGroup trustId={trustId} basePath={basePath} />
-      <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
+      <section className="trust-overview-section">
+        <h2 className="trust-overview-section-title">Execution</h2>
+        <TrustExecutionGroup trustId={trustId} basePath={basePath} />
+      </section>
+      <section className="trust-overview-section">
+        <h2 className="trust-overview-section-title">Ownership</h2>
+        <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
+      </section>
       <TrustPublicRow />
     </div>
   );
