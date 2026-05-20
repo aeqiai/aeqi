@@ -15,6 +15,7 @@ pub(crate) mod mcp;
 pub(crate) mod monitor;
 pub(crate) mod operation;
 pub(crate) mod pipeline;
+pub(crate) mod preflight;
 pub(crate) mod primer;
 pub(crate) mod prompt;
 pub(crate) mod quests;

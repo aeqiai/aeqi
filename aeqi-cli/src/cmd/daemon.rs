@@ -21,6 +21,17 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
         DaemonAction::Start => {
             let (mut config, _) = load_config_with_agents(config_path)?;
 
+            // ── Boot pre-flight (SA37, AEQI idea 08c226f3) ──
+            //
+            // `AEQIConfig::validate()` used to run only from `aeqi
+            // doctor`, which meant a misconfigured runtime would boot
+            // and surface its problems hours later through degraded
+            // sessions. Run it here, before any DB / registry / wallet
+            // init touches disk, plus a minimal env-var presence check
+            // (~<1ms total). Both checks are fatal — half-configured
+            // boots cost more in lost time than the operator pause.
+            super::preflight::run_boot_preflight(&config)?;
+
             // Check if already running.
             // In sandboxed environments (bwrap --unshare-pid), PID namespace
             // isolation means /proc/{pid} always exists for PID 1. Detect
