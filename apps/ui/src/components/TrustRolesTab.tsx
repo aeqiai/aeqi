@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Mail, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
-import { entityPathFromId } from "@/lib/entityPath";
+import { useAuthStore } from "@/store/auth";
+import { entityPathFromId, entityBasePath } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import { Button, EmptyState, Loading, Tooltip } from "./ui";
+import { Button, EmptyState, Loading } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
 import RolesSortPopover from "./roles/RolesSortPopover";
 import RolesFilterPopover from "./roles/RolesFilterPopover";
 import RolesViewPopover from "./roles/RolesViewPopover";
+import RoleInspector from "./roles/RoleInspector";
 import {
   type OccupantFilter,
   type RolesFilterState,
@@ -23,18 +26,18 @@ import {
 const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
 
 /**
- * Roles — the company org-chart surface.
+ * Roles — the trust's authority graph.
  *
- * Hero is the layered DAG (`view=chart`, default). `view=cards` and
- * `view=list` are alternates for dense overviews. Toolbar grammar
- * mirrors Ideas: search · sort · filter · view · + new. State persists
- * in URL search params so a tab switch round-trip preserves the frame.
+ * v2 composition (2026-05-20, "canonical" pass):
+ *   1. Page header (h1 "Roles" + subtitle) + two CTAs (+ Invite, + Role)
+ *   2. Snapshot strip — total / founders / operational / vacant
+ *   3. Toolbar — search + sort + filter + view (chart | cards | list)
+ *   4. Content row — graph on the left, RoleInspector on the right
+ *      (always-rendered; default selection = viewer's own role, fallback
+ *      to a founder if the viewer holds no role)
  *
- * Roles are seeded automatically when an entity is spawned from a
- * Blueprint — every seeded agent gets a fresh role, and every
- * delegation edge becomes a role edge. The "+ New role" affordance
- * appends additional slots (vacant or occupied) inside the entity's
- * DAG.
+ * Selection state lives in the URL (`?role=<id>`) so a tab-switch
+ * round-trip preserves the focused role.
  */
 export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +46,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const sort = parseSort(searchParams.get("sort"));
   const occupantFilter = parseOccupantFilter(searchParams.get("occupant"));
   const search = searchParams.get("q") ?? "";
+  const selectedRoleId = searchParams.get("role");
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
@@ -51,6 +55,10 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   const agents = useDaemonStore((s) => s.agents);
   const entities = useDaemonStore((s) => s.entities);
+  const user = useAuthStore((s) => s.user);
+  const entity = entities.find((e) => e.id === trustId);
+  const basePath = entity ? entityBasePath(entity) : "/launch";
+
   const agentNames = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of agents) m.set(a.id, a.name);
@@ -63,6 +71,11 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     }
     return m;
   }, [agents]);
+  const rolesById = useMemo(() => {
+    const m = new Map<string, Role>();
+    for (const r of roles) m.set(r.id, r);
+    return m;
+  }, [roles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +142,31 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
+  const setSelectedRole = useCallback(
+    (id: string) =>
+      patchParams((p) => {
+        p.set("role", id);
+      }),
+    [patchParams],
+  );
+
+  // Snapshot counts. Founders are a distinct beat from role_type
+  // because a role can be Director AND a founder; the AEQI model flags
+  // founder separately so the on-chain board count stays honest.
+  const snapshot = useMemo(() => {
+    let total = 0;
+    let founders = 0;
+    let operational = 0;
+    let vacant = 0;
+    for (const r of roles) {
+      total += 1;
+      if (r.founder) founders += 1;
+      else if (r.role_type === "operational") operational += 1;
+      if (r.occupant_kind === "vacant") vacant += 1;
+    }
+    return { total, founders, operational, vacant };
+  }, [roles]);
+
   const occupantCounts = useMemo(() => {
     const counts: Record<OccupantFilter, number> = { all: 0, agent: 0, human: 0, vacant: 0 };
     for (const r of roles) {
@@ -179,18 +217,78 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [edges, filteredIds],
   );
 
+  // Default selection: the viewer's own role (occupant_kind=human +
+  // occupant_id matches user.id) — if none, a founder — if none,
+  // the first role. Encoded in the URL so refresh preserves the
+  // selection across loads.
+  const defaultSelectedRole = useMemo(() => {
+    if (roles.length === 0) return null;
+    const userId = user?.id;
+    if (userId) {
+      const own = roles.find((r) => r.occupant_kind === "human" && r.occupant_id === userId);
+      if (own) return own;
+    }
+    const founder = roles.find((r) => r.founder);
+    if (founder) return founder;
+    return roles[0];
+  }, [roles, user?.id]);
+
+  const selectedRole = useMemo(() => {
+    if (selectedRoleId) {
+      const found = rolesById.get(selectedRoleId);
+      if (found) return found;
+    }
+    return defaultSelectedRole;
+  }, [selectedRoleId, rolesById, defaultSelectedRole]);
+
   const handleSelectRole = useCallback(
     (role: Role) => {
-      navigate(entityPathFromId(entities, trustId, "roles", encodeURIComponent(role.id)));
+      setSelectedRole(role.id);
     },
-    [navigate, trustId, entities],
+    [setSelectedRole],
   );
 
   const showEmpty = !loading && !error && roles.length === 0;
   const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div className="trust-roles">
+      <header className="trust-roles-header">
+        <div className="trust-roles-header-titles">
+          <h1 className="trust-roles-title">Roles</h1>
+          <p className="trust-roles-subtitle">Authority for this Trust.</p>
+        </div>
+        <div className="trust-roles-header-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
+            leadingIcon={<Mail size={13} strokeWidth={1.6} />}
+          >
+            Invite
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+          >
+            Role
+          </Button>
+        </div>
+      </header>
+
+      <section className="trust-roles-snapshot" aria-label="Snapshot">
+        <SnapshotStat label="Roles" value={snapshot.total} />
+        <SnapshotStat label="Founders" value={snapshot.founders} />
+        <SnapshotStat label="Operational" value={snapshot.operational} />
+        <SnapshotStat
+          label="Vacant"
+          value={snapshot.vacant}
+          tone={snapshot.vacant > 0 ? "warmth" : undefined}
+        />
+      </section>
+
       <div className="ideas-list-head">
         <div className="ideas-toolbar">
           <span className="ideas-list-search-field">
@@ -236,87 +334,100 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             onChange={setFilter}
           />
           <RolesViewPopover view={view} onChange={setView} />
-          <Tooltip content="New role">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-              leadingIcon={
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M6.5 2.5v8M2.5 6.5h8" />
-                </svg>
-              }
-            >
-              New
-            </Button>
-          </Tooltip>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        {loading && <RolesLoading />}
-        {error && <RolesError message={error} />}
-        {showEmpty && <RolesEmptyState />}
-        {showNoMatch && <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />}
-        {!loading && !error && filtered.length > 0 && view === "chart" && (
-          <RolesChart
-            roles={filtered}
-            edges={filteredEdges}
-            agentNames={agentNames}
-            agentAvatars={agentAvatars}
-            onSelectRole={handleSelectRole}
-          />
-        )}
-        {!loading && !error && filtered.length > 0 && view === "cards" && (
-          <div style={{ flex: 1, overflow: "auto" }}>
-            <RolesCards
-              roles={filtered}
-              agentNames={agentNames}
-              agentAvatars={agentAvatars}
-              onSelectRole={handleSelectRole}
-            />
-          </div>
-        )}
-        {!loading && !error && filtered.length > 0 && view === "list" && (
-          <div style={{ flex: 1, overflow: "auto" }}>
-            <RolesList
+      <div className="trust-roles-content">
+        <div className="trust-roles-canvas">
+          {loading && <RolesLoading />}
+          {error && <RolesError message={error} />}
+          {showEmpty && <RolesEmptyState />}
+          {showNoMatch && (
+            <RolesNoMatch onReset={() => setFilter({ search: "", occupant: "all" })} />
+          )}
+          {!loading && !error && filtered.length > 0 && view === "chart" && (
+            <RolesChart
               roles={filtered}
               edges={filteredEdges}
               agentNames={agentNames}
               agentAvatars={agentAvatars}
               onSelectRole={handleSelectRole}
             />
-          </div>
+          )}
+          {!loading && !error && filtered.length > 0 && view === "cards" && (
+            <div className="trust-roles-scroll">
+              <RolesCards
+                roles={filtered}
+                agentNames={agentNames}
+                agentAvatars={agentAvatars}
+                onSelectRole={handleSelectRole}
+              />
+            </div>
+          )}
+          {!loading && !error && filtered.length > 0 && view === "list" && (
+            <div className="trust-roles-scroll">
+              <RolesList
+                roles={filtered}
+                edges={filteredEdges}
+                agentNames={agentNames}
+                agentAvatars={agentAvatars}
+                onSelectRole={handleSelectRole}
+              />
+            </div>
+          )}
+        </div>
+        {selectedRole && (
+          <RoleInspector
+            role={selectedRole}
+            edges={edges}
+            rolesById={rolesById}
+            trustId={trustId}
+            basePath={basePath}
+          />
         )}
       </div>
     </div>
   );
 }
 
+interface SnapshotStatProps {
+  label: string;
+  value: number;
+  tone?: "warmth";
+}
+
+function SnapshotStat({ label, value, tone }: SnapshotStatProps) {
+  return (
+    <div className="trust-roles-snapshot-stat">
+      <span
+        className={
+          tone === "warmth"
+            ? "trust-roles-snapshot-value trust-roles-snapshot-value--warmth"
+            : "trust-roles-snapshot-value"
+        }
+      >
+        {value}
+      </span>
+      <span className="trust-roles-snapshot-label">{label}</span>
+    </div>
+  );
+}
+
 function RolesLoading() {
   return (
-    <div style={{ padding: "24px 28px", color: "var(--color-text-muted)" }}>
+    <div className="trust-roles-state">
       <Loading size="sm" /> Loading roles…
     </div>
   );
 }
 
 function RolesError({ message }: { message: string }) {
-  return <div style={{ padding: "24px 28px", color: "var(--color-error)" }}>{message}</div>;
+  return <div className="trust-roles-state trust-roles-state--error">{message}</div>;
 }
 
 function RolesEmptyState() {
   return (
-    <div style={{ padding: "48px 28px" }}>
+    <div className="trust-roles-state">
       <EmptyState
         title="No roles yet"
         description="Roles appear automatically when this entity has agents. They'll show up here as soon as the Blueprint finishes seeding."
@@ -327,7 +438,7 @@ function RolesEmptyState() {
 
 function RolesNoMatch({ onReset }: { onReset: () => void }) {
   return (
-    <div style={{ padding: "48px 28px" }}>
+    <div className="trust-roles-state">
       <EmptyState
         title="No roles match these filters."
         description="Widen the search or clear the occupant filter to bring rows back."

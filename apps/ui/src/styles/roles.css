@@ -224,3 +224,337 @@
 .agents-list {
   padding: 0 24px 24px;
 }
+
+/* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
+ * Header + snapshot + content row with inspector. The toolbar above
+ * the content uses the shared `.ideas-list-head` grammar so the page
+ * matches Ideas/Quests rhythm. */
+
+.trust-roles {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) 0;
+}
+.trust-roles-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.trust-roles-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.trust-roles-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+.trust-roles-subtitle {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.trust-roles-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Snapshot — single horizontal row of stat cells separated by quiet
+   spacing. Lighter than a grouped card; reads as a strip. */
+.trust-roles-snapshot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+}
+.trust-roles-snapshot-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.trust-roles-snapshot-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.trust-roles-snapshot-value--warmth {
+  color: var(--color-warmth);
+}
+.trust-roles-snapshot-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+/* Content row — graph canvas on the left, inspector on the right.
+   Canvas owns the flex space; inspector is a fixed 320px sidecar that
+   collapses below 1100px to a full-width row underneath. */
+.trust-roles-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+  padding-bottom: var(--space-6);
+}
+.trust-roles-canvas {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.trust-roles-scroll {
+  flex: 1;
+  overflow: auto;
+}
+.trust-roles-state {
+  padding: var(--space-6) var(--space-5);
+  color: var(--color-text-muted);
+}
+.trust-roles-state--error {
+  color: var(--color-error);
+}
+
+/* Inspector panel — sticky alongside the canvas. Quiet card with a
+   header (avatar + title), optional vacant-invite CTA, and a stack
+   of labelled fields. */
+.role-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  overflow-y: auto;
+  min-width: 0;
+}
+.role-inspector-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.role-inspector-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-card-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.role-inspector-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.role-inspector-avatar-vacant {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+.role-inspector-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.role-inspector-eyebrow {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.role-inspector-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+.role-inspector-holder {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.role-inspector-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-warmth-bg);
+  color: var(--color-warmth);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+.role-inspector-invite:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+.role-inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.role-inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.role-inspector-field-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.role-inspector-field-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.role-inspector-field-value code {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs);
+  background: var(--color-card-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.role-inspector-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.role-inspector-copy:hover {
+  background: var(--color-card-muted);
+  color: var(--color-text-primary);
+}
+.role-inspector-copy:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.role-inspector-mandate {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: 1.45;
+}
+.role-inspector-mandate-empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.role-inspector-stat {
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.role-inspector-meta {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.role-inspector-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: var(--color-card-muted);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.role-inspector-chip:hover {
+  background: var(--color-card-subtle);
+}
+.role-inspector-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.role-inspector-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+  .trust-roles-content {
+    grid-template-columns: 1fr;
+  }
+  .role-inspector {
+    max-height: 480px;
+  }
+}
+
+@media (max-width: 720px) {
+  .trust-roles {
+    padding: var(--space-4);
+  }
+  .trust-roles-header {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .trust-roles-snapshot {
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+}
