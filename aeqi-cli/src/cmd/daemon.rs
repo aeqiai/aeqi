@@ -55,6 +55,19 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // still empty in the in-memory config).
             refresh_provider_keys_from_substrate(&mut config);
 
+            // ── Preflight C4 (SA37 idea 08c226f3): warn-only LLM health probe.
+            // Reads the last 5 rows of `inference_calls` from aeqi.db; if all
+            // returned `completion_tokens=0`, log a loud warning so the operator
+            // sees the cap-exhausted-provider condition at boot instead of
+            // discovering it from a downstream symptom. Pairs with SA65's
+            // C8/C17 (env-var + config.validate) — call lives here so SA65's
+            // worktree can merge independently.
+            if let Err(e) = crate::cmd::preflight::pre_flight_llm_health_check(
+                &config.data_dir().join("aeqi.db"),
+            ) {
+                warn!("preflight llm health check failed to run: {e}; continuing boot");
+            }
+
             let _data_dir = config.data_dir();
             let activity_stream = Arc::new(aeqi_orchestrator::ActivityStream::new());
             let daily_budget_usd = config.security.max_cost_per_day_usd;
