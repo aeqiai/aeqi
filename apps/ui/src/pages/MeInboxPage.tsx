@@ -11,7 +11,7 @@ import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionR
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
 import { useWebSocketChat } from "@/components/session/useWebSocketChat";
-import { Badge, Button, Loading, Tooltip } from "@/components/ui";
+import { Button, Loading, Tooltip } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 import type { Message, SessionInfo } from "@/components/session/types";
@@ -533,9 +533,15 @@ export default function MeInboxPage() {
           <span className="inbox-awaiting-strip-label">Awaiting reply</span>
           {subtitle && <span className="inbox-awaiting-strip-subject">{subtitle}</span>}
         </span>
-        <Badge variant="info" size="sm" dot className="inbox-awaiting-strip-chip">
-          Decision Request
-        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="inbox-awaiting-strip-action"
+          onClick={() => composerRef.current?.focus()}
+          aria-label="Reply to this decision request"
+        >
+          Reply
+        </Button>
       </div>
     ) : undefined;
 

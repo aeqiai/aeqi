@@ -262,24 +262,27 @@
   color: var(--color-ink-muted);
 }
 
-/* Chip pulls the family `--state-review` (warmth) accent so the kind
-   tag reads as part of the awaiting strip's amber language instead of
-   the graphite `info` default. Same vocabulary the rail's awaiting dot
-   and strip surface already speak — three surfaces, one accent.
-   Direct-child span override targets Badge's dot (the only element
-   sibling before the text node). */
-.inbox-awaiting-strip-chip {
+/* Reply action — the strip's discoverable affordance. Ghost Button
+   wears the family `--state-review` (warmth) ink so the call-to-action
+   reads as part of the awaiting strip's amber language instead of the
+   default graphite. Same hover lift the ghost primitive already speaks;
+   only the resting ink + hover tint shift to keep the surface coherent. */
+.inbox-awaiting-strip-action {
   flex-shrink: 0;
   white-space: nowrap;
   color: var(--state-review);
-  background: var(--state-review-bg);
 }
-.inbox-awaiting-strip-chip > span {
-  background-color: var(--state-review);
+.inbox-awaiting-strip-action:hover,
+.inbox-awaiting-strip-action:focus-visible {
+  background: var(--state-review-bg);
+  color: var(--state-review);
 }
 
 @media (max-width: 720px) {
-  .inbox-awaiting-strip-chip {
+  .inbox-awaiting-strip-action {
+    /* Strip stays as a status banner on narrow widths; the composer
+       below is the primary action surface and the keyboard `r` shortcut
+       remains. Hide the inline action to keep the strip single-line. */
     display: none;
   }
 }
