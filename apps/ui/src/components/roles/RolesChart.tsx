@@ -105,10 +105,6 @@ export default function RolesChart({
   // at the chart misreads "definitely wired" for what is in fact
   // "structurally implied because the schema is empty here".
   const crossEdges = useMemo<Array<RoleEdge & { implicit: boolean }>>(() => {
-    const explicit = edges.filter(
-      (e) => directorIds.has(e.parent_role_id) && opIds.has(e.child_role_id),
-    );
-    if (explicit.length > 0) return explicit.map((e) => ({ ...e, implicit: false }));
     if (directors.length === 0 || operational.length === 0) return [];
     // Apex = operational roles with no operational parent.
     const opChildIds = new Set<string>();
@@ -118,13 +114,42 @@ export default function RolesChart({
       }
     }
     const apexOps = operational.filter((r) => !opChildIds.has(r.id));
-    const implicit: Array<RoleEdge & { implicit: boolean }> = [];
+    const apexIds = new Set(apexOps.map((r) => r.id));
+
+    // All explicit director→operational edges (any operator, not just apex).
+    // Preserved verbatim — a director wired to a mid-tree operator stays
+    // drawn as before.
+    const explicitEdges = edges.filter(
+      (e) => directorIds.has(e.parent_role_id) && opIds.has(e.child_role_id),
+    );
+
+    // Per-director synthesis of director→APEX coverage. For each director,
+    // fill in implicit edges to every apex operator the director has NOT
+    // explicitly wired. A director with zero explicit edges gets full
+    // implicit fan-out (current cycle-2 behaviour). A director with
+    // explicit edges to every apex gets none. A director with explicit
+    // edges to a subset gets the "partial implicit" mix the c5 tooltip
+    // surfaces in the inspector.
+    const explicitApexByDir = new Map<string, Set<string>>();
+    for (const e of explicitEdges) {
+      if (!apexIds.has(e.child_role_id)) continue;
+      const set = explicitApexByDir.get(e.parent_role_id) ?? new Set<string>();
+      set.add(e.child_role_id);
+      explicitApexByDir.set(e.parent_role_id, set);
+    }
+
+    const result: Array<RoleEdge & { implicit: boolean }> = explicitEdges.map((e) => ({
+      ...e,
+      implicit: false,
+    }));
     for (const dir of directors) {
+      const wired = explicitApexByDir.get(dir.id) ?? new Set<string>();
       for (const apex of apexOps) {
-        implicit.push({ parent_role_id: dir.id, child_role_id: apex.id, implicit: true });
+        if (wired.has(apex.id)) continue;
+        result.push({ parent_role_id: dir.id, child_role_id: apex.id, implicit: true });
       }
     }
-    return implicit;
+    return result;
   }, [edges, directorIds, opIds, directors, operational]);
 
   // Director IDs whose governance edges to the operational tree are

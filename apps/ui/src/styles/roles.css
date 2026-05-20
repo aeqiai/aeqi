@@ -1071,6 +1071,25 @@
   font-style: italic;
   align-self: center;
 }
+/* Partial variant — a director with mixed delegation (some wired chips +
+   some synthesized apex destinations). The pill carries a "+n implicit"
+   count and a tooltip naming the synthesized roles, so the inspector
+   telegraphs the partial-synthesis state the chart was already drawing
+   silently as dashed edges. Subtle muted-tint background distinguishes
+   it from the bare-text fully-implicit hint above it on its own row. */
+.role-inspector-edge-hint--partial {
+  background: var(--color-card-subtle);
+  border-radius: 999px;
+  padding: 0 8px;
+  cursor: help;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+.role-inspector-edge-hint--partial:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-card-muted);
+}
 .role-inspector-link {
   display: inline-flex;
   align-items: center;

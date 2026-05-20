@@ -92,6 +92,12 @@ export default function RoleInspector({
   // the TRUST. Enumerating all 9 operators here was authority fiction —
   // the chart already drew the relationship correctly, the inspector
   // was the one telling a louder story than the data.
+  //
+  // For directors with PARTIAL wiring (explicit edges to some apex ops,
+  // but other apex ops unwired), `implicitChildren` enumerates the
+  // synthesized destinations so the "+n implicit" tooltip can name them —
+  // the chart fills in those edges as dashed, the inspector tells you
+  // who they go to. Mirrors RolesChart.crossEdges per-director synthesis.
   const childRoles = useMemo(() => {
     const explicit: Role[] = [];
     for (const e of edges) {
@@ -100,7 +106,6 @@ export default function RoleInspector({
         if (child) explicit.push(child);
       }
     }
-    if (explicit.length > 0) return { children: explicit, implicit: false };
     if (role.role_type === "director") {
       // Apex = operational roles with no operational parent. Same
       // definition as RolesChart's governance-edge synthesis.
@@ -118,9 +123,24 @@ export default function RoleInspector({
           apex.push(candidate);
         }
       }
-      return { children: apex, implicit: apex.length > 0 };
+      const explicitIds = new Set(explicit.map((r) => r.id));
+      const implicitChildren = apex.filter((r) => !explicitIds.has(r.id));
+      if (explicit.length > 0) {
+        // Partial-implicit: explicit chips shown, implicit apex ops named
+        // in the hint pill's tooltip.
+        return {
+          children: explicit,
+          implicit: false,
+          implicitChildren,
+        };
+      }
+      // Fully implicit director — every apex op is synthesized.
+      return { children: apex, implicit: apex.length > 0, implicitChildren: [] as Role[] };
     }
-    return { children: [], implicit: false };
+    if (explicit.length > 0) {
+      return { children: explicit, implicit: false, implicitChildren: [] as Role[] };
+    }
+    return { children: [], implicit: false, implicitChildren: [] as Role[] };
   }, [edges, rolesById, role]);
 
   // Active quests held by THIS role's occupant when it's an agent.
@@ -485,6 +505,24 @@ export default function RoleInspector({
               {childRoles.implicit && (
                 <span className="role-inspector-edge-hint" title="No explicit edge wired">
                   implicit
+                </span>
+              )}
+              {/* Partial-implicit hint — director with some wired chips
+                 plus one or more synthesized apex destinations. The
+                 chips above stay ink (they're real edges); the pill
+                 here names the count and lists the synthesized
+                 destinations in its title attribute so the user can
+                 hover to see WHICH apex ops are inferred. Distinct from
+                 the fully-implicit "implicit" pill above (which paints
+                 italic+muted on its own row). */}
+              {!childRoles.implicit && childRoles.implicitChildren.length > 0 && (
+                <span
+                  className="role-inspector-edge-hint role-inspector-edge-hint--partial"
+                  title={`Also implicitly delegates to ${childRoles.implicitChildren
+                    .map((c) => c.title)
+                    .join(", ")}`}
+                >
+                  +{childRoles.implicitChildren.length} implicit
                 </span>
               )}
             </Field>
