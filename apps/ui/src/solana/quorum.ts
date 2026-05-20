@@ -33,6 +33,8 @@ import { PublicKey } from "@solana/web3.js";
 import type { IdlAccounts } from "@coral-xyz/anchor";
 import bs58 from "bs58";
 
+import { getConnection } from "./client";
+import { AEQI_GOVERNANCE_PROGRAM_ID } from "./pdas";
 import { getGovernanceProgram, getRoleProgram } from "./programs";
 import type { AeqiGovernance } from "./generated/types/aeqi_governance";
 import type { AeqiRole } from "./generated/types/aeqi_role";
@@ -197,6 +199,35 @@ export function deriveProposalStatus(account: ProposalAccount, nowSeconds: numbe
   const forVotes = BigInt(account.forVotes.toString());
   const againstVotes = BigInt(account.againstVotes.toString());
   return forVotes > againstVotes ? "succeeded" : "defeated";
+}
+
+/**
+ * Probe whether the `aeqi_governance` program is deployed on the active
+ * cluster. The browser already has the program ID baked in (it's the
+ * Anchor-declared address in the IDL); a single `getAccountInfo` against
+ * it tells us whether the cluster has a program account at that address.
+ *
+ * Returns `true` when the program is deployed (account exists AND is
+ * executable), `false` when the cluster is reachable but the program
+ * has not been deployed. Throws on RPC failure so the caller can show
+ * the standard "couldn't read on-chain state" error rather than a
+ * misleading "program not provisioned" empty state.
+ *
+ * Used by the Quorum surface to distinguish:
+ *   - "program not yet provisioned on this cluster" (operator needs to
+ *     deploy the governance program) from
+ *   - "program deployed, this TRUST has no configs yet" (operator needs
+ *     to register a voting config).
+ *
+ * Both empty states existed conceptually before this read; only the
+ * latter rendered as a useful CTA.
+ */
+export async function isGovernanceProgramDeployed(): Promise<boolean> {
+  const conn = getConnection();
+  const info = await conn.getAccountInfo(AEQI_GOVERNANCE_PROGRAM_ID, "confirmed");
+  // A deployed BPF program account is owned by the BPF loader and has
+  // `executable: true`. A non-existent account returns null.
+  return info !== null && info.executable === true;
 }
 
 /**

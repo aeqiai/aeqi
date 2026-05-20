@@ -361,12 +361,22 @@ export function ProposalActionBar({
   trustAddress,
   proposal,
   status,
+  viewerCreatorAddress,
   onAction,
 }: {
   trustId: string;
   trustAddress: string;
   proposal: ProposalAccount;
   status: ProposalStatus;
+  /**
+   * EOA that owns the TRUST (from `entity.creator_address`). When
+   * present, the Cancel CTA only renders if it matches the on-chain
+   * `proposer` field on the proposal — keeps random viewers from
+   * accidentally firing a cancel against a proposal they didn&apos;t open.
+   * `null` falls back to the prior permissive behaviour so the surface
+   * stays usable on TRUSTs whose creator address isn&apos;t yet recorded.
+   */
+  viewerCreatorAddress: string | null;
   onAction?: () => void;
 }) {
   const invalidate = useQuorumInvalidator(trustAddress);
@@ -464,7 +474,25 @@ export function ProposalActionBar({
   };
 
   const canExecute = status === "succeeded";
-  const canCancel = status === "pending" || status === "active";
+
+  // Cancel is restricted to the proposer (TRUST creator EOA). Two cases:
+  //   1. viewerCreatorAddress is null — the entity record didn&apos;t carry
+  //      a creator address. Fall back to the prior permissive behaviour
+  //      so the surface stays usable; tooltip on the button calls out
+  //      the broader restriction.
+  //   2. viewerCreatorAddress is set — compare against the proposer
+  //      pubkey on the proposal. Solana addresses are case-sensitive
+  //      base58; an exact equality check is correct.
+  //
+  // This is a UX gate, not an authorization gate — the on-chain cancel
+  // ix itself enforces the proposer constraint. Hiding the button just
+  // keeps non-owners from clicking through a TBD banner that doesn&apos;t
+  // explain why their cancel would fail.
+  const proposerB58 = proposal.proposer.toBase58();
+  const isProposer = viewerCreatorAddress !== null && viewerCreatorAddress.trim() === proposerB58;
+  const ownershipKnown = viewerCreatorAddress !== null;
+  const canCancel =
+    (status === "pending" || status === "active") && (isProposer || !ownershipKnown);
 
   if (!canExecute && !canCancel && !banner) return null;
 
@@ -486,7 +514,13 @@ export function ProposalActionBar({
             </Tooltip>
           ) : null}
           {canCancel ? (
-            <Tooltip content="Cancel withdraws the proposal. Typically restricted to the proposer or a privileged role.">
+            <Tooltip
+              content={
+                isProposer
+                  ? "Cancel withdraws the proposal. The on-chain cancel ix only accepts the proposer's signature."
+                  : "Cancel withdraws the proposal. Restricted to the proposer; the on-chain ix will reject anyone else."
+              }
+            >
               <Button
                 variant="secondary"
                 size="sm"

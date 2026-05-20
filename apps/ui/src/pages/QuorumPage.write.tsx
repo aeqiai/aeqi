@@ -56,8 +56,10 @@ import {
   TallyDetail,
 } from "./QuorumPage.parts";
 import {
+  bpsLabel,
   bytesToHex,
   configIdLabel,
+  durationLabel,
   shortAddress,
   shortBytes32,
   voteWindowLabel,
@@ -81,6 +83,7 @@ export function ProposalDetailModal({
   trustId,
   trustAddress,
   nowSeconds,
+  viewerCreatorAddress,
   onClose,
 }: {
   entry: { proposal: ProposalWithPda; status: ProposalStatus } | null;
@@ -89,6 +92,12 @@ export function ProposalDetailModal({
   trustId: string;
   trustAddress: string;
   nowSeconds: number;
+  /**
+   * EOA that owns this TRUST (from `entity.creator_address`). The
+   * action bar uses it to gate the Cancel CTA to the proposer or the
+   * TRUST creator — random viewers see a read-only detail surface.
+   */
+  viewerCreatorAddress: string | null;
   onClose: () => void;
 }) {
   const open = entry !== null;
@@ -118,6 +127,7 @@ export function ProposalDetailModal({
               trustAddress={trustAddress}
               proposal={entry.proposal.account}
               status={entry.status}
+              viewerCreatorAddress={viewerCreatorAddress}
             />
             <div>
               <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Tallies</h3>
@@ -258,6 +268,16 @@ export function NewProposalModal({
     [configs, roleTypes],
   );
 
+  // Look up the chosen config so we can render its quorum / support /
+  // voting-period inline below the Select. The proposer is signing up
+  // for these thresholds; surfacing them BEFORE submit lets them choose
+  // a different config or adjust the description (e.g. "needs 50% quorum
+  // — please show up").
+  const selectedConfig = useMemo(() => {
+    if (!configIdHex) return undefined;
+    return configs.find((c) => configIdHexFor(c.account.governanceConfigId) === configIdHex);
+  }, [configIdHex, configs]);
+
   const titleValid = title.trim().length >= 3 && title.trim().length <= 120;
   const descValid = description.trim().length >= 10 && description.trim().length <= 4000;
   const hoursValid =
@@ -349,6 +369,31 @@ export function NewProposalModal({
                   aria-label="Voting config"
                 />
               </label>
+              {selectedConfig ? (
+                <div
+                  className={styles.configPreview}
+                  aria-label="Selected voting config thresholds"
+                >
+                  <div className={styles.configPreviewRow}>
+                    <span className={styles.configPreviewLabel}>Quorum</span>
+                    <span className={styles.configPreviewValue}>
+                      {bpsLabel(selectedConfig.account.quorumBps)}
+                    </span>
+                  </div>
+                  <div className={styles.configPreviewRow}>
+                    <span className={styles.configPreviewLabel}>Support</span>
+                    <span className={styles.configPreviewValue}>
+                      {bpsLabel(selectedConfig.account.supportBps)}
+                    </span>
+                  </div>
+                  <div className={styles.configPreviewRow}>
+                    <span className={styles.configPreviewLabel}>Voting period</span>
+                    <span className={styles.configPreviewValue}>
+                      {durationLabel(selectedConfig.account.votingPeriod)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <Input
                 label="Title"
                 value={title}

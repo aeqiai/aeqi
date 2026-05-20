@@ -229,6 +229,32 @@ export function FilterChip({
   );
 }
 
+/**
+ * `SortChip` — pairs with `FilterChip` for the proposals toolbar. No
+ * count suffix; it's an axis selector, not a cohort filter. Pressed
+ * state matches the FilterChip so the two rows read as one toolbar.
+ */
+export function SortChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      variant={active ? "secondary" : "ghost"}
+      size="sm"
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      {label}
+    </Button>
+  );
+}
+
 export function CopyableMono({ full, display }: { full: string; display: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.SyntheticEvent) => {
@@ -478,6 +504,87 @@ export function NoGovernanceSetup({ trustId }: { trustId: string }) {
           </Inline>
         </Stack>
       </Modal>
+    </PageSection>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Program-not-provisioned empty state                                 */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Rendered when the active cluster does not have the `aeqi_governance`
+ * program deployed. This is a deployment-level gap, not a per-TRUST
+ * config gap — the surface can't recover by setting up a config because
+ * `register_config` is a `aeqi_governance` ix. Operator action lives
+ * upstream (deploy the program / point the RPC URL at a cluster where
+ * it's deployed). Surface that clearly instead of pretending the empty
+ * configs list means "no governance configured yet".
+ */
+export function ProgramNotProvisionedCard() {
+  return (
+    <PageSection title="Voting configs">
+      <div className={styles.configsEmptyCard}>
+        <h3 className={styles.configsEmptyTitle}>Governance program not deployed</h3>
+        <p className={styles.configsEmptyBody}>
+          The active Solana cluster doesn&apos;t have <code>aeqi_governance</code> deployed yet, so
+          no voting configs or proposals can exist for any TRUST on it. This is a deployment-level
+          gap — once an operator deploys the program (or points the RPC URL at a cluster where
+          it&apos;s deployed), the surface will populate automatically.
+        </p>
+        <Inline gap="2" wrap>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              window.open("https://aeqi.ai/docs/governance/deployment", "_blank", "noopener")
+            }
+          >
+            Read the deployment docs
+          </Button>
+        </Inline>
+      </div>
+    </PageSection>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Configs exist but no proposals yet — CTA-led empty                  */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Rendered when at least one voting config is registered but no
+ * proposal has been opened against the TRUST yet. The default empty
+ * states elsewhere read as "nothing here yet, here&apos;s why"; this one
+ * has the affordance to fix it directly, so it&apos;s CTA-led instead.
+ */
+export function NoProposalsYetCard({ onOpen }: { onOpen: () => void }) {
+  return (
+    <PageSection
+      title="Proposals"
+      description="Every proposal opened against this TRUST. Status derives from tallies + the cluster clock."
+    >
+      <div className={styles.configsEmptyCard}>
+        <h3 className={styles.configsEmptyTitle}>Draft your first proposal</h3>
+        <p className={styles.configsEmptyBody}>
+          A voting config exists but no proposal has been opened against this TRUST. The first
+          proposal sets the cadence — write it like the audit-trail entry it&apos;ll always be.
+        </p>
+        <Inline gap="2" wrap>
+          <Button variant="primary" size="sm" onClick={onOpen}>
+            Draft a proposal
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              window.open("https://aeqi.ai/docs/governance/proposals", "_blank", "noopener")
+            }
+          >
+            Read the proposal docs
+          </Button>
+        </Inline>
+      </div>
     </PageSection>
   );
 }

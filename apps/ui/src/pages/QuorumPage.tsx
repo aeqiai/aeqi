@@ -29,8 +29,11 @@ import {
   KpiStrip,
   ModeBadge,
   NoGovernanceSetup,
+  NoProposalsYetCard,
+  ProgramNotProvisionedCard,
   ProposalStatusBadge,
   SnapshotIndicator,
+  SortChip,
   TallyBars,
   bpsLabel,
   configIdLabel,
@@ -48,6 +51,8 @@ import {
   ProposalsEmptyState,
 } from "./QuorumPage.write";
 import { bytesToHex } from "./QuorumPage.format";
+
+type SortKey = "recent" | "oldest" | "closingSoon" | "quorumProgress";
 
 /**
  * Quorum — `q` in the AEQI grammar (assets · equity · quorum · identity).
@@ -82,7 +87,8 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   const entity = useMemo(() => entities.find((e) => e.id === trustId), [entities, trustId]);
   const trustAddress = entity?.trust_address ?? null;
 
-  const { configs, proposals, roleTypes, isLoading, error } = useQuorum(trustAddress);
+  const { configs, proposals, roleTypes, programDeployed, isLoading, error } =
+    useQuorum(trustAddress);
   const [newProposalOpen, setNewProposalOpen] = useState(false);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
@@ -129,20 +135,34 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
   const proposalsList = proposals ?? [];
   const roleTypeList = roleTypes ?? [];
 
-  // Foundation TRUSTs register `aeqi_governance` as a module but most
-  // signup flows never register a voting config — render an explicit
-  // empty state so the user knows the surface is wired correctly.
-  const hasAnything = configsList.length > 0 || proposalsList.length > 0;
+  // Three distinct cohort empties, each with a different signal:
+  //   1. Program not yet deployed on the active cluster — operator
+  //      problem, surface as a deployment hint.
+  //   2. Program deployed + no configs (Foundation default) — operator
+  //      needs to register a voting config.
+  //   3. Program deployed + configs but no proposals — operator should
+  //      open the first one (CTA-led empty rather than the generic
+  //      "nothing here yet").
+  //
+  // `programDeployed === undefined` means the probe is still in flight,
+  // which the loading state above already caught.
+  const programMissing = programDeployed === false;
+  const hasConfigs = configsList.length > 0;
+  const hasProposals = proposalsList.length > 0;
 
   // The "+ New proposal" CTA in the page header only makes sense once
   // at least one voting config exists. Before that, the empty-state
   // card owns the "set up governance" affordance.
-  const headerActions =
-    hasAnything && configsList.length > 0 ? (
-      <Button variant="primary" size="sm" onClick={() => setNewProposalOpen(true)}>
-        + New proposal
-      </Button>
-    ) : undefined;
+  const headerActions = hasConfigs ? (
+    <Button variant="primary" size="sm" onClick={() => setNewProposalOpen(true)}>
+      + New proposal
+    </Button>
+  ) : undefined;
+
+  // The proposer-cancel check needs the EOA that owns this TRUST. We
+  // resolve it once from the entity record so the action bar doesn't
+  // re-derive on every render.
+  const viewerCreatorAddress = entity?.creator_address ?? null;
 
   return (
     <Page>
@@ -152,19 +172,26 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
         actions={headerActions}
       />
       <PageBody>
-        {!hasAnything ? (
+        {programMissing ? (
+          <ProgramNotProvisionedCard />
+        ) : !hasConfigs ? (
           <NoGovernanceSetup trustId={trustId} />
         ) : (
           <>
             <KpiStrip proposals={proposalsList} configs={configsList} />
             <ConfigsSection configs={configsList} roleTypes={roleTypeList} />
-            <ProposalsSection
-              proposals={proposalsList}
-              configs={configsList}
-              roleTypes={roleTypeList}
-              trustId={trustId}
-              trustAddress={trustAddress}
-            />
+            {hasProposals ? (
+              <ProposalsSection
+                proposals={proposalsList}
+                configs={configsList}
+                roleTypes={roleTypeList}
+                trustId={trustId}
+                trustAddress={trustAddress}
+                viewerCreatorAddress={viewerCreatorAddress}
+              />
+            ) : (
+              <NoProposalsYetCard onOpen={() => setNewProposalOpen(true)} />
+            )}
           </>
         )}
       </PageBody>
@@ -286,12 +313,15 @@ function ProposalsSection({
   roleTypes,
   trustId,
   trustAddress,
+  viewerCreatorAddress,
 }: {
   proposals: ProposalWithPda[];
   configs: GovernanceConfigWithPda[];
   roleTypes: RoleTypeWithPda[];
   trustId: string;
   trustAddress: string;
+  /** EOA that owns this TRUST. Used to gate the Cancel proposal CTA. */
+  viewerCreatorAddress: string | null;
 }) {
   const [filter, setFilter] = useState<FilterKey>("active");
   // Multi-config TRUSTs (token-mode + role-mode) need a way to pivot
@@ -299,6 +329,13 @@ function ProposalsSection({
   // modal. `null` = all configs; otherwise the config's id-hex with a
   // 0x prefix (same shape the new-proposal modal stores).
   const [configFilter, setConfigFilter] = useState<string | null>(null);
+  // Sort axis pairs with the filter chip row above. "recent" is the
+  // canonical default (newest votes first); the operator-facing axes
+  // are time-asymmetric ("closing soon" is the most useful for active
+  // votes) and quorum-progress is a one-click "which row needs me
+  // most?" pivot. URL persistence isn't here yet — the chip row mirrors
+  // the existing FilterChip pattern.
+  const [sort, setSort] = useState<SortKey>("recent");
   const [detail, setDetail] = useState<{
     proposal: ProposalWithPda;
     status: ProposalStatus;
@@ -335,17 +372,46 @@ function ProposalsSection({
     });
   }, [withStatus, filter, configFilter]);
 
-  // Newest first — Anchor returns `i64` as BN; use number compare on
-  // voteStart which fits in JS safe-int range for any realistic clock.
-  const rows = useMemo(
-    () =>
-      [...filtered].sort(
-        (a, b) =>
-          Number(b.proposal.account.voteStart.toString()) -
-          Number(a.proposal.account.voteStart.toString()),
-      ),
-    [filtered],
-  );
+  // Sort the visible rows by the active axis. Each comparator returns
+  // a stable "primary key" so two rows with the same value fall back to
+  // newest-first (the canonical AEQI tie-break). Tally math runs in
+  // BigInt to survive u128 supplies on token-mode proposals; we map to
+  // a 0-100 number ONLY for the comparator's return value, which is
+  // safe — no on-chain math depends on it.
+  const rows = useMemo(() => {
+    const arr = [...filtered];
+    const recent = (a: (typeof arr)[number], b: (typeof arr)[number]) =>
+      Number(b.proposal.account.voteStart.toString()) -
+      Number(a.proposal.account.voteStart.toString());
+
+    const endsAt = (entry: (typeof arr)[number]) => {
+      const { end } = voteWindowSeconds(entry.proposal.account);
+      return typeof end === "number" ? end : Number.POSITIVE_INFINITY;
+    };
+
+    const quorumProgress = (entry: (typeof arr)[number]) => {
+      const acc = entry.proposal.account;
+      const total =
+        BigInt(acc.forVotes.toString()) +
+        BigInt(acc.againstVotes.toString()) +
+        BigInt(acc.abstainVotes.toString());
+      if (total === 0n) return 0;
+      // Express as 0-100 share of total cast going to `for` — the
+      // operator's "is this trending success?" glance.
+      return Number((BigInt(acc.forVotes.toString()) * 1000n) / total) / 10;
+    };
+
+    if (sort === "oldest") {
+      arr.sort((a, b) => -recent(a, b) || recent(a, b));
+    } else if (sort === "closingSoon") {
+      arr.sort((a, b) => endsAt(a) - endsAt(b) || recent(a, b));
+    } else if (sort === "quorumProgress") {
+      arr.sort((a, b) => quorumProgress(b) - quorumProgress(a) || recent(a, b));
+    } else {
+      arr.sort(recent);
+    }
+    return arr;
+  }, [filtered, sort]);
 
   // Counts respect the config filter so the cohort chip labels reflect
   // "how many active proposals fall under THIS config" rather than the
@@ -518,6 +584,31 @@ function ProposalsSection({
             />
           ))}
         </Inline>
+        {/*
+         * Sort axis row — only shows once there's enough material to
+         * sort meaningfully. Five proposals is the documented threshold
+         * (any fewer and the recent-first default is faster to scan
+         * than a sort chip).
+         */}
+        {withStatus.length >= 5 ? (
+          <Inline gap="2" wrap aria-label="Sort proposals">
+            {(
+              [
+                ["recent", "Recent"],
+                ["oldest", "Oldest"],
+                ["closingSoon", "Closing soon"],
+                ["quorumProgress", "Quorum progress"],
+              ] as Array<[SortKey, string]>
+            ).map(([key, label]) => (
+              <SortChip
+                key={key}
+                label={label}
+                active={sort === key}
+                onClick={() => setSort(key)}
+              />
+            ))}
+          </Inline>
+        ) : null}
         <Table
           columns={columns}
           data={rows}
@@ -534,6 +625,7 @@ function ProposalsSection({
         trustId={trustId}
         trustAddress={trustAddress}
         nowSeconds={nowSeconds}
+        viewerCreatorAddress={viewerCreatorAddress}
         onClose={() => setDetail(null)}
       />
     </PageSection>
