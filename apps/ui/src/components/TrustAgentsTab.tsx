@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { MousePointer2, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Agent, Quest, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -404,9 +404,15 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
            Role & authority / Model & runtime / Capabilities / Activity
            / Budget / Meta sections land in a follow-up cycle. */}
         <div className="trust-agents-side-empty">
+          <MousePointer2
+            size={22}
+            strokeWidth={1.5}
+            className="trust-agents-side-empty-icon"
+            aria-hidden
+          />
           <p className="trust-agents-side-empty-title">Select an agent</p>
           <p className="trust-agents-side-empty-hint">
-            Click a row in the list to see model, role, runtime, and spend details.
+            Click a row to see model, role, runtime, and spend details.
           </p>
         </div>
       </aside>
