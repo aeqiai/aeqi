@@ -595,16 +595,18 @@
   letter-spacing: 0.01em;
 }
 
-/* Content row — graph canvas. The 2-column page shell owns the
-   discovery/inspector split now; .trust-roles-canvas just fills the
-   remaining vertical space inside the main column. */
+/* Content row — graph canvas. Uses the slab/inset token so the
+   canvas reads as RECESSED into the page (darker than the paper
+   background) while the snapshot cards + role tiles above and
+   inside it sit on the brighter `--color-card-elevated` — they
+   feel elevated above the canvas rather than peer-flat with it. */
 .trust-roles-canvas {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  background: var(--color-card-elevated);
+  background: var(--color-card-muted);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
