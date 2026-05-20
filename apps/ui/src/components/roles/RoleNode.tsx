@@ -16,6 +16,14 @@ export interface RoleNodeProps {
   /** Ref callback exposed so RolesChart can measure node positions for
    * cross-zone connector geometry (director → operational lines). */
   nodeRef?: (el: HTMLButtonElement | null) => void;
+  /** True when every outbound governance edge from this node is
+   *  synthesized (no `role_edges` wiring) — currently only meaningful
+   *  for director nodes. The tile then renders a quiet "implicit" hint
+   *  in the head row and a quieter selected state, so the node mirrors
+   *  the canvas's dashed cross-edges and the inspector's implicit chip
+   *  treatment. Without this flag, a director with no wired children
+   *  looks identical to a director with explicit delegates. */
+  implicit?: boolean;
 }
 
 const AVATAR_SIZE = 32;
@@ -52,6 +60,7 @@ export default function RoleNode({
   className,
   style,
   nodeRef,
+  implicit = false,
 }: RoleNodeProps) {
   // Entity name lookup for `occupant_kind === "trust"` holders (parent
   // holding's TRUST in a Director / board seat). Falls back to "a TRUST"
@@ -76,6 +85,7 @@ export default function RoleNode({
     `role-node--${role.occupant_kind}`,
     selected ? "is-selected" : "",
     onClick ? "is-clickable" : "",
+    implicit ? "role-node--implicit" : "",
     className ?? "",
   ]
     .filter(Boolean)
@@ -97,6 +107,15 @@ export default function RoleNode({
          even when the occupant rotates. */}
       <span className="role-node-head">
         <span className="role-node-title">{role.title || "Untitled"}</span>
+        {implicit && (
+          /* "implicit" tag — sits beside the authority pill on directors
+             whose governance edges are all synthesized. Lowercase italic
+             marker mirrors `.role-inspector-edge-hint` so the canvas
+             tells the same provenance story the inspector does. */
+          <span className="role-node-edge-hint" aria-label="Implicit governance">
+            implicit
+          </span>
+        )}
         <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
           {pillLabel(role)}
         </span>

@@ -127,6 +127,28 @@ export default function RolesChart({
     return implicit;
   }, [edges, directorIds, opIds, directors, operational]);
 
+  // Director IDs whose governance edges to the operational tree are
+  // ALL synthesized (no explicit wiring). RoleNode uses this to render
+  // a quieter selected ring + a small "implicit" head-row hint, so
+  // governance-by-implication is legible on the node itself — not just
+  // on the cross-edge stroke. Pairs with the dashed/muted edge variant
+  // shipped in cycle 2 and the inspector's implicit chip/hint pair so
+  // inspector / canvas / node all carry the same provenance signal.
+  const implicitDirectorIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const e of crossEdges) {
+      if (!e.implicit) continue;
+      ids.add(e.parent_role_id);
+    }
+    // A director with at least one explicit outbound governance edge is
+    // NOT implicit overall — explicit wiring wins for the node-level
+    // signal, even if some peers are synthesized.
+    for (const e of crossEdges) {
+      if (!e.implicit) ids.delete(e.parent_role_id);
+    }
+    return ids;
+  }, [crossEdges]);
+
   const stackRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
   const setNodeRef = useCallback(
@@ -247,6 +269,7 @@ export default function RolesChart({
                   onClick={() => onSelectRole(r)}
                   selected={r.id === selectedRoleId}
                   nodeRef={setNodeRef(r.id)}
+                  implicit={implicitDirectorIds.has(r.id)}
                   style={{ width: NODE_W, height: NODE_H }}
                 />
               ))}

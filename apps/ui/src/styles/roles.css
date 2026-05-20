@@ -1155,6 +1155,43 @@
   color: var(--color-text-muted);
 }
 
+/* "implicit" governance hint — sits in a director tile's head row when
+   every outbound edge to the operational tree is synthesized. Quiet
+   lowercase italic marker mirroring `.role-inspector-edge-hint` so the
+   inspector and the node use the same vocabulary for "structurally
+   implied, not wired". Sized to match the authority pill so the head
+   row reads as a balanced two-marker pair (implicit · DIRECTOR) rather
+   than a stacked label. */
+.role-node-edge-hint {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  font-style: italic;
+  line-height: 1;
+}
+
+/* Quieter selected ring for implicit-governance directors — half-weight
+   accent-dim instead of the 2px graphite ring used for explicit nodes.
+   The selection still reads as "this is the focused tile" but stops
+   short of the authoritative full-ink ring reserved for nodes whose
+   governance IS on the record. Pairs with the dashed cross-edge stroke
+   shipped in cycle 2 so canvas, edge, and tile all carry the same
+   weight signal. */
+.role-node--implicit.is-selected {
+  box-shadow:
+    0 0 0 1.5px var(--accent-dim),
+    var(--shadow-sm);
+}
+
 /* Make room for the pill in the tile body — it overlaps the upper-
    right corner and reserves a small right-padding so long titles
    don't crash into it. */
