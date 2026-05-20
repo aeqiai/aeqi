@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Plus } from "lucide-react";
 import { Button, Icon } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
@@ -31,6 +31,7 @@ export default function QuestList({
   onAssigneeChange,
   onTake,
   search,
+  onClearSearch,
   agents,
   users,
   childCounts,
@@ -45,6 +46,7 @@ export default function QuestList({
   onAssigneeChange: (questId: string, next: string | null) => void;
   onTake: (questId: string) => void;
   search: string;
+  onClearSearch: () => void;
   agents: { id: string; name: string }[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   childCounts: Map<string, number>;
@@ -74,27 +76,21 @@ export default function QuestList({
               ? "Try a different search, or start a new quest."
               : "Create the first quest to populate this board."}
           </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onNew}
-            leadingIcon={
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
-            }
-          >
-            New quest
-          </Button>
+          <div className="quest-board-empty-actions">
+            {hasSearch && (
+              <Button variant="secondary" size="sm" onClick={onClearSearch}>
+                Clear search
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onNew}
+              leadingIcon={<Icon icon={Plus} size="xs" />}
+            >
+              New quest
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -139,18 +135,7 @@ export default function QuestList({
                 aria-label={`New ${group.label.toLowerCase()} quest`}
                 title={`New quest in ${group.label}`}
               >
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M6.5 2.5v8M2.5 6.5h8" />
-                </svg>
+                <Icon icon={Plus} size="xs" />
               </button>
             </div>
             {!isCollapsed && (
@@ -228,15 +213,17 @@ export default function QuestList({
                             agents={agents}
                             users={users}
                             onChange={(next) => onAssigneeChange(q.id, next)}
-                            renderTrigger={({ open }) => (
+                            renderTrigger={({ open, display }) => (
                               <button
                                 type="button"
-                                className={`quest-row-assignee${open ? " open" : ""}`}
+                                className={`quest-row-assignee quest-row-assignee--labeled${
+                                  open ? " open" : ""
+                                }`}
                                 aria-haspopup="dialog"
                                 aria-expanded={open}
                                 aria-label={
-                                  q.assignee
-                                    ? `Assigned: ${q.assignee}. Click to reassign.`
+                                  display
+                                    ? `Assigned to ${display.name}. Click to reassign.`
                                     : "Unassigned. Click to assign."
                                 }
                               >
@@ -246,6 +233,9 @@ export default function QuestList({
                                   users={users}
                                   size={18}
                                 />
+                                <span className="quest-row-assignee-name">
+                                  {display?.name ?? "Unassigned"}
+                                </span>
                               </button>
                             )}
                           />

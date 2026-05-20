@@ -158,11 +158,8 @@ export default function AgentQuestsTab({
   if (!quest) {
     if (!questsLoaded) {
       return (
-        <div
-          className="ideas-list-body"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          <Loading size="md" />
+        <div className="quest-board-loading">
+          <Loading variant="section" size="md" label="Loading quests" showLabel />
         </div>
       );
     }

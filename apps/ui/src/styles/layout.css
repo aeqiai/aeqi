@@ -4262,6 +4262,29 @@
   outline: none;
   box-shadow: 0 0 0 1px var(--border-faint);
 }
+.quest-row-assignee--labeled {
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: auto;
+  max-width: 160px;
+  height: 24px;
+  padding: 0 var(--space-2) 0 var(--space-1);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+}
+.quest-row-assignee--labeled:hover,
+.quest-row-assignee--labeled:focus-visible,
+.quest-row-assignee--labeled.open {
+  color: var(--color-text-primary);
+}
+.quest-row-assignee-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ideas-list-row-assignee,
 .quest-card-assignee {
   display: inline-flex;

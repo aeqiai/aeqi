@@ -3063,6 +3063,61 @@
   border-radius: var(--radius-md);
 }
 
+.quest-status-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-5) 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
+}
+
+.quest-status-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-card);
+}
+
+.quest-status-summary-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.quest-status-summary-count {
+  margin-left: auto;
+  min-width: 2ch;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 980px) {
+  .quest-status-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .quest-status-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: var(--space-4);
+  }
+}
+
 /* Priority indicator — three-bar Linear-style glyph, replaces the
    old text-pill in list rows + board cards. Always rendered (even at
    normal/low) so the affordance is consistent and clickable for the
@@ -3249,6 +3304,36 @@
   padding: 6px 10px;
   background: rgba(239, 68, 68, 0.08);
   border-radius: var(--radius-sm);
+}
+
+.quest-board-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 240px;
+  padding: var(--space-8);
+}
+
+.quest-board-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-8);
+}
+
+.quest-board-empty-hero {
+  max-width: 360px;
+}
+
+.quest-board-empty-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 /* Quest scope band — its own kanban-column-style slab above the board.
@@ -3675,6 +3760,15 @@
   color: var(--color-text-muted);
   opacity: 0.85;
 }
+.quest-col[data-status="in_progress"] .quest-col-empty-icon {
+  color: var(--color-info);
+}
+.quest-col[data-status="in_review"] .quest-col-empty-icon {
+  color: var(--color-warning);
+}
+.quest-col[data-status="done"] .quest-col-empty-icon {
+  color: var(--success);
+}
 .quest-col-empty-title {
   margin: 0;
   font-family: var(--font-sans);
@@ -3974,10 +4068,10 @@
   background: var(--color-text-secondary);
 }
 .quest-status-dot--in_progress {
-  background: var(--state-progress);
+  background: var(--color-info);
 }
 .quest-status-dot--in_review {
-  background: var(--color-warmth);
+  background: var(--color-warning);
 }
 .quest-status-dot--blocked {
   background: var(--warning);

@@ -13,8 +13,10 @@ import StatusDot from "./StatusDot";
 import QuestList from "./QuestList";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestArchiveStrips from "./QuestArchiveStrips";
+import QuestBoardNoMatches from "./QuestBoardNoMatches";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
 import QuestBoardScope from "./QuestBoardScope";
+import QuestStatusSummary from "./QuestStatusSummary";
 import {
   importQuestFromMarkdown,
   isDirectChildOf,
@@ -448,6 +450,7 @@ export default function QuestBoard({
           <QuestsViewPopover view={view} onChange={onViewChange} />
         </div>
       </div>
+      <QuestStatusSummary columns={columns} grouped={grouped} />
       <QuestBoardScope
         scope={boardScopeQuest}
         childCount={
@@ -488,7 +491,11 @@ export default function QuestBoard({
         agents={agents}
         users={users}
       />
-      {err && <div className="quest-board-error">{err}</div>}
+      {err && (
+        <div className="quest-board-error" role="alert">
+          {err}
+        </div>
+      )}
 
       {view === "list" ? (
         <QuestList
@@ -513,10 +520,13 @@ export default function QuestBoard({
           }}
           onTake={handleTake}
           search={search}
+          onClearSearch={() => setSearch("")}
           agents={agents}
           users={users}
           childCounts={childCounts}
         />
+      ) : search.trim().length > 0 && sortedVisibleQuests.length === 0 ? (
+        <QuestBoardNoMatches onClear={() => setSearch("")} onCompose={() => onCompose()} />
       ) : (
         <div className="quest-board-grid">
           {[
@@ -603,18 +613,7 @@ export default function QuestBoard({
                             aria-label={`New ${col.label.toLowerCase()} quest`}
                             title={`New quest in ${col.label}`}
                           >
-                            <svg
-                              width="11"
-                              height="11"
-                              viewBox="0 0 13 13"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              aria-hidden
-                            >
-                              <path d="M6.5 2.5v8M2.5 6.5h8" />
-                            </svg>
+                            <Icon icon={Plus} size="xs" />
                           </button>
                         </header>
                       )}
