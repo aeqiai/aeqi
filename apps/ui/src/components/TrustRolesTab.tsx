@@ -281,13 +281,29 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       </header>
 
       <section className="trust-roles-snapshot" aria-label="Snapshot">
-        <SnapshotStat singular="Role" plural="Roles" value={snapshot.total} />
-        <SnapshotStat singular="Director" plural="Directors" value={snapshot.directors} />
-        <SnapshotStat singular="Operational" plural="Operational" value={snapshot.operational} />
         <SnapshotStat
-          singular="Vacant"
-          plural="Vacant"
+          singular="Role"
+          plural="Roles"
+          value={snapshot.total}
+          sublabel="Across this TRUST"
+        />
+        <SnapshotStat
+          singular="Director"
+          plural="Directors"
+          value={snapshot.directors}
+          sublabel="Stewardship authority"
+        />
+        <SnapshotStat
+          singular="Operator"
+          plural="Operators"
+          value={snapshot.operational}
+          sublabel="Execution authority"
+        />
+        <SnapshotStat
+          singular="Vacant seat"
+          plural="Vacant seats"
           value={snapshot.vacant}
+          sublabel={snapshot.vacant === 0 ? "All seats filled" : "Awaiting an occupant"}
           tone={snapshot.vacant > 0 ? "warmth" : undefined}
         />
       </section>
@@ -401,10 +417,13 @@ interface SnapshotStatProps {
   /** Plural form — rendered for any value other than 1 (including 0). */
   plural: string;
   value: number;
+  /** Optional one-line teaching text below the label — explains what
+   * the stat means for new TRUST owners (e.g. "Stewardship authority"). */
+  sublabel?: string;
   tone?: "warmth";
 }
 
-function SnapshotStat({ singular, plural, value, tone }: SnapshotStatProps) {
+function SnapshotStat({ singular, plural, value, sublabel, tone }: SnapshotStatProps) {
   const label = value === 1 ? singular : plural;
   return (
     <div className="trust-roles-snapshot-stat">
@@ -417,7 +436,10 @@ function SnapshotStat({ singular, plural, value, tone }: SnapshotStatProps) {
       >
         {value}
       </span>
-      <span className="trust-roles-snapshot-label">{label}</span>
+      <span className="trust-roles-snapshot-text">
+        <span className="trust-roles-snapshot-label">{label}</span>
+        {sublabel && <span className="trust-roles-snapshot-sublabel">{sublabel}</span>}
+      </span>
     </div>
   );
 }

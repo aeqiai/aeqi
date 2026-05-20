@@ -127,10 +127,14 @@ export default function RoleNode({
 // members are Directors. If a Venture surface ever needs to distinguish
 // founders from other directors, add a separate marker rather than
 // hijacking this pill.
+//
+// "Operational" role_type → "Operator" user-facing label. An Operator
+// IS someone who executes; "Operational" sounds like a status. Internal
+// role_type values are untouched.
 function pillLabel(role: Role): string {
   if (role.role_type === "director") return "Director";
   if (role.role_type === "advisor") return "Advisor";
-  return "Operational";
+  return "Operator";
 }
 
 function pillTone(role: Role): "director" | "advisor" | "operational" {

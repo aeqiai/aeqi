@@ -125,15 +125,15 @@ export default function RoleInspector({
   const isVacant = role.occupant_kind === "vacant";
   const isHuman = role.occupant_kind === "human";
   const isAgent = role.occupant_kind === "agent";
-  // Role-type label — see RoleNode.pillLabel for why `founder` is NOT a
-  // distinct user-facing tier; the data flag stays, the user-facing
-  // surface treats founders as directors.
+  // Role-type label — see RoleNode.pillLabel for why `founder` is NOT
+  // a distinct user-facing tier and why "operational" surfaces as
+  // "Operator" rather than the adjective form.
   const roleTypeLabel =
     role.role_type === "director"
       ? "DIRECTOR"
       : role.role_type === "advisor"
         ? "ADVISOR"
-        : "OPERATIONAL";
+        : "OPERATOR";
   const agentAvatarUrl =
     isAgent && role.occupant_id ? (agentAvatarsById.get(role.occupant_id) ?? null) : null;
 
@@ -243,7 +243,9 @@ export default function RoleInspector({
                 rather than fabricating prose. The edit pencil goes to
                 the existing edit page which DOES support narrative
                 updates today via the grants list. */}
-            <em className="role-inspector-mandate-empty">No mandate set.</em>
+            <em className="role-inspector-mandate-empty">
+              No mandate defined yet. Describe what this role can decide, execute, or delegate.
+            </em>
           </span>
           <Link
             to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
