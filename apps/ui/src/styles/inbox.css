@@ -265,15 +265,18 @@
   color: var(--color-ink-muted);
 }
 
-/* Reply action — the strip's discoverable affordance. Ghost Button
-   wears the family `--state-review` (warmth) ink so the call-to-action
-   reads as part of the awaiting strip's amber language instead of the
-   default graphite. Same hover lift the ghost primitive already speaks;
-   only the resting ink + hover tint shift to keep the surface coherent. */
+/* Reply action — the strip's discoverable affordance. Rests as a plain
+   ghost (graphite ink, transparent fill) now that the canonical
+   in_review dot + "Awaiting reply" label already carry the amber
+   state signal twice. Three resting carriers of warmth (dot, label
+   intent, button ink) was redundant; collapsing the button to default
+   ghost concentrates the family `--state-review` language to ONE
+   earned moment — hover/focus, where the amber wash + ink doubles as
+   the discoverable call-to-action signal. Aligns with the ratio rule
+   (2% accent earned by scarcity) and the prune test from c10. */
 .inbox-awaiting-strip-action {
   flex-shrink: 0;
   white-space: nowrap;
-  color: var(--state-review);
 }
 .inbox-awaiting-strip-action:hover,
 .inbox-awaiting-strip-action:focus-visible {
