@@ -521,8 +521,9 @@
   background: var(--color-card-muted);
   border: 0;
   border-radius: 999px;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
   cursor: pointer;
   transition:

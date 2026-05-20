@@ -802,8 +802,9 @@
   color: var(--accent);
 }
 .role-inspector-holder-link code {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
 .role-inspector-titles {
@@ -900,7 +901,7 @@
   min-width: 0;
 }
 .role-inspector-field-value code {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   background: var(--color-card-muted);
   padding: 2px 8px;
