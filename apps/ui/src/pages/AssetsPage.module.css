@@ -448,6 +448,101 @@
   line-height: 1.5;
 }
 
+/* Withdraw form — iter-4 prefill row when a holdings row's Send button
+   populates the form with a specific mint. Reads as a small inline pill
+   strip above the form fields so the operator never wonders which mint
+   they're sending. */
+.withdrawPrefill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+}
+
+.withdrawPrefillLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Holdings inline Receive card — paired with HoldingReceiveCard in
+   AssetsExtras. Lives on the same recessed surface as the Send shell
+   so the row-level Send/Receive pair reads symmetrically. */
+.receiveCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-4);
+}
+
+.receiveHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.receiveBody {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.receiveBodyText {
+  flex: 1;
+  min-width: 240px;
+}
+
+/* New budget modal — form layout + result feedback rows.
+   Mirrors the form-shell pattern used by WithdrawFormShell + the
+   role-budget micro-control so the visual reads consistent across the
+   four budget-create entry points (settings panel, holdings sidebar,
+   role page, assets page). */
+.newBudgetForm {
+  display: block;
+  width: 100%;
+}
+
+.newBudgetResultOk,
+.newBudgetResultError {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-card-muted);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.newBudgetResultError {
+  background: var(--color-card-subtle);
+  color: var(--color-text-primary);
+}
+
+/* Vesting filter chips row — sits above the vesting table. The
+   highlighted chip uses the primary Button variant (graphite accent);
+   the rest stay ghost so the row reads as a quiet filter strip rather
+   than a wall of CTAs. */
+.vestingFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) var(--space-2);
+}
+
+.filterChipCount {
+  margin-left: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
 /* Budget detail modal — on-chain signature tail rendered inline as a
    compact list (vs the full Table primitive). One row per signature
    with timestamp, sig prefix + explorer link, and a failed badge when

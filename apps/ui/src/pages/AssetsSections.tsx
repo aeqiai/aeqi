@@ -15,9 +15,20 @@ import { ExternalLink } from "lucide-react";
 
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { BudgetAccountWithPda, VestingPositionWithPda } from "@/solana/assets";
-import { formatMediumDate, formatNumber } from "@/lib/i18n";
+import { formatInteger, formatMediumDate, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
-import { Badge, Icon, PageSection, Stack, Table, Tooltip, type TableColumn } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Icon,
+  Inline,
+  PageSection,
+  Select,
+  Stack,
+  Table,
+  Tooltip,
+  type TableColumn,
+} from "@/components/ui";
 
 import styles from "./AssetsPage.module.css";
 
@@ -42,10 +53,13 @@ export function BudgetsSection({
   budgets,
   metas,
   onSelect,
+  actions,
 }: {
   budgets: BudgetAccountWithPda[];
   metas: TokenMetaMap;
   onSelect: (row: BudgetAccountWithPda) => void;
+  /** Section-level actions slot — host page mounts a "+ New budget" CTA. */
+  actions?: React.ReactNode;
 }) {
   const rows = useMemo(
     () =>
@@ -110,6 +124,7 @@ export function BudgetsSection({
     <PageSection
       title="Active budgets"
       description="Per-role allocations recorded on `aeqi_budget`. Spend caps are enforced on-chain. Click a row for details."
+      actions={actions}
     >
       <Table
         columns={columns}
@@ -134,6 +149,39 @@ export function BudgetsSection({
  * window → vesting (in_progress semantics), past end → fully vested
  * (done semantics).
  */
+type VestingFilter = "all" | "vesting" | "pending" | "claimed" | "unlocked";
+type VestingSort = "end-asc" | "recipient" | "total-desc";
+
+const VESTING_FILTER_OPTIONS: Array<{ value: VestingFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "vesting", label: "Vesting" },
+  { value: "pending", label: "Pending" },
+  { value: "unlocked", label: "Unlocked" },
+  { value: "claimed", label: "Fully claimed" },
+];
+
+const VESTING_SORT_OPTIONS = [
+  { value: "end-asc", label: "Next claim" },
+  { value: "recipient", label: "Recipient" },
+  { value: "total-desc", label: "Total (largest first)" },
+];
+
+/** Lifecycle classification consumed by both the filter chips and the
+ *  status badge. Keeps the two surfaces in sync. */
+function classifyVestingPosition(
+  position: VestingPositionWithPda["account"],
+  now: number,
+): VestingFilter {
+  const start = Number(position.startTime);
+  const end = Number(position.endTime);
+  const fullyClaimed = position.claimedAmount >= position.totalAmount && position.totalAmount > 0n;
+  if (fullyClaimed) return "claimed";
+  if (position.fdvMilestoneUnlocked) return "unlocked";
+  if (start === 0 || now < start) return "pending";
+  if (end > 0 && now >= end) return "claimed";
+  return "vesting";
+}
+
 export function VestingPositionsSection({
   positions,
   metas,
@@ -142,17 +190,51 @@ export function VestingPositionsSection({
   metas: TokenMetaMap;
 }) {
   const now = Math.floor(Date.now() / 1000);
+  const [filter, setFilter] = useState<VestingFilter>("all");
+  const [sortKey, setSortKey] = useState<VestingSort>("end-asc");
+
+  // Per-filter counts so the chips can carry their own load indicator
+  // without forcing the operator to flip every chip to see populations.
+  const counts = useMemo(() => {
+    const acc: Record<VestingFilter, number> = {
+      all: positions.length,
+      vesting: 0,
+      pending: 0,
+      claimed: 0,
+      unlocked: 0,
+    };
+    for (const p of positions) {
+      const cls = classifyVestingPosition(p.account, now);
+      acc[cls] += 1;
+    }
+    return acc;
+  }, [positions, now]);
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return positions;
+    return positions.filter((p) => classifyVestingPosition(p.account, now) === filter);
+  }, [positions, filter, now]);
 
   const rows = useMemo(
     () =>
-      [...positions].sort((a, b) => {
-        // Active grants first, then pending, then fully claimed.
+      [...filtered].sort((a, b) => {
+        if (sortKey === "recipient") {
+          return a.account.recipient.toBase58().localeCompare(b.account.recipient.toBase58());
+        }
+        if (sortKey === "total-desc") {
+          const diff = b.account.totalAmount - a.account.totalAmount;
+          if (diff > 0n) return 1;
+          if (diff < 0n) return -1;
+          return 0;
+        }
+        // end-asc — the existing iter-3 default. Active grants first,
+        // then pending, then fully claimed; tiebreaker on next-claim.
         const aActive = a.account.claimedAmount < a.account.totalAmount ? 0 : 1;
         const bActive = b.account.claimedAmount < b.account.totalAmount ? 0 : 1;
         if (aActive !== bActive) return aActive - bActive;
         return Number(a.account.endTime - b.account.endTime);
       }),
-    [positions],
+    [filtered, sortKey],
   );
 
   const columns: Array<TableColumn<VestingPositionWithPda>> = [
@@ -219,16 +301,52 @@ export function VestingPositionsSection({
     },
   ];
 
+  const sortControl = (
+    <Inline gap="3" align="center">
+      <span className={styles.mutedLabel}>Sort</span>
+      <Select
+        size="sm"
+        value={sortKey}
+        onChange={(v) => setSortKey(v as VestingSort)}
+        options={VESTING_SORT_OPTIONS}
+        aria-label="Sort vesting positions"
+      />
+    </Inline>
+  );
+
   return (
     <PageSection
       title="Vesting positions"
       description="Outstanding grants on `aeqi_vesting`. Recipients can claim the linearly-vested portion at any time after the cliff."
+      actions={sortControl}
     >
+      <div className={styles.vestingFilterRow}>
+        {VESTING_FILTER_OPTIONS.map((opt) => {
+          const isActive = filter === opt.value;
+          const count = counts[opt.value];
+          if (opt.value !== "all" && count === 0) return null;
+          return (
+            <Button
+              key={opt.value}
+              variant={isActive ? "primary" : "ghost"}
+              size="sm"
+              onClick={() => setFilter(opt.value)}
+              aria-pressed={isActive}
+            >
+              {opt.label}
+              <span className={styles.filterChipCount}>{formatInteger(count)}</span>
+            </Button>
+          );
+        })}
+      </div>
       <Table
         columns={columns}
         data={rows}
         rowKey={(row) => row.publicKey.toBase58()}
         ariaLabel="Vesting positions"
+        empty={
+          <span className={styles.mutedLabel}>No vesting positions match the {filter} filter.</span>
+        }
       />
     </PageSection>
   );
@@ -342,36 +460,27 @@ function VestingStatusBadge({
   position: VestingPositionWithPda["account"];
   now: number;
 }) {
-  const start = Number(position.startTime);
-  const end = Number(position.endTime);
-  const fullyClaimed = position.claimedAmount >= position.totalAmount && position.totalAmount > 0n;
-  const milestone = position.fdvMilestoneUnlocked;
-
-  if (fullyClaimed) {
+  const cls = classifyVestingPosition(position, now);
+  if (cls === "claimed") {
     return (
       <Badge variant="success" dot>
-        Claimed
+        {position.claimedAmount >= position.totalAmount && position.totalAmount > 0n
+          ? "Claimed"
+          : "Fully vested"}
       </Badge>
     );
   }
-  if (milestone) {
+  if (cls === "unlocked") {
     return (
       <Badge variant="success" dot>
         Unlocked
       </Badge>
     );
   }
-  if (start === 0 || now < start) {
+  if (cls === "pending") {
     return (
       <Badge variant="warning" dot>
         Pending
-      </Badge>
-    );
-  }
-  if (end > 0 && now >= end) {
-    return (
-      <Badge variant="success" dot>
-        Fully vested
       </Badge>
     );
   }

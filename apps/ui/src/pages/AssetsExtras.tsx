@@ -1,16 +1,20 @@
 /**
  * Auxiliary sections + panels for the Assets surface — extracted out of
  * `AssetsPage.tsx` to keep the host page under the 600-line ceiling.
- * Everything in here is tightly coupled to the Assets domain (vault
- * activity, withdraw shell, holding detail, vault identity); not
+ * Everything in here is tightly coupled to the Assets domain (sparkline,
+ * withdraw shell, vault identity, holding detail + receive card); not
  * consumed from other pages.
  *
  * Order of declarations mirrors the visual order on the page:
  *   1. VaultActivityStrip — 30d sparkline above the overview.
  *   2. WithdrawFormShell — disabled-form counterpart to the deposit card.
- *   3. VaultIdentitySection — network + PDAs + modules registered.
- *   4. VaultActivitySection — recent signatures table.
+ *   3. HoldingReceiveCard — row-level receive surface (mint-scoped QR).
+ *   4. VaultIdentitySection — network + PDAs + modules registered.
  *   5. HoldingDetailPanel — inline expansion under the Holdings table.
+ *
+ * `VaultActivitySection` (recent decoded signatures) lives in
+ * `AssetsActivity.tsx` so it can grow with the parsed-tx decoder
+ * without pushing this file over the lint ceiling.
  *
  * `HoldingRow` is the shared row shape used both by the Holdings table
  * and the HoldingDetailPanel; it lives in this file so the panel and
@@ -20,25 +24,21 @@ import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-import { type VaultSignature } from "@/hooks/useVaultActivity";
 import type { ModuleAccountWithPda } from "@/solana";
 import { getAeqiProgramName } from "@/solana/program-names";
-import { formatCurrency, formatDateTime, formatInteger } from "@/lib/i18n";
-import { explorerClusterLabel, explorerTxUrl } from "@/lib/solana-explorer";
+import { formatCurrency, formatInteger } from "@/lib/i18n";
+import { explorerAddressUrl, explorerClusterLabel } from "@/lib/solana-explorer";
 import {
   Badge,
   Button,
   Card,
   DetailField,
-  EmptyState,
   Icon,
   Inline,
   Input,
-  Loading,
   PageSection,
+  QRCode,
   Stack,
-  Table,
-  type TableColumn,
 } from "@/components/ui";
 
 import { CopyableMono, shortAddress } from "./AssetsSections";
@@ -165,22 +165,59 @@ export function VaultActivityStrip({ series, total }: { series: number[]; total:
  * disabled state pattern: form is real, action is parked behind a
  * known dependency.
  */
-export function WithdrawFormShell() {
+export interface WithdrawFormShellProps {
+  /** Optional mint to prefill the "Mint" detail line — surfaced when the
+   *  operator clicks "Send" on a holdings row so the form lands on the
+   *  exact token they were drilling into. */
+  prefillMint?: { mint: string; symbol: string | null } | null;
+  /** Renders a "Clear" affordance when the form is in prefill mode. */
+  onClearPrefill?: () => void;
+  /** Renders a header label override — used when the form is mounted
+   *  inside a holdings expansion. */
+  headline?: string;
+}
+
+export function WithdrawFormShell({
+  prefillMint,
+  onClearPrefill,
+  headline,
+}: WithdrawFormShellProps = {}) {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const amountValid = amount.length > 0 && Number(amount) > 0 && Number.isFinite(Number(amount));
   const recipientValid = recipient.length >= 32 && recipient.length <= 44;
 
+  const title = headline ?? "Withdraw from vault";
+
   return (
     <Card padding="lg" className={styles.withdrawCard}>
       <Stack gap="3">
         <div className={styles.withdrawHead}>
-          <span className={styles.withdrawTitle}>Withdraw from vault</span>
+          <span className={styles.withdrawTitle}>{title}</span>
           <Badge variant="muted" dot>
             Disabled · awaiting budget context
           </Badge>
         </div>
+        {prefillMint && (
+          <div className={styles.withdrawPrefill}>
+            <span className={styles.withdrawPrefillLabel}>Mint</span>
+            <Badge variant="accent" dot>
+              {prefillMint.symbol ?? "SPL"}
+            </Badge>
+            <CopyableMono
+              full={prefillMint.mint}
+              display={shortAddress(prefillMint.mint)}
+              tone="muted"
+              withExplorer
+            />
+            {onClearPrefill && (
+              <Button variant="ghost" size="sm" onClick={onClearPrefill}>
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
         <span className={styles.capitalizeNote}>
           Treasury spend routes through{" "}
           <code className={styles.inlineCode}>POST /budgets/:id/spend</code>. Pick a budget below to
@@ -199,7 +236,7 @@ export function WithdrawFormShell() {
             }
           />
           <Input
-            label="Amount (USDC)"
+            label={`Amount (${prefillMint?.symbol ?? "USDC"})`}
             placeholder="0.00"
             inputMode="decimal"
             value={amount}
@@ -229,6 +266,59 @@ export function WithdrawFormShell() {
         </Inline>
       </Stack>
     </Card>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Receive card — counterpart to Send on holdings rows                 */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Compact "receive" card surfaced beneath a holdings row when the
+ * operator clicks the Receive icon-button. The deposit address is the
+ * same vault authority PDA shown at the top of the page — but the
+ * inline card removes the context-switch cost of scrolling back up.
+ */
+export function HoldingReceiveCard({
+  vaultAuthority,
+  symbol,
+  onClose,
+}: {
+  vaultAuthority: string;
+  symbol: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className={styles.receiveCard}>
+      <div className={styles.receiveHead}>
+        <span className={styles.holdingDetailTitle}>Receive {symbol ?? "SPL"} into the TRUST</span>
+        <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close receive card">
+          Close
+        </Button>
+      </div>
+      <div className={styles.receiveBody}>
+        <QRCode value={vaultAuthority} size={128} />
+        <Stack gap="2" className={styles.receiveBodyText}>
+          <DetailField label="Vault deposit address">
+            <CopyableMono full={vaultAuthority} display={vaultAuthority} mode="full" withExplorer />
+          </DetailField>
+          <span className={styles.capitalizeNote}>
+            Send {symbol ?? "any SPL token"} to this address from any Solana wallet — the TRUST owns
+            the balance the moment the deposit confirms.
+          </span>
+          <a
+            href={explorerAddressUrl(vaultAuthority)}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={styles.capitalizeExplorer}
+            aria-label="Open vault address in Solana explorer"
+          >
+            <Icon icon={ExternalLink} size="xs" />
+            <span>View vault on Solana explorer</span>
+          </a>
+        </Stack>
+      </div>
+    </div>
   );
 }
 
@@ -356,122 +446,6 @@ function clusterTone(cluster: string): "success" | "warning" | "muted" {
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Recent vault activity                                               */
-/* ────────────────────────────────────────────────────────────────── */
-
-/**
- * Recent vault activity — truncated list of the most recent on-chain
- * signatures that touched the vault authority PDA. Each row deep-links
- * to the cluster's explorer. Iter-2 left treasury history as a stubbed
- * "indexer rail pending" placeholder; iter-3 plumbs the signature feed
- * directly from `getSignaturesForAddress` so we can show *something*
- * concrete while the per-event indexer is still pending.
- *
- * We deliberately do NOT decode signatures into "Deposit X USDC from
- * Y" rows here. That requires either an indexer that classifies
- * transfers by mint, or `getParsedTransaction` per signature (N round
- * trips, fragile to RPC paging). Surfacing signature + slot + when +
- * an explorer link is the honest middle ground: the operator can
- * follow a tx into the explorer in one click.
- */
-export function VaultActivitySection({
-  signatures,
-  isLoading,
-}: {
-  signatures: VaultSignature[];
-  isLoading: boolean;
-}) {
-  const VISIBLE = 10;
-  const rows = signatures.slice(0, VISIBLE);
-
-  const columns: Array<TableColumn<VaultSignature>> = [
-    {
-      key: "when",
-      header: "When",
-      cell: (row) =>
-        row.blockTime !== null ? (
-          <span className={styles.numCell}>{formatDateTime(new Date(row.blockTime * 1000))}</span>
-        ) : (
-          <span className={styles.mutedDash}>—</span>
-        ),
-    },
-    {
-      key: "signature",
-      header: "Signature",
-      cell: (row) => (
-        <span className={styles.tokenCell}>
-          <a
-            href={explorerTxUrl(row.signature)}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={styles.signatureLink}
-            aria-label={`Open transaction ${row.signature} in Solana explorer`}
-          >
-            <span className={styles.monoCell}>{shortAddress(row.signature)}</span>
-            <Icon icon={ExternalLink} size="xs" />
-          </a>
-        </span>
-      ),
-    },
-    {
-      key: "slot",
-      header: "Slot",
-      align: "end",
-      cell: (row) => <span className={styles.numCell}>{formatInteger(row.slot)}</span>,
-    },
-    {
-      key: "status",
-      header: "Status",
-      align: "end",
-      cell: (row) =>
-        row.err === null ? (
-          <Badge variant="success" size="sm" dot>
-            Confirmed
-          </Badge>
-        ) : (
-          <Badge variant="error" size="sm" dot>
-            Failed
-          </Badge>
-        ),
-    },
-  ];
-
-  const hiddenCount = signatures.length - rows.length;
-
-  return (
-    <PageSection
-      title="Recent vault activity"
-      description="Latest on-chain signatures that touched the vault authority PDA. Click a row to open the transaction in the explorer."
-    >
-      {isLoading ? (
-        <Loading variant="section" label="Scanning vault signature tail" />
-      ) : (
-        <>
-          <Table
-            columns={columns}
-            data={rows}
-            rowKey={(row) => row.signature}
-            ariaLabel="Recent vault activity"
-            empty={
-              <EmptyState
-                title="No on-chain activity yet"
-                description="No transactions have touched the vault authority PDA. Once a deposit lands the signature shows up here within ~30 seconds."
-              />
-            }
-          />
-          {hiddenCount > 0 && (
-            <span className={styles.activityFooter}>
-              Showing the latest {formatInteger(rows.length)} of {formatInteger(signatures.length)}{" "}
-              on-chain signatures.
-            </span>
-          )}
-        </>
-      )}
-    </PageSection>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────── */
 /* Holding detail panel                                                */
 /* ────────────────────────────────────────────────────────────────── */
 
@@ -491,7 +465,21 @@ export function VaultActivitySection({
  * Claim events flow back into the dashboard. The footer states that
  * plainly instead of hiding it.
  */
-export function HoldingDetailPanel({ row, onClose }: { row: HoldingRow; onClose: () => void }) {
+export function HoldingDetailPanel({
+  row,
+  onClose,
+  onSend,
+  onReceive,
+}: {
+  row: HoldingRow;
+  onClose: () => void;
+  /** Iter-4: row-level Send affordance — host opens the WithdrawFormShell
+   *  prefilled with this mint. */
+  onSend?: (row: HoldingRow) => void;
+  /** Iter-4: row-level Receive affordance — host shows a QR-style deposit
+   *  card scoped to this mint without scrolling back to the top. */
+  onReceive?: (row: HoldingRow) => void;
+}) {
   const token2022 = TOKEN_2022_PROGRAM_ID.toBase58();
   const tokenLegacy = TOKEN_PROGRAM_ID.toBase58();
   const programLabel =
@@ -506,9 +494,31 @@ export function HoldingDetailPanel({ row, onClose }: { row: HoldingRow; onClose:
     <div className={styles.holdingDetailPanel}>
       <div className={styles.holdingDetailHead}>
         <span className={styles.holdingDetailTitle}>{row.symbol ?? "Unnamed SPL"} · detail</span>
-        <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close holding detail">
-          Close
-        </Button>
+        <Inline gap="2" align="center">
+          {onReceive && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onReceive(row)}
+              aria-label={`Receive more ${row.symbol ?? "SPL"} into the TRUST`}
+            >
+              Receive
+            </Button>
+          )}
+          {onSend && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onSend(row)}
+              aria-label={`Send ${row.symbol ?? "SPL"} from the TRUST`}
+            >
+              Send
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close holding detail">
+            Close
+          </Button>
+        </Inline>
       </div>
       <div className={styles.holdingDetailGrid}>
         <DetailField label="Mint">

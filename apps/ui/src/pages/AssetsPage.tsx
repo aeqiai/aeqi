@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 
 import { useDaemonStore } from "@/store/daemon";
 import { useAssets } from "@/hooks/useAssets";
+import { useDecodedVaultActivity } from "@/hooks/useDecodedVaultActivity";
 import { useIncorporation } from "@/hooks/useIncorporation";
 import { useTokenMetas } from "@/hooks/useTokenMetas";
 import { useVaultActivity } from "@/hooks/useVaultActivity";
@@ -43,9 +44,11 @@ import {
   type TokenMetaMap,
 } from "./AssetsSections";
 import { BudgetDetailModal } from "./AssetsBudgetModal";
+import { NewBudgetModal } from "./AssetsNewBudgetModal";
+import { VaultActivitySection } from "./AssetsActivity";
 import {
   HoldingDetailPanel,
-  VaultActivitySection,
+  HoldingReceiveCard,
   VaultActivityStrip,
   VaultIdentitySection,
   WithdrawFormShell,
@@ -91,7 +94,12 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
   const { vault, holdings, budgets, vestingPositions, isLoading, isFetching, error, refetch } =
     useAssets(trustAddress);
   const incorporation = useIncorporation(trustAddress);
-  const vaultActivity = useVaultActivity(vault?.vaultAuthorityPda.toBase58() ?? null);
+  const vaultAuthorityB58 = vault?.vaultAuthorityPda.toBase58() ?? null;
+  const vaultActivity = useVaultActivity(vaultAuthorityB58);
+  const decodedActivity = useDecodedVaultActivity(
+    vaultAuthorityB58,
+    vaultActivity.data?.signatures ?? [],
+  );
 
   // Gather every mint that any row on the page references (holdings,
   // vesting positions, budget-denomination USDC) and resolve them in one
@@ -110,6 +118,18 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
   const metas: TokenMetaMap = useTokenMetas(allMints);
 
   const [budgetDetail, setBudgetDetail] = useState<BudgetAccountWithPda | null>(null);
+  const [newBudgetOpen, setNewBudgetOpen] = useState(false);
+  /** Active "send" prefill — populated when an operator clicks Send on a
+   *  holdings row. Drives the inline WithdrawFormShell at the top of the
+   *  page so the form lands prefilled with that mint. */
+  const [sendPrefill, setSendPrefill] = useState<{ mint: string; symbol: string | null } | null>(
+    null,
+  );
+  /** Active "receive" prefill — drives the inline HoldingReceiveCard. */
+  const [receivePrefill, setReceivePrefill] = useState<{
+    mint: string;
+    symbol: string | null;
+  } | null>(null);
 
   if (!trustAddress) {
     return (
@@ -205,16 +225,37 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         />
         <VaultActivitySection
           signatures={vaultActivity.data?.signatures ?? []}
-          isLoading={vaultActivity.isLoading}
+          decoded={decodedActivity.rows}
+          isLoading={vaultActivity.isLoading || decodedActivity.isLoading}
+          metas={metas}
         />
-        <HoldingsSection holdings={holdings ?? []} metas={metas} />
-        {(budgets?.length ?? 0) > 0 && (
-          <BudgetsSection
-            budgets={budgets ?? []}
-            metas={metas}
-            onSelect={(row) => setBudgetDetail(row)}
-          />
-        )}
+        <HoldingsSection
+          holdings={holdings ?? []}
+          metas={metas}
+          vaultAuthority={vaultAuthorityB58}
+          onSendRow={(row) => {
+            setSendPrefill({ mint: row.mint, symbol: row.symbol });
+            setReceivePrefill(null);
+          }}
+          onReceiveRow={(row) => {
+            setReceivePrefill({ mint: row.mint, symbol: row.symbol });
+            setSendPrefill(null);
+          }}
+          sendPrefill={sendPrefill}
+          receivePrefill={receivePrefill}
+          onClearSend={() => setSendPrefill(null)}
+          onClearReceive={() => setReceivePrefill(null)}
+        />
+        <BudgetsSection
+          budgets={budgets ?? []}
+          metas={metas}
+          onSelect={(row) => setBudgetDetail(row)}
+          actions={
+            <Button variant="primary" size="sm" onClick={() => setNewBudgetOpen(true)}>
+              + New budget
+            </Button>
+          }
+        />
         {(vestingPositions?.length ?? 0) > 0 && (
           <VestingPositionsSection positions={vestingPositions ?? []} metas={metas} />
         )}
@@ -222,6 +263,14 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           budget={budgetDetail}
           metas={metas}
           onClose={() => setBudgetDetail(null)}
+        />
+        <NewBudgetModal
+          open={newBudgetOpen}
+          onClose={() => setNewBudgetOpen(false)}
+          trustId={trustId}
+          onCreated={() => {
+            refetch();
+          }}
         />
       </PageBody>
     </Page>
@@ -365,7 +414,27 @@ function CapitalizeSection({ vaultAuthority }: { vaultAuthority: string }) {
   );
 }
 
-function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas: TokenMetaMap }) {
+function HoldingsSection({
+  holdings,
+  metas,
+  vaultAuthority,
+  onSendRow,
+  onReceiveRow,
+  sendPrefill,
+  receivePrefill,
+  onClearSend,
+  onClearReceive,
+}: {
+  holdings: VaultHolding[];
+  metas: TokenMetaMap;
+  vaultAuthority: string | null;
+  onSendRow: (row: HoldingRow) => void;
+  onReceiveRow: (row: HoldingRow) => void;
+  sendPrefill: { mint: string; symbol: string | null } | null;
+  receivePrefill: { mint: string; symbol: string | null } | null;
+  onClearSend: () => void;
+  onClearReceive: () => void;
+}) {
   const [hideZero, setHideZero] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -504,7 +573,28 @@ function HoldingsSection({ holdings, metas }: { holdings: VaultHolding[]; metas:
         }
         ariaLabel="Vault holdings"
       />
-      {expandedRow && <HoldingDetailPanel row={expandedRow} onClose={() => setExpanded(null)} />}
+      {expandedRow && (
+        <HoldingDetailPanel
+          row={expandedRow}
+          onClose={() => setExpanded(null)}
+          onSend={(row) => onSendRow(row)}
+          onReceive={(row) => onReceiveRow(row)}
+        />
+      )}
+      {sendPrefill && (
+        <WithdrawFormShell
+          headline={`Send ${sendPrefill.symbol ?? "SPL"} from the vault`}
+          prefillMint={sendPrefill}
+          onClearPrefill={onClearSend}
+        />
+      )}
+      {receivePrefill && vaultAuthority && (
+        <HoldingReceiveCard
+          vaultAuthority={vaultAuthority}
+          symbol={receivePrefill.symbol}
+          onClose={onClearReceive}
+        />
+      )}
       {totalUsd > 0 && rows.length > 0 && (
         <div className={styles.totalsRow}>
           <span>Stablecoin total</span>
