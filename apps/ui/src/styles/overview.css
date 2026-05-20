@@ -443,7 +443,17 @@
    (transient awaiting work), distinct from graphite = permanently-soon.
    The muted Solana mark to the left keeps acting as the chain-mirror
    chip; together they read as "chain side is awaiting registration"
-   rather than the bare text node the bar showed before. */
+   rather than the bare text node the bar showed before.
+
+   On first mount the pill previously appeared in place with no
+   entrance — a hard snap that broke the bridge's three-beat arc
+   (pending appears → mark pulses warmth → verification fades). A
+   one-shot fade-in (c9, 2026-05-21) seats the pill into the bar with
+   the same --transition-normal curve the c8 verify ramp uses, so the
+   pending → verified sequence reads as one composed gesture rather
+   than three independent state snaps. Gated on prefers-reduced-motion:
+   no-preference; single iteration; opacity only, no transform — the
+   pill lands where it lives. */
 .trust-hero-bar-pending {
   display: inline-flex;
   align-items: center;
@@ -455,6 +465,19 @@
   color: var(--state-review);
   background: var(--state-review-bg);
   font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .trust-hero-bar-pending {
+    animation: trust-hero-bar-pending-enter var(--transition-normal) 1 forwards;
+  }
+}
+@keyframes trust-hero-bar-pending-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
