@@ -4062,12 +4062,18 @@
   background: var(--color-text-muted);
   flex-shrink: 0;
 }
-/* v5.2 status dots — Linear-ish palette. Backlog reads as a hollow
+/* v5.3 status dots — aligned with the family status accents
+   (`--state-progress` / `--state-review` / `--state-verified`) so the
+   dot under each column header paints the SAME hue the header band
+   tints with. Pre-v5.3 in_progress was `--color-info` (graphite black,
+   no slate-violet at all) and in_review/blocked both resolved to
+   `--color-warning` (#b98a47), making the two states visually
+   indistinguishable from the dot alone. Backlog reads as a hollow
    ring (parked, not committed); Todo reads as a filled muted dot
-   (committed, ready to start); InProgress in info-blue; Done in
-   success-jade; Cancelled muted. The two legacy aliases (pending,
-   blocked) survive for any in-flight optimistic state that flickers
-   the old name before the round-trip completes. */
+   (committed, ready to start); InProgress in slate-violet; InReview
+   in warmth; Done in jade; Cancelled muted. The two legacy aliases
+   (pending, blocked) survive for any in-flight optimistic state
+   that flickers the old name before the round-trip completes. */
 .quest-status-dot--backlog,
 .quest-status-dot--pending {
   background: transparent;
@@ -4077,16 +4083,16 @@
   background: var(--color-text-secondary);
 }
 .quest-status-dot--in_progress {
-  background: var(--color-info);
+  background: var(--state-progress);
 }
 .quest-status-dot--in_review {
-  background: var(--color-warning);
+  background: var(--state-review);
 }
 .quest-status-dot--blocked {
-  background: var(--warning);
+  background: var(--state-review);
 }
 .quest-status-dot--done {
-  background: var(--success);
+  background: var(--state-verified);
 }
 .quest-status-dot--cancelled {
   background: var(--color-text-muted);
