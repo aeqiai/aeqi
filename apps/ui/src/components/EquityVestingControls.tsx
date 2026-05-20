@@ -104,6 +104,13 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
   const [signature, setSignature] = useState<string | null>(null);
   const [positionId, setPositionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Iter-6: remember which cohort + amount actually shipped so the
+  // success line can echo them ("Founder grant of 100,000 LAUNCH —
+  // sig…"). The live `cohort` + `amount` state is cleared on success
+  // for the next grant; this pair survives so the operator can still
+  // verify what just landed.
+  const [lastCohort, setLastCohort] = useState<CohortId | null>(null);
+  const [lastAmount, setLastAmount] = useState<string>("");
 
   // Autocomplete suggestion box state — opens on focus when there are
   // holders to suggest, closes on blur / outside-click / selection.
@@ -193,6 +200,11 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
       });
       setSignature(result.signature_b58);
       setPositionId(result.position_id_hex);
+      // Capture cohort + amount BEFORE clearing — the success line below
+      // echoes what the operator just shipped, not the next grant's
+      // empty form.
+      setLastCohort(cohort);
+      setLastAmount(amount.trim());
       setRecipient("");
       setAmount("");
       setStartDate("");
@@ -322,7 +334,7 @@ export function EquityVestingControls({ trustId, holders = [] }: EquityVestingCo
       <div className="vesting-grant-status">
         {signature ? (
           <span className="vesting-grant-status--signature">
-            ✓ Granted · {formatSignature(signature)}
+            ✓ {formatGrantHeadline(lastCohort, lastAmount)} · sig {formatSignature(signature)}
             {positionId && ` · position ${formatSignature(positionId)}`}
           </span>
         ) : error ? (
@@ -367,4 +379,36 @@ function formatSignature(sig: string): string {
 function shortAddress(addr: string): string {
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+/**
+ * Iter-6: human-readable success headline. "Founder grant of 100,000
+ * LAUNCH" reads as a record of intent; the bare "Granted" line lost
+ * track of WHAT shape of grant just shipped. Falls back gracefully when
+ * the cohort was Custom or the amount didn't survive (defensive — the
+ * caller always populates both on success).
+ *
+ * Amount grouping is locale-neutral thousands separators, the same
+ * grammar used on the cap-table column. Decimals are stripped when the
+ * value is integer-valued so "100000" reads as "100,000 LAUNCH".
+ */
+function formatGrantHeadline(cohort: CohortId | null, amount: string): string {
+  const prettyAmount = amount ? `${groupAmount(amount)} LAUNCH` : "LAUNCH";
+  if (!cohort || cohort === "custom") {
+    return amount ? `Granted ${prettyAmount}` : "Granted";
+  }
+  // Strip the parenthesized schedule annotation from the cohort label —
+  // "Founder (4yr / 1yr cliff)" → "Founder". The schedule is already
+  // visible above in the cohort dropdown.
+  const label = COHORT_PRESETS[cohort].label.replace(/\s*\(.*\)\s*$/, "");
+  return `${label} grant of ${prettyAmount}`;
+}
+
+function groupAmount(input: string): string {
+  // Preserve fractional part as typed; only group the integer half.
+  const trimmed = input.trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return trimmed;
+  const [integerPart, fractionalPart] = trimmed.split(".");
+  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fractionalPart ? `${grouped}.${fractionalPart}` : grouped;
 }

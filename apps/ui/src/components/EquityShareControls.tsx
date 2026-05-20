@@ -139,110 +139,158 @@ export function EquityShareControls({ trustId }: EquityShareControlsProps) {
       title="Share controls"
       description="Mint, transfer, and burn cap-table tokens."
     >
-      <div className="share-control-row">
-        <Input
-          label="Mint to"
-          placeholder="recipient pubkey"
-          value={mintRecipient}
-          onChange={(e) => setMintRecipient(e.target.value)}
-          disabled={minting}
-          size="sm"
-        />
-        <Input
-          label="Amount"
-          inputMode="decimal"
-          placeholder="0.0"
-          value={mintAmount}
-          onChange={(e) => setMintAmount(e.target.value)}
-          disabled={minting}
-          size="sm"
-        />
-        <Button
-          variant="primary"
-          size="sm"
+      {/* Iter-6: 3-card grid (Mint · Transfer · Burn). Each card has
+          identical structure — title, one-line copy, form fields,
+          submit. The forms previously rendered as rows of unequal
+          width and shape because Burn has one field where Mint and
+          Transfer have two; the grid + min-height fix that without
+          forcing Burn to fake a second field. */}
+      <div className="share-control-grid">
+        <ShareControlCard
+          title="Mint"
+          description="Issue new LAUNCH to a recipient's ATA. Owner-only — non-owners receive a 403."
+          submitLabel="Mint"
+          submitVariant="primary"
           loading={minting}
           disabled={mintBaseUnits === null || !recipientLooksValid(mintRecipient)}
-          onClick={handleMint}
-        >
-          Mint
-        </Button>
-        <TradeStatus
+          onSubmit={handleMint}
           signature={mintSignature}
           error={mintError}
-          idle="Issues new LAUNCH to the recipient's ATA (owner-only)."
-        />
-      </div>
-      <div className="share-control-row">
-        <Input
-          label="Transfer to"
-          placeholder="recipient pubkey"
-          value={transferRecipient}
-          onChange={(e) => setTransferRecipient(e.target.value)}
-          disabled={transferring}
-          size="sm"
-        />
-        <Input
-          label="Amount"
-          inputMode="decimal"
-          placeholder="0.0"
-          value={transferAmount}
-          onChange={(e) => setTransferAmount(e.target.value)}
-          disabled={transferring}
-          size="sm"
-        />
-        <Button
-          variant="secondary"
-          size="sm"
+        >
+          <Input
+            label="Recipient"
+            placeholder="recipient pubkey"
+            value={mintRecipient}
+            onChange={(e) => setMintRecipient(e.target.value)}
+            disabled={minting}
+            size="sm"
+          />
+          <Input
+            label="Amount"
+            inputMode="decimal"
+            placeholder="0.0"
+            value={mintAmount}
+            onChange={(e) => setMintAmount(e.target.value)}
+            disabled={minting}
+            size="sm"
+          />
+        </ShareControlCard>
+        <ShareControlCard
+          title="Transfer"
+          description="Move LAUNCH from your ATA to a recipient's ATA. Any holder can transfer their own balance."
+          submitLabel="Transfer"
+          submitVariant="secondary"
           loading={transferring}
           disabled={transferBaseUnits === null || !recipientLooksValid(transferRecipient)}
-          onClick={handleTransfer}
-        >
-          Transfer
-        </Button>
-        <TradeStatus
+          onSubmit={handleTransfer}
           signature={transferSignature}
           error={transferError}
-          idle="Moves LAUNCH from your ATA to the recipient's ATA."
-        />
-      </div>
-      <div className="share-control-row">
-        <Input
-          label="Burn amount"
-          inputMode="decimal"
-          placeholder="0.0"
-          value={burnAmount}
-          onChange={(e) => setBurnAmount(e.target.value)}
-          disabled={burning}
-          size="sm"
-        />
-        <Button
-          variant="danger"
-          size="sm"
+        >
+          <Input
+            label="Recipient"
+            placeholder="recipient pubkey"
+            value={transferRecipient}
+            onChange={(e) => setTransferRecipient(e.target.value)}
+            disabled={transferring}
+            size="sm"
+          />
+          <Input
+            label="Amount"
+            inputMode="decimal"
+            placeholder="0.0"
+            value={transferAmount}
+            onChange={(e) => setTransferAmount(e.target.value)}
+            disabled={transferring}
+            size="sm"
+          />
+        </ShareControlCard>
+        <ShareControlCard
+          title="Burn"
+          description="Destroy LAUNCH from your ATA permanently. Reduces total supply by the burned amount."
+          submitLabel="Burn"
+          submitVariant="danger"
           loading={burning}
           disabled={burnBaseUnits === null}
-          onClick={handleBurn}
-        >
-          Burn
-        </Button>
-        <TradeStatus
+          onSubmit={handleBurn}
           signature={burnSignature}
           error={burnError}
-          idle="Destroys LAUNCH from your ATA permanently."
-        />
+        >
+          <Input
+            label="Amount"
+            inputMode="decimal"
+            placeholder="0.0"
+            value={burnAmount}
+            onChange={(e) => setBurnAmount(e.target.value)}
+            disabled={burning}
+            size="sm"
+          />
+        </ShareControlCard>
       </div>
     </PageSection>
   );
 }
 
-function TradeStatus({
+/**
+ * Iter-6: shared 3-card wrapper for Mint / Transfer / Burn. Locks the
+ * vertical structure so the three forms read as one workspace — same
+ * title weight, same description height (clamped by CSS min-height so
+ * a short Burn copy doesn't collapse the grid row), same submit
+ * placement, same status-line affordance. The form fields themselves
+ * are passed in as children so each action keeps its own field shape.
+ */
+function ShareControlCard({
+  title,
+  description,
+  submitLabel,
+  submitVariant,
+  loading,
+  disabled,
+  onSubmit,
   signature,
   error,
-  idle,
+  children,
 }: {
+  title: string;
+  description: string;
+  submitLabel: string;
+  submitVariant: "primary" | "secondary" | "danger";
+  loading: boolean;
+  disabled: boolean;
+  onSubmit: () => void;
   signature: string | null;
   error: string | null;
-  idle: string;
+  children: React.ReactNode;
 }) {
+  return (
+    <div className="share-control-card">
+      <div className="share-control-card__header">
+        <span className="share-control-card__title">{title}</span>
+        <span className="share-control-card__description">{description}</span>
+      </div>
+      <div className="share-control-card__form">{children}</div>
+      <Button
+        className="share-control-card__submit"
+        variant={submitVariant}
+        size="sm"
+        loading={loading}
+        disabled={disabled}
+        onClick={onSubmit}
+      >
+        {submitLabel}
+      </Button>
+      <TradeStatus signature={signature} error={error} />
+    </div>
+  );
+}
+
+/**
+ * Iter-6: idle copy moved into the card description above, so this
+ * status line renders one of three states: signature (jade), error
+ * (red), or an empty placeholder that reserves the row height so the
+ * grid doesn't jump on submit. Min-height in the CSS holds the layout
+ * even when the line is empty.
+ */
+function TradeStatus({ signature, error }: { signature: string | null; error: string | null }) {
   if (signature) {
     return (
       <span className="share-control-status share-control-status--signature">
@@ -253,7 +301,11 @@ function TradeStatus({
   if (error) {
     return <span className="share-control-status share-control-status--error">{error}</span>;
   }
-  return <span className="share-control-status">{idle}</span>;
+  return (
+    <span className="share-control-status" aria-hidden="true">
+      &nbsp;
+    </span>
+  );
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
 import { Button, EmptyState, Input, MetricCard, MetricGrid, PageSection } from "@/components/ui";
@@ -10,6 +10,7 @@ import {
   formatCurveSupplyPercent,
 } from "@/components/equity/curveFormatters";
 import { RecentTradesLog } from "@/components/equity/RecentTradesLog";
+import { useCurveTrades } from "@/hooks/useCurveTrades";
 import "./EquityGenesisCurveSection.css";
 
 /**
@@ -37,14 +38,33 @@ import "./EquityGenesisCurveSection.css";
  * custom amounts ship in Phase 1b once the platform-side
  * `/api/solana/curve-sell` endpoint lands.
  */
-export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
-  type CurveState = Awaited<ReturnType<typeof api.getCurveState>>;
-  const [state, setState] = useState<CurveState | null>(null);
-  const [missing, setMissing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  // refreshTick bumps after a successful Buy/Sell so the curve state
-  // re-fetches and the marker updates without a page reload.
-  const [refreshTick, setRefreshTick] = useState(0);
+export function EquityGenesisCurveSection({
+  trustId,
+  refreshTick,
+  onTradeSettled,
+}: {
+  trustId: string;
+  /**
+   * Iter-6: the parent page lifts the refresh tick so HolderDrawer +
+   * RecentTradesLog (under the chart) share the same cache cadence.
+   * Optional — when omitted, the section owns its own internal tick
+   * so a standalone embed still gets self-refreshing behaviour.
+   */
+  refreshTick?: number;
+  /**
+   * Iter-6: notify the parent that a Buy/Sell just settled so it can
+   * bump the shared tick. Called AFTER the local tick bumps so the
+   * curve section's own state stays in sync regardless.
+   */
+  onTradeSettled?: () => void;
+}) {
+  // Internal tick survives when no parent is wiring a shared tick — keeps
+  // standalone use of this component (e.g. embedding in a future demo)
+  // honest. The hook below sums both ticks so either consumer can drive
+  // a refresh.
+  const [internalTick, setInternalTick] = useState(0);
+  const effectiveTick = internalTick + (refreshTick ?? 0);
+  const { state, missing, error: loadError } = useCurveTrades(trustId, effectiveTick);
   const [buying, setBuying] = useState(false);
   const [buySignature, setBuySignature] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
@@ -64,31 +84,10 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
   // program executes. No API call — pure forward projection.
   const [simAmount, setSimAmount] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const next = await api.getCurveState(trustId);
-        if (cancelled) return;
-        setState(next);
-        setMissing(false);
-        setLoadError(null);
-      } catch (err) {
-        if (cancelled) return;
-        const message = err instanceof Error ? err.message : "";
-        if (message.includes("curve_not_provisioned")) {
-          setMissing(true);
-          setLoadError(null);
-        } else {
-          setLoadError(message || "Failed to load curve state.");
-        }
-        setState(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [trustId, refreshTick]);
+  const bumpRefresh = () => {
+    setInternalTick((t) => t + 1);
+    onTradeSettled?.();
+  };
 
   const handleBuy = async () => {
     setBuying(true);
@@ -97,7 +96,7 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
     try {
       const result = await api.tryUnifuturesFirstBuy({ entity_id: trustId });
       setBuySignature(result.signature_b58);
-      setRefreshTick((t) => t + 1);
+      bumpRefresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Buy failed.";
       setBuyError(message);
@@ -207,7 +206,7 @@ export function EquityGenesisCurveSection({ trustId }: { trustId: string }) {
       });
       setSellSignature(result.signature_b58);
       setSellAmount("");
-      setRefreshTick((t) => t + 1);
+      bumpRefresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sell failed.";
       setSellError(message);

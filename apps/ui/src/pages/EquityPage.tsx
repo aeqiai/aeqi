@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSection";
@@ -11,11 +11,13 @@ import { MintIdentitySection } from "@/components/equity/MintIdentitySection";
 import { VestingSection } from "@/components/equity/VestingSection";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
-import { api } from "@/lib/api";
+import { useCurveTrades } from "@/hooks/useCurveTrades";
 import type { CurveTrade } from "@/components/equity/RecentTradesLog";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
+  Button,
   EmptyState,
+  Input,
   Loading,
   Menu,
   Page,
@@ -71,32 +73,20 @@ export default function EquityPage({ trustId }: { trustId: string }) {
     isFoundation,
   } = useEquity(trustAddress);
 
-  // iter-5: fetch curve recent_trades once at the page level so the
-  // HolderDrawer's per-holder activity stream can filter against the
-  // same projection the genesis curve chart uses. The genesis curve
-  // section still owns its own re-fetch on Buy/Sell — this top-level
-  // fetch is one-shot for the drawer view (acceptable staleness; the
-  // drawer is investigative, not order-entry).
-  const [recentTrades, setRecentTrades] = useState<CurveTrade[]>([]);
-  useEffect(() => {
-    if (!trustId) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const state = await api.getCurveState(trustId);
-        if (cancelled) return;
-        setRecentTrades(state.recent_trades ?? []);
-      } catch {
-        // Curve may not be provisioned (Foundation TRUST, or pre-genesis
-        // Venture) — silently leave trades empty. The drawer renders a
-        // quiet empty state in that case.
-        if (!cancelled) setRecentTrades([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [trustId]);
+  // iter-6: shared curve-state fetch via `useCurveTrades`. Both the
+  // genesis-curve section (chart marker, RecentTradesLog under the
+  // chart) and the cap-table HolderDrawer (per-holder activity stream)
+  // read from this single hook. The Buy/Sell handler in
+  // `EquityGenesisCurveSection` calls `onTradeSettled` which bumps the
+  // shared tick, refreshing both consumers in lockstep.
+  //
+  // Prior iter (5): the drawer received a one-shot fetch and the curve
+  // section owned its own internal tick — Buy/Sell refreshed the chart
+  // but left the drawer stale until full page navigation. Iter-6
+  // collapses both into the same hook.
+  const [curveTick, setCurveTick] = useState(0);
+  const bumpCurveTick = useCallback(() => setCurveTick((t) => t + 1), []);
+  const { trades: recentTrades } = useCurveTrades(trustId, curveTick);
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
   if (!trustAddress) {
@@ -229,7 +219,11 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             recentTrades={recentTrades}
           />
           <EquityShareControls trustId={trustId} />
-          <EquityGenesisCurveSection trustId={trustId} />
+          <EquityGenesisCurveSection
+            trustId={trustId}
+            refreshTick={curveTick}
+            onTradeSettled={bumpCurveTick}
+          />
           <EquityFundingRoundControl trustId={trustId} declaredRounds={fundingRequests ?? []} />
           <VestingSection trustId={trustId} positions={vesting ?? []} decimals={mint.decimals} />
           <EquityVestingControls trustId={trustId} holders={holders ?? []} />
@@ -295,6 +289,13 @@ function CapTableSection({
   const [drawerHolder, setDrawerHolder] = useState<TokenHolder | null>(null);
   const [sort, setSort] = useState<CapTableSort>("largest");
   const [filter, setFilter] = useState<CapTableFilter>("all");
+  // Iter-6: free-text holder search. Sits above the table so it shares
+  // the same row as the sort/filter affordances — operators can scope
+  // by substring (handy for finding a specific seed/founder address
+  // when the cap table grows beyond a screen). Matched against the
+  // base58 address; future iters can extend to ENS-style aliases if /
+  // when we resolve them.
+  const [query, setQuery] = useState("");
 
   // Pre-compute "owners with at least one vesting position" — sub-linear
   // for cap-table filters. Built once per vesting list change.
@@ -305,10 +306,15 @@ function CapTableSection({
   }, [vestingPositions]);
 
   const filteredHolders = useMemo(() => {
+    const q = query.trim().toLowerCase();
     const after = holders.filter((h) => {
-      if (filter === "all") return true;
-      const isVested = vestedOwners.has(h.owner.toBase58());
-      return filter === "vested" ? isVested : !isVested;
+      if (filter !== "all") {
+        const isVested = vestedOwners.has(h.owner.toBase58());
+        if (filter === "vested" && !isVested) return false;
+        if (filter === "no_vesting" && isVested) return false;
+      }
+      if (q.length === 0) return true;
+      return h.owner.toBase58().toLowerCase().includes(q);
     });
     return [...after].sort((a, b) => {
       if (sort === "largest") {
@@ -321,7 +327,7 @@ function CapTableSection({
       }
       return a.owner.toBase58().localeCompare(b.owner.toBase58());
     });
-  }, [holders, filter, sort, vestedOwners]);
+  }, [holders, filter, sort, vestedOwners, query]);
 
   const columns: Array<TableColumn<TokenHolder>> = [
     {
@@ -437,11 +443,53 @@ function CapTableSection({
     const total = holders.length;
     const shown = filteredHolders.length;
     const noun = total === 1 ? "holder" : "holders";
-    if (filter === "all") {
+    const querying = query.trim().length > 0;
+    if (filter === "all" && !querying) {
       return `${total} ${noun}. Click a row to open the holder drawer; ⋯ menu prefills the action forms below.`;
     }
     return `${shown} of ${total} ${noun} match the active filter.`;
-  }, [holders.length, filteredHolders.length, filter]);
+  }, [holders.length, filteredHolders.length, filter, query]);
+
+  // Iter-6: CSV export. Uses a Blob + revoked object URL so the
+  // download lands as a real file ("aeqi-cap-table.csv") on every
+  // browser without adding a new dep. Exports the FILTERED set so the
+  // operator can prune by sort/filter/search first and snapshot just
+  // that subset — useful when reconciling with off-chain investor lists.
+  // No PII concerns: every field is already on-chain public data.
+  const handleExportCsv = () => {
+    const rows: string[] = [];
+    rows.push("holder,amount,percent_of_supply,token_account,vesting_count");
+    for (const h of filteredHolders) {
+      const owner = h.owner.toBase58();
+      const ta = h.tokenAccount.toBase58();
+      const amount = formatBaseUnits(h.amount, decimals);
+      const pct = formatPercent(h.amount, totalSupply);
+      const vestingCount = vestingPositions.filter((p) =>
+        p.account.recipient.equals(h.owner),
+      ).length;
+      rows.push(
+        [
+          csvEscape(owner),
+          csvEscape(amount),
+          csvEscape(pct),
+          csvEscape(ta),
+          String(vestingCount),
+        ].join(","),
+      );
+    }
+    const blob = new Blob([rows.join("\n") + "\n"], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    // YYYY-MM-DD UTC stamp so an operator who exports twice in a day
+    // gets two distinguishable files in their downloads folder.
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.download = `aeqi-cap-table-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
@@ -449,35 +497,62 @@ function CapTableSection({
         title="Cap table"
         description={description}
         actions={
-          holders.length > 1 ? (
+          holders.length > 0 ? (
             <span style={{ display: "inline-flex", gap: "var(--space-2)", alignItems: "center" }}>
-              <ToolbarRadioPopover
-                label="Sort"
-                current={CAP_TABLE_SORT_LABELS[sort]}
-                glyph={CAP_TABLE_GLYPHS.sort}
-                options={(Object.keys(CAP_TABLE_SORT_LABELS) as CapTableSort[]).map((id) => ({
-                  id,
-                  label: CAP_TABLE_SORT_LABELS[id],
-                }))}
-                value={sort}
-                onChange={(next) => setSort(next as CapTableSort)}
-              />
-              <ToolbarRadioPopover
-                label="Filter"
-                current={CAP_TABLE_FILTER_LABELS[filter]}
-                glyph={CAP_TABLE_GLYPHS.filter}
-                options={(Object.keys(CAP_TABLE_FILTER_LABELS) as CapTableFilter[]).map((id) => ({
-                  id,
-                  label: CAP_TABLE_FILTER_LABELS[id],
-                }))}
-                value={filter}
-                onChange={(next) => setFilter(next as CapTableFilter)}
-                indicator={filter !== "all"}
-              />
+              {holders.length > 1 && (
+                <>
+                  <ToolbarRadioPopover
+                    label="Sort"
+                    current={CAP_TABLE_SORT_LABELS[sort]}
+                    glyph={CAP_TABLE_GLYPHS.sort}
+                    options={(Object.keys(CAP_TABLE_SORT_LABELS) as CapTableSort[]).map((id) => ({
+                      id,
+                      label: CAP_TABLE_SORT_LABELS[id],
+                    }))}
+                    value={sort}
+                    onChange={(next) => setSort(next as CapTableSort)}
+                  />
+                  <ToolbarRadioPopover
+                    label="Filter"
+                    current={CAP_TABLE_FILTER_LABELS[filter]}
+                    glyph={CAP_TABLE_GLYPHS.filter}
+                    options={(Object.keys(CAP_TABLE_FILTER_LABELS) as CapTableFilter[]).map(
+                      (id) => ({
+                        id,
+                        label: CAP_TABLE_FILTER_LABELS[id],
+                      }),
+                    )}
+                    value={filter}
+                    onChange={(next) => setFilter(next as CapTableFilter)}
+                    indicator={filter !== "all"}
+                  />
+                </>
+              )}
+              <Button variant="secondary" size="sm" onClick={handleExportCsv}>
+                Export CSV
+              </Button>
             </span>
           ) : undefined
         }
       >
+        {holders.length > 1 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginBottom: "var(--space-3)",
+              maxWidth: "320px",
+            }}
+          >
+            <Input
+              size="sm"
+              placeholder="Search holder address"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search cap-table holders by address"
+            />
+          </div>
+        )}
         <Table
           columns={columns}
           data={filteredHolders}
@@ -486,11 +561,19 @@ function CapTableSection({
           stickyHeader
           empty={
             <EmptyState
-              title={filter === "all" ? "No holders" : "No holders match the filter"}
+              title={
+                query.trim().length > 0
+                  ? "No holders match the search"
+                  : filter === "all"
+                    ? "No holders"
+                    : "No holders match the filter"
+              }
               description={
-                filter === "all"
-                  ? "Once the cap-table token is minted to a wallet, holders appear here."
-                  : "Try clearing the filter or grant a vesting position from the form below."
+                query.trim().length > 0
+                  ? "Clear the search box or try a shorter prefix of the address."
+                  : filter === "all"
+                    ? "Once the cap-table token is minted to a wallet, holders appear here."
+                    : "Try clearing the filter or grant a vesting position from the form below."
               }
             />
           }
@@ -592,6 +675,21 @@ function groupThousands(digits: string): string {
  * never-minted mint; the cap-table section should be empty in that
  * case anyway, but the column renders defensively).
  */
+/**
+ * Iter-6 CSV escape — RFC-4180-flavoured: wrap any value that contains
+ * a comma, double-quote, or newline in double-quotes, and double-up
+ * embedded quotes. Sufficient for cap-table fields (addresses are
+ * comma-free base58, amounts are formatted numbers, percentages carry
+ * a `%` and a `.`). Keeps the export legible in Excel, Sheets, and
+ * `cut -d,`.
+ */
+function csvEscape(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
 function formatPercent(amount: bigint, total: bigint): string {
   if (total === 0n) return "—";
   // Scale to ten-thousandths then divide back — keeps two-decimal

@@ -1,24 +1,78 @@
-/* Row layout for share-control forms (mint / transfer / burn).
-   Three rows per action: paired inputs + action button + status text.
-   Rows separate by rhythm (margin), not by hairline — design-system rule
-   "no 1px borders for dividers". */
+/* Iter-6: Share controls render as a 3-column workspace — one card per
+   action (Mint · Transfer · Burn) with identical structure:
+     · header (action label)
+     · single-line description
+     · form (inputs stacked vertically)
+     · Submit button
+     · status line
+   Same width, same row, same gravity. The eye reads them as variations
+   of one operation, not three drifting forms.
 
-.share-control-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
+   Collapses to a single column under ~640px (the cap table above
+   already collapses there) so dense forms don't squish.
+
+   No hairlines — cards are differentiated from the section paper by
+   the `--color-card` tint shift, not by a 1px border.
+*/
+
+.share-control-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.share-control-row:first-of-type {
-  margin-top: 0;
+@media (max-width: 720px) {
+  .share-control-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.share-control-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-md);
+  min-height: 240px;
+}
+
+.share-control-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.share-control-card__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.01em;
+}
+
+.share-control-card__description {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  min-height: 2.6em;
+}
+
+.share-control-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.share-control-card__submit {
+  align-self: flex-start;
 }
 
 .share-control-status {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
+  line-height: 1.4;
+  min-height: 1.4em;
 }
 
 .share-control-status--signature {
