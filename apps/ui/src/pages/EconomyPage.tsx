@@ -45,9 +45,17 @@ interface LaunchLoadState {
   loading: boolean;
 }
 
+type PoolKind = "genesis" | "amm";
+
+const POOL_KIND_LABEL: Record<PoolKind, string> = {
+  genesis: "Genesis curve",
+  amm: "AMM pool",
+};
+
 interface PoolRow {
   id: string;
   trust: Trust;
+  kind: PoolKind;
   curve: string;
   assetMint: string;
   quoteMint: string;
@@ -163,6 +171,7 @@ export default function EconomyPage() {
           {
             id: `${trust.id}:${unifutures.curve}`,
             trust,
+            kind: "genesis" as const,
             curve: unifutures.curve,
             assetMint: unifutures.asset_mint,
             quoteMint: unifutures.quote_mint,
@@ -256,7 +265,7 @@ export default function EconomyPage() {
         header: "Pool",
         cell: (row) => (
           <span className={styles.trustCellText}>
-            <span className={styles.trustName}>Genesis curve</span>
+            <span className={styles.trustName}>{POOL_KIND_LABEL[row.kind]}</span>
             <span className={styles.trustMeta}>{row.trust.name}</span>
           </span>
         ),
