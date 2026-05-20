@@ -181,6 +181,14 @@ export default function StartPage() {
                   : item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
                 const from = item.agent_name || "Agent";
                 const time = timeShort(item.awaiting_at || item.last_active);
+                // Status uses the board-locked accent grammar so the family
+                // reads coherent across primitives: awaiting → in_review
+                // (amber) makes the rows that actually need the user pop;
+                // every other row stays in_progress (indigo) as "live but
+                // not blocked on you". The "N awaiting" stat in the hero
+                // pill now has a literal visual companion below it.
+                const status = item.awaiting_at ? "in_review" : "in_progress";
+                const statusLabel = item.awaiting_at ? "Awaiting you" : "Active";
                 return (
                   <li key={item.session_id} className="home-inbox-item">
                     <Link
@@ -192,6 +200,11 @@ export default function StartPage() {
                         item.session_id,
                       )}
                     >
+                      <span
+                        className={`home-inbox-status home-inbox-status--${status}`}
+                        aria-label={statusLabel}
+                        title={statusLabel}
+                      />
                       <span className="home-inbox-avatar" aria-hidden="true">
                         <BlockAvatar name={from} size={28} />
                       </span>

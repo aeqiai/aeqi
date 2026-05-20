@@ -8169,6 +8169,27 @@ button.home-card:focus-visible {
 .home-inbox-link:hover {
   background: var(--bg-row);
 }
+/* Inbox status dot — mirrors `.quest-status-dot` grammar (7px / 999px /
+   token colors) so the four primitives share one status vocabulary on
+   the home rail. Awaiting rows take `in_review` (amber); every other
+   live row takes `in_progress` (indigo). Aligned to the avatar's
+   vertical center via top margin so the dot reads as a leading mark on
+   the row, not a satellite floating mid-air. */
+.home-inbox-status {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  margin-top: 13px;
+  background: var(--color-text-muted);
+}
+.home-inbox-status--in_progress {
+  background: #7c6cd6;
+}
+.home-inbox-status--in_review {
+  background: var(--color-warmth);
+}
 .home-inbox-avatar {
   display: flex;
   align-items: center;
