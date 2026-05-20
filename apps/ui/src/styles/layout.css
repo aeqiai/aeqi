@@ -1106,6 +1106,9 @@
   justify-content: center;
   padding: 8px;
 }
+.left-sidebar.collapsed .sidebar-user-zone {
+  padding: 4px 0 8px;
+}
 
 /* ── Sidebar footer — profile anchor, pinned bottom-left (Linear
    pattern). Profile occupies the row with a tiny `?` help affordance
@@ -6464,6 +6467,172 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   flex-direction: column;
   gap: 2px;
   padding-bottom: 8px;
+}
+
+/* ── Account dropdown ─────────────────────────────────────────────────
+   Pinned at the bottom of the sidebar. The row IS the popover trigger:
+   click anywhere on the row opens the menu (Account, Billing, Log out).
+   The "Account" item navigates to /account; the row
+   itself does not navigate. One affordance, no chevron. */
+.account-dropdown-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+/* Popover root wraps the trigger button. Make it grow to fill the
+ * row's flex line so the button (flex:1 inside) actually stretches. */
+.account-dropdown-row > * {
+  flex: 1;
+  min-width: 0;
+}
+.account-dropdown-trigger {
+  /* relative anchors the .active ::before accent bar to this row. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* width:100% (not flex:1) — the Popover wrapper between this button and
+   * the row is `display: inline-block` (Popover.module.css `.root`), which
+   * kills the flex chain. The button needs an explicit width fill so its
+   * hover background and clickable area extend across the full row width
+   * like every other `.sidebar-nav-item` does, instead of clipping at the
+   * text. (Fix 2026-05-19.) */
+  width: 100%;
+  min-width: 0;
+  min-height: var(--sidebar-row-h);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+.account-dropdown-trigger--static {
+  cursor: default;
+}
+.account-dropdown-trigger:hover {
+  background: var(--state-hover);
+  color: var(--color-text-title);
+}
+.account-dropdown-trigger--active {
+  background: var(--state-selected);
+  color: var(--color-text-title);
+}
+.account-dropdown-trigger--active .account-dropdown-name {
+  font-weight: 600;
+}
+.account-dropdown-trigger--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--color-accent);
+}
+.account-dropdown-trigger:focus-visible {
+  outline: 1px solid var(--border-hover);
+  outline-offset: -1px;
+}
+.account-dropdown-avatar {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.account-dropdown-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+}
+.account-dropdown-name {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-dropdown-email {
+  font-size: var(--font-size-micro);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.left-sidebar.collapsed .account-dropdown-identity {
+  display: none;
+}
+.left-sidebar.collapsed .account-dropdown-trigger {
+  justify-content: center;
+  padding: 8px;
+}
+.account-dropdown-menu {
+  min-width: 160px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 2px;
+}
+/* Tighten SelectOption rows inside the account menu specifically — the
+   global SelectOption padding (8px 12px) reads as too roomy for a 3-row
+   menu hanging off the rail's top-left avatar. Local override: smaller
+   padding, smaller icons, tighter row height. SelectOption uses CSS
+   Modules so we reach into the rendered <button> directly. */
+.account-dropdown-menu > button {
+  padding: 6px 10px;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  min-height: 28px;
+}
+.account-dropdown-menu > button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Per-row right-cap action ──────────────────────────────────────────
+   Sidebar nav row = flex container. Primary link stretches via flex:1;
+   an optional small ghost-circle button (search on Home, "+" on
+   Agents/Ideas) sits at the right edge as a fixed-size cap. Same
+   shape as the bottom Account+Help row — visible at rest, not
+   hover-revealed. The button itself uses the canonical
+   `.sidebar-row-action-btn` class so the icon-button language is
+   shared across the rail. Hidden in collapsed mode where the rail is
+   icons-only and there's no room for a sibling cap. */
+.sidebar-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.sidebar-nav-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.left-sidebar.collapsed .sidebar-nav-row .sidebar-row-action-btn {
+  display: none;
+}
+
+/* Sidebar item zones — items grouped without header labels. */
+.sidebar-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-zone + .sidebar-zone {
+  margin-top: 8px;
 }
 
 /* ──────────────────────────────────────────────────────────────────
