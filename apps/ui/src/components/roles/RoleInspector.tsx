@@ -55,9 +55,11 @@ export default function RoleInspector({
     return m;
   }, [agents]);
 
-  // Parent role (who I report to) — first parent edge wins; AEQI roles
-  // are a DAG but in practice the org chart has at most one parent per
-  // role. Multiple parents would render as "Reports to: A, B".
+  // Parent role(s) — who this role reports to. Explicit edges first;
+  // operators with no explicit parent inherit the implicit governance
+  // relation from every director (mirrors the synthesized canvas
+  // connectors in RolesChart, so the inspector tells the same story
+  // the chart shows). Multiple parents render as "Reports to: A, B".
   const parentRoles = useMemo(() => {
     const parents: Role[] = [];
     for (const e of edges) {
@@ -66,10 +68,18 @@ export default function RoleInspector({
         if (parent) parents.push(parent);
       }
     }
+    if (parents.length === 0 && role.role_type === "operational") {
+      for (const candidate of rolesById.values()) {
+        if (candidate.role_type === "director") parents.push(candidate);
+      }
+    }
     return parents;
-  }, [edges, rolesById, role.id]);
+  }, [edges, rolesById, role]);
 
   // Children (delegates) — every role that points up at this one.
+  // Mirror the implicit-edge story: a director with no explicit
+  // children but operators in the same TRUST implicitly delegates to
+  // each operator.
   const childRoles = useMemo(() => {
     const children: Role[] = [];
     for (const e of edges) {
@@ -78,8 +88,13 @@ export default function RoleInspector({
         if (child) children.push(child);
       }
     }
+    if (children.length === 0 && role.role_type === "director") {
+      for (const candidate of rolesById.values()) {
+        if (candidate.role_type === "operational") children.push(candidate);
+      }
+    }
     return children;
-  }, [edges, rolesById, role.id]);
+  }, [edges, rolesById, role]);
 
   // Active quests held by THIS role's occupant when it's an agent.
   // For human-held or vacant roles, this stays 0; quests are agent-
@@ -277,6 +292,15 @@ export default function RoleInspector({
                 {p.title}
               </Link>
             ))}
+          </Field>
+        )}
+
+        {/* Top-of-tree directors get an explicit "Root authority" cell
+            instead of an empty "Reports to" — they don't report up; they
+            ARE the apex. */}
+        {parentRoles.length === 0 && role.role_type === "director" && (
+          <Field label="Authority">
+            <span className="role-inspector-meta">Root authority</span>
           </Field>
         )}
 
