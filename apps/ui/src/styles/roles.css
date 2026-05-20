@@ -95,6 +95,21 @@
   background: var(--accent);
   color: var(--btn-primary-text);
 }
+/* TRUST-occupant card avatar — outlined rounded-square + Landmark
+   glyph for a board / director seat. Outlined vs filled keeps board-
+   tier authority visually distinct from execution-tier (.role-node-
+   avatar-agent is filled). */
+.role-node-avatar-trust {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--color-card);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+}
 
 .role-node--vacant {
   background: var(--color-card);
