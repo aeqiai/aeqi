@@ -1,11 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useDaemonStore } from "@/store/daemon";
 import { useQuorum } from "@/hooks/useQuorum";
 import { deriveProposalStatus, isTokenModeId } from "@/solana";
-import type { GovernanceConfigWithPda, ProposalWithPda, RoleTypeWithPda } from "@/solana";
+import type {
+  GovernanceConfigWithPda,
+  ProposalStatus,
+  ProposalWithPda,
+  RoleTypeWithPda,
+} from "@/solana";
 import {
   Badge,
+  Button,
   EmptyState,
   Inline,
   Loading,
@@ -21,7 +27,11 @@ import {
 import {
   CopyableMono,
   FilterChip,
+  KpiStrip,
   ModeBadge,
+  NoGovernanceSetup,
+  PROPOSAL_STATUS_LABEL,
+  ProposalDetailModal,
   ProposalStatusBadge,
   SnapshotIndicator,
   TallyBars,
@@ -32,6 +42,7 @@ import {
   shortAddress,
   shortBytes32,
   voteWindowLabel,
+  voteWindowSeconds,
 } from "./QuorumPage.parts";
 
 /**
@@ -123,14 +134,10 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
       <PageHeader title="Governance" description="How the TRUST decides — proposals + votes." />
       <PageBody>
         {!hasAnything ? (
-          <PageSection title="Voting configs">
-            <EmptyState
-              title="No voting configs yet"
-              description="Once governance is configured, proposals appear here. The aeqi_governance module is registered on this TRUST but no voting config has been written yet."
-            />
-          </PageSection>
+          <NoGovernanceSetup trustId={trustId} />
         ) : (
           <>
+            <KpiStrip proposals={proposalsList} configs={configsList} />
             <ConfigsSection configs={configsList} roleTypes={roleTypeList} />
             <ProposalsSection proposals={proposalsList} roleTypes={roleTypeList} />
           </>
@@ -238,7 +245,7 @@ function ConfigsSection({
   );
 }
 
-type FilterKey = "all" | "active" | "executed" | "canceled";
+type FilterKey = "all" | "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled";
 
 function ProposalsSection({
   proposals,
@@ -248,11 +255,21 @@ function ProposalsSection({
   roleTypes: RoleTypeWithPda[];
 }) {
   const [filter, setFilter] = useState<FilterKey>("active");
+  const [detail, setDetail] = useState<{
+    proposal: ProposalWithPda;
+    status: ProposalStatus;
+  } | null>(null);
 
-  // Compute "now" once per render so all rows derive status against
-  // the same wall clock — a row that was "active" in the table can't
-  // flip to "succeeded" on adjacent cells purely from a clock drift.
-  const nowSeconds = useMemo(() => Math.floor(Date.now() / 1000), []);
+  // Re-tick once per minute so active-row countdowns drift forward
+  // visibly. 60s is the cheapest cadence that still feels live for a
+  // multi-hour or multi-day vote window; sub-minute updates would
+  // burn renders without an operator-visible change. The clock is
+  // captured once per tick so all rows resolve against the same now.
+  const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = window.setInterval(() => setNowSeconds(Math.floor(Date.now() / 1000)), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const withStatus = useMemo(
     () =>
@@ -265,10 +282,7 @@ function ProposalsSection({
 
   const filtered = useMemo(() => {
     if (filter === "all") return withStatus;
-    if (filter === "active") return withStatus.filter((p) => p.status === "active");
-    if (filter === "executed") return withStatus.filter((p) => p.status === "executed");
-    if (filter === "canceled") return withStatus.filter((p) => p.status === "canceled");
-    return withStatus;
+    return withStatus.filter((p) => p.status === filter);
   }, [withStatus, filter]);
 
   // Newest first — Anchor returns `i64` as BN; use number compare on
@@ -284,11 +298,20 @@ function ProposalsSection({
   );
 
   const counts = useMemo(() => {
-    const c = { all: withStatus.length, active: 0, executed: 0, canceled: 0 };
+    const c: Record<FilterKey, number> = {
+      all: withStatus.length,
+      active: 0,
+      pending: 0,
+      succeeded: 0,
+      defeated: 0,
+      executed: 0,
+      canceled: 0,
+    };
     for (const { status } of withStatus) {
-      if (status === "active") c.active += 1;
-      else if (status === "executed") c.executed += 1;
-      else if (status === "canceled") c.canceled += 1;
+      // `status` is a ProposalStatus literal; every value except
+      // `succeeded`/`defeated`/`canceled`/`executed`/`active`/`pending`
+      // would be a type error so the index access is sound here.
+      c[status] += 1;
     }
     return c;
   }, [withStatus]);
@@ -313,7 +336,17 @@ function ProposalsSection({
     {
       key: "status",
       header: "Status",
-      cell: (row) => <ProposalStatusBadge status={row.status} />,
+      cell: (row) => {
+        const { start, end } = voteWindowSeconds(row.proposal.account);
+        return (
+          <ProposalStatusBadge
+            status={row.status}
+            nowSeconds={nowSeconds}
+            voteStart={start ?? undefined}
+            voteEnd={end ?? undefined}
+          />
+        );
+      },
     },
     {
       key: "tallies",
@@ -348,12 +381,25 @@ function ProposalsSection({
       key: "actions",
       header: "",
       align: "end",
-      cell: () => (
-        <Tooltip content="Vote casting lands in a sibling follow-up ship.">
-          <Badge variant="muted" size="sm">
-            Vote (coming soon)
-          </Badge>
-        </Tooltip>
+      cell: (row) => (
+        <Inline gap="2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetail(row);
+            }}
+            aria-label={`View proposal ${shortBytes32(row.proposal.account.proposalId)}`}
+          >
+            View
+          </Button>
+          <Tooltip content="Vote casting lands in a sibling follow-up ship.">
+            <Badge variant="muted" size="sm">
+              Vote
+            </Badge>
+          </Tooltip>
+        </Inline>
       ),
     },
   ];
@@ -365,38 +411,38 @@ function ProposalsSection({
     >
       <Stack gap="3">
         <Inline gap="2" wrap>
-          <FilterChip
-            label="Active"
-            count={counts.active}
-            active={filter === "active"}
-            onClick={() => setFilter("active")}
-          />
-          <FilterChip
-            label="All"
-            count={counts.all}
-            active={filter === "all"}
-            onClick={() => setFilter("all")}
-          />
-          <FilterChip
-            label="Executed"
-            count={counts.executed}
-            active={filter === "executed"}
-            onClick={() => setFilter("executed")}
-          />
-          <FilterChip
-            label="Canceled"
-            count={counts.canceled}
-            active={filter === "canceled"}
-            onClick={() => setFilter("canceled")}
-          />
+          {(
+            [
+              ["active", "Active"],
+              ["pending", "Pending"],
+              ["succeeded", "Succeeded"],
+              ["defeated", "Defeated"],
+              ["executed", "Executed"],
+              ["canceled", "Canceled"],
+              ["all", "All"],
+            ] as Array<[FilterKey, string]>
+          ).map(([key, label]) => (
+            <FilterChip
+              key={key}
+              label={label}
+              count={counts[key]}
+              active={filter === key}
+              onClick={() => setFilter(key)}
+            />
+          ))}
         </Inline>
         <Table
           columns={columns}
           data={rows}
           rowKey={(row) => row.proposal.publicKey.toBase58()}
+          onRowClick={(row) => setDetail(row)}
           empty={
             <EmptyState
-              title={filter === "all" ? "No proposals yet" : `No ${filter} proposals`}
+              title={
+                filter === "all"
+                  ? "No proposals yet"
+                  : `No ${PROPOSAL_STATUS_LABEL[filter as ProposalStatus]?.toLowerCase() ?? filter} proposals`
+              }
               description={
                 filter === "all"
                   ? "When a proposal opens against this TRUST, it lands here."
@@ -407,6 +453,12 @@ function ProposalsSection({
           ariaLabel="Governance proposals"
         />
       </Stack>
+      <ProposalDetailModal
+        entry={detail}
+        roleTypes={roleTypes}
+        nowSeconds={nowSeconds}
+        onClose={() => setDetail(null)}
+      />
     </PageSection>
   );
 }
