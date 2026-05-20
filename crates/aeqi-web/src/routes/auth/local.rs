@@ -222,9 +222,7 @@ async fn signup_handler(
     }
 
     // Validate invite code when waitlist is enabled.
-    // Admin email bypasses invite code requirement.
-    let is_admin = email.eq_ignore_ascii_case("0x@aeqi.ai");
-    if state.auth_config.waitlist && !is_admin {
+    if state.auth_config.waitlist {
         if invite_code.is_empty() {
             return (
                 StatusCode::BAD_REQUEST,

@@ -313,7 +313,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
                     .await;
             }
 
-            // Agent identity prompts are now managed via ideas.db — prompt store import removed.
+            // Agent identity prompts are now managed via ideas in aeqi.db.
 
             // Build the global Dispatcher.
             let dispatch_config = DispatchConfig {

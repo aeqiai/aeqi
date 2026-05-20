@@ -208,7 +208,7 @@ mod tests {
         let result = resolve_ws_roots(&state, Some(&token));
         assert_eq!(
             result.unwrap_err(),
-            "JWT signing secret not configured. Set AEQI_AUTH_SECRET environment variable."
+            "JWT signing secret not configured. Set AEQI_WEB_SECRET or [web].auth_secret."
         );
     }
 }

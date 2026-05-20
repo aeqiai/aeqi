@@ -5,13 +5,14 @@ AEQI is an agent runtime and orchestration engine in Rust.
 ## Four Primitives
 
 | Primitive | Purpose | Storage |
-|-----------|---------|---------|
+| --- | --- | --- |
 | **Agent** | Persistent identity in a tree (`parent_id` hierarchy) | `aeqi.db` |
-| **Idea** | Knowledge store -- identity, instructions, memories | `ideas.db` |
-| **Quest** | Unit of work with dependencies and outcomes | `aeqi.db` |
+| **Idea** | Knowledge store -- identity, instructions, memories | `aeqi.db` |
+| **Quest** | Unit of work with dependencies and outcomes | `sessions.db` |
 | **Event** | Reaction rule -- when pattern X fires, run idea Z | `aeqi.db` |
 
-Plus **Activity** as infrastructure (audit log, costs -- not a primitive) in `aeqi.db`.
+Plus **Activity** as infrastructure (audit log, costs, session journal -- not a
+primitive) in `sessions.db`.
 
 ## Two Orthogonal Concepts
 
@@ -57,7 +58,7 @@ Ideas attached to the agent provide its instructions, personality, expertise, an
 
 Ideas carry no positioning metadata. Activation is decided entirely by events: the `session:start` event references the ideas that should always be in an agent's context, `session:quest_start` references ideas for the quest-opening phase, and so on. Scope (`self` vs `descendants`) on each idea controls whether an ancestor's idea reaches the target agent.
 
-Ideas are stored in `ideas.db` with SQLite FTS5 full-text search and optional vector embeddings for hybrid retrieval.
+Ideas are stored in `aeqi.db` with SQLite FTS5 full-text search and optional vector embeddings for hybrid retrieval.
 
 - **Knowledge graph** -- typed edges (caused_by, supports, contradicts, supersedes) with strength weights
 - **Hybrid search** -- BM25 keyword + vector cosine similarity + graph boost + MMR reranking

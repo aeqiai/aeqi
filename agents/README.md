@@ -1,8 +1,11 @@
 # Agents
 
-Agents are persistent identities stored in the database. The DB is the source of truth -- there are no agent definition files on disk.
+Agents are persistent identities stored in the database. The DB is the source of
+truth for a running runtime.
 
-Agent templates in subdirectories here are historical presets used during initial setup. Once spawned, all agent configuration (ideas, events, model, budget) lives in `aeqi.db`.
+Agent files under `agents/<name>/agent.md` are bootstrap templates. `aeqi setup`
+and discovery can seed runtime state from them, but once an agent is spawned,
+its live configuration, ideas, events, model, and budget live in `aeqi.db`.
 
 ## Agent Tree
 

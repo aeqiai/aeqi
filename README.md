@@ -60,10 +60,28 @@ Or build from source:
 ```bash
 git clone https://github.com/aeqi-ai/aeqi.git
 cd aeqi
+npm --prefix apps/ui ci
+npm --prefix apps/ui run build
 cargo build --release -p aeqi
 ```
 
 Then choose the path you are using.
+
+### Fastest local demo, no API key
+
+Use this when you want to see the local runtime and dashboard before creating a
+cloud inference account:
+
+```bash
+ollama pull llama3.1:8b
+aeqi setup --runtime ollama_agent
+aeqi doctor --strict
+aeqi start
+```
+
+Open `http://127.0.0.1:8400` and sign in with the dashboard secret printed by
+`aeqi setup`. If `doctor --strict` reports Ollama as optional/unhealthy, start
+Ollama and pull the configured model, then run `aeqi doctor --strict` again.
 
 ### Existing hosted TRUST
 
@@ -123,6 +141,12 @@ aeqi start
 seeds starter runtime state, creates a secrets directory, and prints the
 dashboard secret. `aeqi start` runs the daemon, HTTP/WebSocket server, and
 embedded dashboard in one process, defaulting to `http://127.0.0.1:8400`.
+
+The default dashboard auth mode is single-operator secret auth. Multi-user
+account auth exists in the runtime, but a self-host operator must configure
+`[web.auth] mode = "accounts"` plus OAuth/SMTP settings intentionally. Hosted
+account lifecycle, billing, public domains, and fleet placement are not in this
+repository; those belong to `aeqi-platform`.
 
 For a no-cloud-provider walkthrough, use the Ollama path in
 [`docs/local-demo.md`](docs/local-demo.md).

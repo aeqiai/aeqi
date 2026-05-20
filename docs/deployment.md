@@ -41,6 +41,8 @@ Or build from source:
 ```bash
 git clone https://github.com/aeqi-ai/aeqi.git
 cd aeqi
+npm --prefix apps/ui ci
+npm --prefix apps/ui run build
 cargo build --release -p aeqi
 install -m 755 target/release/aeqi /usr/local/bin/aeqi
 ```

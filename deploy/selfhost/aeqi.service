@@ -1,0 +1,17 @@
+[Unit]
+Description=AEQI runtime
+After=network.target
+
+[Service]
+Type=simple
+User=aeqi
+Group=aeqi
+EnvironmentFile=/etc/aeqi/runtime.env
+WorkingDirectory=/var/lib/aeqi
+ExecStart=/usr/local/bin/aeqi start
+Restart=on-failure
+RestartSec=5
+ReadWritePaths=/var/lib/aeqi
+
+[Install]
+WantedBy=multi-user.target

@@ -1,9 +1,0 @@
-{
-  "ok": true,
-  "url": "http://127.0.0.1:5174/trust/trust-alpha/events",
-  "finalUrl": "http://127.0.0.1:5174/trust/trust-alpha/events",
-  "screenshot": "/home/claudedev/aeqi-design-events/apps/ui/events-ae-066-group-status.png",
-  "consoleErrors": [],
-  "httpFailures": [],
-  "bodyTextSample": "Skip to main content aeqi Collapse sidebar (CtrlB) Home Inbox Search (CtrlK) Economy TRUST æ Alpha Trust DIRECTOR Overview Roles OPERATIONS Agents New agent Events New event Quests New quest Ideas New idea OWNERSHIP Assets Equity Quorum Incorporation VO Visual Operator visual@example.com Help — shortcuts, docs (Ctrl/?) Keyboard shortcuts Documentation Events New New event (N) / VISIBILITY All 4 Role 4 Inherited 0 TRUST 0 LIFECYCLE All 4 Runtime 2 Webhooks 1 Routines 1 Runtime 2 the agent's own loop · session, context, guardrails 1 Armed 1 Fired 1 Traced Session start context session:start never trigger ideas When session:start Why runtime hook Tools 1 tool call State armed Trace no trace Cooldown none Quest result digest session:quest_result 3 fires trigger ideas quests When session:quest_result Why runtime hook Tools 2 tool calls State fired Trace last May 21, 10:15 AM Cooldown 30s cooldown Webhooks 1 incoming http · channels, integrations 1 Fired 1 Pending Github issue triage github:issue_opened 1 fires trigger quests When issue opened Why incoming request Tools 1 tool call State fired Trace trace pending Cooldown none Routines 1 scheduled · cron-driven runs 1 Dormant Morning ope"
-}

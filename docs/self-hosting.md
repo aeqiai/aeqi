@@ -28,6 +28,22 @@ Open `http://127.0.0.1:8400` and use the dashboard secret printed by
 For a private server, run the same binary under systemd and put Caddy or nginx
 in front for TLS. See [deployment.md](deployment.md).
 
+## Authentication Model
+
+The default self-host path uses `mode = "secret"` dashboard auth. `aeqi setup`
+generates `[web].auth_secret`, prints it once, and stores it in the runtime
+config. Anyone with that secret can sign in as the local operator, so treat it
+like a password.
+
+For persistent servers, set `AEQI_WEB_SECRET` in the service environment or
+store a reviewed `[web].auth_secret` in `aeqi.toml`. `AEQI_WEB_SECRET` wins over
+the config file. Do not commit either value.
+
+Multi-user local dashboard auth is available through `[web.auth] mode =
+"accounts"`, backed by `accounts.db`. It requires explicit OAuth and/or SMTP
+configuration. The hosted AEQI account system, billing, public domains, and
+runtime fleet placement are part of `aeqi-platform`, not this repository.
+
 ## Data Model
 
 The runtime stores local state in SQLite databases under the configured data
@@ -52,7 +68,9 @@ runtime image from this repository, maps port `8400`, mounts `./config` at
 `/home/aeqi/config`, and stores runtime data in the `aeqi-data` volume.
 
 It is not a one-command hosted platform installer. Before starting it, provide a
-runtime config at `config/aeqi.toml`.
+runtime config at `config/aeqi.toml`. For provider and web secrets, either copy
+`.env.example` to `.env` for Compose interpolation or set the variables in your
+shell.
 
 ```bash
 cp config/aeqi.example.toml config/aeqi.toml

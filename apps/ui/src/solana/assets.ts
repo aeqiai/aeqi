@@ -89,10 +89,8 @@ export interface TreasuryVault {
  * Mainnet USDC: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (6 decimals).
  *
  * Localnet USDC: `BscBtSVDbZCzSHikQSwmCuszX4f4nbESdnfrFYkbv3F3` (6 decimals).
- * Created 2026-05-20 with the dogfood CLI keypair as the mint authority so
- * test TRUSTs (incl. the canonical AEQI dogfood at
- * `C68sd4DX6K7aSLaTyfPnAw7cqN5Fj82qX7JyuDj8NVY4`) can show non-empty
- * treasury balances on the cockpit tile + Assets surface.
+ * Used by local demos and tests so the cockpit tile and Assets surface can
+ * render a familiar token label for non-empty treasury balances.
  */
 export const TOKEN_REGISTRY: Record<string, { symbol: string; decimals: number }> = {
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: "USDC", decimals: 6 },

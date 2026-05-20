@@ -769,7 +769,7 @@ impl Default for WebConfig {
 }
 
 fn default_web_bind() -> String {
-    "0.0.0.0:8400".to_string()
+    "127.0.0.1:8400".to_string()
 }
 
 /// Hosting provider configuration — determines how apps and domains are managed.

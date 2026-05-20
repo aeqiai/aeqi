@@ -209,9 +209,6 @@ pub async fn start(config: &AEQIConfig) -> Result<()> {
     // Build CORS layer.
     let cors = if web.cors_origins.is_empty() {
         CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any)
     } else {
         let origins: Vec<_> = web
             .cors_origins

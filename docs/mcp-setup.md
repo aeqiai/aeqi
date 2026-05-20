@@ -163,7 +163,7 @@ Add a single hook to inject the agent's identity into every session:
         "hooks": [
           {
             "type": "command",
-            "command": "AEQI_AGENT=my-agent aeqi scripts/session-primer.sh"
+            "command": "AEQI_AGENT=my-agent aeqi primer"
           }
         ]
       }

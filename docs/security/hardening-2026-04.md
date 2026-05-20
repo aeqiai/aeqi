@@ -18,7 +18,10 @@ The pass covered:
 
 ### Authentication
 - Removed the default fallback JWT secret (`aeqi-ephemeral-fallback`).
-- `AEQI_AUTH_SECRET` is now required; missing or empty values return an error rather than silently falling back.
+- The current runtime resolves signing secrets from `AEQI_WEB_SECRET` first,
+  then `[web].auth_secret`. Missing configured secrets generate an ephemeral
+  local fallback with loud warnings; persistent deployments should configure a
+  stable secret explicitly.
 - Files: `crates/aeqi-web/src/auth.rs`.
 
 ### Path traversal protection

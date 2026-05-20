@@ -190,7 +190,11 @@ pub async fn handle_create_role(
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
     let occupant_id = super::request_field(request, "occupant_id").map(str::to_string);
-    if matches!(kind, OccupantKind::Human | OccupantKind::Agent | OccupantKind::Trust) && occupant_id.is_none() {
+    if matches!(
+        kind,
+        OccupantKind::Human | OccupantKind::Agent | OccupantKind::Trust
+    ) && occupant_id.is_none()
+    {
         return serde_json::json!({
             "ok": false,
             "error": "occupant_id is required when occupant_kind is human, agent, or trust",
@@ -483,7 +487,11 @@ pub async fn handle_change_occupant(
         Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
     };
     let new_occupant_id = super::request_field(request, "occupant_id").map(str::to_string);
-    if matches!(new_kind, OccupantKind::Human | OccupantKind::Agent | OccupantKind::Trust) && new_occupant_id.is_none() {
+    if matches!(
+        new_kind,
+        OccupantKind::Human | OccupantKind::Agent | OccupantKind::Trust
+    ) && new_occupant_id.is_none()
+    {
         return serde_json::json!({
             "ok": false,
             "error": "occupant_id is required when occupant_kind is human, agent, or trust",

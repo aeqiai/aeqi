@@ -38,7 +38,7 @@ Company is still a runtime term. It is not a hosted-only concept.
 
 The hosted platform owns:
 
-- human accounts, sessions, passkeys, and hosted OAuth
+- hosted human accounts, sessions, passkeys, and hosted OAuth
 - memberships and account-derived access policy
 - billing, plans, invoices, subscriptions, and usage products
 - runtime placement, provisioning, restart, upgrade, and rollback
@@ -54,6 +54,9 @@ A self-hoster of this repository gets a runtime, not the hosted SaaS control
 plane. That is a feature of the boundary:
 
 - local/company runtime execution works without a hosted AEQI account
+- optional runtime-local web accounts can be enabled with `[web.auth] mode =
+  "accounts"`; those users live in `accounts.db` and are not hosted AEQI SaaS
+  accounts
 - runtime data is owned by the runtime operator
 - hosted billing, account lifecycle, public domains, and fleet placement belong
   to `aeqi-platform`

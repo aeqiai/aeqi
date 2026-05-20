@@ -29,16 +29,24 @@ Operational guidelines, environment knobs, and deployment hardening for self-hos
 
 #### 1. Authentication Secret
 ```bash
-# REQUIRED: Set a strong JWT signing secret
-export AEQI_AUTH_SECRET="your-strong-random-secret-here"
+# Production: set a strong JWT signing secret.
+export AEQI_WEB_SECRET="your-strong-random-secret-here"
 ```
 
+AEQI signs dashboard/session tokens with this precedence:
+
+1. `AEQI_WEB_SECRET`
+2. `[web].auth_secret` in `aeqi.toml`
+3. generated ephemeral fallback for local/dev use
+
+Production deployments must set `AEQI_WEB_SECRET` or a reviewed
+`[web].auth_secret`. `aeqi setup` generates and stores a persistent
+`[web].auth_secret` for local single-operator installs.
+
 #### 2. HTTPS Configuration
-```bash
-# Recommended for production
-export AEQI_TLS_CERT_PATH="/path/to/cert.pem"
-export AEQI_TLS_KEY_PATH="/path/to/key.pem"
-```
+
+Run AEQI behind a TLS reverse proxy such as Caddy or nginx. The runtime itself
+binds HTTP/WebSocket locally by default (`127.0.0.1:8400`).
 
 #### 3. Security Headers
 Security headers are enabled by default with the following policies:
@@ -52,20 +60,15 @@ Security headers are enabled by default with the following policies:
 ### Optional Security Enhancements
 
 #### Rate Limiting
-```bash
-# Configure rate limits (requests per minute)
-export AEQI_RATE_LIMIT_WINDOW=60
-export AEQI_RATE_LIMIT_MAX_REQUESTS=100
-```
+
+AEQI applies built-in rate-limit tiers to auth-sensitive and general API
+routes. Tune route-specific limits in code/config as the public surface evolves.
 
 #### Session Security
-```bash
-# Session timeout (seconds)
-export AEQI_SESSION_TIMEOUT=3600
 
-# Concurrent session limit
-export AEQI_MAX_CONCURRENT_SESSIONS=5
-```
+Use `AEQI_WEB_SECRET` rotation plus service restarts to invalidate dashboard
+sessions in secret-auth deployments. Accounts mode stores local account/session
+state in `accounts.db`.
 
 ## Security Best Practices
 

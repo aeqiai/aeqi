@@ -15,7 +15,7 @@ pub enum Commands {
     },
     /// Start daemon + web server in a single process.
     Start {
-        /// Override web server bind address (default: from config or 0.0.0.0:8400).
+        /// Override web server bind address (default: from config or 127.0.0.1:8400).
         #[arg(long)]
         bind: Option<String>,
         /// Canonical trust_id (UUID) for the entity this runtime hosts.
@@ -36,10 +36,9 @@ pub enum Commands {
     /// the failure point is inside `pub async fn start()`. Exits 0 on
     /// success, non-zero with a clear error message otherwise.
     CheckRuntime {
-        /// Path to the runtime root (where `ideas.db` / `sessions.db` /
-        /// `agents.db` live). Defaults to the test fixture path. CI
-        /// should copy a known existing-shape DB into here before
-        /// invoking.
+        /// Path to the runtime root (where `aeqi.db` and `sessions.db`
+        /// live). Defaults to the test fixture path. CI should copy a
+        /// known existing-shape DB into here before invoking.
         #[arg(long)]
         root: Option<PathBuf>,
     },
@@ -463,7 +462,7 @@ pub enum HooksAction {
 pub enum WebAction {
     /// Start the web API server.
     Start {
-        /// Override bind address (default: from config or 0.0.0.0:8400).
+        /// Override bind address (default: from config or 127.0.0.1:8400).
         #[arg(long)]
         bind: Option<String>,
     },

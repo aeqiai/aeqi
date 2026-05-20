@@ -15,12 +15,15 @@ curl -fsSL https://raw.githubusercontent.com/aeqi-ai/aeqi/main/scripts/install.s
 
 ### Option B: Build from Source
 
-Requires Rust stable.
+Requires Rust from `rust-toolchain.toml` and Node.js 22+ for the embedded
+dashboard assets.
 
 ```bash
 git clone https://github.com/aeqi-ai/aeqi.git
 cd aeqi
-cargo build --release
+npm --prefix apps/ui ci
+npm --prefix apps/ui run build
+cargo build --release -p aeqi
 ```
 
 The binary is at `target/release/aeqi`.
@@ -44,6 +47,15 @@ aeqi secrets set ANTHROPIC_API_KEY <key>
 # or run an Ollama server locally and re-run `aeqi setup --runtime ollama_agent`
 ```
 
+For a no-key local demo, use Ollama from the start:
+
+```bash
+ollama pull llama3.1:8b
+aeqi setup --runtime ollama_agent
+aeqi doctor --strict
+aeqi start
+```
+
 Verify before launching:
 
 ```bash
@@ -63,6 +75,11 @@ aeqi start
 ## Open Dashboard
 
 Navigate to `http://127.0.0.1:8400` and paste the secret printed by `aeqi setup` (also stored in `~/.aeqi/aeqi.toml` under `[web].auth_secret`). To rotate it later, edit that field directly and restart `aeqi start`.
+
+This default is a single-operator dashboard secret, not hosted SaaS account
+auth. To run multiple local dashboard users, configure `[web.auth] mode =
+"accounts"` with OAuth/SMTP settings in `aeqi.toml`; hosted billing and fleet
+account management remain outside this repository.
 
 ## Development
 

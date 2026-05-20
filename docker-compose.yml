@@ -8,6 +8,10 @@ services:
       - aeqi-data:/home/aeqi/.aeqi
     environment:
       - AEQI_CONFIG=/home/aeqi/config/aeqi.toml
+      - AEQI_WEB_SECRET=${AEQI_WEB_SECRET:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - RUST_LOG=${RUST_LOG:-info}
     restart: unless-stopped
 
 volumes:

@@ -29,6 +29,13 @@ async fn google_auth_handler(State(state): State<AppState>) -> Response {
     let Some(accounts) = &state.accounts else {
         return (StatusCode::BAD_REQUEST, "accounts not enabled").into_response();
     };
+    if state.auth_config.waitlist {
+        return (
+            StatusCode::BAD_REQUEST,
+            "Google OAuth signup requires invite-code binding; use email signup with an invite code",
+        )
+            .into_response();
+    }
 
     let redirect_uri = google.redirect_uri.clone().unwrap_or_else(|| {
         let base = state

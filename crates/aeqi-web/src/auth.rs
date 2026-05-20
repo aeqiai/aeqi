@@ -103,7 +103,7 @@ fn extract_bearer(req: &Request) -> Option<&str> {
 pub fn signing_secret(state: &AppState) -> Result<&str, &'static str> {
     match state.auth_secret.as_deref() {
         Some(s) if !s.trim().is_empty() => Ok(s),
-        _ => Err("JWT signing secret not configured. Set AEQI_AUTH_SECRET environment variable."),
+        _ => Err("JWT signing secret not configured. Set AEQI_WEB_SECRET or [web].auth_secret."),
     }
 }
 
