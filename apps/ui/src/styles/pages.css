@@ -3786,14 +3786,22 @@
   color: var(--color-text-muted);
   opacity: 0.85;
 }
+/* Empty-state icon palette — aligned with the canonical --state-*
+   family so the icon that lands at the optical centre of an empty
+   column paints the SAME hue as the column's status-dot and header
+   band. Pre-fix: in_progress resolved to --color-info (graphite
+   black, no slate-violet at all) and in_review resolved to
+   --color-warning (#b98a47, the legacy ochre, not the warmth glow),
+   so the largest affordance in an empty column disagreed with the
+   dot just shipped in criterion-4. */
 .quest-col[data-status="in_progress"] .quest-col-empty-icon {
-  color: var(--color-info);
+  color: var(--state-progress);
 }
 .quest-col[data-status="in_review"] .quest-col-empty-icon {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .quest-col[data-status="done"] .quest-col-empty-icon {
-  color: var(--success);
+  color: var(--state-verified);
 }
 .quest-col-empty-title {
   margin: 0;
