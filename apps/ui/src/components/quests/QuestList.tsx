@@ -73,7 +73,7 @@ export default function QuestList({
           </h3>
           <p className="empty-state-hero-body">
             {hasSearch
-              ? "Try a different search, or start a new quest."
+              ? "Clear the search to return to the list, or start a new quest."
               : "Create the first quest to populate this board."}
           </p>
           <div className="quest-board-empty-actions">
@@ -98,11 +98,17 @@ export default function QuestList({
 
   return (
     <div className="ideas-list-body">
+      <div className="quest-list-table-head" aria-hidden>
+        <span>Quest</span>
+        <span>Assignee</span>
+        <span>Due</span>
+        <span>Updated</span>
+      </div>
       {groups.map((group) => {
         if (group.quests.length === 0) return null;
         const isCollapsed = !!collapsed[group.status];
         return (
-          <section key={group.status} className="ideas-list-group">
+          <section key={group.status} className="ideas-list-group" data-status={group.status}>
             <div className="ideas-list-group-head">
               <button
                 type="button"
@@ -158,101 +164,111 @@ export default function QuestList({
                         }
                       }}
                     >
-                      <div className="ideas-list-row-head">
-                        <StatusDot status={status} />
-                        <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
-                        {childCount > 0 && (
-                          <span
-                            className="quest-child-count"
-                            aria-label={`${childCount} subquests`}
-                          >
-                            <Icon icon={FolderOpen} size="xs" />
-                            {childCount}
-                          </span>
-                        )}
-                        {q.kind === "project" && (
-                          <span
-                            className="quest-kind-chip quest-kind-chip--project"
-                            title="Project — container of sub-Quests"
-                          >
-                            project
-                          </span>
-                        )}
-                        {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-                        <PriorityIcon priority={q.priority} />
-                        {q.cost_usd > 0 && (
-                          <span
-                            className="quest-cost-chip"
-                            title={`Inference cost across all sessions on this ${q.kind === "project" ? "project" : "quest"}`}
-                          >
-                            ${q.cost_usd.toFixed(2)}
-                          </span>
-                        )}
-                        {status !== "in_progress" &&
-                          status !== "in_review" &&
-                          status !== "done" &&
-                          status !== "cancelled" && (
-                            <button
-                              type="button"
-                              className="quest-take-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onTake(q.id);
-                              }}
+                      <div className="ideas-list-row-head quest-list-row-head">
+                        <span className="quest-list-row-main">
+                          <StatusDot status={status} />
+                          <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
+                          {childCount > 0 && (
+                            <span
+                              className="quest-child-count"
+                              aria-label={`${childCount} subquests`}
                             >
-                              Take
-                            </button>
+                              <Icon icon={FolderOpen} size="xs" />
+                              {childCount}
+                            </span>
                           )}
-                        <span
-                          className="ideas-list-row-assignee"
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                        >
-                          <AssigneePicker
-                            assignee={q.assignee}
-                            agents={agents}
-                            users={users}
-                            onChange={(next) => onAssigneeChange(q.id, next)}
-                            renderTrigger={({ open, display }) => (
+                          {q.kind === "project" && (
+                            <span
+                              className="quest-kind-chip quest-kind-chip--project"
+                              title="Project — container of sub-Quests"
+                            >
+                              project
+                            </span>
+                          )}
+                          {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+                          <PriorityIcon priority={q.priority} />
+                          {q.cost_usd > 0 && (
+                            <span
+                              className="quest-cost-chip"
+                              title={`Inference cost across all sessions on this ${q.kind === "project" ? "project" : "quest"}`}
+                            >
+                              ${q.cost_usd.toFixed(2)}
+                            </span>
+                          )}
+                          {status !== "in_progress" &&
+                            status !== "in_review" &&
+                            status !== "done" &&
+                            status !== "cancelled" && (
                               <button
                                 type="button"
-                                className={`quest-row-assignee quest-row-assignee--labeled${
-                                  open ? " open" : ""
-                                }`}
-                                aria-haspopup="dialog"
-                                aria-expanded={open}
-                                aria-label={
-                                  display
-                                    ? `Assigned to ${display.name}. Click to reassign.`
-                                    : "Unassigned. Click to assign."
-                                }
+                                className="quest-take-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onTake(q.id);
+                                }}
                               >
-                                <AssigneeAvatar
-                                  assignee={q.assignee}
-                                  agents={agents}
-                                  users={users}
-                                  size={18}
-                                />
-                                <span className="quest-row-assignee-name">
-                                  {display?.name ?? "Unassigned"}
-                                </span>
+                                Take
                               </button>
                             )}
-                          />
                         </span>
-                        {q.due_at && (
+                        <span className="quest-list-row-meta">
                           <span
-                            className={`quest-due-chip${
-                              isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""
-                            }`}
-                            title={`Due ${formatDateTime(q.due_at)}`}
+                            className="ideas-list-row-assignee"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
                           >
-                            {dueLabel(q.due_at)}
+                            <AssigneePicker
+                              assignee={q.assignee}
+                              agents={agents}
+                              users={users}
+                              onChange={(next) => onAssigneeChange(q.id, next)}
+                              renderTrigger={({ open, display }) => (
+                                <button
+                                  type="button"
+                                  className={`quest-row-assignee quest-row-assignee--labeled${
+                                    open ? " open" : ""
+                                  }`}
+                                  aria-haspopup="dialog"
+                                  aria-expanded={open}
+                                  aria-label={
+                                    display
+                                      ? `Assigned to ${display.name}. Click to reassign.`
+                                      : "Unassigned. Click to assign."
+                                  }
+                                  title={display ? `Assigned to ${display.name}` : "Unassigned"}
+                                >
+                                  <AssigneeAvatar
+                                    assignee={q.assignee}
+                                    agents={agents}
+                                    users={users}
+                                    size={18}
+                                  />
+                                  <span className="quest-row-assignee-name">
+                                    {display?.name ?? "Unassigned"}
+                                  </span>
+                                </button>
+                              )}
+                            />
                           </span>
-                        )}
-                        {q.updated_at && (
-                          <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
-                        )}
+                          {q.due_at ? (
+                            <span
+                              className={`quest-due-chip${
+                                isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""
+                              }`}
+                              title={`Due ${formatDateTime(q.due_at)}`}
+                            >
+                              {dueLabel(q.due_at)}
+                            </span>
+                          ) : (
+                            <span className="quest-due-chip quest-due-chip--empty">No due</span>
+                          )}
+                          {q.updated_at && (
+                            <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
+                          )}
+                          {!q.updated_at && (
+                            <span className="ideas-list-row-time quest-list-time-empty">--</span>
+                          )}
+                        </span>
                       </div>
                     </div>
                   );

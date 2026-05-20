@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "url": "http://127.0.0.1:5177/trust/root-1/quests",
+  "screenshot": "screenshots/ae-065-quests-board-assignee.png",
+  "consoleErrors": [],
+  "httpFailures": [],
+  "bodyTextSample": "Skip to main content aeqi Collapse sidebar (CtrlB) Home Inbox Search (CtrlK) Economy TRUST æ Root DIRECTOR Overview Roles OPERATIONS Agents New agent Events New event Quests New quest Ideas New idea OWNERSHIP Assets Equity Quorum Incorporation O Operator operator@example.com Help — shortcuts, docs (Ctrl/?) Keyboard shortcuts Documentation Quests Import From markdown From a blueprint New / SORT BY recent created priority due A↓ A → Z VISIBILITY All 4 Role 4 Team 0 TRUST 0 Inherited 1 VIEW AS board B list L Backlog 0 Todo 1 In progress 1 In review 1 Done 1 Cancelled 0 Scope Drop a quest here to scope the board to its children Backlog 0 Todo 1 Clarify empty board affordance Take Unassigned 51m ago In progress 1 Tighten list row assignee metadata O Operator 1h ago In review 1 Review status hierarchy color semantics Review Agent 1h ago Done 1 Ship screenshot stable quest grid O Operator 1h ago Cancelled 0 Account Billing Log out Unassigned Review Agent AGENT Root Agent AGENT O Operator USER"
+}

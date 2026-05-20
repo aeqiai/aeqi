@@ -155,19 +155,21 @@ export default function QuestActiveCard({
                   onError(e instanceof Error ? e.message : "Failed to reassign");
                 }
               }}
-              renderTrigger={({ open }) => (
+              renderTrigger={({ open, display }) => (
                 <button
                   type="button"
-                  className={`quest-row-assignee${open ? " open" : ""}`}
+                  className={`quest-row-assignee quest-row-assignee--labeled${open ? " open" : ""}`}
                   aria-haspopup="dialog"
                   aria-expanded={open}
                   aria-label={
-                    q.assignee
-                      ? `Assigned: ${q.assignee}. Click to reassign.`
+                    display
+                      ? `Assigned to ${display.name}. Click to reassign.`
                       : "Unassigned. Click to assign."
                   }
+                  title={display ? `Assigned to ${display.name}` : "Unassigned"}
                 >
                   <AssigneeAvatar assignee={q.assignee} agents={agents} users={users} size={18} />
+                  <span className="quest-row-assignee-name">{display?.name ?? "Unassigned"}</span>
                 </button>
               )}
             />

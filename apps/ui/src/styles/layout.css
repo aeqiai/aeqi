@@ -4824,6 +4824,30 @@
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+.quest-board .ideas-list-group[data-status="in_progress"] > .ideas-list-group-head {
+  background: var(--color-info-bg);
+}
+.quest-board .ideas-list-group[data-status="in_review"] > .ideas-list-group-head {
+  background: var(--color-warning-bg);
+}
+.quest-board .ideas-list-group[data-status="done"] > .ideas-list-group-head {
+  background: var(--color-success-bg);
+}
+.quest-board .ideas-list-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--color-card);
+}
+.quest-board
+  .ideas-list-group:is([data-status="in_progress"], [data-status="in_review"], [data-status="done"])
+  .ideas-list-group-count {
+  background: var(--color-card-elevated);
+}
 .ideas-list-group-body {
   display: flex;
   flex-direction: column;
@@ -5030,6 +5054,45 @@
   gap: 10px;
   min-width: 0;
 }
+.quest-list-row-head {
+  align-items: center;
+}
+.quest-list-table-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 80px 72px;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+  padding: 0 var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0;
+}
+.quest-list-row-main,
+.quest-list-row-meta {
+  align-items: center;
+  min-width: 0;
+}
+.quest-list-row-main {
+  display: inline-flex;
+  flex: 1;
+  gap: 8px;
+}
+.quest-list-row-meta {
+  display: grid;
+  grid-template-columns: 160px 80px 72px;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.quest-list-row-meta .ideas-list-row-assignee {
+  margin-left: 0;
+}
+.quest-list-time-empty {
+  color: var(--color-text-muted);
+}
 .ideas-list-row-name {
   font-family: var(--font-sans);
   font-size: 14px;
@@ -5153,6 +5216,25 @@
 .ideas-list-row:hover .ideas-list-row-time,
 .ideas-list-row:focus-visible .ideas-list-row-time {
   color: var(--color-text-title);
+}
+@media (max-width: 720px) {
+  .quest-list-row-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .quest-list-row-main,
+  .quest-list-row-meta {
+    width: 100%;
+  }
+  .quest-list-row-meta {
+    justify-content: flex-start;
+    padding-left: 20px;
+    grid-template-columns: minmax(0, 1fr) 72px 64px;
+  }
+  .quest-list-table-head {
+    display: none;
+  }
 }
 .ideas-list-row-snippet {
   font-family: var(--font-sans);

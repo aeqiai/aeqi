@@ -3084,6 +3084,18 @@
   background: var(--color-card);
 }
 
+.quest-status-summary-item[data-status="in_progress"] {
+  background: var(--color-info-bg);
+}
+
+.quest-status-summary-item[data-status="in_review"] {
+  background: var(--color-warning-bg);
+}
+
+.quest-status-summary-item[data-status="done"] {
+  background: var(--color-success-bg);
+}
+
 .quest-status-summary-label {
   min-width: 0;
   overflow: hidden;
@@ -3297,13 +3309,7 @@
 }
 
 .quest-board-error {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  color: var(--error);
   margin: 12px 28px 0;
-  padding: 6px 10px;
-  background: rgba(239, 68, 68, 0.08);
-  border-radius: var(--radius-sm);
 }
 
 .quest-board-loading {
@@ -3555,26 +3561,33 @@
     box-shadow 0.15s;
 }
 /* Status hues per the role-tier pivot:
- *   in_progress → soft slate-violet (work is moving)
- *   in_review   → warmth/amber (paused for review, almost done)
+ *   in_progress → info graphite (work is moving)
+ *   in_review   → warning amber (paused for review, almost done)
+ *   done        → success jade, carried by the dot and summary chip
  *
  * v5.3: the tint moves OFF the full column slab and ONTO the header
  * band. The body now reads as a neutral working lane (--bg-row) like
  * every other column, and status identity concentrates in the 44px
  * header where the dot + label live. Empty columns no longer flood
  * the viewport with a wash of colour disproportionate to their
- * single card. Uses the canonical --state-*-bg tokens. */
+ * single card. Uses the canonical semantic background tokens. */
 .quest-col[data-status="in_progress"] > .quest-col-header {
-  background: var(--state-progress-bg);
+  background: var(--color-info-bg);
 }
 .quest-col[data-status="in_progress"] > .quest-col-header--toggle {
-  background: var(--state-progress-bg);
+  background: var(--color-info-bg);
 }
 .quest-col[data-status="in_review"] > .quest-col-header {
-  background: var(--state-review-bg);
+  background: var(--color-warning-bg);
 }
 .quest-col[data-status="in_review"] > .quest-col-header--toggle {
-  background: var(--state-review-bg);
+  background: var(--color-warning-bg);
+}
+.quest-col[data-status="done"] > .quest-col-header {
+  background: var(--color-success-bg);
+}
+.quest-col[data-status="done"] > .quest-col-header--toggle {
+  background: var(--color-success-bg);
 }
 /* Active drop target — subtle accent frame + lifted background; children
    keep their own hover so the drop still feels precise. */
@@ -3645,13 +3658,16 @@
 /* On the tinted columns (in_progress slate-violet, in_review amber) the
    default --bg-subtle pill disappears into the wash. Give the count a
    white-paper substrate so it stays legible as a quantifier across all
-   six status hues without introducing a new token. Split into two
-   single-selector rules per the Vite-minifier prefix-collapse trap
-   documented in the shared subagent pack. */
+   six status hues without introducing a new token. Split into single-selector
+   rules per the Vite-minifier prefix-collapse trap documented in the shared
+   subagent pack. */
 .quest-col[data-status="in_progress"] .quest-col-count {
   background: var(--color-card-elevated);
 }
 .quest-col[data-status="in_review"] .quest-col-count {
+  background: var(--color-card-elevated);
+}
+.quest-col[data-status="done"] .quest-col-count {
   background: var(--color-card-elevated);
 }
 /* Chevron toggle for collapsible columns (Backlog, Cancelled). Same
@@ -3933,6 +3949,10 @@
 }
 .quest-card-meta-right {
   flex-shrink: 0;
+  max-width: 68%;
+}
+.quest-card-meta-right .quest-row-assignee--labeled {
+  max-width: 116px;
 }
 .quest-take-btn {
   display: inline-flex;
@@ -3993,6 +4013,12 @@
 .quest-due-chip--overdue {
   color: var(--color-error);
   background: var(--color-error-bg);
+}
+.quest-due-chip--empty {
+  color: var(--color-text-muted);
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
 }
 /* Toolbar trigger morphing — when a due-date is set, the chip glyph
    reads in tabular-nums; when overdue, the trigger picks up the red

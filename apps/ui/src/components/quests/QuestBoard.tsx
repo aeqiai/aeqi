@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import { Button, Icon } from "../ui";
+import { Banner, Button, Icon } from "../ui";
 import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
@@ -13,6 +13,7 @@ import StatusDot from "./StatusDot";
 import QuestList from "./QuestList";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestArchiveStrips from "./QuestArchiveStrips";
+import QuestBoardEmptyState from "./QuestBoardEmptyState";
 import QuestBoardNoMatches from "./QuestBoardNoMatches";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
 import QuestBoardScope from "./QuestBoardScope";
@@ -260,6 +261,8 @@ export default function QuestBoard({
     }
     return buckets;
   }, [sortedVisibleQuests, optimistic]);
+  const hasSearch = search.trim().length > 0;
+  const hasBoardNarrowing = scopeFilter !== "all" || !!boardScopeId;
 
   // Flat traversal order used by j/k. In Board view: column-major over
   // backlog → todo → in_progress → in_review → done → cancelled. In List
@@ -492,9 +495,9 @@ export default function QuestBoard({
         users={users}
       />
       {err && (
-        <div className="quest-board-error" role="alert">
+        <Banner kind="error" className="quest-board-error">
           {err}
-        </div>
+        </Banner>
       )}
 
       {view === "list" ? (
@@ -525,8 +528,17 @@ export default function QuestBoard({
           users={users}
           childCounts={childCounts}
         />
-      ) : search.trim().length > 0 && sortedVisibleQuests.length === 0 ? (
+      ) : hasSearch && sortedVisibleQuests.length === 0 ? (
         <QuestBoardNoMatches onClear={() => setSearch("")} onCompose={() => onCompose()} />
+      ) : sortedVisibleQuests.length === 0 ? (
+        <QuestBoardEmptyState
+          isFiltered={hasBoardNarrowing}
+          onCompose={() => onCompose()}
+          onReset={() => {
+            onScopeChange("all");
+            onBoardScopeChange(null);
+          }}
+        />
       ) : (
         <div className="quest-board-grid">
           {[
