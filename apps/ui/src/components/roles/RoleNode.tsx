@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Bot, Landmark } from "lucide-react";
 import type { Role } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -97,6 +97,43 @@ export default function RoleNode({
     return entities.find((e) => e.id === role.occupant_id)?.name;
   }, [entities, role.occupant_id, role.occupant_kind]);
 
+  // 200ms hover-out grace on the implicit hint (c11). A quick mouse jitter
+  // between the small "implicit" label and the surrounding tile body used
+  // to strobe the focal beam — mouseLeave fired on the hint as the cursor
+  // crossed into adjacent padding/title pixels, clearing
+  // hoveredImplicitDir/Op for a frame before mouseEnter re-fired. The
+  // delay swallows those sub-perceptual gaps; the cancel-on-re-enter
+  // guarantees a sustained hover holds the beam without a stale clear
+  // landing later. Cleared on unmount so an unmounting tile mid-grace
+  // doesn't leave the parent stuck in the focal state.
+  const hoverGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (hoverGraceRef.current !== null) {
+        clearTimeout(hoverGraceRef.current);
+        hoverGraceRef.current = null;
+      }
+    };
+  }, []);
+  const handleImplicitHintEnter = useCallback(() => {
+    if (!onImplicitHintHover) return;
+    if (hoverGraceRef.current !== null) {
+      clearTimeout(hoverGraceRef.current);
+      hoverGraceRef.current = null;
+    }
+    onImplicitHintHover(true);
+  }, [onImplicitHintHover]);
+  const handleImplicitHintLeave = useCallback(() => {
+    if (!onImplicitHintHover) return;
+    if (hoverGraceRef.current !== null) {
+      clearTimeout(hoverGraceRef.current);
+    }
+    hoverGraceRef.current = setTimeout(() => {
+      hoverGraceRef.current = null;
+      onImplicitHintHover(false);
+    }, 200);
+  }, [onImplicitHintHover]);
+
   const occupant = describeOccupant(role, agentName, entityName);
   const isVacant = role.occupant_kind === "vacant";
   const isAgent = role.occupant_kind === "agent";
@@ -148,8 +185,8 @@ export default function RoleNode({
           <span
             className="role-node-edge-hint"
             aria-label="Implicit governance"
-            onMouseEnter={onImplicitHintHover ? () => onImplicitHintHover(true) : undefined}
-            onMouseLeave={onImplicitHintHover ? () => onImplicitHintHover(false) : undefined}
+            onMouseEnter={onImplicitHintHover ? handleImplicitHintEnter : undefined}
+            onMouseLeave={onImplicitHintHover ? handleImplicitHintLeave : undefined}
           >
             implicit
           </span>
