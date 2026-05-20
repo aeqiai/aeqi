@@ -3459,33 +3459,59 @@
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-/* Column header — larger and more substantial than the v5.2 marginal
-   version. Reads as a real section label, not an eyebrow. Same row
-   shape (dot · label · count · add) but with more vertical weight so
-   the columns feel structured rather than ambient. */
+/* Column header — reads as a real section label, distinctly heavier than
+   the 12.5px / 450 quest subjects below. Row shape: dot · label · count
+   · add. The label sits at 13.5px / 620 with a hair of negative tracking
+   for optical density; the count anchors as a quantifier badge (subtle
+   --bg-subtle pill, tabular-nums) so it stops floating as loose mono
+   text co-equal with the label and starts reading as metadata clearly
+   subordinate to the section name. */
 .quest-col-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: 10px 12px 10px 14px;
 }
 .quest-col-label {
   flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
+  /* Long status labels never wrap — there isn't one on the canonical
+     ladder, but defending the slot keeps the count + add anchored. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .quest-col-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
+}
+/* On the tinted columns (in_progress slate-violet, in_review amber) the
+   default --bg-subtle pill disappears into the wash. Give the count a
+   white-paper substrate so it stays legible as a quantifier across all
+   six status hues without introducing a new token. */
+.quest-col[data-status="in_progress"] .quest-col-count,
+.quest-col[data-status="in_review"] .quest-col-count {
+  background: var(--color-card-elevated);
 }
 /* Chevron toggle for collapsible columns (Backlog, Cancelled). Same
    ghost-icon shape as the per-column add button; sits in the same
@@ -3497,10 +3523,10 @@
 .quest-col-header--toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   min-height: 44px;
-  padding: 10px 14px;
+  padding: 10px 12px 10px 14px;
   background: transparent;
   border: 0;
   text-align: left;
