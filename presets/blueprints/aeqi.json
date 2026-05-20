@@ -26,12 +26,7 @@
       }
     ]
   },
-  "agent_template_refs": [
-    {
-      "id": "steward",
-      "owner": "root"
-    }
-  ],
+  "agent_template_refs": [],
   "seed_agents": [],
   "seed_events": [
     {

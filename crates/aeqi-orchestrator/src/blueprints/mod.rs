@@ -269,13 +269,9 @@ mod tests {
     fn company_blueprint_lookup_returns_default_full_spec() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert_eq!(default.name, "aeqi");
-        assert_eq!(default.seed_agents.len(), 1);
-        assert_eq!(default.seed_agents[0].name, "Steward");
-        assert_eq!(
-            default.seed_agents[0].template_id.as_deref(),
-            Some("steward")
-        );
-        assert_eq!(default.seed_quests.len(), 9);
+        assert_eq!(default.seed_agents.len(), 0);
+        assert!(default.agent_template_refs.is_empty());
+        assert_eq!(default.seed_quests.len(), 8);
     }
 
     #[test]
@@ -288,25 +284,32 @@ mod tests {
     }
 
     #[test]
-    fn default_blueprint_expands_steward_dependencies() {
+    fn default_blueprint_collapses_to_single_janus() {
         let default = company_blueprint(DEFAULT_BLUEPRINT_SLUG).expect("default template present");
         assert!(
-            default
+            default.agent_template_refs.is_empty(),
+            "default blueprint must not reference any agent templates after C3 collapse",
+        );
+        assert!(
+            !default
                 .seed_events
                 .iter()
-                .any(|event| event.owner == "Steward" && event.name == "steward_weekly_review")
+                .any(|event| event.owner == "Steward"),
+            "no Steward-owned events should ship in the default blueprint",
         );
         assert!(
-            default
+            !default
                 .seed_ideas
                 .iter()
-                .any(|idea| idea.owner == "Steward" && idea.name == "Steward operating cadence")
+                .any(|idea| idea.owner == "Steward"),
+            "no Steward-owned ideas should ship in the default blueprint",
         );
         assert!(
-            default
+            !default
                 .seed_roles
                 .iter()
-                .any(|role| role.default_occupant_agent.as_deref() == Some("Steward"))
+                .any(|role| role.default_occupant_agent.as_deref() == Some("Steward")),
+            "no Steward-occupied roles should ship in the default blueprint",
         );
     }
 
