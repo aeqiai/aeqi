@@ -542,9 +542,16 @@
   background: var(--color-accent-bg, rgba(0, 0, 0, 0.06));
   border-color: var(--color-accent-bg, rgba(0, 0, 0, 0.14));
 }
+/* Tool chips in the flow strip — they sit on the elevated row card, so
+   a `--color-card` (white) ground rendered as invisible white-on-white.
+   Switch to the canonical `--bg-row` tint so each tool reads as a
+   discrete pill at the same visual weight as the trigger chip, just
+   neutral instead of lifecycle-toned. Letter-spacing matches `.scope-chip`
+   so the chip vocabulary reads consistently across the row. */
 .events-overview-chip.is-tool {
   color: var(--color-text-primary);
-  background: var(--color-card, #fff);
+  background: var(--bg-row);
+  letter-spacing: 0.04em;
 }
 .events-overview-chip.is-empty {
   color: var(--color-text-muted);
