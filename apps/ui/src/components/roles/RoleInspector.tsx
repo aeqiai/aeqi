@@ -290,14 +290,22 @@ export default function RoleInspector({
 
           {childRoles.length > 0 && (
             <Field label="Delegates to">
-              <span className="role-inspector-stat">{childRoles.length}</span>
-              <span className="role-inspector-meta">
-                {childRoles
-                  .slice(0, 2)
-                  .map((c) => c.title)
-                  .join(" · ")}
-                {childRoles.length > 2 ? ` · +${childRoles.length - 2}` : ""}
-              </span>
+              {/* Render as chips for visual symmetry with "Reports to"
+                 above. Both fields express adjacent roles, so they
+                 should be visually parallel and individually clickable.
+                 Overflow above 3 collapses to a "+N more" tail. */}
+              {childRoles.slice(0, 3).map((c) => (
+                <Link
+                  key={c.id}
+                  to={`${basePath}/roles?role=${encodeURIComponent(c.id)}`}
+                  className="role-inspector-chip"
+                >
+                  {c.title}
+                </Link>
+              ))}
+              {childRoles.length > 3 && (
+                <span className="role-inspector-meta">+{childRoles.length - 3} more</span>
+              )}
             </Field>
           )}
         </Section>
