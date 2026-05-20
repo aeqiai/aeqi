@@ -775,6 +775,32 @@ export const api = {
     }),
 
   /**
+   * Grant a vesting position. position_id is generated server-side and
+   * returned so the caller can look the position up on chain.
+   * Schedule: start_time < end_time AND start_time <= cliff_time <= end_time
+   * (unix-seconds i64).
+   */
+  vestingCreate: (data: {
+    entity_id: string;
+    recipient_pubkey: string;
+    total_amount: number;
+    start_time: number;
+    cliff_time: number;
+    end_time: number;
+  }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      position_pubkey_b58: string;
+      position_id_hex: string;
+      recipient_b58: string;
+      total_amount: number;
+    }>("/solana/vesting-create", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.

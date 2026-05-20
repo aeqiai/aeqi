@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSection";
 import { EquityShareControls } from "@/components/EquityShareControls";
+import { EquityVestingControls } from "@/components/EquityVestingControls";
 import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
 import { formatShortDate } from "@/lib/i18n";
@@ -142,6 +143,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
           totalSupply={mint.supply}
           decimals={mint.decimals}
         />
+        <EquityVestingControls trustId={trustId} />
         <VestingSection positions={vesting ?? []} decimals={mint.decimals} />
       </PageBody>
     </Page>
