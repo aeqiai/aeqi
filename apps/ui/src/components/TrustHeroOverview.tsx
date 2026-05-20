@@ -144,7 +144,9 @@ export default function TrustHeroOverview({
             )}
           </span>
         ) : (
-          <span className="trust-hero-bar-text">Bridge pending</span>
+          <span className="trust-hero-bar-pending" title="On-chain mirror is mid-bridge">
+            Bridge pending
+          </span>
         )}
       </div>
     </div>

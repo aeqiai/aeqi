@@ -405,6 +405,27 @@
   color: var(--color-text-secondary);
 }
 
+/* Bridge-pending pill (c6, 2026-05-21) — when the on-chain mirror hasn't
+   materialized yet, the right side renders a warmth-tier pill that
+   shares the address pill's 999px shape and the Ownership row's
+   `.trust-primitive-pending` vocabulary. Warmth = actively bridging
+   (transient awaiting work), distinct from graphite = permanently-soon.
+   The muted Solana mark to the left keeps acting as the chain-mirror
+   chip; together they read as "chain side is awaiting registration"
+   rather than the bare text node the bar showed before. */
+.trust-hero-bar-pending {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--state-review);
+  background: var(--state-review-bg);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Section heading (above each 4-card row) ──────────────────────── */
 
 /* Quiet display title sitting top-left above each primitive-card row.
