@@ -65,6 +65,64 @@
   overflow-x: auto;
   overscroll-behavior-x: contain;
 }
+.event-canvas-summary {
+  min-width: min(920px, 100%);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border-faint);
+}
+.event-canvas-summary-item {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.event-canvas-summary-item--wide .event-canvas-summary-value {
+  max-width: min(320px, 52vw);
+}
+.event-canvas-summary-label {
+  font-family: var(--font-sans);
+  font-size: var(--section-label-size, var(--font-size-micro));
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.event-canvas-summary-value {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.event-canvas-summary-item--runtime .event-canvas-summary-value,
+.event-canvas-summary-item--webhooks .event-canvas-summary-value {
+  color: var(--color-info);
+}
+.event-canvas-summary-item--routines .event-canvas-summary-value,
+.event-canvas-summary-item--guard .event-canvas-summary-value {
+  color: var(--color-warning);
+}
+.event-canvas-summary-item--fire-armed .event-canvas-summary-value {
+  color: var(--color-info);
+}
+.event-canvas-summary-item--fire-fired .event-canvas-summary-value,
+.event-canvas-summary-item--trace-complete .event-canvas-summary-value {
+  color: var(--color-success);
+}
+.event-canvas-summary-item--trace-pending .event-canvas-summary-value {
+  color: var(--color-warning);
+}
+.event-canvas-summary-item--trace-empty .event-canvas-summary-value {
+  color: var(--color-text-muted);
+}
 .event-canvas-track {
   display: inline-flex;
   align-items: stretch;
@@ -164,7 +222,7 @@
   opacity: 0.9;
 }
 .event-canvas-node--tone-fired::before {
-  background: var(--color-accent);
+  background: var(--color-success);
 }
 .event-canvas-node--tone-empty::before {
   background: transparent;
@@ -467,9 +525,9 @@
   gap: var(--space-2);
   min-width: 0;
 }
-/* The trigger pin carries the event's PHASE in the Quests accent ladder:
-   armed = violet (live, watching) · fired = ink (settled, has history) ·
-   dormant = muted ring (operator-disabled). The lifecycle GROUP — runtime
+/* The trigger pin carries the event's phase:
+   armed = info (live, watching) · fired = success (has history) ·
+   dormant = muted ring (operator-disabled). The lifecycle group — runtime
    vs webhooks vs routines — is already carried by the group-section
    header dot above, so the row pin is free to express phase instead. */
 .events-overview-row-pin {
@@ -481,10 +539,10 @@
   flex-shrink: 0;
 }
 .events-overview-row-pin--armed {
-  background: var(--state-progress);
+  background: var(--color-info);
 }
 .events-overview-row-pin--fired {
-  background: var(--color-accent);
+  background: var(--color-success);
 }
 .events-overview-row-pin--dormant {
   background: transparent;
@@ -523,6 +581,46 @@
   align-items: center;
   gap: 0;
   flex-wrap: wrap;
+}
+.events-overview-row-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-faint);
+}
+.events-overview-row-meta-item {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.events-overview-row-meta-label {
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.events-overview-row-meta-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.events-overview-row-meta-item--armed .events-overview-row-meta-value {
+  color: var(--color-info);
+}
+.events-overview-row-meta-item--fired .events-overview-row-meta-value {
+  color: var(--color-success);
+}
+.events-overview-row-meta-item--guard .events-overview-row-meta-value {
+  color: var(--color-warning);
 }
 .events-overview-chip {
   display: inline-flex;
@@ -564,33 +662,30 @@
   margin: 0 4px;
 }
 
-/* Group tones — section header dot + in-row trigger chip carry the
-   lifecycle group. Mapped onto the canonical `--state-*` accent ladder
-   from `primitives.css` so the page registers in the same vocabulary
-   as Quests/Ideas/Agents:
-     runtime  → ink (graphite — the agent's own loop, neutral chrome)
-     webhooks → jade (`--state-verified` — settled, incoming traffic)
-     routines → warmth (`--state-review` — paused/scheduled cadence) */
+/* Group tones — runtime and webhooks are info graphite; routines use warning. */
 .events-overview-group-dot.events-overview-tone-runtime {
-  background: var(--color-accent);
+  background: var(--color-info);
 }
 .events-overview-chip.is-trigger.events-overview-tone-runtime {
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
+  color: var(--color-info);
+  background: var(--color-info-bg);
+  border-color: var(--color-info-border);
 }
 .events-overview-group-dot.events-overview-tone-webhooks {
-  background: var(--state-verified);
+  background: var(--color-info);
 }
 .events-overview-chip.is-trigger.events-overview-tone-webhooks {
-  color: var(--state-verified);
-  background: var(--state-verified-bg);
+  color: var(--color-info);
+  background: var(--color-info-bg);
+  border-color: var(--color-info-border);
 }
 .events-overview-group-dot.events-overview-tone-routines {
-  background: var(--state-review);
+  background: var(--color-warning);
 }
 .events-overview-chip.is-trigger.events-overview-tone-routines {
-  color: var(--state-review);
-  background: var(--state-review-bg);
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
 }
 
 /* Phase echo on the "N fires" / "never" label — render as a tokenized
@@ -605,12 +700,13 @@
   letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="armed"] .events-overview-row-fires {
-  color: var(--state-progress);
-  background: var(--state-progress-bg);
+  color: var(--color-info);
+  background: var(--color-info-bg);
+  letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="fired"] .events-overview-row-fires {
-  color: var(--color-text-primary);
-  background: var(--bg-subtle);
+  color: var(--color-success);
+  background: var(--color-success-bg);
   font-weight: 500;
 }
 

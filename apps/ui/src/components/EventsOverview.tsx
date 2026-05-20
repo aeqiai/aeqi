@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AgentEvent, ToolCall } from "@/lib/types";
-import { formatInteger } from "@/lib/i18n";
+import { formatDateTime, formatInteger } from "@/lib/i18n";
 import { Button } from "./ui";
 import {
   type LifecycleGroup,
@@ -33,11 +33,46 @@ function toolScope(tc: ToolCall): string {
   return dot === -1 ? name : name.slice(0, dot);
 }
 
+const WHY_LABEL: Record<LifecycleGroup, string> = {
+  runtime: "runtime hook",
+  webhooks: "incoming request",
+  routines: "scheduled routine",
+};
+
+function whenSummary(event: AgentEvent, group: LifecycleGroup): string {
+  if (group === "routines") {
+    const cron = event.pattern.startsWith("schedule:")
+      ? event.pattern.slice("schedule:".length)
+      : event.pattern;
+    return cron ? `cron ${cron}` : "cron schedule";
+  }
+  if (group === "webhooks") {
+    const payload = event.pattern.includes(":")
+      ? event.pattern.slice(event.pattern.indexOf(":") + 1)
+      : event.pattern;
+    return payload ? payload.replaceAll("_", " ") : "webhook";
+  }
+  return event.pattern || "(none)";
+}
+
+function toolsSummary(count: number): string {
+  return count === 0 ? "observer" : `${formatInteger(count)} tool call${count === 1 ? "" : "s"}`;
+}
+
+function traceSummary(event: AgentEvent): string {
+  if (event.last_fired) return `last ${formatDateTime(event.last_fired)}`;
+  return event.fire_count > 0 ? "trace pending" : "no trace";
+}
+
+function guardSummary(event: AgentEvent): string {
+  return event.cooldown_secs > 0 ? `${formatInteger(event.cooldown_secs)}s cooldown` : "none";
+}
+
 /**
  * An event's lifecycle phase — the WHEN-primitive equivalent of a quest's
- * status. Mirrors the Quests accent ladder:
- *   armed   → violet  (live, watching for the pattern, hasn't fired yet)
- *   fired   → ink     (has fired at least once — settled, history exists)
+ * status:
+ *   armed   → info    (live, watching for the pattern, hasn't fired yet)
+ *   fired   → success (has fired at least once — history exists)
  *   dormant → muted   (disabled by the operator; pattern won't match)
  *
  * We deliberately don't model "firing right now" here — the overview row
@@ -121,6 +156,10 @@ function OverviewRow({
   const tools = event.tool_calls ?? [];
   const isGlobal = event.agent_id == null;
   const phase = eventPhase(event);
+  const when = whenSummary(event, group);
+  const toolCount = toolsSummary(tools.length);
+  const trace = traceSummary(event);
+  const guard = guardSummary(event);
   // Description for screen readers — the pin and the "N fires" / "never"
   // text both carry phase info, but neither is announced naturally.
   const phaseLabel = phase === "armed" ? "armed" : phase === "fired" ? "fired" : "dormant";
@@ -137,7 +176,7 @@ function OverviewRow({
         data-testid="event-row"
         data-event-id={event.id}
         onClick={() => onSelect(event.id)}
-        aria-label={`Open ${event.name} (${phaseLabel})`}
+        aria-label={`Open ${event.name} (${phaseLabel}; when ${when}; ${toolCount}; ${trace}; guard ${guard})`}
       >
         <div className="events-overview-row-head">
           <span
@@ -169,6 +208,32 @@ function OverviewRow({
               </span>
             ))
           )}
+        </div>
+        <div className="events-overview-row-meta" aria-hidden>
+          <span className="events-overview-row-meta-item">
+            <span className="events-overview-row-meta-label">When</span>
+            <span className="events-overview-row-meta-value">{when}</span>
+          </span>
+          <span className="events-overview-row-meta-item">
+            <span className="events-overview-row-meta-label">Why</span>
+            <span className="events-overview-row-meta-value">{WHY_LABEL[group]}</span>
+          </span>
+          <span className="events-overview-row-meta-item">
+            <span className="events-overview-row-meta-label">Tools</span>
+            <span className="events-overview-row-meta-value">{toolCount}</span>
+          </span>
+          <span className={`events-overview-row-meta-item events-overview-row-meta-item--${phase}`}>
+            <span className="events-overview-row-meta-label">Trace</span>
+            <span className="events-overview-row-meta-value">{trace}</span>
+          </span>
+          <span
+            className={`events-overview-row-meta-item${
+              event.cooldown_secs > 0 ? " events-overview-row-meta-item--guard" : ""
+            }`}
+          >
+            <span className="events-overview-row-meta-label">Guard</span>
+            <span className="events-overview-row-meta-value">{guard}</span>
+          </span>
         </div>
       </button>
     </li>

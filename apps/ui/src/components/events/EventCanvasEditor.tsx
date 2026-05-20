@@ -3,7 +3,7 @@ import type { ToolCall } from "@/lib/types";
 import { formatDateTime, formatInteger } from "@/lib/i18n";
 import { Popover, Textarea } from "../ui";
 import { COMMON_PATTERNS, KNOWN_TOOLS } from "../EventEditorConstants";
-import { lifecycleGroup } from "./lifecycle";
+import { LIFECYCLE_HINT, LIFECYCLE_LABEL, lifecycleGroup, type LifecycleGroup } from "./lifecycle";
 
 /**
  * Canvas-as-editor. Each node is the editor for its own slice:
@@ -34,10 +34,55 @@ interface EventCanvasEditorProps {
   firesOpen: boolean;
 }
 
-type Tone = "runtime" | "context" | "webhooks" | "routines" | "tool" | "fired" | "empty";
+type Tone = LifecycleGroup | "context" | "tool" | "fired" | "empty";
 
-function patternTone(pattern: string): Tone {
+function patternTone(pattern: string): LifecycleGroup {
   return lifecycleGroup(pattern);
+}
+
+function whenLabel(pattern: string, lifecycle: LifecycleGroup): string {
+  if (!pattern) return "(none)";
+  if (lifecycle === "routines") {
+    const cron = pattern.startsWith("schedule:") ? pattern.slice("schedule:".length) : pattern;
+    return cron ? `cron ${cron}` : "cron schedule";
+  }
+  if (lifecycle === "webhooks") {
+    const payload = pattern.includes(":") ? pattern.slice(pattern.indexOf(":") + 1) : pattern;
+    return payload ? payload.replaceAll("_", " ") : "incoming request";
+  }
+  return pattern;
+}
+
+function toolCallsLabel(count: number): string {
+  if (count === 0) return "observer only";
+  return `${formatInteger(count)} configured`;
+}
+
+function fireStateLabel(hasFired: boolean, fireCount: number): string {
+  return hasFired ? `${formatInteger(fireCount)} fire${fireCount === 1 ? "" : "s"}` : "armed";
+}
+
+function traceLabel(hasFired: boolean, lastFired: string | null): string {
+  if (lastFired) return `last ${formatDateTime(lastFired)}`;
+  return hasFired ? "history pending" : "none";
+}
+
+type SummaryTone =
+  | LifecycleGroup
+  | "fire-armed"
+  | "fire-fired"
+  | "trace-empty"
+  | "trace-pending"
+  | "trace-complete"
+  | "guard";
+
+function fireTone(hasFired: boolean): SummaryTone {
+  return hasFired ? "fire-fired" : "fire-armed";
+}
+
+function traceTone(hasFired: boolean, lastFired: string | null): SummaryTone {
+  if (lastFired) return "trace-complete";
+  return hasFired ? "trace-pending" : "trace-empty";
 }
 
 function prettyToolName(name: string): { scope: string; action: string | null } {
@@ -73,7 +118,7 @@ export default function EventCanvasEditor({
   onShowFires,
   firesOpen,
 }: EventCanvasEditorProps) {
-  const tone = patternTone(draft.pattern);
+  const lifecycle = patternTone(draft.pattern);
   const tools = draft.tool_calls;
 
   const insertStep = (at: number) => {
@@ -106,9 +151,33 @@ export default function EventCanvasEditor({
 
   return (
     <div className="event-canvas event-canvas--editor" role="group" aria-label="Event pipeline">
+      <div className="event-canvas-summary" aria-label="Automation summary">
+        <SummaryItem label="Lifecycle" value={LIFECYCLE_LABEL[lifecycle]} tone={lifecycle} />
+        <SummaryItem label="Why" value={LIFECYCLE_HINT[lifecycle]} wide />
+        <SummaryItem label="When" value={whenLabel(draft.pattern, lifecycle)} wide />
+        <SummaryItem label="Tool Calls" value={toolCallsLabel(tools.length)} />
+        <SummaryItem
+          label="Fire State"
+          value={fireStateLabel(hasFired, fireCount)}
+          tone={fireTone(hasFired)}
+        />
+        <SummaryItem
+          label="Trace"
+          value={traceLabel(hasFired, lastFired)}
+          wide
+          tone={traceTone(hasFired, lastFired)}
+        />
+        <SummaryItem
+          label="Guard"
+          value={
+            draft.cooldown_secs > 0 ? `${formatInteger(draft.cooldown_secs)}s cooldown` : "none"
+          }
+          tone={draft.cooldown_secs > 0 ? "guard" : undefined}
+        />
+      </div>
       <div className="event-canvas-track">
         <TriggerNode
-          tone={tone}
+          tone={lifecycle}
           pattern={draft.pattern}
           cooldown={draft.cooldown_secs}
           readOnly={readOnly}
@@ -148,6 +217,33 @@ export default function EventCanvasEditor({
         />
       </div>
     </div>
+  );
+}
+
+function SummaryItem({
+  label,
+  value,
+  tone,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  tone?: SummaryTone;
+  wide?: boolean;
+}) {
+  const classes = [
+    "event-canvas-summary-item",
+    wide ? "event-canvas-summary-item--wide" : null,
+    tone ? `event-canvas-summary-item--${tone}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <span className={classes}>
+      <span className="event-canvas-summary-label">{label}</span>
+      <span className="event-canvas-summary-value">{value}</span>
+    </span>
   );
 }
 
