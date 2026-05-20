@@ -6194,42 +6194,55 @@
   align-items: center;
   min-height: 22px;
 }
+/* Tag filter chips — sit in the chrome zone between the toolbar and the
+   list body. Resting chips need a visible affordance so the strip reads
+   as tappable filters, not as a wall of raw text. Use `--state-hover`
+   (3% black tint) at rest — same tier the toolbar chrome already uses —
+   then lift to `--bg-row` on hover for a clean half-step. Active state
+   keeps the canonical accent token (violet `--state-progress-bg` /
+   `--state-progress`) so "this tag is filtering the body" maps to the
+   same in-motion signal the Quests board uses. No 1px borders per
+   feedback_no_hairlines — the fill IS the boundary. */
 .ideas-tag-chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 1px 8px 1px 7px;
+  padding: 2px 8px 2px 7px;
   font-family: var(--font-sans);
   font-size: 11px;
   letter-spacing: 0.01em;
   color: var(--color-text-secondary);
-  background: transparent;
+  background: var(--state-hover);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
-    border-color 0.15s,
-    color 0.15s,
-    background 0.15s;
+    color 0.12s ease,
+    background 0.12s ease;
 }
 .ideas-tag-chip.removable:hover,
 button.ideas-tag-chip:hover {
   color: var(--color-text-primary);
-  border-color: var(--border-hover);
+  background: var(--bg-row);
 }
 button.ideas-tag-chip.active {
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-color: var(--accent-dim);
+  color: var(--state-progress);
+  background: var(--state-progress-bg);
+}
+button.ideas-tag-chip.active:hover {
+  /* Slight bump so active-hover still reads as a state change without
+     leaving the violet vocabulary. */
+  color: var(--state-progress);
+  background: color-mix(in oklch, var(--state-progress) 18%, var(--bg-row));
 }
 .ideas-tag-chip-count {
   font-size: 9.5px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.65;
+  opacity: 0.7;
   letter-spacing: 0;
 }
 button.ideas-tag-chip.active .ideas-tag-chip-count {
-  opacity: 0.9;
+  opacity: 0.95;
 }
 .ideas-tag-add {
   padding: 1px 8px;
