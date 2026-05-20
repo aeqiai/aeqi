@@ -2973,6 +2973,30 @@
      own their own scroll padding. Lets the divider line under the
      toolbar extend full-width like Ideas. */
 }
+/* Page header — matches the Roles-page pattern: display title on the
+   left, primary CTAs on the right, then the toolbar row beneath. */
+.quest-board-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-3);
+}
+.quest-board-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+.quest-board-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
 
 /* Priority indicator — three-bar Linear-style glyph, replaces the
    old text-pill in list rows + board cards. Always rendered (even at
@@ -3406,8 +3430,17 @@ button.quest-board-crumb:focus-visible {
     background 0.15s,
     box-shadow 0.15s;
 }
+/* Status hues per the role-tier pivot:
+ *   in_progress → soft slate-violet tint (work is moving)
+ *   in_review   → warmth/amber tint (paused for review, almost done)
+ *
+ * Tints are color-mix'd at 7–8% so the columns read as "this status
+ * has its own identity" without shouting over the cards inside. */
 .quest-col[data-status="in_progress"] {
-  background: color-mix(in oklch, var(--accent) 4%, var(--bg-row));
+  background: color-mix(in oklch, #7c6cd6 8%, var(--bg-row));
+}
+.quest-col[data-status="in_review"] {
+  background: color-mix(in oklch, var(--color-warmth) 10%, var(--bg-row));
 }
 /* Active drop target — subtle accent frame + lifted background; children
    keep their own hover so the drop still feels precise. */
@@ -3428,24 +3461,24 @@ button.quest-board-crumb:focus-visible {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-/* v5.2: header sits on the slab background (same as column body) — no
-   divider, no surface tint. Title is sentence-case ink-text rather
-   than uppercase tracked muted so it reads as a real label, not a
-   marginal eyebrow. Mirrors the list-view group head exactly. */
+/* Column header — larger and more substantial than the v5.2 marginal
+   version. Reads as a real section label, not an eyebrow. Same row
+   shape (dot · label · count · add) but with more vertical weight so
+   the columns feel structured rather than ambient. */
 .quest-col-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 8px 10px;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
 }
 .quest-col-label {
   flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.005em;
   color: var(--color-text-primary);
 }
 .quest-col-count {
@@ -3755,10 +3788,10 @@ button.quest-board-crumb:focus-visible {
   background: var(--color-text-secondary);
 }
 .quest-status-dot--in_progress {
-  background: var(--info);
+  background: #7c6cd6;
 }
 .quest-status-dot--in_review {
-  background: var(--color-accent);
+  background: var(--color-warmth);
 }
 .quest-status-dot--blocked {
   background: var(--warning);

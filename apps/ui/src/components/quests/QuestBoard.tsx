@@ -342,6 +342,44 @@ export default function QuestBoard({
 
   return (
     <div className="quest-board">
+      {/* Page header — matches the Roles-page pattern: title on the
+         left, primary actions on the right. Toolbar (search + sort +
+         filter + view) lives in the row beneath. */}
+      <header className="quest-board-header">
+        <h1 className="quest-board-title">Quests</h1>
+        <div className="quest-board-header-actions">
+          <ImportMenu
+            trustId={trustId}
+            parts={["quests"]}
+            blueprintTitle="Import quests from a Blueprint"
+            onMarkdownPicked={async (files) => {
+              setErr(null);
+              const failures: string[] = [];
+              for (const file of Array.from(files)) {
+                try {
+                  await importQuestFromMarkdown(file, resolvedAgentId);
+                } catch (e) {
+                  failures.push(
+                    `${file.name}: ${e instanceof Error ? e.message : "import failed"}`,
+                  );
+                }
+              }
+              onCreated();
+              if (failures.length > 0) setErr(failures.join("; "));
+            }}
+            onBlueprintSpawned={onCreated}
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onCompose()}
+            title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
+            leadingIcon={<Icon icon={Plus} size="xs" />}
+          >
+            {boardScopeId ? "New subquest" : "New"}
+          </Button>
+        </div>
+      </header>
       <div className="ideas-list-head">
         <div className="ideas-toolbar">
           <span className="ideas-list-search-field">
@@ -400,36 +438,6 @@ export default function QuestBoard({
             onChange={onScopeChange}
           />
           <QuestsViewPopover view={view} onChange={onViewChange} />
-          <ImportMenu
-            trustId={trustId}
-            parts={["quests"]}
-            blueprintTitle="Import quests from a Blueprint"
-            onMarkdownPicked={async (files) => {
-              setErr(null);
-              const failures: string[] = [];
-              for (const file of Array.from(files)) {
-                try {
-                  await importQuestFromMarkdown(file, resolvedAgentId);
-                } catch (e) {
-                  failures.push(
-                    `${file.name}: ${e instanceof Error ? e.message : "import failed"}`,
-                  );
-                }
-              }
-              onCreated();
-              if (failures.length > 0) setErr(failures.join("; "));
-            }}
-            onBlueprintSpawned={onCreated}
-          />
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onCompose()}
-            title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
-            leadingIcon={<Icon icon={Plus} size="xs" />}
-          >
-            {boardScopeId ? "New subquest" : "New"}
-          </Button>
         </div>
       </div>
       <div className="quest-board-scopebar">

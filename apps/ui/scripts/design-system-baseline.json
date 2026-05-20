@@ -147,7 +147,7 @@
     },
     "literalHex": {
       "label": "literal hex color",
-      "count": 73,
+      "count": 75,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/events.css",
@@ -159,7 +159,7 @@
         },
         {
           "file": "apps/ui/src/styles/pages.css",
-          "count": 10
+          "count": 12
         },
         {
           "file": "apps/ui/src/styles/chat.css",
