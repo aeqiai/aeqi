@@ -99,7 +99,7 @@
     },
     "inlineStyle": {
       "label": "inline style object",
-      "count": 348,
+      "count": 349,
       "topFiles": [
         {
           "file": "apps/ui/src/pages/RoleDetailPage.tsx",
@@ -147,7 +147,7 @@
     },
     "literalHex": {
       "label": "literal hex color",
-      "count": 74,
+      "count": 73,
       "topFiles": [
         {
           "file": "apps/ui/src/styles/events.css",

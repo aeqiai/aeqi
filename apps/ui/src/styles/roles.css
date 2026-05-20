@@ -64,25 +64,28 @@
   border-color: var(--color-warmth);
 }
 
-.role-node-monogram {
+/* Avatar slot — sized container that DOESN'T impose its own shape on
+   the inner avatar. The avatar primitive (RoundAvatar / BlockAvatar /
+   <img>) owns its own border-radius so humans render as circles and
+   agents render as rounded-square — matches the rest of the app and
+   the canonical UserAvatar / AgentAvatar contract. */
+.role-node-avatar {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--btn-primary-text, #fff);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-family: var(--font-sans);
 }
-
-.role-node--human .role-node-monogram {
-  background: var(--bg-row);
-  color: var(--color-text-secondary);
+.role-node-avatar-vacant {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong, var(--border));
+  color: var(--color-text-muted);
 }
 
 .role-node--vacant {
@@ -90,11 +93,6 @@
   border-style: dashed;
   border-color: var(--border-strong, var(--border));
   color: var(--color-text-secondary);
-}
-.role-node--vacant .role-node-monogram {
-  background: transparent;
-  color: var(--color-text-muted);
-  border: 1px dashed var(--border-strong, var(--border));
 }
 
 .role-node-body {
@@ -126,7 +124,7 @@
 /* Cards-grid variant — same tile, taller breathing room. */
 .role-node--card {
   width: 100%;
-  min-height: 76px;
+  min-height: 92px;
 }
 
 /* Apex (CEO) — subtle distinction from peer nodes. Just enough to read
@@ -191,11 +189,11 @@
 }
 .roles-chart-cross-edge-path {
   fill: none;
-  stroke: var(--color-text-muted);
-  stroke-width: 1.25;
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.75;
   stroke-linecap: round;
-  stroke-dasharray: 4 5;
-  opacity: 0.7;
+  stroke-dasharray: 6 5;
+  opacity: 1;
 }
 
 /* Zoom controls — bottom-right corner overlay. */
@@ -395,26 +393,28 @@
   gap: var(--space-3);
   min-width: 0;
 }
+/* Avatar slot — sized container only. The inner primitive owns its
+   own shape (RoundAvatar = circle for humans, BlockAvatar /
+   rounded-square <img> for agents). Don't force a wrapper shape here
+   or agents end up as squares clipped to a circle. */
 .role-inspector-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--color-card-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.role-inspector-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.role-inspector-avatar--vacant {
+  border-radius: 999px;
+  border: 1px dashed var(--border-strong, var(--border));
+  background: var(--color-card);
 }
 .role-inspector-avatar-vacant {
   color: var(--color-text-muted);
   font-family: var(--font-display);
   font-size: 20px;
+  line-height: 1;
 }
 .role-inspector-titles {
   display: flex;

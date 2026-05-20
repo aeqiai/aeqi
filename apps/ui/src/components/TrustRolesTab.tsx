@@ -150,21 +150,23 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     [patchParams],
   );
 
-  // Snapshot counts. Founders are a distinct beat from role_type
-  // because a role can be Director AND a founder; the AEQI model flags
-  // founder separately so the on-chain board count stays honest.
+  // Snapshot counts. We surface tier counts the user-facing model
+  // actually exposes: total, directors (board), operational (org
+  // chart), vacant (open seats). The `founder` boolean in the data
+  // model is intentionally not surfaced as a separate counter — see
+  // RoleNode.pillLabel for why founders read as Directors here.
   const snapshot = useMemo(() => {
     let total = 0;
-    let founders = 0;
+    let directors = 0;
     let operational = 0;
     let vacant = 0;
     for (const r of roles) {
       total += 1;
-      if (r.founder) founders += 1;
+      if (r.role_type === "director") directors += 1;
       else if (r.role_type === "operational") operational += 1;
       if (r.occupant_kind === "vacant") vacant += 1;
     }
-    return { total, founders, operational, vacant };
+    return { total, directors, operational, vacant };
   }, [roles]);
 
   const occupantCounts = useMemo(() => {
@@ -280,7 +282,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
       <section className="trust-roles-snapshot" aria-label="Snapshot">
         <SnapshotStat label="Roles" value={snapshot.total} />
-        <SnapshotStat label="Founders" value={snapshot.founders} />
+        <SnapshotStat label="Directors" value={snapshot.directors} />
         <SnapshotStat label="Operational" value={snapshot.operational} />
         <SnapshotStat
           label="Vacant"

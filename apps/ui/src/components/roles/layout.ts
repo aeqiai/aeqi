@@ -53,8 +53,8 @@ function nearestAncestorInSubset(
   return null;
 }
 
-export const NODE_W = 220;
-export const NODE_H = 76;
+export const NODE_W = 232;
+export const NODE_H = 92;
 export const H_GAP = 48;
 export const V_GAP = 120;
 export const PAD = 36;

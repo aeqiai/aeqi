@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Copy, Check, Pencil, Mail } from "lucide-react";
 import BlockAvatar from "@/components/BlockAvatar";
+import RoundAvatar from "@/components/RoundAvatar";
 import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { formatMediumDate } from "@/lib/i18n";
@@ -43,6 +44,14 @@ export default function RoleInspector({
   const agentNamesById = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of agents) m.set(a.id, a.name);
+    return m;
+  }, [agents]);
+
+  const agentAvatarsById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of agents) {
+      if (a.avatar) m.set(a.id, a.avatar);
+    }
     return m;
   }, [agents]);
 
@@ -106,25 +115,54 @@ export default function RoleInspector({
   };
 
   const isVacant = role.occupant_kind === "vacant";
-  const roleTypeLabel = role.founder
-    ? "FOUNDER"
-    : role.role_type === "director"
+  const isHuman = role.occupant_kind === "human";
+  const isAgent = role.occupant_kind === "agent";
+  // Role-type label — see RoleNode.pillLabel for why `founder` is NOT a
+  // distinct user-facing tier; the data flag stays, the user-facing
+  // surface treats founders as directors.
+  const roleTypeLabel =
+    role.role_type === "director"
       ? "DIRECTOR"
       : role.role_type === "advisor"
         ? "ADVISOR"
         : "OPERATIONAL";
+  const agentAvatarUrl =
+    isAgent && role.occupant_id ? (agentAvatarsById.get(role.occupant_id) ?? null) : null;
 
   return (
     <aside className="role-inspector" aria-label="Selected role">
       {/* Header */}
       <header className="role-inspector-head">
-        <div className="role-inspector-avatar" aria-hidden>
-          {role.occupant_kind === "human" && role.occupant_avatar_url ? (
-            <img src={role.occupant_avatar_url} alt="" />
-          ) : isVacant ? (
+        <div
+          className={`role-inspector-avatar role-inspector-avatar--${role.occupant_kind}`}
+          aria-hidden
+        >
+          {isVacant ? (
             <span className="role-inspector-avatar-vacant">—</span>
+          ) : isHuman ? (
+            <RoundAvatar
+              name={occupantDisplayName ?? role.title}
+              src={role.occupant_avatar_url ?? null}
+              size={48}
+            />
+          ) : agentAvatarUrl ? (
+            <img
+              src={agentAvatarUrl}
+              alt=""
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "var(--radius-sm)",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
           ) : (
-            <BlockAvatar name={occupantDisplayName || role.title} size={48} />
+            <BlockAvatar
+              name={occupantDisplayName ?? role.title}
+              size={48}
+              shape="rounded-square"
+            />
           )}
         </div>
         <div className="role-inspector-titles">
