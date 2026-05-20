@@ -460,7 +460,12 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
     <section className="trust-agents-suggest" aria-label="Suggested agents">
       <header className="trust-agents-suggest-head">
         <div className="trust-agents-suggest-titles">
-          <h2 className="trust-agents-suggest-title">Suggested agents</h2>
+          <div className="trust-agents-suggest-title-row">
+            <h2 className="trust-agents-suggest-title">Suggested agents</h2>
+            <span className="trust-agents-suggest-count" aria-hidden>
+              {SUGGESTED_AGENTS.length}
+            </span>
+          </div>
           <p className="trust-agents-suggest-subtitle">
             Add specialized execution capacity to this TRUST.
           </p>
