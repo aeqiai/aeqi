@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Agent, Role, RoleEdge } from "@/lib/types";
+import type { Agent, Quest, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
-import { Button, ToolbarRadioPopover, Tooltip } from "./ui";
+import { formatCurrency } from "@/lib/i18n";
+import "@/styles/roles.css"; // shared trust-snapshot card primitives
+import { Button, ToolbarRadioPopover } from "./ui";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import AgentsEmptyState from "./agents/AgentsEmptyState";
 import AgentsList from "./agents/AgentsList";
@@ -84,6 +87,37 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     () => allAgents.filter((a) => a.trust_id === trustId),
     [allAgents, trustId],
   );
+
+  // Snapshot metrics — mirrors the Roles page snapshot grammar
+  // (total / "alive" tier / running work / cost). Spend is lifetime,
+  // not monthly, because the wire field is lifetime_cost_usd; the
+  // sublabel calls that out honestly rather than inventing a window.
+  const quests = useDaemonStore((s) => s.quests) as unknown as Quest[];
+  const snapshot = useMemo(() => {
+    let total = 0;
+    let active = 0;
+    let totalSpend = 0;
+    const agentIds = new Set<string>();
+    for (const a of entityAgents) {
+      total += 1;
+      if (a.status === "active") active += 1;
+      totalSpend += a.lifetime_cost_usd ?? 0;
+      agentIds.add(a.id);
+    }
+    let runningQuests = 0;
+    for (const q of quests) {
+      if (!q.agent_id || !agentIds.has(q.agent_id)) continue;
+      if (
+        q.status === "in_progress" ||
+        q.status === "in_review" ||
+        q.status === "todo" ||
+        q.status === "backlog"
+      ) {
+        runningQuests += 1;
+      }
+    }
+    return { total, active, totalSpend, runningQuests };
+  }, [entityAgents, quests]);
 
   // Roles + edges power the chart view; the list view is flat. Load once
   // for the entity so a tab toggle doesn't refetch.
@@ -191,7 +225,53 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   }, []);
 
   return (
-    <div className="ideas-list">
+    <div className="trust-agents">
+      <header className="trust-agents-header">
+        <div className="trust-agents-header-titles">
+          <h1 className="trust-agents-title">Agents</h1>
+          <p className="trust-agents-subtitle">Execution capacity for this TRUST.</p>
+        </div>
+        <div className="trust-agents-header-actions">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={openPicker}
+            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+          >
+            Agent
+          </Button>
+        </div>
+      </header>
+
+      <section className="trust-agents-snapshot" aria-label="Snapshot">
+        <AgentSnapshotCard
+          label={snapshot.total === 1 ? "Agent" : "Agents"}
+          value={snapshot.total}
+          sublabel="Total in this TRUST"
+        />
+        <AgentSnapshotCard
+          label="Active"
+          value={snapshot.active}
+          sublabel={
+            snapshot.active === 0
+              ? "None online"
+              : snapshot.active === snapshot.total
+                ? "All online"
+                : "Currently online"
+          }
+        />
+        <AgentSnapshotCard
+          label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
+          value={snapshot.runningQuests}
+          sublabel="In progress now"
+        />
+        <AgentSnapshotCard
+          label="Lifetime spend"
+          value={formatCurrency(snapshot.totalSpend, "USD")}
+          sublabel="Across every inference call"
+        />
+      </section>
+
       <div className="ideas-list-head">
         <div className="ideas-toolbar">
           <span className="ideas-list-search-field">
@@ -267,30 +347,6 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
             value={view}
             onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
           />
-
-          <Tooltip content="New agent">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={openPicker}
-              leadingIcon={
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M6.5 2.5v8M2.5 6.5h8" />
-                </svg>
-              }
-            >
-              New
-            </Button>
-          </Tooltip>
         </div>
       </div>
 
@@ -339,6 +395,31 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
         trustId={trustId}
       />
     </div>
+  );
+}
+
+interface AgentSnapshotCardProps {
+  label: string;
+  value: number | string;
+  sublabel?: string;
+}
+
+/**
+ * Snapshot card for the Agents page header strip. Same shape as the
+ * Roles page (`trust-roles-snapshot-card`) — label + count, with a
+ * one-line teaching sublabel. The two pages share the
+ * `.trust-roles-snapshot-*` CSS primitives until a generic refactor
+ * pulls them under a neutral name.
+ */
+function AgentSnapshotCard({ label, value, sublabel }: AgentSnapshotCardProps) {
+  return (
+    <article className="trust-roles-snapshot-card">
+      <header className="trust-roles-snapshot-head">
+        <span className="trust-roles-snapshot-label">{label}</span>
+        <span className="trust-roles-snapshot-value">{value}</span>
+      </header>
+      {sublabel && <p className="trust-roles-snapshot-sublabel">{sublabel}</p>}
+    </article>
   );
 }
 

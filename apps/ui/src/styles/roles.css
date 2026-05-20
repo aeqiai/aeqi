@@ -320,7 +320,12 @@
  * the content uses the shared `.ideas-list-head` grammar so the page
  * matches Ideas/Quests rhythm. */
 
-.trust-roles {
+/* Shell + header — shared between Roles and Agents pages (and any
+   future tab that adopts the same "title + subtitle + CTAs" pattern).
+   Selectors include both prefixes so adding a new page is a single
+   comma, not a CSS duplication. */
+.trust-roles,
+.trust-agents {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -328,19 +333,22 @@
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6) 0;
 }
-.trust-roles-header {
+.trust-roles-header,
+.trust-agents-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
 }
-.trust-roles-header-titles {
+.trust-roles-header-titles,
+.trust-agents-header-titles {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
-.trust-roles-title {
+.trust-roles-title,
+.trust-agents-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: 28px;
@@ -349,13 +357,15 @@
   line-height: 1.1;
   color: var(--color-text-primary);
 }
-.trust-roles-subtitle {
+.trust-roles-subtitle,
+.trust-agents-subtitle {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
-.trust-roles-header-actions {
+.trust-roles-header-actions,
+.trust-agents-header-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -367,7 +377,8 @@
    optional composition breakdown ("1 agent · 0 humans"). Cards sit
    on the page background; their own card-elevated fill plus padding
    gives each one weight without painting the whole row as a strip. */
-.trust-roles-snapshot {
+.trust-roles-snapshot,
+.trust-agents-snapshot {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
@@ -696,14 +707,17 @@
 }
 
 @media (max-width: 720px) {
-  .trust-roles {
+  .trust-roles,
+  .trust-agents {
     padding: var(--space-4);
   }
-  .trust-roles-header {
+  .trust-roles-header,
+  .trust-agents-header {
     flex-direction: column;
     gap: var(--space-3);
   }
-  .trust-roles-snapshot {
+  .trust-roles-snapshot,
+  .trust-agents-snapshot {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
   }
