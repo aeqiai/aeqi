@@ -3944,11 +3944,10 @@
   color: var(--color-text-muted);
   background: var(--bg-base);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 .ideas-filter-row.active .ideas-filter-row-kbd {
   color: var(--accent);
-  border-color: var(--accent-dim);
 }
 
 /* Scope pill — uses `<Button variant="secondary" size="sm">` for
@@ -4686,7 +4685,7 @@
   color: var(--color-text-muted);
   background: var(--bg-base);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   pointer-events: none;
   transition: opacity 0.15s;
 }
