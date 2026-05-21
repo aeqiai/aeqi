@@ -9278,7 +9278,7 @@ button.home-card:focus-visible {
 
 .home-card--learn {
   gap: 14px;
-  padding: 22px;
+  padding: 20px;
 }
 
 .home-learn-head {
@@ -9298,47 +9298,26 @@ button.home-card:focus-visible {
   color: var(--color-text-primary);
 }
 
-.home-learn-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.home-learn-actions > a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: var(--bg-row);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    background 0.12s ease,
-    transform 0.12s ease;
-}
-
-.home-learn-actions > a:hover {
-  background: var(--color-card);
-  transform: translateY(-1px);
-}
-
-.home-learn-actions > a:focus-visible,
+.home-learn-docs-card:focus-visible,
 .home-learn-carousel-link:focus-visible,
 .home-learn-carousel-media:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
+.home-learn-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  gap: 12px;
+  align-items: stretch;
+}
+
 .home-learn-carousel {
   display: grid;
-  grid-template-columns: minmax(220px, 0.86fr) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1fr);
   align-items: stretch;
-  min-height: 178px;
+  height: 192px;
+  min-height: 192px;
   overflow: hidden;
   border-radius: var(--radius-md, 10px);
   background: var(--bg-row);
@@ -9359,6 +9338,7 @@ button.home-card:focus-visible {
 .home-learn-carousel-media {
   display: block;
   min-width: 0;
+  height: 192px;
   overflow: hidden;
   color: inherit;
   text-decoration: none;
@@ -9367,8 +9347,9 @@ button.home-card:focus-visible {
 .home-learn-carousel-image {
   display: block;
   width: 100%;
-  height: 100%;
-  min-height: 178px;
+  height: 192px;
+  min-height: 192px;
+  max-height: 192px;
   object-fit: cover;
   object-position: center;
   animation: home-learn-fade 0.28s ease both;
@@ -9382,7 +9363,8 @@ button.home-card:focus-visible {
   gap: 8px;
   flex: 1;
   min-width: 0;
-  padding: 18px 20px;
+  min-height: 192px;
+  padding: 18px 18px;
   animation: home-learn-fade 0.28s ease both;
 }
 
@@ -9408,7 +9390,7 @@ button.home-card:focus-visible {
 
 .home-learn-post-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.1;
@@ -9422,7 +9404,7 @@ button.home-card:focus-visible {
 .home-learn-post-summary {
   max-width: 440px;
   font-size: var(--font-size-sm);
-  line-height: 1.45;
+  line-height: 1.42;
   color: var(--color-text-secondary);
 }
 
@@ -9434,7 +9416,7 @@ button.home-card:focus-visible {
 }
 
 .home-learn-dot {
-  width: 20px;
+  width: 14px;
   height: 5px;
   padding: 0;
   border: 0;
@@ -9449,7 +9431,7 @@ button.home-card:focus-visible {
 }
 
 .home-learn-dot--active {
-  width: 30px;
+  width: 24px;
   background: var(--color-text-primary);
   opacity: 1;
 }
@@ -9468,6 +9450,63 @@ button.home-card:focus-visible {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.home-learn-docs-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 192px;
+  padding: 16px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+
+.home-learn-docs-card:hover {
+  background: var(--color-card);
+  filter: brightness(1.01);
+  transform: translateY(-2px);
+}
+
+.home-learn-docs-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--color-card-elevated);
+  color: var(--color-text-primary);
+}
+
+.home-learn-docs-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: center;
+}
+
+.home-learn-docs-title {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.home-learn-docs-hint {
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.home-learn-docs-card > svg {
+  align-self: end;
+  justify-self: end;
 }
 
 @media (max-width: 960px) {
@@ -9497,12 +9536,22 @@ button.home-card:focus-visible {
     align-items: flex-start;
     flex-direction: column;
   }
-  .home-learn-carousel {
+  .home-learn-body {
     grid-template-columns: 1fr;
   }
+  .home-learn-carousel {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .home-learn-carousel-media,
   .home-learn-carousel-image {
-    height: 150px;
-    min-height: 150px;
+    height: 172px;
+    min-height: 172px;
+    max-height: 172px;
+  }
+  .home-learn-carousel-copy,
+  .home-learn-docs-card {
+    min-height: auto;
   }
 }
 

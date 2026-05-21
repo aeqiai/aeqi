@@ -215,7 +215,9 @@ describe("StartPage MVP surface", () => {
     expect(
       screen.getByText(/Discover the network around programmable companies/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/The uncompiled institution/i)).toBeInTheDocument();
+    expect(screen.getByText(/Why aeqi pivoted/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /read docs/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^show /i })).toHaveLength(8);
     expectNoVagueCtaLanguage(container);
 
     fireEvent.click(activeTrust);

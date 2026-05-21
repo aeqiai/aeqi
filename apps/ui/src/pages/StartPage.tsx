@@ -15,34 +15,11 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useAuthStore } from "@/store/auth";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
+import { LEARN_POSTS } from "./startPageLearnPosts";
 
 const INBOX_PREVIEW_LIMIT = 4;
 const TRUST_PREVIEW_LIMIT = 3;
 const CURRENT_ROLE = "Director";
-
-const LEARN_POSTS = [
-  {
-    title: "The uncompiled institution",
-    kicker: "Thesis",
-    summary: "Institutions are software that has not been compiled yet.",
-    image: "/home/learn-uncompiled-institution.webp",
-    href: "https://aeqi.ai/blog/the-uncompiled-institution",
-  },
-  {
-    title: "The agent economy",
-    kicker: "Network",
-    summary: "Why programmable companies need an economy around them.",
-    image: "/home/learn-agent-economy.webp",
-    href: "https://aeqi.ai/blog/the-agent-economy",
-  },
-  {
-    title: "The company is the primitive",
-    kicker: "Product",
-    summary: "A company becomes a programmable object with roles, agents, and ownership.",
-    image: "/home/learn-company-primitive.webp",
-    href: "https://aeqi.ai/blog/the-company-is-the-primitive",
-  },
-];
 
 export default function StartPage() {
   const user = useAuthStore((s) => s.user);
@@ -530,54 +507,67 @@ function LearnAeqiSection() {
       <article className="home-card home-card--learn">
         <div className="home-learn-head">
           <h2 className="home-learn-title">Learn more</h2>
-          <div className="home-learn-actions">
-            <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer">
-              Open docs
-              <BookOpen size={14} strokeWidth={1.8} />
-            </a>
-          </div>
         </div>
-        <div className="home-learn-carousel">
-          <a
-            className="home-learn-carousel-media"
-            href={activePost.href}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <img
-              key={activePost.image}
-              src={activePost.image}
-              alt=""
-              className="home-learn-carousel-image"
-              aria-hidden="true"
-            />
-          </a>
-          <span key={activePost.href} className="home-learn-carousel-copy">
+        <div className="home-learn-body">
+          <div className="home-learn-carousel">
             <a
-              className="home-learn-carousel-link"
+              className="home-learn-carousel-media"
               href={activePost.href}
               target="_blank"
               rel="noreferrer"
             >
-              <span className="home-learn-post-kicker">{activePost.kicker}</span>
-              <span className="home-learn-post-title">{activePost.title}</span>
-              <span className="home-learn-post-summary">{activePost.summary}</span>
+              <img
+                key={activePost.image}
+                src={activePost.image}
+                alt=""
+                className="home-learn-carousel-image"
+                aria-hidden="true"
+              />
             </a>
-            <span className="home-learn-rotation" aria-label="Learning article rotation">
-              {LEARN_POSTS.map((post, index) => (
-                <button
-                  key={post.href}
-                  type="button"
-                  className={`home-learn-dot${index === postIndex ? " home-learn-dot--active" : ""}`}
-                  aria-label={`Show ${post.title}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setPostIndex(index);
-                  }}
-                />
-              ))}
+            <span key={activePost.href} className="home-learn-carousel-copy">
+              <a
+                className="home-learn-carousel-link"
+                href={activePost.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="home-learn-post-kicker">{activePost.kicker}</span>
+                <span className="home-learn-post-title">{activePost.title}</span>
+                <span className="home-learn-post-summary">{activePost.summary}</span>
+              </a>
+              <span className="home-learn-rotation" aria-label="Learning article rotation">
+                {LEARN_POSTS.map((post, index) => (
+                  <button
+                    key={post.href}
+                    type="button"
+                    className={`home-learn-dot${index === postIndex ? " home-learn-dot--active" : ""}`}
+                    aria-label={`Show ${post.title}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setPostIndex(index);
+                    }}
+                  />
+                ))}
+              </span>
             </span>
-          </span>
+          </div>
+          <a
+            className="home-learn-docs-card"
+            href="https://aeqi.ai/docs"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span className="home-learn-docs-icon" aria-hidden="true">
+              <BookOpen size={18} strokeWidth={1.7} />
+            </span>
+            <span className="home-learn-docs-copy">
+              <span className="home-learn-docs-title">Read docs</span>
+              <span className="home-learn-docs-hint">
+                TRUSTs, agents, quests, and launch basics.
+              </span>
+            </span>
+            <ArrowRight size={15} strokeWidth={1.8} />
+          </a>
         </div>
       </article>
     </section>
