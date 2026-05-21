@@ -20,6 +20,11 @@ import {
   encodeAssertionCredential,
   encodeRegistrationCredential,
 } from "./welcome/webauthn";
+import {
+  buildWelcomeSteps,
+  persistWelcomeSession,
+  verifyWelcomeEmailToken,
+} from "./welcome/session";
 import SecretLogin from "./welcome/SecretLogin";
 import DoorView from "./welcome/DoorView";
 import CheckEmailView from "./welcome/CheckEmailView";
@@ -69,6 +74,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     "door" | "spawning" | "welcome" | "error" | "check-email" | "waitlist" | "waitlist-sent"
   >("door");
   const [picked, setPicked] = useState<Door | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<AccountSessionResponse | null>(null);
@@ -88,6 +94,11 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     if (fromUrl) return fromUrl;
     const typed = inviteInput.trim();
     return typed || undefined;
+  };
+  const getSignupName = (): string | undefined => {
+    if (mode !== "signup") return undefined;
+    const name = displayName.trim();
+    return name || undefined;
   };
 
   /**
@@ -163,24 +174,17 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     // verify call (the token is single-use server-side anyway).
     const next = new URLSearchParams(searchParams);
     next.delete("token");
+    const tokenName = next.get("name")?.trim() || "";
+    next.delete("name");
     setSearchParams(next, { replace: true });
 
     setPicked("email");
     setStage("spawning");
     setErrorMsg(null);
-    setSteps(buildSteps());
+    setSteps(buildWelcomeSteps());
     (async () => {
       try {
-        const verifyRes = await fetch(
-          `${SOLANA_API_URL}/api/auth/welcome/email-verify?token=${encodeURIComponent(token)}`,
-        );
-        if (!verifyRes.ok) {
-          throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
-        }
-        const verify = (await verifyRes.json()) as AccountSessionResponse & {
-          session_jwt: string;
-          session_expires_at: string;
-        };
+        const verify = await verifyWelcomeEmailToken(SOLANA_API_URL, token, tokenName);
         await completeWelcomeAuth(verify);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -214,14 +218,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     document.title = "aeqi";
   }, [mode]);
 
-  function buildSteps(): SpawnStep[] {
-    return [
-      { key: "auth", label: "Identity confirmed", status: "done" },
-      { key: "wallet", label: "Setting up your wallet", status: "active" },
-      { key: "ready", label: "Entering AEQI", status: "pending" },
-    ];
-  }
-
   function advanceStep(idx: number, detail?: string) {
     setSteps((prev) =>
       prev.map((s, i) => {
@@ -250,55 +246,20 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   async function completeWelcomeAuth(
     data: AccountSessionResponse & { session_jwt: string; session_expires_at: string },
   ) {
-    persistSession(data);
+    persistWelcomeSession(data, handleOAuthCallback);
     if (mode !== "signup" && data.already_existed) {
       navigate(getRedirectAfterAuth(searchParams), { replace: true });
       return;
     }
     setStage("spawning");
-    setSteps(buildSteps());
+    setSteps(buildWelcomeSteps());
     await animateSpawn(data);
-  }
-
-  function persistSession(s: {
-    session_jwt: string;
-    account_id?: string;
-    user_id?: string;
-    wallet_pubkey_b58?: string;
-    company_id?: string | null;
-    session_expires_at: string;
-  }) {
-    try {
-      // Canonical auth-store keys (read by store/auth.ts on boot). Writing
-      // the welcome JWT here is what bridges welcome → rest-of-app: without
-      // these keys the auth store treats the user as logged-out and bounces
-      // every protected route to /login?next=….
-      localStorage.setItem("aeqi_token", s.session_jwt);
-      localStorage.setItem("aeqi_app_mode", "runtime");
-      localStorage.setItem("aeqi_auth_mode", "accounts");
-      localStorage.setItem("aeqi_session_jwt", s.session_jwt);
-      if (s.account_id || s.user_id) {
-        localStorage.setItem("aeqi_session_account_id", s.account_id ?? s.user_id ?? "");
-      }
-      if (s.wallet_pubkey_b58) {
-        localStorage.setItem("aeqi_session_wallet_pubkey", s.wallet_pubkey_b58);
-      }
-      if (s.company_id) {
-        localStorage.setItem("aeqi_session_company_id", s.company_id);
-      } else {
-        localStorage.removeItem("aeqi_session_company_id");
-      }
-      localStorage.setItem("aeqi_session_expires_at", s.session_expires_at);
-      handleOAuthCallback(s.session_jwt);
-    } catch {
-      // Safari private mode etc. — non-fatal.
-    }
   }
 
   async function spawnViaWalletSiws(provider: WalletProvider, walletPubkey: string) {
     setStage("spawning");
     setErrorMsg(null);
-    setSteps(buildSteps());
+    setSteps(buildWelcomeSteps());
     try {
       const inviteCode = getInviteCode();
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/wallet-start`, {
@@ -321,6 +282,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           message: start.message,
           signature_b58: signatureB58,
           invite_code: inviteCode,
+          name: getSignupName(),
         }),
       });
       if (!verifyRes.ok) {
@@ -355,10 +317,11 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setErrorMsg(null);
     try {
       const inviteCode = getInviteCode();
+      const name = getSignupName();
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailAddress, invite_code: inviteCode }),
+        body: JSON.stringify({ email: emailAddress, invite_code: inviteCode, name }),
       });
       if (!startRes.ok) {
         // 403 with invite_code error → fall through to the waitlist
@@ -378,15 +341,13 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       // Dev / smoke path: server returned the URL inline. Auto-follow.
       if (start.magic_link_url) {
         setStage("spawning");
-        setSteps(buildSteps());
-        const verifyRes = await fetch(start.magic_link_url);
-        if (!verifyRes.ok) {
-          throw new Error(`email-verify ${verifyRes.status}: ${await verifyRes.text()}`);
-        }
-        const verify = (await verifyRes.json()) as AccountSessionResponse & {
-          session_jwt: string;
-          session_expires_at: string;
-        };
+        setSteps(buildWelcomeSteps());
+        const magicLink = new URL(start.magic_link_url, window.location.origin);
+        const verify = await verifyWelcomeEmailToken(
+          SOLANA_API_URL,
+          magicLink.searchParams.get("token") ?? "",
+          magicLink.searchParams.get("name") ?? getSignupName(),
+        );
         await completeWelcomeAuth(verify);
       }
       // Prod path: stays on "check-email" — user types the code or
@@ -405,12 +366,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   async function spawnViaEmailCode(emailAddress: string, code: string) {
     setStage("spawning");
     setErrorMsg(null);
-    setSteps(buildSteps());
+    setSteps(buildWelcomeSteps());
     try {
       const verifyRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-verify-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailAddress, code }),
+        body: JSON.stringify({ email: emailAddress, code, name: getSignupName() }),
       });
       if (!verifyRes.ok) {
         throw new Error(`verify-code ${verifyRes.status}: ${await verifyRes.text()}`);
@@ -455,7 +416,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
     setStage("spawning");
     setErrorMsg(null);
-    setSteps(buildSteps());
+    setSteps(buildWelcomeSteps());
     try {
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/passkey-assert-start`, {
         method: "POST",
@@ -501,7 +462,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       const regStartRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/passkey-register-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ name: getSignupName() }),
       });
       if (!regStartRes.ok) {
         throw new Error(`register-start ${regStartRes.status}: ${await regStartRes.text()}`);
@@ -523,6 +484,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           ceremony_id: regStart.ceremony_id,
           credential: encodeRegistrationCredential(registration),
           invite_code: getInviteCode(),
+          name: getSignupName(),
         }),
       });
       if (!finishRes.ok) {
@@ -543,6 +505,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
+    if (mode === "signup" && !displayName.trim()) return;
     setPicked("email");
     setSubmitting(true);
     try {
@@ -597,6 +560,9 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           {stage === "door" && (
             <DoorView
               copy={copy}
+              displayName={displayName}
+              setDisplayName={setDisplayName}
+              requireName={mode === "signup"}
               email={email}
               setEmail={setEmail}
               inviteInput={inviteInput}
@@ -614,13 +580,21 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
               onPasskey={handlePasskey}
               onGoogle={() => {
                 const inviteCode = getInviteCode();
-                const qs = inviteCode ? `?invite_code=${encodeURIComponent(inviteCode)}` : "";
-                goExternal(`${SOLANA_API_URL}/api/auth/welcome/google/start${qs}`);
+                const qs = new URLSearchParams();
+                if (inviteCode) qs.set("invite_code", inviteCode);
+                const name = getSignupName();
+                if (name) qs.set("name", name);
+                const query = qs.toString() ? `?${qs.toString()}` : "";
+                goExternal(`${SOLANA_API_URL}/api/auth/welcome/google/start${query}`);
               }}
               onGithub={() => {
                 const inviteCode = getInviteCode();
-                const qs = inviteCode ? `?invite_code=${encodeURIComponent(inviteCode)}` : "";
-                goExternal(`${SOLANA_API_URL}/api/auth/welcome/github/start${qs}`);
+                const qs = new URLSearchParams();
+                if (inviteCode) qs.set("invite_code", inviteCode);
+                const name = getSignupName();
+                if (name) qs.set("name", name);
+                const query = qs.toString() ? `?${qs.toString()}` : "";
+                goExternal(`${SOLANA_API_URL}/api/auth/welcome/github/start${query}`);
               }}
               onSwitch={() => navigate(copy.switchHref)}
             />
@@ -636,7 +610,11 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
                 await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: lower, invite_code: inviteCode }),
+                  body: JSON.stringify({
+                    email: lower,
+                    invite_code: inviteCode,
+                    name: getSignupName(),
+                  }),
                 });
               }}
               onBack={reset}

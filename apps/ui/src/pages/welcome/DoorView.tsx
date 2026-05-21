@@ -7,6 +7,9 @@ import { SolanaIcon, PasskeyIcon, GoogleIcon, GithubIcon } from "./icons";
 
 export interface DoorViewProps {
   copy: WelcomeCopy;
+  displayName: string;
+  setDisplayName: (s: string) => void;
+  requireName: boolean;
   email: string;
   setEmail: (s: string) => void;
   /** Manual invite-code input value (signup mode only). */
@@ -31,6 +34,9 @@ export interface DoorViewProps {
 
 export default function DoorView({
   copy,
+  displayName,
+  setDisplayName,
+  requireName,
   email,
   setEmail,
   inviteInput,
@@ -48,12 +54,26 @@ export default function DoorView({
   onSwitch,
 }: DoorViewProps) {
   const renderInviteField = showInviteField && !inviteFromUrl;
+  const nameReady = !requireName || displayName.trim().length > 0;
   return (
     <>
       <h1 className="auth-heading">{copy.title}</h1>
       <p className="auth-subheading">{copy.subtitle}</p>
 
       <form className="auth-form" onSubmit={onEmailSubmit} autoComplete="on">
+        {requireName && (
+          <Input
+            size="lg"
+            type="text"
+            name="name"
+            autoComplete="name"
+            placeholder="Your name"
+            aria-label="Your name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            autoFocus
+          />
+        )}
         <Input
           size="lg"
           type="email"
@@ -63,7 +83,7 @@ export default function DoorView({
           aria-label="Email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          autoFocus
+          autoFocus={!requireName}
         />
         {renderInviteField && (
           <Input
@@ -84,7 +104,7 @@ export default function DoorView({
           size="lg"
           type="submit"
           fullWidth
-          disabled={!email.trim() || submitting}
+          disabled={!nameReady || !email.trim() || submitting}
         >
           {submitting ? "Sending magic link…" : "Continue with email"}
         </Button>
@@ -100,6 +120,7 @@ export default function DoorView({
               fullWidth
               onClick={onGoogle}
               type="button"
+              disabled={!nameReady}
               leadingIcon={<GoogleIcon size={14} />}
             >
               Google
@@ -110,6 +131,7 @@ export default function DoorView({
               fullWidth
               onClick={onGithub}
               type="button"
+              disabled={!nameReady}
               leadingIcon={<GithubIcon size={14} />}
             >
               GitHub
@@ -122,6 +144,7 @@ export default function DoorView({
               fullWidth
               onClick={onPasskey}
               type="button"
+              disabled={!nameReady}
               leadingIcon={<PasskeyIcon size={14} />}
             >
               {passkeyAvailable ? "Passkey" : "Security key"}
@@ -132,6 +155,7 @@ export default function DoorView({
               fullWidth
               onClick={onWallet}
               type="button"
+              disabled={!nameReady}
               leadingIcon={<SolanaIcon size={14} />}
             >
               {walletDetected?.name ?? "Wallet"}
