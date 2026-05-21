@@ -15,9 +15,8 @@
  *      gives us authoritative `decimals`. We try Token-2022 first
  *      because AEQI-issued mints live there; legacy USDC etc. fall
  *      through.
- *   3. `getTokenMetadata(...)` on Token-2022 mints — pulls the
- *      `symbol` exposed via the metadata extension if the mint
- *      authority registered one.
+ *   3. Token-2022 metadata TLV decode — pulls the `symbol` exposed via
+ *      the metadata extension if the mint authority registered one.
  *
  * Decimals always wins from chain (mint header) — symbol is best-effort.
  * Results cache for 5 minutes via React Query; decimals never change on
@@ -27,12 +26,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicKey } from "@solana/web3.js";
-import {
-  TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-  getMint,
-  getTokenMetadata,
-} from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getMint } from "@solana/spl-token";
 
 import { getConnection } from "@/solana/client";
 import { TOKEN_REGISTRY } from "@/solana/assets";
@@ -46,6 +40,64 @@ export interface ResolvedTokenMeta {
 
 const EMPTY_META: ResolvedTokenMeta = { symbol: null, decimals: null, resolvedOnChain: false };
 const STALE_TIME_MS = 5 * 60_000;
+const TYPE_SIZE = 2;
+const LENGTH_SIZE = 2;
+const TOKEN_METADATA_EXTENSION_TYPE = 19;
+const TOKEN_METADATA_HEADER_SIZE = 32 + 32; // updateAuthority + mint
+
+function readU16Le(bytes: Uint8Array, offset: number): number {
+  if (offset + 2 > bytes.length) return -1;
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function readU32Le(bytes: Uint8Array, offset: number): number {
+  if (offset + 4 > bytes.length) return -1;
+  return (
+    (bytes[offset] |
+      (bytes[offset + 1] << 8) |
+      (bytes[offset + 2] << 16) |
+      (bytes[offset + 3] << 24)) >>>
+    0
+  );
+}
+
+function findTokenMetadataExtension(tlvData: Uint8Array | null | undefined): Uint8Array | null {
+  if (!tlvData) return null;
+  let offset = 0;
+  while (offset + TYPE_SIZE + LENGTH_SIZE <= tlvData.length) {
+    const type = readU16Le(tlvData, offset);
+    const length = readU16Le(tlvData, offset + TYPE_SIZE);
+    const start = offset + TYPE_SIZE + LENGTH_SIZE;
+    const end = start + length;
+    if (type < 0 || length < 0 || end > tlvData.length) return null;
+    if (type === TOKEN_METADATA_EXTENSION_TYPE) return tlvData.slice(start, end);
+    offset = end;
+  }
+  return null;
+}
+
+function readMetadataString(
+  bytes: Uint8Array,
+  offset: number,
+): { value: string; next: number } | null {
+  const length = readU32Le(bytes, offset);
+  if (length < 0) return null;
+  const start = offset + 4;
+  const end = start + length;
+  if (end > bytes.length) return null;
+  return { value: new TextDecoder("utf-8").decode(bytes.slice(start, end)), next: end };
+}
+
+function decodeToken2022MetadataSymbol(tlvData: Uint8Array | null | undefined): string | null {
+  const metadata = findTokenMetadataExtension(tlvData);
+  if (!metadata || metadata.length < TOKEN_METADATA_HEADER_SIZE) return null;
+
+  const name = readMetadataString(metadata, TOKEN_METADATA_HEADER_SIZE);
+  if (!name) return null;
+  const symbol = readMetadataString(metadata, name.next);
+  const trimmed = symbol?.value.trim();
+  return trimmed ? trimmed : null;
+}
 
 async function resolveOne(mint: string): Promise<ResolvedTokenMeta> {
   const conn = getConnection();
@@ -56,10 +108,12 @@ async function resolveOne(mint: string): Promise<ResolvedTokenMeta> {
   // so we catch and try the other.
   let decimals: number | null = null;
   let programId: PublicKey | null = null;
+  let token2022TlvData: Uint8Array | null = null;
   try {
     const m = await getMint(conn, key, undefined, TOKEN_2022_PROGRAM_ID);
     decimals = m.decimals;
     programId = TOKEN_2022_PROGRAM_ID;
+    token2022TlvData = m.tlvData ?? null;
   } catch {
     try {
       const m = await getMint(conn, key, undefined, TOKEN_PROGRAM_ID);
@@ -72,12 +126,7 @@ async function resolveOne(mint: string): Promise<ResolvedTokenMeta> {
 
   let symbol: string | null = null;
   if (programId === TOKEN_2022_PROGRAM_ID) {
-    try {
-      const meta = await getTokenMetadata(conn, key, undefined, TOKEN_2022_PROGRAM_ID);
-      if (meta?.symbol) symbol = meta.symbol;
-    } catch {
-      // Metadata extension absent — fine, leave symbol null.
-    }
+    symbol = decodeToken2022MetadataSymbol(token2022TlvData);
   }
 
   return { symbol, decimals, resolvedOnChain: true };
