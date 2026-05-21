@@ -646,6 +646,39 @@
   }
 }
 
+/* c19 (2026-05-21): the Execution + Ownership cards now fade in at
+   400/450ms (c17), but the inline action chips that live inside their
+   bodies — the Agents/Quests mini-tiles inside Execution's
+   .trust-cockpit-inner-grid--split, and the four Ownership mini-tiles
+   inside Ownership's .trust-cockpit-inner-grid — mount at full opacity
+   on the same frame their parent card begins fading. The parent reads
+   as a faded-in surface but the affordances inside it appear
+   fully-formed mid-fade, which collapses the card's entrance into a
+   single hard cut once the parent crosses ~30% opacity. Add a 600/650ms
+   intra-card stagger anchored to the parent's animation-end (Execution
+   settles at ~600ms, Ownership at ~650ms) so the card surface lands
+   first and its action chips settle into place a beat later. The
+   secondary-row Events/Ideas cells inside Execution already ride
+   c18's 500/550ms ramp; this c19 rule adds the missing beat for the
+   primary mini-tile tier above them, completing the chip-tier reveal
+   within each card. Scoped via `.trust-cockpit-row > .trust-cockpit-card`
+   so the c16 Roles tier (200-350ms) stays unaffected — only the inline
+   chips inside the Execution/Ownership cockpit cards pick up the
+   delayed stagger. Single iteration, opacity only, gated on
+   prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-cockpit-row > .trust-cockpit-card .trust-cockpit-inner-grid > .trust-cockpit-mini {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 600ms 1 forwards;
+  }
+  .trust-cockpit-row
+    > .trust-cockpit-card:nth-child(2)
+    .trust-cockpit-inner-grid
+    > .trust-cockpit-mini {
+    animation-delay: 650ms;
+  }
+}
+
 /* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
    side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
    chain mirror). One rhythm, two surfaces — execution + ownership both
