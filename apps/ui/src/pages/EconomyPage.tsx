@@ -484,8 +484,10 @@ export default function EconomyPage() {
                   />
                 ) : roleOpenings.length > 0 ? (
                   <MetricStatus state="in_review" label={`${allRoles.length} total roles`} />
+                ) : allRoles.length > 0 ? (
+                  <MetricStatus state="done" label="All roles filled" />
                 ) : (
-                  <MetricStatus state="backlog" label={`${allRoles.length} total roles`} />
+                  <MetricStatus state="backlog" label="No roles indexed" />
                 )
               }
             />
