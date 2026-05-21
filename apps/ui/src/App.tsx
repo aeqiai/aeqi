@@ -259,6 +259,34 @@ export default function App() {
           {/* Public invitation accept page — no auth required to view */}
           <Route path="/invitations/:token" element={<InvitationAcceptPage />} />
 
+          {/* Standalone protected routes must live before `/:slug`.
+              Otherwise reserved slugs delegate from the public-profile
+              match and descendant routing falls through to the shell 404. */}
+          <Route
+            path="/agents"
+            element={
+              <ProtectedRoute>
+                <AgentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/change-password"
+            element={
+              <ProtectedRoute>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Bare `/` resolves to the user's primary entity inbox when
               they have one. Users without a company go straight to
               `/launch`. */}
