@@ -145,16 +145,17 @@ export default function StartPage() {
       </header>
 
       <section className="home-row-trusts" aria-label="Operating context">
-        <CurrentContextCard
+        <OperatingContextCard
           activeTrust={activeTrust}
           activeRole={CURRENT_ROLE}
           inboxCount={activeInboxItems.length}
           questCount={currentQuests.length}
           agentCount={currentAgents.length}
           latestActivity={latestActivity}
+          trusts={trustPreview}
+          activeTrustId={activeTrust?.id ?? null}
         />
         <LaunchTrustCard />
-        <YourTrustsCard trusts={trustPreview} activeTrustId={activeTrust?.id ?? null} />
       </section>
 
       <section className="home-row-two" aria-label="Inbox and economy">
@@ -173,40 +174,52 @@ export default function StartPage() {
   );
 }
 
-interface CurrentContextCardProps {
+interface OperatingContextCardProps {
   activeTrust: Trust | null;
   activeRole: string;
   inboxCount: number;
   questCount: number;
   agentCount: number;
   latestActivity: string;
+  trusts: ReadonlyArray<Trust>;
+  activeTrustId: string | null;
 }
 
-function CurrentContextCard({
+function OperatingContextCard({
   activeTrust,
   activeRole,
   inboxCount,
   questCount,
   agentCount,
   latestActivity,
-}: CurrentContextCardProps) {
+  trusts,
+  activeTrustId,
+}: OperatingContextCardProps) {
   if (!activeTrust) {
     return (
       <article className="home-card home-card--context home-card--empty">
-        <span className="home-card-eyebrow">Current context</span>
-        <div className="home-context-empty">
-          <span className="home-context-avatar home-context-avatar--ghost" aria-hidden="true">
-            <Plus size={26} strokeWidth={1.5} />
-          </span>
-          <h2 className="home-context-title">No active TRUST</h2>
-          <p className="home-context-copy">
-            Launch a TRUST to create an operating context for roles, agents, quests, and memory.
-          </p>
+        <div className="home-context-grid">
+          <section className="home-context-panel" aria-label="Current context">
+            <span className="home-card-eyebrow">Current context</span>
+            <div className="home-context-empty">
+              <span className="home-context-avatar home-context-avatar--ghost" aria-hidden="true">
+                <Plus size={26} strokeWidth={1.5} />
+              </span>
+              <h2 className="home-context-title">No active TRUST</h2>
+              <p className="home-context-copy">
+                Launch a TRUST to create an operating context for roles, agents, quests, and memory.
+              </p>
+            </div>
+            <Link to="/launch" className="home-primary-action">
+              Launch TRUST
+              <ArrowRight size={14} strokeWidth={1.8} />
+            </Link>
+          </section>
+          <div className="home-context-divider" aria-hidden="true" />
+          <div className="home-context-switcher">
+            <TrustSwitcherPanel trusts={trusts} activeTrustId={activeTrustId} />
+          </div>
         </div>
-        <Link to="/launch" className="home-primary-action">
-          Launch TRUST
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </Link>
       </article>
     );
   }
@@ -217,49 +230,59 @@ function CurrentContextCard({
 
   return (
     <article className="home-card home-card--context">
-      <div className="home-context-head">
-        <span className="home-card-eyebrow">Current context</span>
-        <Link
-          to={entityPath(activeTrust)}
-          className="home-card-link"
-          aria-label={`Open TRUST ${activeTrust.name}`}
-        >
-          Open TRUST
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </Link>
-      </div>
-      <div className="home-context-main">
-        <span className="home-context-avatar" aria-hidden="true">
-          <TrustAvatar name={activeTrust.name} size={68} />
-        </span>
-        <div className="home-context-copy">
-          <h2 className="home-context-title">{activeTrust.name}</h2>
-          <p className="home-context-role">{activeRole}</p>
-          <p className="home-context-line">You are operating as {activeRole} inside this TRUST.</p>
+      <div className="home-context-grid">
+        <section className="home-context-panel" aria-label="Current context">
+          <div className="home-context-head">
+            <span className="home-card-eyebrow">Current context</span>
+            <Link
+              to={entityPath(activeTrust)}
+              className="home-card-link"
+              aria-label={`Open TRUST ${activeTrust.name}`}
+            >
+              Open TRUST
+              <ArrowRight size={14} strokeWidth={1.8} />
+            </Link>
+          </div>
+          <div className="home-context-main">
+            <span className="home-context-avatar" aria-hidden="true">
+              <TrustAvatar name={activeTrust.name} size={68} />
+            </span>
+            <div className="home-context-copy">
+              <h2 className="home-context-title">{activeTrust.name}</h2>
+              <p className="home-context-role">{activeRole}</p>
+              <p className="home-context-line">
+                You are operating as {activeRole} inside this TRUST.
+              </p>
+            </div>
+          </div>
+          <dl className="home-context-insights">
+            <div>
+              <dt>Quests</dt>
+              <dd>{questInsight}</dd>
+            </div>
+            <div>
+              <dt>Agents</dt>
+              <dd>{agentInsight}</dd>
+            </div>
+            <div>
+              <dt>Inbox</dt>
+              <dd>{inboxInsight}</dd>
+            </div>
+            <div>
+              <dt>Latest</dt>
+              <dd>{latestActivity}</dd>
+            </div>
+          </dl>
+          <div className="home-context-actions" aria-label="Current context shortcuts">
+            <Link to={`${entityPath(activeTrust)}/quests`}>Quests</Link>
+            <Link to={`${entityPath(activeTrust)}/agents`}>Agents</Link>
+            <Link to={`${entityPath(activeTrust)}/quorum`}>Quorum</Link>
+          </div>
+        </section>
+        <div className="home-context-divider" aria-hidden="true" />
+        <div className="home-context-switcher">
+          <TrustSwitcherPanel trusts={trusts} activeTrustId={activeTrustId} />
         </div>
-      </div>
-      <dl className="home-context-insights">
-        <div>
-          <dt>Quests</dt>
-          <dd>{questInsight}</dd>
-        </div>
-        <div>
-          <dt>Agents</dt>
-          <dd>{agentInsight}</dd>
-        </div>
-        <div>
-          <dt>Inbox</dt>
-          <dd>{inboxInsight}</dd>
-        </div>
-        <div>
-          <dt>Latest</dt>
-          <dd>{latestActivity}</dd>
-        </div>
-      </dl>
-      <div className="home-context-actions" aria-label="Current context shortcuts">
-        <Link to={`${entityPath(activeTrust)}/quests`}>Quests</Link>
-        <Link to={`${entityPath(activeTrust)}/agents`}>Agents</Link>
-        <Link to={`${entityPath(activeTrust)}/quorum`}>Quorum</Link>
       </div>
     </article>
   );
@@ -293,14 +316,14 @@ function LaunchTrustCard() {
   );
 }
 
-interface YourTrustsCardProps {
+interface TrustSwitcherPanelProps {
   trusts: ReadonlyArray<Trust>;
   activeTrustId: string | null;
 }
 
-function YourTrustsCard({ trusts, activeTrustId }: YourTrustsCardProps) {
+function TrustSwitcherPanel({ trusts, activeTrustId }: TrustSwitcherPanelProps) {
   return (
-    <article className="home-card home-card--your-trusts">
+    <>
       <header className="home-card-head">
         <div>
           <span className="home-card-eyebrow">Your TRUSTs</span>
@@ -340,7 +363,7 @@ function YourTrustsCard({ trusts, activeTrustId }: YourTrustsCardProps) {
       ) : (
         <p className="home-your-empty">Launch your first TRUST to create an operating context.</p>
       )}
-    </article>
+    </>
   );
 }
 
