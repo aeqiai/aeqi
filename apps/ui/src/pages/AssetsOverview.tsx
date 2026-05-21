@@ -16,7 +16,7 @@
  *      composition bar.
  */
 import { useMemo, useState } from "react";
-import { Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink, GitCompareArrows } from "lucide-react";
 
 import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
@@ -93,6 +93,7 @@ export function TreasuryOverviewSection({
   decodedActivity,
   activitySparkline,
   onExportSnapshot,
+  onCompareSnapshots,
 }: {
   holdings: VaultHolding[];
   budgets: BudgetAccountWithPda[];
@@ -106,6 +107,11 @@ export function TreasuryOverviewSection({
    *  the section surfaces a header action that serialises the full
    *  vault state to JSON and triggers a browser download. */
   onExportSnapshot?: () => void;
+  /** Iter-11: optional "Compare snapshots" affordance. Opens the
+   *  SnapshotDiffModal — two JSON uploads, deterministic delta. The
+   *  diff makes the iter-10 export a multi-snapshot audit trail
+   *  instead of a single-point dump. */
+  onCompareSnapshots?: () => void;
 }) {
   const { stableUsd, nonZeroCount, mintCount } = useMemo(() => {
     let stable = 0;
@@ -141,20 +147,39 @@ export function TreasuryOverviewSection({
   // pre-activity states.
   const usdCurve = useTreasuryUsdCurve(decodedActivity, stableUsd, metas);
 
-  // Iter-10: "Download snapshot" button — exposed when the host wires
-  // `onExportSnapshot`. Sits at the section-action slot (chrome zone)
-  // so it doesn't compete with the four metric tiles below.
-  const sectionActions = onExportSnapshot ? (
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={onExportSnapshot}
-      leadingIcon={<Download size={13} strokeWidth={1.8} aria-hidden />}
-      aria-label="Download vault snapshot JSON"
-    >
-      Download snapshot
-    </Button>
-  ) : undefined;
+  // Iter-10/11: "Download snapshot" + "Compare snapshots" buttons
+  // — exposed when the host wires the corresponding callback. Both
+  // sit at the section-action slot (chrome zone) so they don't
+  // compete with the four metric tiles below. Compare reads as a
+  // second-class action next to Download — equal weight, neither
+  // primary. The pair stays absent when both callbacks are null.
+  const sectionActions =
+    onExportSnapshot || onCompareSnapshots ? (
+      <Inline gap="2" align="center">
+        {onCompareSnapshots ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCompareSnapshots}
+            leadingIcon={<GitCompareArrows size={13} strokeWidth={1.8} aria-hidden />}
+            aria-label="Compare two vault snapshots"
+          >
+            Compare snapshots
+          </Button>
+        ) : null}
+        {onExportSnapshot ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onExportSnapshot}
+            leadingIcon={<Download size={13} strokeWidth={1.8} aria-hidden />}
+            aria-label="Download vault snapshot JSON"
+          >
+            Download snapshot
+          </Button>
+        ) : null}
+      </Inline>
+    ) : undefined;
 
   return (
     <PageSection

@@ -1226,3 +1226,177 @@
   font-size: var(--text-xs);
   line-height: 1.5;
 }
+
+/* Iter-11: snapshot diff modal layout. Two file-picker tiles side by
+   side at the top, then a result strip below. Everything anchored to
+   the existing 4px space scale; no bespoke gaps. */
+.snapshotDiffBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: min(720px, 86vw);
+  max-width: 86vw;
+}
+
+.snapshotDiffInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .snapshotDiffInputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.snapshotDiffInput {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-md);
+}
+
+.snapshotDiffInputLabel {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.snapshotDiffInputFilename {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+/* File-input styling — the Input primitive renders a native file
+   picker; we restyle the file-selector button so it matches the
+   secondary-button affordance shipped elsewhere on the page. */
+.snapshotDiffPicker {
+  cursor: pointer;
+  background: var(--color-card-elevated);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.snapshotDiffPicker::file-selector-button {
+  margin-right: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-card-subtle);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: 0;
+  transition: background var(--transition-fast);
+}
+
+.snapshotDiffPicker::file-selector-button:hover {
+  background: var(--color-card-muted);
+}
+
+.snapshotDiffError {
+  font-size: var(--text-xs);
+  color: var(--color-text-error, var(--color-text));
+  line-height: 1.5;
+}
+
+.snapshotDiffResult {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.snapshotDiffSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.snapshotDiffSummaryRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.snapshotDiffSummaryLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.snapshotDiffSummaryValue {
+  font-size: var(--text-md);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.snapshotDiffSummaryValue[data-tone="up"] {
+  color: var(--success, var(--color-text));
+}
+
+.snapshotDiffSummaryValue[data-tone="down"] {
+  color: var(--color-text);
+}
+
+.snapshotDiffList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.snapshotDiffRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.snapshotDiffMono {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+}
+
+.snapshotDiffMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.snapshotDiffMeta[data-tone="up"] {
+  color: var(--success, var(--color-text));
+}
+
+.snapshotDiffMeta[data-tone="down"] {
+  color: var(--color-text);
+}
+
+.snapshotDiffFootnote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}

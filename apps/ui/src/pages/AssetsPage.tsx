@@ -11,6 +11,7 @@ import type { BudgetAccountWithPda } from "@/solana/assets";
 import { Banner, Button, EmptyState, Loading, Page, PageBody, PageHeader } from "@/components/ui";
 
 import { downloadVaultSnapshot } from "./AssetsSnapshot";
+import { SnapshotDiffModal } from "./AssetsSnapshotDiff";
 import { BudgetsSection, VestingPositionsSection, type TokenMetaMap } from "./AssetsSections";
 import { BudgetDetailModal } from "./AssetsBudgetModal";
 import { NewBudgetModal } from "./AssetsNewBudgetModal";
@@ -101,6 +102,11 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
   /** Iter-6: click-through on a Vault identity module row opens the
    *  ModuleDetailModal with ACL bits + recent signatures. */
   const [moduleDetail, setModuleDetail] = useState<ModuleAccountWithPda | null>(null);
+  /** Iter-11: snapshot diff modal — open from the "Compare
+   *  snapshots" header action. Accepts two snapshot JSON files via
+   *  plain file inputs and renders a deterministic per-budget /
+   *  per-vesting / per-mint delta entirely client-side. */
+  const [snapshotDiffOpen, setSnapshotDiffOpen] = useState(false);
   /** Active "send" prefill — populated when an operator clicks Send on a
    *  holdings row or the Capitalize Withdraw action. Drives the inline
    *  WithdrawFormShell beneath the Holdings table. */
@@ -203,6 +209,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           metas={metas}
           decodedActivity={decodedActivity.rows}
           activitySparkline={vaultActivity.data?.sparkline ?? []}
+          onCompareSnapshots={() => setSnapshotDiffOpen(true)}
           onExportSnapshot={() => {
             // Iter-10: serialise the on-chain state we already have in
             // memory (holdings + budgets + vesting + modules + roles +
@@ -336,6 +343,10 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           }}
         />
         <ModuleDetailModal module={moduleDetail} onClose={() => setModuleDetail(null)} />
+        <SnapshotDiffModal
+          open={snapshotDiffOpen}
+          onClose={() => setSnapshotDiffOpen(false)}
+        />
       </PageBody>
     </Page>
   );
