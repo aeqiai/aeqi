@@ -64,6 +64,13 @@ export function NewProposalModal({
   const [error, setError] = useState<string | null>(null);
   const [tbdNote, setTbdNote] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // iter-9: action template selection. Templates pre-populate the
+  // description with a structured stub (a checklist of the fields a
+  // proper proposal of that kind should specify) and surface a
+  // matching calldata hint banner so the proposer knows what the
+  // executor will look for in the IPFS payload. Free-form is the
+  // default sentinel — no pre-fill, no hint banner.
+  const [templateKind, setTemplateKind] = useState<ProposalTemplateKind>("free_form");
   // IPFS pre-pin state. The operator can pin the title+description to
   // IPFS BEFORE opening the proposal; the returned CID is shown inline
   // and threaded through to `proposalCreate`. If they skip it, the
@@ -172,6 +179,29 @@ export function NewProposalModal({
     setPinnedGateway(null);
     setPinTbd(false);
     setPinError(null);
+    setTemplateKind("free_form");
+  };
+
+  /**
+   * iter-9: pick an action template. Pre-fills the description (or
+   * clears it back to empty when the operator picks free_form), drops
+   * any IPFS-pinned CID (the body changed so the pin is stale), and
+   * surfaces the calldata hint banner. We pre-fill the description ONLY
+   * when it's empty OR still matches a prior template stub — never
+   * stomp text the operator has typed.
+   */
+  const applyTemplate = (next: ProposalTemplateKind) => {
+    setTemplateKind(next);
+    if (pinnedCid) {
+      setPinnedCid(null);
+      setPinnedGateway(null);
+    }
+    const trimmed = description.trim();
+    const isPrefillReplaceable =
+      trimmed.length === 0 || PROPOSAL_TEMPLATES.some((t) => t.descriptionStub.trim() === trimmed);
+    if (!isPrefillReplaceable) return;
+    const stub = templateForKind(next).descriptionStub;
+    setDescription(stub);
   };
 
   // Drop a stale CID whenever the operator edits title or description —
@@ -319,6 +349,27 @@ export function NewProposalModal({
                   </div>
                 </div>
               ) : null}
+              <div
+                className={styles.proposalTemplateRow}
+                role="radiogroup"
+                aria-label="Proposal action template"
+              >
+                <span className={styles.proposalTemplateLabel}>Template</span>
+                <div className={styles.proposalTemplatePills}>
+                  {PROPOSAL_TEMPLATES.map((tpl) => (
+                    <Button
+                      key={tpl.kind}
+                      variant={templateKind === tpl.kind ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => applyTemplate(tpl.kind)}
+                      aria-pressed={templateKind === tpl.kind}
+                      title={tpl.blurb}
+                    >
+                      {tpl.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               <Input
                 label="Title"
                 value={title}
@@ -341,6 +392,9 @@ export function NewProposalModal({
                     : undefined
                 }
               />
+              {templateForKind(templateKind).calldataHint ? (
+                <Banner kind="info">{templateForKind(templateKind).calldataHint}</Banner>
+              ) : null}
               <div className={styles.ipfsPinRow} aria-label="IPFS pre-pin">
                 <div className={styles.ipfsPinCopy}>
                   <span className={styles.ipfsPinLabel}>IPFS payload</span>
@@ -454,4 +508,115 @@ export function NewProposalModal({
  */
 function configIdHexFor(bytes: Uint8Array | number[]): string {
   return `0x${bytesToHex(bytes)}`;
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Action templates                                                    */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Proposal template kinds — match the common shapes a TRUST will open
+ * proposals against. Free-form is the default and matches iter-1..8
+ * behavior (no pre-fill).
+ *
+ * The on-chain `aeqi_governance` Proposal account doesn't carry calldata
+ * — execution intent lives in the IPFS-pinned payload referenced by
+ * `ipfs_cid`. The executor reads that payload and dispatches to the
+ * matching module. So a "template" here is really:
+ *   1. A structured Markdown stub the operator fills in (so the IPFS
+ *      payload has the fields the executor expects).
+ *   2. A "calldata hint" — a short Banner the operator can read in-modal
+ *      before submitting, calling out which fields are load-bearing for
+ *      the executor.
+ *
+ * Future: when typed payload schemas land (an `aeqi-governance-payloads`
+ * crate or similar), we can extend each template to emit a JSON-Schema
+ * preview AND validate the description against it before the
+ * `proposalCreate` POST.
+ */
+export type ProposalTemplateKind =
+  | "free_form"
+  | "treasury_transfer"
+  | "module_upgrade"
+  | "role_grant";
+
+interface ProposalTemplate {
+  kind: ProposalTemplateKind;
+  label: string;
+  /** Used as the tooltip on the pill — explains what kind of proposal
+   *  this shape backs without forcing the operator to click in. */
+  blurb: string;
+  /** Markdown-ish body that pre-populates the description textarea. */
+  descriptionStub: string;
+  /** Inline calldata hint shown beneath the description as a Banner.
+   *  Null for free-form (no hint, no banner). */
+  calldataHint: string | null;
+}
+
+const PROPOSAL_TEMPLATES: ProposalTemplate[] = [
+  {
+    kind: "free_form",
+    label: "Free-form",
+    blurb: "Open a proposal without a template. The IPFS payload is whatever you write.",
+    descriptionStub: "",
+    calldataHint: null,
+  },
+  {
+    kind: "treasury_transfer",
+    label: "Treasury transfer",
+    blurb:
+      "Move funds out of the TRUST treasury. Executor reads recipient + token mint + amount from the payload.",
+    descriptionStub: [
+      "## Treasury transfer",
+      "",
+      "**Recipient (base58):** <fill recipient pubkey>",
+      "**Token mint (base58):** <native SOL or SPL mint pubkey>",
+      "**Amount (smallest unit):** <integer>",
+      "**Rationale:** <why this transfer, link to upstream decision>",
+      "",
+      "On-chain effect: `aeqi_treasury::transfer` called with the above against the TRUST treasury vault.",
+    ].join("\n"),
+    calldataHint:
+      "Treasury executor will look for `recipient`, `mint`, and `amount` (in smallest unit) inside the pinned payload. Double-check the mint — passing the wrong one transfers the wrong asset.",
+  },
+  {
+    kind: "module_upgrade",
+    label: "Module upgrade",
+    blurb:
+      "Swap a registered module to a new program id. Executor reads module id + new program id from the payload.",
+    descriptionStub: [
+      "## Module upgrade",
+      "",
+      "**Module id (label or 32-byte sentinel):** <e.g. `treasury`, `governance`>",
+      "**New program id (base58):** <fill upgraded program pubkey>",
+      "**Init args (hex bytes):** <optional, defaults to empty>",
+      "**Migration notes:** <breaking changes, storage layout, downgrade path>",
+      "",
+      "On-chain effect: `aeqi_factory::upgrade_module` rewires the TRUST's module registry to point at the new program. ALL future calls to that module go through the new program id.",
+    ].join("\n"),
+    calldataHint:
+      "Module executor will look for `module_id`, `new_program_id`, and optional `init_args` (hex). The upgrade is one-way — make sure the new program is audited and has a downgrade story before voting `for`.",
+  },
+  {
+    kind: "role_grant",
+    label: "Role grant",
+    blurb:
+      "Grant or revoke a role on the TRUST. Executor reads role type + holder + grant-or-revoke from the payload.",
+    descriptionStub: [
+      "## Role grant",
+      "",
+      "**Role type (label):** <e.g. `treasurer`, `operator`>",
+      "**Holder (base58):** <fill recipient EOA>",
+      "**Action:** grant | revoke",
+      "**Authority scope:** <what this role lets the holder do, list module ids>",
+      "",
+      "On-chain effect: `aeqi_trust::grant_role` (or `revoke_role`) updates the role registry. The holder gains (or loses) any authority transitively reachable from this role.",
+    ].join("\n"),
+    calldataHint:
+      "Trust executor will look for `role_type`, `holder`, and `action` (grant|revoke) in the pinned payload. Granting a role transitively elevates the holder's authority — review the role's downstream edges before voting.",
+  },
+];
+
+function templateForKind(kind: ProposalTemplateKind): ProposalTemplate {
+  return PROPOSAL_TEMPLATES.find((t) => t.kind === kind) ?? PROPOSAL_TEMPLATES[0];
 }

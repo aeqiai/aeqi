@@ -46,6 +46,7 @@ import {
   TallyDetail,
 } from "./QuorumPage.parts";
 import { TallyMomentumStrip } from "./QuorumPage.momentum";
+import { useProposalMomentum } from "@/hooks/useProposalMomentum";
 import {
   bytesToHex,
   countdownLabel,
@@ -145,6 +146,22 @@ export function ProposalDetailModal({
     proposalIdForRecords,
   );
 
+  // iter-9: reuse the same `useProposalMomentum` query (cached by
+  // (trust, pdaKey, voteStart, voteEnd)) that the sparkline mounts. The
+  // hook resolves a `getSignaturesForAddress(votePda, { limit: 1 })`
+  // per PDA — the resulting `blockTimes` + `signatures` maps thread
+  // straight into `VoteHistorySection` to render the "When" column and
+  // the CSV export, costing zero extra RPC because the strip and the
+  // table share the React Query key.
+  const voteStart = entry ? Number(entry.proposal.account.voteStart.toString()) : 0;
+  const voteDuration = entry ? Number(entry.proposal.account.voteDuration.toString()) : 0;
+  const { data: momentumForAudit } = useProposalMomentum({
+    voteRecords: voteRecordsForMomentum,
+    voteStart,
+    voteEnd: voteStart + voteDuration,
+    trustAddress,
+  });
+
   return (
     <Modal open={open} onClose={onClose} title="Proposal detail">
       {entry ? (
@@ -179,6 +196,9 @@ export function ProposalDetailModal({
             <VoteHistorySection
               trustAddress={trustAddress}
               proposalId={entry.proposal.account.proposalId}
+              blockTimes={momentumForAudit?.blockTimes}
+              signatures={momentumForAudit?.signatures}
+              nowSeconds={nowSeconds}
             />
             <ProposalMeta proposal={entry.proposal.account} />
           </Stack>

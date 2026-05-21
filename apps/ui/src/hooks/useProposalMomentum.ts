@@ -79,6 +79,18 @@ export interface ProposalMomentum {
    *  blockTime backfill gap). Surfaced so the UI can note "based on N/M
    *  records" honestly instead of pretending we covered every vote. */
   pending: number;
+  /** Per-PDA blockTime map (PDA base58 → unix seconds), keyed off the
+   *  same `getSignaturesForAddress` walk that fed the sparkline buckets.
+   *  iter-9: callers that already mount the sparkline can reuse this map
+   *  to surface a "When" column on the vote-history audit table — the
+   *  data is already in cache, so the extra surface costs zero RPC.
+   *  Records that didn't resolve a blockTime are omitted. */
+  blockTimes: Record<string, number>;
+  /** Per-PDA signature (PDA base58 → signature base58). iter-9 uses
+   *  this both for the CSV export's "signature" column AND for the
+   *  optional Solana-explorer deep link on a vote row. Same fetch pass
+   *  as `blockTimes` — no extra RPC. */
+  signatures: Record<string, string>;
 }
 
 interface UseProposalMomentumArgs {
@@ -143,32 +155,55 @@ export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalM
         recordRefs.map(async (ref) => {
           try {
             const sigs = await conn.getSignaturesForAddress(new PublicKey(ref.pda), { limit: 1 });
-            if (sigs.length === 0) return { ref, blockTime: null as number | null };
+            if (sigs.length === 0)
+              return {
+                ref,
+                blockTime: null as number | null,
+                signature: null as string | null,
+              };
             const sig = sigs[0];
             // Some RPC providers omit blockTime for very recent slots.
-            return { ref, blockTime: sig.blockTime ?? null };
+            return {
+              ref,
+              blockTime: sig.blockTime ?? null,
+              signature: sig.signature ?? null,
+            };
           } catch {
-            return { ref, blockTime: null as number | null };
+            return {
+              ref,
+              blockTime: null as number | null,
+              signature: null as string | null,
+            };
           }
         }),
       );
 
-      const resolvedPoints: Array<{ blockTime: number; choice: number; weight: bigint }> = [];
+      const resolvedPoints: Array<{
+        blockTime: number;
+        choice: number;
+        weight: bigint;
+        pda: string;
+      }> = [];
+      const blockTimes: Record<string, number> = {};
+      const signatures: Record<string, string> = {};
       let pending = 0;
       for (const r of results) {
         if (r.status !== "fulfilled") {
           pending += 1;
           continue;
         }
-        const { ref, blockTime } = r.value;
+        const { ref, blockTime, signature } = r.value;
+        if (signature !== null) signatures[ref.pda] = signature;
         if (blockTime === null) {
           pending += 1;
           continue;
         }
+        blockTimes[ref.pda] = blockTime;
         resolvedPoints.push({
           blockTime,
           choice: ref.choice,
           weight: BigInt(ref.weight),
+          pda: ref.pda,
         });
       }
 
@@ -210,6 +245,8 @@ export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalM
         buckets,
         resolved: resolvedPoints.length,
         pending,
+        blockTimes,
+        signatures,
       };
     },
     // The hook is enabled even when we have no records — that just

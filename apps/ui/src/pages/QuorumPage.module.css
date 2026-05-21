@@ -326,6 +326,12 @@
   align-items: center;
 }
 
+/* iter-9: when the "When" column is mounted, drop a 5th auto-sized
+ * track so the relative-time labels sit flush right of the weight. */
+.voteHistoryTable[data-has-when="true"] {
+  grid-template-columns: 1fr auto auto auto auto;
+}
+
 .voteHistoryRow {
   display: contents;
   font-size: var(--text-sm);
@@ -374,6 +380,50 @@
 .voteHistoryMuted {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+
+/* iter-9: "When" column — sits flush right of the numeric weight so a
+ * single scan reads "voter → choice → weight → cast at". Renders as
+ * tabular-nums so a long list aligns even with mixed widths
+ * ("5m ago" vs "in 2h"). The data-empty branch fades the placeholder
+ * so an unresolved-yet timestamp doesn't visually equate to "0m ago". */
+.voteHistoryWhen {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  text-align: end;
+  white-space: nowrap;
+}
+
+.voteHistoryWhen[data-empty="true"] {
+  color: var(--color-text-muted);
+}
+
+/* iter-9: CSV export link in the section header. Sits as a ghost-style
+ * anchor — same vocab as our `Button` ghost variant but rendered as an
+ * <a> so the browser handles the download natively. */
+.voteHistoryExport {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-card-muted);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.voteHistoryExport:hover,
+.voteHistoryExport:focus-visible {
+  color: var(--color-text-primary);
+  background: var(--color-card);
+  outline: none;
+}
+
+.voteHistoryExport:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-text-primary) 25%, transparent);
 }
 
 /* Weight-relative-to-max bar inside the vote-history row. Lives in a
@@ -545,6 +595,31 @@
 
 .kpiSparkline[data-tone="done"] .kpiSparkBar {
   background: var(--quorum-accent-done);
+}
+
+/* ── Proposal action-template picker (iter-9) ───────────────────────── */
+
+/* Sits between the voting-config preview and the title field inside
+ * NewProposalModal. The pills are full-width-wrap so a narrow modal
+ * stacks them onto a second row instead of horizontally scrolling. */
+.proposalTemplateRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.proposalTemplateLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.proposalTemplatePills {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 /* ── IPFS pin row inside NewProposalModal (iter-5) ──────────────────── */

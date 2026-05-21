@@ -40,7 +40,7 @@ import { formatInteger } from "@/lib/i18n";
 import { useProposalVoteRecords } from "@/hooks/useProposalVoteRecords";
 import styles from "./QuorumPage.module.css";
 import { CopyableMono } from "./QuorumPage.parts";
-import { bytesToHex, shortAddress } from "./QuorumPage.format";
+import { bytesToHex, relativeTimeLabel, shortAddress } from "./QuorumPage.format";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* React Query invalidation — wire writes to reads                     */
@@ -134,9 +134,25 @@ export function VoteWeightBar({
 export function VoteHistorySection({
   trustAddress,
   proposalId,
+  blockTimes,
+  signatures,
+  nowSeconds,
 }: {
   trustAddress: string;
   proposalId: Uint8Array | number[];
+  /** iter-9: per-PDA blockTime map produced by `useProposalMomentum`. The
+   *  hook fetches one signature per vote_record PDA via
+   *  `getSignaturesForAddress` to plot momentum buckets; that exact map
+   *  threads through here to back the "When" column. Omitted entries
+   *  render as "—" (timestamp still resolving or RPC backfill gap). */
+  blockTimes?: Record<string, number>;
+  /** iter-9: per-PDA signature map; threads into the CSV export so
+   *  operators can pivot from the audit row to the explorer. */
+  signatures?: Record<string, string>;
+  /** Wall clock — anchors the relative time labels so a re-render with
+   *  a stale `nowSeconds` doesn't flash the column with "in 3m" while
+   *  the rest of the modal still reads "ends in 2h". */
+  nowSeconds: number;
 }) {
   const { data, isLoading, error } = useProposalVoteRecords(trustAddress, proposalId);
 
@@ -163,9 +179,42 @@ export function VoteHistorySection({
     return m;
   }, [sortedRecords]);
 
+  // iter-9: CSV export. The audit table is the canonical "who voted what
+  // with how much weight" surface. Operators investigating a tally
+  // dispute, archiving a settled proposal, or feeding the record into a
+  // spreadsheet shouldn't have to copy each row by hand. The download
+  // includes every column the surface already shows plus the signature
+  // (when known) so an auditor can pivot to the explorer.
+  const csvHref = useMemo(() => {
+    if (sortedRecords.length === 0) return null;
+    return buildVoteRecordsCsv(sortedRecords, {
+      blockTimes: blockTimes ?? {},
+      signatures: signatures ?? {},
+    });
+  }, [sortedRecords, blockTimes, signatures]);
+
+  const csvFilename = useMemo(() => {
+    const idHex = bytesToHex(proposalId).slice(0, 8);
+    return `vote-records-${idHex}.csv`;
+  }, [proposalId]);
+
   return (
     <div>
-      <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Vote history</h3>
+      <Inline gap="2" align="center" justify="between" wrap>
+        <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Vote history</h3>
+        {csvHref ? (
+          <Tooltip content="Download every vote record on this proposal as CSV (voter, choice, weight, when, signature).">
+            <a
+              href={csvHref}
+              download={csvFilename}
+              className={styles.voteHistoryExport}
+              aria-label={`Export ${sortedRecords.length} vote records as CSV`}
+            >
+              Export CSV
+            </a>
+          </Tooltip>
+        ) : null}
+      </Inline>
       {isLoading ? (
         <span className={styles.voteHistoryMuted}>Loading vote records…</span>
       ) : error ? (
@@ -175,13 +224,21 @@ export function VoteHistorySection({
       ) : sortedRecords.length === 0 ? (
         <span className={styles.voteHistoryMuted}>No votes cast yet.</span>
       ) : (
-        <div className={styles.voteHistoryTable} role="table" aria-label="Vote records">
+        <div
+          className={styles.voteHistoryTable}
+          data-has-when="true"
+          role="table"
+          aria-label="Vote records"
+        >
           <div className={styles.voteHistoryRow} role="row" data-header="true">
             <span role="columnheader">Voter</span>
             <span role="columnheader">Choice</span>
             <span role="columnheader" aria-label="Relative weight" />
             <span role="columnheader" className={styles.voteHistoryWeight}>
               Weight
+            </span>
+            <span role="columnheader" className={styles.voteHistoryWhen}>
+              When
             </span>
           </div>
           {sortedRecords.map((rec) => {
@@ -200,8 +257,14 @@ export function VoteHistorySection({
                     : "unknown";
             const weight = BigInt(rec.account.weight.toString());
             const weightStr = formatInteger(Number(weight));
+            const pda = rec.publicKey.toBase58();
+            const blockTime = blockTimes?.[pda];
+            const whenLabel = blockTime ? relativeTimeLabel(blockTime, nowSeconds) : "—";
+            const whenTooltip = blockTime
+              ? new Date(blockTime * 1000).toISOString()
+              : "Timestamp still resolving from the chain.";
             return (
-              <div key={rec.publicKey.toBase58()} className={styles.voteHistoryRow} role="row">
+              <div key={pda} className={styles.voteHistoryRow} role="row">
                 <CopyableMono
                   full={rec.account.voter.toBase58()}
                   display={shortAddress(rec.account.voter.toBase58())}
@@ -211,6 +274,15 @@ export function VoteHistorySection({
                 </span>
                 <VoteWeightBar weight={weight} maxWeight={maxWeight} tone={tone} />
                 <span className={styles.voteHistoryWeight}>{weightStr}</span>
+                <Tooltip content={whenTooltip}>
+                  <span
+                    className={styles.voteHistoryWhen}
+                    data-empty={blockTime ? "false" : "true"}
+                    aria-label={whenTooltip}
+                  >
+                    {whenLabel}
+                  </span>
+                </Tooltip>
               </div>
             );
           })}
@@ -218,6 +290,81 @@ export function VoteHistorySection({
       )}
     </div>
   );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* CSV export — vote records as a downloadable artifact                */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Build a `data:` URL containing the CSV body. Returning a URL (rather
+ * than triggering a download imperatively) keeps the function pure and
+ * lets the consuming `<a download>` element handle the click-to-save
+ * affordance natively — works inside Modal stacks without focus
+ * gymnastics and survives screen-reader navigation.
+ *
+ * Columns:
+ *   1. voter — base58 EOA that cast the vote
+ *   2. choice — `For` / `Against` / `Abstain` / `?` (label form, not raw u8)
+ *   3. weight — integer u128-as-decimal, no thousand separator (parsers prefer this)
+ *   4. block_time_iso — ISO-8601 UTC, blank when chain timestamp unresolved
+ *   5. block_time_unix — unix seconds, blank when unresolved
+ *   6. signature — base58 tx signature that created the vote_record PDA, blank when unknown
+ *   7. vote_record_pda — base58 PDA address for cross-reference
+ *
+ * Every cell is RFC-4180 quoted unconditionally — base58 never contains
+ * a comma or double-quote, but quoting everything keeps the parser story
+ * trivial for arbitrary spreadsheet importers.
+ */
+function buildVoteRecordsCsv(
+  records: Array<{
+    publicKey: { toBase58(): string };
+    account: {
+      voter: { toBase58(): string };
+      choice: number;
+      weight: { toString(): string };
+    };
+  }>,
+  ctx: {
+    blockTimes: Record<string, number>;
+    signatures: Record<string, string>;
+  },
+): string {
+  const header = [
+    "voter",
+    "choice",
+    "weight",
+    "block_time_iso",
+    "block_time_unix",
+    "signature",
+    "vote_record_pda",
+  ];
+  const lines: string[] = [header.map(csvCell).join(",")];
+  for (const rec of records) {
+    const pda = rec.publicKey.toBase58();
+    const blockTime = ctx.blockTimes[pda];
+    const signature = ctx.signatures[pda] ?? "";
+    const choice = VOTE_CHOICE_LABEL[rec.account.choice] ?? "?";
+    const row = [
+      rec.account.voter.toBase58(),
+      choice,
+      rec.account.weight.toString(),
+      blockTime ? new Date(blockTime * 1000).toISOString() : "",
+      blockTime ? blockTime.toString() : "",
+      signature,
+      pda,
+    ];
+    lines.push(row.map(csvCell).join(","));
+  }
+  const body = lines.join("\r\n");
+  // `encodeURIComponent` keeps unicode safe even though every column we
+  // currently emit is ASCII; future-proofing for proposer-supplied names.
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(body)}`;
+}
+
+/** RFC-4180 CSV cell: wrap in quotes, double up any embedded quotes. */
+function csvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 /* ────────────────────────────────────────────────────────────────── */
