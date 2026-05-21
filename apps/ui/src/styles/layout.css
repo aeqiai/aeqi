@@ -9164,6 +9164,12 @@ button.home-card:focus-visible {
   gap: 0;
 }
 
+.home-economy-media {
+  position: relative;
+  min-height: 176px;
+  overflow: hidden;
+}
+
 .home-economy-image {
   display: block;
   width: 100%;
@@ -9173,10 +9179,27 @@ button.home-card:focus-visible {
   filter: saturate(0.78) contrast(1.03);
 }
 
+.home-economy-hero-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+}
+
+.home-economy-hero-head > * {
+  position: relative;
+  z-index: 1;
+}
+
 .home-economy-content {
   display: flex;
   flex-direction: column;
-  gap: 18px;
   flex: 1;
   padding: 24px 28px 28px;
 }
@@ -9185,7 +9208,7 @@ button.home-card:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-primary);
+  color: var(--btn-primary-text);
   flex-shrink: 0;
 }
 
@@ -9215,6 +9238,36 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 
+.home-economy-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  align-self: center;
+  min-height: 38px;
+  margin-left: auto;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--btn-primary-text);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+
+.home-economy-cta:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.home-economy-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
 .home-learn {
   width: 100%;
   max-width: 1200px;
@@ -9224,20 +9277,21 @@ button.home-card:focus-visible {
 }
 
 .home-card--learn {
-  gap: 22px;
+  gap: 14px;
+  padding: 22px;
 }
 
 .home-learn-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
 .home-learn-title {
-  margin: 6px 0 0;
+  margin: 0;
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.1;
@@ -9274,21 +9328,17 @@ button.home-card:focus-visible {
 }
 
 .home-learn-actions > a:focus-visible,
-.home-learn-post:focus-visible {
+.home-learn-carousel-link:focus-visible,
+.home-learn-carousel-media:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-.home-learn-grid {
+.home-learn-carousel {
   display: grid;
-  grid-template-columns: 1.35fr 1fr 1fr;
-  gap: 16px;
-}
-
-.home-learn-post {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  grid-template-columns: minmax(220px, 0.86fr) minmax(0, 1fr);
+  align-items: stretch;
+  min-height: 178px;
   overflow: hidden;
   border-radius: var(--radius-md, 10px);
   background: var(--bg-row);
@@ -9300,31 +9350,52 @@ button.home-card:focus-visible {
     filter 0.12s ease;
 }
 
-.home-learn-post:hover {
+.home-learn-carousel:hover {
   background: var(--color-card);
   transform: translateY(-2px);
   filter: brightness(1.01);
 }
 
-.home-learn-post-image {
+.home-learn-carousel-media {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-learn-carousel-image {
   display: block;
   width: 100%;
-  height: 132px;
+  height: 100%;
+  min-height: 178px;
   object-fit: cover;
   object-position: center;
+  animation: home-learn-fade 0.28s ease both;
   filter: saturate(0.84) contrast(1.02);
 }
 
-.home-learn-post--feature .home-learn-post-image {
-  height: 176px;
-}
-
-.home-learn-post-copy {
+.home-learn-carousel-copy {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  justify-content: center;
+  gap: 8px;
   flex: 1;
-  padding: 16px;
+  min-width: 0;
+  padding: 18px 20px;
+  animation: home-learn-fade 0.28s ease both;
+}
+
+.home-learn-carousel-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-learn-carousel-link:hover .home-learn-post-title {
+  text-decoration: underline;
 }
 
 .home-learn-post-kicker {
@@ -9355,9 +9426,52 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 
+.home-learn-rotation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.home-learn-dot {
+  width: 20px;
+  height: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-text-muted);
+  opacity: 0.28;
+  cursor: pointer;
+  transition:
+    opacity 0.12s ease,
+    width 0.12s ease,
+    background 0.12s ease;
+}
+
+.home-learn-dot--active {
+  width: 30px;
+  background: var(--color-text-primary);
+  opacity: 1;
+}
+
+.home-learn-dot:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+@keyframes home-learn-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 960px) {
-  .home-row-trusts,
-  .home-learn-grid {
+  .home-row-trusts {
     grid-template-columns: 1fr;
   }
   .home-context-insights {
@@ -9382,6 +9496,13 @@ button.home-card:focus-visible {
   .home-learn-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .home-learn-carousel {
+    grid-template-columns: 1fr;
+  }
+  .home-learn-carousel-image {
+    height: 150px;
+    min-height: 150px;
   }
 }
 

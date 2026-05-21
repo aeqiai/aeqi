@@ -171,7 +171,7 @@ describe("StartPage MVP surface", () => {
     expect(
       screen.getByText(/no reviews, approvals, failed events, or agent handoffs/i),
     ).toBeInTheDocument();
-    expect(screen.getByText("Learn aeqi")).toBeInTheDocument();
+    expect(screen.getByText("Learn more")).toBeInTheDocument();
     expectNoVagueCtaLanguage(container);
 
     fireEvent.click(primary);

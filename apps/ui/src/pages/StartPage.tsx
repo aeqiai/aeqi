@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, BookOpen, Globe, Inbox as InboxIcon, Plus, Settings } from "lucide-react";
 import { useAgents } from "@/queries/agents";
@@ -484,18 +484,25 @@ function InboxPreviewRow({
 function EconomyCard() {
   return (
     <article className="home-card home-card--economy">
-      <img src="/home/economy-mood.png" alt="" className="home-economy-image" aria-hidden="true" />
-      <div className="home-economy-content">
-        <header className="home-card-head home-economy-head">
+      <div className="home-economy-media">
+        <img
+          src="/home/economy-mood.png"
+          alt=""
+          className="home-economy-image"
+          aria-hidden="true"
+        />
+        <header className="home-economy-hero-head">
           <span className="home-economy-icon" aria-hidden="true">
             <Globe size={18} strokeWidth={1.5} />
           </span>
           <span className="home-card-title">Economy</span>
-          <Link to="/economy" className="home-card-link">
+          <Link to="/economy" className="home-economy-cta">
             Open Economy
-            <ArrowRight size={14} strokeWidth={1.8} />
+            <ArrowRight size={16} strokeWidth={1.8} />
           </Link>
         </header>
+      </div>
+      <div className="home-economy-content">
         <div className="home-economy-body">
           <p className="home-economy-lede">Discover the network around programmable companies.</p>
           <p className="home-economy-aside">
@@ -508,14 +515,21 @@ function EconomyCard() {
 }
 
 function LearnAeqiSection() {
+  const [postIndex, setPostIndex] = useState(0);
+  const activePost = LEARN_POSTS[postIndex % LEARN_POSTS.length];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setPostIndex((current) => (current + 1) % LEARN_POSTS.length);
+    }, 5600);
+    return () => window.clearInterval(interval);
+  }, []);
+
   return (
     <section className="home-learn" aria-label="Learn aeqi">
       <article className="home-card home-card--learn">
         <div className="home-learn-head">
-          <div>
-            <span className="home-card-eyebrow">Learn aeqi</span>
-            <h2 className="home-learn-title">Understand programmable companies.</h2>
-          </div>
+          <h2 className="home-learn-title">Learn more</h2>
           <div className="home-learn-actions">
             <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer">
               Open docs
@@ -523,23 +537,47 @@ function LearnAeqiSection() {
             </a>
           </div>
         </div>
-        <div className="home-learn-grid">
-          {LEARN_POSTS.map((post, index) => (
+        <div className="home-learn-carousel">
+          <a
+            className="home-learn-carousel-media"
+            href={activePost.href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img
+              key={activePost.image}
+              src={activePost.image}
+              alt=""
+              className="home-learn-carousel-image"
+              aria-hidden="true"
+            />
+          </a>
+          <span key={activePost.href} className="home-learn-carousel-copy">
             <a
-              key={post.href}
-              className={`home-learn-post${index === 0 ? " home-learn-post--feature" : ""}`}
-              href={post.href}
+              className="home-learn-carousel-link"
+              href={activePost.href}
               target="_blank"
               rel="noreferrer"
             >
-              <img src={post.image} alt="" className="home-learn-post-image" aria-hidden="true" />
-              <span className="home-learn-post-copy">
-                <span className="home-learn-post-kicker">{post.kicker}</span>
-                <span className="home-learn-post-title">{post.title}</span>
-                <span className="home-learn-post-summary">{post.summary}</span>
-              </span>
+              <span className="home-learn-post-kicker">{activePost.kicker}</span>
+              <span className="home-learn-post-title">{activePost.title}</span>
+              <span className="home-learn-post-summary">{activePost.summary}</span>
             </a>
-          ))}
+            <span className="home-learn-rotation" aria-label="Learning article rotation">
+              {LEARN_POSTS.map((post, index) => (
+                <button
+                  key={post.href}
+                  type="button"
+                  className={`home-learn-dot${index === postIndex ? " home-learn-dot--active" : ""}`}
+                  aria-label={`Show ${post.title}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPostIndex(index);
+                  }}
+                />
+              ))}
+            </span>
+          </span>
         </div>
       </article>
     </section>
