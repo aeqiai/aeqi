@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
+import InboxSummary from "@/components/inbox/InboxSummary";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
@@ -611,91 +612,115 @@ export default function MeInboxPage() {
   };
 
   return (
-    <div className={["inbox-shell", selectedId ? "has-selection" : ""].filter(Boolean).join(" ")}>
-      {/* Left pane: toolbar + filter chips + list */}
-      <div className="inbox-pane-list">
-        <InboxToolbar
-          search={search}
-          filter={filter}
-          sort={sort}
-          entityOptions={entityOptions}
-          onSearch={setSearch}
-          onFilter={patchFilter}
-          onSort={setSort}
-          searchRef={searchRef}
-        />
-        {activeChips.length > 0 && (
-          <div
-            className="inbox-filter-chips ideas-list-chips"
-            role="list"
-            aria-label="Active filters"
+    <div className="inbox-page">
+      <header className="inbox-page-header">
+        <div className="inbox-page-heading">
+          <h1 className="inbox-page-title">Inbox</h1>
+          <p className="inbox-page-subtitle">
+            Review agent handoffs, approvals, failed events, and system items.
+          </p>
+        </div>
+        <div className="inbox-page-actions">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => composerRef.current?.focus()}
+            disabled={!selectedRow}
+            leadingIcon={<CornerUpLeft size={14} strokeWidth={1.8} aria-hidden />}
           >
-            {activeChips.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                role="listitem"
-                className="ideas-list-chip"
-                onClick={c.onRemove}
-                title={`Remove filter: ${c.label}`}
-              >
-                <span className="ideas-list-chip-label">{c.label}</span>
-                <span className="ideas-list-chip-x" aria-hidden>
-                  ×
-                </span>
-              </button>
-            ))}
-            {activeChips.length > 1 && (
-              <button
-                type="button"
-                className="ideas-list-chip-clear"
-                onClick={() => setFilter(DEFAULT_FILTER)}
-              >
-                Clear all
-              </button>
+            Review selected
+          </Button>
+        </div>
+      </header>
+
+      <InboxSummary rows={rows} visibleCount={visible.length} />
+
+      <div className={["inbox-shell", selectedId ? "has-selection" : ""].filter(Boolean).join(" ")}>
+        {/* Left pane: toolbar + filter chips + list */}
+        <div className="inbox-pane-list">
+          <InboxToolbar
+            search={search}
+            filter={filter}
+            sort={sort}
+            entityOptions={entityOptions}
+            onSearch={setSearch}
+            onFilter={patchFilter}
+            onSort={setSort}
+            searchRef={searchRef}
+          />
+          {activeChips.length > 0 && (
+            <div
+              className="inbox-filter-chips ideas-list-chips"
+              role="list"
+              aria-label="Active filters"
+            >
+              {activeChips.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  role="listitem"
+                  className="ideas-list-chip"
+                  onClick={c.onRemove}
+                  title={`Remove filter: ${c.label}`}
+                >
+                  <span className="ideas-list-chip-label">{c.label}</span>
+                  <span className="ideas-list-chip-x" aria-hidden>
+                    ×
+                  </span>
+                </button>
+              ))}
+              {activeChips.length > 1 && (
+                <button
+                  type="button"
+                  className="ideas-list-chip-clear"
+                  onClick={() => setFilter(DEFAULT_FILTER)}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+          )}
+          <div className="inbox-pane-list-scroll">
+            {loading && visible.length === 0 ? (
+              <div className="inbox-list-loading">
+                <Loading size="sm" />
+              </div>
+            ) : visible.length === 0 ? (
+              <SessionRail
+                rows={[]}
+                selectedId={null}
+                onSelect={setSelectedId}
+                emptyTitle="inbox is clear"
+              />
+            ) : (
+              <SessionRail
+                rows={visible.map<SessionRailRow>((r) => ({
+                  id: r.id,
+                  // Single-line h=32 row to match the agent surface (same
+                  // SessionRail primitive, same shape on both adopters per
+                  // the locked direction "render the user inbox like the
+                  // agent session"). Sender name lives in the detail
+                  // header on the right pane, not duplicated in the rail.
+                  primary: r.subject,
+                  time: timeShort(r.created_at),
+                  status: r.unread ? "active" : undefined,
+                  awaiting: r.awaiting,
+                  group: recencyBucket(r.created_at),
+                  sortKey: Date.parse(r.created_at) || 0,
+                  pulseNew: newIds.has(r.id),
+                }))}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                emptyTitle="inbox is clear"
+                traversalEventName="inbox:traverse"
+              />
             )}
           </div>
-        )}
-        <div className="inbox-pane-list-scroll">
-          {loading && visible.length === 0 ? (
-            <div className="inbox-list-loading">
-              <Loading size="sm" />
-            </div>
-          ) : visible.length === 0 ? (
-            <SessionRail
-              rows={[]}
-              selectedId={null}
-              onSelect={setSelectedId}
-              emptyTitle="inbox is clear"
-            />
-          ) : (
-            <SessionRail
-              rows={visible.map<SessionRailRow>((r) => ({
-                id: r.id,
-                // Single-line h=32 row to match the agent surface (same
-                // SessionRail primitive, same shape on both adopters per
-                // the locked direction "render the user inbox like the
-                // agent session"). Sender name lives in the detail
-                // header on the right pane, not duplicated in the rail.
-                primary: r.subject,
-                time: timeShort(r.created_at),
-                status: r.unread ? "active" : undefined,
-                awaiting: r.awaiting,
-                group: recencyBucket(r.created_at),
-                sortKey: Date.parse(r.created_at) || 0,
-                pulseNew: newIds.has(r.id),
-              }))}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              emptyTitle="inbox is clear"
-              traversalEventName="inbox:traverse"
-            />
-          )}
         </div>
-      </div>
 
-      {/* Right pane: SessionDetail (universal primitive) */}
-      <div className="inbox-pane-detail">{renderDetail()}</div>
+        {/* Right pane: SessionDetail (universal primitive) */}
+        <div className="inbox-pane-detail">{renderDetail()}</div>
+      </div>
     </div>
   );
 }
