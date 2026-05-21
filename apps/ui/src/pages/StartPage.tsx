@@ -291,21 +291,22 @@ function OperatingContextCard({
     <article className="home-card home-card--context">
       <section className="home-context-panel" aria-label="Current TRUST">
         <header className="home-context-head">
-          <div className="home-context-identity">
-            <span className="home-context-avatar" aria-hidden="true">
-              <TrustAvatar name={activeTrust.name} size={52} />
-            </span>
-            <div className="home-context-copy">
-              <span className="home-context-kicker">Active TRUST</span>
-              <h2 className="home-context-title">{activeTrust.name}</h2>
-            </div>
-          </div>
+          <h2 className="home-context-heading">TRUST</h2>
           <Link to="/trust" className="home-context-cta">
             Your TRUSTs
             <ArrowRight size={14} strokeWidth={1.8} />
           </Link>
         </header>
         <div className="home-context-representation" aria-label="Active TRUST role representation">
+          <div className="home-context-identity">
+            <span className="home-context-avatar" aria-hidden="true">
+              <TrustAvatar name={activeTrust.name} size={52} />
+            </span>
+            <div className="home-context-copy">
+              <span className="home-context-kicker">Active TRUST</span>
+              <h3 className="home-context-title">{activeTrust.name}</h3>
+            </div>
+          </div>
           {activeRole ? (
             <RoleNode
               role={activeRole}
@@ -330,6 +331,8 @@ function OperatingContextCard({
               </span>
             </div>
           )}
+        </div>
+        <div className="home-context-footer">
           <dl className="home-context-metrics" aria-label="TRUST activity overview">
             <div>
               <dt>Quests</dt>
@@ -348,8 +351,6 @@ function OperatingContextCard({
               <dd>{ideaCount}</dd>
             </div>
           </dl>
-        </div>
-        <div className="home-context-footer">
           <p className="home-context-line">Latest activity: {latestActivity}</p>
         </div>
       </section>
@@ -407,13 +408,10 @@ function InboxPreviewCard({
     <article className="home-card home-card--inbox">
       <header className="home-inbox-head">
         <h2 className="home-inbox-title">Inbox</h2>
-        <span className="home-card-meta home-inbox-signal">
-          <span
-            className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
-            aria-hidden="true"
-          />
-          {inboxLabel}
-        </span>
+        <Link to="/inbox" className="home-inbox-cta">
+          Inbox
+          <ArrowRight size={14} strokeWidth={1.8} />
+        </Link>
       </header>
       {inboxItems.length > 0 ? (
         <ul className="home-inbox-list">
@@ -440,10 +438,15 @@ function InboxPreviewCard({
           </span>
         </div>
       )}
-      <Link to="/inbox" className="home-inbox-cta">
-        Inbox
-        <ArrowRight size={14} strokeWidth={1.8} />
-      </Link>
+      <footer className="home-inbox-footer">
+        <span className="home-card-meta home-inbox-signal">
+          <span
+            className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
+            aria-hidden="true"
+          />
+          {inboxLabel}
+        </span>
+      </footer>
     </article>
   );
 }

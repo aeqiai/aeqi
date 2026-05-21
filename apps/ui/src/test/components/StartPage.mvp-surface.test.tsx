@@ -254,8 +254,11 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
     expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
 
+    expect(
+      within(trustSection).getByRole("heading", { level: 2, name: "TRUST" }),
+    ).toBeInTheDocument();
     expect(within(trustSection).getByText("Active TRUST")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Alpha Trust" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Alpha Trust" })).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /Director .* Ada Founder/i })).toBeInTheDocument(),
     );
