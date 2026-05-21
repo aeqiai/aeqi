@@ -715,9 +715,14 @@
   background: transparent;
   border-style: dashed;
 }
+/* Flow arrow between trigger chip and the tool sequence. Drop the redundant
+   0.55 opacity — the token color `--color-text-muted` is already the canonical
+   chrome tier for connective glyphs, and the double dim made the trigger →
+   tool relationship read as decorative rather than load-bearing. The arrow
+   carries the pipeline grammar (`trigger → tool₁ → tool₂`); it needs to
+   register at the same weight as the chip step numbers. */
 .events-overview-arrow {
   color: var(--color-text-muted);
-  opacity: 0.55;
   margin: 0 4px;
 }
 
