@@ -17,6 +17,9 @@
 /* ── Page frame + operating controls ──────────────────────────── */
 
 .inbox-page {
+  /* AppLayout's `.content-paper` owns the page paper. Inbox only paints
+     surfaces inside that paper: recessed lanes (`--bg-row`) and lifted
+     cards/detail panes (`--color-card-elevated`). */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -71,7 +74,7 @@
   padding: 10px 32px 10px 34px;
   font-size: var(--font-size-sm);
   border-radius: var(--radius-md);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
 }
 
 .inbox-page > .inbox-head .ideas-list-search-glyph {
@@ -84,7 +87,7 @@
   width: 40px;
   height: 40px;
   border-radius: var(--radius-md);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
 }
 
 .inbox-filter-chips {
@@ -164,12 +167,13 @@
 
 .inbox-shell .sessions-rail-row:hover,
 .inbox-shell .sessions-rail-row:focus-visible {
-  background: var(--color-card);
+  background: var(--color-card-elevated);
+  filter: brightness(1.02);
   box-shadow: var(--shadow-md);
 }
 
 .inbox-shell .sessions-rail-row.active {
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
@@ -219,16 +223,16 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   position: relative;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* Scroll-fade strip — 32px gradient sitting ABOVE the (opaque) wrap. The
-   wrap below has `background: var(--color-card)` so any content scrolling
-   under it is hidden by the wrap itself. The fade strip is the smooth
+   wrap below has `background: var(--color-card-elevated)` so any content
+   scrolling under it is hidden by the wrap itself. The fade strip is the smooth
    visual transition between scrolling content and the anchored composer:
-   transparent at the top, solid card-color at the bottom. Thread reserves
+   transparent at the top, solid elevated-card at the bottom. Thread reserves
    `composer-height + 32px` of bottom padding (rule below) so when scrolled
    fully down the last message sits at the strip's TOP edge — fully
    visible, with the gradient handling the visual handoff into the card. */
@@ -240,7 +244,7 @@
   bottom: var(--inbox-composer-height, 96px);
   height: 32px;
   pointer-events: none;
-  background: linear-gradient(to bottom, transparent, var(--color-card));
+  background: linear-gradient(to bottom, transparent, var(--color-card-elevated));
   z-index: 1;
 }
 
@@ -300,7 +304,7 @@
   min-height: 76px;
   padding: var(--space-4) var(--space-5);
   flex-shrink: 0;
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   box-shadow: inset 0 -1px 0 var(--border);
 }
 
@@ -402,7 +406,7 @@
  * The canonical `.quest-status-dot--in_review` (c9) now carries the
  * `in_review` semantic continuously from the rail row into this header,
  * so the strip drops its 4% warmth wash and rests on the page's reading
- * surface (`--color-card`). The dot signals state; the strip reads as
+ * surface (`--color-card-elevated`). The dot signals state; the strip reads as
  * chrome. Warmth concentrates to one earned moment — the Reply button's
  * hover, where it doubles as a discoverable call-to-action — so amber
  * stops appearing at rest in three places at once (dot, wash, button
@@ -418,11 +422,11 @@
  * c14 — drop the bottom hairline. With the strip collapsed close to the
  * thread (c13 padding-only sizing), the header's own bottom hairline
  * (line 149) and this strip's bottom hairline read as two parallel lines
- * ~32px apart, both on the same `--color-card` surface. That doubles the
+ * ~32px apart, both on the same `--color-card-elevated` surface. That doubles the
  * boundary signal and reads as border-as-decoration — exactly the pattern
  * the four-tier elevation ladder + "no hairlines" rule retire. The header's
  * existing hairline is now the single line of value contrast; the strip
- * flows into the thread as continuous `--color-card` reading surface, with
+ * flows into the thread as continuous elevated-card reading surface, with
  * the amber dot + label carrying the in_review semantic via tone and
  * grammar rather than chrome. The strip is the temporary surface; the
  * thread is permanent — drop the temporary surface's chrome. */
@@ -431,7 +435,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-5);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   flex-shrink: 0;
 }
 
@@ -688,11 +692,11 @@
   align-items: center;
   /* Tight 8px padding above + below the composer card. */
   padding: var(--space-2) var(--space-4) var(--space-2);
-  /* Solid card-color background — covers any scrolling content so the
+  /* Solid elevated-card background — covers any scrolling content so the
      composer's transparent wrap padding can't reveal text behind it.
      The fade strip ABOVE this wrap (rule above) handles the visual
      transition from scrolling content into the anchored composer. */
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   pointer-events: none;
 }
 
@@ -747,7 +751,7 @@
   height: 6px;
   border-radius: 999px;
   background: var(--color-warmth);
-  box-shadow: 0 0 0 2px var(--color-card);
+  box-shadow: 0 0 0 2px var(--color-card-elevated);
 }
 
 /* ── Legacy intro classes kept for reference — not rendered ─────
