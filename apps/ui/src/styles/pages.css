@@ -3457,6 +3457,15 @@
   padding: 14px 20px;
 }
 
+/* Scope-empty icon — sits on the same dashed-border slab as the title.
+   Pre-fix the backplate painted `--color-card` (pure white paper), which
+   on `--bg-row` punched a stark white tile inside a dashed dropzone and
+   visually disagreed with the chrome it anchors. Aligning the backplate
+   with the dashed border (a transparent tint of `--color-text-secondary`)
+   lets the icon read as part of the dropzone surface itself — same hue
+   family, no fighting tier. The glyph stays at secondary-text strength;
+   the slot's accent-tint on `[data-drop-target]` still does the active-
+   drop work. */
 .quest-scope-empty-icon {
   display: inline-flex;
   align-items: center;
@@ -3464,9 +3473,21 @@
   width: 34px;
   height: 34px;
   border-radius: var(--radius-sm);
-  background: var(--color-card);
+  background: color-mix(in oklch, var(--color-text-secondary) 10%, transparent);
   color: var(--color-text-secondary);
   flex-shrink: 0;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+/* Active drop target — icon brightens to the accent vocabulary the slot
+   itself adopts (`--color-accent-bg` + accent outline). Keeps the icon
+   visually integrated with the dropzone wash rather than reading as a
+   detached tile during the drag. */
+.quest-scope-slot[data-drop-target] .quest-scope-empty-icon {
+  background: color-mix(in oklch, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
 }
 
 .quest-scope-empty-copy {
