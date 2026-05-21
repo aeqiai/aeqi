@@ -3811,12 +3811,21 @@
   flex-direction: column;
   gap: 5px;
 }
+/* Plain placeholder — paints in the archive strips (Backlog,
+   Cancelled) and the legacy fallback path of QuestColumnEmptyState.
+   Pre-fix sat at 11px italic, the only italic body copy on the board.
+   The four primary columns shipped richer centered empties (icon +
+   title + hint, sans, weight 500/600) so the strips read with a
+   typographically different register from every other empty state on
+   the page. Drop the italic and align with the `.quest-col-empty-hint`
+   sans 12px so an empty Backlog strip reads as part of the same
+   typographic family — not a deprecated placeholder variant. */
 .quest-col-empty {
-  padding: 14px 6px;
+  padding: 12px 6px;
   text-align: left;
-  font-size: 11px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   color: var(--color-text-muted);
-  font-style: italic;
 }
 /* Centered icon + title + hint variant — used by In-progress and
    In-review when empty so the column reads as encouragement, not
