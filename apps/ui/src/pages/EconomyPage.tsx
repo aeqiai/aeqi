@@ -625,11 +625,15 @@ export default function EconomyPage() {
                           : "No open roles"
                       }
                       description={
-                        hasSearch || roleTypeFilter !== "all"
+                        hasSearch
                           ? roleTypesPresent.length > 1
                             ? "Try a role title, role type, trust name, or trust address."
                             : "Try a role title, trust name, or trust address."
-                          : "Vacant roles will appear here when trusts publish roles without occupants."
+                          : roleTypeFilter !== "all"
+                            ? roleTypesPresent.length > 1
+                              ? "Try another role type, or clear the filter to see every open role."
+                              : "Clear the role-type filter to see every open role."
+                            : "Vacant roles will appear here when trusts publish roles without occupants."
                       }
                     />
                   }
