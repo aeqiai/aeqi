@@ -498,15 +498,25 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
   return (
     <article className={`home-card home-card--all${isQuiet ? " home-card--quiet" : ""}`}>
       <header className="home-card-head">
-        <span className="home-card-eyebrow home-all-eyebrow">
-          {eyebrowState && (
-            <span
-              className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`}
-              aria-hidden="true"
-            />
-          )}
-          All
-        </span>
+        {/* c13: hide the eyebrow entirely while `isQuiet`. With zero other
+            TRUSTs, the muted card's actual state is "none" — labelling
+            it "All" contradicts that, and there's no activity-dot to
+            justify the eyebrow as a status carrier either. The "View
+            all" link still anchors the head's right edge (still
+            actionable — directs to the full TRUST browse). Once a
+            second TRUST appears the card un-mutes and the eyebrow
+            returns to carry the activity-dot vocabulary. */}
+        {!isQuiet && (
+          <span className="home-card-eyebrow home-all-eyebrow">
+            {eyebrowState && (
+              <span
+                className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`}
+                aria-hidden="true"
+              />
+            )}
+            All
+          </span>
+        )}
         <button type="button" className="home-card-link" onClick={onViewAll}>
           View all
           <ArrowRight size={14} strokeWidth={1.8} />
