@@ -699,6 +699,216 @@
   letter-spacing: 0.04em;
 }
 
+/* ── Recent-activity ticker (iter-6) ───────────────────────────────── */
+
+.activityTicker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.activityLabel {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.activityItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.activityDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+}
+
+.activityDot[data-tone="in_progress"] {
+  background: var(--quorum-accent-in-progress);
+}
+
+.activityDot[data-tone="in_review"] {
+  background: var(--quorum-accent-in-review);
+}
+
+.activityDot[data-tone="done"] {
+  background: var(--quorum-accent-done);
+}
+
+.activityVerb {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.activityId {
+  font-family: var(--font-mono, var(--font-sans));
+  color: var(--color-text-secondary);
+}
+
+.activityWhen {
+  color: var(--color-text-muted);
+}
+
+/* ── Proposer reputation glyph (iter-6) ─────────────────────────────── */
+
+.reputationGlyph {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-card-muted);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reputationGlyph[data-tone="done"] {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.reputationGlyph[data-tone="in_review"] {
+  background: color-mix(in srgb, var(--color-warmth) 14%, transparent);
+  color: var(--color-warmth);
+}
+
+.reputationGlyph[data-tone="defeated"] {
+  background: var(--color-card-muted);
+  color: var(--color-text-muted);
+}
+
+.reputationCount {
+  font-weight: 500;
+}
+
+.reputationRate {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.reputationSeparator {
+  color: var(--color-text-muted);
+}
+
+/* ── Vote receipt modal (iter-6) ───────────────────────────────────── */
+
+.receiptModal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.receiptCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+}
+
+.receiptHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.receiptKicker {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.receiptTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.receiptGrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--space-5);
+  row-gap: var(--space-3);
+  align-items: baseline;
+}
+
+.receiptGridLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.receiptGridValue {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.receiptVerifier {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.receiptChoice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+}
+
+.receiptChoice[data-tone="for"] {
+  color: var(--color-success);
+}
+
+.receiptChoice[data-tone="against"] {
+  color: var(--color-error);
+}
+
+.receiptChoice[data-tone="abstain"] {
+  color: var(--color-text-secondary);
+}
+
+@media print {
+  .receiptCard {
+    box-shadow: none;
+    page-break-inside: avoid;
+    background: white;
+    color: black;
+  }
+  .receiptTitle,
+  .receiptGridValue,
+  .receiptChoice {
+    color: black;
+  }
+}
+
 /* ── Local token aliases (sourced from semantic tokens) ─────────────── */
 
 .scope {

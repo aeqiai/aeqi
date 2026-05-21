@@ -585,6 +585,7 @@ export {
   durationLabel,
   formatTimestamp,
   modeLabel,
+  relativeTimeLabel,
   roleTypeLabel,
   shortAddress,
   shortBytes32,

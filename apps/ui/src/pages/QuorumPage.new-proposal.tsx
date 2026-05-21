@@ -88,14 +88,76 @@ export function NewProposalModal({
     return configs.find((c) => configIdHexFor(c.account.governanceConfigId) === configIdHex);
   }, [configIdHex, configs]);
 
-  const titleValid = title.trim().length >= 3 && title.trim().length <= 120;
-  const descValid = description.trim().length >= 10 && description.trim().length <= 4000;
-  const hoursValid =
-    Number.isFinite(Number(voteHours)) &&
-    Number(voteHours) > 0 &&
-    Number.isFinite(Number(execDelayHours)) &&
-    Number(execDelayHours) >= 0;
-  const canSubmit = !!configIdHex && titleValid && descValid && hoursValid && !submitting;
+  // Per-field validation. Bounded ranges read as deliberate cost-of-time
+  // calls: 1h floor + 7d ceiling on the vote window keeps anyone from
+  // accidentally opening a 5-second proposal nobody can vote on or a
+  // 100-year proposal that hangs the surface indefinitely. Exec delay
+  // shares the same 7d ceiling and allows 0 for "execute as soon as
+  // succeeded" workflows.
+  const MIN_VOTE_HOURS = 1;
+  const MAX_VOTE_HOURS = 24 * 7;
+  const MIN_EXEC_DELAY_HOURS = 0;
+  const MAX_EXEC_DELAY_HOURS = 24 * 7;
+
+  const titleTrim = title.trim();
+  const descTrim = description.trim();
+  const titleValid = titleTrim.length >= 3 && titleTrim.length <= 120;
+  const descValid = descTrim.length >= 10 && descTrim.length <= 4000;
+
+  const voteHoursNum = Number(voteHours);
+  const execDelayNum = Number(execDelayHours);
+  const voteHoursValid =
+    voteHours.trim().length > 0 &&
+    Number.isFinite(voteHoursNum) &&
+    Number.isInteger(voteHoursNum) &&
+    voteHoursNum >= MIN_VOTE_HOURS &&
+    voteHoursNum <= MAX_VOTE_HOURS;
+  const execDelayValid =
+    execDelayHours.trim().length > 0 &&
+    Number.isFinite(execDelayNum) &&
+    Number.isInteger(execDelayNum) &&
+    execDelayNum >= MIN_EXEC_DELAY_HOURS &&
+    execDelayNum <= MAX_EXEC_DELAY_HOURS;
+
+  // Surface coherent per-field errors only once the operator has touched
+  // the field (non-empty input). Empty + invalid stays silent so the
+  // first-render modal doesn&apos;t shout at them.
+  const voteHoursError = !voteHoursValid
+    ? voteHours.trim().length === 0
+      ? "Vote window required."
+      : !Number.isFinite(voteHoursNum) || !Number.isInteger(voteHoursNum)
+        ? "Whole number of hours."
+        : voteHoursNum < MIN_VOTE_HOURS
+          ? `At least ${MIN_VOTE_HOURS}h to give voters a window.`
+          : `At most ${MAX_VOTE_HOURS}h (one week).`
+    : undefined;
+  const execDelayError = !execDelayValid
+    ? execDelayHours.trim().length === 0
+      ? "Execution delay required (0 is fine)."
+      : !Number.isFinite(execDelayNum) || !Number.isInteger(execDelayNum)
+        ? "Whole number of hours."
+        : execDelayNum < MIN_EXEC_DELAY_HOURS
+          ? "Cannot be negative."
+          : `At most ${MAX_EXEC_DELAY_HOURS}h (one week).`
+    : undefined;
+
+  // Config-level health gate. A config with `quorumBps === 0` would let
+  // a proposal pass with zero votes — that&apos;s a misconfigured config,
+  // not a feature. Surface it as a banner and block submit. supportBps=0
+  // is technically valid (unanimous-against still loses) but flag it too
+  // since it&apos;s almost certainly a misconfiguration.
+  const configQuorumZero = !!selectedConfig && selectedConfig.account.quorumBps === 0;
+  const configSupportZero = !!selectedConfig && selectedConfig.account.supportBps === 0;
+  const configMisconfigured = configQuorumZero || configSupportZero;
+
+  const canSubmit =
+    !!configIdHex &&
+    !configMisconfigured &&
+    titleValid &&
+    descValid &&
+    voteHoursValid &&
+    execDelayValid &&
+    !submitting;
 
   const reset = () => {
     setTitle("");
@@ -322,24 +384,37 @@ export function NewProposalModal({
                 <Input
                   label="Vote window (hours)"
                   type="number"
-                  min={1}
+                  min={MIN_VOTE_HOURS}
+                  max={MAX_VOTE_HOURS}
                   step={1}
                   value={voteHours}
                   onChange={(e) => setVoteHours(e.target.value)}
                   size="md"
-                  hint="How long voting stays open."
+                  hint={`How long voting stays open. ${MIN_VOTE_HOURS}-${MAX_VOTE_HOURS}h.`}
+                  error={voteHoursError}
                 />
                 <Input
                   label="Execution delay (hours)"
                   type="number"
-                  min={0}
+                  min={MIN_EXEC_DELAY_HOURS}
+                  max={MAX_EXEC_DELAY_HOURS}
                   step={1}
                   value={execDelayHours}
                   onChange={(e) => setExecDelayHours(e.target.value)}
                   size="md"
-                  hint="Timelock between success and execute."
+                  hint={`Timelock between success and execute. ${MIN_EXEC_DELAY_HOURS}-${MAX_EXEC_DELAY_HOURS}h.`}
+                  error={execDelayError}
                 />
               </Inline>
+              {configMisconfigured ? (
+                <Banner kind="error">
+                  {configQuorumZero && configSupportZero
+                    ? "Selected config has quorum + support = 0% — any proposal would pass without votes. Pick a different config or update this one before opening a proposal."
+                    : configQuorumZero
+                      ? "Selected config has quorum = 0% — any proposal would pass without votes. Pick a different config or update this one before opening a proposal."
+                      : "Selected config has support = 0% — any proposal would pass without for-votes. Pick a different config or update this one before opening a proposal."}
+                </Banner>
+              ) : null}
             </>
           )}
           {error ? <Banner kind="error">{error}</Banner> : null}

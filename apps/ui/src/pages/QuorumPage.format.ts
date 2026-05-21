@@ -124,6 +124,33 @@ export function formatTimestamp(seconds: number): string {
 }
 
 /**
+ * Render a unix-seconds timestamp as a short relative "5m ago" / "in 2h"
+ * label, anchored at {@param nowSeconds}. Returns "just now" inside a 60s
+ * window in either direction so the ticker doesn&apos;t flash "0s ago" on
+ * the same minute. Used by the iter-6 activity ticker; lives here so
+ * the rest of the quorum surface can reuse it without an extra import.
+ */
+export function relativeTimeLabel(timestamp: number, nowSeconds: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "—";
+  const delta = nowSeconds - timestamp;
+  const abs = Math.abs(delta);
+  if (abs < 60) return "just now";
+  const future = delta < 0;
+  const formatSpan = (s: number): string => {
+    if (s < 3600) return `${Math.round(s / 60)}m`;
+    if (s < 86_400) {
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      return m > 0 && h < 6 ? `${h}h ${m}m` : `${h}h`;
+    }
+    const d = Math.floor(s / 86_400);
+    const h = Math.floor((s % 86_400) / 3600);
+    return h > 0 && d < 3 ? `${d}d ${h}h` : `${d}d`;
+  };
+  return future ? `in ${formatSpan(abs)}` : `${formatSpan(abs)} ago`;
+}
+
+/**
  * Render an integer seconds delta as a human "ends in 2d 4h" hint.
  *
  * Negative deltas (vote already ended for an active proposal that

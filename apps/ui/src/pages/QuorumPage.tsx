@@ -29,6 +29,7 @@ import {
 } from "./QuorumPage.parts";
 import { NewProposalModal } from "./QuorumPage.write";
 import { ProposalsSection } from "./QuorumPage.proposals-section";
+import { ActivityTicker } from "./QuorumPage.ticker";
 
 /**
  * Quorum — `q` in the AEQI grammar (assets · equity · quorum · identity).
@@ -161,6 +162,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
               configs={configsList}
               voteRecords={voteRecordsList}
             />
+            <ActivityTicker proposals={proposalsList} nowSeconds={Math.floor(Date.now() / 1000)} />
             <ConfigsSection configs={configsList} roleTypes={roleTypeList} />
             {hasProposals ? (
               <ProposalsSection

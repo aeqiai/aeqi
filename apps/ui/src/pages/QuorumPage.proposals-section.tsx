@@ -9,8 +9,16 @@
  *
  * Pure UI — no on-chain reads (parent does those via `useQuorum`), only
  * the live-clock interval that ticks the row countdowns forward.
+ *
+ * iter-6: filter / sort / configFilter / compareMode / comparePicks /
+ * selected-proposal are now persisted into the URL search params so a
+ * deep-linked compare or detail view survives a refresh. The serializer
+ * uses short keys (`f`, `s`, `c`, `cmp`, `cmpPicks`, `proposal`) to keep
+ * the URL readable. Bad params fall back to defaults silently — bookmark
+ * URLs stay forgiving.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { deriveProposalStatus } from "@/solana";
 import type {
@@ -46,6 +54,24 @@ import {
 type SortKey = "recent" | "oldest" | "closingSoon" | "quorumProgress";
 type FilterKey = "all" | "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled";
 
+const FILTER_VALUES: ReadonlySet<FilterKey> = new Set<FilterKey>([
+  "all",
+  "active",
+  "pending",
+  "succeeded",
+  "defeated",
+  "executed",
+  "canceled",
+]);
+const SORT_VALUES: ReadonlySet<SortKey> = new Set<SortKey>([
+  "recent",
+  "oldest",
+  "closingSoon",
+  "quorumProgress",
+]);
+const DEFAULT_FILTER: FilterKey = "active";
+const DEFAULT_SORT: SortKey = "recent";
+
 export function ProposalsSection({
   proposals,
   configs,
@@ -70,15 +96,144 @@ export function ProposalsSection({
   /** EOA that owns this TRUST. Used to gate the Cancel proposal CTA. */
   viewerCreatorAddress: string | null;
 }) {
-  const [filter, setFilter] = useState<FilterKey>("active");
-  const [configFilter, setConfigFilter] = useState<string | null>(null);
-  const [sort, setSort] = useState<SortKey>("recent");
-  const [detail, setDetail] = useState<{
-    proposal: ProposalWithPda;
-    status: ProposalStatus;
-  } | null>(null);
-  const [compareMode, setCompareMode] = useState(false);
-  const [comparePicks, setComparePicks] = useState<string[]>([]);
+  // URL-persisted view state. We read params on every render (cheap;
+  // `useSearchParams` returns the same `URLSearchParams` reference until
+  // navigation), validate against the closed sets, and fall back silently
+  // when a bookmark carries stale or hand-crafted values. Writes go
+  // through `patchParams` so we only mutate the keys we own and leave
+  // unrelated params (q, view, etc. shared with the sibling primitives)
+  // untouched.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const patchParams = useCallback(
+    (mut: (p: URLSearchParams) => void) => {
+      const next = new URLSearchParams(searchParams);
+      mut(next);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const filterRaw = searchParams.get("f");
+  const filter: FilterKey = FILTER_VALUES.has(filterRaw as FilterKey)
+    ? (filterRaw as FilterKey)
+    : DEFAULT_FILTER;
+  const setFilter = useCallback(
+    (next: FilterKey) => {
+      patchParams((p) => {
+        if (next === DEFAULT_FILTER) p.delete("f");
+        else p.set("f", next);
+      });
+    },
+    [patchParams],
+  );
+
+  const configFilterRaw = searchParams.get("c");
+  // Only honor a config-filter param that matches a registered config —
+  // otherwise the chip row would show no `active` chip and the operator
+  // would see a stale filter they can't clear via the UI.
+  const configFilter = useMemo(() => {
+    if (!configFilterRaw) return null;
+    const normalized = configFilterRaw.toLowerCase().startsWith("0x")
+      ? configFilterRaw.toLowerCase()
+      : `0x${configFilterRaw.toLowerCase()}`;
+    const ok = configs.some(
+      (cfg) => `0x${bytesToHex(cfg.account.governanceConfigId)}` === normalized,
+    );
+    return ok ? normalized : null;
+  }, [configFilterRaw, configs]);
+  const setConfigFilter = useCallback(
+    (next: string | null) => {
+      patchParams((p) => {
+        if (next === null) p.delete("c");
+        else p.set("c", next);
+      });
+    },
+    [patchParams],
+  );
+
+  const sortRaw = searchParams.get("s");
+  const sort: SortKey = SORT_VALUES.has(sortRaw as SortKey) ? (sortRaw as SortKey) : DEFAULT_SORT;
+  const setSort = useCallback(
+    (next: SortKey) => {
+      patchParams((p) => {
+        if (next === DEFAULT_SORT) p.delete("s");
+        else p.set("s", next);
+      });
+    },
+    [patchParams],
+  );
+
+  // Compare mode is bound to the URL too — a deep-linked active
+  // comparison survives refresh. Picks are a comma-separated list of
+  // proposal PDA b58 strings, capped at 2 entries to match the UX cap.
+  const compareMode = searchParams.get("cmp") === "1";
+  const setCompareMode = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      patchParams((p) => {
+        const prev = p.get("cmp") === "1";
+        const resolved = typeof next === "function" ? next(prev) : next;
+        if (resolved) p.set("cmp", "1");
+        else {
+          p.delete("cmp");
+          p.delete("cmpPicks");
+        }
+      });
+    },
+    [patchParams],
+  );
+
+  const comparePicksRaw = searchParams.get("cmpPicks");
+  const comparePicks = useMemo(() => {
+    if (!comparePicksRaw) return [] as string[];
+    return comparePicksRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .slice(0, 2);
+  }, [comparePicksRaw]);
+  const setComparePicks = useCallback(
+    (next: string[] | ((prev: string[]) => string[])) => {
+      patchParams((p) => {
+        const prev = (p.get("cmpPicks") ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 2);
+        const resolved = typeof next === "function" ? next(prev) : next;
+        const capped = resolved.slice(0, 2);
+        if (capped.length === 0) p.delete("cmpPicks");
+        else p.set("cmpPicks", capped.join(","));
+      });
+    },
+    [patchParams],
+  );
+
+  // Selected-proposal detail modal — also URL-persisted so a refresh
+  // reopens the same proposal. We store the proposal PDA b58 because
+  // it's the stable on-chain identifier; the section resolves the live
+  // entry by walking `proposals` on each render.
+  const selectedPda = searchParams.get("proposal");
+  const detail = useMemo(() => {
+    if (!selectedPda) return null;
+    const match = proposals.find((p) => p.publicKey.toBase58() === selectedPda);
+    if (!match) return null;
+    // The status derives from the same live clock used by the row, so
+    // recomputing here keeps the modal's countdown synced even after a
+    // refresh-driven nowSeconds reset.
+    return {
+      proposal: match,
+      status: deriveProposalStatus(match.account, Math.floor(Date.now() / 1000)),
+    };
+  }, [selectedPda, proposals]);
+  const setDetail = useCallback(
+    (next: { proposal: ProposalWithPda; status: ProposalStatus } | null) => {
+      patchParams((p) => {
+        if (next === null) p.delete("proposal");
+        else p.set("proposal", next.proposal.publicKey.toBase58());
+      });
+    },
+    [patchParams],
+  );
 
   // Re-tick once per minute so active-row countdowns drift forward
   // visibly. 60s is the cheapest cadence that still feels live for a
@@ -294,10 +449,12 @@ export function ProposalsSection({
   const canCompare = filter === "active" && activeCount >= 2;
   useEffect(() => {
     if (!canCompare && compareMode) {
+      // Use a single patch — setCompareMode(false) already strips both
+      // cmp and cmpPicks in one tick, avoiding the dual-write race
+      // through React Router's setSearchParams.
       setCompareMode(false);
-      setComparePicks([]);
     }
-  }, [canCompare, compareMode]);
+  }, [canCompare, compareMode, setCompareMode]);
 
   const pickedProposals = useMemo(() => {
     return comparePicks
@@ -362,13 +519,7 @@ export function ProposalsSection({
             <Button
               variant={compareMode ? "primary" : "ghost"}
               size="sm"
-              onClick={() => {
-                setCompareMode((m) => {
-                  const next = !m;
-                  if (!next) setComparePicks([]);
-                  return next;
-                });
-              }}
+              onClick={() => setCompareMode((m) => !m)}
               aria-pressed={compareMode}
               aria-label="Toggle proposal compare mode"
             >
@@ -418,6 +569,7 @@ export function ProposalsSection({
         configs={configs}
         roleTypes={roleTypes}
         roles={roles}
+        proposals={proposals}
         trustId={trustId}
         trustAddress={trustAddress}
         nowSeconds={nowSeconds}

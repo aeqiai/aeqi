@@ -71,6 +71,7 @@ export function ProposalDetailModal({
   configs,
   roleTypes,
   roles,
+  proposals,
   trustId,
   trustAddress,
   nowSeconds,
@@ -86,6 +87,14 @@ export function ProposalDetailModal({
    * proposer to anyone holding a role.
    */
   roles?: RoleAccountWithPda[];
+  /**
+   * All proposals on this TRUST — forwarded so the iter-6 proposer
+   * reputation glyph can count how many proposals this proposer has
+   * opened and their success rate. Cheap local aggregation, no extra
+   * RPC call. When omitted, the glyph degrades to a 1/1 view of the
+   * proposal being shown.
+   */
+  proposals?: ProposalWithPda[];
   trustId: string;
   trustAddress: string;
   nowSeconds: number;
@@ -119,7 +128,12 @@ export function ProposalDetailModal({
       {entry ? (
         <div className={`${styles.scope} ${styles.modalBody}`}>
           <Stack gap="5">
-            <ProposalSummary entry={entry} roleTypes={roleTypes} nowSeconds={nowSeconds} />
+            <ProposalSummary
+              entry={entry}
+              roleTypes={roleTypes}
+              nowSeconds={nowSeconds}
+              proposals={proposals}
+            />
             <ProposalActionBar
               trustId={trustId}
               trustAddress={trustAddress}
@@ -149,12 +163,20 @@ function ProposalSummary({
   entry,
   roleTypes,
   nowSeconds,
+  proposals,
 }: {
   entry: { proposal: ProposalWithPda; status: ProposalStatus };
   roleTypes: RoleTypeWithPda[];
   nowSeconds: number;
+  /** All proposals on this TRUST — feeds the proposer reputation glyph. */
+  proposals?: ProposalWithPda[];
 }) {
   const { start, end } = voteWindowSeconds(entry.proposal.account);
+  const proposerB58 = entry.proposal.account.proposer.toBase58();
+  const reputation = useMemo(
+    () => computeProposerReputation(proposerB58, proposals ?? [entry.proposal], nowSeconds),
+    [proposerB58, proposals, entry.proposal, nowSeconds],
+  );
   // Pending proposals haven&apos;t started yet — surface the start time AND
   // a countdown so the operator knows when the vote opens without doing
   // unix-timestamp arithmetic in their head. Active proposals get the
@@ -221,10 +243,8 @@ function ProposalSummary({
       ) : null}
       <span className={styles.detailLabel}>Proposer</span>
       <span className={styles.detailValue}>
-        <CopyableMono
-          full={entry.proposal.account.proposer.toBase58()}
-          display={shortAddress(entry.proposal.account.proposer.toBase58())}
-        />
+        <CopyableMono full={proposerB58} display={shortAddress(proposerB58)} />
+        <ProposerReputationGlyph reputation={reputation} />
       </span>
       <span className={styles.detailLabel}>Snapshot</span>
       <span className={styles.detailValue}>
@@ -245,6 +265,107 @@ function ProposalMeta({ proposal }: { proposal: ProposalAccount }) {
         />
       </span>
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Proposer reputation — iter-6 glyph next to detail-modal proposer    */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Aggregate stats for a proposer on this TRUST. Computed locally from
+ * the proposals already loaded by `useQuorum` — no extra RPC call.
+ *
+ * `settled` counts every proposal that has reached a terminal state at
+ * the current cluster clock (succeeded / executed / defeated / canceled).
+ * Active and pending proposals do NOT contribute to the success rate
+ * because they haven&apos;t resolved yet; counting them as failures would
+ * read as "this proposer is bad" the moment they open something, which
+ * isn&apos;t honest.
+ *
+ * `successRate` is `(succeeded + executed) / settled` — a proposer with
+ * 2 executed + 1 defeated reads as 67% success.
+ */
+interface ProposerReputation {
+  total: number;
+  settled: number;
+  succeeded: number;
+  successRate: number | null;
+}
+
+function computeProposerReputation(
+  proposer: string,
+  proposals: ProposalWithPda[],
+  nowSeconds: number,
+): ProposerReputation {
+  let total = 0;
+  let settled = 0;
+  let succeeded = 0;
+  for (const p of proposals) {
+    if (p.account.proposer.toBase58() !== proposer) continue;
+    total += 1;
+    // We can&apos;t import `deriveProposalStatus` here without forming a
+    // cycle through parts.tsx, so inline the terminal-state check using
+    // the same on-chain fields.
+    const isExecuted = p.account.executed;
+    const isCanceled = p.account.canceled;
+    const succeededAt = Number(p.account.succeededAt.toString());
+    const voteEnd =
+      Number(p.account.voteStart.toString()) + Number(p.account.voteDuration.toString());
+    const voteClosed = Number.isFinite(voteEnd) && nowSeconds >= voteEnd;
+    if (isExecuted || isCanceled || voteClosed) {
+      settled += 1;
+      if (isExecuted || (succeededAt > 0 && !isCanceled)) {
+        succeeded += 1;
+      }
+    }
+  }
+  const successRate = settled > 0 ? succeeded / settled : null;
+  return { total, settled, succeeded, successRate };
+}
+
+/**
+ * Compact glyph rendered next to the proposer address. Reads as:
+ *
+ *   "3 proposals · 67% success"      ← settled cohort exists
+ *   "1 proposal · pending"           ← only the current proposal, nothing settled yet
+ *
+ * Tone follows the canonical lifecycle accent family — green when the
+ * rate is at or above 50%, amber when below, neutral when no signal
+ * exists yet.
+ */
+function ProposerReputationGlyph({ reputation }: { reputation: ProposerReputation }) {
+  if (reputation.total === 0) return null;
+  const noun = reputation.total === 1 ? "proposal" : "proposals";
+  if (reputation.successRate === null) {
+    return (
+      <span
+        className={styles.reputationGlyph}
+        data-tone="defeated"
+        aria-label={`${reputation.total} ${noun} by this proposer, none settled yet`}
+      >
+        <span className={styles.reputationCount}>
+          {reputation.total} {noun}
+        </span>
+        <span className={styles.reputationSeparator}>·</span>
+        <span className={styles.reputationRate}>pending</span>
+      </span>
+    );
+  }
+  const pct = Math.round(reputation.successRate * 100);
+  const tone = pct >= 50 ? "done" : "in_review";
+  return (
+    <span
+      className={styles.reputationGlyph}
+      data-tone={tone}
+      aria-label={`${reputation.total} ${noun} by this proposer · ${reputation.succeeded} of ${reputation.settled} settled succeeded (${pct}%)`}
+    >
+      <span className={styles.reputationCount}>
+        {reputation.total} {noun}
+      </span>
+      <span className={styles.reputationSeparator}>·</span>
+      <span className={styles.reputationRate}>{pct}% success</span>
+    </span>
   );
 }
 
@@ -272,6 +393,11 @@ export { NewProposalModal } from "./QuorumPage.new-proposal";
  * Click is stopPropagation'd so it doesn't open the detail modal
  * alongside the row click. Once a vote is in flight the row sticks
  * with a small inline status — the parent doesn't navigate away.
+ *
+ * iter-6: a successful cast now exposes a "View receipt" button that
+ * opens a print-ready modal carrying the TRUST + proposal id + vote +
+ * weight + signature + timestamp + verifier hint. This is the audit
+ * artifact a board member or accountant would file when reconciling.
  */
 export function InlineVoteActions({
   trustId,
@@ -286,7 +412,16 @@ export function InlineVoteActions({
 }) {
   const invalidate = useQuorumInvalidator(trustAddress);
   const [pending, setPending] = useState<null | "for" | "against" | "abstain">(null);
-  const [done, setDone] = useState<null | { tone: "ok" | "tbd" | "err"; msg: string }>(null);
+  const [done, setDone] = useState<
+    | null
+    | { tone: "tbd" | "err"; msg: string }
+    | {
+        tone: "ok";
+        msg: string;
+        receipt: VoteReceipt;
+      }
+  >(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const fire = async (choice: 0 | 1 | 2, label: "for" | "against" | "abstain") => {
     setPending(label);
@@ -300,7 +435,19 @@ export function InlineVoteActions({
       if (result.platform_side_tbd) {
         setDone({ tone: "tbd", msg: "TBD" });
       } else {
-        setDone({ tone: "ok", msg: "Voted" });
+        setDone({
+          tone: "ok",
+          msg: "Voted",
+          receipt: {
+            trustAddress,
+            proposalIdHex,
+            choice,
+            weight: result.weight,
+            signature: result.signature_b58,
+            voteRecordPubkey: result.vote_record_pubkey_b58,
+            castAtUnix: Math.floor(Date.now() / 1000),
+          },
+        });
         // Wire write to read: the vote-records query for this proposal
         // refetches immediately so the detail-modal audit trail and the
         // row tallies stay in sync with the cluster.
@@ -318,20 +465,42 @@ export function InlineVoteActions({
   };
 
   if (done) {
+    if (done.tone === "ok") {
+      return (
+        <>
+          <Inline gap="2" align="center">
+            <Badge variant="success" size="sm">
+              {done.msg}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setReceiptOpen(true);
+              }}
+              aria-label="View vote receipt"
+            >
+              View receipt
+            </Button>
+          </Inline>
+          <VoteReceiptModal
+            open={receiptOpen}
+            receipt={done.receipt}
+            onClose={() => setReceiptOpen(false)}
+          />
+        </>
+      );
+    }
     return (
       <Tooltip
         content={
           done.tone === "tbd"
             ? "Platform-side TBD: /api/solana/proposal-vote isn't live yet."
-            : done.tone === "ok"
-              ? "Vote cast."
-              : done.msg
+            : done.msg
         }
       >
-        <Badge
-          variant={done.tone === "ok" ? "success" : done.tone === "tbd" ? "warning" : "error"}
-          size="sm"
-        >
+        <Badge variant={done.tone === "tbd" ? "warning" : "error"} size="sm">
           {done.msg}
         </Badge>
       </Tooltip>
@@ -389,6 +558,118 @@ export function InlineVoteActions({
         </Button>
       </Tooltip>
     </Inline>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Vote receipt — iter-6 printable artifact                            */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * Self-contained receipt data captured at cast-time. Lives entirely on
+ * the success branch of {@link InlineVoteActions} — never persisted to
+ * local storage because the canonical record is the on-chain VoteRecord
+ * PDA. The modal is a render of this struct.
+ */
+interface VoteReceipt {
+  trustAddress: string;
+  proposalIdHex: string;
+  choice: 0 | 1 | 2;
+  weight: string;
+  signature: string;
+  voteRecordPubkey: string;
+  castAtUnix: number;
+}
+
+const CHOICE_LABEL_FOR_RECEIPT: Record<0 | 1 | 2, "For" | "Against" | "Abstain"> = {
+  0: "Against",
+  1: "For",
+  2: "Abstain",
+};
+
+const CHOICE_TONE_FOR_RECEIPT: Record<0 | 1 | 2, "for" | "against" | "abstain"> = {
+  0: "against",
+  1: "for",
+  2: "abstain",
+};
+
+/**
+ * Print-ready vote receipt. Opens as a Modal but the inner card carries
+ * its own self-contained layout + print-friendly styles in the CSS
+ * module so the operator can hit "Print" and get a clean single-page
+ * artifact — what a CFO would slip into a board folder.
+ *
+ * No external network calls; everything renders from the in-memory
+ * receipt struct captured at cast-time.
+ */
+function VoteReceiptModal({
+  open,
+  receipt,
+  onClose,
+}: {
+  open: boolean;
+  receipt: VoteReceipt;
+  onClose: () => void;
+}) {
+  const choiceLabel = CHOICE_LABEL_FOR_RECEIPT[receipt.choice];
+  const choiceTone = CHOICE_TONE_FOR_RECEIPT[receipt.choice];
+  const castAtLabel = formatTimestamp(receipt.castAtUnix);
+  const handlePrint = () => {
+    // window.print() is the cheapest print path that doesn&apos;t require
+    // popping a new tab. The @media print rules in the css module strip
+    // the modal chrome so only `.receiptCard` reaches the page.
+    window.print();
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Vote receipt">
+      <div className={`${styles.scope} ${styles.modalBody} ${styles.receiptModal}`}>
+        <div className={styles.receiptCard} role="document" aria-label="Vote receipt">
+          <div className={styles.receiptHeader}>
+            <span className={styles.receiptKicker}>aeqi · vote receipt</span>
+            <h2 className={styles.receiptTitle}>
+              {choiceLabel} · weight {receipt.weight}
+            </h2>
+          </div>
+          <div className={styles.receiptGrid}>
+            <span className={styles.receiptGridLabel}>Vote</span>
+            <span
+              className={`${styles.receiptGridValue} ${styles.receiptChoice}`}
+              data-tone={choiceTone}
+            >
+              {choiceLabel}
+            </span>
+            <span className={styles.receiptGridLabel}>Weight</span>
+            <span className={styles.receiptGridValue}>{receipt.weight}</span>
+            <span className={styles.receiptGridLabel}>TRUST</span>
+            <span className={styles.receiptGridValue}>{receipt.trustAddress}</span>
+            <span className={styles.receiptGridLabel}>Proposal ID</span>
+            <span className={styles.receiptGridValue}>{receipt.proposalIdHex}</span>
+            <span className={styles.receiptGridLabel}>Vote record</span>
+            <span className={styles.receiptGridValue}>{receipt.voteRecordPubkey}</span>
+            <span className={styles.receiptGridLabel}>Signature</span>
+            <span className={styles.receiptGridValue}>{receipt.signature}</span>
+            <span className={styles.receiptGridLabel}>Cast at</span>
+            <span className={styles.receiptGridValue}>
+              {castAtLabel} · unix {receipt.castAtUnix}
+            </span>
+          </div>
+          <p className={styles.receiptVerifier}>
+            Verify on-chain by fetching the VoteRecord PDA at the address above. The signature
+            references the Solana transaction that opened the VoteRecord; any cluster explorer (e.g.
+            solscan.io, solanafm.com) will resolve it to the cast_vote ix and confirm the choice +
+            weight match this receipt.
+          </p>
+        </div>
+        <Inline gap="2" justify="end">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Close
+          </Button>
+          <Button variant="primary" size="sm" onClick={handlePrint} aria-label="Print receipt">
+            Print
+          </Button>
+        </Inline>
+      </div>
+    </Modal>
   );
 }
 
