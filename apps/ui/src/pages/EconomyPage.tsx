@@ -626,7 +626,9 @@ export default function EconomyPage() {
                       }
                       description={
                         hasSearch || roleTypeFilter !== "all"
-                          ? "Try a role title, role type, trust name, or trust address."
+                          ? roleTypesPresent.length > 1
+                            ? "Try a role title, role type, trust name, or trust address."
+                            : "Try a role title, trust name, or trust address."
                           : "Vacant roles will appear here when trusts publish roles without occupants."
                       }
                     />
