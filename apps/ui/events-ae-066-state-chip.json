@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "url": "http://127.0.0.1:5173",
+  "screenshot": "apps/ui/events-ae-066-state-chip.png",
+  "bodyTextSample": "Runtime 2 the agent's own loop · session, context, guardrails 1 Armed 1 Fired 1 Traced Session start context primer session:start armed never runtime hook when session:start 1 ideas .search 2 context .inject WHEN session:start WHY runtime hook TOOLS 2 tool calls STATE armed TRACE no trace COOLDOWN none Quest end reflector TRUST session:quest_end fired 12 fires runtime hook when session:quest_end 1 ideas .store 2 quests .close WHEN session:quest_end WHY runtime hook TOOLS 2 tool calls STATE fired TRACE last May 21, 10:15 AM COOLDOWN 60s cooldown Webhooks 1 incoming http · channels, integrations 1 Fired 1 Pending Github issue triage github:issue_opened fired 2 fires incoming request when issue opened 1 quests .create WHEN issue opened WHY incoming request TOOLS 1 tool call STATE fired TRACE trace pending COOLDOWN 10s cooldown Routines 1 scheduled · cron-driven runs 1 Dormant Morning digest schedule:0 8 * * * disabled never scheduled routine when daily 08:00 · cron 0 8 * * * observer WHEN daily 08:00 · cron 0 8 * * * WHY scheduled routine TOOLS observer STATE disabled TRACE no trace COOLDOWN none",
+  "consoleErrors": [],
+  "pageErrors": []
+}

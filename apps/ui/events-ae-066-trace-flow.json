@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "url": "http://127.0.0.1:5173/events-ae-066-trace-flow.html",
+  "screenshot": "apps/ui/events-ae-066-trace-flow.png",
+  "bodyTextSample": "Runtime\n2\nthe agent's own loop · session, context, guardrails\n1\nArmed\n1\nFired\n1\nTraced\nSession start context primer\nsession:start\narmed\nnever\nruntime hook\nwhen\nsession:start\n1\nideas\n.search\n2\ncontext\n.inject\ntrace\nno trace\nWHEN\nsession:start\nWHY\nruntime hook\nTOOLS\n2 tool calls\nSTATE\narmed\nTRACE\nno trace\nCOOLDOWN\nnone\nQuest end reflector\nTRUST\nsession:quest_end\nfired\n12 fires\nruntime hook\nwhen\nsession:quest_end\n1\nideas\n.store\n2\nquests\n.close\ntrace\nlast May 21, 10:15 AM\nWHEN\nsession:quest_end\nWHY\nruntime hook\nTOOLS\n2 tool calls\nSTATE\nfired\nTRACE\nlast May 21, 10:15 AM\nCOOLDOWN\n60s cooldown\nWebhooks\n1\nincoming http · channels, integrations\n1\nFired\n1\nPending\nGithub issue triage\ngithub:issue_opened\nfired\n2 fires\nincoming request\nwhen\nissue opened\n1\nquests\n.create\ntrace\ntrace pending\nWHEN\nissue opened\nWHY\nincoming request\nTOOLS\n1 tool call\nSTATE\nfired\nTRACE\ntrace pending\nCOOLDOWN\n10s cooldown\nRoutines\n1\nscheduled · cron-driven runs\n1\nDormant\nMorning digest\nschedule:0 8 * * *\ndisabled\nnever\nscheduled routine\nwhen\ndaily 08:00 · cron 0 8 * * *\nobserver\ntrace\nno trace\nWHEN\ndaily 08:00 · cron 0 8 * * *\nWHY\nscheduled routine\nTOOLS\nobserver\nSTATE\ndisabled\nTRACE\nno trace\nCOOLDOWN\nnone",
+  "consoleErrors": [],
+  "pageErrors": []
+}

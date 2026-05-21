@@ -8,6 +8,7 @@ import {
   LIFECYCLE_HINT,
   LIFECYCLE_LABEL,
   lifecycleGroup,
+  routineNextLabel,
   routineWhenLabel,
   type LifecycleGroup,
 } from "./lifecycle";
@@ -55,16 +56,38 @@ function latestFireState(
     const when = relativeWhen(latest.started_at);
     if (!latest.finished_at) return { value: `running · ${when}`, tone: "runtime" };
     if (latest.status === "error") return { value: `failed · ${when}`, tone: "pending" };
-    if (latest.status === "ok") return { value: `ok · ${when}`, tone: "ready" };
+    if (latest.status === "ok") return { value: `completed · ${when}`, tone: "ready" };
     return { value: `${latest.status} · ${when}`, tone: "runtime" };
   }
   if (lastFired) {
-    return { value: `traces pending · ${relativeWhen(lastFired)}`, tone: "pending" };
+    return { value: `fired · ${relativeWhen(lastFired)}`, tone: "ready" };
   }
   return {
-    value: fireCountHint > 0 ? "traces pending" : "not fired",
+    value: fireCountHint > 0 ? "fired" : "not fired",
     tone: fireCountHint > 0 ? "pending" : "empty",
   };
+}
+
+function traceState(
+  rows: EventInvocationRow[],
+  fireCountHint: number,
+  lastFired: string | null,
+): { value: string; tone: "ready" | "pending" | "empty" } {
+  const pending = Math.max(0, fireCountHint - rows.length);
+  if (rows.length > 0 && pending > 0) {
+    return {
+      value: `${formatInteger(rows.length)} logged · ${formatInteger(pending)} pending`,
+      tone: "pending",
+    };
+  }
+  if (rows.length > 0) {
+    return {
+      value: `${formatInteger(rows.length)} trace${rows.length === 1 ? "" : "s"} logged`,
+      tone: "ready",
+    };
+  }
+  if (fireCountHint > 0 || lastFired) return { value: "awaiting trace rows", tone: "pending" };
+  return { value: "none yet", tone: "empty" };
 }
 
 function toolCallCount(toolCallsJson: string): number | null {
@@ -81,6 +104,13 @@ function toolCallPlanLabel(toolCalls: ToolCall[]): string {
   const names = toolCalls.map((call, i) => call.tool?.trim() || `step ${i + 1}`);
   if (names.length <= 2) return names.join(" -> ");
   return `${names.slice(0, 2).join(" -> ")} +${names.length - 2}`;
+}
+
+function toolCallArgsLabel(call: ToolCall): string {
+  const keys = Object.keys(call.args ?? {});
+  if (keys.length === 0) return "no args";
+  if (keys.length <= 2) return keys.join(", ");
+  return `${keys.slice(0, 2).join(", ")} +${formatInteger(keys.length - 2)}`;
 }
 
 function cooldownLabel(cooldownSecs: number): string {
@@ -111,6 +141,31 @@ function cooldownGate(
   return { value: `opens in ${Math.ceil(remainingMs / 3_600_000)}h`, tone: "pending" };
 }
 
+function nextRunLabel(pattern: string, lifecycle: LifecycleGroup): string {
+  if (lifecycle === "routines") return routineNextLabel(pattern) ?? "cron match";
+  if (lifecycle === "webhooks") return "incoming request";
+  return "matching hook";
+}
+
+function automationRunline(
+  pattern: string,
+  lifecycle: LifecycleGroup,
+  toolCalls: ToolCall[],
+  gate: { value: string },
+): string {
+  const when = runWhen(pattern, lifecycle);
+  const plan = toolCallPlanLabel(toolCalls);
+  const next = nextRunLabel(pattern, lifecycle);
+
+  if (lifecycle === "routines") {
+    return `Runs ${when}; next ${next}; ${plan}; gate ${gate.value}.`;
+  }
+  if (lifecycle === "webhooks") {
+    return `Runs on ${when}; waits for ${next}; ${plan}; gate ${gate.value}.`;
+  }
+  return `Runs when ${when} matches; next ${next}; ${plan}; gate ${gate.value}.`;
+}
+
 function displayKind(value: string): string {
   return value
     .split(/[_\s-]+/)
@@ -133,6 +188,7 @@ export default function FiresPanel({
   const [selected, setSelected] = useState<number | null>(null);
   const lifecycle = lifecycleGroup(pattern);
   const fireState = latestFireState(rows, fireCountHint, lastFired);
+  const traces = traceState(rows, fireCountHint, lastFired);
   const gate = cooldownGate(lastFired, cooldownSecs);
 
   const load = useCallback(() => {
@@ -168,20 +224,45 @@ export default function FiresPanel({
         </Tooltip>
       </div>
 
+      <div className="events-fires-runline" aria-label="Automation run summary">
+        <span className="events-fires-runline-label">Automation</span>
+        <span className="events-fires-runline-text">
+          {automationRunline(pattern, lifecycle, toolCalls, gate)}
+        </span>
+      </div>
+
       <div className="events-fires-context" aria-label="Run context">
         <ContextItem label="Lifecycle" value={LIFECYCLE_LABEL[lifecycle]} tone={lifecycle} />
         <ContextItem label="When" value={runWhen(pattern, lifecycle)} wide />
         <ContextItem label="Why" value={LIFECYCLE_HINT[lifecycle]} wide />
+        <ContextItem
+          label="Next"
+          value={nextRunLabel(pattern, lifecycle)}
+          tone={lifecycle === "routines" ? "pending" : "runtime"}
+        />
         <ContextItem
           label="Tool Calls"
           value={toolCallPlanLabel(toolCalls)}
           tone={toolCalls.length > 0 ? "runtime" : "empty"}
           wide
         />
+        <ContextItem label="Traces" value={traces.value} tone={traces.tone} />
         <ContextItem label="Cooldown" value={cooldownLabel(cooldownSecs)} />
         <ContextItem label="Gate" value={gate.value} tone={gate.tone} />
         <ContextItem label="Fire State" value={fireState.value} tone={fireState.tone} />
       </div>
+
+      {toolCalls.length > 0 && (
+        <ol className="events-fires-plan" aria-label="Planned tool calls">
+          {toolCalls.map((call, index) => (
+            <li key={`${call.tool}-${index}`} className="events-fires-plan-step">
+              <span className="events-fires-plan-index">call {formatInteger(index + 1)}</span>
+              <span className="events-fires-plan-tool">{call.tool || "unknown tool"}</span>
+              <span className="events-fires-plan-args">{toolCallArgsLabel(call)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
 
       {loading && (
         <div className="events-fires-loading">

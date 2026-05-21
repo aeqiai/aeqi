@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "url": "http://127.0.0.1:5177/trust/C68sd4DX6K7aSLaTyfPnAw7cqN5Fj82qX7JyuDj8NVY4/events/4abd69bf-8912-49ee-a94a-d07505828026",
+  "finalUrl": "http://127.0.0.1:5177/trust/C68sd4DX6K7aSLaTyfPnAw7cqN5Fj82qX7JyuDj8NVY4/events/4abd69bf-8912-49ee-a94a-d07505828026",
+  "responseStatus": 200,
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "screenshot": "apps/ui/events-ae-066-next-run.png",
+  "report": "apps/ui/events-ae-066-next-run.json",
+  "expectedText": [
+    "Next",
+    "Routines"
+  ],
+  "expectedSelectors": [
+    ".events-detail",
+    ".events-fires-context"
+  ],
+  "routeIntercepts": [
+    "GET /api/trusts: copied name to display_name for local runtime screenshot",
+    "GET /api/runtime/status: marked local runtime active because host runtime lacks platform status route"
+  ],
+  "clicked": [
+    ".event-canvas-node--terminal"
+  ],
+  "failures": [],
+  "consoleErrors": [],
+  "requestFailures": [],
+  "httpFailures": [],
+  "bodyTextSample": "Skip to main content aeqi Collapse sidebar (CtrlB) Home Inbox Search (CtrlK) Economy TRUST æ Eich Holding DIRECTOR Overview Roles OPERATIONS Agents New agent Events New event Quests New quest Ideas New idea OWNERSHIP Assets Equity Quorum Incorporation LM Local mode Help — shortcuts, docs (Ctrl/?) Keyboard shortcuts Documentation Events Back to events enabled Test Test this trigger Delete Delete event Lifecycle Routines Why scheduled · cron-driven runs When every 15m · cron */15 * * * * Tool Calls 1 configured Fire State 12 fires Trace last May 21, 06:00 AM Guard 600s cooldown TRIGGER schedule:*/15 * * * * when every 15m · cron */15 * * * * cooldown 600s PATTERN session:start session:step_start session:stopped session:quest_start session:quest_end session:quest_result context:budget:exceeded loop:detected COOLDOWN (S) + STEP 1 session.spawn instructions_idea \"orchestration/contract-i…\" TOOL ARGS (JSON) ↑ ↓ remove + FIRES 12× last May 21, 06:00 AM FIRES 12 ↻ Refresh Lifecycle Routines When every 15m · cron */15 * * * * Why scheduled · cron-driven runs Next today 06:30 Tool Calls session.spawn Cooldown 10m Gate open Fire State traces pending · 19m ago TRACES PENDING Recent fires haven't logged traces yet Hit refresh in a moment, or open a fire above once it appears."
+}

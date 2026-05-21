@@ -1234,6 +1234,33 @@
   color: var(--color-text-primary);
   border-color: var(--border-hover);
 }
+.events-fires-runline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 8px 10px;
+  background: var(--bg-row);
+  border-radius: var(--radius-sm);
+}
+.events-fires-runline-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.events-fires-runline-text {
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
 .events-fires-context {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
@@ -1281,6 +1308,46 @@
 }
 .events-fires-context-item--ready .events-fires-context-value {
   color: var(--state-verified);
+}
+.events-fires-plan {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-faint);
+}
+.events-fires-plan-step {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(54px, auto) minmax(0, 1fr) minmax(68px, auto);
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+}
+.events-fires-plan-index {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.events-fires-plan-tool {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+.events-fires-plan-args {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .events-fires-loading,
 .events-fires-empty {
