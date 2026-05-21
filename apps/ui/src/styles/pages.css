@@ -3484,12 +3484,24 @@
   letter-spacing: 0;
 }
 
+/* Scope-band hint — projects-below count is rendered as the same
+   `.quest-child-count` chip the on-board cards use, so the empty-state
+   metadata reads in the card vocabulary (folder glyph + tabular
+   numeral) instead of a plain second-line sentence. The trailing
+   word ("project below" / "projects below") sits as a muted suffix
+   for grammatical anchoring. */
 .quest-scope-empty-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-sans);
   font-size: 12.5px;
   font-weight: 400;
   color: var(--color-text-secondary);
   letter-spacing: 0;
+}
+.quest-scope-empty-hint-suffix {
+  color: var(--color-text-muted);
 }
 
 @media (max-width: 860px) {

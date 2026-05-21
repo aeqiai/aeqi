@@ -1,5 +1,5 @@
 import { ArrowUp, FolderOpen, X } from "lucide-react";
-import { Button, IconButton } from "../ui";
+import { Button, Icon, IconButton } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import QuestActiveCard from "./QuestActiveCard";
 
@@ -153,7 +153,16 @@ export default function QuestBoardScope({
               </span>
               {projectCount > 0 && (
                 <span className="quest-scope-empty-hint">
-                  {projectCount} {projectCount === 1 ? "project" : "projects"} below
+                  <span
+                    className="quest-child-count"
+                    aria-label={`${projectCount} ${projectCount === 1 ? "project" : "projects"} below`}
+                  >
+                    <Icon icon={FolderOpen} size="xs" />
+                    {projectCount}
+                  </span>
+                  <span className="quest-scope-empty-hint-suffix">
+                    {projectCount === 1 ? "project below" : "projects below"}
+                  </span>
                 </span>
               )}
             </span>
