@@ -29,8 +29,10 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 /// Default manifest cluster when `AEQI_SOLANA_CLUSTER` is unset.
 pub const DEFAULT_CLUSTER: &str = "localnet";
@@ -103,6 +105,14 @@ impl Manifest {
             if p.pubkey.trim().is_empty() {
                 bail!("manifest at {} program {:?} has an empty pubkey", path.display(), p.name);
             }
+            Pubkey::from_str(&p.pubkey).with_context(|| {
+                format!(
+                    "manifest at {} program {:?} has invalid pubkey {:?}",
+                    path.display(),
+                    p.name,
+                    p.pubkey
+                )
+            })?;
             if let Some(idl_hash) = &p.idl_hash {
                 if !is_sha256_hex(idl_hash) {
                     bail!(
@@ -405,6 +415,22 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
         );
         let err = Manifest::load(&path).expect_err("malformed idl_hash should fail");
         assert!(format!("{err}").contains("invalid idl_hash"));
+    }
+
+    #[test]
+    fn manifest_rejects_malformed_pubkeys() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("bad-pubkey.json");
+        write(
+            &path,
+            r#"{ "cluster": "localnet", "programs": [
+              { "name": "aeqi_trust", "pubkey": "not-a-solana-pubkey" }
+            ] }"#,
+        );
+        let err = Manifest::load(&path).expect_err("malformed pubkey should fail");
+        let msg = format!("{err:#}");
+        assert!(msg.contains("invalid pubkey"), "{msg}");
+        assert!(msg.contains("aeqi_trust"), "{msg}");
     }
 
     #[test]
