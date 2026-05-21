@@ -601,6 +601,29 @@
   }
 }
 
+/* c17 (2026-05-21): the L→R sweep (hero bar c8-c15 → Roles row c16
+   200/250/300/350ms) now resolves cleanly through the authority graph,
+   but on tall viewports the Execution + Ownership cards inside
+   .trust-cockpit-row sit above the activity fold and snap in at full
+   opacity the same frame the page mounts. The gesture trails off at
+   the Roles row and the cards-tier appears as a hard cut underneath.
+   Extend the entrance one beat further: each card rides the same
+   trust-hero-bar-enter keyframe at --transition-normal, picking up where
+   the Roles row leaves off — Execution at 400ms (50ms after the last
+   Vacant tile), Ownership at 450ms. Reads as one composed reveal from
+   URL strip → authority graph → execution/ownership above the fold,
+   not three stacked mounts. Single iteration, opacity only, gated on
+   prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-cockpit-row > .trust-cockpit-card {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 400ms 1 forwards;
+  }
+  .trust-cockpit-row > .trust-cockpit-card:nth-child(2) {
+    animation-delay: 450ms;
+  }
+}
+
 /* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
    side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
    chain mirror). One rhythm, two surfaces — execution + ownership both
