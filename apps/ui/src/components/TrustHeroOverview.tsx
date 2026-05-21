@@ -72,9 +72,16 @@ export default function TrustHeroOverview({
   const [copied, setCopied] = useState(false);
   const copyAddress = () => {
     if (!trustAddress) return;
-    navigator.clipboard.writeText(trustAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    navigator.clipboard
+      .writeText(trustAddress)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // Clipboard write failed (insecure context, permissions). Don't flash
+        // a check we didn't earn — leave the icon in its resting state.
+      });
   };
 
   const ctaPath = runtime.hostActive ? `${basePath}/agents` : "/launch";
@@ -116,12 +123,13 @@ export default function TrustHeroOverview({
               className="trust-hero-bar-addr"
               onClick={copyAddress}
               title={copied ? "Copied" : "Click to copy"}
+              aria-label={copied ? "TRUST address copied" : `Copy TRUST address ${trustAddress}`}
             >
-              <span>{compactAddress(trustAddress)}</span>
+              <span aria-hidden="true">{compactAddress(trustAddress)}</span>
               {copied ? (
-                <Check size={11} strokeWidth={1.8} />
+                <Check size={11} strokeWidth={1.8} aria-hidden="true" />
               ) : (
-                <Copy size={11} strokeWidth={1.5} />
+                <Copy size={11} strokeWidth={1.5} aria-hidden="true" />
               )}
             </button>
             {(initializedModulesCount !== null || (rolesCount !== null && rolesCount > 0)) && (
