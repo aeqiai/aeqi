@@ -8676,8 +8676,12 @@ button.home-card:focus-visible {
    a TRUST, the modifier is dropped by StartPage and the card returns
    to full weight. */
 .home-card--quiet .home-card-icon {
-  background: transparent;
-  color: var(--color-text-secondary);
+  /* Drop the head puck entirely while quiet so it joins meta + dot in
+     stepping out of the head. Transparent bg alone left the 16px glyph
+     painting at secondary ink — a filled mark competing with the title
+     for first-glance gravity during onboarding. Hiding the slot lets
+     the title anchor the head left-edge cleanly. */
+  display: none;
 }
 .home-card--quiet .home-card-title {
   color: var(--color-text-secondary);
