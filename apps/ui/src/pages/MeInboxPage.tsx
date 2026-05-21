@@ -507,6 +507,28 @@ export default function MeInboxPage() {
     // composer surface; per the prune test, if it can't do its job, it
     // shouldn't take up space. The probe is localStorage-cached so the
     // chrome stabilises on the first call after login.
+    //
+    // ── Variant audit (c20) ──────────────────────────────────────────────
+    // Surveyed peer Archive verbs in the codebase before touching this one:
+    //   - RoleDetailPage:155     → variant="danger"      (org-chart removal,
+    //                                                     not reversibly
+    //                                                     surfaced in the UI)
+    //   - QuestArchiveStrips     → strip toggle, no Button (reversible by
+    //                                                       toggling strip)
+    //   - SessionsFilterPopover  → "Archived" is a filter state, meaning
+    //                              archived threads remain visible behind
+    //                              the filter and can be unarchived
+    //
+    // Decision: keep `variant="secondary"`. The design pack's restraint
+    // rule says destructive states should be rare and explicit. Inbox
+    // archive is reversible (the SessionsFilterPopover "Archived" filter
+    // surfaces archived threads), so it does not earn the danger accent
+    // that Role archive earned by being effectively one-way. Promoting
+    // this to `danger` — or layering a custom hover-warmth tint — would
+    // dilute the danger-variant signal everywhere else and break the
+    // composer's `paper Archive + ink Send` reading rhythm documented in
+    // `inbox.css:527`. Future cycles: do not sweep this to match the
+    // Role precedent; the asymmetry is intentional.
     const archiveButton =
       dismissAvailable === true ? (
         <Tooltip content="Archive this thread">
