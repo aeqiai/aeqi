@@ -612,6 +612,34 @@
   color: var(--color-text-primary);
 }
 
+/* Iter-7: NewSpendModal "Remaining" pill. Tints as the page's secondary
+   surface (subtle card on card) so the operator reads the headroom as
+   load-bearing context, not chrome. Numeric value picks up tabular nums
+   from the existing numCell class — but the pill is a label+value pair
+   not a table cell so we set the variants locally. */
+.newSpendRemaining {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.newSpendRemainingLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.newSpendRemainingValue {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Vesting filter chips row — sits above the vesting table. The
    highlighted chip uses the primary Button variant (graphite accent);
    the rest stay ghost so the row reads as a quiet filter strip rather
@@ -759,6 +787,14 @@
   cursor: crosshair;
 }
 
+/* Iter-7: pinned-state cursor — once the operator has dropped a pin
+   the cursor stays as crosshair (re-pinning is the canonical UX), but
+   we widen the hover affordance so the click target visibly differs
+   from a passive hover.  */
+.activityStripSvg[data-pinned] {
+  cursor: pointer;
+}
+
 .activityStripTooltip {
   position: absolute;
   /* Approx top of the SVG region (label header + gap) — clamped via
@@ -778,6 +814,15 @@
   z-index: 1;
 }
 
+/* Iter-7: when pinned, the tooltip becomes interactive (it carries a
+   "clear" affordance), so we re-enable pointer events and lift the
+   z-index a tier so the affordance is reachable while the user clicks
+   elsewhere on the page. */
+.activityStripTooltip[data-pinned] {
+  pointer-events: auto;
+  z-index: 2;
+}
+
 .activityStripTooltipDate {
   color: var(--color-text-muted);
 }
@@ -788,6 +833,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Iter-7: small "Pinned · clear" affordance inside the pinned tooltip.
+   No new tokens — reuses muted text + accent on hover. Sits inside the
+   same elevated surface as the value, so the operator reads it as a
+   one-tap unpin instead of a separate button family. */
+.activityStripTooltipPin {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-left: var(--space-2);
+  font: inherit;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+
+.activityStripTooltipPin::before {
+  content: "·";
+  margin-right: var(--space-1);
+  color: var(--color-text-subtle);
+}
+
+.activityStripTooltipPin:hover {
+  color: var(--color-text-primary);
+}
+
 /* Iter-6: dedicated empty-state card for the Holdings section when the
    vault has not yet received any deposit. The EmptyState component
    handles the title + description + action stacking; this wrapper just
@@ -795,6 +867,13 @@
    deliberate surface rather than a missing table. */
 .holdingsEmpty {
   text-align: left;
+}
+
+/* Iter-7: spacing wrapper for the stablecoin-concentration Banner.
+   Sits between the section head and the composition bar so the
+   warning reads as a load-bearing observation, not floating chrome. */
+.holdingsConcentrationBanner {
+  margin-bottom: var(--space-3);
 }
 
 /* Iter-6: budget hierarchy view. When `parent_budget_id != 0`, render

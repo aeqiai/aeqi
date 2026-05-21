@@ -13,6 +13,7 @@ import { Banner, Button, EmptyState, Loading, Page, PageBody, PageHeader } from 
 import { BudgetsSection, VestingPositionsSection, type TokenMetaMap } from "./AssetsSections";
 import { BudgetDetailModal } from "./AssetsBudgetModal";
 import { NewBudgetModal } from "./AssetsNewBudgetModal";
+import { NewSpendModal } from "./AssetsNewSpendModal";
 import { ModuleDetailModal } from "./AssetsModuleModal";
 import { VaultActivitySection } from "./AssetsActivity";
 import { VaultIdentitySection } from "./AssetsExtras";
@@ -80,6 +81,10 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
 
   const [budgetDetail, setBudgetDetail] = useState<BudgetAccountWithPda | null>(null);
   const [newBudgetOpen, setNewBudgetOpen] = useState(false);
+  /** Iter-7: row-level Spend modal — open when an operator clicks
+   *  "Spend" on a budget row. Lives in page state so a re-fetch after
+   *  a successful spend collapses the modal cleanly. */
+  const [spendBudget, setSpendBudget] = useState<BudgetAccountWithPda | null>(null);
   /** Iter-6: click-through on a Vault identity module row opens the
    *  ModuleDetailModal with ACL bits + recent signatures. */
   const [moduleDetail, setModuleDetail] = useState<ModuleAccountWithPda | null>(null);
@@ -226,6 +231,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           budgets={budgets ?? []}
           metas={metas}
           onSelect={(row) => setBudgetDetail(row)}
+          onSpend={(row) => setSpendBudget(row)}
           actions={
             <Button variant="primary" size="sm" onClick={() => setNewBudgetOpen(true)}>
               + New budget
@@ -245,6 +251,13 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           onClose={() => setNewBudgetOpen(false)}
           trustId={trustId}
           onCreated={() => {
+            refetch();
+          }}
+        />
+        <NewSpendModal
+          budget={spendBudget}
+          onClose={() => setSpendBudget(null)}
+          onSpent={() => {
             refetch();
           }}
         />

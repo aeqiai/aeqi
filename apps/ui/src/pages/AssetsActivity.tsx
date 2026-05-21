@@ -20,7 +20,7 @@ import { ExternalLink } from "lucide-react";
 import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
-import { formatDateTime, formatInteger } from "@/lib/i18n";
+import { formatCurrency, formatDateTime, formatInteger } from "@/lib/i18n";
 import { explorerTxUrl } from "@/lib/solana-explorer";
 import {
   Badge,
@@ -30,10 +30,17 @@ import {
   Loading,
   PageSection,
   Table,
+  Tooltip,
   type TableColumn,
 } from "@/components/ui";
 
-import { CopyableMono, formatTokenAmount, shortAddress } from "./AssetsSections";
+import {
+  CopyableMono,
+  formatTokenAmount,
+  isStableSymbol,
+  rawToFloat,
+  shortAddress,
+} from "./AssetsSections";
 import styles from "./AssetsPage.module.css";
 
 type ActivityRow = VaultSignature & { decoded?: DecodedActivity };
@@ -94,6 +101,20 @@ export function VaultActivitySection({
         }
         return <CopyableMono full={cp} display={shortAddress(cp)} tone="muted" withExplorer />;
       },
+    },
+    {
+      // Iter-7: per-row USD flow value. Computed at par for any
+      // decoded SPL transfer whose mint resolves to a registered
+      // stablecoin (symbol + decimals known). SOL deposits and
+      // unpriced SPL mints render as "—" with a tooltip explaining
+      // we don't fabricate prices for non-stables. Surfacing the
+      // dollar value next to the headline lets a CFO scan the
+      // activity table for "what moved" without doing the
+      // base-unit ↔ decimals conversion in their head.
+      key: "usd",
+      header: "USD flow",
+      align: "end",
+      cell: (row) => <ActivityUsdCell row={row} metas={metas} />,
     },
     {
       key: "signature",
@@ -229,5 +250,55 @@ function ActivityKindCell({
         {amount} {symbol}
       </span>
     </Inline>
+  );
+}
+
+/**
+ * Iter-7: per-row USD flow value. We render a dollar figure when the
+ * row decoded into an SPL transfer whose mint is a registered
+ * stablecoin (so par valuation is honest). Everything else — SOL
+ * deposits, AEQI-issued shares, unpriced SPL governance tokens —
+ * falls back to "—" with a tooltip explaining the gap. We deliberately
+ * do NOT make up prices: a CFO using this surface needs to trust the
+ * USD numbers, so the column reads as the *known* flow value, not an
+ * estimate.
+ */
+function ActivityUsdCell({
+  row,
+  metas,
+}: {
+  row: ActivityRow;
+  metas: Record<string, ResolvedTokenMeta>;
+}) {
+  const decoded = row.decoded;
+  if (!decoded || decoded.amount === null || decoded.mint === null) {
+    return (
+      <Tooltip content="USD value is only computed for registered stablecoin mints. SOL deposits and unpriced SPL mints render no value.">
+        <span className={styles.mutedDash}>—</span>
+      </Tooltip>
+    );
+  }
+  // SOL never carries a mint, so the `decoded.mint === null` guard
+  // above covers sol-deposit / sol-withdraw rows already. From here
+  // we know we have an SPL transfer with a known mint.
+  const meta = metas[decoded.mint];
+  if (!meta || !meta.symbol || meta.decimals === null || !isStableSymbol(meta.symbol)) {
+    return (
+      <Tooltip content="USD value is only computed for registered stablecoin mints.">
+        <span className={styles.mutedDash}>—</span>
+      </Tooltip>
+    );
+  }
+  const usd = rawToFloat(decoded.amount, meta.decimals);
+  const isOutflow = decoded.kind === "withdraw";
+  // Render withdraws as negative so the column is a signed flow read
+  // — a CFO scanning the table reads "+$200 / -$50" without parsing
+  // the badge again. Internal transfers stay positive but quiet
+  // because they're not a treasury delta.
+  const signed = isOutflow ? -usd : usd;
+  return (
+    <span className={styles.numCell}>
+      {formatCurrency(signed, "USD", { maximumFractionDigits: 2 })}
+    </span>
   );
 }

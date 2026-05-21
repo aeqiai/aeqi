@@ -15,7 +15,7 @@ import { useMemo } from "react";
 
 import type { BudgetAccountWithPda } from "@/solana/assets";
 import { formatInteger, formatNumber } from "@/lib/i18n";
-import { Badge, PageSection, Stack, Table, type TableColumn } from "@/components/ui";
+import { Badge, Button, PageSection, Stack, Table, type TableColumn } from "@/components/ui";
 
 import {
   ExpiryCell,
@@ -31,11 +31,16 @@ export function BudgetsSection({
   budgets,
   metas,
   onSelect,
+  onSpend,
   actions,
 }: {
   budgets: BudgetAccountWithPda[];
   metas: TokenMetaMap;
   onSelect: (row: BudgetAccountWithPda) => void;
+  /** Iter-7: row-level Spend affordance. Host opens NewSpendModal
+   *  prefilled with the row so the operator can disburse against the
+   *  selected budget without leaving the Assets surface. */
+  onSpend: (row: BudgetAccountWithPda) => void;
   /** Section-level actions slot — host page mounts a "+ New budget" CTA. */
   actions?: React.ReactNode;
 }) {
@@ -134,6 +139,31 @@ export function BudgetsSection({
             Active
           </Badge>
         ),
+    },
+    {
+      // Iter-7: row-level Spend affordance. Frozen budgets disable the
+      // affordance with a tooltip-style title so the operator reads the
+      // reason without needing to open the detail modal. Click event
+      // stops propagation so the row-click (which opens the detail
+      // modal) doesn't also fire.
+      key: "spend",
+      header: "",
+      align: "end",
+      cell: (row) => (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSpend(row);
+          }}
+          disabled={row.account.frozen}
+          title={row.account.frozen ? "Budget is frozen" : "Spend from this budget"}
+          aria-label={`Spend from budget ${bytesIdLabel(row.account.budgetId)}`}
+        >
+          Spend
+        </Button>
+      ),
     },
   ];
 

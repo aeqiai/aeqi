@@ -25,6 +25,8 @@ import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from 
 import { formatCurrency, formatInteger, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
 import {
+  Badge,
+  Banner,
   Button,
   Card,
   DetailField,
@@ -324,6 +326,37 @@ export function HoldingsSection({
   );
   const totalUsd = useMemo(() => allRows.reduce((sum, r) => sum + (r.usdValue ?? 0), 0), [allRows]);
 
+  /* Iter-7: stablecoin concentration. When one mint represents more than
+     a 40% share of the priced treasury, surface a row-level amber
+     "Concentrated" Badge + a section-level Banner. The pattern mirrors
+     the cap-table concentration warning on Equity (top-1 / top-5 supply
+     share — see `EquityPage`), but here it's an asset-allocation signal
+     rather than a holder-concentration signal: a treasury holding 95%
+     USDC and 5% PYUSD reads "single-asset risk" to a CFO before it
+     reads "diversified". The threshold is intentionally a single line
+     (40%) so we don't surface the warning on every two-asset treasury
+     by accident — fewer than three priced mints can't really
+     concentrate, so the banner is suppressed there.
+
+     Honest scope: only priced (stablecoin-USD) rows count toward the
+     denominator. AEQI-issued shares and unpriced SPLs would distort
+     the share if we forced them to zero; instead they're excluded from
+     both numerator and denominator so the warning reflects the USD
+     allocation an operator would actually act on.
+  */
+  const concentration = useMemo(() => {
+    const priced = allRows.filter((r) => r.usdValue !== null && (r.usdValue ?? 0) > 0);
+    if (priced.length < 3 || totalUsd <= 0) return null;
+    const topRow = priced.reduce((max, r) => ((r.usdValue ?? 0) > (max.usdValue ?? 0) ? r : max));
+    const topShare = (topRow.usdValue ?? 0) / totalUsd;
+    if (topShare <= 0.4) return null;
+    return {
+      mint: topRow.mint,
+      symbol: topRow.symbol ?? "SPL",
+      pct: topShare * 100,
+    };
+  }, [allRows, totalUsd]);
+
   const columns: Array<TableColumn<HoldingRow>> = [
     {
       key: "token",
@@ -337,6 +370,15 @@ export function HoldingsSection({
             tone="muted"
             withExplorer
           />
+          {/* Iter-7: amber concentration tag — only the dominant
+              stablecoin mint (>40% of priced treasury) gets the badge.
+              Keeps the visual signal scarce so the warning still reads
+              when it fires. */}
+          {concentration?.mint === row.mint && (
+            <Badge variant="warning" size="sm" dot>
+              Concentrated
+            </Badge>
+          )}
         </span>
       ),
     },
@@ -430,6 +472,20 @@ export function HoldingsSection({
 
   return (
     <PageSection title="Holdings" description={description} actions={sectionActions}>
+      {/* Iter-7: section-level concentration banner. Mirrors the
+          cap-table concentration banner pattern from EquityPage
+          (Banner kind="warning"). Copy stays observational rather than
+          editorialising — "X represents Y% of treasury value" is
+          neutral; treasury policy lives off this page. */}
+      {concentration && (
+        <div className={styles.holdingsConcentrationBanner}>
+          <Banner kind="warning">
+            {concentration.symbol} represents{" "}
+            {formatNumber(concentration.pct, { maximumFractionDigits: 1 })}% of priced treasury
+            value — single-asset concentration.
+          </Banner>
+        </div>
+      )}
       <TreasuryCompositionBar rows={allRows} totalUsd={totalUsd} />
       <Table
         columns={columns}

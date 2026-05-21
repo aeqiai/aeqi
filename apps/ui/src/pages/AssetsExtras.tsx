@@ -20,7 +20,7 @@
  * and the HoldingDetailPanel; it lives in this file so the panel and
  * the page share one type without circling back through AssetsPage.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
@@ -161,48 +161,76 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
      hover guide the operator can read the shape ("trending up", "flat
      last week") but never the per-day value. We mirror the Equity
      `CurveChart` crosshair: vertical guide + intersection dot + per-day
-     tooltip with date and USD value. Touch / count-mode skip the
-     crosshair (the count line is a quieter signal and crosshairs on
-     touch surfaces flicker without a hover-clear). */
+     tooltip with date and USD value. Count-mode skips the crosshair
+     (the count line is a quieter signal).
+
+     iter-7: tap-to-pin. Hover is useless on touch and awkward on
+     desktops where the operator wants to read the day-value while
+     clicking around elsewhere on the page. A click on the strip pins
+     the bucket — the crosshair stays put until the operator clicks the
+     same bucket again (toggle-off) or clicks a different one. The
+     pin state takes priority over hover so mouse-out doesn't drop the
+     pinned bucket. On touch the strip becomes tap-only (no hover
+     flicker). The pin lives in component state and uses the same
+     points[] index machinery as hover, so the rendering path is
+     identical for hover/pin — only the source of the index changes. */
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const hoverEnabled = mode === "usd" && points.length > 1;
+  const [pinnedIdx, setPinnedIdx] = useState<number | null>(null);
+  const interactive = mode === "usd" && points.length > 1;
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!hoverEnabled) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    if (rect.width === 0) return;
-    const xPx = ((e.clientX - rect.left) / rect.width) * width;
-    if (xPx < 0 || xPx > width) {
-      setHoverIdx(null);
-      return;
+  // Drop a stale pin when the underlying series shifts shape (different
+  // day count). Without this, swapping the data source between USD ↔
+  // count would render a pin against the wrong day.
+  useEffect(() => {
+    if (pinnedIdx !== null && pinnedIdx >= points.length) {
+      setPinnedIdx(null);
     }
-    // Snap to the nearest day index — keeps the tooltip stable across
-    // sub-pixel mouse motion within one bucket.
+  }, [points.length, pinnedIdx]);
+
+  const indexFromPointerX = (clientX: number): number | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    const xPx = ((clientX - rect.left) / rect.width) * width;
+    if (xPx < 0 || xPx > width) return null;
     const ratio = xPx / width;
     const idx = Math.round(ratio * (points.length - 1));
-    if (idx < 0 || idx >= points.length) {
-      setHoverIdx(null);
-      return;
-    }
+    if (idx < 0 || idx >= points.length) return null;
+    return idx;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!interactive) return;
+    const idx = indexFromPointerX(e.clientX);
     setHoverIdx(idx);
   };
   const handleMouseLeave = () => setHoverIdx(null);
-
-  const hoverPoint = hoverIdx !== null ? (points[hoverIdx] ?? null) : null;
-  /* Render the hover tooltip beside the cursor — clamp inside the SVG so
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!interactive) return;
+    const idx = indexFromPointerX(e.clientX);
+    if (idx === null) return;
+    // Toggle: clicking the same day un-pins; clicking a new day moves
+    // the pin. Keeps the operator's input symmetrical with the visual.
+    setPinnedIdx((cur) => (cur === idx ? null : idx));
+  };
+  // Pinned bucket takes priority — it survives mouse-out so the
+  // operator can read it while clicking elsewhere on the page.
+  const activeIdx = pinnedIdx ?? hoverIdx;
+  const activePoint = activeIdx !== null ? (points[activeIdx] ?? null) : null;
+  const isPinned = pinnedIdx !== null && pinnedIdx === activeIdx;
+  /* Render the active tooltip beside the cursor / pin — clamp inside the SVG so
      it never overflows the right edge. The tooltip carries the day label
      (`May 12`) + USD value. */
-  const hoverDate = useMemo(() => {
-    if (hoverIdx === null) return null;
-    const daysFromToday = points.length - 1 - hoverIdx;
+  const activeDate = useMemo(() => {
+    if (activeIdx === null) return null;
+    const daysFromToday = points.length - 1 - activeIdx;
     const day = new Date();
     day.setHours(0, 0, 0, 0);
     day.setDate(day.getDate() - daysFromToday);
     return formatMediumDate(day);
-  }, [hoverIdx, points.length]);
+  }, [activeIdx, points.length]);
 
   return (
     <div className={styles.activityStrip}>
@@ -234,9 +262,11 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
             : "Vault touches per day, last 30 days"
         }
         data-mode={mode}
-        data-hoverable={hoverEnabled || undefined}
-        onMouseMove={hoverEnabled ? handleMouseMove : undefined}
-        onMouseLeave={hoverEnabled ? handleMouseLeave : undefined}
+        data-hoverable={interactive || undefined}
+        data-pinned={isPinned || undefined}
+        onMouseMove={interactive ? handleMouseMove : undefined}
+        onMouseLeave={interactive ? handleMouseLeave : undefined}
+        onClick={interactive ? handleClick : undefined}
       >
         {mode === "usd" && areaPath && <path d={areaPath} fill="currentColor" opacity="0.08" />}
         <polyline
@@ -247,40 +277,55 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {hoverPoint && (
+        {activePoint && (
           <g pointerEvents="none">
             <line
-              x1={hoverPoint.x}
-              x2={hoverPoint.x}
+              x1={activePoint.x}
+              x2={activePoint.x}
               y1={padding}
               y2={height - padding}
               stroke="currentColor"
               strokeWidth={1}
-              strokeDasharray="2 3"
-              opacity={0.55}
+              strokeDasharray={isPinned ? undefined : "2 3"}
+              opacity={isPinned ? 0.8 : 0.55}
             />
             <circle
-              cx={hoverPoint.x}
-              cy={hoverPoint.y}
-              r={3}
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r={isPinned ? 3.5 : 3}
               fill="var(--color-card)"
               stroke="currentColor"
-              strokeWidth={1.5}
+              strokeWidth={isPinned ? 2 : 1.5}
             />
           </g>
         )}
       </svg>
-      {hoverPoint && hoverDate && (
+      {activePoint && activeDate && (
         <div
           className={styles.activityStripTooltip}
-          style={{ left: `${(hoverPoint.x / width) * 100}%` }}
+          style={{ left: `${(activePoint.x / width) * 100}%` }}
           role="status"
           aria-live="polite"
+          data-pinned={isPinned || undefined}
         >
-          <span className={styles.activityStripTooltipDate}>{hoverDate}</span>
+          <span className={styles.activityStripTooltipDate}>{activeDate}</span>
           <span className={styles.activityStripTooltipValue}>
-            {formatCurrency(hoverPoint.value, "USD", { maximumFractionDigits: 0 })}
+            {formatCurrency(activePoint.value, "USD", { maximumFractionDigits: 0 })}
           </span>
+          {isPinned && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={styles.activityStripTooltipPin}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPinnedIdx(null);
+              }}
+              aria-label="Unpin day"
+            >
+              Pinned · clear
+            </Button>
+          )}
         </div>
       )}
       {isFlat && mode === "count" && (
