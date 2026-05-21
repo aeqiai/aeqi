@@ -41,6 +41,37 @@ const WHY_LABEL: Record<LifecycleGroup, string> = {
   routines: "scheduled routine",
 };
 
+const RUNTIME_WHY_LABEL: Record<string, string> = {
+  context: "context budget",
+  graph_guardrail: "graph guardrail",
+  guardrail: "guardrail detector",
+  loop: "loop detector",
+  session: "session lifecycle",
+  shell: "shell result",
+};
+
+const WEBHOOK_WHY_LABEL: Record<string, string> = {
+  discord: "Discord webhook",
+  github: "GitHub webhook",
+  http: "HTTP webhook",
+  slack: "Slack webhook",
+  stripe: "Stripe webhook",
+  telegram: "Telegram webhook",
+  webhook: "webhook request",
+};
+
+function patternPrefix(pattern: string): string {
+  return pattern.split(":")[0]?.toLowerCase() ?? "";
+}
+
+function whySummary(event: AgentEvent, group: LifecycleGroup): string {
+  const prefix = patternPrefix(event.pattern);
+  if (group === "runtime") return RUNTIME_WHY_LABEL[prefix] ?? WHY_LABEL.runtime;
+  if (group === "webhooks") return WEBHOOK_WHY_LABEL[prefix] ?? WHY_LABEL.webhooks;
+  if (prefix === "cron" || prefix === "schedule") return "cron scheduler";
+  return WHY_LABEL.routines;
+}
+
 function whenSummary(event: AgentEvent, group: LifecycleGroup): string {
   if (group === "routines") {
     return routineWhenLabel(event.pattern);
@@ -55,7 +86,26 @@ function whenSummary(event: AgentEvent, group: LifecycleGroup): string {
 }
 
 function toolsSummary(count: number): string {
-  return count === 0 ? "observer" : `${formatInteger(count)} tool call${count === 1 ? "" : "s"}`;
+  return `${formatInteger(count)} tool call${count === 1 ? "" : "s"}`;
+}
+
+function toolArgsSummary(tc: ToolCall): { label: string; title: string } | null {
+  const keys = Object.keys(tc.args ?? {});
+  if (keys.length === 0) return null;
+
+  const [first, ...rest] = keys;
+  const value = (tc.args as Record<string, unknown>)[first];
+  const preview =
+    typeof value === "string"
+      ? `"${value.length > 18 ? value.slice(0, 18) + "..." : value}"`
+      : typeof value === "number" || typeof value === "boolean"
+        ? String(value)
+        : Array.isArray(value)
+          ? `[${formatInteger(value.length)}]`
+          : "{...}";
+  const label =
+    rest.length > 0 ? `${first} ${preview} +${formatInteger(rest.length)}` : `${first} ${preview}`;
+  return { label, title: `args: ${keys.join(", ")}` };
 }
 
 function traceSummary(event: AgentEvent): string {
@@ -63,8 +113,18 @@ function traceSummary(event: AgentEvent): string {
   return event.fire_count > 0 ? "trace pending" : "no trace";
 }
 
-function cooldownSummary(event: AgentEvent): string {
-  return event.cooldown_secs > 0 ? `${formatInteger(event.cooldown_secs)}s cooldown` : "none";
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${formatInteger(seconds)}s`;
+  if (seconds % 3600 === 0) return `${formatInteger(seconds / 3600)}h`;
+  if (seconds % 60 === 0) return `${formatInteger(seconds / 60)}m`;
+  return `${formatInteger(seconds)}s`;
+}
+
+function gateSummary(event: AgentEvent): string {
+  const cooldown =
+    event.cooldown_secs > 0 ? `${formatDuration(event.cooldown_secs)} cooldown` : null;
+  if (!event.enabled) return cooldown ? `disabled, ${cooldown}` : "disabled";
+  return cooldown ?? "ready to fire";
 }
 
 /**
@@ -79,7 +139,14 @@ function cooldownSummary(event: AgentEvent): string {
  */
 type EventPhase = "armed" | "fired" | "dormant";
 type EventTraceTone = "trace-complete" | "trace-pending" | "trace-empty";
-type GroupStatusTone = EventPhase | "trace-complete" | "trace-pending";
+type GroupStatusTone =
+  | EventPhase
+  | "ready"
+  | "trace-complete"
+  | "trace-pending"
+  | "tool-calls"
+  | "observers"
+  | "guarded";
 
 interface GroupStatusItem {
   label: string;
@@ -93,8 +160,9 @@ function eventPhase(ev: AgentEvent): EventPhase {
 }
 
 function fireStateSummary(phase: EventPhase): string {
-  if (phase === "dormant") return "disabled";
-  return phase;
+  if (phase === "dormant") return "Disabled";
+  if (phase === "fired") return "Fired";
+  return "Armed";
 }
 
 function traceTone(event: AgentEvent): EventTraceTone {
@@ -107,13 +175,22 @@ function groupStatus(events: AgentEvent[]): GroupStatusItem[] {
     armed: 0,
     fired: 0,
     dormant: 0,
+    ready: 0,
     traceComplete: 0,
     tracePending: 0,
+    toolCalls: 0,
+    observers: 0,
+    guarded: 0,
   };
 
   for (const ev of events) {
     const phase = eventPhase(ev);
+    const toolCallCount = ev.tool_calls?.length ?? 0;
     counts[phase] += 1;
+    counts.toolCalls += toolCallCount;
+    if (toolCallCount === 0) counts.observers += 1;
+    if (!ev.enabled || ev.cooldown_secs > 0) counts.guarded += 1;
+    else counts.ready += 1;
     if (ev.last_fired) counts.traceComplete += 1;
     else if (ev.fire_count > 0) counts.tracePending += 1;
   }
@@ -122,8 +199,12 @@ function groupStatus(events: AgentEvent[]): GroupStatusItem[] {
     { label: "Armed", value: counts.armed, tone: "armed" },
     { label: "Fired", value: counts.fired, tone: "fired" },
     { label: "Dormant", value: counts.dormant, tone: "dormant" },
-    { label: "Traced", value: counts.traceComplete, tone: "trace-complete" },
-    { label: "Pending", value: counts.tracePending, tone: "trace-pending" },
+    { label: "Ready", value: counts.ready, tone: "ready" },
+    { label: "Calls", value: counts.toolCalls, tone: "tool-calls" },
+    { label: "Observers", value: counts.observers, tone: "observers" },
+    { label: "Guarded", value: counts.guarded, tone: "guarded" },
+    { label: "Trace Done", value: counts.traceComplete, tone: "trace-complete" },
+    { label: "Trace Pending", value: counts.tracePending, tone: "trace-pending" },
   ];
 
   return items.filter((item) => item.value > 0);
@@ -216,12 +297,14 @@ function OverviewRow({
   const tools = event.tool_calls ?? [];
   const isGlobal = event.agent_id == null;
   const phase = eventPhase(event);
+  const why = whySummary(event, group);
   const when = whenSummary(event, group);
   const toolCount = toolsSummary(tools.length);
   const trace = traceSummary(event);
   const state = fireStateSummary(phase);
   const traceState = traceTone(event);
-  const cooldown = cooldownSummary(event);
+  const gate = gateSummary(event);
+  const isGuarded = !event.enabled || event.cooldown_secs > 0;
   // Description for screen readers — the pin and the "N fires" / "never"
   // text both carry phase info, but neither is announced naturally.
   const phaseLabel = state;
@@ -238,7 +321,7 @@ function OverviewRow({
         data-testid="event-row"
         data-event-id={event.id}
         onClick={() => onSelect(event.id)}
-        aria-label={`Open ${event.name} (${phaseLabel}; when ${when}; ${toolCount}; ${trace}; cooldown ${cooldown})`}
+        aria-label={`Open ${event.name} (${phaseLabel}; why ${why}; when ${when}; ${toolCount}; ${trace}; gate ${gate})`}
       >
         <div className="events-overview-row-head">
           <span
@@ -249,34 +332,70 @@ function OverviewRow({
           {isGlobal && <span className="scope-chip scope-chip--global">{SCOPE_LABEL.global}</span>}
           <span className="events-overview-row-pattern">{event.pattern}</span>
           <span className="events-overview-row-spacer" />
+          <span className="events-overview-row-state">{state}</span>
           <span className="events-overview-row-fires">
             {event.fire_count > 0 ? `${formatInteger(event.fire_count)} fires` : "never"}
           </span>
         </div>
         <div className="events-overview-row-flow">
-          <span className={`events-overview-chip is-trigger events-overview-tone-${group}`}>
-            trigger
+          <span className="events-overview-chip is-reason">
+            <span className="events-overview-chip-step">why</span>
+            <span className="events-overview-chip-text">{why}</span>
+          </span>
+          <ConnectorTiny />
+          <span
+            className={`events-overview-chip is-trigger events-overview-tone-${group}`}
+            title={when}
+          >
+            <span className="events-overview-chip-step">when</span>
+            <span className="events-overview-chip-text">{when}</span>
+          </span>
+          <ConnectorTiny />
+          <span
+            className={`events-overview-chip is-gate${isGuarded ? " is-guard" : " is-ready"}`}
+            title={gate}
+          >
+            <span className="events-overview-chip-step">gate</span>
+            <span className="events-overview-chip-text">{gate}</span>
+          </span>
+          <ConnectorTiny />
+          <span className={`events-overview-chip is-fire events-overview-fire-${phase}`}>
+            <span className="events-overview-chip-step">fire</span>
+            <span className="events-overview-chip-text">{state}</span>
           </span>
           {tools.length === 0 ? (
             <>
               <ConnectorTiny />
-              <span className="events-overview-chip is-empty">observer</span>
+              <span className="events-overview-chip is-empty">no tool calls</span>
             </>
           ) : (
             tools.map((tc, i) => {
               const { scope, action } = toolParts(tc);
+              const args = toolArgsSummary(tc);
               return (
                 <span key={i}>
                   <ConnectorTiny />
-                  <span className="events-overview-chip is-tool">
-                    <span className="events-overview-chip-step">{formatInteger(i + 1)}</span>
+                  <span
+                    className="events-overview-chip is-tool"
+                    title={args ? `${tc.tool} - ${args.title}` : tc.tool}
+                  >
+                    <span className="events-overview-chip-step">call {formatInteger(i + 1)}</span>
                     <span>{scope}</span>
                     {action && <span className="events-overview-chip-action">.{action}</span>}
+                    {args && <span className="events-overview-chip-args">{args.label}</span>}
                   </span>
                 </span>
               );
             })
           )}
+          <ConnectorTiny />
+          <span
+            className={`events-overview-chip is-trace events-overview-trace-${traceState}`}
+            title={trace}
+          >
+            <span className="events-overview-chip-step">trace</span>
+            <span className="events-overview-chip-text">{trace}</span>
+          </span>
         </div>
         <div className="events-overview-row-meta" aria-hidden>
           <span className="events-overview-row-meta-item">
@@ -285,7 +404,7 @@ function OverviewRow({
           </span>
           <span className="events-overview-row-meta-item">
             <span className="events-overview-row-meta-label">Why</span>
-            <span className="events-overview-row-meta-value">{WHY_LABEL[group]}</span>
+            <span className="events-overview-row-meta-value">{why}</span>
           </span>
           <span className="events-overview-row-meta-item">
             <span className="events-overview-row-meta-label">Tools</span>
@@ -303,11 +422,11 @@ function OverviewRow({
           </span>
           <span
             className={`events-overview-row-meta-item${
-              event.cooldown_secs > 0 ? " events-overview-row-meta-item--guard" : ""
+              isGuarded ? " events-overview-row-meta-item--guard" : ""
             }`}
           >
-            <span className="events-overview-row-meta-label">Cooldown</span>
-            <span className="events-overview-row-meta-value">{cooldown}</span>
+            <span className="events-overview-row-meta-label">Gate</span>
+            <span className="events-overview-row-meta-value">{gate}</span>
           </span>
         </div>
       </button>

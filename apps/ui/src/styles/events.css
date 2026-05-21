@@ -102,20 +102,18 @@
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
-/* Summary values inherit the canonical state ladder so canvas + overview
-   read the same vocabulary. Migrated 2026-05-21 from --color-info /
-   --color-success / --color-warning to --state-progress / --state-verified /
-   --state-review per shared-pack mandate. */
+/* Summary values share the Events semantic ladder: graphite for live/info,
+   jade for completed history, warmth for review/pending. */
 .event-canvas-summary-item--runtime .event-canvas-summary-value,
 .event-canvas-summary-item--webhooks .event-canvas-summary-value {
-  color: var(--state-progress);
+  color: var(--color-accent);
 }
 .event-canvas-summary-item--routines .event-canvas-summary-value,
 .event-canvas-summary-item--guard .event-canvas-summary-value {
   color: var(--state-review);
 }
 .event-canvas-summary-item--fire-armed .event-canvas-summary-value {
-  color: var(--state-progress);
+  color: var(--color-accent);
 }
 .event-canvas-summary-item--fire-fired .event-canvas-summary-value,
 .event-canvas-summary-item--trace-complete .event-canvas-summary-value {
@@ -230,18 +228,13 @@
   color: var(--color-accent);
 }
 
-/* Tone stripes — one per lifecycle group. Same vocabulary as the
-   overview row chips and group-head status strip: progress violet for
-   runtime/webhooks (the agent's own loop is live, watching), review
-   warmth for routines (scheduled cadence, paused between fires).
-   Canvas + overview share one semantic ladder; no parallel accent
-   palette. Migrated 2026-05-21 from --color-info/--color-warning to
-   the canonical --state-* token family. */
+/* Tone stripes — one per lifecycle group. Runtime/webhooks use the
+   graphite info accent; routines use review warmth for scheduled cadence. */
 .event-canvas-node--tone-runtime::before {
-  background: var(--state-progress);
+  background: var(--color-accent);
 }
 .event-canvas-node--tone-webhooks::before {
-  background: var(--state-progress);
+  background: var(--color-accent);
 }
 .event-canvas-node--tone-routines::before {
   background: var(--state-review);
@@ -555,15 +548,12 @@
   min-width: 0;
 }
 /* The trigger pin carries the event's phase:
-   armed = --state-progress (live, watching) ·
+   armed = --color-accent (live, watching) ·
    fired = --state-verified (has history, settled) ·
    dormant = muted ring (operator-disabled).
-   Migrated 2026-05-21 from --color-info/--color-success to the canonical
-   --state-* family so the row's phase echo speaks the same status
-   vocabulary as Quests' in_progress/done columns. The lifecycle group —
-   runtime vs webhooks vs routines — is already carried by the
-   group-section header dot above, so the row pin is free to express
-   phase instead. */
+   The lifecycle group — runtime vs webhooks vs routines — is already
+   carried by the group-section header dot above, so the row pin is free
+   to express phase instead. */
 .events-overview-row-pin {
   width: 4px;
   height: 14px;
@@ -573,7 +563,7 @@
   flex-shrink: 0;
 }
 .events-overview-row-pin--armed {
-  background: var(--state-progress);
+  background: var(--color-accent);
 }
 .events-overview-row-pin--fired {
   background: var(--state-verified);
@@ -602,6 +592,26 @@
 }
 .events-overview-row-spacer {
   flex: 1;
+}
+.events-overview-row-state {
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.events-overview-row[data-phase="armed"] .events-overview-row-state {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+.events-overview-row[data-phase="fired"] .events-overview-row-state {
+  color: var(--state-verified);
+  background: var(--state-verified-bg);
 }
 .events-overview-row-fires {
   font-family: var(--font-sans);
@@ -655,7 +665,7 @@
   font-variant-numeric: tabular-nums;
 }
 .events-overview-row-meta-item--armed .events-overview-row-meta-value {
-  color: var(--state-progress);
+  color: var(--color-accent);
 }
 .events-overview-row-meta-item--fired .events-overview-row-meta-value {
   color: var(--state-verified);
@@ -691,6 +701,61 @@
   color: var(--color-accent);
   background: var(--color-accent-bg, rgba(0, 0, 0, 0.06));
   border-color: var(--color-accent-bg, rgba(0, 0, 0, 0.14));
+  max-width: min(360px, 100%);
+}
+.events-overview-chip.is-reason {
+  color: var(--color-text-secondary);
+  background: var(--bg-row);
+  letter-spacing: 0.04em;
+  max-width: min(240px, 100%);
+}
+.events-overview-chip.is-trace {
+  max-width: min(300px, 100%);
+}
+.events-overview-chip.is-gate {
+  max-width: min(220px, 100%);
+}
+.events-overview-chip.is-ready {
+  color: var(--color-text-secondary);
+  background: var(--bg-row);
+}
+.events-overview-chip.is-guard {
+  color: var(--state-review);
+  background: var(--state-review-bg);
+}
+.events-overview-chip.is-fire {
+  max-width: min(180px, 100%);
+}
+.events-overview-chip.events-overview-fire-armed {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+.events-overview-chip.events-overview-fire-fired {
+  color: var(--state-verified);
+  background: var(--state-verified-bg);
+}
+.events-overview-chip.events-overview-fire-dormant {
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+}
+.events-overview-chip.events-overview-trace-trace-complete {
+  color: var(--state-verified);
+  background: var(--state-verified-bg);
+}
+.events-overview-chip.events-overview-trace-trace-pending {
+  color: var(--state-review);
+  background: var(--state-review-bg);
+}
+.events-overview-chip.events-overview-trace-trace-empty {
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+}
+.events-overview-chip-text {
+  min-width: 0;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* Tool chips in the flow strip — they sit on the elevated row card, so
    a `--color-card` (white) ground rendered as invisible white-on-white.
@@ -702,6 +767,7 @@
   color: var(--color-text-primary);
   background: var(--bg-row);
   letter-spacing: 0.04em;
+  max-width: min(320px, 100%);
 }
 .events-overview-chip-step {
   font-variant-numeric: tabular-nums;
@@ -709,6 +775,16 @@
 }
 .events-overview-chip-action {
   color: var(--color-text-muted);
+}
+.events-overview-chip-args {
+  min-width: 0;
+  max-width: 180px;
+  padding-left: 2px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .events-overview-chip.is-empty {
   color: var(--color-text-muted);
@@ -726,26 +802,23 @@
   margin: 0 4px;
 }
 
-/* Group tones — runtime and webhooks are progress violet (the agent's own
-   loop is live, watching); routines use review warmth (paused/scheduled
-   cadence). Migrated 2026-05-21 from --color-info/--color-warning to the
-   canonical --state-* token family per shared-pack mandate; the chip
-   border falls back to the base `.is-trigger` accent ring since the
-   state ladder doesn't ship a border variant. */
+/* Group tones — runtime and webhooks use the graphite info accent (the
+   agent's own loop is live, watching); routines use review warmth for
+   scheduled cadence. */
 .events-overview-group-dot.events-overview-tone-runtime {
-  background: var(--state-progress);
+  background: var(--color-accent);
 }
 .events-overview-chip.is-trigger.events-overview-tone-runtime {
-  color: var(--state-progress);
-  background: var(--state-progress-bg);
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
   border-color: transparent;
 }
 .events-overview-group-dot.events-overview-tone-webhooks {
-  background: var(--state-progress);
+  background: var(--color-accent);
 }
 .events-overview-chip.is-trigger.events-overview-tone-webhooks {
-  color: var(--state-progress);
-  background: var(--state-progress-bg);
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
   border-color: transparent;
 }
 .events-overview-group-dot.events-overview-tone-routines {
@@ -758,21 +831,16 @@
 }
 
 /* Phase echo on the "N fires" / "never" label — render as a tokenized
-   chip pair so the phase reads consistently across the row (pin + chip
-   agree). Armed gets --state-progress (violet, live, watching). Fired
-   gets --state-verified (jade, settled, has history) — same chip
-   register as armed so the pair reads as one vocabulary, just shifted
-   in tone. Tabular numerals so the chip width doesn't jitter as the
-   count grows. Migrated 2026-05-21 from --color-info/--color-success
-   to the canonical --state-* token family per shared-pack mandate. */
+   chip pair so the phase reads consistently across the row. Armed gets
+   graphite, fired gets jade. Tabular numerals keep count width stable. */
 .events-overview-row-fires {
   padding: 1px 7px;
   border-radius: var(--radius-sm);
   letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="armed"] .events-overview-row-fires {
-  color: var(--state-progress);
-  background: var(--state-progress-bg);
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
   letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="fired"] .events-overview-row-fires {
@@ -818,14 +886,15 @@
   font-weight: 500;
 }
 /* Group-head status strip chips ("11 Armed", "6 Fired", "6 Traced") —
-   migrated 2026-05-21 from --color-info/--color-success/--color-warning
-   to the canonical --state-* token family so the group-head chips and
-   the row-foot meta-values speak the same lifecycle vocabulary. Armed
-   reads as live/watching (progress violet), fired/trace-complete as
-   settled (verified jade), trace-pending as paused/idle (review warmth). */
+   armed reads as live/watching graphite, fired/trace-complete as settled
+   jade, trace-pending as review warmth. */
 .events-overview-group-status-item--armed {
-  color: var(--state-progress);
-  background: var(--state-progress-bg);
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+.events-overview-group-status-item--ready {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
 }
 .events-overview-group-status-item--fired,
 .events-overview-group-status-item--trace-complete {
@@ -836,6 +905,15 @@
   color: var(--color-text-muted);
   background: var(--bg-row);
 }
+.events-overview-group-status-item--tool-calls {
+  color: var(--color-text-secondary);
+  background: var(--bg-row);
+}
+.events-overview-group-status-item--observers {
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+}
+.events-overview-group-status-item--guarded,
 .events-overview-group-status-item--trace-pending {
   color: var(--state-review);
   background: var(--state-review-bg);
@@ -1195,7 +1273,7 @@
 }
 .events-fires-context-item--runtime .events-fires-context-value,
 .events-fires-context-item--webhooks .events-fires-context-value {
-  color: var(--state-progress);
+  color: var(--color-accent);
 }
 .events-fires-context-item--routines .events-fires-context-value,
 .events-fires-context-item--pending .events-fires-context-value {
@@ -1324,7 +1402,7 @@
   background: var(--state-review);
 }
 .events-fires-dot--idle {
-  background: var(--state-progress);
+  background: var(--color-accent);
 }
 
 /* ── Step detail — drilled into one invocation ───────────────────────── */
