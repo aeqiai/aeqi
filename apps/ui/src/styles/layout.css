@@ -4086,6 +4086,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
     color 0.15s,
@@ -5149,6 +5150,7 @@
   font-family: var(--font-sans);
   font-size: 10px;
   color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
 .ideas-list-row-child-count {
