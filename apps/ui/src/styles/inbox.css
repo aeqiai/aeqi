@@ -14,7 +14,7 @@
  *    • One @keyframes for the real-time pulse. No decorative animation budget.
  *  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* ── Page frame + operating summary ──────────────────────────── */
+/* ── Page frame + operating controls ──────────────────────────── */
 
 .inbox-page {
   display: flex;
@@ -30,7 +30,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-6) var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-2);
   flex-shrink: 0;
 }
 
@@ -48,15 +48,6 @@
   color: var(--color-text-primary);
 }
 
-.inbox-page-subtitle {
-  margin: var(--space-2) 0 0;
-  max-width: 560px;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  line-height: 1.45;
-  color: var(--color-text-secondary);
-}
-
 .inbox-page-actions {
   display: inline-flex;
   align-items: center;
@@ -64,72 +55,43 @@
   flex-shrink: 0;
 }
 
-.inbox-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin: var(--space-3) var(--space-5) 0;
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--bg-row);
+.inbox-page > .inbox-head {
   flex-shrink: 0;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-6) var(--space-1);
 }
 
-.inbox-summary-card {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "label value"
-    "detail detail";
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
-  min-height: 64px;
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
+.inbox-page > .inbox-head .ideas-toolbar {
+  gap: 8px;
+}
+
+.inbox-page > .inbox-head .ideas-list-search {
+  padding: 10px 32px 10px 34px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-md);
   background: var(--color-card);
 }
 
-.inbox-summary-card[data-tone="progress"] {
-  background: var(--state-progress-bg);
+.inbox-page > .inbox-head .ideas-list-search-glyph {
+  left: 12px;
+  width: 14px;
+  height: 14px;
 }
 
-.inbox-summary-card[data-tone="review"] {
-  background: var(--state-review-bg);
+.inbox-page > .inbox-head .ideas-toolbar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-card);
 }
 
-.inbox-summary-label {
-  grid-area: label;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--color-text-primary);
-}
-
-.inbox-summary-value {
-  grid-area: value;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.inbox-summary-detail {
-  grid-area: detail;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  line-height: 1.35;
-  color: var(--color-text-secondary);
+.inbox-filter-chips {
+  padding: 0 var(--space-6) var(--space-2);
+  background: transparent;
+  box-shadow: none;
+  flex-shrink: 0;
 }
 
 /* ── Two-pane shell ──────────────────────────────────────────── */
@@ -138,7 +100,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
-  margin: 14px 20px 22px;
+  margin: var(--space-2) var(--space-5) var(--space-5);
   border-radius: var(--radius-sm);
   background: var(--bg-row);
   overflow: hidden;
@@ -153,39 +115,7 @@
   flex-shrink: 0;
   overflow: hidden;
   background: var(--bg-row);
-  padding: var(--space-2) 0 var(--space-2) var(--space-2);
-}
-
-.inbox-head {
-  flex-shrink: 0;
-  background: transparent;
-  box-shadow: none;
-  margin-bottom: 0;
   padding: var(--space-2);
-}
-
-.inbox-shell .ideas-toolbar {
-  gap: 8px;
-}
-
-.inbox-shell .ideas-list-search {
-  padding: 10px 32px 10px 34px;
-  font-size: var(--font-size-sm);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-}
-
-.inbox-shell .ideas-list-search-glyph {
-  left: 12px;
-  width: 14px;
-  height: 14px;
-}
-
-.inbox-shell .ideas-toolbar-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--color-card);
 }
 
 /* Pass-through flex column — `<SessionRail>` inside owns the actual
@@ -200,7 +130,6 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 var(--space-2) 0 0;
 }
 
 .inbox-shell .sessions-rail-list {
@@ -221,8 +150,9 @@
 
 .inbox-shell .sessions-rail-row {
   width: 100%;
-  margin: 0 0 var(--space-1);
-  padding: 9px 10px;
+  min-height: 76px;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--color-card-elevated);
@@ -243,11 +173,39 @@
   box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
+.inbox-shell .sessions-rail-row--multi {
+  align-items: start;
+}
+
+.inbox-shell .sessions-rail-row-body {
+  gap: var(--space-1);
+}
+
 .inbox-shell .sessions-rail-row-primary {
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: var(--font-size-sm);
+  font-weight: 550;
   letter-spacing: -0.005em;
   color: var(--color-text-primary);
+}
+
+.inbox-shell .sessions-rail-row-primary--wrap {
+  line-height: 1.35;
+}
+
+.inbox-shell .sessions-rail-row-secondary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.inbox-shell .sessions-rail-row-status {
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+}
+
+.inbox-shell .sessions-rail-row-time {
+  margin-top: 2px;
+  font-size: var(--font-size-2xs);
 }
 
 /* Right pane — fills available space. `position: relative` anchors
@@ -339,7 +297,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
+  min-height: 76px;
+  padding: var(--space-4) var(--space-5);
   flex-shrink: 0;
   background: var(--color-card);
   box-shadow: inset 0 -1px 0 var(--border);
@@ -354,7 +313,7 @@
 }
 
 .session-detail-header-title {
-  font-size: var(--font-size-base);
+  font-size: 17px;
   font-weight: 600;
   color: var(--color-ink-text);
   letter-spacing: -0.005em;
@@ -401,8 +360,42 @@
 .session-detail-header-extras {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-shrink: 0;
+}
+
+.inbox-detail-state {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inbox-detail-state[data-state="review"] {
+  background: var(--state-review-bg);
+  color: var(--state-review);
+}
+
+.inbox-detail-state[data-state="unread"] {
+  background: var(--state-progress-bg);
+  color: var(--state-progress);
+}
+
+.inbox-pane-detail .asv-participant-strip {
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--bg-row);
+}
+
+.inbox-pane-detail .asv-participant-add-btn {
+  margin-left: 0;
 }
 
 /* Awaiting strip — detail-pane echo of the rail's amber awaiting dot.
@@ -735,14 +728,6 @@
   display: none;
 }
 
-/* Filter chips strip below toolbar */
-.inbox-filter-chips {
-  padding: 0 var(--space-2) var(--space-2);
-  background: transparent;
-  box-shadow: none;
-  flex-shrink: 0;
-}
-
 /* ── Sessions-rail awaiting dot ─────────────────────────────────
  * Awaiting = pending decision-request. Pulls the locked family amber
  * (`--color-warmth`) — the same "in_review" accent used by the quest
@@ -783,9 +768,9 @@
     justify-content: flex-start;
   }
 
-  .inbox-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-inline: var(--space-4);
+  .inbox-page > .inbox-head,
+  .inbox-filter-chips {
+    padding-inline: var(--space-4);
   }
 
   .inbox-shell {
@@ -812,7 +797,8 @@
   }
 
   .inbox-page:has(.inbox-shell.has-selection) .inbox-page-header,
-  .inbox-page:has(.inbox-shell.has-selection) .inbox-summary {
+  .inbox-page:has(.inbox-shell.has-selection) > .inbox-head,
+  .inbox-page:has(.inbox-shell.has-selection) .inbox-filter-chips {
     display: none;
   }
 
@@ -826,11 +812,5 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-  }
-}
-
-@media (max-width: 620px) {
-  .inbox-summary {
-    grid-template-columns: 1fr;
   }
 }

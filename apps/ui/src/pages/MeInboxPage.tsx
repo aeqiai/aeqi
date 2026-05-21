@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CornerUpLeft } from "lucide-react";
+import { CornerUpLeft, Plus } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -7,12 +7,11 @@ import { useAuthStore } from "@/store/auth";
 import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
-import InboxSummary from "@/components/inbox/InboxSummary";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
 import { useWebSocketChat } from "@/components/session/useWebSocketChat";
-import { Button, Loading, Tooltip } from "@/components/ui";
+import { Button, Icon, Loading, Tooltip } from "@/components/ui";
 import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 import type { Message, SessionInfo } from "@/components/session/types";
@@ -20,6 +19,11 @@ import { recencyBucket, timeShort } from "@/lib/format";
 
 const KIND_LABEL: Record<string, string> = {
   decision_request: "Decision requests",
+  system: "System",
+};
+
+const KIND_ITEM_LABEL: Record<string, string> = {
+  decision_request: "Decision request",
   system: "System",
 };
 
@@ -235,6 +239,10 @@ export default function MeInboxPage() {
     () => entities.map((e) => ({ id: e.id, name: e.name ?? e.id })),
     [entities],
   );
+  const entityNameById = useMemo(
+    () => new Map(entityOptions.map((entity) => [entity.id, entity.name])),
+    [entityOptions],
+  );
 
   // Refs for keyboard focus targets
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -438,8 +446,21 @@ export default function MeInboxPage() {
       selectedRow.id,
     );
 
+    const headerState = selectedRow.awaiting ? "review" : selectedRow.unread ? "unread" : "open";
+    const headerStateLabel =
+      headerState === "review" ? "Awaiting reply" : headerState === "unread" ? "Unread" : "Open";
+    const subjectLine =
+      selectedRow.subject && selectedRow.subject !== selectedRow.from.name
+        ? selectedRow.subject
+        : undefined;
+    const kindLabel = KIND_ITEM_LABEL[selectedRow.kind] ?? "Inbox item";
+    const subtitle = [kindLabel, subjectLine].filter(Boolean).join(" · ") || undefined;
+
     const headerExtras = (
       <>
+        <span className="inbox-detail-state" data-state={headerState}>
+          {headerStateLabel}
+        </span>
         <Button
           variant="ghost"
           size="sm"
@@ -547,13 +568,6 @@ export default function MeInboxPage() {
         </Tooltip>
       ) : undefined;
 
-    // The subject line is informationally redundant with the rail row's
-    // primary, but reading it large in the detail pane is part of the
-    // shipped reading rhythm. Keep it as `subtitle` on the header.
-    const subtitle =
-      selectedRow.subject && selectedRow.subject !== selectedRow.from.name
-        ? selectedRow.subject
-        : undefined;
     const threadTrailingSlot =
       wsChat.streaming || wsChat.liveSegments.length > 0 ? (
         <StreamingMessage
@@ -572,7 +586,7 @@ export default function MeInboxPage() {
         />
         <span className="inbox-awaiting-strip-body">
           <span className="inbox-awaiting-strip-label">Awaiting reply</span>
-          {subtitle && <span className="inbox-awaiting-strip-subject">{subtitle}</span>}
+          {subjectLine && <span className="inbox-awaiting-strip-subject">{subjectLine}</span>}
         </span>
         <Button
           variant="ghost"
@@ -616,9 +630,6 @@ export default function MeInboxPage() {
       <header className="inbox-page-header">
         <div className="inbox-page-heading">
           <h1 className="inbox-page-title">Inbox</h1>
-          <p className="inbox-page-subtitle">
-            Review agent handoffs, approvals, failed events, and system items.
-          </p>
         </div>
         <div className="inbox-page-actions">
           <Button
@@ -626,60 +637,59 @@ export default function MeInboxPage() {
             size="md"
             onClick={() => composerRef.current?.focus()}
             disabled={!selectedRow}
-            leadingIcon={<CornerUpLeft size={14} strokeWidth={1.8} aria-hidden />}
+            leadingIcon={<Icon icon={Plus} size="sm" />}
           >
-            Review selected
+            New
           </Button>
         </div>
       </header>
 
-      <InboxSummary rows={rows} visibleCount={visible.length} />
+      <InboxToolbar
+        search={search}
+        filter={filter}
+        sort={sort}
+        entityOptions={entityOptions}
+        onSearch={setSearch}
+        onFilter={patchFilter}
+        onSort={setSort}
+        searchRef={searchRef}
+      />
+      {activeChips.length > 0 && (
+        <div
+          className="inbox-filter-chips ideas-list-chips"
+          role="list"
+          aria-label="Active filters"
+        >
+          {activeChips.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              role="listitem"
+              className="ideas-list-chip"
+              onClick={c.onRemove}
+              title={`Remove filter: ${c.label}`}
+            >
+              <span className="ideas-list-chip-label">{c.label}</span>
+              <span className="ideas-list-chip-x" aria-hidden>
+                ×
+              </span>
+            </button>
+          ))}
+          {activeChips.length > 1 && (
+            <button
+              type="button"
+              className="ideas-list-chip-clear"
+              onClick={() => setFilter(DEFAULT_FILTER)}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
 
       <div className={["inbox-shell", selectedId ? "has-selection" : ""].filter(Boolean).join(" ")}>
-        {/* Left pane: toolbar + filter chips + list */}
+        {/* Left pane: inbox item cards */}
         <div className="inbox-pane-list">
-          <InboxToolbar
-            search={search}
-            filter={filter}
-            sort={sort}
-            entityOptions={entityOptions}
-            onSearch={setSearch}
-            onFilter={patchFilter}
-            onSort={setSort}
-            searchRef={searchRef}
-          />
-          {activeChips.length > 0 && (
-            <div
-              className="inbox-filter-chips ideas-list-chips"
-              role="list"
-              aria-label="Active filters"
-            >
-              {activeChips.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  role="listitem"
-                  className="ideas-list-chip"
-                  onClick={c.onRemove}
-                  title={`Remove filter: ${c.label}`}
-                >
-                  <span className="ideas-list-chip-label">{c.label}</span>
-                  <span className="ideas-list-chip-x" aria-hidden>
-                    ×
-                  </span>
-                </button>
-              ))}
-              {activeChips.length > 1 && (
-                <button
-                  type="button"
-                  className="ideas-list-chip-clear"
-                  onClick={() => setFilter(DEFAULT_FILTER)}
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-          )}
           <div className="inbox-pane-list-scroll">
             {loading && visible.length === 0 ? (
               <div className="inbox-list-loading">
@@ -694,21 +704,24 @@ export default function MeInboxPage() {
               />
             ) : (
               <SessionRail
-                rows={visible.map<SessionRailRow>((r) => ({
-                  id: r.id,
-                  // Single-line h=32 row to match the agent surface (same
-                  // SessionRail primitive, same shape on both adopters per
-                  // the locked direction "render the user inbox like the
-                  // agent session"). Sender name lives in the detail
-                  // header on the right pane, not duplicated in the rail.
-                  primary: r.subject,
-                  time: timeShort(r.created_at),
-                  status: r.unread ? "active" : undefined,
-                  awaiting: r.awaiting,
-                  group: recencyBucket(r.created_at),
-                  sortKey: Date.parse(r.created_at) || 0,
-                  pulseNew: newIds.has(r.id),
-                }))}
+                rows={visible.map<SessionRailRow>((r) => {
+                  const rowKind = KIND_ITEM_LABEL[r.kind] ?? "Inbox item";
+                  const scopeName = r.trust_id
+                    ? (entityNameById.get(r.trust_id) ?? r.trust_id)
+                    : null;
+                  return {
+                    id: r.id,
+                    primary: r.subject,
+                    secondary: [r.from.name, rowKind, scopeName].filter(Boolean).join(" · "),
+                    time: timeShort(r.created_at),
+                    status: r.unread ? "active" : undefined,
+                    awaiting: r.awaiting,
+                    group: recencyBucket(r.created_at),
+                    sortKey: Date.parse(r.created_at) || 0,
+                    pulseNew: newIds.has(r.id),
+                    wrapPrimary: true,
+                  };
+                })}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 emptyTitle="inbox is clear"
