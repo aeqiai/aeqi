@@ -1438,16 +1438,52 @@
   max-width: 120px;
   transition-delay: 80ms;
 }
+/* Inline count-link used on "Active quests" — a small numeric link
+   that routes to the quests surface. Lives in the inspector's
+   hover/focus/active vocabulary: muted-ink at rest, accent on
+   hover/focus, arrow nudges right, micro-press on active. Matches
+   the .role-inspector-charter-card pattern (where the arrow is the
+   directional cue) rather than the underline that used to live here
+   — underline was the only one of its kind in the inspector and read
+   as a stray editorial flourish. Keyboard focus is now ring-visible
+   via box-shadow, mirroring .role-inspector-copy:focus-visible. */
 .role-inspector-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--color-accent);
+  padding: 2px 6px;
+  margin-inline: -6px;
+  color: var(--color-text-primary);
   text-decoration: none;
   font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    transform 0.12s ease;
 }
-.role-inspector-link:hover {
-  text-decoration: underline;
+.role-inspector-link:hover,
+.role-inspector-link:focus-visible {
+  color: var(--accent);
+  background: var(--color-card-muted);
+}
+.role-inspector-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.role-inspector-link:active {
+  transform: translateY(0.5px);
+}
+.role-inspector-link svg {
+  color: var(--color-text-muted);
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease;
+}
+.role-inspector-link:hover svg,
+.role-inspector-link:focus-visible svg {
+  color: var(--accent);
+  transform: translateX(2px);
 }
 
 @media (max-width: 1100px) {
