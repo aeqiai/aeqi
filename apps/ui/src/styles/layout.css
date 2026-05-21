@@ -5829,23 +5829,28 @@
 .ideas-ref-chip-label:hover {
   color: var(--accent);
 }
+/* Pairs with `.ideas-ref-chip` — same dimensions and family as the
+   sibling refs so the strip reads as one band. No 1px hairline (per
+   feedback_no_hairlines); the faint fill expresses the boundary, the
+   `+` glyph carries the affordance. Hover lifts to the same `--bg-row`
+   tier the chip uses. */
 .ideas-ref-add {
   padding: 1px 8px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.02em;
   color: var(--color-text-muted);
-  background: transparent;
-  border: 1px dashed var(--border);
+  background: var(--state-hover);
+  border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
-    color 0.15s,
-    border-color 0.15s;
+    color 0.12s ease,
+    background 0.12s ease;
 }
 .ideas-ref-add:hover {
   color: var(--color-text-primary);
-  border-color: var(--border-hover);
+  background: var(--bg-row);
 }
 .ideas-ref-picker {
   position: relative;
@@ -6339,23 +6344,28 @@ button.ideas-tag-chip.active:hover {
 button.ideas-tag-chip.active .ideas-tag-chip-count {
   opacity: 0.95;
 }
+/* Pairs with `.ideas-tag-chip` — same shell, same dimensions, so the
+   strip reads as one register. Drops the 1px dashed hairline (per
+   feedback_no_hairlines); the faint `--state-hover` fill is the
+   boundary, the `+` label carries the affordance. Hover lifts to the
+   same `--bg-row` tier the resting chip uses on hover. */
 .ideas-tag-add {
-  padding: 1px 8px;
+  padding: 2px 8px 2px 7px;
   font-family: var(--font-sans);
   font-size: 11px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--color-text-muted);
-  background: transparent;
-  border: 1px dashed var(--border);
+  background: var(--state-hover);
+  border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
-    color 0.15s,
-    border-color 0.15s;
+    color 0.12s ease,
+    background 0.12s ease;
 }
 .ideas-tag-add:hover {
   color: var(--color-text-primary);
-  border-color: var(--border-hover);
+  background: var(--bg-row);
 }
 .ideas-tag-input-wrap {
   position: relative;
