@@ -4003,11 +4003,15 @@
 .quest-card .quest-take-btn:focus-visible {
   opacity: 1;
 }
-/* Card timestamps — same readability lift as the list row. */
+/* Card timestamps — tertiary tier in the meta strip. The subject reads
+   primary (12.5px/450), the due-chip secondary (11px/secondary), and the
+   "x ago" stamp rests one step further down at 10.5px/muted so the eye
+   doesn't waste fidelity on a low-signal absolute timestamp. Matches the
+   `.quest-child-count` micro-size already in the head row. */
 .quest-card-time {
   font-family: var(--font-sans);
-  font-size: 11px;
-  color: var(--color-text-secondary);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
