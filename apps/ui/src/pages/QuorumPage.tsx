@@ -194,6 +194,7 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
                 configs={configsList}
                 roleTypes={roleTypeList}
                 roles={rolesList}
+                voteRecords={voteRecordsList}
                 trustId={trustId}
                 trustAddress={trustAddress}
                 viewerCreatorAddress={viewerCreatorAddress}

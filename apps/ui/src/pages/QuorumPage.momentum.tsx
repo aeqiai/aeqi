@@ -26,16 +26,18 @@
  * the sparkline track + the verdict pill; both are mounted as a single
  * `<TallyMomentumStrip />` JSX block underneath the existing rows.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import type { GovernanceConfigWithPda, ProposalAccount, VoteRecordWithPda } from "@/solana";
-import { Tooltip } from "@/components/ui";
+import { ChipClose, Tooltip } from "@/components/ui";
 import {
   MOMENTUM_BUCKETS,
   projectMomentumForecast,
   useProposalMomentum,
+  type ProposalMomentum,
 } from "@/hooks/useProposalMomentum";
 import styles from "./QuorumPage.module.css";
+import { formatTimestamp } from "./QuorumPage.format";
 
 /**
  * Mount-point inside `TallyDetail` — renders the momentum sparkline AND
@@ -125,7 +127,26 @@ export function TallyMomentumStrip({
   const noSignal =
     !isLoading && (momentum === undefined || (momentum.resolved === 0 && momentum.pending === 0));
 
+  // iter-10: tap-to-pin. The hover tooltip on the strip explains what
+  // the sparkline shows in aggregate; clicking a bucket pins its precise
+  // For/Against readout into the header so an operator can compare
+  // adjacent buckets without holding the cursor steady. Mirrors the
+  // Equity bonding-curve tap-to-pin pattern.
+  const [pinnedBucketIndex, setPinnedBucketIndex] = useState<number | null>(null);
+  // Pinned readout becomes stale if the underlying bucket count shifts
+  // (the proposal account itself is immutable, but a fresh momentum
+  // resolve can mean the previously-pinned bucket no longer exists). We
+  // clear the pin when the index falls out of range.
+  const bucketsLen = momentum?.buckets.length ?? MOMENTUM_BUCKETS;
+  const effectivePinnedIndex =
+    pinnedBucketIndex !== null && pinnedBucketIndex < bucketsLen ? pinnedBucketIndex : null;
+  const togglePin = (i: number) => {
+    setPinnedBucketIndex((prev) => (prev === i ? null : i));
+  };
+
   const forecastNode = renderForecastPill(forecast);
+  const pinReadout =
+    effectivePinnedIndex !== null ? formatPinnedBucket(momentum, effectivePinnedIndex) : null;
 
   // Tooltip caption — explains what the sparkline shows AND what slice
   // of the vote record set we successfully time-attributed.
@@ -138,11 +159,40 @@ export function TallyMomentumStrip({
     return `Based on ${momentum.resolved} of ${total} cast votes (others pending block-time backfill).`;
   })();
 
+  // Decide which bar accepts the click — when there are no resolved
+  // votes the bars are decorative (flat baseline) and clicking them
+  // wouldn't show meaningful pinned data. Disable interaction in that
+  // case so we don't paint a hover affordance that produces an empty
+  // readout.
+  const interactive = !noSignal && momentum !== undefined;
+
   return (
     <div className={styles.momentumStrip}>
       <div className={styles.momentumHeader}>
         <span className={styles.momentumLabel}>Momentum</span>
-        {forecastNode}
+        <div className={styles.momentumHeaderRight}>
+          {pinReadout ? (
+            <span
+              className={styles.momentumPinReadout}
+              aria-live="polite"
+              aria-label={`Pinned bucket: ${pinReadout.label}`}
+            >
+              <span className={styles.momentumPinTime}>{pinReadout.label}</span>
+              <span className={styles.momentumPinFor} data-tone="for">
+                For {pinReadout.forPct}%
+              </span>
+              <span className={styles.momentumPinAgainst} data-tone="against">
+                Against {pinReadout.againstPct}%
+              </span>
+              <ChipClose
+                className={styles.momentumPinClear}
+                onClick={() => setPinnedBucketIndex(null)}
+                label="Clear pinned bucket"
+              />
+            </span>
+          ) : null}
+          {forecastNode}
+        </div>
       </div>
       <Tooltip content={caption}>
         <div className={styles.momentumTracks} aria-label={caption}>
@@ -154,6 +204,29 @@ export function TallyMomentumStrip({
                 className={styles.momentumBar}
                 data-tone="for"
                 data-empty={pct < 1 ? "true" : "false"}
+                data-pinned={effectivePinnedIndex === i ? "true" : "false"}
+                role={interactive ? "button" : undefined}
+                tabIndex={interactive ? 0 : undefined}
+                aria-label={interactive ? `Pin bucket ${i + 1} of ${forBars.length}` : undefined}
+                onClick={
+                  interactive
+                    ? (e) => {
+                        e.stopPropagation();
+                        togglePin(i);
+                      }
+                    : undefined
+                }
+                onKeyDown={
+                  interactive
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          togglePin(i);
+                        }
+                      }
+                    : undefined
+                }
                 style={{ "--momentum-h": `${Math.max(pct, 2)}%` } as React.CSSProperties}
               />
             ))}
@@ -166,6 +239,31 @@ export function TallyMomentumStrip({
                 className={styles.momentumBar}
                 data-tone="against"
                 data-empty={pct < 1 ? "true" : "false"}
+                data-pinned={effectivePinnedIndex === i ? "true" : "false"}
+                role={interactive ? "button" : undefined}
+                tabIndex={interactive ? 0 : undefined}
+                aria-label={
+                  interactive ? `Pin bucket ${i + 1} of ${againstBars.length}` : undefined
+                }
+                onClick={
+                  interactive
+                    ? (e) => {
+                        e.stopPropagation();
+                        togglePin(i);
+                      }
+                    : undefined
+                }
+                onKeyDown={
+                  interactive
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          togglePin(i);
+                        }
+                      }
+                    : undefined
+                }
                 style={{ "--momentum-h": `${Math.max(pct, 2)}%` } as React.CSSProperties}
               />
             ))}
@@ -177,6 +275,11 @@ export function TallyMomentumStrip({
           No vote timestamps resolved yet — momentum will populate as the RPC backfills.
         </span>
       ) : null}
+      {interactive ? (
+        <span className={styles.momentumFootnote}>
+          Tap a bar to pin its readout. {effectivePinnedIndex !== null ? "Tap again to clear." : ""}
+        </span>
+      ) : null}
       {/* Hidden but accessible: total tally peak used for the normalize.
           This keeps the strip self-describing under screen-reader review. */}
       <span className={styles.srOnly}>
@@ -184,6 +287,28 @@ export function TallyMomentumStrip({
       </span>
     </div>
   );
+}
+
+/**
+ * Format a pinned bucket's For/Against ratio + bucket-start timestamp
+ * for the inline readout. Uses BigInt math against the cumulative
+ * counts so the percentages stay accurate on u128-scale supplies.
+ */
+function formatPinnedBucket(
+  momentum: ProposalMomentum | undefined,
+  i: number,
+): { label: string; forPct: number; againstPct: number } | null {
+  if (!momentum || i < 0 || i >= momentum.buckets.length) return null;
+  const bucket = momentum.buckets[i];
+  const forCum = BigInt(bucket.forCum);
+  const againstCum = BigInt(bucket.againstCum);
+  const sum = forCum + againstCum;
+  if (sum === 0n) {
+    return { label: formatTimestamp(bucket.t), forPct: 0, againstPct: 0 };
+  }
+  const forPct = Math.round(Number((forCum * 10000n) / sum) / 100);
+  const againstPct = Math.max(0, 100 - forPct);
+  return { label: formatTimestamp(bucket.t), forPct, againstPct };
 }
 
 /**

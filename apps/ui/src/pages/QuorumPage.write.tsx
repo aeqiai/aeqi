@@ -33,6 +33,7 @@ import type {
   ProposalWithPda,
   RoleAccountWithPda,
   RoleTypeWithPda,
+  VoteRecordWithPda,
 } from "@/solana";
 import { ApiError, api } from "@/lib/api";
 import { Badge, Button, EmptyState, Inline, Modal, Popover, Stack, Tooltip } from "@/components/ui";
@@ -69,6 +70,11 @@ import {
   type ProposerReputation,
   type RecentProposalSummary,
 } from "./QuorumPage.reputation";
+import {
+  ProposalDependencyChain,
+  ShareProposalRow,
+  TopVotersSection,
+} from "./QuorumPage.detail-extras";
 
 export { ProposalCompareTray } from "./QuorumPage.compare";
 
@@ -82,6 +88,7 @@ export function ProposalDetailModal({
   roleTypes,
   roles,
   proposals,
+  voteRecords,
   trustId,
   trustAddress,
   nowSeconds,
@@ -105,6 +112,14 @@ export function ProposalDetailModal({
    * proposal being shown.
    */
   proposals?: ProposalWithPda[];
+  /**
+   * Every VoteRecord PDA on this TRUST (already cached by `useQuorum`).
+   * iter-10 uses it to aggregate per-voter participation across the
+   * whole TRUST so the modal can surface a "Top voters" subsection
+   * inside the detail view — operators reviewing one proposal can spot
+   * the signers who consistently show up across the cap table.
+   */
+  voteRecords?: VoteRecordWithPda[];
   trustId: string;
   trustAddress: string;
   nowSeconds: number;
@@ -167,6 +182,7 @@ export function ProposalDetailModal({
       {entry ? (
         <div className={`${styles.scope} ${styles.modalBody}`}>
           <Stack gap="5">
+            <ShareProposalRow proposal={entry.proposal.account} />
             <ProposalSummary
               entry={entry}
               roleTypes={roleTypes}
@@ -193,12 +209,22 @@ export function ProposalDetailModal({
               />
             </div>
             <ExecutionPayloadSection proposal={entry.proposal.account} />
+            <ProposalDependencyChain
+              proposal={entry.proposal.account}
+              proposals={proposals ?? [entry.proposal]}
+              nowSeconds={nowSeconds}
+            />
             <VoteHistorySection
               trustAddress={trustAddress}
               proposalId={entry.proposal.account.proposalId}
               blockTimes={momentumForAudit?.blockTimes}
               signatures={momentumForAudit?.signatures}
               nowSeconds={nowSeconds}
+            />
+            <TopVotersSection
+              voteRecords={voteRecords}
+              proposalsCount={(proposals ?? [entry.proposal]).length}
+              currentProposalId={entry.proposal.account.proposalId}
             />
             <ProposalMeta proposal={entry.proposal.account} />
           </Stack>

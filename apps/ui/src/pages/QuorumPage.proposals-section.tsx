@@ -27,6 +27,7 @@ import type {
   ProposalWithPda,
   RoleAccountWithPda,
   RoleTypeWithPda,
+  VoteRecordWithPda,
 } from "@/solana";
 import { Button, Inline, PageSection, Stack, Table, type TableColumn } from "@/components/ui";
 import { ProposerCellHover } from "./QuorumPage.proposer-cell";
@@ -80,6 +81,7 @@ export function ProposalsSection({
   configs,
   roleTypes,
   roles,
+  voteRecords,
   trustId,
   trustAddress,
   viewerCreatorAddress,
@@ -94,6 +96,13 @@ export function ProposalsSection({
    * are registered (Foundation-shaped TRUSTs).
    */
   roles: RoleAccountWithPda[];
+  /**
+   * Every VoteRecord PDA on this TRUST (already cached by `useQuorum`).
+   * iter-10 threads it through to the detail modal so the "Top voters"
+   * subsection can aggregate per-voter participation across every
+   * proposal without firing a fresh RPC round-trip.
+   */
+  voteRecords?: VoteRecordWithPda[];
   trustId: string;
   trustAddress: string;
   /** EOA that owns this TRUST. Used to gate the Cancel proposal CTA. */
@@ -680,6 +689,7 @@ export function ProposalsSection({
         roleTypes={roleTypes}
         roles={roles}
         proposals={proposals}
+        voteRecords={voteRecords}
         trustId={trustId}
         trustAddress={trustAddress}
         nowSeconds={nowSeconds}

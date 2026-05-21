@@ -80,6 +80,13 @@ export function NewProposalModal({
   const [pinnedGateway, setPinnedGateway] = useState<string | null>(null);
   const [pinTbd, setPinTbd] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
+  // iter-10: once a pin completes the CID is opaque — operators can read
+  // it but don&apos;t see what they actually committed to without a side
+  // trip to the gateway. The toggle exposes the JSON shape that was
+  // pinned (the same `{ title, description }` object the modal POSTs)
+  // so the operator can sanity-check the body before firing the
+  // proposalCreate ix.
+  const [previewPinned, setPreviewPinned] = useState(false);
 
   const configOptions = useMemo(
     () =>
@@ -179,6 +186,7 @@ export function NewProposalModal({
     setPinnedGateway(null);
     setPinTbd(false);
     setPinError(null);
+    setPreviewPinned(false);
     setTemplateKind("free_form");
   };
 
@@ -195,6 +203,7 @@ export function NewProposalModal({
     if (pinnedCid) {
       setPinnedCid(null);
       setPinnedGateway(null);
+      setPreviewPinned(false);
     }
     const trimmed = description.trim();
     const isPrefillReplaceable =
@@ -206,11 +215,14 @@ export function NewProposalModal({
 
   // Drop a stale CID whenever the operator edits title or description —
   // the pinned blob would no longer match what the form would submit.
+  // The preview toggle collapses alongside the CID so a "Preview content"
+  // pane isn't left dangling against fields that no longer match.
   const onTitleChange = (v: string) => {
     setTitle(v);
     if (pinnedCid) {
       setPinnedCid(null);
       setPinnedGateway(null);
+      setPreviewPinned(false);
     }
   };
   const onDescriptionChange = (v: string) => {
@@ -218,6 +230,7 @@ export function NewProposalModal({
     if (pinnedCid) {
       setPinnedCid(null);
       setPinnedGateway(null);
+      setPreviewPinned(false);
     }
   };
 
@@ -410,6 +423,15 @@ export function NewProposalModal({
                           Open
                         </Button>
                       ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPreviewPinned((v) => !v)}
+                        aria-expanded={previewPinned}
+                        aria-label={previewPinned ? "Hide pinned content" : "Show pinned content"}
+                      >
+                        {previewPinned ? "Hide preview" : "Preview content"}
+                      </Button>
                     </Inline>
                   ) : (
                     <span className={styles.ipfsPinHint}>
@@ -427,6 +449,18 @@ export function NewProposalModal({
                   {pinning ? "Pinning…" : pinnedCid ? "Pinned" : "Pin payload"}
                 </Button>
               </div>
+              {pinnedCid && previewPinned ? (
+                <pre className={styles.ipfsPinPreview} aria-label="Pinned IPFS payload preview">
+                  {JSON.stringify(
+                    {
+                      title: title.trim(),
+                      description: description.trim(),
+                    },
+                    null,
+                    2,
+                  )}
+                </pre>
+              ) : null}
               {pinError ? <Banner kind="error">{pinError}</Banner> : null}
               {pinTbd ? (
                 <Banner kind="warning">

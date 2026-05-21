@@ -1440,6 +1440,266 @@
   color: var(--color-text-muted);
 }
 
+/* ── iter-10: momentum tap-to-pin readout ──────────────────────────── */
+
+.momentumHeaderRight {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.momentumPinReadout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-pill, 999px);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.momentumPinTime {
+  color: var(--color-text-muted);
+}
+
+.momentumPinFor {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.momentumPinAgainst {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.momentumPinClear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--radius-full, 999px);
+}
+
+.momentumPinClear:hover,
+.momentumPinClear:focus-visible {
+  color: var(--color-text-primary);
+  background: var(--color-card-muted);
+}
+
+.momentumPinClear:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 1px;
+}
+
+/* Highlight the pinned bucket on both the for + against tracks so the
+ * tap target reads back its selected state. The data-pinned attribute
+ * is set by the React renderer; we boost the opacity + add a subtle
+ * outline that respects the canonical lifecycle accent. */
+.momentumBar[data-pinned="true"] {
+  opacity: 1;
+  outline: 1px solid var(--color-text-primary);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+/* Interactive bars get a hover affordance so the click target reads as
+ * tappable without painting a heavy chrome at rest. */
+.momentumBar[role="button"] {
+  cursor: pointer;
+}
+
+.momentumBar[role="button"]:hover {
+  opacity: 1;
+}
+
+.momentumBar[role="button"]:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+/* ── iter-10: top voters cross-proposal aggregation ────────────────── */
+
+.topVotersTable {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.topVotersRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+}
+
+.topVotersRow[data-header="true"] {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: var(--space-1);
+}
+
+.topVotersVoter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.topVotersHerePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-card-subtle));
+  color: var(--color-success);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-pill, 999px);
+}
+
+.topVotersBarCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.topVotersBarTrack {
+  position: relative;
+  display: inline-block;
+  flex: 1 1 0;
+  min-width: 60px;
+  max-width: 160px;
+  height: 6px;
+  background: var(--color-card-muted);
+  border-radius: var(--radius-pill, 999px);
+  overflow: hidden;
+}
+
+.topVotersBarFill {
+  position: absolute;
+  inset: 0;
+  width: var(--top-voters-pct, 0%);
+  background: var(--color-text-secondary);
+  border-radius: var(--radius-pill, 999px);
+  transition: width var(--ease-soft, 220ms) ease-out;
+}
+
+.topVotersBarFill[data-here="true"] {
+  background: var(--color-success);
+}
+
+.topVotersBarLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.topVotersWeight {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.topVotersFootnote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── iter-10: proposal dependency chain card ───────────────────────── */
+
+.dependencyCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md, 8px);
+}
+
+.dependencyRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  /* Depth-based indent — 12px per level so a 3-level chain reads as a
+   * proper nested tree without dragging the layout sideways. */
+  padding-left: calc(var(--dependency-depth, 0) * 12px);
+}
+
+.dependencyRow[data-depth="0"] {
+  --dependency-depth: 0;
+}
+
+.dependencyRow[data-depth="1"] {
+  --dependency-depth: 1;
+}
+
+.dependencyRow[data-depth="2"] {
+  --dependency-depth: 2;
+}
+
+.dependencyDepthRail {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.dependencyDepthRail[data-depth="0"] {
+  background: var(--color-success);
+  opacity: 0.85;
+}
+
+.dependencyAge {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.dependencyFootnote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── iter-10: new-proposal IPFS pinned-content preview ─────────────── */
+
+.ipfsPinPreview {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, var(--font-sans));
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
 /* ── Local token aliases (sourced from semantic tokens) ─────────────── */
 
 .scope {
