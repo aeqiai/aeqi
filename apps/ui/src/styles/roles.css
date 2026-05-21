@@ -1238,13 +1238,20 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   text-decoration: none;
+  /* Hover-in is delayed 80ms (see :hover rule); hover-out uses 0ms so the
+     chip falls back to rest immediately. Asymmetric delay swallows the
+     micro-flickers that fire when the cursor sweeps across a chip row
+     without resting on any single chip, while keeping the response
+     feeling instant on a deliberate hover. Mirrors the c11/c12 hover-
+     grace work on RoleNode + RoleInspector edge-hint, in CSS form. */
   transition:
-    background 0.12s ease,
-    color 0.12s ease,
-    opacity 0.12s ease;
+    background 0.12s ease 0ms,
+    color 0.12s ease 0ms,
+    opacity 0.12s ease 0ms;
 }
 .role-inspector-chip:hover {
   background: var(--color-card-subtle);
+  transition-delay: 80ms;
 }
 /* Implicit edge variant — the link is real (you can click through to
    the inferred role) but the data underneath is synthesised, not
@@ -1258,6 +1265,7 @@
 .role-inspector-chip--implicit:hover {
   background: var(--color-card-muted);
   color: var(--color-text-primary);
+  transition-delay: 80ms;
 }
 .role-inspector-edge-hint {
   display: inline-flex;
