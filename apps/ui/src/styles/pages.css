@@ -3426,8 +3426,15 @@
     outline-color 0.15s ease;
 }
 
+/* Empty scope slot reads as a "drop here" affordance — the dashed
+   border is doing the work of telegraphing that. Pre-fix sat at
+   25% mix on text-secondary which on `--bg-row` came in too quiet
+   to register as an obvious target. Lifting to 38% gives the border
+   real presence without crossing into ornament; the slab still
+   reads as part of the board chrome, not a louder modal-style
+   dropzone. */
 .quest-scope-slot[data-empty] {
-  border: 1.5px dashed color-mix(in oklch, var(--color-text-secondary) 25%, transparent);
+  border: 1.5px dashed color-mix(in oklch, var(--color-text-secondary) 38%, transparent);
 }
 
 .quest-scope-slot[data-drop-target] {
@@ -3742,10 +3749,6 @@
   transition:
     background 0.12s ease,
     color 0.12s ease;
-}
-.quest-col-collapse:hover {
-  background: var(--color-card-elevated);
-  color: var(--color-text-primary);
 }
 
 /* Per-column `+` — same ghost icon-button language as the list group's
