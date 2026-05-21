@@ -1157,6 +1157,20 @@
   cursor: pointer;
 }
 
+/* Test-trigger toggle in the detail toolbar. The button drives a panel
+   that appears directly below the toolbar; the pressed state borrows the
+   same vocabulary as the canvas terminal node's `is-open` ring (accent
+   outline + faint accent-tint ground) so the toolbar button + canvas
+   node speak one toggled-on language. Without this, the only signal that
+   the panel is open is the label swap to "Hide test" — the button itself
+   reads identical to its resting state and the affordance feels static.
+   `aria-pressed` on the TSX side carries the same semantics for AT users. */
+.events-detail-toggle-btn.is-on {
+  color: var(--color-accent);
+  background: var(--color-accent-bg, color-mix(in srgb, var(--color-accent) 8%, transparent));
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
 .events-detail-error {
   margin: 0 28px;
   padding: 8px 12px;

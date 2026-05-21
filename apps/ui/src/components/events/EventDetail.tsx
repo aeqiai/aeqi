@@ -170,6 +170,10 @@ export default function EventDetail({ event, agentId, onSave, onDelete }: EventD
               size="sm"
               onClick={() => setShowTrigger((v) => !v)}
               disabled={readOnly}
+              aria-pressed={showTrigger}
+              className={
+                showTrigger ? "events-detail-toggle-btn is-on" : "events-detail-toggle-btn"
+              }
             >
               {showTrigger ? "Hide test" : "Test"}
             </Button>
