@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import StartPage from "@/pages/StartPage";
 import { useAgents } from "@/queries/agents";
@@ -11,8 +11,8 @@ import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
-import type { InboxItem } from "@/lib/api";
-import type { ActivityEntry, Agent, Idea, Quest } from "@/lib/types";
+import { api, type InboxItem } from "@/lib/api";
+import type { ActivityEntry, Agent, Idea, Quest, Role } from "@/lib/types";
 import type { Trust } from "@/lib/types";
 
 vi.mock("@/queries/agents", () => ({
@@ -30,6 +30,17 @@ vi.mock("@/queries/ideas", () => ({
 vi.mock("@/queries/quests", () => ({
   useQuests: vi.fn(),
 }));
+
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api")>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      getRoles: vi.fn(),
+    },
+  };
+});
 
 const USER = {
   id: "user-1",
@@ -75,6 +86,22 @@ const ALPHA_AGENT: Agent = {
   name: "Janus",
   status: "running",
   trust_id: "alpha",
+};
+
+const ALPHA_ROLE: Role = {
+  id: "role-alpha-director",
+  trust_id: "alpha",
+  title: "Director",
+  occupant_kind: "human",
+  occupant_id: "user-1",
+  occupant_name: "Ada Founder",
+  occupant_avatar_url: null,
+  description_idea_id: null,
+  role_type: "director",
+  founder: true,
+  grants: [],
+  created_at: "2026-05-01T00:00:00Z",
+  updated_at: null,
 };
 
 const ALPHA_QUEST: Quest = {
@@ -145,6 +172,11 @@ function primeStartPage(trusts: Trust[], inboxItems: InboxItem[] = []) {
     data: trusts.length > 0 ? ALPHA_IDEAS : [],
   } as never);
   vi.mocked(useQuests).mockReturnValue(trusts.length > 0 ? [ALPHA_QUEST] : []);
+  vi.mocked(api.getRoles).mockResolvedValue(
+    trusts.length > 0
+      ? { ok: true, roles: [ALPHA_ROLE], edges: [] }
+      : { ok: true, roles: [], edges: [] },
+  );
   useDaemonStore.setState({ events: trusts.length > 0 ? [ALPHA_EVENT] : [] } as never);
   useAuthStore.setState({ user: USER } as never);
   useUIStore.setState({ activeEntity: trusts[0]?.id ?? "" } as never);
@@ -166,7 +198,7 @@ function interactiveNames(container: HTMLElement) {
 
 function expectNoVagueCtaLanguage(container: HTMLElement) {
   const vagueCtas = interactiveNames(container).filter((name) =>
-    /\b(step in|step into|explore|go|continue|manage)\b|^view( all)?$/i.test(name),
+    /\b(step in|step into|go|continue|manage)\b|^explore$|^view( all)?$/i.test(name),
   );
 
   expect(vagueCtas).toEqual([]);
@@ -212,7 +244,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/launch");
   });
 
-  it("shows the returning-user operating surface with active TRUST activity, inbox review, launch, and browse affordances", () => {
+  it("shows the returning-user operating surface with active TRUST activity, inbox review, launch, and browse affordances", async () => {
     primeStartPage([ALPHA_TRUST, BETA_TRUST], [AWAITING_INBOX_ITEM]);
 
     const { container } = renderStartPage();
@@ -222,15 +254,14 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
     expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
 
-    expect(
-      within(trustSection).getByRole("heading", { level: 2, name: "TRUST" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Alpha Trust" })).toBeInTheDocument();
-    expect(screen.getByText("Current role")).toBeInTheDocument();
-    expect(screen.getAllByText("Director").length).toBeGreaterThan(0);
+    expect(within(trustSection).getByText("Active TRUST")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Alpha Trust" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Director .* Ada Founder/i })).toBeInTheDocument(),
+    );
     expect(screen.getByText("Quests")).toBeInTheDocument();
     expect(screen.getByText("Ideas")).toBeInTheDocument();
-    expect(screen.getByText("Event triggers")).toBeInTheDocument();
+    expect(screen.getByText("Events")).toBeInTheDocument();
     expect(screen.getByText("Agents")).toBeInTheDocument();
     expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText("2")).toBeInTheDocument();
@@ -252,7 +283,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText(/Janus · Alpha Trust/i)).toBeInTheDocument();
     expect(screen.getByText("Economy")).toBeInTheDocument();
     expect(screen.getByText(/Unlock the agent economy/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /discover/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /explore economy/i })).toBeInTheDocument();
     expect(screen.getByText(/Why aeqi pivoted/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /read docs/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^show /i })).toHaveLength(8);

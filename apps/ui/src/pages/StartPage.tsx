@@ -1,26 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpen, Globe, Plus, Rocket, Settings, Users } from "lucide-react";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
 import { useVisibleIdeas } from "@/queries/ideas";
 import { useQuests } from "@/queries/quests";
+import RoleNode from "@/components/roles/RoleNode";
 import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
+import { api } from "@/lib/api";
+import { entityPath } from "@/lib/entityPath";
 import { timeShort } from "@/lib/format";
 import type { InboxItem } from "@/lib/api";
-import type { Quest, Trust } from "@/lib/types";
+import type { Role, Trust } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import { LEARN_POSTS } from "./startPageLearnPosts";
+import { latestActivityLabel, pickFeaturedRole } from "./startPageUtils";
+import "@/styles/roles.css";
 
 const INBOX_PREVIEW_LIMIT = 4;
-const CURRENT_ROLE = "Director";
 
 export default function StartPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const activeEntityId = useUIStore((s) => s.activeEntity);
   const entities = useEntities();
@@ -28,6 +33,8 @@ export default function StartPage() {
   const events = useDaemonStore((s) => s.events);
   const inboxItems = useInboxStore((s) => s.items);
   const fetchInbox = useInboxStore((s) => s.fetchInbox);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   useEffect(() => {
     fetchInbox().catch(() => {
@@ -49,6 +56,32 @@ export default function StartPage() {
   );
   const quests = useQuests(questParams);
   const { data: visibleIdeas = [] } = useVisibleIdeas(Boolean(activeTrust));
+
+  useEffect(() => {
+    if (!activeTrust) {
+      setRoles([]);
+      setRolesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRolesLoading(true);
+    api
+      .getRoles(activeTrust.id)
+      .then((resp) => {
+        if (!cancelled) setRoles(resp.roles ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRoles([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRolesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTrust]);
 
   const actorName = useMemo(
     () => user?.name?.trim() || user?.email?.split("@")[0] || "Operator",
@@ -94,6 +127,20 @@ export default function StartPage() {
     [currentAgents],
   );
 
+  const agentNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const agent of currentAgents) map.set(agent.id, agent.name);
+    return map;
+  }, [currentAgents]);
+
+  const agentAvatars = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const agent of currentAgents) {
+      if (agent.avatar) map.set(agent.id, agent.avatar);
+    }
+    return map;
+  }, [currentAgents]);
+
   const currentAgentNames = useMemo(
     () => new Set(currentAgents.map((agent) => agent.name)),
     [currentAgents],
@@ -118,6 +165,15 @@ export default function StartPage() {
   const latestActivity = useMemo(
     () => latestActivityLabel(activeTrust, activeInboxItems, currentQuests),
     [activeTrust, activeInboxItems, currentQuests],
+  );
+
+  const activeRole = useMemo(() => pickFeaturedRole(roles, user?.id), [roles, user?.id]);
+  const handleSelectRole = useCallback(
+    (role: Role) => {
+      if (!activeTrust) return;
+      navigate(entityPath(activeTrust, "roles", encodeURIComponent(role.id)));
+    },
+    [activeTrust, navigate],
   );
 
   const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
@@ -151,13 +207,16 @@ export default function StartPage() {
       <section className="home-row-trusts" aria-label="Operating context">
         <OperatingContextCard
           activeTrust={activeTrust}
-          activeRole={CURRENT_ROLE}
-          inboxCount={activeInboxItems.length}
+          activeRole={activeRole}
+          rolesLoading={rolesLoading}
           questCount={currentQuests.length}
           ideaCount={visibleIdeas.length}
           eventCount={recentEventCount}
           agentCount={runningAgents.length}
           latestActivity={latestActivity}
+          agentNames={agentNames}
+          agentAvatars={agentAvatars}
+          onSelectRole={handleSelectRole}
         />
         <LaunchTrustCard />
       </section>
@@ -180,24 +239,30 @@ export default function StartPage() {
 
 interface OperatingContextCardProps {
   activeTrust: Trust | null;
-  activeRole: string;
-  inboxCount: number;
+  activeRole: Role | null;
+  rolesLoading: boolean;
   questCount: number;
   ideaCount: number;
   eventCount: number;
   agentCount: number;
   latestActivity: string;
+  agentNames: ReadonlyMap<string, string>;
+  agentAvatars: ReadonlyMap<string, string>;
+  onSelectRole: (role: Role) => void;
 }
 
 function OperatingContextCard({
   activeTrust,
   activeRole,
-  inboxCount,
+  rolesLoading,
   questCount,
   ideaCount,
   eventCount,
   agentCount,
   latestActivity,
+  agentNames,
+  agentAvatars,
+  onSelectRole,
 }: OperatingContextCardProps) {
   if (!activeTrust) {
     return (
@@ -222,52 +287,70 @@ function OperatingContextCard({
     );
   }
 
-  const activityItems = [
-    { label: "Quests", value: questCount, hint: questCount === 1 ? "open" : "open" },
-    { label: "Ideas", value: ideaCount, hint: ideaCount === 1 ? "stored" : "stored" },
-    { label: "Event triggers", value: eventCount, hint: "last 24h" },
-    { label: "Agents", value: agentCount, hint: agentCount === 1 ? "running" : "running" },
-  ];
-
   return (
     <article className="home-card home-card--context">
       <section className="home-context-panel" aria-label="Current TRUST">
         <header className="home-context-head">
-          <h2 className="home-context-heading">TRUST</h2>
-          <span className="home-card-meta home-context-signal">
-            <span className="home-card-meta-dot home-card-meta-dot--idle" aria-hidden="true" />
-            {inboxCount > 0 ? `${inboxCount} in Inbox` : "Operating"}
-          </span>
-        </header>
-        <div className="home-context-main">
-          <span className="home-context-avatar" aria-hidden="true">
-            <TrustAvatar name={activeTrust.name} size={68} />
-          </span>
-          <div className="home-context-copy">
-            <h3 className="home-context-title">{activeTrust.name}</h3>
-            <div className="home-context-role-card" aria-label={`Current role ${activeRole}`}>
-              <span className="home-context-role-label">Current role</span>
-              <span className="home-context-role">{activeRole}</span>
+          <div className="home-context-identity">
+            <span className="home-context-avatar" aria-hidden="true">
+              <TrustAvatar name={activeTrust.name} size={52} />
+            </span>
+            <div className="home-context-copy">
+              <span className="home-context-kicker">Active TRUST</span>
+              <h2 className="home-context-title">{activeTrust.name}</h2>
             </div>
           </div>
-        </div>
-        <dl className="home-context-insights" aria-label="TRUST activity overview">
-          {activityItems.map((item) => (
-            <div key={item.label}>
-              <dt>{item.label}</dt>
-              <dd>
-                <span className="home-context-insight-value">{item.value}</span>
-                <span className="home-context-insight-hint">{item.hint}</span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <div className="home-context-footer">
-          <p className="home-context-line">Latest activity: {latestActivity}</p>
           <Link to="/trust" className="home-context-cta">
             Your TRUSTs
             <ArrowRight size={14} strokeWidth={1.8} />
           </Link>
+        </header>
+        <div className="home-context-representation" aria-label="Active TRUST role representation">
+          {activeRole ? (
+            <RoleNode
+              role={activeRole}
+              agentName={
+                activeRole.occupant_id ? agentNames.get(activeRole.occupant_id) : undefined
+              }
+              agentAvatar={
+                activeRole.occupant_id ? agentAvatars.get(activeRole.occupant_id) : undefined
+              }
+              onClick={() => onSelectRole(activeRole)}
+              className="home-context-role-node"
+            />
+          ) : (
+            <div className="home-context-role-empty">
+              <span className="home-context-role-empty-title">
+                {rolesLoading ? "Loading role" : "No active role"}
+              </span>
+              <span className="home-context-role-empty-copy">
+                {rolesLoading
+                  ? "Resolving this TRUST's current holder."
+                  : "Create a role to connect authority, agents, and operators."}
+              </span>
+            </div>
+          )}
+          <dl className="home-context-metrics" aria-label="TRUST activity overview">
+            <div>
+              <dt>Quests</dt>
+              <dd>{questCount}</dd>
+            </div>
+            <div>
+              <dt>Agents</dt>
+              <dd>{agentCount}</dd>
+            </div>
+            <div>
+              <dt>Events</dt>
+              <dd>{eventCount}</dd>
+            </div>
+            <div>
+              <dt>Ideas</dt>
+              <dd>{ideaCount}</dd>
+            </div>
+          </dl>
+        </div>
+        <div className="home-context-footer">
+          <p className="home-context-line">Latest activity: {latestActivity}</p>
         </div>
       </section>
     </article>
@@ -440,8 +523,10 @@ function EconomyCard() {
           </p>
         </div>
         <Link to="/economy" className="home-economy-cta">
-          Discover
-          <ArrowRight size={16} strokeWidth={1.8} />
+          <span className="home-step-btn-label">Explore Economy</span>
+          <span className="home-step-btn-icon">
+            <ArrowRight size={16} strokeWidth={1.8} />
+          </span>
         </Link>
       </div>
     </article>
@@ -540,23 +625,4 @@ function LearnAeqiSection() {
       </aside>
     </section>
   );
-}
-
-function latestActivityLabel(
-  activeTrust: Trust | null,
-  inboxItems: ReadonlyArray<InboxItem>,
-  quests: ReadonlyArray<Quest>,
-) {
-  const inboxTime = inboxItems
-    .map((item) => item.awaiting_at || item.last_active)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
-  const questTime = quests
-    .map((quest) => quest.updated_at || quest.created_at)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
-  const timestamp = inboxTime || questTime || activeTrust?.last_active;
-  return timestamp ? timeShort(timestamp) : "Ready";
 }
