@@ -479,7 +479,7 @@ export default function EconomyPage() {
               detail={
                 hasSearch ? (
                   <MetricStatus
-                    state="in_progress"
+                    state={visibleRoleOpenings.length > 0 ? "in_progress" : "backlog"}
                     label={`${visibleRoleOpenings.length} matching`}
                   />
                 ) : roleOpenings.length > 0 ? (
