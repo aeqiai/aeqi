@@ -3944,7 +3944,17 @@
    medium 500 + matched -0.005em tracking so the subject reads as a
    real header line, and tighten line-height 1.35 → 1.3 to match the
    denser column-header letterforms one slot above. Size stays 12.5px;
-   the card's two-line clamp budget is unchanged. */
+   the card's two-line clamp budget is unchanged.
+
+   `overflow-wrap: anywhere` defends against the edge case where the
+   subject is a long unbroken token — a URL, a slug-style idea name
+   (`feedback/some-long-thing`), or the `q.id` UUID fallback when an
+   idea isn't joined. Without it, a single ~30-char glyph run blows
+   past the column width and either spills into the meta row or, with
+   `overflow: hidden`, silently clips its tail without ever painting
+   the line-clamp ellipsis. `anywhere` lets the box break mid-token at
+   the column edge so the two-line clamp budget actually resolves
+   visually instead of disappearing into the cropping bounds. */
 .quest-card-subject {
   flex: 1;
   min-width: 0;
@@ -3955,6 +3965,7 @@
   color: var(--color-text-primary);
   font-weight: 500;
   overflow: hidden;
+  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
