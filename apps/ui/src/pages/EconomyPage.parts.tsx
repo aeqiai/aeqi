@@ -2,17 +2,81 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
-import { Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
-import { formatInteger } from "@/lib/i18n";
-import type { Trust } from "@/lib/types";
+import { Badge, Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
+import { formatInteger, formatMediumDate } from "@/lib/i18n";
+import type { Role, Trust } from "@/lib/types";
 import {
   compactAddress,
   POOL_KIND_CHIP_LABEL,
   POOL_KIND_LABEL,
   type PoolKind,
   type PoolKindFilter,
+  type TrustVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
+
+export interface RoleOpeningRow {
+  id: string;
+  trust: Trust;
+  role: Role;
+}
+
+/** Column factory for the open-roles table. Mirrors `makePoolColumns` so
+ * the EconomyPage shell stays under the file-length cap. */
+export function makeRoleColumns(
+  onApply: (row: RoleOpeningRow) => void,
+): Array<TableColumn<RoleOpeningRow>> {
+  return [
+    {
+      key: "role",
+      header: "Role",
+      cell: (row) => (
+        <span className={styles.trustCellText}>
+          <span className={styles.trustName}>{row.role.title}</span>
+          <span className={styles.trustMeta}>{row.trust.name}</span>
+        </span>
+      ),
+      sortable: true,
+      sortAccessor: (row) => row.role.title,
+    },
+    {
+      key: "kind",
+      header: "Type",
+      cell: (row) => (
+        <Badge variant="muted" size="sm">
+          {row.role.role_type}
+        </Badge>
+      ),
+      width: "130px",
+    },
+    {
+      key: "created",
+      header: "Opened",
+      cell: (row) => formatMediumDate(row.role.created_at, { fallback: "Unknown" }),
+      width: "140px",
+      sortable: true,
+      sortAccessor: (row) => row.role.created_at,
+    },
+    {
+      key: "action",
+      header: "",
+      cell: (row) => (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onApply(row);
+          }}
+        >
+          Apply
+        </Button>
+      ),
+      width: "96px",
+      align: "end",
+    },
+  ];
+}
 
 export interface PoolRow {
   id: string;
@@ -98,9 +162,48 @@ export function makePoolColumns(onOpen: (row: PoolRow) => void): Array<TableColu
   ];
 }
 
-/** Chrome-tier segmented chip group for the pools toolbar — `All / Genesis
- * / AMM`. Renders only the kinds present in the indexed pool set so the
- * strip stays a no-op when one kind dominates (today: just Genesis). */
+/** Chrome-tier segmented chip group used by tab-scoped toolbar filters
+ * (pool kind, trust visibility, …). One JSX chip literal kept here so
+ * adding scoped filters doesn't grow the raw-button design-system
+ * baseline. Resting trough uses `--color-card-subtle` (chrome inset);
+ * active chip lifts to `--color-card-elevated` + graphite accent ring.
+ * Raw element required for radiogroup semantics; Button primitive
+ * doesn't expose role/aria-checked. */
+function FilterChips<T extends string>({
+  ariaLabel,
+  options,
+  value,
+  onChange,
+}: {
+  ariaLabel: string;
+  options: Array<{ id: T; label: string }>;
+  value: T;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <div className={styles.kindChips} role="radiogroup" aria-label={ariaLabel}>
+      {options.map((option) => {
+        const active = value === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            className={`${styles.kindChip}${active ? ` ${styles.kindChipActive}` : ""}`}
+            onClick={() => onChange(option.id)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Pools toolbar — `All / Genesis / AMM`. Renders only the kinds present
+ * in the indexed pool set so the strip stays a no-op when one kind
+ * dominates (today: just Genesis). */
 export function PoolKindChips({
   kinds,
   value,
@@ -110,26 +213,30 @@ export function PoolKindChips({
   value: PoolKindFilter;
   onChange: (next: PoolKindFilter) => void;
 }) {
-  const options: PoolKindFilter[] = ["all", ...kinds];
+  const options = (["all", ...kinds] as PoolKindFilter[]).map((id) => ({
+    id,
+    label: id === "all" ? "All" : POOL_KIND_CHIP_LABEL[id],
+  }));
+  return <FilterChips ariaLabel="Pool kind" options={options} value={value} onChange={onChange} />;
+}
+
+/** Trusts toolbar — `All / Public only`. Maps directly to the Public
+ * TableStatus column. Render only when at least one non-public trust
+ * exists, so the strip stays a no-op when every visible trust is
+ * already public. */
+export function TrustVisibilityChips({
+  value,
+  onChange,
+}: {
+  value: TrustVisibilityFilter;
+  onChange: (next: TrustVisibilityFilter) => void;
+}) {
+  const options: Array<{ id: TrustVisibilityFilter; label: string }> = [
+    { id: "all", label: "All" },
+    { id: "public", label: "Public only" },
+  ];
   return (
-    <div className={styles.kindChips} role="radiogroup" aria-label="Pool kind">
-      {options.map((kind) => {
-        const active = value === kind;
-        const label = kind === "all" ? "All" : POOL_KIND_CHIP_LABEL[kind];
-        return (
-          <button
-            key={kind}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            className={`${styles.kindChip}${active ? ` ${styles.kindChipActive}` : ""}`}
-            onClick={() => onChange(kind)}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </div>
+    <FilterChips ariaLabel="Trust visibility" options={options} value={value} onChange={onChange} />
   );
 }
 

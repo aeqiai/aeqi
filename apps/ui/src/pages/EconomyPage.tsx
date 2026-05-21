@@ -4,7 +4,6 @@ import { BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-re
 import TrustAvatar from "@/components/TrustAvatar";
 import PageRail from "@/components/PageRail";
 import {
-  Badge,
   Button,
   EmptyState,
   Input,
@@ -24,23 +23,28 @@ import type { Role, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
 import {
   makePoolColumns,
+  makeRoleColumns,
   MetricStatus,
   PoolKindChips,
   type PoolRow,
   RegistryCard,
+  type RoleOpeningRow,
   TableStatus,
   TrustDirectory,
+  TrustVisibilityChips,
 } from "./EconomyPage.parts";
 import {
   compactAddress,
   ECONOMY_TABS,
   isEconomyTab,
   isPoolKind,
+  isTrustVisibilityParam,
   matchesPoolQuery,
   matchesRoleQuery,
   matchesTrustQuery,
   type PoolKind,
   type PoolKindFilter,
+  type TrustVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
 
@@ -54,12 +58,6 @@ interface RoleLoadState {
 interface LaunchLoadState {
   status: LaunchStatus | null;
   loading: boolean;
-}
-
-interface RoleOpeningRow {
-  id: string;
-  trust: Trust;
-  role: Role;
 }
 
 export default function EconomyPage() {
@@ -92,6 +90,24 @@ export default function EconomyPage() {
       const params = new URLSearchParams(searchParams);
       if (next === "all") params.delete("kind");
       else params.set("kind", next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Trusts-tab visibility chip round-trips through `?public=1` so the
+  // scoped slice is bookmarkable. Maps directly to the Public TableStatus
+  // column. Missing/invalid param = "all".
+  const trustVisibilityFilter: TrustVisibilityFilter = isTrustVisibilityParam(
+    searchParams.get("public"),
+  )
+    ? "public"
+    : "all";
+  const setTrustVisibilityFilter = useCallback(
+    (next: TrustVisibilityFilter) => {
+      const params = new URLSearchParams(searchParams);
+      if (next === "all") params.delete("public");
+      else params.set("public", "1");
       setSearchParams(params, { replace: true });
     },
     [searchParams, setSearchParams],
@@ -168,6 +184,16 @@ export default function EconomyPage() {
     () => entities.filter((entity) => matchesTrustQuery(entity, normalizedSearch)),
     [entities, normalizedSearch],
   );
+  // The visibility chip is a trusts-tab-scoped narrow on top of the search.
+  // Overview cards and the search summary keep the search-only count so the
+  // chip never silently filters surfaces it isn't visible on.
+  const visibleTrustsForTab = useMemo(
+    () =>
+      trustVisibilityFilter === "public"
+        ? visibleTrusts.filter((trust) => trust.public)
+        : visibleTrusts,
+    [visibleTrusts, trustVisibilityFilter],
+  );
 
   const allRoles = useMemo(
     () => Object.values(roleState).flatMap((state) => state.roles),
@@ -228,6 +254,7 @@ export default function EconomyPage() {
 
   const publicTrusts = entities.filter((entity) => entity.public);
   const onChainTrusts = entities.filter((entity) => entity.trust_address);
+  const hasNonPublicTrust = entities.some((entity) => !entity.public);
   const hasSearch = normalizedSearch.length > 0;
   const loadingSecondaryData =
     Object.values(roleState).some((state) => state.loading) ||
@@ -298,56 +325,10 @@ export default function EconomyPage() {
   );
 
   const roleColumns = useMemo<Array<TableColumn<RoleOpeningRow>>>(
-    () => [
-      {
-        key: "role",
-        header: "Role",
-        cell: (row) => (
-          <span className={styles.trustCellText}>
-            <span className={styles.trustName}>{row.role.title}</span>
-            <span className={styles.trustMeta}>{row.trust.name}</span>
-          </span>
-        ),
-        sortable: true,
-        sortAccessor: (row) => row.role.title,
-      },
-      {
-        key: "kind",
-        header: "Type",
-        cell: (row) => (
-          <Badge variant="muted" size="sm">
-            {row.role.role_type}
-          </Badge>
-        ),
-        width: "130px",
-      },
-      {
-        key: "created",
-        header: "Opened",
-        cell: (row) => formatMediumDate(row.role.created_at, { fallback: "Unknown" }),
-        width: "140px",
-        sortable: true,
-        sortAccessor: (row) => row.role.created_at,
-      },
-      {
-        key: "action",
-        header: "",
-        cell: (row) => (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`${entityBasePath(row.trust)}/roles/${encodeURIComponent(row.role.id)}`);
-            }}
-          >
-            Apply
-          </Button>
-        ),
-        width: "96px",
-        align: "end",
-      },
-    ],
+    () =>
+      makeRoleColumns((row) =>
+        navigate(`${entityBasePath(row.trust)}/roles/${encodeURIComponent(row.role.id)}`),
+      ),
     [navigate],
   );
 
@@ -395,6 +376,12 @@ export default function EconomyPage() {
                 kinds={poolKindsPresent}
                 value={poolKindFilter}
                 onChange={setPoolKindFilter}
+              />
+            )}
+            {activeTab === "trusts" && hasNonPublicTrust && (
+              <TrustVisibilityChips
+                value={trustVisibilityFilter}
+                onChange={setTrustVisibilityFilter}
               />
             )}
             {hasSearch && (
@@ -506,7 +493,7 @@ export default function EconomyPage() {
               >
                 <Table
                   columns={trustColumns}
-                  data={visibleTrusts}
+                  data={visibleTrustsForTab}
                   rowKey={(trust) => trust.id}
                   onRowClick={(trust) => navigate(entityBasePath(trust))}
                   loading={entitiesLoading}
@@ -515,8 +502,14 @@ export default function EconomyPage() {
                   ariaLabel="Trust registry"
                   empty={
                     <EmptyState
-                      title="No trusts found"
-                      description="Create or publish a trust and it will appear here."
+                      title={
+                        trustVisibilityFilter === "public" ? "No public trusts" : "No trusts found"
+                      }
+                      description={
+                        trustVisibilityFilter === "public"
+                          ? "Publish a trust profile to surface it here."
+                          : "Create or publish a trust and it will appear here."
+                      }
                     />
                   }
                 />

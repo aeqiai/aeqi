@@ -18,6 +18,15 @@ export const POOL_KIND_CHIP_LABEL: Record<PoolKind, string> = {
 
 export type PoolKindFilter = "all" | PoolKind;
 
+/** Trusts-tab scoped visibility filter. `?public=1` scopes the trust table
+ * to published profiles only — the same axis the Public column exposes
+ * (c4 TableStatus). Missing/invalid param = "all". */
+export type TrustVisibilityFilter = "all" | "public";
+
+export function isTrustVisibilityParam(value: string | null | undefined): value is "public" {
+  return value === "1" || value === "public";
+}
+
 export interface EconomyPoolSearchRow {
   trust: Trust;
   curve: string;
