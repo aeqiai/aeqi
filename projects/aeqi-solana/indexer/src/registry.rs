@@ -37,13 +37,22 @@ const EVENTS: &[(&str, &str, &[&str])] = &[
             "TrustFinalized",
             "TrustPauseChanged",
             "ModuleRegistered",
+            "ModuleImplementationPublished",
+            "ModuleImplementationActiveChanged",
+            "ModuleImplementationAdopted",
             "ModuleAclSet",
         ],
     ),
     (
         "aeqi_factory",
         "3qRT5qTuv4wkqbLfZQUVcf94QRyG3JdCAbFZsiBNpgEv",
-        &["CompanyCreated", "CompanySpawned", "TemplateRegistered", "TemplateInstantiated"],
+        &[
+            "CompanyCreated",
+            "CompanySpawned",
+            "CompanyFullySpawned",
+            "TemplateRegistered",
+            "TemplateInstantiated",
+        ],
     ),
     (
         "aeqi_role",
@@ -60,7 +69,13 @@ const EVENTS: &[(&str, &str, &[&str])] = &[
     (
         "aeqi_governance",
         "5WHpPFf2mPYNFjr5p3ujeRcZNPoqWMBMkYnsWb2YtyNq",
-        &["ConfigRegistered", "ProposalCreated", "VoteCast", "ProposalExecuted"],
+        &[
+            "ConfigRegistered",
+            "ProposalCreated",
+            "VoteCast",
+            "ProposalExecuted",
+            "SnapshotRootCommitted",
+        ],
     ),
     (
         "aeqi_token",
@@ -75,7 +90,7 @@ const EVENTS: &[(&str, &str, &[&str])] = &[
     (
         "aeqi_vesting",
         "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y",
-        &["PositionCreated", "Claimed"],
+        &["PositionCreated", "Claimed", "FdvMilestoneHit", "ContributionPaid"],
     ),
     (
         "aeqi_budget",
@@ -188,6 +203,8 @@ pub fn assert_matches_manifest(manifest: &Manifest) -> anyhow::Result<()> {
 mod tests {
     use super::*;
     use crate::manifest::ProgramEntry;
+    use serde::Deserialize;
+    use std::collections::BTreeSet;
 
     fn manifest_from_registry() -> Manifest {
         Manifest {
@@ -208,7 +225,93 @@ mod tests {
     fn registry_covers_all_emitted_events() {
         let declared_events = EVENTS.iter().map(|(_, _, events)| events.len()).sum::<usize>();
         assert_eq!(event_count(), declared_events);
-        assert_eq!(event_count(), 54);
+        assert_eq!(event_count(), 61);
+    }
+
+    #[derive(Deserialize)]
+    struct IdlEvent {
+        name: String,
+    }
+
+    #[derive(Deserialize)]
+    struct Idl {
+        events: Option<Vec<IdlEvent>>,
+    }
+
+    fn idl_event_names(idl: &str) -> BTreeSet<String> {
+        serde_json::from_str::<Idl>(idl)
+            .expect("generated IDL parses")
+            .events
+            .unwrap_or_default()
+            .into_iter()
+            .map(|event| event.name)
+            .collect()
+    }
+
+    #[test]
+    fn registry_events_match_generated_idls() {
+        let generated_idls = [
+            (
+                "aeqi_budget",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_budget.json"),
+            ),
+            (
+                "aeqi_factory",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_factory.json"),
+            ),
+            (
+                "aeqi_fund",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_fund.json"),
+            ),
+            (
+                "aeqi_funding",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_funding.json"),
+            ),
+            (
+                "aeqi_governance",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_governance.json"),
+            ),
+            (
+                "aeqi_role",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_role.json"),
+            ),
+            (
+                "aeqi_token",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_token.json"),
+            ),
+            (
+                "aeqi_treasury",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_treasury.json"),
+            ),
+            (
+                "aeqi_trust",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_trust.json"),
+            ),
+            (
+                "aeqi_unifutures",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_unifutures.json"),
+            ),
+            (
+                "aeqi_vesting",
+                include_str!("../../../../apps/ui/src/solana/generated/idl/aeqi_vesting.json"),
+            ),
+        ];
+
+        let registry_events = EVENTS
+            .iter()
+            .map(|(program, _, events)| {
+                (*program, events.iter().map(|event| (*event).to_string()).collect::<BTreeSet<_>>())
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        for (program, idl) in generated_idls {
+            let registry = registry_events.get(program).expect("program exists in registry");
+            let generated = idl_event_names(idl);
+            assert_eq!(
+                registry, &generated,
+                "{program} registry events drifted from generated IDL"
+            );
+        }
     }
 
     #[test]
