@@ -8716,8 +8716,13 @@ button.home-card:focus-visible {
   color: var(--color-text-muted);
 }
 .home-card--quiet .home-all-empty {
-  background: transparent;
-  color: var(--color-text-muted);
+  /* Drop the placeholder Users circle entirely while quiet, mirroring
+     the Inbox head puck (c14). Transparent bg alone left the 20px
+     Users glyph painting at muted ink inside a 36px slab — a circular
+     decorative puck competing with StepIntoTrustCard for the row's
+     gravity. Removing the slot lets the eyebrow + title + hint stack
+     anchor the satellite cleanly until a second TRUST exists. */
+  display: none;
 }
 
 /* Economy preview — minimal, no fake feature tags. Just the lede +
