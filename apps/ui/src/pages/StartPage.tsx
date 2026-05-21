@@ -512,9 +512,19 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
           <ArrowRight size={14} strokeWidth={1.8} />
         </button>
       </header>
+      {/* c12: the two-TRUST seam.
+          "Switch context" read as jargon-fog the moment a second TRUST
+          appeared — the row's vocabulary is the Step-family ("Step in",
+          "Step into a TRUST", "to step into") and "context" jumped to
+          a different register. "Step elsewhere" keeps the verb the row
+          is already speaking, and closes on a word the reader has to
+          unpack (where?) instead of a literal noun. The avatar grid
+          below is the answer, so the curiosity gets paid off in the
+          same card. Empty-state copy stays literal — first-touch isn't
+          the moment to be playful. */}
       <div className="home-all-body">
         <h3 className="home-all-title">
-          {others.length === 0 ? "No other TRUSTs" : "Switch context"}
+          {others.length === 0 ? "No other TRUSTs" : "Step elsewhere"}
         </h3>
         <p className="home-all-hint">
           {others.length === 0
