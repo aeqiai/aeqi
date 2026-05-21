@@ -569,6 +569,26 @@
   border-bottom-right-radius: var(--radius-sm);
 }
 
+/* Agents-table column-header typography parity with `.quest-col-label`.
+   The shared Notion-minimal Table primitive paints thead labels as tiny
+   uppercase muted text — quiet so the data dominates. On the Agents page
+   the column-header band sits on a `--bg-row` slab matched to the Quest
+   kanban column-header register; lifting the labels into the same
+   sentence-case 13.5px / 620-weight / primary-color vocabulary the
+   Quests page uses anchors the slab so it reads as a confident section
+   label instead of muted noise floating on a tinted shelf. Vertical
+   padding tightens because the labels now carry weight on their own;
+   tracking pulls in slightly to match the Quest header optics. */
+.agents-list table thead th {
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--color-text-primary);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
  * Header + snapshot + content row with inspector. The toolbar above
  * the content uses the shared `.ideas-list-head` grammar so the page
