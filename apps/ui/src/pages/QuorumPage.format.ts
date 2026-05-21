@@ -90,6 +90,21 @@ export function bpsLabel(bps: number): string {
 }
 
 /**
+ * Render a pre-computed percentage (already in 0-100 space, not bps) with
+ * a fixed digit count, routed through `@/lib/i18n` so the decimal
+ * separator follows the active locale (e.g. comma in de-DE) instead of
+ * the hard-coded "." that `.toFixed()` emits. Pair-mate to `bpsLabel`
+ * for the tally surfaces where the percentage is derived from BigInt
+ * vote math rather than a stored basis-point config field.
+ */
+export function pctLabel(value: number, fractionDigits: number = 0): string {
+  return `${formatNumber(value, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}%`;
+}
+
+/**
  * Format an Anchor BN-typed i64 second count as a human duration.
  * Accepts a BN; toString() yields the decimal representation safely.
  */

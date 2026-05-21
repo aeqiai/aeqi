@@ -19,7 +19,7 @@ import type {
 import { Badge, Button, Inline, Modal, PageSection, Stack, Tooltip } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
 import styles from "./QuorumPage.module.css";
-import { bytesToHex, countdownLabel, roleTypeLabel, shortHex } from "./QuorumPage.format";
+import { bytesToHex, countdownLabel, pctLabel, roleTypeLabel, shortHex } from "./QuorumPage.format";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Cell components                                                     */
@@ -150,7 +150,7 @@ export function TallyBars({ proposal }: { proposal: ProposalAccount }) {
     <Stack gap="1">
       <div
         role="img"
-        aria-label={`For ${forPct.toFixed(1)}%, Against ${againstPct.toFixed(1)}%, Abstain ${abstainPct.toFixed(1)}%`}
+        aria-label={`For ${pctLabel(forPct, 1)}, Against ${pctLabel(againstPct, 1)}, Abstain ${pctLabel(abstainPct, 1)}`}
         style={{
           display: "flex",
           width: "min(200px, 100%)",
@@ -171,8 +171,7 @@ export function TallyBars({ proposal }: { proposal: ProposalAccount }) {
           fontVariantNumeric: "tabular-nums",
         }}
       >
-        {forPct.toFixed(0)}% for · {againstPct.toFixed(0)}% against · {abstainPct.toFixed(0)}%
-        abstain
+        {pctLabel(forPct)} for · {pctLabel(againstPct)} against · {pctLabel(abstainPct)} abstain
       </span>
     </Stack>
   );
@@ -348,18 +347,18 @@ export function TallyDetail({
             <div className={styles.tallyTrack} style={trackStyle} aria-hidden="true">
               <div className={styles.tallyFill} data-key={row.key} />
               {row.key === "for" && quorumPct !== null ? (
-                <Tooltip content={`Quorum threshold · ${quorumPct.toFixed(2)}% participation`}>
+                <Tooltip content={`Quorum threshold · ${pctLabel(quorumPct, 2)} participation`}>
                   <span className={styles.tallyMarker} data-kind="quorum" aria-hidden="true" />
                 </Tooltip>
               ) : null}
               {row.key === "for" && supportPct !== null ? (
-                <Tooltip content={`Support threshold · ${supportPct.toFixed(2)}% for-votes`}>
+                <Tooltip content={`Support threshold · ${pctLabel(supportPct, 2)} for-votes`}>
                   <span className={styles.tallyMarker} data-kind="support" aria-hidden="true" />
                 </Tooltip>
               ) : null}
             </div>
             <span className={styles.tallyCount}>
-              {formatInteger(Number(row.count))} · {pct.toFixed(1)}%
+              {formatInteger(Number(row.count))} · {pctLabel(pct, 1)}
             </span>
           </RowFragment>
         );
@@ -368,11 +367,11 @@ export function TallyDetail({
         <div className={styles.tallyLegend} aria-hidden="true">
           <span className={styles.tallyLegendItem}>
             <span className={styles.tallyLegendSwatch} data-kind="quorum" />
-            quorum {quorumPct?.toFixed(0)}%
+            quorum {quorumPct !== null ? pctLabel(quorumPct) : null}
           </span>
           <span className={styles.tallyLegendItem}>
             <span className={styles.tallyLegendSwatch} data-kind="support" />
-            support {supportPct?.toFixed(0)}%
+            support {supportPct !== null ? pctLabel(supportPct) : null}
           </span>
         </div>
       ) : null}
