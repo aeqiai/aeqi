@@ -734,6 +734,51 @@
   letter-spacing: 0;
   text-transform: none;
 }
+.events-overview-group-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.events-overview-group-status-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.events-overview-group-status-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.events-overview-group-status-label {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+}
+.events-overview-group-status-item--armed {
+  color: var(--color-info);
+  background: var(--color-info-bg);
+}
+.events-overview-group-status-item--fired,
+.events-overview-group-status-item--trace-complete {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+.events-overview-group-status-item--dormant {
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+}
+.events-overview-group-status-item--trace-pending {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
 
 /* ── Add-event form — guided transport picker ──────────────────────── */
 .events-addform {

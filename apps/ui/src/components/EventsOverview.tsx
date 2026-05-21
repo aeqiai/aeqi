@@ -80,6 +80,13 @@ function cooldownSummary(event: AgentEvent): string {
  */
 type EventPhase = "armed" | "fired" | "dormant";
 type EventTraceTone = "trace-complete" | "trace-pending" | "trace-empty";
+type GroupStatusTone = EventPhase | "trace-complete" | "trace-pending";
+
+interface GroupStatusItem {
+  label: string;
+  value: number;
+  tone: GroupStatusTone;
+}
 
 function eventPhase(ev: AgentEvent): EventPhase {
   if (!ev.enabled) return "dormant";
@@ -94,6 +101,33 @@ function fireStateSummary(phase: EventPhase): string {
 function traceTone(event: AgentEvent): EventTraceTone {
   if (event.last_fired) return "trace-complete";
   return event.fire_count > 0 ? "trace-pending" : "trace-empty";
+}
+
+function groupStatus(events: AgentEvent[]): GroupStatusItem[] {
+  const counts = {
+    armed: 0,
+    fired: 0,
+    dormant: 0,
+    traceComplete: 0,
+    tracePending: 0,
+  };
+
+  for (const ev of events) {
+    const phase = eventPhase(ev);
+    counts[phase] += 1;
+    if (ev.last_fired) counts.traceComplete += 1;
+    else if (ev.fire_count > 0) counts.tracePending += 1;
+  }
+
+  const items: GroupStatusItem[] = [
+    { label: "Armed", value: counts.armed, tone: "armed" },
+    { label: "Fired", value: counts.fired, tone: "fired" },
+    { label: "Dormant", value: counts.dormant, tone: "dormant" },
+    { label: "Traced", value: counts.traceComplete, tone: "trace-complete" },
+    { label: "Pending", value: counts.tracePending, tone: "trace-pending" },
+  ];
+
+  return items.filter((item) => item.value > 0);
 }
 
 export default function EventsOverview({ events, onSelect, onNew }: EventsOverviewProps) {
@@ -142,6 +176,22 @@ export default function EventsOverview({ events, onSelect, onNew }: EventsOvervi
             <span className="events-overview-group-label">{LIFECYCLE_LABEL[group]}</span>
             <span className="events-overview-group-count">{list.length}</span>
             <span className="events-overview-group-hint">{LIFECYCLE_HINT[group]}</span>
+            <span
+              className="events-overview-group-status"
+              aria-label={`${LIFECYCLE_LABEL[group]} status`}
+            >
+              {groupStatus(list).map((item) => (
+                <span
+                  key={`${item.tone}-${item.label}`}
+                  className={`events-overview-group-status-item events-overview-group-status-item--${item.tone}`}
+                >
+                  <span className="events-overview-group-status-value">
+                    {formatInteger(item.value)}
+                  </span>
+                  <span className="events-overview-group-status-label">{item.label}</span>
+                </span>
+              ))}
+            </span>
             <span className="events-overview-group-rule" />
           </header>
           <ul className="events-overview-list" role="list">
@@ -217,7 +267,10 @@ function OverviewRow({
             tools.map((tc, i) => (
               <span key={i}>
                 <ConnectorTiny />
-                <span className="events-overview-chip is-tool">{toolScope(tc)}</span>
+                <span className="events-overview-chip is-tool">
+                  <span className="events-overview-chip-step">{formatInteger(i + 1)}</span>
+                  <span>{toolScope(tc)}</span>
+                </span>
               </span>
             ))
           )}
