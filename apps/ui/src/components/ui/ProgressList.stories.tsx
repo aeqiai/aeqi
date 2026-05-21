@@ -27,11 +27,10 @@ export const Running: Story = {
 export const Complete: Story = {
   args: {
     steps: [
-      { key: "creating", label: "Creating the TRUST", status: "done" },
-      { key: "signing", label: "Signing on Solana", status: "done" },
-      { key: "roles", label: "Loading roles", status: "done" },
-      { key: "agent", label: "Spawning agent", status: "done" },
-      { key: "workspace", label: "Preparing workspace", status: "done" },
+      { key: "creating", label: "Creating TRUST", status: "done" },
+      { key: "signing", label: "Registering on Solana", status: "done" },
+      { key: "roles", label: "Activating roles", status: "done" },
+      { key: "runtime", label: "Starting runtime", status: "done" },
     ],
   },
 };
@@ -39,11 +38,10 @@ export const Complete: Story = {
 export const Failed: Story = {
   args: {
     steps: [
-      { key: "creating", label: "Creating the TRUST", status: "done" },
-      { key: "signing", label: "Signing on Solana", status: "done" },
-      { key: "roles", label: "Loading roles", status: "error" },
-      { key: "agent", label: "Spawning agent", status: "pending" },
-      { key: "workspace", label: "Preparing workspace", status: "pending" },
+      { key: "creating", label: "Creating TRUST", status: "done" },
+      { key: "signing", label: "Registering on Solana", status: "done" },
+      { key: "roles", label: "Activating roles", status: "error" },
+      { key: "runtime", label: "Starting runtime", status: "pending" },
     ],
   },
 };

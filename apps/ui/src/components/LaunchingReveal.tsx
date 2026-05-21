@@ -11,15 +11,14 @@ const SOLANA_CLUSTER =
   (import.meta.env.VITE_SOLANA_CLUSTER as string | undefined) ?? "localnet-solana";
 
 const STEPS = [
-  { key: "creating_trust", label: "Creating the TRUST" },
-  { key: "signing_on_solana", label: "Signing on Solana" },
-  { key: "loading_roles", label: "Loading roles" },
-  { key: "spawning_agent", label: "Spawning agent" },
-  { key: "preparing_workspace", label: "Preparing workspace" },
+  { key: "creating_trust", label: "Creating TRUST" },
+  { key: "signing_on_solana", label: "Registering on Solana" },
+  { key: "loading_roles", label: "Activating roles" },
+  { key: "spawning_agent", label: "Starting runtime" },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
-type MilestoneKey = Exclude<StepKey, "preparing_workspace">;
+type MilestoneKey = StepKey;
 
 type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
 
@@ -89,7 +88,6 @@ export function LaunchingReveal({
   const isReady = ["ready", "complete"].includes(status?.placement_status ?? "");
   const hasError = Boolean(trustError || runtimeError);
   const reachedSteps = STEPS.map((step) => {
-    if (step.key === "preparing_workspace") return isReady;
     const milestone = milestones?.[step.key as MilestoneKey];
     return isReady || (milestone?.reached ?? false);
   });
@@ -147,8 +145,8 @@ export function LaunchingReveal({
       </h1>
       <p className="auth-subheading">
         {isReady
-          ? "The TRUST exists. Open it when you are ready."
-          : "Payment confirmed. aeqi is creating the TRUST, signing ownership, and preparing the workspace."}
+          ? "The TRUST exists. Enter it when you are ready."
+          : "Payment confirmed. aeqi is creating the TRUST, registering it on Solana, and starting its runtime."}
       </p>
 
       <ProgressList steps={progressSteps} className="launching-reveal__steps" />
@@ -156,7 +154,7 @@ export function LaunchingReveal({
       {isReady && trustAddress && (
         <div className="launching-reveal__complete">
           <Link className="launching-reveal__cta" to={`/trust/${encodeURIComponent(trustAddress)}`}>
-            Open Trust
+            Enter Trust
           </Link>
         </div>
       )}
@@ -176,7 +174,7 @@ export function LaunchingReveal({
           className="launching-reveal__secondary"
           to={`/trust/${encodeURIComponent(trustAddress)}`}
         >
-          Open Trust
+          Enter Trust
         </Link>
       )}
       {!trustError && !runtimeError && pollError && !status && (
