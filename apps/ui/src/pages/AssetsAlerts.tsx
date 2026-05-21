@@ -37,15 +37,143 @@
  *     AEQI-issued mints with no price contribute nothing to either
  *     numerator or denominator.
  */
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 
 import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from "@/solana/assets";
 import { formatCurrency, formatInteger, formatNumber } from "@/lib/i18n";
-import { Banner, Stack } from "@/components/ui";
+import { Banner, IconButton, Stack } from "@/components/ui";
 
 import { isStableSymbol, rawToFloat, type TokenMetaMap } from "./AssetsSections";
 import styles from "./AssetsPage.module.css";
+
+/** Iter-11: dismissal window. After dismissing an alert, we silence
+ *  it for this many ms unless the underlying signal hash changes
+ *  (e.g., the over-allocation amount shifts, the blocked-vesting
+ *  count moves). 24 hours matches what the operator expects from
+ *  "snooze for a day" without forcing us to add an explicit picker. */
+const DISMISS_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** localStorage key under which we stash per-alert dismissals.
+ *  Keyed by alert kind + TRUST address (when available); the
+ *  module scope is the Assets page so we don't shadow other pages'
+ *  alert systems. */
+const STORAGE_KEY = "aeqi:assets:alert-dismissals:v1";
+
+interface DismissalRecord {
+  /** Signal hash at dismissal time — if it changes the alert
+   *  re-surfaces immediately regardless of the 24h window. */
+  signal: string;
+  /** ms-since-epoch when the alert was dismissed. */
+  at: number;
+}
+
+/** Read the dismissal record for a given alert kind. Cheap enough
+ *  to run on every render; localStorage is sync and the dataset is
+ *  three keys max. */
+function readDismissal(kind: string): DismissalRecord | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, DismissalRecord>;
+    return parsed[kind] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDismissal(kind: string, signal: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, DismissalRecord>) : {};
+    parsed[kind] = { signal, at: Date.now() };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+  } catch {
+    // localStorage may throw on private-mode browsers; failing the
+    // dismissal silently is the right behaviour — operator just
+    // sees the alert again next render, which is the safe default.
+  }
+}
+
+/** Hook: returns whether the alert (identified by kind + current
+ *  signal) is currently dismissed. Also exposes a `dismiss()` that
+ *  writes through to localStorage. Re-runs whenever the signal
+ *  changes — a moved signal blows past any existing dismissal. */
+function useAlertDismissal(
+  kind: string,
+  signal: string | null,
+): { dismissed: boolean; dismiss: () => void } {
+  const [tick, setTick] = useState(0);
+  const dismissed = useMemo(() => {
+    if (!signal) return false;
+    const record = readDismissal(kind);
+    if (!record) return false;
+    if (record.signal !== signal) return false;
+    if (Date.now() - record.at > DISMISS_WINDOW_MS) return false;
+    return true;
+    // `tick` deliberately included so a `dismiss()` call triggers a
+    // recompute on the next render without a stale closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, signal, tick]);
+
+  const dismiss = useCallback(() => {
+    if (!signal) return;
+    writeDismissal(kind, signal);
+    setTick((t) => t + 1);
+  }, [kind, signal]);
+
+  // When the signal changes (the underlying TRUST state moved), we
+  // want to re-evaluate immediately. The useMemo above already does
+  // that via the dependency list; this effect is just defensive
+  // logging-equivalent (no log, no work) to make the dependency
+  // explicit at the hook boundary.
+  useEffect(() => {
+    // intentionally empty — the memo dependency on `signal` is what
+    // drives re-evaluation; the effect just documents the intent.
+  }, [signal]);
+
+  return { dismissed, dismiss };
+}
+
+/** Dismissible Banner wrapper — surface an X in the banner row that
+ *  records a dismissal and removes the banner from the DOM. The
+ *  underlying Banner primitive doesn't accept a dismiss action, so
+ *  we layer one on via a positioned IconButton. */
+function DismissibleBanner({
+  kind,
+  signal,
+  storageKey,
+  children,
+}: {
+  kind: "warning" | "info";
+  signal: string;
+  /** Stable identifier per alert kind — distinguishes
+   *  over-allocation from vesting-blocked from flow-drop in the
+   *  same localStorage namespace. */
+  storageKey: string;
+  children: React.ReactNode;
+}) {
+  const { dismissed, dismiss } = useAlertDismissal(storageKey, signal);
+  if (dismissed) return null;
+  return (
+    <div className={styles.treasuryAlertRow}>
+      <Banner kind={kind}>{children}</Banner>
+      <IconButton
+        size="sm"
+        variant="ghost"
+        onClick={dismiss}
+        aria-label="Dismiss for 24h"
+        title="Dismiss for 24 hours (or until the underlying signal changes)"
+        className={styles.treasuryAlertDismiss}
+      >
+        <X size={14} strokeWidth={1.8} aria-hidden />
+      </IconButton>
+    </div>
+  );
+}
 
 /** USDC base-unit scale used elsewhere on the Assets surface. Budgets
  *  are denominated in USDC by convention, so the same divisor lets us
@@ -163,36 +291,56 @@ export function TreasuryAlertsBanner({
     };
   }, [decodedActivity, metas, nowSecs, treasuryUsd]);
 
+  // Iter-11: signal hashes — when an alert's underlying numbers
+  // move, the hash flips and any prior dismissal becomes stale. We
+  // round to the integer / 1% boundary so a sub-cent jitter doesn't
+  // resurface a freshly-dismissed alert.
+  const overAllocSignal = overAllocation
+    ? `oa:${Math.round(overAllocation.promised)}-${Math.round(overAllocation.treasuryUsd)}-${overAllocation.activeCount}`
+    : null;
+  const vestingBlockedSignal = vestingBlocked ? `vb:${vestingBlocked.count}` : null;
+  const flowDropSignal = flowDrop
+    ? `fd:${Math.round(flowDrop.pct)}-${Math.round(flowDrop.outflowUsd)}-${Math.round(flowDrop.inflowUsd)}`
+    : null;
+
   if (!overAllocation && !vestingBlocked && !flowDrop) return null;
 
   return (
     <div className={styles.treasuryAlerts}>
       <Stack gap="2">
-        {overAllocation && (
-          <Banner kind="warning">
+        {overAllocation && overAllocSignal && (
+          <DismissibleBanner
+            kind="warning"
+            storageKey="over-allocation"
+            signal={overAllocSignal}
+          >
             Active budgets promise{" "}
             {formatCurrency(overAllocation.promised, "USD", { maximumFractionDigits: 2 })} across{" "}
             {formatInteger(overAllocation.activeCount)} role
             {overAllocation.activeCount === 1 ? "" : "s"} — priced treasury covers{" "}
             {formatNumber(overAllocation.coveragePct, { maximumFractionDigits: 1 })}% of the
             outstanding allocation.
-          </Banner>
+          </DismissibleBanner>
         )}
-        {vestingBlocked && (
-          <Banner kind="warning">
+        {vestingBlocked && vestingBlockedSignal && (
+          <DismissibleBanner
+            kind="warning"
+            storageKey="vesting-blocked"
+            signal={vestingBlockedSignal}
+          >
             {formatInteger(vestingBlocked.count)} vesting position
             {vestingBlocked.count === 1 ? " is" : "s are"} blocked on a missing contribution gate —
             recipients can&apos;t claim until the contribution lands on the position.
-          </Banner>
+          </DismissibleBanner>
         )}
-        {flowDrop && (
-          <Banner kind="warning">
+        {flowDrop && flowDropSignal && (
+          <DismissibleBanner kind="warning" storageKey="flow-drop" signal={flowDropSignal}>
             Priced treasury is down {formatNumber(flowDrop.pct, { maximumFractionDigits: 1 })}% in
             the last 24h —{" "}
             {formatCurrency(flowDrop.outflowUsd, "USD", { maximumFractionDigits: 2 })} out,{" "}
             {formatCurrency(flowDrop.inflowUsd, "USD", { maximumFractionDigits: 2 })} in across
             decoded stablecoin flows.
-          </Banner>
+          </DismissibleBanner>
         )}
       </Stack>
     </div>

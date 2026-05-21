@@ -989,11 +989,26 @@
 
 /* Iter-8: treasury-level alerts stack above the overview tile. Each
    alert is its own Banner; the wrapper just spaces them. Hidden
-   entirely when no alert fires. */
+   entirely when no alert fires.
+   Iter-11: each alert row now hosts a dismiss control alongside
+   the banner — the row wraps both so the X button sits flush with
+   the right edge of the banner. */
 .treasuryAlerts {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.treasuryAlertRow {
+  position: relative;
+  display: block;
+}
+
+.treasuryAlertDismiss {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-2);
+  z-index: 1;
 }
 
 /* Iter-8: per-row VaultActivity expansion panel. Mirrors the
