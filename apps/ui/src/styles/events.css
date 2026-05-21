@@ -609,8 +609,10 @@
 .events-overview-row-meta-label {
   flex-shrink: 0;
   font-family: var(--font-sans);
-  font-size: var(--font-size-micro);
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--color-text-muted);
 }
 .events-overview-row-meta-value {
