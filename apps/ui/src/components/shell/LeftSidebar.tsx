@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Globe,
+  Blocks,
 } from "lucide-react";
 import ActingAsSelector from "@/components/shell/ActingAsSelector";
 import AccountDropdown from "@/components/shell/AccountDropdown";
@@ -69,6 +70,7 @@ const RolesIcon = () => <Workflow />;
 // marketplace + inference + stake activity is happening *out there*
 // across every trust, not in your local store.
 const EconomyIcon = () => <Globe />;
+const BlueprintsIcon = () => <Blocks />;
 
 // Admin — Lucide's Shield is the same silhouette as the prior hand-rolled.
 const SearchIcon = () => <Search />;
@@ -140,6 +142,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
   // Top-level public rows.
   const isEconomy = path === "/economy" || path.startsWith("/economy/");
+  const isBlueprints = path === "/blueprints" || path.startsWith("/blueprints/");
   const isInbox = path === "/inbox" || path.startsWith("/inbox/");
   const isStart = path === "/" || path === "/start" || path.startsWith("/start/");
 
@@ -271,27 +274,18 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Start row — standalone, sits above the Global group. The
-            user's anchor home — clicking returns to the welcome /
-            arrival surface from anywhere in the shell. ── */}
+        {/* ── Home rail — top-level discovery surfaces stay directly under
+            Home, with search owned by the home row rather than Inbox. ── */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="Start">
-          {topLevelItem("/", "Home", <HomeIcon />, isStart)}
-        </nav>
-
-        {/* ── Cross-trust destinations. No group label — Inbox + Economy
-            speak for themselves at the top of the rail, and dropping
-            the eyebrow gives the IDENTITY label downstream more weight
-            (it becomes the first group label the eye lands on, marking
-            the sacredness of the identity zone). ── */}
-        <nav className="sidebar-surface-nav sidebar-zone" aria-label="Cross-trust">
-          {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox, {
+          {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
+          {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
         {/* ── Trust group — folds the identity selector (the operating-
-            context ID badge) and the trust-scoped tabs (Overview, Roles)
+            context ID badge) and the trust-scoped tabs (Overview, Inbox, Roles)
             into one coherent block. Viewing the current trust and the
             role you hold in it are the SAME concern — splitting them
             into "Identity" + "Trust" groups was redundant. The selector
@@ -317,6 +311,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Overview</span>
                 </a>
               </div>
+              {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox)}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the
                   Trust IS rather than what it owns or what it does. */}
