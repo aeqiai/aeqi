@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, Globe, Inbox as InboxIcon, Plus, Settings } from "lucide-react";
+import { ArrowRight, BookOpen, Globe, Plus, Settings } from "lucide-react";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
 import { useQuests } from "@/queries/quests";
-import BlockAvatar from "@/components/BlockAvatar";
 import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
 import { entityPath } from "@/lib/entityPath";
@@ -362,19 +361,19 @@ function InboxPreviewCard({
 }: InboxPreviewCardProps) {
   return (
     <article className="home-card home-card--inbox">
-      <header className="home-card-head">
-        <span className="home-card-icon">
-          <InboxIcon size={16} strokeWidth={1.5} />
+      <header className="home-inbox-head">
+        <span className="home-inbox-title-block">
+          <span className="home-card-eyebrow">Human attention</span>
+          <span className="home-card-title">Inbox</span>
         </span>
-        <span className="home-card-title">Inbox</span>
-        <span className="home-card-meta">
+        <span className="home-card-meta home-inbox-signal">
           <span
             className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
             aria-hidden="true"
           />
           {inboxLabel}
         </span>
-        <Link to="/inbox" className="home-card-link">
+        <Link to="/inbox" className="home-inbox-cta">
           {inboxItems.length > 0 ? "Review Inbox" : "Open Inbox"}
           <ArrowRight size={14} strokeWidth={1.8} />
         </Link>
@@ -392,13 +391,16 @@ function InboxPreviewCard({
         </ul>
       ) : (
         <div className="home-inbox-empty">
-          <span className="home-inbox-empty-icon" aria-hidden="true">
-            <InboxIcon size={28} strokeWidth={1.4} />
+          <span
+            className={`home-inbox-empty-rail home-inbox-empty-rail--${inboxPillState}`}
+            aria-hidden="true"
+          />
+          <span className="home-inbox-empty-copy">
+            <p className="home-inbox-empty-title">Inbox clear</p>
+            <p className="home-inbox-empty-hint">
+              No reviews, approvals, failed events, or agent handoffs need attention.
+            </p>
           </span>
-          <p className="home-inbox-empty-title">Inbox clear</p>
-          <p className="home-inbox-empty-hint">
-            No reviews, approvals, failed events, or agent handoffs need attention.
-          </p>
         </div>
       )}
     </article>
@@ -442,9 +444,6 @@ function InboxPreviewRow({
           aria-label={statusLabel}
           title={statusLabel}
         />
-        <span className="home-inbox-avatar" aria-hidden="true">
-          <BlockAvatar name={from} size={28} />
-        </span>
         <span className="home-inbox-body">
           <span className="home-inbox-row">
             <span className="home-inbox-from">Inbox item · {statusLabel}</span>
@@ -468,20 +467,20 @@ function EconomyCard() {
           className="home-economy-image"
           aria-hidden="true"
         />
-        <header className="home-economy-hero-head">
-          <span className="home-economy-icon" aria-hidden="true">
-            <Globe size={18} strokeWidth={1.5} />
+      </div>
+      <div className="home-economy-content">
+        <header className="home-economy-head">
+          <span className="home-economy-label">
+            <Globe size={18} strokeWidth={1.5} aria-hidden="true" />
+            <span className="home-card-title">Explore Economy</span>
           </span>
-          <span className="home-card-title">Economy</span>
           <Link to="/economy" className="home-economy-cta">
-            Open Economy
+            Discover
             <ArrowRight size={16} strokeWidth={1.8} />
           </Link>
         </header>
-      </div>
-      <div className="home-economy-content">
         <div className="home-economy-body">
-          <p className="home-economy-lede">Discover the network around programmable companies.</p>
+          <p className="home-economy-lede">Unlock the agent economy.</p>
           <p className="home-economy-aside">
             TRUST listings, open roles, blueprints, and funding opportunities live here.
           </p>
@@ -557,15 +556,11 @@ function LearnAeqiSection() {
             target="_blank"
             rel="noreferrer"
           >
-            <span className="home-learn-docs-icon" aria-hidden="true">
-              <BookOpen size={18} strokeWidth={1.7} />
+            <span className="home-learn-docs-kicker">
+              <BookOpen size={15} strokeWidth={1.7} aria-hidden="true" />
+              Docs
             </span>
-            <span className="home-learn-docs-copy">
-              <span className="home-learn-docs-title">Read docs</span>
-              <span className="home-learn-docs-hint">
-                TRUSTs, agents, quests, and launch basics.
-              </span>
-            </span>
+            <span className="home-learn-docs-title">Read docs</span>
             <ArrowRight size={15} strokeWidth={1.8} />
           </a>
         </div>

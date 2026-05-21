@@ -8521,49 +8521,46 @@ button.home-card:focus-visible {
   min-height: 360px;
 }
 
-/* Inbox preview — richer rows: avatar + (from + time) + subject + last
-   message snippet. Click on the row link bypasses the card-level
-   navigate (stopPropagation in the component) so the user lands on the
-   specific session, not the inbox list. */
+/* Inbox preview — operational queue rows. A slim status rail and clear
+   subject hierarchy carry the state without circular icon pucks. */
 .home-inbox-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
 }
 .home-inbox-item {
   margin: 0;
 }
 .home-inbox-link {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 12px;
-  margin: 0 -12px;
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 11px;
+  padding: 11px 12px;
   border-radius: var(--radius-md, 10px);
+  background: var(--bg-row);
   color: inherit;
   text-decoration: none;
-  transition: background 0.12s ease;
+  transition:
+    background 0.12s ease,
+    transform 0.12s ease;
 }
 .home-inbox-link:hover {
-  background: var(--bg-row);
+  background: var(--color-card);
+  transform: translateY(-1px);
 }
-/* Inbox status dot — mirrors `.quest-status-dot` grammar (7px / 999px /
-   token colors) so the four primitives share one status vocabulary on
-   the home rail. Awaiting rows take `in_review` (amber); every other
-   live row takes `in_progress` (indigo). Aligned to the avatar's
-   vertical center via top margin so the dot reads as a leading mark on
-   the row, not a satellite floating mid-air. */
+/* Inbox status rail — same token colors as quest status, expressed as a
+   column marker so the row feels like a work queue rather than a feed. */
 .home-inbox-status {
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
+  width: 3px;
+  min-height: 100%;
+  border-radius: 3px;
   flex-shrink: 0;
-  margin-top: 13px;
   background: var(--color-text-muted);
 }
 .home-inbox-status--in_progress {
@@ -8572,20 +8569,10 @@ button.home-card:focus-visible {
 .home-inbox-status--in_review {
   background: var(--state-review);
 }
-.home-inbox-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
 .home-inbox-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
@@ -8623,30 +8610,37 @@ button.home-card:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Inbox empty state — centered illustration with quiet icon, a
-   confident headline ("Inbox is clear."), and a secondary hint. The
-   icon acts as the editorial anchor since there's no real content to
-   render; sits in a soft circle to read as a deliberate element. */
+/* Inbox empty state — a calm operating-state panel, not an illustration. */
 .home-inbox-empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
-  padding: 24px 0;
-  text-align: center;
-}
-.home-inbox-empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
+  padding: 18px;
+  border-radius: var(--radius-md, 10px);
   background: var(--bg-row);
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
+  text-align: left;
+}
+.home-inbox-empty-rail {
+  align-self: stretch;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--color-text-muted);
+  opacity: 0.45;
+}
+.home-inbox-empty-rail--progress {
+  background: var(--state-progress);
+  opacity: 1;
+}
+.home-inbox-empty-rail--review {
+  background: var(--state-review);
+  opacity: 1;
+}
+.home-inbox-empty-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
 }
 .home-inbox-empty-title {
   margin: 0;
@@ -9151,7 +9145,65 @@ button.home-card:focus-visible {
 
 .home-card--inbox,
 .home-card--economy {
-  min-height: 390px;
+  min-height: 360px;
+}
+
+.home-card--inbox {
+  gap: 18px;
+  padding: 22px;
+}
+
+.home-inbox-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title cta"
+    "signal cta";
+  align-items: center;
+  gap: 7px 14px;
+}
+
+.home-inbox-title-block {
+  grid-area: title;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.home-inbox-signal {
+  grid-area: signal;
+  justify-self: start;
+}
+
+.home-inbox-cta {
+  grid-area: cta;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+
+.home-inbox-cta:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.home-inbox-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
 }
 
 .home-inbox-empty-title {
@@ -9166,67 +9218,63 @@ button.home-card:focus-visible {
 
 .home-economy-media {
   position: relative;
-  min-height: 176px;
+  min-height: 150px;
   overflow: hidden;
 }
 
 .home-economy-image {
   display: block;
   width: 100%;
-  height: 176px;
+  height: 150px;
   object-fit: cover;
   object-position: center;
   filter: saturate(0.78) contrast(1.03);
-}
-
-.home-economy-hero-head {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 18px 20px;
-  background: var(--color-text-primary);
-  color: var(--btn-primary-text);
-}
-
-.home-economy-hero-head > * {
-  position: relative;
-  z-index: 1;
 }
 
 .home-economy-content {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 24px 28px 28px;
+  gap: 18px;
+  padding: 20px 22px 22px;
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
 }
 
-.home-economy-icon {
+.home-economy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-economy-label {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 9px;
+  min-width: 0;
   color: var(--btn-primary-text);
-  flex-shrink: 0;
+}
+
+.home-card--economy .home-card-title {
+  color: var(--btn-primary-text);
 }
 
 .home-economy-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: auto;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .home-economy-lede {
   margin: 0;
   max-width: 520px;
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 27px;
   font-weight: 400;
   line-height: 1.1;
-  color: var(--color-text-primary);
+  color: var(--btn-primary-text);
   letter-spacing: 0;
 }
 
@@ -9235,7 +9283,8 @@ button.home-card:focus-visible {
   max-width: 520px;
   font-size: var(--font-size-sm);
   line-height: 1.55;
-  color: var(--color-text-secondary);
+  color: var(--btn-primary-text);
+  opacity: 0.68;
 }
 
 .home-economy-cta {
@@ -9277,8 +9326,8 @@ button.home-card:focus-visible {
 }
 
 .home-card--learn {
-  gap: 14px;
-  padding: 20px;
+  gap: 12px;
+  padding: 18px;
 }
 
 .home-learn-head {
@@ -9307,7 +9356,7 @@ button.home-card:focus-visible {
 
 .home-learn-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 176px;
+  grid-template-columns: minmax(0, 1fr) 154px;
   gap: 12px;
   align-items: stretch;
 }
@@ -9359,12 +9408,12 @@ button.home-card:focus-visible {
 .home-learn-carousel-copy {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   flex: 1;
   min-width: 0;
   min-height: 192px;
-  padding: 18px 18px;
+  padding: 18px 20px 16px;
   animation: home-learn-fade 0.28s ease both;
 }
 
@@ -9372,6 +9421,7 @@ button.home-card:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
   color: inherit;
   text-decoration: none;
 }
@@ -9412,7 +9462,7 @@ button.home-card:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: auto;
 }
 
 .home-learn-dot {
@@ -9455,12 +9505,12 @@ button.home-card:focus-visible {
 .home-learn-docs-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 10px;
   min-height: 192px;
-  padding: 16px;
+  padding: 15px;
   border-radius: var(--radius-md, 10px);
-  background: var(--bg-row);
-  color: var(--color-text-primary);
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
   text-decoration: none;
   transition:
     background 0.12s ease,
@@ -9469,39 +9519,30 @@ button.home-card:focus-visible {
 }
 
 .home-learn-docs-card:hover {
-  background: var(--color-card);
+  background: var(--color-text-primary);
   filter: brightness(1.01);
   transform: translateY(-2px);
 }
 
-.home-learn-docs-icon {
+.home-learn-docs-kicker {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: var(--color-card-elevated);
-  color: var(--color-text-primary);
-}
-
-.home-learn-docs-copy {
-  display: flex;
-  flex-direction: column;
   gap: 6px;
-  align-self: center;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--btn-primary-text);
+  opacity: 0.72;
 }
 
 .home-learn-docs-title {
-  font-size: var(--font-size-sm);
+  align-self: center;
+  max-width: 88px;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.home-learn-docs-hint {
-  font-size: var(--font-size-xs);
-  line-height: 1.35;
-  color: var(--color-text-secondary);
+  line-height: 1.1;
+  color: var(--btn-primary-text);
 }
 
 .home-learn-docs-card > svg {

@@ -212,9 +212,9 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
     expect(screen.getByText(/Inbox item · Awaiting you/i)).toBeInTheDocument();
     expect(screen.getByText(/Janus · Alpha Trust/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Discover the network around programmable companies/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Explore Economy/i)).toBeInTheDocument();
+    expect(screen.getByText(/Unlock the agent economy/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /discover/i })).toBeInTheDocument();
     expect(screen.getByText(/Why aeqi pivoted/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /read docs/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^show /i })).toHaveLength(8);
