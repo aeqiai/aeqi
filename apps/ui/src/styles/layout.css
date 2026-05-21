@@ -8476,9 +8476,10 @@ button.home-card:focus-visible {
   background: var(--state-review);
 }
 /* Eyebrow rolls up the tiles' activity into one signal at the card head.
-   When any tile has activity, the "All" label gets a leading dot in the
+   When any tile has activity, the eyebrow renders a single dot in the
    highest state (review wins over progress), so a scan of the card head
-   alone tells you whether stepping in is worthwhile. */
+   alone tells you whether stepping in is worthwhile. c18 dropped the
+   literal "All" label — the dot is the whole signal now. */
 .home-all-eyebrow {
   display: inline-flex;
   align-items: center;

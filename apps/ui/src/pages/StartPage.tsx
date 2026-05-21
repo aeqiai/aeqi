@@ -509,14 +509,22 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
           returns to carry both eyebrow and View all. */}
       {!isQuiet && (
         <header className="home-card-head">
-          <span className="home-card-eyebrow home-all-eyebrow">
+          {/* c18: drop the literal "All" string. The eyebrow's only job in
+              the populated state is to carry the activity-dot — the row's
+              left column is already labelled "Personal", and "View all"
+              on the right already names the surface this card represents.
+              The word "All" was a third pointer at the same idea; dropping
+              it lets the dot+title+link triad read tighter. When no tile
+              has activity, the eyebrow renders as an empty container with
+              no painted children — invisible but layout-stable thanks to
+              `margin-left: auto` on `.home-card-link`. Screen-reader
+              anchor isn't lost: the title `<h3>` ("Step elsewhere" /
+              "No other TRUSTs") and the "View all" button both carry
+              the card's meaning without "All" repeating it. */}
+          <span className="home-card-eyebrow home-all-eyebrow" aria-hidden="true">
             {eyebrowState && (
-              <span
-                className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`}
-                aria-hidden="true"
-              />
+              <span className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`} />
             )}
-            All
           </span>
           <button type="button" className="home-card-link" onClick={onViewAll}>
             View all
