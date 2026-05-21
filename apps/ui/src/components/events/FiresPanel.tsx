@@ -224,8 +224,12 @@ export default function FiresPanel({
                 >
                   <StatusDot status={r.status} />
                   <span className="events-fires-row-status">{displayKind(r.status)}</span>
-                  <span className="events-fires-row-when">{relativeWhen(r.started_at)}</span>
-                  <span className="events-fires-row-caller">{displayKind(r.caller_kind)}</span>
+                  <span className="events-fires-row-when" title={r.started_at}>
+                    {relativeWhen(r.started_at)}
+                  </span>
+                  <span className="events-fires-row-caller" title={r.caller_kind}>
+                    {displayKind(r.caller_kind)}
+                  </span>
                   <span className="events-fires-row-session">
                     <span className="events-fires-row-session-label">session</span>
                     <code>{r.session_id.slice(0, 8)}</code>

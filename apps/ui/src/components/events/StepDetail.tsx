@@ -110,9 +110,15 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
       </div>
       {inv && (
         <div className="events-step-detail-sub">
-          <span className="events-step-detail-pattern">{inv.pattern}</span>
-          {inv.event_name && <span className="events-step-detail-event">{inv.event_name}</span>}
-          <span className="events-step-detail-session">
+          <span className="events-step-detail-pattern" title={inv.pattern}>
+            {inv.pattern}
+          </span>
+          {inv.event_name && (
+            <span className="events-step-detail-event" title={inv.event_name}>
+              {inv.event_name}
+            </span>
+          )}
+          <span className="events-step-detail-session" title={inv.session_id}>
             session <code>{inv.session_id.slice(0, 8)}</code>
           </span>
         </div>
@@ -165,7 +171,9 @@ export default function StepDetail({ invocationId, onClose }: StepDetailProps) {
           <div key={step.id} className="events-step-row">
             <div className="events-step-row-head">
               <StatusDot status={step.status} />
-              <code className="events-step-row-tool">{step.tool_name}</code>
+              <code className="events-step-row-tool" title={step.tool_name}>
+                {step.tool_name}
+              </code>
               <span className="events-step-row-dur">
                 {durationMs(step.started_at, step.finished_at)}
               </span>

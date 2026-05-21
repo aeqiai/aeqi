@@ -174,13 +174,24 @@
   gap: 3px;
   min-width: 0;
 }
+/* Node body fields clamp to at most two lines so a long tool name or
+   verbose pattern never stretches a canvas pill into a column. Title
+   stays a one-liner (mid-word breaks read worse than ellipsis when the
+   value is a `scope.action` identifier); the mono row gets two lines
+   for cron + payload patterns that legitimately spill. `title` attrs
+   on the TSX side surface the full value on hover. */
 .event-canvas-node-title {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   color: var(--color-text-primary);
   letter-spacing: -0.005em;
-  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .event-canvas-node-empty {
   font-weight: 400;
@@ -192,13 +203,25 @@
   font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.4;
-  word-break: break-all;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: normal;
 }
 .event-canvas-node-meta {
   font-family: var(--font-sans);
   font-size: 10px;
   color: var(--color-text-muted);
   letter-spacing: 0.01em;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .event-canvas-tool-scope {
   color: var(--color-text-primary);
@@ -1221,6 +1244,7 @@
   color: var(--color-text-primary);
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 }
 .events-fires-row-when {
   color: var(--color-text-muted);
@@ -1228,11 +1252,19 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
   min-width: 90px;
+  white-space: nowrap;
 }
+/* Caller kind is free-form text — long values would push the trailing
+   session / call-count / duration off the row. Cap and ellipsize so the
+   trailing metadata stays anchored. */
 .events-fires-row-caller {
   color: var(--color-text-secondary);
   font-size: 11px;
   min-width: 64px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .events-fires-row-session {
   display: inline-flex;
@@ -1351,11 +1383,19 @@
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--color-text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .events-step-detail-event {
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--color-text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .events-step-detail-session {
   font-family: var(--font-sans);
@@ -1428,16 +1468,26 @@
   align-items: center;
   gap: 6px;
   margin-bottom: 4px;
+  min-width: 0;
 }
+/* Tool name is free-form (e.g. `slack.send_thread_reply_with_attachments`).
+   Cap it so duration stays anchored to the right edge of the step row. */
 .events-step-row-tool {
   font-family: var(--font-mono);
   color: var(--color-text-primary);
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .events-step-row-dur {
   margin-left: auto;
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-size: 11px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .events-step-row-pre {
   margin: 2px 0 4px;

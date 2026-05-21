@@ -289,6 +289,7 @@ function TriggerNode({
           aria-expanded={open}
           aria-controls={id}
           disabled={readOnly}
+          title={pattern || "no pattern"}
         >
           <span className="event-canvas-node-label">trigger</span>
           <span className="event-canvas-node-body">
@@ -396,6 +397,7 @@ function ToolNode({
           aria-expanded={open}
           aria-controls={id}
           disabled={readOnly}
+          title={tc.tool ? `${tc.tool}${preview ? ` · ${preview}` : ""}` : "unset tool"}
         >
           <span className="event-canvas-node-label">step {index + 1}</span>
           <span className="event-canvas-node-body">
