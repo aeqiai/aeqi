@@ -137,7 +137,7 @@ export function LaunchingReveal({
       pitch={{
         eyebrow: "LAUNCH A TRUST",
         lines: ["Programmable", "company", "vehicle."],
-        lead: "A TRUST aligns stakeholders inside one programmable company, so ownership and operations move toward the same outcome: creating value.",
+        lead: "A TRUST aligns stakeholders, ownership, and operations inside one programmable company — so everyone moves toward the same outcome: creating value.",
       }}
     >
       <h1 className="auth-heading">

@@ -63,6 +63,11 @@ function defaultTrustName(
   return `${base}'s TRUST`;
 }
 
+function unavailableNameHint(name: string): string {
+  const base = name.trim() || "Janus";
+  return `Already taken. Try ${base} Labs, ${base} One, or ${base} Trust.`;
+}
+
 export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchEntry } = {}) {
   const navigate = useNavigate();
   const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
@@ -86,7 +91,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [provisioning, setProvisioning] = useState(false);
   const [trustName, setTrustName] = useState("");
   const [trustNameTouched, setTrustNameTouched] = useState(false);
-  const [operations, setOperations] = useState<OperationsChoice>("free");
+  const [operations, setOperations] = useState<OperationsChoice>("paid");
   const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
   const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
 
@@ -173,16 +178,16 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       case "error":
         return nameCheck.message;
       case "taken":
-        return undefined;
+        return unavailableNameHint(trustName);
       case "idle":
       default:
         return "Choose a name for this TRUST.";
     }
-  }, [nameCheck]);
+  }, [nameCheck, trustName]);
 
   const nameError = useMemo(() => {
-    if (nameCheck.status === "taken" || nameCheck.status === "error") {
-      return nameCheck.status === "taken" ? "Already taken." : nameCheck.message;
+    if (nameCheck.status === "error") {
+      return nameCheck.message;
     }
     return undefined;
   }, [nameCheck]);

@@ -11,7 +11,7 @@ export interface LaunchPitchContent {
 const DEFAULT_PITCH: LaunchPitchContent = {
   eyebrow: "LAUNCH A TRUST",
   lines: ["Programmable", "company", "vehicle."],
-  lead: "A TRUST aligns stakeholders inside one programmable company, so ownership and operations move toward the same outcome: creating value.",
+  lead: "A TRUST aligns stakeholders, ownership, and operations inside one programmable company — so everyone moves toward the same outcome: creating value.",
 };
 
 function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) {

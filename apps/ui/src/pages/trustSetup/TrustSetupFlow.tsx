@@ -1,3 +1,4 @@
+import { ArrowRight, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Banner, Button, EmptyState, Input, Loading } from "@/components/ui";
 import { countBlueprintStructures } from "@/lib/blueprintStructures";
@@ -67,32 +68,29 @@ function blueprintStats(blueprint: Blueprint): string {
 }
 
 function NameSection({
-  blueprint,
   trustName,
   nameHint,
   nameError,
   onTrustNameChange,
-}: Pick<
-  TrustSetupFlowProps,
-  "blueprint" | "trustName" | "nameHint" | "nameError" | "onTrustNameChange"
->) {
+}: Pick<TrustSetupFlowProps, "trustName" | "nameHint" | "nameError" | "onTrustNameChange">) {
   return (
     <section className="launch-form-step launch-form-step--name" aria-labelledby="launch-title">
       <div className="launch-form-step-body">
         <div className="launch-form-step-head">
           <h1 id="launch-title" className="auth-heading">
-            Register TRUST name.
+            Launch your TRUST.
           </h1>
         </div>
 
         <Input
           aria-label="TRUST name"
           autoFocus
+          label="TRUST name"
           hint={nameHint}
           error={nameError}
           value={trustName}
           onChange={(e) => onTrustNameChange(e.target.value)}
-          placeholder={`${blueprint.name} TRUST`}
+          placeholder="Janus"
           size="lg"
         />
       </div>
@@ -118,7 +116,7 @@ function BlueprintSection({
           </div>
           <span className="launch-blueprint-summary-name">{blueprint.name}</span>
           <span className="launch-blueprint-summary-copy">
-            {blueprint.tagline || blueprint.description || "A starting structure for this TRUST."}
+            Start with your first agent, ownership structure, and operating layer.
           </span>
           <span className="launch-blueprint-summary-meta">{blueprintStats(blueprint)}</span>
         </div>
@@ -139,26 +137,24 @@ function OperationsSection({
     key: string;
     title: string;
     price: string;
+    secondaryPrice?: string;
     copy: string;
-    resources: string;
     selected: boolean;
     onSelect: () => void;
   }> = [
     {
       key: "none",
-      title: "No operations",
+      title: "Ownership only",
       price: "Free",
-      copy: "Ownership only. Add operations later.",
-      resources: "No hosted runtime",
+      copy: "Launch without hosted runtime.",
       selected: operations === "free",
       onSelect: () => onOperationsChange("free"),
     },
     {
       key: "starter",
-      title: "Start up",
+      title: "Operating",
       price: `${standardPlan.dueToday}/mo`,
-      copy: "Standard runtime for a focused operating TRUST.",
-      resources: `${standardPlan.resources.tokens} tokens, ${standardPlan.resources.cpu}, ${standardPlan.resources.ram} RAM`,
+      copy: "Standard runtime for agents and workflows.",
       selected: operations === "paid" && plan === "starter",
       onSelect: () => {
         onPlanChange("starter");
@@ -167,10 +163,10 @@ function OperationsSection({
     },
     {
       key: "growth",
-      title: "Scale up",
+      title: "Accelerated",
       price: `${proPlan.dueToday} today`,
-      copy: `Pro runtime. Then ${proPlan.price}${proPlan.cadence}.`,
-      resources: `${proPlan.resources.tokens} tokens, ${proPlan.resources.cpu}, ${proPlan.resources.ram} RAM`,
+      secondaryPrice: `then ${proPlan.price}${proPlan.cadence}`,
+      copy: "More capacity for serious execution.",
       selected: operations === "paid" && plan === "growth",
       onSelect: () => {
         onPlanChange("growth");
@@ -186,9 +182,7 @@ function OperationsSection({
           <h2 id="launch-operations-title" className="launch-section-title">
             Operations
           </h2>
-          <p className="launch-section-copy">
-            Optional runtime for agents, quests, events, and memory.
-          </p>
+          <p className="launch-section-copy">Choose how this TRUST should run.</p>
         </div>
 
         <div className="launch-operations-grid" role="radiogroup" aria-label="Operations">
@@ -206,9 +200,19 @@ function OperationsSection({
                   <span className="launch-operation-title">{choice.title}</span>
                   <span className="launch-operation-copy">{choice.copy}</span>
                 </span>
-                <span className="launch-operation-resources">{choice.resources}</span>
               </span>
-              <span className="launch-operation-price">{choice.price}</span>
+              <span className="launch-operation-side">
+                {choice.selected && (
+                  <span className="launch-operation-selected">
+                    <Check size={12} strokeWidth={2} />
+                    Selected
+                  </span>
+                )}
+                <span className="launch-operation-price">{choice.price}</span>
+                {choice.secondaryPrice && (
+                  <span className="launch-operation-price-sub">{choice.secondaryPrice}</span>
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -251,7 +255,6 @@ export function TrustSetupFlow({
 
       <div className="launch-compact-form">
         <NameSection
-          blueprint={blueprint}
           trustName={trustName}
           nameHint={nameHint}
           nameError={nameError}
@@ -276,9 +279,14 @@ export function TrustSetupFlow({
           disabled={submitting || !canSubmit}
           loading={submitting}
           loadingLabel="Launching"
+          trailingIcon={<ArrowRight size={16} strokeWidth={1.8} />}
         >
           {operations === "paid"
-            ? `Pay ${selectedLaunchPlan.dueToday} and launch TRUST`
+            ? `Launch TRUST — ${
+                selectedLaunchPlan.id === "growth"
+                  ? `${selectedLaunchPlan.dueToday} today`
+                  : `${selectedLaunchPlan.dueToday}/mo`
+              }`
             : "Launch TRUST"}
         </Button>
       </footer>
