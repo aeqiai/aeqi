@@ -75,15 +75,19 @@ cloud inference account:
 ```bash
 ollama pull llama3.1:8b
 aeqi setup --runtime ollama_agent
+aeqi paths
 aeqi doctor --strict
 aeqi start
 ```
 
 Open `http://127.0.0.1:8400` and sign in with the dashboard secret printed by
-`aeqi setup`. Plain setup writes first-run state under `~/.aeqi`, even when you
-run it from this repository. Use `aeqi setup --workspace --runtime ollama_agent`
-only when you intentionally want repo-local `config/aeqi.toml` and `agents/`
-files in the checkout.
+`aeqi setup`. Plain setup writes first-run runtime state under `~/.aeqi`, even
+when you run it from this repository. The source checkout is only where you
+build or edit AEQI. `aeqi paths` prints the active config, data directory,
+agent directory, project directory, daemon socket, and dashboard URL before you
+start the runtime. Use `aeqi setup --workspace --runtime ollama_agent` only when
+you intentionally want repo-local `config/aeqi.toml` and `agents/` files in the
+checkout.
 
 Once the runtime is up, create a useful first quest:
 
@@ -190,6 +194,7 @@ Run `aeqi <command> --help` for exact flags. Common commands:
 | Command                                  | Use                                                                |
 | ---------------------------------------- | ------------------------------------------------------------------ |
 | `aeqi setup`                             | Write starter config, agents, and dashboard secret                 |
+| `aeqi paths`                             | Show effective config, runtime home, agents, projects, and sockets |
 | `aeqi doctor --strict`                   | Validate config, provider readiness, and local state before launch |
 | `aeqi start`                             | Start daemon, API, WebSocket server, and dashboard together        |
 | `aeqi chat`                              | Open the terminal chat client for local or hosted runtimes         |
@@ -225,6 +230,9 @@ Default runtime data lives under `~/.aeqi`:
 | `codegraph/*.db` | Per-root code graph indexes                                                      |
 | `rm.sock`        | Local daemon IPC socket                                                          |
 | `secrets/`       | Encrypted local secret files                                                     |
+
+For a repeatable operator/contributor cadence that keeps onboarding sharp, read
+[`docs/onboarding-excellence-loop.md`](docs/onboarding-excellence-loop.md).
 
 ## Repository Layout
 

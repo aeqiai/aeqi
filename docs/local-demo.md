@@ -1,6 +1,8 @@
 # Local demo — no API key required
 
-This walkthrough gets you from zero to a chatting agent without paying anyone. Everything runs on your machine: a local Ollama model for inference, SQLite for state, the embedded dashboard for UI.
+This walkthrough gets you from zero to a chatting agent without paying anyone.
+Everything runs on your machine: a local Ollama model for inference, SQLite
+under your AEQI runtime home for state, and the embedded dashboard for UI.
 
 Time: ~10 minutes the first time (most of it is the model download). About 30 seconds on every run after that.
 
@@ -45,8 +47,15 @@ aeqi setup --runtime ollama_agent
 
 Setup is non-interactive. By default it writes a starter config to
 `~/.aeqi/aeqi.toml`, seeds an `assistant` orchestrator agent under `~/.aeqi/`,
-and generates a stable dashboard secret. It prints the secret on stdout — copy
-it; you'll paste it on the dashboard sign-in screen.
+and generates a stable dashboard secret. It prints the runtime home, config
+path, and secret on stdout. Copy the secret; you'll paste it on the dashboard
+sign-in screen.
+
+You can inspect the resolved runtime paths at any time:
+
+```bash
+aeqi paths
+```
 
 If you run setup from a git checkout, it still keeps runtime files in `~/.aeqi/`
 and prints a note. Use `aeqi setup --workspace --runtime ollama_agent` only when
@@ -67,7 +76,7 @@ default_model = "qwen2.5:0.5b"
 aeqi doctor --strict
 ```
 
-You should see something like:
+You should see the intended runtime home and something like:
 
 ```
 [OK]   Config: ~/.aeqi/aeqi.toml

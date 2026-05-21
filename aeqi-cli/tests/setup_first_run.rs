@@ -89,6 +89,16 @@ fn setup_clean_home_writes_curl_install_layout() {
             .map(|e| e.unwrap().path())
             .collect::<Vec<_>>()
     );
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(&format!("Runtime home: {}", aeqi_dir.display())),
+        "setup should print the runtime home instead of an ambiguous workspace label: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Workspace:"),
+        "plain setup should not label the home runtime as a workspace: {stdout}"
+    );
 }
 
 #[test]
@@ -207,6 +217,10 @@ fn setup_inside_checkout_defaults_to_home_layout() {
         stdout.contains("aeqi setup --workspace"),
         "setup should show the explicit repo-local opt-in: {stdout}"
     );
+    assert!(
+        stdout.contains(&format!("Runtime home: {}", home.join(".aeqi").display())),
+        "setup should print the home-scoped runtime path: {stdout}"
+    );
 }
 
 #[test]
@@ -237,5 +251,15 @@ fn setup_workspace_flag_writes_to_cwd_not_home() {
     assert!(
         !home.join(".aeqi/aeqi.toml").exists(),
         "workspace mode should not write a config to ~/.aeqi/"
+    );
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains(&format!("Runtime home: {}", home.join(".aeqi").display())),
+        "workspace setup should still show the runtime data home: {stdout}"
+    );
+    assert!(
+        stdout.contains(&format!("Workspace files: {}", cwd.display())),
+        "workspace setup should show where repo-local config and agents were written: {stdout}"
     );
 }

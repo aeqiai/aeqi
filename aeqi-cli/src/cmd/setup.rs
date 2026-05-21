@@ -139,7 +139,10 @@ pub(crate) async fn cmd_setup(
         println!("Use `aeqi setup --workspace` when you intentionally want repo-local config.");
         println!();
     }
-    println!("Workspace: {}", root.display());
+    println!("Runtime home: {}", data_dir.display());
+    if workspace {
+        println!("Workspace files: {}", root.display());
+    }
     println!("Config: {}", config_path.display());
     println!();
     println!("Dashboard URL: http://localhost:8400");

@@ -1,6 +1,7 @@
 # Quick Start
 
-Get AEQI running locally with the daemon, web server, and dashboard.
+Get AEQI running locally with the daemon, web server, dashboard, and one durable
+first quest.
 
 This quickstart is for the source-available runtime in this repository. The
 hosted SaaS control plane is separate.
@@ -30,18 +31,25 @@ The binary is at `target/release/aeqi`.
 
 ## Setup
 
-Run setup. It is non-interactive and safe to run from a source checkout: by
-default it writes runtime files under `~/.aeqi/`, generates a stable dashboard
-secret in `[web].auth_secret`, and seeds an `assistant` orchestrator agent.
+Run setup. It is non-interactive and safe to run from a source checkout. By
+default it writes runtime-home files under `~/.aeqi/`, generates a stable
+dashboard secret in `[web].auth_secret`, and seeds an `assistant` orchestrator
+agent.
 
 ```bash
 aeqi setup
 ```
 
-Setup prints the dashboard URL and the generated secret — copy the secret;
-you'll paste it on the dashboard sign-in screen. Runtime SQLite databases are
-created in `~/.aeqi/` on first daemon boot. No external database is required for
-the local runtime.
+Setup prints the dashboard URL, runtime home, config path, and generated secret.
+Copy the secret; you'll paste it on the dashboard sign-in screen. Runtime SQLite
+databases are created in `~/.aeqi/` on first daemon boot. No external database
+is required for the local runtime.
+
+Confirm the active paths before you launch:
+
+```bash
+aeqi paths
+```
 
 When you intentionally want repo-local config for a contributor sandbox, run:
 
@@ -50,8 +58,9 @@ aeqi setup --workspace
 ```
 
 That writes `config/aeqi.toml` plus starter agents under `agents/` in the
-current checkout. Use it only when those files belong in that workspace; plain
-`aeqi setup` keeps first-run state out of the repository.
+current checkout. Use it only when those files belong in that workspace. Plain
+`aeqi setup` keeps first-run state out of the repository even when you run it
+from a cloned source tree.
 
 Set your provider key (one of):
 
@@ -77,6 +86,9 @@ Verify before launching:
 aeqi doctor --strict
 ```
 
+Success means the config path, runtime, provider, agent directory, and secret
+store all point at the intended runtime home shown by `aeqi paths`.
+
 ## Start
 
 A single command runs the daemon, web server, and embedded dashboard:
@@ -85,7 +97,9 @@ A single command runs the daemon, web server, and embedded dashboard:
 aeqi start
 ```
 
-`start` prints a readiness summary: dashboard URL, daemon status, provider readiness, and ideas DB path. The UI is embedded in the binary via rust-embed — no Node.js or npm needed.
+`start` prints a readiness summary: dashboard URL, daemon status, provider
+readiness, and ideas DB path. The UI is embedded in the binary via rust-embed,
+so Node.js or npm is not needed to run an installed binary.
 
 ## Open Dashboard
 
@@ -111,8 +125,9 @@ Watch it finish:
 aeqi monitor --watch
 ```
 
-The quest and result are persisted in the local runtime databases, so you can
-return to them later from the dashboard or CLI.
+The quest and result are persisted in the local runtime databases. Success is a
+visible quest in `aeqi monitor --watch` and a result you can return to later
+from the dashboard or CLI.
 
 ## Development
 
@@ -133,3 +148,6 @@ This serves the frontend on `http://127.0.0.1:5173` and proxies `/api/*` to AEQI
 
 For persistent private servers, continue with [self-hosting.md](self-hosting.md)
 and [deployment.md](deployment.md).
+
+To keep improving first-run clarity, use the repeatable
+[onboarding excellence loop](onboarding-excellence-loop.md).

@@ -26,15 +26,19 @@ Clone and build:
 ```bash
 git clone https://github.com/aeqi-ai/aeqi
 cd aeqi
-cp config/aeqi.example.toml config/aeqi.toml   # local only, not committed
-npm run ui:install
-cargo build
+scripts/setup-contributor.sh
 ```
+
+The contributor setup helper verifies Rust, Node.js 22+, and npm, then installs
+and builds the UI before running `cargo build`. It deliberately does not run
+`aeqi setup`, create `.env` files, write secrets, install services, or create
+runtime state inside the source checkout.
 
 First-run init (non-interactive — writes config, seeds a starter orchestrator agent, and generates a stable dashboard secret):
 
 ```bash
 aeqi setup
+aeqi paths
 aeqi secrets set OPENROUTER_API_KEY <key>   # or ANTHROPIC_API_KEY
 aeqi doctor --strict                        # verify before launching
 aeqi start                                  # daemon + dashboard on :8400

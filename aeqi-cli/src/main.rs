@@ -82,6 +82,7 @@ async fn main() -> Result<()> {
         Some(Commands::Doctor { fix, strict }) => {
             cmd::doctor::cmd_doctor(&cli.config, fix, strict).await
         }
+        Some(Commands::Paths) => cmd::paths::cmd_paths(&cli.config),
         Some(Commands::Status) => cmd::status::cmd_status(&cli.config).await,
         Some(Commands::Monitor {
             root,

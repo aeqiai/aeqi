@@ -11,6 +11,8 @@
 - [local-demo.md](local-demo.md) — end-to-end walkthrough with no API key
   (uses local Ollama and keeps first-run state local unless you opt into
   `--workspace`).
+- [onboarding-excellence-loop.md](onboarding-excellence-loop.md) — repeatable
+  operator/contributor loop for improving setup paths with evidence.
 - [vision.md](vision.md) — product north star and design principles.
 - [product-contract.md](product-contract.md) — shared runtime vocabulary and UX rules.
 

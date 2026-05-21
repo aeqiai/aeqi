@@ -14,6 +14,7 @@ pub(crate) mod init;
 pub(crate) mod mcp;
 pub(crate) mod monitor;
 pub(crate) mod operation;
+pub(crate) mod paths;
 pub(crate) mod pipeline;
 pub(crate) mod preflight;
 pub(crate) mod primer;

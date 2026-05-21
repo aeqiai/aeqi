@@ -71,6 +71,8 @@ pub enum Commands {
         #[arg(long)]
         strict: bool,
     },
+    /// Show effective config and runtime paths.
+    Paths,
     /// Show system status.
     Status,
     /// Show a consolidated operator monitor view.

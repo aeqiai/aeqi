@@ -77,11 +77,21 @@ echo "[quickstart] aeqi --version"
 run --version
 
 echo "[quickstart] aeqi setup (non-interactive)"
-run setup --runtime ollama_agent
+setup_output="$(run setup --runtime ollama_agent)"
+printf '%s\n' "$setup_output"
+printf '%s\n' "$setup_output" | grep -q -- "Runtime home: $TMP/.aeqi" || {
+    echo "FAIL: setup output must print the isolated runtime home."
+    exit 2
+}
+printf '%s\n' "$setup_output" | grep -q -- "Workspace:" && {
+    echo "FAIL: plain setup output must not call the home runtime a workspace."
+    exit 2
+}
 
 # Documented in the README "CLI" section; assert each is real.
 assert_help "secrets"
 assert_help "doctor"
+assert_help "paths"
 assert_help "start"
 assert_help "chat"
 assert_help "run"

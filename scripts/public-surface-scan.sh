@@ -47,6 +47,20 @@ root_raster_assets=$(
 )
 report "root raster assets" "$root_raster_assets"
 
+# Hermes keeps tracked rasters in explicit asset/documentation families
+# (`assets/`, `gateway/assets/`, plugin docs assets, website static images).
+# AEQI's current public raster surface is narrower: UI route screenshots,
+# shipped UI public assets, and documentation screenshots. Keep that shape
+# explicit so accidental screenshots or generated binaries do not land in
+# arbitrary public paths.
+disallowed_raster_assets=$(
+    tracked_paths \
+        | rg -i '\.(png|jpe?g|webp|gif)$' \
+        | rg -n -v -i '^(apps/ui/[^/]+\.(png|jpe?g|webp|gif)|apps/ui/public/|docs/screenshots/|screenshots/)' \
+        || true
+)
+report "raster assets outside allowed public asset directories" "$disallowed_raster_assets"
+
 local_paths=$(
     tracked_text_paths | xargs -r rg -n -I --with-filename \
         '(/home/claudedev|/Users/[^[:space:]]+/aeqi|C:\\Users\\[^[:space:]]+\\aeqi)' || true
