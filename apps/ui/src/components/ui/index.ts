@@ -36,6 +36,9 @@ export type { TooltipProps } from "./Tooltip";
 export { Loading } from "./Loading";
 export type { LoadingProps } from "./Loading";
 
+export { ProgressList } from "./ProgressList";
+export type { ProgressStep, ProgressStepStatus } from "./ProgressList";
+
 export { ThinkingDot } from "./ThinkingDot";
 export type { ThinkingDotProps } from "./ThinkingDot";
 

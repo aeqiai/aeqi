@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
+import { ProgressList, type ProgressStep } from "@/components/ui";
 import { api } from "@/lib/api";
+import { LaunchShell } from "@/pages/trustSetup/LaunchShell";
 
 import "@/styles/launching-reveal.css";
 
@@ -8,13 +11,15 @@ const SOLANA_CLUSTER =
   (import.meta.env.VITE_SOLANA_CLUSTER as string | undefined) ?? "localnet-solana";
 
 const STEPS = [
-  { key: "creating_trust", label: "Creating TRUST" },
+  { key: "creating_trust", label: "Creating the TRUST" },
   { key: "signing_on_solana", label: "Signing on Solana" },
   { key: "loading_roles", label: "Loading roles" },
   { key: "spawning_agent", label: "Spawning agent" },
+  { key: "preparing_workspace", label: "Preparing workspace" },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
+type MilestoneKey = Exclude<StepKey, "preparing_workspace">;
 
 type LaunchStatus = Awaited<ReturnType<typeof api.getLaunchStatus>>;
 
@@ -81,63 +86,102 @@ export function LaunchingReveal({
   const trustError = status?.trust_error ?? null;
   const runtimeError = status?.runtime_error ?? null;
   const displayName = status?.display_name || fallbackDisplayName || "Your TRUST";
+  const isReady = ["ready", "complete"].includes(status?.placement_status ?? "");
+  const hasError = Boolean(trustError || runtimeError);
+  const reachedSteps = STEPS.map((step) => {
+    if (step.key === "preparing_workspace") return isReady;
+    const milestone = milestones?.[step.key as MilestoneKey];
+    return isReady || (milestone?.reached ?? false);
+  });
+  const firstPendingIndex = reachedSteps.findIndex((reached) => !reached);
+  const failedStepIndex = hasError
+    ? firstPendingIndex === -1
+      ? STEPS.length - 1
+      : firstPendingIndex
+    : -1;
+  const progressSteps: ProgressStep[] = STEPS.map((step, index) => {
+    const reached = reachedSteps[index] ?? false;
+    const active =
+      !hasError &&
+      !reached &&
+      (firstPendingIndex === index || (firstPendingIndex === -1 && index === 0));
+    return {
+      key: step.key,
+      label: step.label,
+      status: reached
+        ? "done"
+        : index === failedStepIndex
+          ? "error"
+          : active
+            ? "active"
+            : "pending",
+      detail:
+        step.key === "signing_on_solana" && reached && trustAddress ? (
+          <a
+            className="launching-reveal__explorer"
+            href={explorerUrl(trustAddress)}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`View TRUST ${trustAddress} on the Solana explorer`}
+          >
+            {truncate(trustAddress)}
+          </a>
+        ) : undefined,
+    };
+  });
+  const busy = !isReady && !hasError;
 
   return (
-    <section
-      className="launching-reveal"
-      aria-live="polite"
-      aria-busy={status?.placement_status !== "ready"}
+    <LaunchShell
+      cardClassName="launching-reveal__card"
+      ariaLive="polite"
+      ariaBusy={busy}
+      pitch={{
+        eyebrow: "LAUNCH A TRUST",
+        lines: ["Ownership signs.", "Operations start.", "The TRUST exists."],
+        lead: "One confirmation flow for every TRUST you create.",
+      }}
     >
-      <div className="launching-reveal__inner">
-        <h1 className="launching-reveal__heading">{displayName} is forming.</h1>
-        <p className="launching-reveal__subheading">
-          aeqi is signing four transactions on Solana to make this Company real.
+      <h1 className="auth-heading">
+        {isReady ? `${displayName} is ready.` : `Launching ${displayName}.`}
+      </h1>
+      <p className="auth-subheading">
+        {isReady
+          ? "The TRUST exists. Open it when you are ready."
+          : "Payment confirmed. aeqi is creating the TRUST, signing ownership, and preparing the workspace."}
+      </p>
+
+      <ProgressList steps={progressSteps} className="launching-reveal__steps" />
+
+      {isReady && trustAddress && (
+        <div className="launching-reveal__complete">
+          <Link className="launching-reveal__cta" to={`/trust/${encodeURIComponent(trustAddress)}`}>
+            Open Trust
+          </Link>
+        </div>
+      )}
+
+      {trustError && (
+        <p className="launching-reveal__error" role="alert">
+          Trust provisioning failed: {trustError}
         </p>
-        <ol className="launching-reveal__steps">
-          {STEPS.map((step) => {
-            const milestone = milestones?.[step.key as StepKey];
-            const reached = milestone?.reached ?? false;
-            return (
-              <li
-                key={step.key}
-                className={`launching-reveal__step${
-                  reached ? " launching-reveal__step--reached" : ""
-                }`}
-                data-step={step.key}
-              >
-                <span className="launching-reveal__mark" aria-hidden="true">
-                  {reached ? "●" : "○"}
-                </span>
-                <span className="launching-reveal__label">{step.label}</span>
-                {step.key === "signing_on_solana" && reached && trustAddress && (
-                  <a
-                    className="launching-reveal__explorer"
-                    href={explorerUrl(trustAddress)}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`View TRUST ${trustAddress} on the Solana explorer`}
-                  >
-                    {truncate(trustAddress)}
-                  </a>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-        {trustError && (
-          <p className="launching-reveal__error" role="alert">
-            Trust provisioning failed: {trustError}
-          </p>
-        )}
-        {!trustError && runtimeError && (
-          <p className="launching-reveal__error" role="alert">
-            Runtime provisioning failed: {runtimeError}
-          </p>
-        )}
-        {!trustError && !runtimeError && pollError && !status && (
-          <p className="launching-reveal__pending">{pollError}</p>
-        )}
-      </div>
-    </section>
+      )}
+      {!trustError && runtimeError && (
+        <p className="launching-reveal__error" role="alert">
+          Runtime provisioning failed: {runtimeError}
+        </p>
+      )}
+      {hasError && trustAddress && (
+        <Link
+          className="launching-reveal__secondary"
+          to={`/trust/${encodeURIComponent(trustAddress)}`}
+        >
+          Open Trust
+        </Link>
+      )}
+      {!trustError && !runtimeError && pollError && !status && (
+        <p className="launching-reveal__pending">{pollError}</p>
+      )}
+    </LaunchShell>
   );
 }

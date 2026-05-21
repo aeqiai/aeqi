@@ -1,11 +1,12 @@
 import { ArrowLeft, ArrowRight, Check, Layers3, ShieldCheck, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import Wordmark from "@/components/Wordmark";
+import { RuntimePlanPicker } from "@/components/billing/RuntimePlanPicker";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
 import { Banner, Button, EmptyState, Input, Loading } from "@/components/ui";
 import { blueprintId } from "@/lib/blueprintId";
-import { LAUNCH_PLANS, type LaunchPlan, type LaunchPlanId } from "@/lib/pricing";
+import type { LaunchPlan, LaunchPlanId } from "@/lib/pricing";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
+import { LaunchShell } from "./LaunchShell";
 
 type LaunchStep = "blueprint" | "details" | "operations";
 type OperationsChoice = "free" | "paid";
@@ -43,37 +44,27 @@ interface TrustSetupFlowProps {
 
 export function LaunchShellLoading() {
   return (
-    <main className="signup-split launch-split">
-      <div className="signup-form-side launch-form-side">
-        <div className="auth-container launch-flow-card">
-          <div className="launch-loading">
-            <Loading size="sm" /> Loading blueprint...
-          </div>
-        </div>
+    <LaunchShell>
+      <div className="launch-loading">
+        <Loading size="sm" /> Loading blueprint...
       </div>
-      <aside className="signup-pitch-side launch-pitch-side" aria-hidden="true" />
-    </main>
+    </LaunchShell>
   );
 }
 
 export function LaunchShellError({ error, onBack }: { error: string | null; onBack: () => void }) {
   return (
-    <main className="signup-split launch-split">
-      <div className="signup-form-side launch-form-side">
-        <div className="auth-container launch-flow-card">
-          <EmptyState
-            title="Blueprint not found."
-            description={error || "We couldn't find a blueprint with that id."}
-            action={
-              <Button variant="secondary" onClick={onBack}>
-                Back to catalog
-              </Button>
-            }
-          />
-        </div>
-      </div>
-      <aside className="signup-pitch-side launch-pitch-side" aria-hidden="true" />
-    </main>
+    <LaunchShell>
+      <EmptyState
+        title="Blueprint not found."
+        description={error || "We couldn't find a blueprint with that id."}
+        action={
+          <Button variant="secondary" onClick={onBack}>
+            Back to catalog
+          </Button>
+        }
+      />
+    </LaunchShell>
   );
 }
 
@@ -200,9 +191,10 @@ function OperationsStep({
       <div className="launch-operations-grid" role="radiogroup" aria-label="Operations">
         <button
           type="button"
+          role="radio"
           className={`launch-operation-card ${operations === "free" ? "is-selected" : ""}`}
           onClick={() => onOperationsChange("free")}
-          aria-pressed={operations === "free"}
+          aria-checked={operations === "free"}
         >
           <span className="launch-operation-title">No operations</span>
           <span className="launch-operation-price">Free</span>
@@ -212,9 +204,10 @@ function OperationsStep({
         </button>
         <button
           type="button"
+          role="radio"
           className={`launch-operation-card ${operations === "paid" ? "is-selected" : ""}`}
           onClick={() => onOperationsChange("paid")}
-          aria-pressed={operations === "paid"}
+          aria-checked={operations === "paid"}
         >
           <span className="launch-operation-title">Activate operations</span>
           <span className="launch-operation-price">Standard or Pro</span>
@@ -224,32 +217,7 @@ function OperationsStep({
         </button>
       </div>
 
-      {operations === "paid" && (
-        <div className="launch-plan-grid" role="radiogroup" aria-label="Runtime plan">
-          {LAUNCH_PLANS.map((item) => {
-            const selected = item.id === plan;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`launch-plan-option ${selected ? "is-selected" : ""}`}
-                onClick={() => onPlanChange(item.id)}
-                aria-pressed={selected}
-              >
-                <span className="launch-plan-name">{item.name}</span>
-                <span className="launch-plan-price">
-                  {item.id === "growth" ? item.dueToday : item.price}
-                </span>
-                <span className="launch-plan-copy">
-                  {item.id === "growth"
-                    ? `First month, then ${item.price}${item.cadence}`
-                    : item.cadence}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {operations === "paid" && <RuntimePlanPicker value={plan} onChange={onPlanChange} />}
     </section>
   );
 }
@@ -273,23 +241,6 @@ function StructurePreview({
         {blueprint.tagline || blueprint.description || "A starting structure for this TRUST."}
       </p>
       <BlueprintTreePreview template={blueprint} />
-    </aside>
-  );
-}
-
-function LaunchPitch() {
-  return (
-    <aside className="signup-pitch-side launch-pitch-side" aria-hidden="true">
-      <div className="signup-pitch-scrim launch-pitch-scrim" />
-      <div className="signup-pitch-content launch-pitch-content">
-        <p className="signup-pitch-eyebrow">LAUNCH A TRUST</p>
-        <h2 className="signup-pitch-heading">
-          <span>Own first.</span>
-          <span>Operate when</span>
-          <span>you are ready.</span>
-        </h2>
-        <p className="signup-lead">Blueprint. Name. Operations. Governance comes after creation.</p>
-      </div>
     </aside>
   );
 }
@@ -323,106 +274,92 @@ export function TrustSetupFlow({
   onLaunch,
 }: TrustSetupFlowProps) {
   return (
-    <main className="signup-split launch-split">
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
+    <LaunchShell
+      sideSlot={<StructurePreview blueprint={blueprint} blueprintPath={blueprintPath} />}
+    >
+      <StepRow visibleSteps={visibleSteps} stepIndex={stepIndex} />
 
-      <div className="signup-form-side launch-form-side" id="main-content">
-        <section className="auth-container launch-flow-card" aria-labelledby="launch-title">
-          <div className="auth-logo launch-logo">
-            <Wordmark size={36} />
-          </div>
+      {submitError && (
+        <div className="launch-flow-error">
+          <Banner kind="error">{submitError}</Banner>
+        </div>
+      )}
 
-          <StepRow visibleSteps={visibleSteps} stepIndex={stepIndex} />
+      {loadError && !submitError && (
+        <div className="launch-flow-error">
+          <Banner kind="error">{loadError}</Banner>
+        </div>
+      )}
 
-          {submitError && (
-            <div className="launch-flow-error">
-              <Banner kind="error">{submitError}</Banner>
-            </div>
-          )}
+      {step === "blueprint" && (
+        <BlueprintStep
+          blueprints={blueprints}
+          selectedBlueprintId={selectedBlueprintId}
+          onChooseBlueprint={onChooseBlueprint}
+        />
+      )}
+      {step === "details" && (
+        <DetailsStep
+          blueprint={blueprint}
+          trustName={trustName}
+          nameHint={nameHint}
+          nameError={nameError}
+          onTrustNameChange={onTrustNameChange}
+        />
+      )}
+      {step === "operations" && (
+        <OperationsStep
+          operations={operations}
+          plan={plan}
+          onOperationsChange={onOperationsChange}
+          onPlanChange={onPlanChange}
+        />
+      )}
 
-          {loadError && !submitError && (
-            <div className="launch-flow-error">
-              <Banner kind="error">{loadError}</Banner>
-            </div>
-          )}
+      <footer className="launch-actions">
+        {showBack ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onBack}
+            leadingIcon={<ArrowLeft size={14} strokeWidth={1.7} />}
+          >
+            Back
+          </Button>
+        ) : (
+          <Link to="/blueprints" className="launch-secondary-link">
+            Browse store
+          </Link>
+        )}
 
-          {step === "blueprint" && (
-            <BlueprintStep
-              blueprints={blueprints}
-              selectedBlueprintId={selectedBlueprintId}
-              onChooseBlueprint={onChooseBlueprint}
-            />
-          )}
-          {step === "details" && (
-            <DetailsStep
-              blueprint={blueprint}
-              trustName={trustName}
-              nameHint={nameHint}
-              nameError={nameError}
-              onTrustNameChange={onTrustNameChange}
-            />
-          )}
-          {step === "operations" && (
-            <OperationsStep
-              operations={operations}
-              plan={plan}
-              onOperationsChange={onOperationsChange}
-              onPlanChange={onPlanChange}
-            />
-          )}
-
-          <footer className="launch-actions">
-            {showBack ? (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onBack}
-                leadingIcon={<ArrowLeft size={14} strokeWidth={1.7} />}
-              >
-                Back
-              </Button>
-            ) : (
-              <Link to="/blueprints" className="launch-secondary-link">
-                Browse store
-              </Link>
-            )}
-
-            {step === "operations" ? (
-              <Button
-                type="button"
-                variant="primary"
-                fullWidth
-                onClick={onLaunch}
-                disabled={submitting || !canSubmit}
-                loading={submitting}
-                loadingLabel="Creating"
-                trailingIcon={<ArrowRight size={14} strokeWidth={1.7} />}
-              >
-                {operations === "free"
-                  ? "Create free TRUST"
-                  : `Pay ${selectedLaunchPlan.dueToday} and launch`}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="primary"
-                fullWidth
-                onClick={onNext}
-                disabled={!canGoNext}
-                trailingIcon={<ArrowRight size={14} strokeWidth={1.7} />}
-              >
-                Continue
-              </Button>
-            )}
-          </footer>
-        </section>
-
-        <StructurePreview blueprint={blueprint} blueprintPath={blueprintPath} />
-      </div>
-
-      <LaunchPitch />
-    </main>
+        {step === "operations" ? (
+          <Button
+            type="button"
+            variant="primary"
+            fullWidth
+            onClick={onLaunch}
+            disabled={submitting || !canSubmit}
+            loading={submitting}
+            loadingLabel="Creating"
+            trailingIcon={<ArrowRight size={14} strokeWidth={1.7} />}
+          >
+            {operations === "free"
+              ? "Create free TRUST"
+              : `Pay ${selectedLaunchPlan.dueToday} and launch`}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="primary"
+            fullWidth
+            onClick={onNext}
+            disabled={!canGoNext}
+            trailingIcon={<ArrowRight size={14} strokeWidth={1.7} />}
+          >
+            Continue
+          </Button>
+        )}
+      </footer>
+    </LaunchShell>
   );
 }

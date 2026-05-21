@@ -1,6 +1,6 @@
 import type React from "react";
 import { useState } from "react";
-import { Button } from "@/components/ui";
+import { Button, ProgressList, type ProgressStep } from "@/components/ui";
 import type { AccountSessionResponse, Door, SpawnStep } from "./types";
 
 // Smaller status / outcome views grouped together. Each is a thin
@@ -9,20 +9,16 @@ import type { AccountSessionResponse, Door, SpawnStep } from "./types";
 export function SpawningView({ steps, picked }: { steps: SpawnStep[]; picked: Door | null }) {
   const pickedLabel =
     picked === "wallet" ? "your wallet" : picked === "passkey" ? "your passkey" : "your email";
+  const progressSteps: ProgressStep[] = steps.map((step) => ({
+    key: step.key,
+    label: step.label,
+    status: step.status,
+  }));
   return (
     <>
       <h1 className="auth-heading">Setting up your account.</h1>
       <p className="auth-subheading">Authenticated with {pickedLabel}. Preparing your wallet.</p>
-      <ol className="welcome-spawn-list">
-        {steps.map((s) => (
-          <li key={s.key} className={`welcome-spawn-step welcome-spawn-step--${s.status}`}>
-            <span className="welcome-spawn-marker" aria-hidden="true">
-              {s.status === "done" ? "✓" : s.status === "active" ? "•" : "·"}
-            </span>
-            <span className="welcome-spawn-label">{s.label}</span>
-          </li>
-        ))}
-      </ol>
+      <ProgressList steps={progressSteps} />
     </>
   );
 }

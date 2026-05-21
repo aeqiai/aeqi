@@ -20,8 +20,6 @@ import {
 import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
 
-const PROVISION_POLL_INTERVAL_MS = 1000;
-const PROVISION_POLL_TIMEOUT_MS = 60_000;
 const FIRST_RUN_BLUEPRINT_SLUG = "personal-os";
 
 type LaunchEntry = "standard" | "personal";
@@ -98,7 +96,6 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
   const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
 
-  const provisionHandled = useRef(false);
   const nameCheckSeq = useRef(0);
   const activeLaunchEntity = useMemo(
     () => (launchId ? (entities.find((entity) => entity.id === launchId) ?? null) : null),
@@ -244,60 +241,9 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   }, [trustName]);
 
   useEffect(() => {
-    if (!launchId || provisionHandled.current) return;
-
-    provisionHandled.current = true;
-    setProvisioning(true);
-    setSubmitError(null);
-
-    let cancelled = false;
-    const deadline = Date.now() + PROVISION_POLL_TIMEOUT_MS;
-
-    const poll = async () => {
-      if (cancelled) return;
-      try {
-        await fetchEntities();
-        const match = useDaemonStore.getState().entities.find((entity) => entity.id === launchId);
-        if (match) {
-          const launchState = match.launch_state ?? match.placement_status ?? "";
-          const launchComplete = ["complete", "ready"].includes(launchState);
-          if (match.trust_address && launchComplete) {
-            setSearchParams(new URLSearchParams(), { replace: true });
-            navigate(`/trust/${encodeURIComponent(match.trust_address)}`, { replace: true });
-            return;
-          }
-          if (launchState === "failed") {
-            setProvisioning(false);
-            setSubmitError(
-              match.launch_error ||
-                "Launch failed while provisioning. Refresh to keep watching the trust state.",
-            );
-            return;
-          }
-        }
-      } catch {
-        // Keep polling through transient failures.
-      }
-
-      if (Date.now() >= deadline) {
-        if (!cancelled) {
-          setProvisioning(false);
-          setSubmitError(
-            "Payment received. Your TRUST is still provisioning. Refresh in a moment.",
-          );
-          setSearchParams(new URLSearchParams(), { replace: true });
-        }
-        return;
-      }
-
-      window.setTimeout(poll, PROVISION_POLL_INTERVAL_MS);
-    };
-
-    void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchEntities, launchId, navigate, setSearchParams]);
+    setProvisioning(Boolean(launchId));
+    if (launchId) setSubmitError(null);
+  }, [launchId]);
 
   const chooseBlueprint = (tpl: Blueprint) => {
     setBlueprint(tpl);
@@ -431,12 +377,10 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
 
   if (provisioning && launchId) {
     return (
-      <div className="launch-page launch-page--provisioning">
-        <LaunchingReveal
-          trustId={launchId}
-          fallbackDisplayName={activeLaunchEntity?.name || trustName.trim() || undefined}
-        />
-      </div>
+      <LaunchingReveal
+        trustId={launchId}
+        fallbackDisplayName={activeLaunchEntity?.name || trustName.trim() || undefined}
+      />
     );
   }
 
