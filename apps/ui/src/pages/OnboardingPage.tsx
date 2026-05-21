@@ -1,53 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Building2, CircleDot, Landmark, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Landmark, UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import Wordmark from "@/components/Wordmark";
+import { Banner, Button, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { goExternal } from "@/lib/navigation";
 import { LAUNCH_PLANS, type LaunchPlanId } from "@/lib/pricing";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
-import { Banner, Button, Input } from "@/components/ui";
 import "@/styles/onboarding.css";
 
-type GoalId = "participate" | "create" | "join";
 type PathId = "free" | "paid";
 
-const GOALS: Array<{ id: GoalId; label: string; detail: string }> = [
-  {
-    id: "participate",
-    label: "Participate in the economy",
-    detail: "Hold assets, receive roles, and act through your own trust.",
-  },
-  {
-    id: "create",
-    label: "Create my own trust",
-    detail: "Start with a personal trust, then launch operating trusts from it.",
-  },
-  {
-    id: "join",
-    label: "Join a trust",
-    detail: "Use your personal trust as the identity you bring into other trusts.",
-  },
-];
+const STEPS = [{ label: "Name" }, { label: "Trust" }, { label: "Operations" }] as const;
 
 const PATHS: Array<{ id: PathId; label: string; detail: string }> = [
   {
     id: "free",
-    label: "Free personal trust",
-    detail: "No agents or operations yet. You can hold assets, join trusts, and upgrade later.",
+    label: "Keep it free",
+    detail: "Personal TRUST only. Add operations later when you are ready.",
   },
   {
     id: "paid",
     label: "Add operations",
-    detail: "Provision a runtime so agents can execute quests, events, and memory for this trust.",
+    detail: "Provision agents, quests, events, and memory for this TRUST.",
   },
 ];
 
-function firstName(value: string): string {
-  return value.trim().split(/\s+/)[0] || "My";
+function splitName(value: string): { first: string; last: string } {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  return { first: parts[0] ?? "", last: parts.slice(1).join(" ") };
+}
+
+function displayFirstName(first: string, fallback: string): string {
+  return first.trim() || splitName(fallback).first || "My";
 }
 
 function planWireLabel(id: LaunchPlanId): "standard" | "pro" {
@@ -63,9 +51,11 @@ export default function OnboardingPage() {
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
 
   const userDefault = useMemo(() => user?.name?.trim() || user?.email?.split("@")[0] || "", [user]);
-  const [personName, setPersonName] = useState(userDefault);
+  const initialName = useMemo(() => splitName(userDefault), [userDefault]);
+  const [step, setStep] = useState(0);
+  const [first, setFirst] = useState(initialName.first);
+  const [last, setLast] = useState(initialName.last);
   const [trustName, setTrustName] = useState("");
-  const [goal, setGoal] = useState<GoalId>("participate");
   const [path, setPath] = useState<PathId>("free");
   const [plan, setPlan] = useState<LaunchPlanId>("growth");
   const [submitting, setSubmitting] = useState(false);
@@ -78,44 +68,56 @@ export default function OnboardingPage() {
   }, [fetchEntities]);
 
   useEffect(() => {
-    if (!personName && userDefault) setPersonName(userDefault);
-  }, [personName, userDefault]);
+    if (!first && initialName.first) setFirst(initialName.first);
+    if (!last && initialName.last) setLast(initialName.last);
+  }, [first, initialName.first, initialName.last, last]);
 
   useEffect(() => {
-    if (trustName || (!personName && !userDefault)) return;
+    if (trustName) return;
     if (existingTrust?.name) {
       setTrustName(existingTrust.name);
       return;
     }
-    const base = firstName(personName || userDefault);
-    setTrustName(`${base}'s Personal Trust`);
-  }, [existingTrust?.name, personName, trustName, userDefault]);
+    setTrustName(`${displayFirstName(first, userDefault)}'s Personal Trust`);
+  }, [existingTrust?.name, first, trustName, userDefault]);
 
-  const selectedGoal = GOALS.find((item) => item.id === goal) ?? GOALS[0];
   const selectedPlan = LAUNCH_PLANS.find((item) => item.id === plan) ?? LAUNCH_PLANS[0];
-  const canSubmit = personName.trim().length > 1 && trustName.trim().length > 1;
+  const fullName = [first.trim(), last.trim()].filter(Boolean).join(" ");
+  const canContinueName = first.trim().length > 1 && last.trim().length > 1;
+  const canContinueTrust = trustName.trim().length > 1;
+  const canSubmit = canContinueName && canContinueTrust;
+  const stepValid = step === 0 ? canContinueName : step === 1 ? canContinueTrust : canSubmit;
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const nextStep = () => {
+    if (!stepValid) return;
+    setError(null);
+    setStep((current) => Math.min(current + 1, STEPS.length - 1));
+  };
+
+  const previousStep = () => {
+    setError(null);
+    setStep((current) => Math.max(current - 1, 0));
+  };
+
+  const finish = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
-      const parts = personName.trim().split(/\s+/);
-      await api.updateProfile(parts[0] ?? "", parts.slice(1).join(" "), "").catch(() => undefined);
+      await api.updateProfile(first.trim(), last.trim(), "").catch(() => undefined);
 
       let trustId = existingTrust?.id ?? "";
       if (trustId) {
         await api.updateEntity(trustId, {
           name: trustName.trim(),
-          tagline: selectedGoal.label,
+          tagline: "Personal TRUST",
         });
       } else {
         const created = await api.createPersonalTrust({
           name: trustName.trim(),
-          owner_name: personName.trim(),
-          goal,
-          tagline: selectedGoal.label,
+          owner_name: fullName,
+          goal: "personal",
+          tagline: "Personal TRUST",
         });
         trustId = created.trust?.id || created.id;
       }
@@ -145,158 +147,206 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (step < STEPS.length - 1) {
+      nextStep();
+      return;
+    }
+    void finish();
+  };
+
   return (
-    <main className="onboarding-page">
-      <section className="onboarding-shell" aria-labelledby="onboarding-title">
-        <header className="onboarding-head">
-          <Wordmark size={34} />
-          <div className="onboarding-head-copy">
-            <h1 id="onboarding-title">Create your personal trust.</h1>
-            <p>One free trust for your identity, assets, roles, and future operating trusts.</p>
-          </div>
-        </header>
+    <main className="signup-split onboarding-split">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
 
-        {error && <Banner kind="error">{error}</Banner>}
-
-        <form className="onboarding-form" onSubmit={handleSubmit}>
-          <section className="onboarding-panel" aria-label="Identity">
-            <div className="onboarding-panel-head">
-              <UserRound size={17} strokeWidth={1.7} aria-hidden="true" />
-              <h2>Identity</h2>
-            </div>
-            <div className="onboarding-fields">
-              <Input
-                label="Your name"
-                value={personName}
-                onChange={(e) => setPersonName(e.target.value)}
-                placeholder="Ada Lovelace"
-                autoComplete="name"
-                size="lg"
-                required
-              />
-              <Input
-                label="Personal trust name"
-                value={trustName}
-                onChange={(e) => setTrustName(e.target.value)}
-                placeholder="Ada's Personal Trust"
-                size="lg"
-                required
-              />
-            </div>
-          </section>
-
-          <section className="onboarding-panel" aria-label="Goal">
-            <div className="onboarding-panel-head">
-              <CircleDot size={17} strokeWidth={1.7} aria-hidden="true" />
-              <h2>Goal</h2>
-            </div>
-            <div className="onboarding-choice-grid">
-              {GOALS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`onboarding-choice ${goal === item.id ? "is-selected" : ""}`}
-                  onClick={() => setGoal(item.id)}
-                  aria-pressed={goal === item.id}
-                >
-                  <span className="onboarding-choice-title">{item.label}</span>
-                  <span className="onboarding-choice-detail">{item.detail}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="onboarding-panel" aria-label="Operations">
-            <div className="onboarding-panel-head">
-              <Landmark size={17} strokeWidth={1.7} aria-hidden="true" />
-              <h2>Operations</h2>
-            </div>
-            <div className="onboarding-paths">
-              {PATHS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`onboarding-path ${path === item.id ? "is-selected" : ""}`}
-                  onClick={() => setPath(item.id)}
-                  aria-pressed={path === item.id}
-                >
-                  <span className="onboarding-path-title">{item.label}</span>
-                  <span className="onboarding-path-detail">{item.detail}</span>
-                </button>
-              ))}
-            </div>
-            {path === "paid" && (
-              <div className="onboarding-plans" role="radiogroup" aria-label="Runtime plan">
-                {LAUNCH_PLANS.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`onboarding-plan ${plan === item.id ? "is-selected" : ""}`}
-                    onClick={() => setPlan(item.id)}
-                    role="radio"
-                    aria-checked={plan === item.id}
-                  >
-                    <span className="onboarding-plan-name">{item.name}</span>
-                    <span className="onboarding-plan-price">
-                      {item.id === "growth" ? item.dueToday : item.price}
-                    </span>
-                    <span className="onboarding-plan-copy">{item.intro}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <footer className="onboarding-submit">
-            <div>
-              <p className="onboarding-submit-title">
-                {path === "paid" ? `Due today: ${selectedPlan.dueToday}` : "Due today: $0"}
-              </p>
-              <p className="onboarding-submit-copy">
-                {path === "paid"
-                  ? "Your free personal trust is created before checkout."
-                  : "Runtime operations can be added later."}
-              </p>
-            </div>
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              disabled={!canSubmit}
-              loading={submitting}
-              loadingLabel="Creating"
-              trailingIcon={<ArrowRight size={15} strokeWidth={1.8} />}
-            >
-              {path === "paid" ? "Create and add operations" : "Create free trust"}
-            </Button>
-          </footer>
-        </form>
-      </section>
-
-      <aside className="onboarding-summary" aria-label="Personal trust summary">
-        <div className="onboarding-summary-card">
-          <span className="onboarding-summary-icon" aria-hidden="true">
-            <Building2 size={24} strokeWidth={1.5} />
-          </span>
-          <p className="onboarding-summary-kicker">Personal trust</p>
-          <h2>{trustName || "Personal Trust"}</h2>
-          <p>{selectedGoal.detail}</p>
-          <dl>
-            <div>
-              <dt>Identity</dt>
-              <dd>{personName || "Person"}</dd>
-            </div>
-            <div>
-              <dt>Trust</dt>
-              <dd>Free</dd>
-            </div>
-            <div>
-              <dt>Operations</dt>
-              <dd>{path === "paid" ? selectedPlan.name : "Optional"}</dd>
-            </div>
-          </dl>
+      <aside className="signup-pitch-side onboarding-pitch-side" aria-hidden="true">
+        <div className="signup-pitch-scrim onboarding-pitch-scrim" />
+        <div className="signup-pitch-content onboarding-pitch-content">
+          <p className="signup-pitch-eyebrow">PERSONAL TRUST</p>
+          <h2 className="signup-pitch-heading">
+            <span>Your name.</span>
+            <span>Your TRUST.</span>
+            <span>Your choice.</span>
+          </h2>
+          <p className="signup-lead">
+            Start free. Add operations only when you want agents to work.
+          </p>
         </div>
       </aside>
+
+      <div className="signup-form-side onboarding-form-side" id="main-content">
+        <section className="auth-container onboarding-card" aria-labelledby="onboarding-title">
+          <div className="auth-logo onboarding-logo">
+            <Wordmark size={36} />
+          </div>
+
+          <div className="onboarding-step-row" aria-label="Onboarding progress">
+            {STEPS.map((item, index) => (
+              <span
+                key={item.label}
+                className={`onboarding-step-pill ${
+                  index === step ? "is-current" : index < step ? "is-complete" : ""
+                }`}
+              >
+                <span className="onboarding-step-mark" aria-hidden="true">
+                  {index < step ? <Check size={12} strokeWidth={2.1} /> : index + 1}
+                </span>
+                <span>{item.label}</span>
+              </span>
+            ))}
+          </div>
+
+          {error && (
+            <div className="onboarding-error">
+              <Banner kind="error">{error}</Banner>
+            </div>
+          )}
+
+          <form className="onboarding-wizard" onSubmit={handleSubmit}>
+            {step === 0 && (
+              <section className="onboarding-step-panel" aria-labelledby="onboarding-title">
+                <div className="onboarding-step-icon" aria-hidden="true">
+                  <UserRound size={18} strokeWidth={1.8} />
+                </div>
+                <h1 id="onboarding-title" className="auth-heading">
+                  What should we call you?
+                </h1>
+                <p className="auth-subheading">
+                  This is the person attached to your free personal TRUST.
+                </p>
+                <div className="onboarding-name-grid">
+                  <Input
+                    label="First name"
+                    value={first}
+                    onChange={(e) => setFirst(e.target.value)}
+                    placeholder="Ada"
+                    autoComplete="given-name"
+                    size="lg"
+                    autoFocus
+                    required
+                  />
+                  <Input
+                    label="Last name"
+                    value={last}
+                    onChange={(e) => setLast(e.target.value)}
+                    placeholder="Lovelace"
+                    autoComplete="family-name"
+                    size="lg"
+                    required
+                  />
+                </div>
+              </section>
+            )}
+
+            {step === 1 && (
+              <section className="onboarding-step-panel" aria-labelledby="onboarding-title">
+                <div className="onboarding-step-icon" aria-hidden="true">
+                  <Landmark size={18} strokeWidth={1.8} />
+                </div>
+                <h1 id="onboarding-title" className="auth-heading">
+                  Name your personal TRUST.
+                </h1>
+                <p className="auth-subheading">
+                  This free TRUST can hold assets, join other TRUSTs, and launch operating TRUSTs.
+                </p>
+                <Input
+                  label="Personal TRUST name"
+                  value={trustName}
+                  onChange={(e) => setTrustName(e.target.value)}
+                  placeholder={`${displayFirstName(first, userDefault)}'s Personal Trust`}
+                  size="lg"
+                  autoFocus
+                  required
+                />
+                <div className="onboarding-trust-preview" aria-live="polite">
+                  <p className="onboarding-preview-kicker">Preview</p>
+                  <p className="onboarding-preview-title">{trustName || "Personal Trust"}</p>
+                  <p className="onboarding-preview-copy">{fullName || "Your name"} · Free</p>
+                </div>
+              </section>
+            )}
+
+            {step === 2 && (
+              <section className="onboarding-step-panel" aria-labelledby="onboarding-title">
+                <div className="onboarding-step-icon" aria-hidden="true">
+                  <Landmark size={18} strokeWidth={1.8} />
+                </div>
+                <h1 id="onboarding-title" className="auth-heading">
+                  Add operations now?
+                </h1>
+                <p className="auth-subheading">
+                  Your personal TRUST is free either way. Operations add a runtime for agents.
+                </p>
+                <div className="onboarding-paths">
+                  {PATHS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`onboarding-path ${path === item.id ? "is-selected" : ""}`}
+                      onClick={() => setPath(item.id)}
+                      aria-pressed={path === item.id}
+                    >
+                      <span className="onboarding-path-title">{item.label}</span>
+                      <span className="onboarding-path-detail">{item.detail}</span>
+                    </button>
+                  ))}
+                </div>
+                {path === "paid" && (
+                  <div className="onboarding-plans" role="radiogroup" aria-label="Runtime plan">
+                    {LAUNCH_PLANS.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`onboarding-plan ${plan === item.id ? "is-selected" : ""}`}
+                        onClick={() => setPlan(item.id)}
+                        role="radio"
+                        aria-checked={plan === item.id}
+                      >
+                        <span className="onboarding-plan-name">{item.name}</span>
+                        <span className="onboarding-plan-price">
+                          {item.id === "growth" ? item.dueToday : item.price}
+                        </span>
+                        <span className="onboarding-plan-copy">{item.intro}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            <footer className="onboarding-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                disabled={step === 0 || submitting}
+                onClick={previousStep}
+                leadingIcon={<ArrowLeft size={15} strokeWidth={1.8} />}
+              >
+                Back
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                disabled={!stepValid}
+                loading={submitting}
+                loadingLabel="Creating"
+                trailingIcon={<ArrowRight size={15} strokeWidth={1.8} />}
+              >
+                {step < STEPS.length - 1
+                  ? "Continue"
+                  : path === "paid"
+                    ? `Create and pay ${selectedPlan.dueToday}`
+                    : "Create free TRUST"}
+              </Button>
+            </footer>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }
