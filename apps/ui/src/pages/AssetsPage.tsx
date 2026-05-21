@@ -14,9 +14,12 @@ import { BudgetsSection, VestingPositionsSection, type TokenMetaMap } from "./As
 import { BudgetDetailModal } from "./AssetsBudgetModal";
 import { NewBudgetModal } from "./AssetsNewBudgetModal";
 import { NewSpendModal } from "./AssetsNewSpendModal";
+import { NewAllocateModal } from "./AssetsNewAllocateModal";
+import { FreezeBudgetModal } from "./AssetsFreezeBudgetModal";
 import { ModuleDetailModal } from "./AssetsModuleModal";
 import { VaultActivitySection } from "./AssetsActivity";
 import { VaultIdentitySection } from "./AssetsExtras";
+import { TreasuryAlertsBanner } from "./AssetsAlerts";
 import { CapitalizeSection, HoldingsSection, TreasuryOverviewSection } from "./AssetsOverview";
 
 /**
@@ -85,6 +88,15 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
    *  "Spend" on a budget row. Lives in page state so a re-fetch after
    *  a successful spend collapses the modal cleanly. */
   const [spendBudget, setSpendBudget] = useState<BudgetAccountWithPda | null>(null);
+  /** Iter-8: row-level Allocate-child modal — open when an operator
+   *  clicks "Allocate" on a budget row. The parent budget seeds the
+   *  on-chain `parent_budget_id` so the new sub-budget reads as a
+   *  child in the hierarchy view. */
+  const [allocateParent, setAllocateParent] = useState<BudgetAccountWithPda | null>(null);
+  /** Iter-8: row-level Freeze / Unfreeze confirmation modal — flips
+   *  the on-chain `frozen` bool. Active for either direction; the
+   *  modal reads its title + verb off `budget.account.frozen`. */
+  const [freezeBudget, setFreezeBudget] = useState<BudgetAccountWithPda | null>(null);
   /** Iter-6: click-through on a Vault identity module row opens the
    *  ModuleDetailModal with ACL bits + recent signatures. */
   const [moduleDetail, setModuleDetail] = useState<ModuleAccountWithPda | null>(null);
@@ -176,6 +188,13 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
             registration.
           </Banner>
         )}
+        <TreasuryAlertsBanner
+          holdings={holdings ?? []}
+          budgets={budgets ?? []}
+          vestingPositions={vestingPositions ?? []}
+          metas={metas}
+          decodedActivity={decodedActivity.rows}
+        />
         <TreasuryOverviewSection
           holdings={holdings ?? []}
           budgets={budgets ?? []}
@@ -232,6 +251,8 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           metas={metas}
           onSelect={(row) => setBudgetDetail(row)}
           onSpend={(row) => setSpendBudget(row)}
+          onAllocate={(row) => setAllocateParent(row)}
+          onFreeze={(row) => setFreezeBudget(row)}
           actions={
             <Button variant="primary" size="sm" onClick={() => setNewBudgetOpen(true)}>
               + New budget
@@ -258,6 +279,22 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           budget={spendBudget}
           onClose={() => setSpendBudget(null)}
           onSpent={() => {
+            refetch();
+          }}
+        />
+        <NewAllocateModal
+          parent={allocateParent}
+          trustId={trustId}
+          onClose={() => setAllocateParent(null)}
+          onAllocated={() => {
+            refetch();
+          }}
+        />
+        <FreezeBudgetModal
+          budget={freezeBudget}
+          trustId={trustId}
+          onClose={() => setFreezeBudget(null)}
+          onFlipped={() => {
             refetch();
           }}
         />

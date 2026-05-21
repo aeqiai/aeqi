@@ -14,21 +14,24 @@
  * still functional. Decoded headlines stay opt-in — we never invent
  * counterparty info we couldn't extract from the parsed instructions.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
 import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 import { formatCurrency, formatDateTime, formatInteger } from "@/lib/i18n";
-import { explorerTxUrl } from "@/lib/solana-explorer";
+import { explorerAddressUrl, explorerTxUrl } from "@/lib/solana-explorer";
 import {
   Badge,
+  Button,
+  DetailField,
   EmptyState,
   Icon,
   Inline,
   Loading,
   PageSection,
+  Stack,
   Table,
   Tooltip,
   type TableColumn,
@@ -66,6 +69,14 @@ export function VaultActivitySection({
     return map;
   }, [decoded]);
 
+  /** Iter-8: row-level deep-link expansion. The activity row table is
+   *  honest but flat — operators reading it for "what landed and from
+   *  whom" had to flip out to the explorer to see slot, programs, and
+   *  the full counterparty address. Expanding inline keeps the
+   *  context where the operator is looking. State is local to the
+   *  section so the host page doesn't have to plumb it through. */
+  const [expanded, setExpanded] = useState<string | null>(null);
+
   const rows = useMemo<ActivityRow[]>(
     () =>
       signatures.slice(0, VISIBLE).map((sig) => ({
@@ -74,6 +85,8 @@ export function VaultActivitySection({
       })),
     [signatures, decodedByKey],
   );
+
+  const expandedRow = expanded ? (rows.find((r) => r.signature === expanded) ?? null) : null;
 
   const columns: Array<TableColumn<ActivityRow>> = [
     {
@@ -169,6 +182,9 @@ export function VaultActivitySection({
             data={rows}
             rowKey={(row) => row.signature}
             ariaLabel="Recent vault activity"
+            onRowClick={(row) =>
+              setExpanded((cur) => (cur === row.signature ? null : row.signature))
+            }
             empty={
               <EmptyState
                 title="No on-chain activity yet"
@@ -176,6 +192,13 @@ export function VaultActivitySection({
               />
             }
           />
+          {expandedRow && (
+            <ActivityDetailPanel
+              row={expandedRow}
+              metas={metas}
+              onClose={() => setExpanded(null)}
+            />
+          )}
           {(hiddenCount > 0 || decodedCount > 0) && (
             <span className={styles.activityFooter}>
               {decodedCount > 0
@@ -300,5 +323,140 @@ function ActivityUsdCell({
     <span className={styles.numCell}>
       {formatCurrency(signed, "USD", { maximumFractionDigits: 2 })}
     </span>
+  );
+}
+
+/**
+ * Iter-8 — Inline activity detail panel.
+ *
+ * Replaces the previous "click out to explorer for everything else"
+ * dead-end with a per-row expansion that surfaces the full signature
+ * tail, slot, finality state, counterparty full address, decoded mint,
+ * raw amount, and the list of programs touched by the transaction.
+ * Lives on the same recessed surface as `HoldingDetailPanel` so the
+ * two row-level detail patterns read symmetrically.
+ *
+ * Honest scope: we only surface fields we have on the hooks — slot +
+ * blockTime come from `useVaultActivity`'s signature, decoded fields
+ * come from `useDecodedVaultActivity`. Finality is read off the
+ * `err === null` flag (confirmed → finalized within slots; the
+ * commitment is already "confirmed" by the underlying RPC fetcher).
+ * No fabrication.
+ */
+function ActivityDetailPanel({
+  row,
+  metas,
+  onClose,
+}: {
+  row: ActivityRow;
+  metas: Record<string, ResolvedTokenMeta>;
+  onClose: () => void;
+}) {
+  const decoded = row.decoded;
+  const isSol = decoded?.kind === "sol-deposit" || decoded?.kind === "sol-withdraw";
+  const symbol = isSol ? "SOL" : decoded?.mint ? (metas[decoded.mint]?.symbol ?? "SPL") : null;
+  const decimals = isSol ? 9 : decoded?.mint ? (metas[decoded.mint]?.decimals ?? null) : null;
+  const amount =
+    decoded?.amount !== null && decoded?.amount !== undefined
+      ? formatTokenAmount(decoded.amount, decimals)
+      : null;
+  const programs = decoded?.programs ?? [];
+
+  return (
+    <div className={styles.activityDetailPanel}>
+      <div className={styles.activityDetailHead}>
+        <span className={styles.activityDetailTitle}>Transaction detail</span>
+        <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close transaction detail">
+          Collapse
+        </Button>
+      </div>
+      <div className={styles.activityDetailGrid}>
+        <DetailField label="Signature">
+          <CopyableMono full={row.signature} display={row.signature} mode="full" />
+        </DetailField>
+        <DetailField label="Slot">
+          <span className={styles.numCell}>{formatInteger(row.slot)}</span>
+        </DetailField>
+        <DetailField label="Block time">
+          <span className={styles.numCell}>
+            {row.blockTime !== null ? formatDateTime(new Date(row.blockTime * 1000)) : "—"}
+          </span>
+        </DetailField>
+        <DetailField label="Finality">
+          {row.err === null ? (
+            <Badge variant="success" size="sm" dot>
+              Confirmed
+            </Badge>
+          ) : (
+            <Badge variant="error" size="sm" dot>
+              Failed
+            </Badge>
+          )}
+        </DetailField>
+        <DetailField label="Counterparty">
+          {decoded?.counterparty ? (
+            <CopyableMono
+              full={decoded.counterparty}
+              display={decoded.counterparty}
+              mode="full"
+              withExplorer
+            />
+          ) : (
+            <span className={styles.mutedDash}>— (internal / unresolved)</span>
+          )}
+        </DetailField>
+        <DetailField label="Token">
+          {symbol ? (
+            <Inline gap="2" align="center">
+              <span className={styles.tokenSymbol}>{symbol}</span>
+              {decoded?.mint && !isSol && (
+                <CopyableMono
+                  full={decoded.mint}
+                  display={shortAddress(decoded.mint)}
+                  tone="muted"
+                  withExplorer
+                />
+              )}
+            </Inline>
+          ) : (
+            <span className={styles.mutedDash}>—</span>
+          )}
+        </DetailField>
+        <DetailField label="Raw amount">
+          {amount && symbol ? (
+            <span className={styles.numCell}>
+              {amount} {symbol}
+            </span>
+          ) : (
+            <span className={styles.mutedDash}>—</span>
+          )}
+        </DetailField>
+        <DetailField label="Programs touched">
+          {programs.length === 0 ? (
+            <span className={styles.mutedDash}>—</span>
+          ) : (
+            <Stack gap="1" className={styles.activityDetailPrograms}>
+              {programs.map((pid) => (
+                <a
+                  key={pid}
+                  href={explorerAddressUrl(pid)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={styles.signatureLink}
+                  aria-label={`Open program ${pid} in Solana explorer`}
+                >
+                  <span className={styles.monoCell}>{shortAddress(pid)}</span>
+                  <Icon icon={ExternalLink} size="xs" />
+                </a>
+              ))}
+            </Stack>
+          )}
+        </DetailField>
+      </div>
+      <p className={styles.activityDetailNote}>
+        Decoded from parsed instructions + pre/post token balances; the explorer link above carries
+        the canonical view if a deeper trace is needed.
+      </p>
+    </div>
   );
 }

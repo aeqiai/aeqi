@@ -950,6 +950,93 @@ export const api = {
     }),
 
   /**
+   * Freeze a Solana on-chain budget. The on-chain `aeqi_budget::freeze`
+   * instruction flips `account.frozen = true`, after which any
+   * `spend_treasury` or `allocate_child_budget` call against the budget
+   * is rejected by the program. Grantor (trust authority) signs.
+   *
+   * Status: HONEST STUB. The on-chain ix EXISTS (see
+   * `programs/aeqi-budget/src/lib.rs` — `pub fn freeze`), but the
+   * platform-side route `/api/solana/budget-freeze` does not. The client
+   * surfaces a clear "route not implemented yet" error pointing at the
+   * path so the Assets row-level Freeze button can render an accurate
+   * diagnostic rather than a generic network error.
+   */
+  budgetFreeze: (data: { entity_id: string; budget_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      budget_pubkey_b58: string;
+      budget_id_hex: string;
+      frozen: boolean;
+    }>("/solana/budget-freeze", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Unfreeze a previously-frozen on-chain budget. Reverses
+   * `budgetFreeze`; the on-chain `aeqi_budget::unfreeze` instruction
+   * flips `account.frozen = false`. Grantor (trust authority) signs.
+   *
+   * Status: HONEST STUB. Same shape as `budgetFreeze` above —
+   * the on-chain ix exists but the platform route `/api/solana/budget-unfreeze`
+   * is not implemented yet.
+   */
+  budgetUnfreeze: (data: { entity_id: string; budget_id: string }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      budget_pubkey_b58: string;
+      budget_id_hex: string;
+      frozen: boolean;
+    }>("/solana/budget-unfreeze", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Allocate a child sub-budget under an existing parent budget. The
+   * on-chain `aeqi_budget::allocate_child_budget` instruction creates
+   * a Budget account whose `parent_budget_id` references the parent
+   * and whose `amount` is debited from the parent's remaining allocation.
+   *
+   * Iter-8: this is a thin convenience wrapper around `budgetCreate`
+   * with `parent_budget_id` set. The platform's existing `budget-create`
+   * route accepts the parent reference and routes to the right on-chain
+   * ix when the parent is non-zero, so we don't need a new route to
+   * close the iter-7 NEXT gap. Once the platform exposes a dedicated
+   * `/solana/budget-allocate-child` route with stricter parent-cap
+   * accounting, this helper switches paths.
+   */
+  allocateChildBudget: (data: {
+    entity_id: string;
+    parent_budget_id: string;
+    target_role_id: string;
+    amount: number;
+    expiry?: number;
+    budget_label?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      budget_pubkey_b58: string;
+      budget_id_hex: string;
+      target_role_id_hex: string;
+      amount: number;
+    }>("/solana/budget-create", {
+      method: "POST",
+      body: JSON.stringify({
+        entity_id: data.entity_id,
+        target_role_id: data.target_role_id,
+        amount: data.amount,
+        expiry: data.expiry,
+        parent_budget_id: data.parent_budget_id,
+        budget_label: data.budget_label,
+      }),
+    }),
+
+  /**
    * Read the live BondingCurve state for a TRUST's genesis curve. Prices
    * are u128 micro-USDC and come over the wire as decimal strings — the UI
    * caller parses to BigInt for math or renders them as labels.

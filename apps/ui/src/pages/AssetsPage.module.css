@@ -974,3 +974,66 @@
   outline: none;
   box-shadow: 0 0 0 1px var(--color-border) inset;
 }
+
+/* Iter-8: row-level tri-action cluster on each Budget row — Spend +
+   Allocate + Freeze. Buttons stack horizontally on wide viewports and
+   flex-wrap onto a second line on narrow columns so the table stays
+   readable without horizontal scroll. */
+.budgetRowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Iter-8: treasury-level alerts stack above the overview tile. Each
+   alert is its own Banner; the wrapper just spaces them. Hidden
+   entirely when no alert fires. */
+.treasuryAlerts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Iter-8: per-row VaultActivity expansion panel. Mirrors the
+   .holdingDetailPanel pattern so the two row-level detail surfaces
+   feel like the same primitive. */
+.activityDetailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+}
+
+.activityDetailHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.activityDetailTitle {
+  font-weight: 500;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.activityDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
+}
+
+.activityDetailPrograms {
+  align-items: flex-start;
+}
+
+.activityDetailNote {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}

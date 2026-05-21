@@ -32,6 +32,8 @@ export function BudgetsSection({
   metas,
   onSelect,
   onSpend,
+  onAllocate,
+  onFreeze,
   actions,
 }: {
   budgets: BudgetAccountWithPda[];
@@ -41,6 +43,14 @@ export function BudgetsSection({
    *  prefilled with the row so the operator can disburse against the
    *  selected budget without leaving the Assets surface. */
   onSpend: (row: BudgetAccountWithPda) => void;
+  /** Iter-8: row-level Allocate affordance. Host opens
+   *  NewAllocateModal prefilled with the row as parent so the operator
+   *  can spawn a role-scoped sub-budget under it. Closes the iter-7
+   *  NEXT gap. */
+  onAllocate: (row: BudgetAccountWithPda) => void;
+  /** Iter-8: row-level Freeze / Unfreeze affordance. Host opens
+   *  FreezeBudgetModal which flips the on-chain `frozen` bool. */
+  onFreeze: (row: BudgetAccountWithPda) => void;
   /** Section-level actions slot — host page mounts a "+ New budget" CTA. */
   actions?: React.ReactNode;
 }) {
@@ -141,28 +151,66 @@ export function BudgetsSection({
         ),
     },
     {
-      // Iter-7: row-level Spend affordance. Frozen budgets disable the
-      // affordance with a tooltip-style title so the operator reads the
-      // reason without needing to open the detail modal. Click event
-      // stops propagation so the row-click (which opens the detail
-      // modal) doesn't also fire.
-      key: "spend",
+      // Iter-7 → 8: row-level tri-action — Spend / Allocate / Freeze.
+      // Spend + Allocate are disabled when the budget is frozen (the
+      // on-chain program rejects both with `budget_frozen`); Freeze
+      // stays live so the operator can toggle back. Click events stop
+      // propagation so the row-click (which opens the detail modal)
+      // doesn't also fire under any of them.
+      key: "actions",
       header: "",
       align: "end",
       cell: (row) => (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSpend(row);
-          }}
-          disabled={row.account.frozen}
-          title={row.account.frozen ? "Budget is frozen" : "Spend from this budget"}
-          aria-label={`Spend from budget ${bytesIdLabel(row.account.budgetId)}`}
-        >
-          Spend
-        </Button>
+        <span className={styles.budgetRowActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSpend(row);
+            }}
+            disabled={row.account.frozen}
+            title={row.account.frozen ? "Budget is frozen" : "Spend from this budget"}
+            aria-label={`Spend from budget ${bytesIdLabel(row.account.budgetId)}`}
+          >
+            Spend
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAllocate(row);
+            }}
+            disabled={row.account.frozen}
+            title={
+              row.account.frozen
+                ? "Budget is frozen — unfreeze before allocating sub-budgets."
+                : "Allocate a role-scoped sub-budget under this budget"
+            }
+            aria-label={`Allocate sub-budget under ${bytesIdLabel(row.account.budgetId)}`}
+          >
+            Allocate
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFreeze(row);
+            }}
+            title={
+              row.account.frozen ? "Unfreeze this budget" : "Freeze on-chain spend + allocate calls"
+            }
+            aria-label={
+              row.account.frozen
+                ? `Unfreeze budget ${bytesIdLabel(row.account.budgetId)}`
+                : `Freeze budget ${bytesIdLabel(row.account.budgetId)}`
+            }
+          >
+            {row.account.frozen ? "Unfreeze" : "Freeze"}
+          </Button>
+        </span>
       ),
     },
   ];
