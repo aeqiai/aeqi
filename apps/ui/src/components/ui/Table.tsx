@@ -269,9 +269,11 @@ function TableInner<T>(
                       }
                     }
                   : undefined;
+                const key = rowKey(row, i);
                 return (
                   <tr
-                    key={rowKey(row, i)}
+                    key={key}
+                    data-row-key={key}
                     className={clickable ? styles.rowClickable : undefined}
                     onClick={handleClick}
                     onKeyDown={handleKeyDown}

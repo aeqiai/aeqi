@@ -17,7 +17,7 @@
  * the URL readable. Bad params fall back to defaults silently — bookmark
  * URLs stay forgiving.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { deriveProposalStatus } from "@/solana";
@@ -50,6 +50,8 @@ import {
   ProposalDetailModal,
   ProposalsEmptyState,
 } from "./QuorumPage.write";
+import { ShortcutsCheatSheet, useQuorumKeyboardShortcuts } from "./QuorumPage.shortcuts";
+import styles from "./QuorumPage.module.css";
 
 type SortKey = "recent" | "oldest" | "closingSoon" | "quorumProgress";
 type FilterKey = "all" | "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled";
@@ -234,6 +236,13 @@ export function ProposalsSection({
     },
     [patchParams],
   );
+
+  // iter-7: keyboard-driven row selection. The selected row index is
+  // local state (not URL-persisted — selection is ephemeral and
+  // deep-linking it would compete with `?proposal=` for the same
+  // "what's focused" signal). `↑ / ↓` move the index, `v` opens detail
+  // on the highlighted row, `c` toggles compare mode.
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   // Re-tick once per minute so active-row countdowns drift forward
   // visibly. 60s is the cheapest cadence that still feels live for a
@@ -462,6 +471,81 @@ export function ProposalsSection({
       .filter((x): x is (typeof rows)[number] => x !== undefined);
   }, [comparePicks, rows]);
 
+  // ── Keyboard shortcuts (iter-7) ──────────────────────────────────
+  // Clamp the selected index whenever the visible rows shrink (filter
+  // change, compare-mode pick removal, async refetch) — otherwise the
+  // pointer can dangle past the end of the list and `v` would no-op.
+  useEffect(() => {
+    if (rows.length === 0) {
+      if (selectedIndex !== 0) setSelectedIndex(0);
+      return;
+    }
+    if (selectedIndex >= rows.length) {
+      setSelectedIndex(rows.length - 1);
+    }
+  }, [rows.length, selectedIndex]);
+
+  const handleMoveSelection = useCallback(
+    (delta: 1 | -1) => {
+      if (rows.length === 0) return;
+      setSelectedIndex((prev) => {
+        const next = prev + delta;
+        if (next < 0) return 0;
+        if (next >= rows.length) return rows.length - 1;
+        return next;
+      });
+    },
+    [rows.length],
+  );
+
+  const handleViewSelected = useCallback(() => {
+    const row = rows[selectedIndex];
+    if (!row) return;
+    setDetail(row);
+  }, [rows, selectedIndex, setDetail]);
+
+  const handleToggleCompare = useCallback(() => {
+    if (!canCompare) return;
+    setCompareMode((m) => !m);
+  }, [canCompare, setCompareMode]);
+
+  // Only bind shortcuts when the detail modal is closed — otherwise
+  // `v` / arrows would fight the modal's own focus management.
+  const shortcutsActive = detail === null;
+  useQuorumKeyboardShortcuts({
+    onToggleCompare: shortcutsActive && canCompare ? handleToggleCompare : undefined,
+    onViewSelected: shortcutsActive && rows.length > 0 ? handleViewSelected : undefined,
+    onMoveSelection: shortcutsActive && rows.length > 0 ? handleMoveSelection : undefined,
+  });
+
+  // Mark the selected row via a `data-quorum-selected="true"` attribute
+  // so the CSS module can paint the highlight without forking the Table
+  // primitive. The effect runs after each render so the data attr
+  // always matches `selectedIndex` even when `rows` shuffles under us.
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null);
+  const selectedKey = rows[selectedIndex]?.proposal.publicKey.toBase58() ?? null;
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+    const trs = wrapper.querySelectorAll<HTMLTableRowElement>("tbody tr[data-row-key]");
+    let hit: HTMLTableRowElement | null = null;
+    for (const tr of Array.from(trs)) {
+      const match = selectedKey !== null && tr.dataset.rowKey === selectedKey;
+      if (match) {
+        tr.setAttribute("data-quorum-selected", "true");
+        hit = tr;
+      } else {
+        tr.removeAttribute("data-quorum-selected");
+      }
+    }
+    // Scroll the selected row into view when arrow-driven selection
+    // moves outside the visible portion of the table. `nearest` block
+    // alignment avoids the jarring center-scroll on each tick.
+    if (hit !== null) {
+      hit.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [selectedKey, rows]);
+
   return (
     <PageSection
       title="Proposals"
@@ -515,17 +599,20 @@ export function ProposalsSection({
               />
             ))}
           </Inline>
-          {canCompare ? (
-            <Button
-              variant={compareMode ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => setCompareMode((m) => !m)}
-              aria-pressed={compareMode}
-              aria-label="Toggle proposal compare mode"
-            >
-              {compareMode ? `Comparing ${comparePicks.length}/2` : "Compare"}
-            </Button>
-          ) : null}
+          <Inline gap="2" align="center">
+            {canCompare ? (
+              <Button
+                variant={compareMode ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => setCompareMode((m) => !m)}
+                aria-pressed={compareMode}
+                aria-label="Toggle proposal compare mode"
+              >
+                {compareMode ? `Comparing ${comparePicks.length}/2` : "Compare"}
+              </Button>
+            ) : null}
+            <ShortcutsCheatSheet />
+          </Inline>
         </Inline>
         {withStatus.length >= 5 ? (
           <Inline gap="2" wrap aria-label="Sort proposals">
@@ -546,14 +633,23 @@ export function ProposalsSection({
             ))}
           </Inline>
         ) : null}
-        <Table
-          columns={columns}
-          data={rows}
-          rowKey={(row) => row.proposal.publicKey.toBase58()}
-          onRowClick={compareMode ? undefined : (row) => setDetail(row)}
-          empty={<ProposalsEmptyState filter={filter} />}
-          ariaLabel="Governance proposals"
-        />
+        <div ref={tableWrapperRef} className={styles.proposalsTableWrap}>
+          <Table
+            columns={columns}
+            data={rows}
+            rowKey={(row) => row.proposal.publicKey.toBase58()}
+            onRowClick={
+              compareMode
+                ? undefined
+                : (row, index) => {
+                    setSelectedIndex(index);
+                    setDetail(row);
+                  }
+            }
+            empty={<ProposalsEmptyState filter={filter} />}
+            ariaLabel="Governance proposals"
+          />
+        </div>
         {compareMode ? (
           <ProposalCompareTray
             picks={pickedProposals}

@@ -35,7 +35,7 @@ import type {
   RoleTypeWithPda,
 } from "@/solana";
 import { ApiError, api } from "@/lib/api";
-import { Badge, Button, EmptyState, Inline, Modal, Stack, Tooltip } from "@/components/ui";
+import { Badge, Button, EmptyState, Inline, Modal, Popover, Stack, Tooltip } from "@/components/ui";
 import styles from "./QuorumPage.module.css";
 import {
   CopyableMono,
@@ -53,6 +53,7 @@ import {
   voteWindowLabel,
   voteWindowSeconds,
 } from "./QuorumPage.format";
+import { VoteReceiptModal, type VoteReceipt } from "./QuorumPage.receipt";
 import {
   ExecutionPayloadSection,
   ProposalActionBar,
@@ -177,6 +178,12 @@ function ProposalSummary({
     () => computeProposerReputation(proposerB58, proposals ?? [entry.proposal], nowSeconds),
     [proposerB58, proposals, entry.proposal, nowSeconds],
   );
+  // iter-7: pre-compute the proposer's last 5 proposals so the glyph
+  // popover can render them without re-walking `proposals` on hover.
+  const recentProposals = useMemo(
+    () => recentProposalsBy(proposerB58, proposals ?? [entry.proposal], nowSeconds, 5),
+    [proposerB58, proposals, entry.proposal, nowSeconds],
+  );
   // Pending proposals haven&apos;t started yet — surface the start time AND
   // a countdown so the operator knows when the vote opens without doing
   // unix-timestamp arithmetic in their head. Active proposals get the
@@ -244,7 +251,7 @@ function ProposalSummary({
       <span className={styles.detailLabel}>Proposer</span>
       <span className={styles.detailValue}>
         <CopyableMono full={proposerB58} display={shortAddress(proposerB58)} />
-        <ProposerReputationGlyph reputation={reputation} />
+        <ProposerReputationGlyph reputation={reputation} recentProposals={recentProposals} />
       </span>
       <span className={styles.detailLabel}>Snapshot</span>
       <span className={styles.detailValue}>
@@ -333,40 +340,185 @@ function computeProposerReputation(
  * Tone follows the canonical lifecycle accent family — green when the
  * rate is at or above 50%, amber when below, neutral when no signal
  * exists yet.
+ *
+ * iter-7: clickable — opens a popover listing the proposer's last 5
+ * proposals on this TRUST with outcome glyphs, so an operator reviewing
+ * a fresh proposal can audit who's behind it without leaving the page.
  */
-function ProposerReputationGlyph({ reputation }: { reputation: ProposerReputation }) {
+function ProposerReputationGlyph({
+  reputation,
+  recentProposals,
+}: {
+  reputation: ProposerReputation;
+  recentProposals: RecentProposalSummary[];
+}) {
   if (reputation.total === 0) return null;
   const noun = reputation.total === 1 ? "proposal" : "proposals";
-  if (reputation.successRate === null) {
-    return (
-      <span
-        className={styles.reputationGlyph}
-        data-tone="defeated"
-        aria-label={`${reputation.total} ${noun} by this proposer, none settled yet`}
-      >
-        <span className={styles.reputationCount}>
-          {reputation.total} {noun}
-        </span>
-        <span className={styles.reputationSeparator}>·</span>
-        <span className={styles.reputationRate}>pending</span>
-      </span>
-    );
-  }
-  const pct = Math.round(reputation.successRate * 100);
-  const tone = pct >= 50 ? "done" : "in_review";
-  return (
-    <span
+  const ariaLabel =
+    reputation.successRate === null
+      ? `${reputation.total} ${noun} by this proposer, none settled yet`
+      : `${reputation.total} ${noun} by this proposer · ${reputation.succeeded} of ${reputation.settled} settled succeeded (${Math.round(
+          reputation.successRate * 100,
+        )}%)`;
+
+  const tone =
+    reputation.successRate === null
+      ? "defeated"
+      : Math.round(reputation.successRate * 100) >= 50
+        ? "done"
+        : "in_review";
+
+  const trigger = (
+    <Button
+      variant="ghost"
+      size="sm"
       className={styles.reputationGlyph}
       data-tone={tone}
-      aria-label={`${reputation.total} ${noun} by this proposer · ${reputation.succeeded} of ${reputation.settled} settled succeeded (${pct}%)`}
+      aria-label={ariaLabel}
     >
       <span className={styles.reputationCount}>
         {reputation.total} {noun}
       </span>
       <span className={styles.reputationSeparator}>·</span>
-      <span className={styles.reputationRate}>{pct}% success</span>
-    </span>
+      <span className={styles.reputationRate}>
+        {reputation.successRate === null
+          ? "pending"
+          : `${Math.round(reputation.successRate * 100)}% success`}
+      </span>
+    </Button>
   );
+
+  return (
+    <Popover trigger={trigger} placement="bottom-start">
+      <Stack gap="2" className={styles.reputationPanel}>
+        <span className={styles.reputationPanelHeading}>Recent proposals</span>
+        {recentProposals.length === 0 ? (
+          <span className={styles.reputationPanelFootnote}>
+            No earlier proposals from this proposer on this TRUST.
+          </span>
+        ) : (
+          <div className={styles.reputationPanelList} role="list">
+            {recentProposals.map((p) => (
+              <div key={p.id} className={styles.reputationPanelRow} role="listitem">
+                <span
+                  className={styles.reputationPanelGlyph}
+                  data-tone={p.tone}
+                  aria-hidden="true"
+                />
+                <span className={styles.reputationPanelId} title={p.id}>
+                  {p.idShort}
+                </span>
+                <span className={styles.reputationPanelStatus} data-tone={p.tone}>
+                  {p.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <span className={styles.reputationPanelFootnote}>
+          Showing the {Math.min(recentProposals.length, 5)} most recent. Counts include the current
+          proposal.
+        </span>
+      </Stack>
+    </Popover>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── */
+/* Recent-proposals helper for the reputation glyph popover           */
+/* ────────────────────────────────────────────────────────────────── */
+
+/**
+ * One row in the reputation popover. Each carries enough to render a
+ * single-line summary without re-deriving status downstream.
+ */
+interface RecentProposalSummary {
+  /** Full 0x-prefixed hex of the on-chain proposal_id. */
+  id: string;
+  /** First/last 4 of the hex id for the row label. */
+  idShort: string;
+  /** Canonical lifecycle tone used by the rest of the page. */
+  tone: "in_progress" | "in_review" | "done" | "defeated" | "canceled";
+  /** Plain-English status label (e.g. "Active", "Executed"). */
+  label: string;
+}
+
+const TONE_AND_LABEL_BY_STATE: Record<
+  "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled",
+  { tone: RecentProposalSummary["tone"]; label: string }
+> = {
+  active: { tone: "in_progress", label: "Active" },
+  pending: { tone: "in_review", label: "Pending" },
+  succeeded: { tone: "done", label: "Succeeded" },
+  defeated: { tone: "defeated", label: "Defeated" },
+  executed: { tone: "done", label: "Executed" },
+  canceled: { tone: "canceled", label: "Canceled" },
+};
+
+/**
+ * Walk every proposal on the TRUST, keep the ones opened by `proposer`,
+ * sort by vote_start DESC, and return the first `limit`. We mirror the
+ * status-derivation logic from `computeProposerReputation` so the
+ * popover stays internally consistent with the headline rate.
+ */
+function recentProposalsBy(
+  proposer: string,
+  proposals: ProposalWithPda[],
+  nowSeconds: number,
+  limit: number,
+): RecentProposalSummary[] {
+  const owned = proposals.filter((p) => p.account.proposer.toBase58() === proposer);
+  // vote_start is the earliest stable timestamp on a Proposal — sort
+  // DESC so "newest first" matches what the operator scans top-down.
+  owned.sort(
+    (a, b) => Number(b.account.voteStart.toString()) - Number(a.account.voteStart.toString()),
+  );
+  const slice = owned.slice(0, limit);
+  return slice.map((p) => {
+    const idHex = bytesToHexFromAccount(p.account.proposalId);
+    const state = deriveLifecycleStateLocal(p.account, nowSeconds);
+    const meta = TONE_AND_LABEL_BY_STATE[state];
+    return {
+      id: `0x${idHex}`,
+      idShort: shortHexId(idHex),
+      tone: meta.tone,
+      label: meta.label,
+    };
+  });
+}
+
+function bytesToHexFromAccount(bytes: Uint8Array | number[]): string {
+  const arr = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
+  let out = "";
+  for (const b of arr) out += b.toString(16).padStart(2, "0");
+  return out;
+}
+
+function shortHexId(hex: string): string {
+  if (hex.length <= 12) return `0x${hex}`;
+  return `0x${hex.slice(0, 6)}…${hex.slice(-4)}`;
+}
+
+/**
+ * Inline lifecycle derivation — we can't import `deriveProposalStatus`
+ * here without crossing the module boundary that already exists for
+ * `computeProposerReputation`. Same predicate logic; kept local so the
+ * popover never goes out of sync with the headline reputation tile.
+ */
+function deriveLifecycleStateLocal(
+  account: ProposalAccount,
+  nowSeconds: number,
+): "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled" {
+  if (account.executed) return "executed";
+  if (account.canceled) return "canceled";
+  const voteStart = Number(account.voteStart.toString());
+  const voteDuration = Number(account.voteDuration.toString());
+  const voteEnd = voteStart + voteDuration;
+  if (nowSeconds < voteStart) return "pending";
+  if (nowSeconds <= voteEnd) return "active";
+  const forVotes = BigInt(account.forVotes.toString());
+  const againstVotes = BigInt(account.againstVotes.toString());
+  return forVotes > againstVotes ? "succeeded" : "defeated";
 }
 
 /* ────────────────────────────────────────────────────────────────── */
@@ -558,118 +710,6 @@ export function InlineVoteActions({
         </Button>
       </Tooltip>
     </Inline>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────── */
-/* Vote receipt — iter-6 printable artifact                            */
-/* ────────────────────────────────────────────────────────────────── */
-
-/**
- * Self-contained receipt data captured at cast-time. Lives entirely on
- * the success branch of {@link InlineVoteActions} — never persisted to
- * local storage because the canonical record is the on-chain VoteRecord
- * PDA. The modal is a render of this struct.
- */
-interface VoteReceipt {
-  trustAddress: string;
-  proposalIdHex: string;
-  choice: 0 | 1 | 2;
-  weight: string;
-  signature: string;
-  voteRecordPubkey: string;
-  castAtUnix: number;
-}
-
-const CHOICE_LABEL_FOR_RECEIPT: Record<0 | 1 | 2, "For" | "Against" | "Abstain"> = {
-  0: "Against",
-  1: "For",
-  2: "Abstain",
-};
-
-const CHOICE_TONE_FOR_RECEIPT: Record<0 | 1 | 2, "for" | "against" | "abstain"> = {
-  0: "against",
-  1: "for",
-  2: "abstain",
-};
-
-/**
- * Print-ready vote receipt. Opens as a Modal but the inner card carries
- * its own self-contained layout + print-friendly styles in the CSS
- * module so the operator can hit "Print" and get a clean single-page
- * artifact — what a CFO would slip into a board folder.
- *
- * No external network calls; everything renders from the in-memory
- * receipt struct captured at cast-time.
- */
-function VoteReceiptModal({
-  open,
-  receipt,
-  onClose,
-}: {
-  open: boolean;
-  receipt: VoteReceipt;
-  onClose: () => void;
-}) {
-  const choiceLabel = CHOICE_LABEL_FOR_RECEIPT[receipt.choice];
-  const choiceTone = CHOICE_TONE_FOR_RECEIPT[receipt.choice];
-  const castAtLabel = formatTimestamp(receipt.castAtUnix);
-  const handlePrint = () => {
-    // window.print() is the cheapest print path that doesn&apos;t require
-    // popping a new tab. The @media print rules in the css module strip
-    // the modal chrome so only `.receiptCard` reaches the page.
-    window.print();
-  };
-  return (
-    <Modal open={open} onClose={onClose} title="Vote receipt">
-      <div className={`${styles.scope} ${styles.modalBody} ${styles.receiptModal}`}>
-        <div className={styles.receiptCard} role="document" aria-label="Vote receipt">
-          <div className={styles.receiptHeader}>
-            <span className={styles.receiptKicker}>aeqi · vote receipt</span>
-            <h2 className={styles.receiptTitle}>
-              {choiceLabel} · weight {receipt.weight}
-            </h2>
-          </div>
-          <div className={styles.receiptGrid}>
-            <span className={styles.receiptGridLabel}>Vote</span>
-            <span
-              className={`${styles.receiptGridValue} ${styles.receiptChoice}`}
-              data-tone={choiceTone}
-            >
-              {choiceLabel}
-            </span>
-            <span className={styles.receiptGridLabel}>Weight</span>
-            <span className={styles.receiptGridValue}>{receipt.weight}</span>
-            <span className={styles.receiptGridLabel}>TRUST</span>
-            <span className={styles.receiptGridValue}>{receipt.trustAddress}</span>
-            <span className={styles.receiptGridLabel}>Proposal ID</span>
-            <span className={styles.receiptGridValue}>{receipt.proposalIdHex}</span>
-            <span className={styles.receiptGridLabel}>Vote record</span>
-            <span className={styles.receiptGridValue}>{receipt.voteRecordPubkey}</span>
-            <span className={styles.receiptGridLabel}>Signature</span>
-            <span className={styles.receiptGridValue}>{receipt.signature}</span>
-            <span className={styles.receiptGridLabel}>Cast at</span>
-            <span className={styles.receiptGridValue}>
-              {castAtLabel} · unix {receipt.castAtUnix}
-            </span>
-          </div>
-          <p className={styles.receiptVerifier}>
-            Verify on-chain by fetching the VoteRecord PDA at the address above. The signature
-            references the Solana transaction that opened the VoteRecord; any cluster explorer (e.g.
-            solscan.io, solanafm.com) will resolve it to the cast_vote ix and confirm the choice +
-            weight match this receipt.
-          </p>
-        </div>
-        <Inline gap="2" justify="end">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
-          <Button variant="primary" size="sm" onClick={handlePrint} aria-label="Print receipt">
-            Print
-          </Button>
-        </Inline>
-      </div>
-    </Modal>
   );
 }
 

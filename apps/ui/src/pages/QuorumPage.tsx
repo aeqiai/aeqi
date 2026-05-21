@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useDaemonStore } from "@/store/daemon";
 import { useQuorum } from "@/hooks/useQuorum";
+import { useGovernanceSubscription } from "@/hooks/useGovernanceSubscription";
 import { isTokenModeId } from "@/solana";
 import type { GovernanceConfigWithPda, RoleTypeWithPda } from "@/solana";
 import {
@@ -30,6 +31,7 @@ import {
 import { NewProposalModal } from "./QuorumPage.write";
 import { ProposalsSection } from "./QuorumPage.proposals-section";
 import { ActivityTicker } from "./QuorumPage.ticker";
+import { useQuorumKeyboardShortcuts } from "./QuorumPage.shortcuts";
 
 /**
  * Quorum — `q` in the AEQI grammar (assets · equity · quorum · identity).
@@ -66,7 +68,27 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
 
   const { configs, proposals, roleTypes, roles, voteRecords, programDeployed, isLoading, error } =
     useQuorum(trustAddress);
+  // iter-7: subscribe to `aeqi_governance` account changes for this TRUST
+  // so a freshly-created proposal or cast vote appears without a manual
+  // refresh. The hook is a no-op until the trust address resolves, so
+  // it's safe to call ahead of the loading / error returns below.
+  useGovernanceSubscription(trustAddress);
   const [newProposalOpen, setNewProposalOpen] = useState(false);
+
+  // Hoisted ahead of the early returns so the hook order stays stable
+  // across re-renders that flip between loading / error / data shapes.
+  const openNewProposal = useCallback(() => setNewProposalOpen(true), []);
+  // iter-7: bind `n` at the page level — opens the new-proposal modal
+  // whenever the corresponding header CTA is visible (config exists,
+  // modal not already open). Other bindings (`c` / `v` / arrows) live
+  // inside `ProposalsSection` because they depend on row state owned
+  // there. We guard the callback inside the hook to keep call order
+  // stable; passing `undefined` for the binding is the disable signal.
+  const configsLength = (configs ?? []).length;
+  const shortcutOnNew = configsLength > 0 && !newProposalOpen ? openNewProposal : undefined;
+  useQuorumKeyboardShortcuts({
+    onNew: shortcutOnNew,
+  });
 
   // ── Pre-bridge state: entity exists but has no on-chain mirror yet.
   if (!trustAddress) {
@@ -131,9 +153,11 @@ export default function QuorumPage({ trustId }: { trustId: string }) {
 
   // The "+ New proposal" CTA in the page header only makes sense once
   // at least one voting config exists. Before that, the empty-state
-  // card owns the "set up governance" affordance.
+  // card owns the "set up governance" affordance. `openNewProposal` is
+  // hoisted above the early returns so the page-level `n` shortcut hook
+  // can use it without violating rules-of-hooks.
   const headerActions = hasConfigs ? (
-    <Button variant="primary" size="sm" onClick={() => setNewProposalOpen(true)}>
+    <Button variant="primary" size="sm" onClick={openNewProposal}>
       + New proposal
     </Button>
   ) : undefined;
