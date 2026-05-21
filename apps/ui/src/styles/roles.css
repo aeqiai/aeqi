@@ -1370,11 +1370,13 @@
    the inspector's 0.12s ease motion vocabulary. */
 /* Hover-in delay (80ms) on the emphasis-flip mirrors c13's chip-hover
    grace: a brief cursor sweep across the small "+n implicit" pill
-   shouldn't half-trigger the explicit-chip fade on its release edge.
-   The c12 JS grace already covers hover-OUT with a 200ms tail, so the
-   in-delay only applies while the class is being applied — when the
-   class is removed, the chip falls back to its base 0ms transition
-   and snaps back to rest in lockstep with the ghost-chip retract. */
+   shouldn't half-trigger either half of the emphasis flip on its
+   release edge. Paired on both halves — explicit-chip fade AND
+   ghost-chip glow-in — so the flip commits in lockstep rather than
+   one half racing ahead. The c12 JS grace already covers hover-OUT
+   with a 200ms tail, so the in-delay only applies while the class
+   is being applied; when the class is removed, both chips fall back
+   to their base 0ms transition and snap back to rest together. */
 .role-inspector-field--implicit-hover .role-inspector-chip--explicit {
   background: var(--color-card-subtle);
   color: var(--color-text-muted);
@@ -1388,6 +1390,7 @@
   color: var(--color-text-primary);
   background: var(--color-card-muted);
   pointer-events: auto;
+  transition-delay: 80ms;
 }
 .role-inspector-field--implicit-hover .role-inspector-meta--ghost {
   opacity: 1;
