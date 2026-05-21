@@ -616,12 +616,17 @@
   gap: 0;
   flex-wrap: wrap;
 }
+/* Meta strip — the row's foot. Separation from the trigger→tools flow above
+   is carried by spacing alone, not a hairline. Per the No-Hairlines rule
+   (idea `feedback_no_hairlines`), 1 px borders are banned as dividers; a
+   doubled padding-top reads as a softer boundary at the same information
+   weight, and the meta-label eyebrows already register as their own tier
+   (10 px / 600 / 0.08 em / muted). */
 .events-overview-row-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   gap: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-faint);
+  padding-top: var(--space-3);
 }
 .events-overview-row-meta-item {
   min-width: 0;
