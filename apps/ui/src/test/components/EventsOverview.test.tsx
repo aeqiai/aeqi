@@ -62,4 +62,27 @@ describe("EventsOverview", () => {
     const routines = within(screen.getByLabelText("Routines status"));
     expect(routines.getByText("Dormant")).toBeInTheDocument();
   });
+
+  it("numbers ordered tool calls in the automation chain", () => {
+    render(
+      <EventsOverview
+        events={[
+          event({
+            tool_calls: [
+              { tool: "ideas.search", args: {} },
+              { tool: "quests.create", args: {} },
+            ],
+          }),
+        ]}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByTestId("event-row");
+    expect(within(row).getByText("1")).toBeInTheDocument();
+    expect(within(row).getByText("ideas")).toBeInTheDocument();
+    expect(within(row).getByText("2")).toBeInTheDocument();
+    expect(within(row).getByText("quests")).toBeInTheDocument();
+  });
 });

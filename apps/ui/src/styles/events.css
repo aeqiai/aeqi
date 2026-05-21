@@ -639,6 +639,7 @@
 .events-overview-chip {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 2px 8px;
   font-family: var(--font-sans);
   font-size: 10px;
@@ -664,6 +665,10 @@
   color: var(--color-text-primary);
   background: var(--bg-row);
   letter-spacing: 0.04em;
+}
+.events-overview-chip-step {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
 }
 .events-overview-chip.is-empty {
   color: var(--color-text-muted);
