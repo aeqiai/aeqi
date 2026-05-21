@@ -509,23 +509,26 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
           returns to carry both eyebrow and View all. */}
       {!isQuiet && (
         <header className="home-card-head">
-          {/* c18: drop the literal "All" string. The eyebrow's only job in
-              the populated state is to carry the activity-dot — the row's
-              left column is already labelled "Personal", and "View all"
-              on the right already names the surface this card represents.
-              The word "All" was a third pointer at the same idea; dropping
-              it lets the dot+title+link triad read tighter. When no tile
-              has activity, the eyebrow renders as an empty container with
-              no painted children — invisible but layout-stable thanks to
-              `margin-left: auto` on `.home-card-link`. Screen-reader
-              anchor isn't lost: the title `<h3>` ("Step elsewhere" /
-              "No other TRUSTs") and the "View all" button both carry
-              the card's meaning without "All" repeating it. */}
-          <span className="home-card-eyebrow home-all-eyebrow" aria-hidden="true">
-            {eyebrowState && (
+          {/* c18 dropped the literal "All" — the eyebrow's only job is to
+              carry the activity-dot. c19: when no tile has activity,
+              skip the eyebrow span entirely instead of rendering an
+              empty container. The previous shape relied on
+              `margin-left: auto` on `.home-card-link` to keep the link
+              right-anchored above an invisible left-side slot — a slot
+              pretending to be content (the same anti-pattern c17 caught
+              at the head level). With the span gone, the link is the
+              head's only child in the no-activity case and its
+              `margin-left: auto` reads as explicit "push to the right
+              edge". When activity exists, the eyebrow renders with its
+              dot and the link still right-anchors via the same rule.
+              Screen-reader anchor isn't lost: the title `<h3>` ("Step
+              elsewhere") and the "View all" button carry the card's
+              meaning without an empty span advertising itself. */}
+          {eyebrowState && (
+            <span className="home-card-eyebrow home-all-eyebrow" aria-hidden="true">
               <span className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`} />
-            )}
-          </span>
+            </span>
+          )}
           <button type="button" className="home-card-link" onClick={onViewAll}>
             View all
             <ArrowRight size={14} strokeWidth={1.8} />
