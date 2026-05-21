@@ -132,7 +132,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
       <Page>
         <PageHeader title="Assets" description="What the TRUST holds." />
         <PageBody>
-          <Loading variant="section" label="Reading on-chain treasury state" />
+          <Loading variant="section" label="Loading treasury snapshot" />
         </PageBody>
       </Page>
     );
@@ -145,7 +145,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         <PageBody>
           <EmptyState
             title="Couldn't read treasury state"
-            description={error.message || "The RPC call to the configured Solana cluster failed."}
+            description={error.message || "The platform could not load the treasury snapshot."}
           />
         </PageBody>
       </Page>
@@ -172,7 +172,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
       size="sm"
       onClick={refetch}
       disabled={isFetching}
-      aria-label="Refresh treasury reads"
+      aria-label="Refresh treasury snapshot"
     >
       {isFetching ? "Refreshing…" : "Refresh"}
     </Button>

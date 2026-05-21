@@ -775,6 +775,68 @@ export const api = {
     }),
 
   /**
+   * Server-side Solana assets snapshot. The browser never talks to Solana
+   * RPC directly; platform/indexer owns localnet now and mainnet later.
+   */
+  getTrustAssetsByAddress: (trustAddress: string) =>
+    request<{
+      ok: true;
+      cluster: string;
+      trust_id: string;
+      trust_address: string;
+      vault: {
+        module_state_pda: string;
+        vault_authority_pda: string;
+        module_state: {
+          trust: string;
+          treasury_authority: string;
+          bump: number;
+        } | null;
+      };
+      holdings: Array<{
+        token_account: string;
+        mint: string;
+        amount: string;
+        program_id: string;
+      }>;
+      budgets: Array<{
+        public_key: string;
+        account: {
+          trust: string;
+          budget_id: number[];
+          grantor: string;
+          target_role_id: number[];
+          parent_budget_id: number[];
+          amount: string;
+          spent: string;
+          expiry: string;
+          frozen: boolean;
+          bump: number;
+        };
+      }>;
+      vesting_positions: Array<{
+        public_key: string;
+        account: {
+          trust: string;
+          position_id: number[];
+          recipient: string;
+          mint: string;
+          grantor: string;
+          total_amount: string;
+          claimed_amount: string;
+          start_time: string;
+          cliff_time: string;
+          end_time: string;
+          fdv_milestone_unlocked: boolean;
+          contribution_required: string;
+          contribution_paid: boolean;
+          contribution_mint: string;
+          bump: number;
+        };
+      }>;
+    }>(`/public/trust/${encodeURIComponent(trustAddress)}/assets`),
+
+  /**
    * Grant a vesting position. position_id is generated server-side and
    * returned so the caller can look the position up on chain.
    * Schedule: start_time < end_time AND start_time <= cliff_time <= end_time

@@ -1,6 +1,6 @@
 /**
- * `useAssets` — React Query wrapper around the four on-chain reads the
- * Assets surface needs:
+ * `useAssets` — React Query wrapper around the server-side Assets
+ * snapshot the surface needs:
  *
  *   1. Treasury vault descriptor (module-state PDA + vault authority
  *      PDA — derivable without RPC — + the on-chain module-state
@@ -21,13 +21,9 @@
  * (`refetch()` returned below).
  */
 import { useQuery } from "@tanstack/react-query";
+import { PublicKey } from "@solana/web3.js";
 
-import {
-  readAllVestingPositions,
-  readBudgets,
-  readTreasuryModuleState,
-  readVaultHoldings,
-} from "@/solana/assets";
+import { api } from "@/lib/api";
 import type {
   BudgetAccountWithPda,
   TreasuryVault,
@@ -71,83 +67,91 @@ export interface UseAssetsResult {
 export function useAssets(trustAddress: string | null | undefined): UseAssetsResult {
   const enabled = !!trustAddress;
 
-  const vaultQuery = useQuery({
-    queryKey: ["assets", "vault", trustAddress ?? null],
-    queryFn: () => readTreasuryModuleState(trustAddress as string),
-    enabled,
-    staleTime: STALE_TIME_MS,
-  });
-
-  const holdingsQuery = useQuery({
-    queryKey: ["assets", "holdings", vaultQuery.data?.vaultAuthorityPda?.toBase58() ?? null],
-    queryFn: () => readVaultHoldings(vaultQuery.data!.vaultAuthorityPda),
-    enabled: enabled && !!vaultQuery.data,
-    staleTime: STALE_TIME_MS,
-  });
-
-  const budgetsQuery = useQuery({
-    queryKey: ["assets", "budgets", trustAddress ?? null],
-    queryFn: async () => {
-      try {
-        return await readBudgets(trustAddress as string);
-      } catch {
-        // Treasury without budget-module is a real shape (Foundation
-        // TRUSTs). Swallow scan errors so the surface degrades to "no
-        // budgets" instead of "couldn't load assets".
-        return [];
-      }
-    },
-    enabled,
-    staleTime: STALE_TIME_MS,
-  });
-
-  const vestingQuery = useQuery({
-    queryKey: ["assets", "vesting-positions", trustAddress ?? null],
-    queryFn: async () => {
-      try {
-        return await readAllVestingPositions(trustAddress as string);
-      } catch {
-        // Treasury without vesting-module is a real shape (Foundation
-        // TRUSTs). Swallow scan errors so the surface degrades to "no
-        // positions" instead of "couldn't load assets".
-        return [] as VestingPositionWithPda[];
-      }
-    },
+  const snapshotQuery = useQuery({
+    queryKey: ["assets", "snapshot", trustAddress ?? null],
+    queryFn: async () =>
+      decodeAssetsSnapshot(await api.getTrustAssetsByAddress(trustAddress as string)),
     enabled,
     staleTime: STALE_TIME_MS,
   });
 
   const refetch = () => {
-    void vaultQuery.refetch();
-    void holdingsQuery.refetch();
-    void budgetsQuery.refetch();
-    void vestingQuery.refetch();
+    void snapshotQuery.refetch();
   };
 
   return {
-    vault: vaultQuery.data,
-    holdings: holdingsQuery.data,
-    budgets: budgetsQuery.data,
-    vestingPositions: vestingQuery.data,
-    vestingCount: vestingQuery.data?.length,
-    isLoading:
-      enabled &&
-      (vaultQuery.isLoading ||
-        holdingsQuery.isLoading ||
-        budgetsQuery.isLoading ||
-        vestingQuery.isLoading),
-    isFetching:
-      enabled &&
-      (vaultQuery.isFetching ||
-        holdingsQuery.isFetching ||
-        budgetsQuery.isFetching ||
-        vestingQuery.isFetching),
-    error:
-      (vaultQuery.error as Error | null) ??
-      (holdingsQuery.error as Error | null) ??
-      (budgetsQuery.error as Error | null) ??
-      (vestingQuery.error as Error | null) ??
-      null,
+    vault: snapshotQuery.data?.vault,
+    holdings: snapshotQuery.data?.holdings,
+    budgets: snapshotQuery.data?.budgets,
+    vestingPositions: snapshotQuery.data?.vestingPositions,
+    vestingCount: snapshotQuery.data?.vestingPositions.length,
+    isLoading: enabled && snapshotQuery.isLoading,
+    isFetching: enabled && snapshotQuery.isFetching,
+    error: (snapshotQuery.error as Error | null) ?? null,
     refetch,
+  };
+}
+
+type RawAssetsSnapshot = Awaited<ReturnType<typeof api.getTrustAssetsByAddress>>;
+
+function decodeAssetsSnapshot(raw: RawAssetsSnapshot): {
+  vault: TreasuryVault;
+  holdings: VaultHolding[];
+  budgets: BudgetAccountWithPda[];
+  vestingPositions: VestingPositionWithPda[];
+} {
+  return {
+    vault: {
+      moduleStatePda: new PublicKey(raw.vault.module_state_pda),
+      vaultAuthorityPda: new PublicKey(raw.vault.vault_authority_pda),
+      moduleState: raw.vault.module_state
+        ? ({
+            trust: new PublicKey(raw.vault.module_state.trust),
+            treasuryAuthority: new PublicKey(raw.vault.module_state.treasury_authority),
+            bump: raw.vault.module_state.bump,
+          } as TreasuryVault["moduleState"])
+        : null,
+    },
+    holdings: raw.holdings.map((h) => ({
+      tokenAccount: new PublicKey(h.token_account),
+      mint: new PublicKey(h.mint),
+      amount: BigInt(h.amount),
+      programId: new PublicKey(h.program_id),
+    })),
+    budgets: raw.budgets.map((b) => ({
+      publicKey: new PublicKey(b.public_key),
+      account: {
+        trust: new PublicKey(b.account.trust),
+        budgetId: b.account.budget_id,
+        grantor: new PublicKey(b.account.grantor),
+        targetRoleId: b.account.target_role_id,
+        parentBudgetId: b.account.parent_budget_id,
+        amount: BigInt(b.account.amount),
+        spent: BigInt(b.account.spent),
+        expiry: BigInt(b.account.expiry),
+        frozen: b.account.frozen,
+        bump: b.account.bump,
+      },
+    })) as BudgetAccountWithPda[],
+    vestingPositions: raw.vesting_positions.map((p) => ({
+      publicKey: new PublicKey(p.public_key),
+      account: {
+        trust: new PublicKey(p.account.trust),
+        positionId: p.account.position_id,
+        recipient: new PublicKey(p.account.recipient),
+        mint: new PublicKey(p.account.mint),
+        grantor: new PublicKey(p.account.grantor),
+        totalAmount: BigInt(p.account.total_amount),
+        claimedAmount: BigInt(p.account.claimed_amount),
+        startTime: BigInt(p.account.start_time),
+        cliffTime: BigInt(p.account.cliff_time),
+        endTime: BigInt(p.account.end_time),
+        fdvMilestoneUnlocked: p.account.fdv_milestone_unlocked,
+        contributionRequired: BigInt(p.account.contribution_required),
+        contributionPaid: p.account.contribution_paid,
+        contributionMint: new PublicKey(p.account.contribution_mint),
+        bump: p.account.bump,
+      },
+    })) as VestingPositionWithPda[],
   };
 }
