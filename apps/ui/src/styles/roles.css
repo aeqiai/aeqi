@@ -497,6 +497,27 @@
   opacity: 0.6;
 }
 
+/* Active liveness-filter chip — the chip strip below the toolbar
+   inherits the canonical `.ideas-list-chip` shape, but liveness chips
+   carry a leading status dot AND a tinted substrate keyed to the same
+   `--state-*` family that paints the row dots. This collapses the chip
+   strip and the row dots into one vocabulary: removing the "Online"
+   chip and unfiltering the rows speak the same colour. Tighter
+   left-padding so the dot rides flush instead of looking inset. */
+.agents-list-chip--liveness {
+  padding-left: 8px;
+  gap: 6px;
+}
+.agents-list-chip--liveness:has(.agent-liveness-dot--online) {
+  background: var(--state-progress-bg);
+}
+.agents-list-chip--liveness:has(.agent-liveness-dot--idle) {
+  background: var(--state-review-bg);
+}
+.agents-list-chip--liveness:has(.agent-liveness-dot--offline) {
+  background: var(--bg-row);
+}
+
 /* Agents list cells — tokenised cell-level primitives consumed by
    `AgentsList.tsx`. Pulls inline `style={...}` objects off the column
    defs so the table inherits the Notion-minimal Table register from

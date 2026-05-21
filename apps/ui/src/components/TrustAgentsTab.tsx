@@ -200,12 +200,22 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
   }, [entityAgents, search, sort, status]);
 
   // Active-filter chip strip mirrors IdeasListView — only renders when
-  // a non-resting filter is in play.
-  const activeChips: { key: string; label: string; onRemove: () => void }[] = [];
+  // a non-resting filter is in play. The liveness chip carries the same
+  // dot vocabulary as the row paint (`.agent-liveness-dot--<state>`) so
+  // the active filter reads in the same language as the rows it's
+  // narrowing — violet for online, warmth for idle, ink-muted for
+  // offline — instead of as a generic grey pill.
+  const activeChips: {
+    key: string;
+    label: string;
+    liveness?: "online" | "idle" | "offline";
+    onRemove: () => void;
+  }[] = [];
   if (status !== "all") {
     activeChips.push({
       key: "status",
       label: LIVENESS_FILTER_LABELS[status],
+      liveness: status,
       onRemove: () => setSearchParam("status", null),
     });
   }
@@ -367,10 +377,18 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
                   key={c.key}
                   type="button"
                   role="listitem"
-                  className="ideas-list-chip"
+                  className={
+                    c.liveness ? "ideas-list-chip agents-list-chip--liveness" : "ideas-list-chip"
+                  }
                   onClick={c.onRemove}
                   title={`Remove ${c.label}`}
                 >
+                  {c.liveness && (
+                    <span
+                      className={`agent-liveness-dot agent-liveness-dot--${c.liveness}`}
+                      aria-hidden
+                    />
+                  )}
                   <span className="ideas-list-chip-label">{c.label}</span>
                   <span className="ideas-list-chip-x" aria-hidden>
                     ×
