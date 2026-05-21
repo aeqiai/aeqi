@@ -17,6 +17,7 @@ describe("aeqi_trust", () => {
   let trustPda: PublicKey;
   let trustBump: number;
   let modulePda: PublicKey;
+  let targetModulePda: PublicKey;
   let v2ImplementationPda: PublicKey;
 
   before(() => {
@@ -86,6 +87,110 @@ describe("aeqi_trust", () => {
     ).to.eq(true);
     expect(moduleAcct.trustAcl.toString()).to.eq("255");
     expect(moduleAcct.initialized).to.eq(0); // Pending
+  });
+
+  it("requires a real target module for ACL edges and allows edge updates", async () => {
+    const sourceModuleId = new Uint8Array(32).fill(0);
+    sourceModuleId[0] = 0x52;
+    const targetModuleId = new Uint8Array(32).fill(0);
+    targetModuleId[0] = 0x54;
+    const unknownTargetModuleId = new Uint8Array(32).fill(0);
+    unknownTargetModuleId[0] = 0x58;
+
+    [targetModulePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("module"), trustPda.toBuffer(), Buffer.from(targetModuleId)],
+      program.programId,
+    );
+    const [unknownTargetModulePda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("module"),
+        trustPda.toBuffer(),
+        Buffer.from(unknownTargetModuleId),
+      ],
+      program.programId,
+    );
+    const [unknownAclEdgePda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("acl_edge"),
+        trustPda.toBuffer(),
+        Buffer.from(sourceModuleId),
+        Buffer.from(unknownTargetModuleId),
+      ],
+      program.programId,
+    );
+
+    await expectTxFail(
+      async () =>
+        program.methods
+          .setModuleAcl(Array.from(unknownTargetModuleId), new anchor.BN(0x40))
+          .accountsPartial({
+            trust: trustPda,
+            sourceModule: modulePda,
+            targetModule: unknownTargetModulePda,
+            aclEdge: unknownAclEdgePda,
+            authority: provider.wallet.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .rpc(),
+      /AccountNotInitialized/,
+    );
+
+    await program.methods
+      .registerModule(
+        Array.from(targetModuleId),
+        Keypair.generate().publicKey,
+        provider.wallet.publicKey,
+        new anchor.BN(1),
+        zeroHash,
+        new anchor.BN(0x80),
+      )
+      .accountsPartial({
+        trust: trustPda,
+        module: targetModulePda,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    const [aclEdgePda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("acl_edge"),
+        trustPda.toBuffer(),
+        Buffer.from(sourceModuleId),
+        Buffer.from(targetModuleId),
+      ],
+      program.programId,
+    );
+
+    await program.methods
+      .setModuleAcl(Array.from(targetModuleId), new anchor.BN(0x40))
+      .accountsPartial({
+        trust: trustPda,
+        sourceModule: modulePda,
+        targetModule: targetModulePda,
+        aclEdge: aclEdgePda,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    let edge = await program.account.moduleAclEdge.fetch(aclEdgePda);
+    expect(edge.flags.toString()).to.eq("64");
+
+    await program.methods
+      .setModuleAcl(Array.from(targetModuleId), new anchor.BN(0x80))
+      .accountsPartial({
+        trust: trustPda,
+        sourceModule: modulePda,
+        targetModule: targetModulePda,
+        aclEdge: aclEdgePda,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    edge = await program.account.moduleAclEdge.fetch(aclEdgePda);
+    expect(edge.flags.toString()).to.eq("128");
   });
 
   it("lets a provider publish an implementation catalog entry", async () => {
@@ -194,6 +299,45 @@ describe("aeqi_trust", () => {
     expect(moduleAcct.implementationVersion.toString()).to.eq("2");
     expect(Buffer.from(moduleAcct.implementationMetadataHash)[0]).to.eq(0xbe);
     expect(moduleAcct.trustAcl.toString()).to.eq("511");
+  });
+
+  it("allows bytes config values to grow up to the fixed trust config cap", async () => {
+    const key = new Uint8Array(32).fill(0);
+    key[0] = 0xc0;
+    const [configPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("cfg_bytes"), trustPda.toBuffer(), Buffer.from(key)],
+      program.programId,
+    );
+
+    await program.methods
+      .setBytesConfig(Array.from(key), Buffer.from([1, 2, 3, 4]))
+      .accountsPartial({
+        trust: trustPda,
+        config: configPda,
+        sourceModule: null,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    let cfg = await program.account.bytesConfig.fetch(configPda);
+    expect(cfg.value.length).to.eq(4);
+
+    const larger = Buffer.from(new Uint8Array(96).fill(7));
+    await program.methods
+      .setBytesConfig(Array.from(key), larger)
+      .accountsPartial({
+        trust: trustPda,
+        config: configPda,
+        sourceModule: null,
+        authority: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    cfg = await program.account.bytesConfig.fetch(configPda);
+    expect(cfg.value.length).to.eq(96);
+    expect(cfg.value[95]).to.eq(7);
   });
 
   it("prevents non-providers and inactive implementations from changing TRUST modules", async () => {

@@ -24,6 +24,10 @@ pub enum AeqiTrustError {
     InactiveImplementation,
     #[msg("module implementation does not match the module slot")]
     ImplementationModuleMismatch,
+    #[msg("ACL source module does not belong to this trust")]
+    AclSourceModuleMismatch,
+    #[msg("ACL target module does not belong to this trust")]
+    AclTargetModuleMismatch,
     #[msg("module has already been initialized")]
     ModuleAlreadyInitialized,
     #[msg("module has not yet been initialized")]

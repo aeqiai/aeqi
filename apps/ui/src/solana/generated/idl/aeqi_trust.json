@@ -712,6 +712,32 @@
           }
         },
         {
+          "name": "target_module",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "trust"
+              },
+              {
+                "kind": "arg",
+                "path": "target_module_id"
+              }
+            ]
+          }
+        },
+        {
           "name": "acl_edge",
           "writable": true,
           "pda": {
@@ -1255,21 +1281,31 @@
     },
     {
       "code": 6011,
+      "name": "AclSourceModuleMismatch",
+      "msg": "ACL source module does not belong to this trust"
+    },
+    {
+      "code": 6012,
+      "name": "AclTargetModuleMismatch",
+      "msg": "ACL target module does not belong to this trust"
+    },
+    {
+      "code": 6013,
       "name": "ModuleAlreadyInitialized",
       "msg": "module has already been initialized"
     },
     {
-      "code": 6012,
+      "code": 6014,
       "name": "ModuleNotInitialized",
       "msg": "module has not yet been initialized"
     },
     {
-      "code": 6013,
+      "code": 6015,
       "name": "ConfigTooLarge",
       "msg": "config payload exceeds maximum size"
     },
     {
-      "code": 6014,
+      "code": 6016,
       "name": "MathOverflow",
       "msg": "math overflow"
     }

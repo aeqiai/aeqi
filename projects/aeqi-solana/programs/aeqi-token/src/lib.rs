@@ -101,9 +101,7 @@ pub mod aeqi_token {
         require_keys_eq!(*cfg_acct.owner, AEQI_TRUST_ID, TokenError::InvalidConfig);
 
         let data = cfg_acct.try_borrow_data()?;
-        require!(data.len() >= 8, TokenError::InvalidConfig);
-        let cfg = BytesConfigData::try_from_slice(&data[8..])
-            .map_err(|_| error!(TokenError::InvalidConfig))?;
+        let cfg = decode_bytes_config_account(&data)?;
         require_keys_eq!(cfg.trust, ctx.accounts.trust.key(), TokenError::InvalidConfig);
         require!(cfg.key == TOKEN_CONFIG_KEY, TokenError::InvalidConfig);
 
@@ -253,6 +251,40 @@ pub mod aeqi_token {
 fn require_token_2022(token_program: Pubkey) -> Result<()> {
     require_keys_eq!(token_program, token_2022::ID, TokenError::InvalidTokenProgram);
     Ok(())
+}
+
+fn decode_bytes_config_account(data: &[u8]) -> Result<BytesConfigData> {
+    const DISCRIMINATOR_LEN: usize = 8;
+    const PUBKEY_LEN: usize = 32;
+    const KEY_LEN: usize = 32;
+    const VEC_LEN_PREFIX: usize = 4;
+    const FIXED_PREFIX: usize = DISCRIMINATOR_LEN + PUBKEY_LEN + KEY_LEN + VEC_LEN_PREFIX;
+
+    require!(data.len() > FIXED_PREFIX, TokenError::InvalidConfig);
+    let mut trust_bytes = [0u8; PUBKEY_LEN];
+    trust_bytes.copy_from_slice(&data[DISCRIMINATOR_LEN..DISCRIMINATOR_LEN + PUBKEY_LEN]);
+    let trust = Pubkey::new_from_array(trust_bytes);
+
+    let key_start = DISCRIMINATOR_LEN + PUBKEY_LEN;
+    let mut key = [0u8; KEY_LEN];
+    key.copy_from_slice(&data[key_start..key_start + KEY_LEN]);
+
+    let len_start = key_start + KEY_LEN;
+    let value_len = u32::from_le_bytes(
+        data[len_start..len_start + VEC_LEN_PREFIX]
+            .try_into()
+            .map_err(|_| error!(TokenError::InvalidConfig))?,
+    ) as usize;
+    let value_start = len_start + VEC_LEN_PREFIX;
+    let value_end = value_start.checked_add(value_len).ok_or(error!(TokenError::InvalidConfig))?;
+    require!(value_end < data.len(), TokenError::InvalidConfig);
+
+    Ok(BytesConfigData {
+        trust,
+        key,
+        value: data[value_start..value_end].to_vec(),
+        bump: data[value_end],
+    })
 }
 
 #[account]

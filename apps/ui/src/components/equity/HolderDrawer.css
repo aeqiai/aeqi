@@ -299,7 +299,7 @@
    trade. Honest distinction: curve activity uses jade/warmth (buy/sell
    = market events); mint-history uses indigo (issuance event). */
 .holder-drawer__activityDot--mint {
-  background: #7c6cd6;
+  background: var(--state-progress);
 }
 
 .holder-drawer__activityKind {

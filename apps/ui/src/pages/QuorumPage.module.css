@@ -22,28 +22,37 @@
 }
 
 .kpiTile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-4);
   background: var(--color-card);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
 }
 
-.kpiTile[data-tone="in_progress"] {
-  box-shadow: inset 3px 0 0 0 var(--quorum-accent-in-progress);
+.kpiTile::before {
+  content: "";
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
 }
 
-.kpiTile[data-tone="in_review"] {
-  box-shadow: inset 3px 0 0 0 var(--quorum-accent-in-review);
+.kpiTile[data-tone="in_progress"]::before {
+  background: var(--quorum-accent-in-progress);
 }
 
-.kpiTile[data-tone="done"] {
-  box-shadow: inset 3px 0 0 0 var(--quorum-accent-done);
+.kpiTile[data-tone="in_review"]::before {
+  background: var(--quorum-accent-in-review);
 }
 
-.kpiTile[data-tone="neutral"] {
-  box-shadow: inset 3px 0 0 0 var(--color-text-muted);
+.kpiTile[data-tone="done"]::before {
+  background: var(--quorum-accent-done);
 }
 
 .kpiLabel {
@@ -1078,7 +1087,7 @@
 
 .proposalsTableWrap :global(tbody tr[data-quorum-selected="true"]) {
   background: var(--color-card-subtle);
-  box-shadow: inset 2px 0 0 0 var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
 }
 
 .proposalsTableWrap :global(tbody tr[data-quorum-selected="true"]:hover) {
@@ -1130,7 +1139,7 @@
 }
 
 .reputationPanelGlyph[data-tone="in_progress"] {
-  background: var(--quorum-accent-in-progress, #7c6cd6);
+  background: var(--quorum-accent-in-progress);
 }
 
 .reputationPanelGlyph[data-tone="in_review"] {
@@ -1343,7 +1352,7 @@
 }
 
 .proposerHoverDot[data-tone="in_progress"] {
-  background: var(--quorum-accent-in-progress, #7c6cd6);
+  background: var(--quorum-accent-in-progress);
   opacity: 0.85;
 }
 
@@ -1393,7 +1402,7 @@
 }
 
 .proposerHoverStatus[data-tone="in_progress"] {
-  color: var(--quorum-accent-in-progress, #7c6cd6);
+  color: var(--quorum-accent-in-progress);
 }
 
 .proposerHoverFootnote {
@@ -1704,7 +1713,7 @@
 
 .scope {
   /* `:scope` is not portable across CSS modules; declare on a wrapper. */
-  --quorum-accent-in-progress: #7c6cd6;
+  --quorum-accent-in-progress: var(--state-progress);
   --quorum-accent-in-review: var(--color-warmth);
   --quorum-accent-done: var(--color-success);
 }

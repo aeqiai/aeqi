@@ -718,6 +718,32 @@ export type AeqiTrust = {
           }
         },
         {
+          "name": "targetModule",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  100,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "trust"
+              },
+              {
+                "kind": "arg",
+                "path": "targetModuleId"
+              }
+            ]
+          }
+        },
+        {
           "name": "aclEdge",
           "writable": true,
           "pda": {
@@ -1261,21 +1287,31 @@ export type AeqiTrust = {
     },
     {
       "code": 6011,
+      "name": "aclSourceModuleMismatch",
+      "msg": "ACL source module does not belong to this trust"
+    },
+    {
+      "code": 6012,
+      "name": "aclTargetModuleMismatch",
+      "msg": "ACL target module does not belong to this trust"
+    },
+    {
+      "code": 6013,
       "name": "moduleAlreadyInitialized",
       "msg": "module has already been initialized"
     },
     {
-      "code": 6012,
+      "code": 6014,
       "name": "moduleNotInitialized",
       "msg": "module has not yet been initialized"
     },
     {
-      "code": 6013,
+      "code": 6015,
       "name": "configTooLarge",
       "msg": "config payload exceeds maximum size"
     },
     {
-      "code": 6014,
+      "code": 6016,
       "name": "mathOverflow",
       "msg": "math overflow"
     }

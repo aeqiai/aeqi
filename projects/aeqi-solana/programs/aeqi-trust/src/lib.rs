@@ -205,6 +205,12 @@ pub mod aeqi_trust {
             AeqiTrustError::Unauthorized
         );
 
+        let target_module = &ctx.accounts.target_module;
+        require!(
+            target_module.module_id == target_module_id,
+            AeqiTrustError::AclTargetModuleMismatch
+        );
+
         let edge = &mut ctx.accounts.acl_edge;
         edge.trust = trust.key();
         edge.source_module_id = ctx.accounts.source_module.module_id;
@@ -229,6 +235,7 @@ pub mod aeqi_trust {
             trust.authority,
             AeqiTrustError::Unauthorized
         );
+        require!(!trust.paused, AeqiTrustError::TrustPaused);
         require!(trust.creation_mode, AeqiTrustError::AlreadyFinalized);
         require!(trust.module_count > 0, AeqiTrustError::NoModulesRegistered);
         trust.creation_mode = false;
@@ -436,10 +443,17 @@ pub struct SetModuleAcl<'info> {
     #[account(
         seeds = [b"module", trust.key().as_ref(), source_module.module_id.as_ref()],
         bump = source_module.bump,
+        constraint = source_module.trust == trust.key() @ AeqiTrustError::AclSourceModuleMismatch,
     )]
     pub source_module: Account<'info, Module>,
     #[account(
-        init,
+        seeds = [b"module", trust.key().as_ref(), target_module_id.as_ref()],
+        bump = target_module.bump,
+        constraint = target_module.trust == trust.key() @ AeqiTrustError::AclTargetModuleMismatch,
+    )]
+    pub target_module: Account<'info, Module>,
+    #[account(
+        init_if_needed,
         payer = authority,
         space = 8 + ModuleAclEdge::INIT_SPACE,
         seeds = [b"acl_edge", trust.key().as_ref(), source_module.module_id.as_ref(), target_module_id.as_ref()],
@@ -519,7 +533,7 @@ pub struct SetBytesConfig<'info> {
     #[account(
         init_if_needed,
         payer = authority,
-        space = 8 + BytesConfig::INIT_SPACE_BASE + value.len(),
+        space = 8 + BytesConfig::INIT_SPACE_BASE + MAX_BYTES_CONFIG,
         seeds = [b"cfg_bytes", trust.key().as_ref(), key.as_ref()],
         bump,
     )]

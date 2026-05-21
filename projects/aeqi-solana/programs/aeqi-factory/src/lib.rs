@@ -440,10 +440,17 @@ pub mod aeqi_factory {
                 .iter()
                 .position(|module| module.module_id == edge.source_module_id)
                 .ok_or(error!(FactoryError::UnknownAclModuleReference))?;
+            let target_index = template
+                .modules
+                .iter()
+                .position(|module| module.module_id == edge.target_module_id)
+                .ok_or(error!(FactoryError::UnknownAclModuleReference))?;
             let source_module = module_accounts[source_index].clone();
+            let target_module = module_accounts[target_index].clone();
             let acl_accounts = TrustSetModuleAcl {
                 trust: ctx.accounts.trust.to_account_info(),
                 source_module,
+                target_module,
                 acl_edge: acl_edge_acct.clone(),
                 authority: ctx.accounts.authority.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
