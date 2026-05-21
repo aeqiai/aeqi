@@ -5,6 +5,7 @@ import { useAssets } from "@/hooks/useAssets";
 import { useEquity } from "@/hooks/useEquity";
 import { useQuorum } from "@/hooks/useQuorum";
 import { deriveProposalStatus, lookupTokenMeta } from "@/solana";
+import { formatInteger } from "@/lib/i18n";
 
 interface TrustOwnershipGroupProps {
   trustAddress: string | null | undefined;
@@ -90,7 +91,7 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           to={`${basePath}/equity`}
           icon={<PieChart size={16} strokeWidth={1.5} />}
           label="Equity"
-          value={holdersCount === null ? "—" : String(holdersCount)}
+          value={holdersCount === null ? "—" : formatInteger(holdersCount)}
           hint={holdersCount === 1 ? "holder" : "holders"}
           provisioning={equityProvisioning}
         />
@@ -98,7 +99,7 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
           to={`${basePath}/quorum`}
           icon={<Vote size={16} strokeWidth={1.5} />}
           label="Quorum"
-          value={activeProposalsCount === null ? "—" : String(activeProposalsCount)}
+          value={activeProposalsCount === null ? "—" : formatInteger(activeProposalsCount)}
           hint="open"
           provisioning={quorumProvisioning}
         />

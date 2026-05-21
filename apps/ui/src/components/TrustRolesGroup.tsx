@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Users2, Crown, Briefcase, UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
+import { formatInteger } from "@/lib/i18n";
 import type { Role } from "@/lib/types";
 
 interface TrustRolesGroupProps {
@@ -73,7 +74,7 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           to={`${basePath}/roles`}
           icon={<Users2 size={16} strokeWidth={1.5} />}
           label="Roles"
-          value={String(total)}
+          value={formatInteger(total)}
           hint="in this TRUST"
           sub={total === 0 ? "No roles yet" : undefined}
           footer={
@@ -99,21 +100,21 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           to={`${basePath}/roles?occupant=all&filter=director`}
           icon={<Crown size={16} strokeWidth={1.5} />}
           label="Directors"
-          value={String(directors)}
+          value={formatInteger(directors)}
           hint="stewardship"
         />
         <PrimitiveCard
           to={`${basePath}/roles?occupant=all&filter=operator`}
           icon={<Briefcase size={16} strokeWidth={1.5} />}
           label="Operators"
-          value={String(operators)}
+          value={formatInteger(operators)}
           hint="execution"
         />
         <PrimitiveCard
           to={`${basePath}/roles?occupant=vacant`}
           icon={<UserPlus size={16} strokeWidth={1.5} />}
           label="Vacant"
-          value={String(vacant)}
+          value={formatInteger(vacant)}
           hint={vacant === 1 ? "open seat" : "open seats"}
           sub={vacant === 0 && total > 0 ? "All seats filled" : undefined}
           tone={vacant > 0 ? "warmth" : undefined}

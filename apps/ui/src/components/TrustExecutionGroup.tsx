@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Users, Target, Activity, Lightbulb } from "lucide-react";
 import { useDaemonStore } from "@/store/daemon";
 import { useMemo } from "react";
+import { formatInteger } from "@/lib/i18n";
 import type { Quest } from "@/lib/types";
 
 interface TrustExecutionGroupProps {
@@ -95,7 +96,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           to={`${basePath}/agents`}
           icon={<Users size={16} strokeWidth={1.5} />}
           label="Agents"
-          value={String(activeAgents)}
+          value={formatInteger(activeAgents)}
           hint={`of ${subtreeAgents.length}`}
           sub={subtreeAgents.length === 0 ? "No agents yet" : ""}
           footer={
@@ -117,7 +118,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           to={`${basePath}/quests`}
           icon={<Target size={16} strokeWidth={1.5} />}
           label="Quests"
-          value={String(inflightQuests)}
+          value={formatInteger(inflightQuests)}
           hint="in flight"
           footer={
             <span className="trust-quest-signals" aria-label="quest status breakdown">
