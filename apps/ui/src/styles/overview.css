@@ -305,6 +305,21 @@
 .trust-hero-bar-dot[data-tone="static"] {
   background: var(--color-text-muted);
 }
+/* When the runtime transitions from `provisioning` to `live`, the dot
+   previously hard-snapped from warmth-pulse to indigo-resting. The right
+   side (chain mirror) already rides a composed pending → verified beat
+   (c8: pulse → jade fade), so the left side (execution) deserves the
+   same gesture — mirror the c8 fade on the runtime dot so both sides
+   verify with one rhythm. Reuses `trust-solana-verify` so the opacity
+   ramp (0.45 → 1) lines up with the pulse trough and lands at full
+   opacity over --transition-normal. Color resolves to indigo as the
+   ramp completes. Single iteration, gated on prefers-reduced-motion:
+   no-preference. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-hero-bar-dot[data-tone="live"] {
+    animation: trust-solana-verify var(--transition-normal) 1 forwards;
+  }
+}
 .trust-hero-bar-headline {
   font-weight: 600;
   color: var(--color-text-primary);
