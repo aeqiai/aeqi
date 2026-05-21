@@ -13,6 +13,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
 import { useCurveTrades } from "@/hooks/useCurveTrades";
 import { useEquityVesting } from "@/hooks/useEquityVesting";
+import { formatInteger, formatNumber } from "@/lib/i18n";
 import type { CurveTrade } from "@/components/equity/RecentTradesLog";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
@@ -624,8 +625,8 @@ function CapTableSection({
           <div style={{ marginBottom: "var(--space-3)" }}>
             <Banner kind="warning">
               {concentration.kind === "top1"
-                ? `Single holder controls ${concentration.pct.toFixed(2)}% of supply — concentrated cap table.`
-                : `Top ${concentration.groupSize} holders control ${concentration.pct.toFixed(2)}% of supply — concentrated cap table.`}
+                ? `Single holder controls ${formatPct(concentration.pct)} of supply — concentrated cap table.`
+                : `Top ${formatInteger(concentration.groupSize)} holders control ${formatPct(concentration.pct)} of supply — concentrated cap table.`}
             </Banner>
           </div>
         )}
@@ -779,11 +780,11 @@ function groupThousands(digits: string): string {
  * `cut -d,`.
  */
 function csvEscape(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
+  return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
+
+const formatPct = (value: number): string =>
+  `${formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
 function formatPercent(amount: bigint, total: bigint): string {
   if (total === 0n) return "—";
