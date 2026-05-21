@@ -4,6 +4,7 @@ import { ArrowRight, Copy, Check } from "lucide-react";
 import { useDaemonStore } from "@/store/daemon";
 import { useRuntimeStatus } from "@/hooks/useRuntimeStatus";
 import { useIncorporation } from "@/hooks/useIncorporation";
+import { formatCount } from "@/lib/i18n";
 import SolanaMark from "./SolanaMark";
 
 interface TrustHeroOverviewProps {
@@ -136,7 +137,7 @@ export default function TrustHeroOverview({
               <span className="trust-hero-bar-addr-meta">
                 {initializedModulesCount !== null && (
                   <span className="trust-hero-bar-text">
-                    {initializedModulesCount} module{initializedModulesCount === 1 ? "" : "s"}
+                    {formatCount(initializedModulesCount, { one: "module", other: "modules" })}
                   </span>
                 )}
                 {initializedModulesCount !== null && rolesCount !== null && rolesCount > 0 && (
@@ -146,7 +147,7 @@ export default function TrustHeroOverview({
                 )}
                 {rolesCount !== null && rolesCount > 0 && (
                   <span className="trust-hero-bar-text">
-                    {rolesCount} role{rolesCount === 1 ? "" : "s"}
+                    {formatCount(rolesCount, { one: "role", other: "roles" })}
                   </span>
                 )}
               </span>

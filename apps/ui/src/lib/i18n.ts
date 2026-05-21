@@ -41,6 +41,7 @@ export const DATE_FORMATS = {
 
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 const numberFormatters = new Map<string, Intl.NumberFormat>();
+const pluralRules = new Map<string, Intl.PluralRules>();
 
 export function resolveLocale(candidates?: readonly string[] | null): SupportedLocale {
   const requested = candidates ?? browserLocales();
@@ -95,6 +96,47 @@ export function formatNumber(
 
 export function formatInteger(value: number | null | undefined, config?: FormatConfig): string {
   return formatNumber(value, { maximumFractionDigits: 0 }, config);
+}
+
+export type PluralForms = {
+  one: string;
+  other: string;
+  zero?: string;
+  two?: string;
+  few?: string;
+  many?: string;
+};
+
+export interface PluralConfig extends FormatConfig {
+  type?: Intl.PluralRulesOptions["type"];
+}
+
+/**
+ * Locale-aware pluralization. Replaces ad-hoc `n === 1 ? "" : "s"` ternaries.
+ * Pass forms keyed by CLDR plural category; falls back to `other` when the
+ * locale's category isn't supplied. English only needs `one` + `other`.
+ */
+export function formatPlural(
+  value: number | null | undefined,
+  forms: PluralForms,
+  config: PluralConfig = {},
+): string {
+  if (value == null || !Number.isFinite(value)) return forms.other;
+  const locale = config.locale ?? resolveLocale();
+  const category = getPluralRules(locale, { type: config.type ?? "cardinal" }).select(value);
+  return forms[category as keyof PluralForms] ?? forms.other;
+}
+
+/**
+ * Convenience for the common "{n} thing(s)" pattern. Formats `value` as an
+ * integer and joins it to the locale-correct plural form with a space.
+ */
+export function formatCount(
+  value: number | null | undefined,
+  forms: PluralForms,
+  config: PluralConfig = {},
+): string {
+  return `${formatInteger(value, config)} ${formatPlural(value, forms, config)}`;
 }
 
 export function formatCurrency(
@@ -158,6 +200,16 @@ function getDateFormatter(
   const formatter = new Intl.DateTimeFormat(locale, options);
   dateFormatters.set(key, formatter);
   return formatter;
+}
+
+function getPluralRules(locale: string, options: Intl.PluralRulesOptions): Intl.PluralRules {
+  const key = formatterKey(locale, options as unknown as Intl.NumberFormatOptions);
+  const cached = pluralRules.get(key);
+  if (cached) return cached;
+
+  const rules = new Intl.PluralRules(locale, options);
+  pluralRules.set(key, rules);
+  return rules;
 }
 
 function getNumberFormatter(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
