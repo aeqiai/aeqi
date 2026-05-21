@@ -3366,13 +3366,19 @@
   padding: 10px 14px;
 }
 
+/* Align with .quest-col-label so the scope band header reads as the
+   same register as a column header above the board — same size,
+   weight, and optical tracking. Pre-fix the label sat at 13px/600
+   with -0.005em, half a step lighter than the column labels (13.5px
+   /620 with -0.01em), so the band looked subtly weaker than the
+   columns it anchors. */
 .quest-scope-header-label {
   flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-size: 13.5px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
