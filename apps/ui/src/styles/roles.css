@@ -1255,13 +1255,20 @@
   transition:
     border-color 0.12s ease,
     box-shadow 0.12s ease,
-    background 0.12s ease;
+    background 0.12s ease,
+    transform 0.12s ease;
 }
 .role-inspector-charter-card:hover,
 .role-inspector-charter-card:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-sm);
+}
+.role-inspector-charter-card:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.role-inspector-charter-card:active {
+  transform: translateY(0.5px);
 }
 .role-inspector-charter-card-head {
   display: flex;
