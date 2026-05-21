@@ -16,6 +16,11 @@ What it does not yet have is full product coherence around the north star.
 
 The main gap is not "missing ideas." The main gap is turning existing subsystems into one disciplined product architecture.
 
+The current public agent-runtime bar is captured in
+[agent-runtime-bar.md](agent-runtime-bar.md). AEQI should not win by copying a
+personal assistant or chat gateway. It should win by making durable work,
+memory, eventing, permissions, and evidence part of one runtime contract.
+
 ## Phase 1: Native Runtime Excellence
 
 Goal: make AEQI's native execution path good enough to be the center of gravity.
@@ -111,11 +116,14 @@ This is the phase where prompts like "build this business" or "run this operatio
 
 The next practical moves should be:
 
-1. Define the native runtime contract in code and docs.
-2. Build an eval suite for coding and repo quests.
-3. Tighten the native coding loop before expanding more surface area.
-4. Keep shaping the UI around ideas, work, agent tree, and operator control.
-5. Make metrics and outcome tracking a first-class part of the control plane.
+1. Make the new-user path boringly reliable: one install/build lane, one local
+   demo lane, one first quest, and one command that verifies the path in an
+   isolated home directory.
+2. Define the native runtime contract in code and docs.
+3. Build an eval suite for coding and repo quests.
+4. Tighten the native coding loop before expanding more surface area.
+5. Keep shaping the UI around ideas, work, agent tree, and operator control.
+6. Make metrics and outcome tracking a first-class part of the control plane.
 
 ## Decision Rule
 

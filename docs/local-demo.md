@@ -9,14 +9,15 @@ Time: ~10 minutes the first time (most of it is the model download). About 30 se
 ## What you need
 
 - Linux or macOS. Windows users should build from source and run the daemon manually.
-- ~5 GB free disk: ~400 MB for the smallest Ollama model, the rest for `target/release` and the SQLite databases under `~/.aeqi/`.
-- About 8 GB of RAM. The default model fits in 4 GB; bigger models are happier with more.
+- ~10 GB free disk: several GB for the default Ollama model, the rest for
+  `target/release` and the SQLite databases under `~/.aeqi/`.
+- About 8 GB of RAM. Bigger models are happier with more.
 
 ## Step 1 — Install Ollama
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:0.5b   # ~400 MB, fastest small model
+ollama pull llama3.1:8b
 ```
 
 Verify it's running:
@@ -62,13 +63,8 @@ and prints a note. Use `aeqi setup --workspace --runtime ollama_agent` only when
 you intentionally want repo-local `config/aeqi.toml` and `agents/` files in that
 checkout.
 
-The default model in the rendered config is `llama3.1:8b`. To use the smaller `qwen2.5:0.5b` you just pulled, edit `~/.aeqi/aeqi.toml` and change:
-
-```toml
-[providers.ollama]
-url = "http://localhost:11434"
-default_model = "qwen2.5:0.5b"
-```
+The default model in the rendered config is `llama3.1:8b`, matching the model
+you just pulled.
 
 ## Step 4 — Verify
 
@@ -82,7 +78,7 @@ You should see the intended runtime home and something like:
 [OK]   Config: ~/.aeqi/aeqi.toml
 [OK]   Default runtime: ollama_agent
 [OK]   Ollama reachable at http://localhost:11434
-[OK]   Agent 'assistant': agent.md | runtime=ollama | mode=Agent | model=qwen2.5:0.5b
+[OK]   Agent 'assistant': agent.md | runtime=ollama | mode=Agent | model=llama3.1:8b
 [OK]   Secret store: ~/.aeqi/secrets
 Summary: 0 blocking, 0 needs-action, 0 optional, 0 fixed.
 ```

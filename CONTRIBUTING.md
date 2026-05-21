@@ -29,24 +29,31 @@ cd aeqi
 scripts/setup-contributor.sh
 ```
 
-The contributor setup helper verifies Rust, Node.js 22+, and npm, then installs
-and builds the UI before running `cargo build`. It deliberately does not run
-`aeqi setup`, create `.env` files, write secrets, install services, or create
-runtime state inside the source checkout.
+The contributor setup helper verifies Rust, Node.js 22+, and npm, installs UI
+dependencies with `npm ci`, builds the UI, then runs `cargo build`. It
+deliberately does not run `aeqi setup`, create `.env` files, write secrets,
+install services, or create runtime state inside the source checkout.
 
 If your shell is on an older Node, the helper will try `nvm use` from `.nvmrc`
 when nvm is installed. For Rust-only work, run
-`scripts/setup-contributor.sh --rust-only`.
+`scripts/setup-contributor.sh --rust-only`. If you are using the source-built
+binary before installing it, run commands as `target/debug/aeqi ...` from the
+checkout.
 
-First-run init (non-interactive — writes config, seeds a starter orchestrator agent, and generates a stable dashboard secret):
+First-run init, no API key required. This writes config, seeds a starter
+orchestrator agent, and generates a stable dashboard secret:
 
 ```bash
-aeqi setup
+ollama pull llama3.1:8b
+aeqi setup --runtime ollama_agent
 aeqi paths
-aeqi secrets set OPENROUTER_API_KEY <key>   # or ANTHROPIC_API_KEY
-aeqi doctor --strict                        # verify before launching
-aeqi start                                  # daemon + dashboard on :8400
+aeqi doctor --strict
+aeqi start
 ```
+
+For a cloud provider runtime instead, run `aeqi setup`, set
+`OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY` with `aeqi secrets set`, then run
+`aeqi doctor --strict` before launching.
 
 ## Project Layout
 

@@ -15,6 +15,8 @@
   operator/contributor loop for improving setup paths with evidence.
 - [vision.md](vision.md) — product north star and design principles.
 - [product-contract.md](product-contract.md) — shared runtime vocabulary and UX rules.
+- [agent-runtime-bar.md](agent-runtime-bar.md) — competitive product bar for
+  first-run, memory, always-on execution, safety, and evidence.
 
 ## Operate
 

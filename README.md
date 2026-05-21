@@ -7,8 +7,9 @@
 [![Rust 2024](https://img.shields.io/badge/Rust-2024-black)](Cargo.toml)
 [![GitHub stars](https://img.shields.io/github/stars/aeqi-ai/aeqi?style=social)](https://github.com/aeqi-ai/aeqi/stargazers)
 
-aeqi is a source-available agent runtime and CLI for running persistent AI
-workers, their memory, their work queues, and their event handlers.
+aeqi is a source-available agent runtime and CLI for turning intent into
+auditable work: persistent AI workers, durable memory, structured work queues,
+event handlers, and evidence live in one system of record.
 
 You can use the same `aeqi` binary in two modes:
 
@@ -60,10 +61,17 @@ Or build from source:
 ```bash
 git clone https://github.com/aeqi-ai/aeqi.git
 cd aeqi
-npm --prefix apps/ui ci
-npm --prefix apps/ui run build
-cargo build --release -p aeqi
+scripts/setup-contributor.sh
 ```
+
+The contributor helper verifies Rust, Node.js 22+, and npm, installs dashboard
+dependencies with `npm ci`, builds the embedded dashboard assets, then builds
+the Rust workspace. It deliberately does not run `aeqi setup`, create secrets,
+or write runtime state. For Rust-only work, use
+`scripts/setup-contributor.sh --rust-only`; for a preflight without installing
+or building, use `scripts/setup-contributor.sh --check-only`. If you are using
+the source-built binary before installing it, run commands as `target/debug/aeqi
+...` from the checkout.
 
 Then choose the path you are using.
 
@@ -256,15 +264,16 @@ source surface.
 
 ## Development
 
-Install frontend dependencies when working on the dashboard:
+Prepare the full source checkout:
 
 ```bash
-npm --prefix apps/ui ci
+scripts/setup-contributor.sh
 ```
 
 Core checks:
 
 ```bash
+scripts/smoke-fresh-install.sh
 scripts/rust-strict-lints.sh
 cargo test --workspace
 npm --prefix apps/ui run check
@@ -305,6 +314,7 @@ Useful starting points:
 - [`docs/self-hosting.md`](docs/self-hosting.md) — self-host operator checklist
 - [`docs/runtime-platform-separation.md`](docs/runtime-platform-separation.md) — runtime vs hosted platform boundary
 - [`docs/security/configuration.md`](docs/security/configuration.md) — security configuration
+- [`docs/agent-runtime-bar.md`](docs/agent-runtime-bar.md) — competitive product bar for the agent runtime
 - [`docs/roadmap.md`](docs/roadmap.md) — current roadmap
 
 ## Star History

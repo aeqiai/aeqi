@@ -17,17 +17,32 @@ curl -fsSL https://raw.githubusercontent.com/aeqi-ai/aeqi/main/scripts/install.s
 ### Option B: Build from Source
 
 Requires Rust from `rust-toolchain.toml` and Node.js 22+ for the embedded
-dashboard assets.
+dashboard assets. Use the contributor helper first; it checks tools, installs
+UI dependencies with `npm ci`, builds the UI, and builds the Rust workspace
+without creating runtime state or secrets.
 
 ```bash
 git clone https://github.com/aeqi-ai/aeqi.git
 cd aeqi
-npm --prefix apps/ui ci
-npm --prefix apps/ui run build
+scripts/setup-contributor.sh
+```
+
+For Rust-only work, use:
+
+```bash
+scripts/setup-contributor.sh --rust-only
+```
+
+The debug binary built by the helper is at `target/debug/aeqi`. To produce an
+optimized release binary after setup is clean, run:
+
+```bash
 cargo build --release -p aeqi
 ```
 
-The binary is at `target/release/aeqi`.
+The release binary is at `target/release/aeqi`.
+If you are using the source-built debug binary before installing it, run the
+commands below as `target/debug/aeqi ...` from the checkout.
 
 ## Setup
 
@@ -140,6 +155,11 @@ scripts/setup-contributor.sh
 That helper keeps runtime setup separate from source setup. It uses `.nvmrc`
 for the Node.js 22 requirement when nvm is available, and
 `scripts/setup-contributor.sh --rust-only` skips UI checks for Rust-only work.
+To verify the first-run path against an isolated temporary home, run:
+
+```bash
+scripts/smoke-fresh-install.sh
+```
 
 For hot-reload during UI development:
 

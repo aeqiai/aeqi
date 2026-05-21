@@ -3,7 +3,7 @@
   "description": "Agent runtime, multi-agent harness, orchestration engine, and web control plane",
   "private": true,
   "scripts": {
-    "ui:install": "npm --prefix apps/ui install",
+    "ui:install": "npm --prefix apps/ui ci",
     "ui:dev": "npm --prefix apps/ui run dev",
     "ui:build": "npm --prefix apps/ui run build",
     "ui:preview": "npm --prefix apps/ui run preview",

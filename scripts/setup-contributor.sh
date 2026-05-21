@@ -102,10 +102,14 @@ check_node_version() {
         cat >&2 <<EOF
 error: Node.js ${REQUIRED_NODE_MAJOR}+ is required for apps/ui; found $(node --version 2>/dev/null || printf 'unknown')
 
-Use a Node version manager, then re-run this helper:
+This is only required for dashboard/source builds. Use a Node version manager,
+then re-run this helper from the checkout:
   nvm install
   nvm use
   scripts/setup-contributor.sh
+
+If you do not use nvm, install Node.js ${REQUIRED_NODE_MAJOR}+ by your normal
+system package or installer path and re-run this helper.
 
 For Rust-only work, skip UI checks/builds:
   scripts/setup-contributor.sh --rust-only
