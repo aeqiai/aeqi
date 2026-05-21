@@ -236,6 +236,10 @@ export default function AppLayout() {
   const encodedEntityId = trustId ? encodeURIComponent(trustId) : "";
   const search = location.search || "";
 
+  if (entities.length === 0 && (isHome || isStart)) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   // Stale entity ref after a data reset would point at a non-existent
   // entity. Bounce home; the user picks (or creates) a fresh entity from
   // there. Applies to the trust route.

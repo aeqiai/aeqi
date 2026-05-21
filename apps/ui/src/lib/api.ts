@@ -230,6 +230,34 @@ export const api = {
   getTrusts: () => request<Record<string, unknown>>("/trusts"),
   createTrust: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/trusts", { method: "POST", body: JSON.stringify(data) }),
+  createPersonalTrust: (data: {
+    name: string;
+    owner_name: string;
+    goal: string;
+    tagline?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      id: string;
+      trust?: {
+        id?: string;
+        name?: string;
+        type?: string;
+        slug?: string;
+        placement_type?: string;
+        plan?: string;
+      };
+    }>("/trusts", {
+      method: "POST",
+      body: JSON.stringify({
+        name: data.name,
+        owner_name: data.owner_name,
+        goal: data.goal,
+        tagline: data.tagline,
+        personal_trust: true,
+        kind: "personal",
+      }),
+    }),
   getEntities: () => request<Record<string, unknown>>("/trusts"),
   createEntity: (data: { name: string; tagline?: string; prefix?: string }) =>
     request<Record<string, unknown>>("/trusts", { method: "POST", body: JSON.stringify(data) }),

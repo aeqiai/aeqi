@@ -24,6 +24,7 @@ const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const InvitationAcceptPage = lazy(() => import("@/pages/InvitationAcceptPage"));
 const MagicLinkPage = lazy(() => import("@/pages/MagicLinkPage"));
+const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
 const PublicProfilePage = lazy(() => import("@/pages/PublicProfilePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
@@ -51,6 +52,7 @@ const RESERVED_SLUGS = new Set([
   "start",
   "network",
   "identity",
+  "onboarding",
   "signup",
   "login",
   "verify",
@@ -184,6 +186,7 @@ export default function App() {
             intentionally do NOT inherit the shell. */}
         <Route path="agents" element={<AgentsPage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
+        <Route path="onboarding" element={<OnboardingPage />} />
 
         {/* Legacy flat session URL — resolves the owning agent +
             entity, then Navigate replace to the canonical deep shape. */}

@@ -646,7 +646,12 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
           {stage === "spawning" && <SpawningView steps={steps} picked={picked} />}
 
           {stage === "welcome" && outcome && (
-            <WelcomeView outcome={outcome} onContinue={() => navigate("/", { replace: true })} />
+            <WelcomeView
+              outcome={outcome}
+              onContinue={() =>
+                navigate(outcome.already_existed ? "/" : "/onboarding", { replace: true })
+              }
+            />
           )}
 
           {stage === "waitlist" && (

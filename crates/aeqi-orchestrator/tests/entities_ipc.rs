@@ -102,9 +102,44 @@ async fn create_entity_company_creates_agent() {
     );
 }
 
-// `create_entity_non_company_no_agent` retired with the vestigial EntityType
-// taxonomy — every entity is now a Company and the create path always spawns a
-// backing agent. See AEQI idea `architecture/entitytype-enum-is-vestigial`.
+#[tokio::test]
+async fn create_personal_trust_does_not_create_agent() {
+    let h = TestHarness::build().await.unwrap();
+    let ctx = h.ctx();
+
+    let resp = handle_create_entity(
+        &ctx,
+        &serde_json::json!({
+            "name": "Ada Personal Trust",
+            "slug": "Ada Personal Trust",
+            "personal_trust": true,
+            "caller_user_id": "user-ada",
+            "tagline": "Participate in the economy",
+        }),
+        &None,
+    )
+    .await;
+    assert_eq!(resp["ok"], true);
+    assert_eq!(resp["trust"]["type"], "personal");
+    assert_eq!(resp["trust"]["placement_type"], "personal");
+    assert_eq!(resp["trust"]["plan"], "free");
+    let trust_id = resp["id"].as_str().unwrap();
+
+    let entity = ctx.entity_registry.get(trust_id).await.unwrap().unwrap();
+    assert_eq!(entity.name, "Ada Personal Trust");
+    assert_eq!(entity.slug, "ada-personal-trust");
+    assert_eq!(entity.owner_user_id, Some("user-ada".to_string()));
+    assert_eq!(
+        entity.tagline,
+        Some("Participate in the economy".to_string())
+    );
+
+    let backing_agents = h.registry().list(Some(trust_id), None).await.unwrap();
+    assert!(
+        backing_agents.is_empty(),
+        "free personal trust must not create runtime agents"
+    );
+}
 
 // ── handle_update_entity ─────────────────────────────────────────────────────
 

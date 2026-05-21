@@ -30,7 +30,7 @@ export function normalizeTrustRoots(data: TrustsResponse | null | undefined): Tr
   return raw
     .map<Trust>((trust) => ({
       id: stringValue(trust.id),
-      name: stringValue(trust.display_name),
+      name: stringValue(trust.display_name, stringValue(trust.name)),
       type: "trust",
       status: trust.running === true ? "active" : "paused",
       avatar: optionalString(trust.avatar),

@@ -6,6 +6,8 @@
 //! The `roots` key name is preserved here for the platform proxy that
 //! reshapes it into the `{ entities: [...] }` HTTP response the UI expects.
 
+use crate::entity_registry::EntityType;
+
 use super::tenancy::is_allowed;
 
 pub async fn handle_entities(
@@ -84,7 +86,10 @@ pub async fn handle_entities(
         result.push(serde_json::json!({
             "id": entity.id,
             "name": entity.name,
+            "display_name": entity.name,
             "agent_id": backing_agent,
+            "placement_type": if backing_agent.is_some() { "runtime" } else { "personal" },
+            "plan": if backing_agent.is_some() { serde_json::Value::Null } else { serde_json::json!("free") },
             "prefix": entity.slug,
             "open_tasks": open,
             "total_tasks": total,
@@ -122,6 +127,70 @@ pub async fn handle_create_entity(
     }
 
     let slug = request.get("slug").and_then(|v| v.as_str()).unwrap_or(name);
+    let personal_trust = request.get("personal_trust").and_then(|v| v.as_bool()) == Some(true)
+        || request.get("kind").and_then(|v| v.as_str()) == Some("personal")
+        || request.get("trust_kind").and_then(|v| v.as_str()) == Some("personal");
+
+    if personal_trust {
+        let caller_user_id = super::request_field(request, "caller_user_id")
+            .or_else(|| super::request_field(request, "creator_user_id"))
+            .map(str::to_string);
+        let slug = normalized_slug(slug);
+
+        let entity = match ctx
+            .entity_registry
+            .create_new(
+                name,
+                &slug,
+                EntityType::Company,
+                None,
+                caller_user_id.as_deref(),
+            )
+            .await
+        {
+            Ok(entity) => entity,
+            Err(e) => return serde_json::json!({"ok": false, "error": e.to_string()}),
+        };
+
+        if let Some(tagline) = request
+            .get("tagline")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            && let Err(e) = ctx
+                .entity_registry
+                .set_tagline(&entity.id, Some(tagline))
+                .await
+        {
+            return serde_json::json!({"ok": false, "error": e.to_string()});
+        }
+
+        if let Some(ref uid) = caller_user_id
+            && let Err(e) = ctx
+                .role_registry
+                .ensure_founding_director(&entity.id, uid)
+                .await
+        {
+            tracing::warn!(
+                trust_id = %entity.id,
+                user_id = %uid,
+                "failed to create founding Director role for personal trust: {e}"
+            );
+        }
+
+        return serde_json::json!({
+            "ok": true,
+            "id": entity.id,
+            "trust": {
+                "id": entity.id,
+                "name": entity.name,
+                "type": "personal",
+                "slug": entity.slug,
+                "placement_type": "personal",
+                "plan": "free",
+            }
+        });
+    }
 
     // Every entity is a Company (the multi-type taxonomy was vestigial —
     // see AEQI idea `architecture/entitytype-enum-is-vestigial`). Spawn a
@@ -159,6 +228,24 @@ pub async fn handle_create_entity(
             "slug": slug,
         }
     })
+}
+
+fn normalized_slug(value: &str) -> String {
+    let slug = value
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    if slug.is_empty() {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        slug
+    }
 }
 
 pub async fn handle_update_entity(
