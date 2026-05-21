@@ -351,6 +351,23 @@
 .trust-hero-bar-cta[data-tone="live"] {
   color: var(--state-progress);
 }
+/* c13 (2026-05-21): the live CTA closes the hero bar's left-to-right
+   reveal sequence — runtime dot fades (c12), Solana mark fades (c8),
+   address pill stagger-fades (c11), and the "Open →" arrow used to
+   snap into indigo on the same frame the data-tone flipped. With the
+   three preceding beats already on the trust-solana-verify ramp, the
+   CTA's hard-snap broke the otherwise composed sweep — the eye landed
+   on the right edge before the gesture finished. Mirror the same
+   opacity ramp with a 100ms delay (matching the addr pill's stagger
+   from c11) so the CTA crosses its midpoint just as the address pill
+   resolves, and the whole bar verifies as a single gesture. Single
+   iteration, opacity only — color stays indigo throughout — gated on
+   prefers-reduced-motion: no-preference. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-hero-bar-cta[data-tone="live"] {
+    animation: trust-solana-verify var(--transition-normal) 100ms 1 forwards;
+  }
+}
 .trust-hero-bar-cta:hover {
   text-decoration: underline;
 }
