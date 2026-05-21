@@ -284,6 +284,7 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           <AgentSnapshotCard
             label="Lifetime spend"
             value={formatCurrency(snapshot.totalSpend, "USD")}
+            valueVariant="mono"
             sublabel="Across every inference call"
           />
         </section>
@@ -517,6 +518,14 @@ interface AgentSnapshotCardProps {
   label: string;
   value: number | string;
   sublabel?: string;
+  /**
+   * Typography register for the headline value. `display` (default) uses
+   * the brand display face for count headlines — the canonical KPI
+   * treatment. `mono` switches to the monospace family + tabular-nums so
+   * currency reads as data and the `$0.00` digit widths align with the
+   * `.agents-list-spend` cell vocabulary inside the row table below.
+   */
+  valueVariant?: "display" | "mono";
 }
 
 /**
@@ -526,12 +535,21 @@ interface AgentSnapshotCardProps {
  * `.trust-roles-snapshot-*` CSS primitives until a generic refactor
  * pulls them under a neutral name.
  */
-function AgentSnapshotCard({ label, value, sublabel }: AgentSnapshotCardProps) {
+function AgentSnapshotCard({
+  label,
+  value,
+  sublabel,
+  valueVariant = "display",
+}: AgentSnapshotCardProps) {
+  const valueClass =
+    valueVariant === "mono"
+      ? "trust-roles-snapshot-value trust-roles-snapshot-value--mono"
+      : "trust-roles-snapshot-value";
   return (
     <article className="trust-roles-snapshot-card">
       <header className="trust-roles-snapshot-head">
         <span className="trust-roles-snapshot-label">{label}</span>
-        <span className="trust-roles-snapshot-value">{value}</span>
+        <span className={valueClass}>{value}</span>
       </header>
       {sublabel && <p className="trust-roles-snapshot-sublabel">{sublabel}</p>}
     </article>

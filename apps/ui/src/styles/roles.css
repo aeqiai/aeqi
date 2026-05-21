@@ -906,6 +906,19 @@
 .trust-roles-snapshot-value--warmth {
   color: var(--color-warmth);
 }
+/* Mono variant — currency / amount headlines. Switches the headline to
+   the system mono stack so `$0.00` reads as data (matching the row-level
+   `.agents-list-spend` register below the snapshot strip) and the digit
+   widths align cleanly under proportional display digits sitting in the
+   neighbouring count cards. Slight size pull-back so the mono face,
+   which carries more visual weight per character, doesn't crowd the
+   tighter 12-char "Lifetime spend" eyebrow above it. */
+.trust-roles-snapshot-value--mono {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
 .trust-roles-snapshot-sublabel {
   margin: 0;
   font-family: var(--font-sans);
@@ -951,6 +964,18 @@
   font-size: 30px;
   letter-spacing: -0.02em;
   line-height: 1;
+}
+/* Mono variant inside the agents-snapshot context — currency headlines
+   ride in the mono stack with tightened size + tracking so `$0.00` lands
+   visually aligned with the display-face count cards next to it instead
+   of standing taller. Mono digits carry more pixel weight than the
+   display face at the same nominal pt, so the pull-back keeps the four
+   KPI values reading as one rhythm across the strip. */
+.trust-agents-snapshot .trust-roles-snapshot-value--mono {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 /* Content row — graph canvas. Uses the slab/inset token so the
