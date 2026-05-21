@@ -3993,6 +3993,31 @@
   border-color: var(--accent);
   outline: none;
 }
+/* On the board card the Take pill is an *optional* action — every
+   todo/backlog quest is takeable by definition, so painting the pill
+   at rest on every card flattens the meta row and competes with the
+   subject for scan attention. Conceal at rest, reveal on hover, key-
+   board focus (`:focus-within`), j/k navigation (`[data-focused]`),
+   and active scope (`[data-scope]`). The button keeps its own tab
+   stop so keyboard users still reach it via Tab; the visibility flip
+   is purely visual. The list view's Take pill is unaffected — list
+   rows already group actions inline and don't carry the same density
+   trade-off. */
+.quest-card .quest-take-btn {
+  opacity: 0;
+  transition:
+    opacity 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.quest-card:hover .quest-take-btn,
+.quest-card:focus-within .quest-take-btn,
+.quest-card[data-focused] .quest-take-btn,
+.quest-card[data-scope] .quest-take-btn,
+.quest-card .quest-take-btn:focus-visible {
+  opacity: 1;
+}
 /* Card timestamps — same readability lift as the list row. */
 .quest-card-time {
   font-family: var(--font-sans);
