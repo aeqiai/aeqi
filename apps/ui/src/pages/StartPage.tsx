@@ -1,14 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  BookOpen,
-  Inbox as InboxIcon,
-  Plus,
-  Settings,
-  Store,
-} from "lucide-react";
+import { ArrowRight, BookOpen, Globe, Inbox as InboxIcon, Plus, Settings } from "lucide-react";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
 import { useQuests } from "@/queries/quests";
@@ -493,22 +485,23 @@ function EconomyCard() {
   return (
     <article className="home-card home-card--economy">
       <img src="/home/economy-mood.png" alt="" className="home-economy-image" aria-hidden="true" />
-      <div className="home-economy-shade" aria-hidden="true" />
-      <header className="home-card-head home-economy-head">
-        <span className="home-card-icon home-card-icon--dark">
-          <Store size={16} strokeWidth={1.5} />
-        </span>
-        <span className="home-card-title">Economy</span>
-        <Link to="/economy" className="home-card-link home-card-link--dark">
-          Open Economy
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </Link>
-      </header>
-      <div className="home-economy-body">
-        <p className="home-economy-lede">Discover the network around programmable companies.</p>
-        <p className="home-economy-aside">
-          TRUST listings, open roles, blueprints, and funding opportunities live here.
-        </p>
+      <div className="home-economy-content">
+        <header className="home-card-head home-economy-head">
+          <span className="home-economy-icon" aria-hidden="true">
+            <Globe size={18} strokeWidth={1.5} />
+          </span>
+          <span className="home-card-title">Economy</span>
+          <Link to="/economy" className="home-card-link">
+            Open Economy
+            <ArrowRight size={14} strokeWidth={1.8} />
+          </Link>
+        </header>
+        <div className="home-economy-body">
+          <p className="home-economy-lede">Discover the network around programmable companies.</p>
+          <p className="home-economy-aside">
+            TRUST listings, open roles, blueprints, and funding opportunities live here.
+          </p>
+        </div>
       </div>
     </article>
   );
@@ -517,45 +510,38 @@ function EconomyCard() {
 function LearnAeqiSection() {
   return (
     <section className="home-learn" aria-label="Learn aeqi">
-      <div className="home-learn-head">
-        <div>
-          <span className="home-card-eyebrow">Learn aeqi</span>
-          <h2 className="home-learn-title">Understand programmable companies.</h2>
+      <article className="home-card home-card--learn">
+        <div className="home-learn-head">
+          <div>
+            <span className="home-card-eyebrow">Learn aeqi</span>
+            <h2 className="home-learn-title">Understand programmable companies.</h2>
+          </div>
+          <div className="home-learn-actions">
+            <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer">
+              Open docs
+              <BookOpen size={14} strokeWidth={1.8} />
+            </a>
+          </div>
         </div>
-        <div className="home-learn-actions">
-          <a
-            href="https://aeqi.ai/blog/the-uncompiled-institution"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Read thesis
-            <ArrowUpRight size={14} strokeWidth={1.8} />
-          </a>
-          <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer">
-            Open docs
-            <BookOpen size={14} strokeWidth={1.8} />
-          </a>
+        <div className="home-learn-grid">
+          {LEARN_POSTS.map((post, index) => (
+            <a
+              key={post.href}
+              className={`home-learn-post${index === 0 ? " home-learn-post--feature" : ""}`}
+              href={post.href}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img src={post.image} alt="" className="home-learn-post-image" aria-hidden="true" />
+              <span className="home-learn-post-copy">
+                <span className="home-learn-post-kicker">{post.kicker}</span>
+                <span className="home-learn-post-title">{post.title}</span>
+                <span className="home-learn-post-summary">{post.summary}</span>
+              </span>
+            </a>
+          ))}
         </div>
-      </div>
-      <div className="home-learn-grid">
-        {LEARN_POSTS.map((post, index) => (
-          <a
-            key={post.href}
-            className={`home-learn-post${index === 0 ? " home-learn-post--feature" : ""}`}
-            href={post.href}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <img src={post.image} alt="" className="home-learn-post-image" aria-hidden="true" />
-            <span className="home-learn-post-shade" aria-hidden="true" />
-            <span className="home-learn-post-copy">
-              <span className="home-learn-post-kicker">{post.kicker}</span>
-              <span className="home-learn-post-title">{post.title}</span>
-              <span className="home-learn-post-summary">{post.summary}</span>
-            </span>
-          </a>
-        ))}
-      </div>
+      </article>
     </section>
   );
 }
