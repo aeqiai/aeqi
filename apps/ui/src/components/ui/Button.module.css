@@ -143,8 +143,8 @@
 }
 
 .xl {
-  height: auto;
-  padding: var(--space-4) var(--space-9);
+  height: 56px;
+  padding: 0 var(--space-9);
   /* Scale gap: 13 (xs) → 14 (sm) → 14 (md) → 15 (base) → 16 (lg).
      15px is between base and lg; no dedicated token in shared scale. */
   font-size: 15px;
