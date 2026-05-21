@@ -271,7 +271,18 @@
  * title's left edge (both rest on the same `--space-5` page gutter).
  * The header title and the in_review dot now share a single vertical
  * axis: header → (hairline) → dot+label → thread, one reading column.
- * Removes one ad-hoc nudge; aligns to a real grid line. */
+ * Removes one ad-hoc nudge; aligns to a real grid line.
+ *
+ * c17 — re-verified the `translateY(-1px)` against c16's 1px→2px body
+ * gap. The dot is anchored via `align-self: flex-start` + `margin-top`,
+ * which pins it to the strip's flex-line top, NOT to the body's
+ * bounding-box center. The body gap lives BETWEEN the label and
+ * subject (below the label's line-box), so it shifts the subject down
+ * but never moves the label's line-box origin. The dot's cap-height
+ * alignment is therefore independent of the body gap in both render
+ * branches: single-line (gap unused) and two-line (gap below the
+ * label). No change — honest no-op. The annotation closes the c16
+ * NEXT trail so the next cycle doesn't re-derive the same math. */
 .inbox-awaiting-strip-dot {
   align-self: flex-start;
   margin-top: var(--space-1);
