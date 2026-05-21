@@ -495,16 +495,20 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
   const isQuiet = others.length === 0;
   return (
     <article className={`home-card home-card--all${isQuiet ? " home-card--quiet" : ""}`}>
-      <header className="home-card-head">
-        {/* c13: hide the eyebrow entirely while `isQuiet`. With zero other
-            TRUSTs, the muted card's actual state is "none" — labelling
-            it "All" contradicts that, and there's no activity-dot to
-            justify the eyebrow as a status carrier either. The "View
-            all" link still anchors the head's right edge (still
-            actionable — directs to the full TRUST browse). Once a
-            second TRUST appears the card un-mutes and the eyebrow
-            returns to carry the activity-dot vocabulary. */}
-        {!isQuiet && (
+      {/* c17: drop the entire head while `isQuiet`. c13 had already hidden
+          the eyebrow on the empty state, which left only the right-
+          anchored "View all" link floating above an empty header row —
+          a slot pretending to be a header. The link itself is redundant
+          in the quiet state: `/trust` would only show the user's own
+          personal TRUST (the very tile sitting two columns to the
+          left), so the navigation pays the user back with what they
+          already see. Hiding the head at the row-level — same move as
+          c14/c15 made on the puck/Users circle — lets the body
+          ("No other TRUSTs / Just your personal one for now.") anchor
+          the card cleanly. Once a second TRUST appears the head
+          returns to carry both eyebrow and View all. */}
+      {!isQuiet && (
+        <header className="home-card-head">
           <span className="home-card-eyebrow home-all-eyebrow">
             {eyebrowState && (
               <span
@@ -514,12 +518,12 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
             )}
             All
           </span>
-        )}
-        <button type="button" className="home-card-link" onClick={onViewAll}>
-          View all
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </button>
-      </header>
+          <button type="button" className="home-card-link" onClick={onViewAll}>
+            View all
+            <ArrowRight size={14} strokeWidth={1.8} />
+          </button>
+        </header>
+      )}
       {/* c12: the two-TRUST seam.
           "Switch context" read as jargon-fog the moment a second TRUST
           appeared — the row's vocabulary is the Step-family ("Step in",
