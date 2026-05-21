@@ -176,7 +176,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         return undefined;
       case "idle":
       default:
-        return "Ownership starts as 1 of 1: you.";
+        return "Choose a name for this TRUST.";
     }
   }, [nameCheck]);
 

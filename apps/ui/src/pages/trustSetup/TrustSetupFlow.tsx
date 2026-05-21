@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { RuntimePlanPicker } from "@/components/billing/RuntimePlanPicker";
 import { Banner, Button, EmptyState, Input, Loading } from "@/components/ui";
 import { countBlueprintStructures } from "@/lib/blueprintStructures";
 import type { LaunchPlan, LaunchPlanId } from "@/lib/pricing";
+import { LAUNCH_PLANS } from "@/lib/pricing";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { LaunchShell } from "./LaunchShell";
 
@@ -78,17 +78,11 @@ function NameSection({
 >) {
   return (
     <section className="launch-form-step launch-form-step--name" aria-labelledby="launch-title">
-      <span className="launch-form-index" aria-hidden="true">
-        1
-      </span>
       <div className="launch-form-step-body">
         <div className="launch-form-step-head">
           <h1 id="launch-title" className="auth-heading">
-            Name the TRUST.
+            Register TRUST name.
           </h1>
-          <p className="auth-subheading">
-            This is the vehicle stakeholders will recognize. Initial ownership starts with you.
-          </p>
         </div>
 
         <Input
@@ -112,29 +106,22 @@ function BlueprintSection({
 }: Pick<TrustSetupFlowProps, "blueprint" | "blueprintPath">) {
   return (
     <section className="launch-form-step" aria-labelledby="launch-blueprint-title">
-      <span className="launch-form-index" aria-hidden="true">
-        2
-      </span>
       <div className="launch-form-step-body">
-        <div className="launch-form-step-head launch-form-step-head--inline">
-          <div>
-            <h2 id="launch-blueprint-title" className="launch-section-title">
+        <div className="launch-blueprint-summary">
+          <div className="launch-blueprint-summary-head">
+            <span id="launch-blueprint-title" className="launch-section-title">
               Blueprint
-            </h2>
-            <p className="launch-section-copy">Structure can evolve after launch.</p>
+            </span>
+            <Link to={blueprintPath} className="launch-inline-link">
+              Blueprints -&gt;
+            </Link>
           </div>
-          <Link to="/blueprints" className="launch-inline-link">
-            Browse store
-          </Link>
-        </div>
-
-        <Link to={blueprintPath} className="launch-blueprint-summary">
           <span className="launch-blueprint-summary-name">{blueprint.name}</span>
           <span className="launch-blueprint-summary-copy">
             {blueprint.tagline || blueprint.description || "A starting structure for this TRUST."}
           </span>
           <span className="launch-blueprint-summary-meta">{blueprintStats(blueprint)}</span>
-        </Link>
+        </div>
       </div>
     </section>
   );
@@ -146,62 +133,85 @@ function OperationsSection({
   onOperationsChange,
   onPlanChange,
 }: Pick<TrustSetupFlowProps, "operations" | "plan" | "onOperationsChange" | "onPlanChange">) {
+  const standardPlan = LAUNCH_PLANS.find((item) => item.id === "starter") ?? LAUNCH_PLANS[0];
+  const proPlan = LAUNCH_PLANS.find((item) => item.id === "growth") ?? LAUNCH_PLANS[0];
+  const choices: Array<{
+    key: string;
+    title: string;
+    price: string;
+    copy: string;
+    resources: string;
+    selected: boolean;
+    onSelect: () => void;
+  }> = [
+    {
+      key: "none",
+      title: "No operations",
+      price: "Free",
+      copy: "Ownership only. Add operations later.",
+      resources: "No hosted runtime",
+      selected: operations === "free",
+      onSelect: () => onOperationsChange("free"),
+    },
+    {
+      key: "starter",
+      title: "Start up",
+      price: `${standardPlan.dueToday}/mo`,
+      copy: "Standard runtime for a focused operating TRUST.",
+      resources: `${standardPlan.resources.tokens} tokens, ${standardPlan.resources.cpu}, ${standardPlan.resources.ram} RAM`,
+      selected: operations === "paid" && plan === "starter",
+      onSelect: () => {
+        onPlanChange("starter");
+        onOperationsChange("paid");
+      },
+    },
+    {
+      key: "growth",
+      title: "Scale up",
+      price: `${proPlan.dueToday} today`,
+      copy: `Pro runtime. Then ${proPlan.price}${proPlan.cadence}.`,
+      resources: `${proPlan.resources.tokens} tokens, ${proPlan.resources.cpu}, ${proPlan.resources.ram} RAM`,
+      selected: operations === "paid" && plan === "growth",
+      onSelect: () => {
+        onPlanChange("growth");
+        onOperationsChange("paid");
+      },
+    },
+  ];
+
   return (
     <section className="launch-form-step" aria-labelledby="launch-operations-title">
-      <span className="launch-form-index" aria-hidden="true">
-        3
-      </span>
       <div className="launch-form-step-body">
         <div className="launch-form-step-head">
           <h2 id="launch-operations-title" className="launch-section-title">
-            Ownership or operations
+            Operations
           </h2>
           <p className="launch-section-copy">
-            Launch with ownership only, or activate the runtime so agents can operate the TRUST.
+            Optional runtime for agents, quests, events, and memory.
           </p>
         </div>
 
         <div className="launch-operations-grid" role="radiogroup" aria-label="Operations">
-          <button
-            type="button"
-            role="radio"
-            className={`launch-operation-card ${operations === "free" ? "is-selected" : ""}`}
-            onClick={() => onOperationsChange("free")}
-            aria-checked={operations === "free"}
-          >
-            <span className="launch-option-head">
-              <span className="launch-operation-title">Ownership only</span>
-              <span className="launch-operation-price">Free</span>
-            </span>
-            <span className="launch-operation-copy">
-              Creates the TRUST with you as the initial signer. Add operations later.
-            </span>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            className={`launch-operation-card ${operations === "paid" ? "is-selected" : ""}`}
-            onClick={() => onOperationsChange("paid")}
-            aria-checked={operations === "paid"}
-          >
-            <span className="launch-option-head">
-              <span className="launch-operation-title">Ownership + operations</span>
-              <span className="launch-operation-price">Paid runtime</span>
-            </span>
-            <span className="launch-operation-copy">
-              Provisions agents, quests, events, memory, and operating capacity now.
-            </span>
-          </button>
+          {choices.map((choice) => (
+            <button
+              key={choice.key}
+              type="button"
+              role="radio"
+              className={`launch-operation-card ${choice.selected ? "is-selected" : ""}`}
+              onClick={choice.onSelect}
+              aria-checked={choice.selected}
+            >
+              <span className="launch-operation-main">
+                <span className="launch-option-head">
+                  <span className="launch-operation-title">{choice.title}</span>
+                  <span className="launch-operation-copy">{choice.copy}</span>
+                </span>
+                <span className="launch-operation-resources">{choice.resources}</span>
+              </span>
+              <span className="launch-operation-price">{choice.price}</span>
+            </button>
+          ))}
         </div>
-
-        {operations === "paid" && (
-          <RuntimePlanPicker
-            value={plan}
-            onChange={onPlanChange}
-            label="Operations capacity"
-            helper="Choose the runtime capacity for this TRUST. Capacity can change later."
-          />
-        )}
       </div>
     </section>
   );
