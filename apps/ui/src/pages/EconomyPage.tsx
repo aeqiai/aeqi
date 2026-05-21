@@ -441,7 +441,10 @@ export default function EconomyPage() {
               value={entitiesLoading ? "—" : entities.length}
               detail={
                 hasSearch ? (
-                  <MetricStatus state="in_progress" label={`${visibleTrusts.length} matching`} />
+                  <MetricStatus
+                    state={visibleTrusts.length > 0 ? "in_progress" : "backlog"}
+                    label={`${visibleTrusts.length} matching`}
+                  />
                 ) : publicTrusts.length > 0 ? (
                   <MetricStatus state="done" label={`${publicTrusts.length} public`} />
                 ) : (
