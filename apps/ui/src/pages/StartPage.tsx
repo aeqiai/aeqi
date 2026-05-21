@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, Globe, Plus, Settings } from "lucide-react";
+import { ArrowRight, BookOpen, Globe, Plus, Rocket, Settings, Users } from "lucide-react";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
 import { useQuests } from "@/queries/quests";
@@ -52,7 +52,7 @@ export default function StartPage() {
     () => user?.name?.trim() || user?.email?.split("@")[0] || "Operator",
     [user],
   );
-  const actorLine = user?.email ? `Operator · ${user.email}` : "Personal command surface";
+  const actorLine = user?.email || "Personal command surface";
 
   const inboxCount = inboxItems.length;
   const awaitingCount = useMemo(
@@ -67,7 +67,6 @@ export default function StartPage() {
         : "Inbox clear";
   const inboxPillState: "review" | "progress" | "idle" =
     awaitingCount > 0 ? "review" : inboxCount > 0 ? "progress" : "idle";
-  const trustsLabel = `${entities.length} TRUST${entities.length === 1 ? "" : "s"}`;
 
   const trustNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -128,19 +127,6 @@ export default function StartPage() {
               <p className="home-hero-subtitle">{actorLine}</p>
             </div>
           </div>
-        </div>
-        <div className="home-hero-pill" role="status" aria-label="Account snapshot">
-          <span className="home-hero-pill-stat">{trustsLabel}</span>
-          <span className="home-hero-pill-sep" aria-hidden>
-            ·
-          </span>
-          <span className="home-hero-pill-stat home-hero-pill-stat--inbox">
-            <span
-              className={`home-hero-pill-dot home-hero-pill-dot--${inboxPillState}`}
-              aria-hidden="true"
-            />
-            {inboxLabel}
-          </span>
         </div>
       </header>
 
@@ -291,7 +277,10 @@ function OperatingContextCard({
 function LaunchTrustCard() {
   return (
     <article className="home-card home-card--launch">
-      <span className="home-card-eyebrow">Launch</span>
+      <span className="home-launch-kicker">
+        <Rocket size={15} strokeWidth={1.7} aria-hidden="true" />
+        Launch
+      </span>
       <div className="home-launch-body">
         <h3 className="home-launch-title">Launch a TRUST</h3>
         <p className="home-launch-hint">
@@ -306,7 +295,7 @@ function LaunchTrustCard() {
           </span>
         </Link>
         <Link to="/launch" className="home-step-btn">
-          <span className="home-step-btn-label">Launch blank TRUST</span>
+          <span className="home-step-btn-label">Launch</span>
           <span className="home-step-btn-icon">
             <Plus size={16} strokeWidth={1.8} />
           </span>
@@ -385,10 +374,7 @@ function InboxPreviewCard({
   return (
     <article className="home-card home-card--inbox">
       <header className="home-inbox-head">
-        <span className="home-inbox-title-block">
-          <span className="home-card-eyebrow">Human attention</span>
-          <span className="home-card-title">Inbox</span>
-        </span>
+        <h2 className="home-inbox-title">Inbox</h2>
         <span className="home-card-meta home-inbox-signal">
           <span
             className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
@@ -396,10 +382,6 @@ function InboxPreviewCard({
           />
           {inboxLabel}
         </span>
-        <Link to="/inbox" className="home-inbox-cta">
-          {inboxItems.length > 0 ? "Review Inbox" : "Open Inbox"}
-          <ArrowRight size={14} strokeWidth={1.8} />
-        </Link>
       </header>
       {inboxItems.length > 0 ? (
         <ul className="home-inbox-list">
@@ -426,6 +408,10 @@ function InboxPreviewCard({
           </span>
         </div>
       )}
+      <Link to="/inbox" className="home-inbox-cta">
+        Inbox
+        <ArrowRight size={14} strokeWidth={1.8} />
+      </Link>
     </article>
   );
 }
@@ -494,13 +480,9 @@ function EconomyCard() {
       <div className="home-economy-content">
         <header className="home-economy-head">
           <span className="home-economy-label">
-            <Globe size={18} strokeWidth={1.5} aria-hidden="true" />
-            <span className="home-card-title">Explore Economy</span>
+            <Globe size={15} strokeWidth={1.7} aria-hidden="true" />
+            Economy
           </span>
-          <Link to="/economy" className="home-economy-cta">
-            Discover
-            <ArrowRight size={16} strokeWidth={1.8} />
-          </Link>
         </header>
         <div className="home-economy-body">
           <p className="home-economy-lede">Unlock the agent economy.</p>
@@ -508,6 +490,10 @@ function EconomyCard() {
             TRUST listings, open roles, blueprints, and funding opportunities live here.
           </p>
         </div>
+        <Link to="/economy" className="home-economy-cta">
+          Discover
+          <ArrowRight size={16} strokeWidth={1.8} />
+        </Link>
       </div>
     </article>
   );
@@ -594,7 +580,10 @@ function LearnAeqiSection() {
           target="_blank"
           rel="noreferrer"
         >
-          <span className="home-learn-rail-kicker">Community</span>
+          <span className="home-learn-rail-kicker">
+            <Users size={15} strokeWidth={1.7} aria-hidden="true" />
+            Community
+          </span>
           <span className="home-learn-rail-title">Follow aeqi</span>
           <span className="home-learn-rail-copy">Updates, builds, and operator notes.</span>
           <ArrowRight size={15} strokeWidth={1.8} />

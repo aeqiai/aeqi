@@ -163,7 +163,7 @@ describe("StartPage MVP surface", () => {
     const secondary = within(trustSection).getByRole("link", { name: /browse blueprints/i });
 
     expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
-    expect(screen.getByText("Operator · ada@aeqi.ai")).toBeInTheDocument();
+    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
     expect(screen.getByText("No active TRUST")).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
@@ -184,10 +184,8 @@ describe("StartPage MVP surface", () => {
     const { container } = renderStartPage();
 
     expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Account snapshot" })).toHaveTextContent("2 TRUSTs");
-    expect(screen.getByRole("status", { name: "Account snapshot" })).toHaveTextContent(
-      "1 awaiting",
-    );
+    expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
+    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
 
     expect(screen.getByText("Current context")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Alpha Trust" })).toBeInTheDocument();
@@ -199,8 +197,8 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText(/Beta Trust/i)).toBeInTheDocument();
 
     const activeTrust = screen.getAllByRole("link", { name: /open trust.*alpha trust/i })[0];
-    const reviewInbox = screen.getByRole("link", { name: /review inbox/i });
-    const launchTrust = screen.getByRole("link", { name: /launch blank trust/i });
+    const reviewInbox = screen.getByRole("link", { name: /^inbox$/i });
+    const launchTrust = screen.getByRole("link", { name: /^launch$/i });
     const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
     const otherTrust = screen.getByRole("link", { name: /open trust.*beta trust/i });
 
@@ -212,7 +210,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
     expect(screen.getByText(/Inbox item · Awaiting you/i)).toBeInTheDocument();
     expect(screen.getByText(/Janus · Alpha Trust/i)).toBeInTheDocument();
-    expect(screen.getByText(/Explore Economy/i)).toBeInTheDocument();
+    expect(screen.getByText("Economy")).toBeInTheDocument();
     expect(screen.getByText(/Unlock the agent economy/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /discover/i })).toBeInTheDocument();
     expect(screen.getByText(/Why aeqi pivoted/i)).toBeInTheDocument();
