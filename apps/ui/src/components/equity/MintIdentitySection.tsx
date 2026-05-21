@@ -98,6 +98,67 @@ function formatCapUsage(supply: bigint, cap: bigint): string | null {
   return `${whole.toString()}.${frac.toString().padStart(2, "0")}%`;
 }
 
+type ProvisioningState =
+  | { kind: "canonical"; label: string; tooltip: string }
+  | { kind: "alt"; label: string; tooltip: string }
+  | { kind: "pending"; label: string; tooltip: string }
+  | { kind: "unknown"; label: string; tooltip: string };
+
+/**
+ * iter-11: classify the on-chain provisioning of the cap-table mint.
+ *
+ * Branches:
+ *   - canonical: registry pubkey == derived PDA AND initialized != 0.
+ *   - alt:       registry pubkey is set but ≠ derived PDA (alt mint
+ *                path: bridged from a non-canonical PDA, or the registry
+ *                still points to a legacy mint that hasn't been migrated).
+ *   - pending:   registry pubkey present but `initialized` is 0 — the
+ *                module account exists but `finalize` hasn't fired.
+ *   - unknown:   no registry pubkey provided (older callers). Falls
+ *                through to a quiet "Live" pill without claiming
+ *                canonical-vs-alt.
+ *
+ * Pure helper; exported only for the test mirror inside the same file.
+ */
+function computeProvisioningState({
+  derivedMint,
+  registryMint,
+  initialized,
+}: {
+  derivedMint: string;
+  registryMint: string | null;
+  initialized: number | undefined;
+}): ProvisioningState {
+  if (!registryMint) {
+    return {
+      kind: "unknown",
+      label: "Live",
+      tooltip: "Cap-table mint is reading on chain. Registry comparison unavailable in this view.",
+    };
+  }
+  if (initialized === 0) {
+    return {
+      kind: "pending",
+      label: "Not yet provisioned",
+      tooltip:
+        "Token module state exists but the on-chain mint hasn't been finalized yet. Finalize wires decimals + authorities and flips this pill to Live.",
+    };
+  }
+  if (registryMint === derivedMint) {
+    return {
+      kind: "canonical",
+      label: "Live · canonical",
+      tooltip:
+        "Registry mint matches the derived cap-table PDA. This TRUST is on the canonical provisioning path.",
+    };
+  }
+  return {
+    kind: "alt",
+    label: "Live · alt mint",
+    tooltip: `Registry points to ${shortAddress(registryMint)}, which is not the canonical derived PDA. This TRUST was provisioned through an alt path or migrated from a legacy mint.`,
+  };
+}
+
 export interface MintIdentitySectionProps {
   mintAddress: string;
   supply: bigint;
@@ -124,6 +185,22 @@ export interface MintIdentitySectionProps {
    */
   topHolderAmount?: bigint;
   vestingTotal?: bigint;
+  /**
+   * iter-11: registry-side mint pubkey as recorded in `TokenModuleState`.
+   * Compared against the derived cap-table-mint PDA to flag the
+   * canonical-vs-alt provisioning state. Optional so older callers don't
+   * have to pass it; when omitted the pill falls back to "Live" without
+   * an alt-mint claim.
+   */
+  registryMintAddress?: string | null;
+  /**
+   * iter-11: registry `initialized` byte (`TokenModuleState.initialized`).
+   * Token module sets this to 1 from `finalize`; the bridge writes the
+   * record first and finalizes second, so a non-zero value means the
+   * module is wired all the way through. When omitted the pill assumes
+   * a live mint and skips the "not yet provisioned" branch.
+   */
+  registryInitialized?: number;
 }
 
 export function MintIdentitySection({
@@ -135,6 +212,8 @@ export function MintIdentitySection({
   freezeAuthority,
   topHolderAmount = 0n,
   vestingTotal = 0n,
+  registryMintAddress,
+  registryInitialized,
 }: MintIdentitySectionProps) {
   const [copied, setCopied] = useState(false);
   const capString = bnLikeToString(maxSupplyCap);
@@ -148,6 +227,22 @@ export function MintIdentitySection({
   const showAuthorities = mintAuthority !== undefined || freezeAuthority !== undefined;
   const isMintable = mintAuthority != null;
   const isFreezable = freezeAuthority != null;
+
+  // iter-11: provisioning status pill. Three explicit states a Token-2022
+  // cap-table mint can be in:
+  //   - canonical:        registry pubkey == derived PDA, initialized.
+  //   - alt mint:         registry pubkey points to a non-canonical PDA
+  //                       (alt provisioning path / migrated module).
+  //   - not yet seeded:   registry exists but `initialized` is still 0 —
+  //                       finalize hasn't fired yet.
+  // Honest fallback: when the caller didn't pass a registry pubkey we
+  // can't tell canonical from alt, so render a quiet "Live" pill instead
+  // of guessing. Keeps the surface truthful for older callers.
+  const provisioning = computeProvisioningState({
+    derivedMint: mintAddress,
+    registryMint: registryMintAddress ?? null,
+    initialized: registryInitialized,
+  });
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(mintAddress);
@@ -193,6 +288,28 @@ export function MintIdentitySection({
             </div>
             {showAuthorities && (
               <div className="mint-identity__badgeRow" aria-label="Mint authority flags">
+                {/* iter-11: provisioning status pill leads the badge row so
+                    "is this thing actually wired up on chain?" is the
+                    first read. The canonical/alt distinction matters when
+                    diagnosing TRUSTs that bridged through a legacy mint
+                    path; the pending case matters when the bridge wrote
+                    the registry but the finalize step never landed. */}
+                <Tooltip content={provisioning.tooltip}>
+                  <Badge
+                    variant={
+                      provisioning.kind === "canonical"
+                        ? "success"
+                        : provisioning.kind === "alt"
+                          ? "warning"
+                          : provisioning.kind === "pending"
+                            ? "muted"
+                            : "info"
+                    }
+                    size="sm"
+                  >
+                    {provisioning.label}
+                  </Badge>
+                </Tooltip>
                 <Tooltip
                   content={
                     isMintable

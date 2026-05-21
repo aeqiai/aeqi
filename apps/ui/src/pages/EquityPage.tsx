@@ -220,6 +220,11 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             freezeAuthority={mint.freezeAuthority}
             topHolderAmount={topHolderAmount}
             vestingTotal={vestingTotalAmount}
+            // iter-11: feed the registry's recorded mint pubkey +
+            // initialized byte so the provisioning pill can compare them
+            // against the derived PDA without re-querying.
+            registryMintAddress={tokenModuleState.mint.toBase58()}
+            registryInitialized={tokenModuleState.initialized}
           />
           <CapTableSection
             holders={holders ?? []}
