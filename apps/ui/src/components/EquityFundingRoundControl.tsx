@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, EmptyState, Input, Modal, PageSection, Select } from "@/components/ui";
 import { api } from "@/lib/api";
 import { ActivatedRoundLedger } from "@/components/equity/ActivatedRoundLedger";
@@ -445,6 +445,71 @@ function DeclaredRoundsList({
    */
   const [hideHistory, setHideHistory] = useState(true);
 
+  /**
+   * Iter-11: outcome flash. When an Activated round flips to Finalized
+   * or Cancelled within a session, the row gets a settled tone for ~5s
+   * so the transition is visible (jade for finalized, warmth for
+   * cancelled). The map is session-local — a page refresh clears the
+   * flash and falls back to the standard badge family.
+   *
+   * Tracking shape: `flashing` carries the kind of flash + an autoclear
+   * timeout id (so the same row can re-flash if it transitions again,
+   * though in practice status transitions are terminal). `prevStatuses`
+   * is the ref the effect compares against on every render to detect
+   * a 1 → {2,3} transition without firing on the first render.
+   */
+  type FlashKind = "finalized" | "cancelled";
+  const [flashing, setFlashing] = useState<Record<string, FlashKind>>({});
+  const prevStatusesRef = useRef<Record<string, number>>({});
+  const flashTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    // Snapshot the new statuses up front so the comparison loop can read
+    // them in one pass; then commit the snapshot into the ref at the end.
+    const next: Record<string, number> = {};
+    const newlyFlashing: Record<string, FlashKind> = {};
+    for (const r of rounds) {
+      const key = r.publicKey.toBase58();
+      const status = Number(r.account.status);
+      next[key] = status;
+      const prev = prevStatusesRef.current[key];
+      // Only flag a transition when we've seen this row before in this
+      // session (prev defined) AND it was Activated, AND it's now
+      // settled. First render of a Finalized row is NOT a flash — it's
+      // existing chain state the operator may already know about.
+      if (prev === 1 && (status === 2 || status === 3)) {
+        newlyFlashing[key] = status === 3 ? "finalized" : "cancelled";
+      }
+    }
+    prevStatusesRef.current = next;
+
+    if (Object.keys(newlyFlashing).length === 0) return;
+    setFlashing((m) => ({ ...m, ...newlyFlashing }));
+    for (const [key, kind] of Object.entries(newlyFlashing)) {
+      // Clear any pre-existing autoclear for this key before scheduling a
+      // fresh one — defensive in case the same row flips twice rapidly.
+      const existing = flashTimersRef.current[key];
+      if (existing) clearTimeout(existing);
+      flashTimersRef.current[key] = setTimeout(() => {
+        setFlashing((m) => {
+          if (m[key] !== kind) return m;
+          const { [key]: _drop, ...rest } = m;
+          return rest;
+        });
+        delete flashTimersRef.current[key];
+      }, 5000);
+    }
+  }, [rounds]);
+
+  // Clear pending timers on unmount so a stale setState doesn't fire
+  // against an unmounted tree (React warns; we want the surface quiet).
+  useEffect(() => {
+    return () => {
+      for (const t of Object.values(flashTimersRef.current)) clearTimeout(t);
+      flashTimersRef.current = {};
+    };
+  }, []);
+
   if (rounds.length === 0) {
     return (
       <div className="equity-funding-declared equity-funding-declared--empty">
@@ -508,8 +573,17 @@ function DeclaredRoundsList({
             const quoteRaw = bnLikeToBigInt(r.account.targetQuote);
             const requestId = formatRequestId(r.account.requestId);
             const isPending = effectiveStatus === 0;
+            // iter-11: row flashes when this session observed a
+            // 1 → {2,3} transition. Class modifier swaps the row
+            // background to a settled tone (jade for finalized, warmth
+            // for cancelled) for 5s, then auto-clears via the timer in
+            // the effect above.
+            const flashKind = flashing[r.publicKey.toBase58()];
+            const rowClassName = flashKind
+              ? `equity-funding-declared__row equity-funding-declared__row--flash-${flashKind}`
+              : "equity-funding-declared__row";
             return (
-              <li key={r.publicKey.toBase58()} className="equity-funding-declared__row">
+              <li key={r.publicKey.toBase58()} className={rowClassName}>
                 <div className="equity-funding-declared__head">
                   <span className="equity-funding-declared__kind">
                     {KIND_LABELS[kind] ?? `Kind ${kind}`}
@@ -558,6 +632,22 @@ function DeclaredRoundsList({
                     <span className="equity-funding-declared__activatedSig">
                       {optimisticSig.slice(0, 6)}…{optimisticSig.slice(-4)}
                     </span>
+                  </div>
+                )}
+                {flashKind && (
+                  /* iter-11: outcome banner. Narrates the just-observed
+                     transition so the operator sees WHY the row tinted
+                     even if their eye missed the badge flip. Honest
+                     scope: "this happened just now", not "this is the
+                     final on-chain state forever". */
+                  <div
+                    className={`equity-funding-declared__outcomeRow equity-funding-declared__outcomeRow--${flashKind}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {flashKind === "finalized"
+                      ? "Round finalized — proceeds settled."
+                      : "Round cancelled — deposits returnable to contributors."}
                   </div>
                 )}
                 {effectiveStatus === 1 && (
