@@ -232,11 +232,24 @@
 /* Awaiting status dot — adopts the canonical `.quest-status-dot--in_review`
  * grammar (7px / 999px / warmth). The icon+label pair the strip used to
  * carry compressed into dot+label — same `in_review` semantic, two-element
- * header instead of three, less visual debt. The `--space-1` margin lifts
- * the dot to optical-center on the label's cap height (the dot is square
- * geometry; the label has descenders pulling its bounding box low). */
+ * header instead of three, less visual debt. `margin-left` is the small
+ * inset from the strip's left padding (horizontal nudge, not vertical).
+ *
+ * c12 — anchor the dot to the LABEL's optical center, not the body's
+ * bounding-box center. The strip's parent uses `align-items: center`,
+ * which centers the dot on the body's full height. That works when the
+ * body is single-line (label only) but is ~1px low against cap-height,
+ * and is plain wrong when the body is two-line (label + subject): the
+ * dot drifts down to the gap between rows. `align-self: flex-start` +
+ * `margin-top` pins the dot to the first-line line-box, then a 1px
+ * upward translate trims the residual cap-height offset (label glyphs
+ * have descenders pulling the line-box center below the visual cap
+ * mid-point). One rule, both render branches, no JSX fork. */
 .inbox-awaiting-strip-dot {
   margin-left: var(--space-1);
+  align-self: flex-start;
+  margin-top: var(--space-1);
+  transform: translateY(-1px);
   flex-shrink: 0;
 }
 
