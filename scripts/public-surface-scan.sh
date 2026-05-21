@@ -42,6 +42,11 @@ blocked_paths=$(
 )
 report "blocked tracked paths" "$blocked_paths"
 
+root_raster_assets=$(
+    tracked_paths | rg -n '^[^/]+\.(png|jpe?g|webp|gif)$' || true
+)
+report "root raster assets" "$root_raster_assets"
+
 local_paths=$(
     tracked_text_paths | xargs -r rg -n -I --with-filename \
         '(/home/claudedev|/Users/[^[:space:]]+/aeqi|C:\\Users\\[^[:space:]]+\\aeqi)' || true
