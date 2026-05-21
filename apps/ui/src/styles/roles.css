@@ -852,6 +852,38 @@
   line-height: 1.1;
   color: var(--color-text-primary);
 }
+/* Page-title count badge — anchors the H1 with the entity weight it
+   represents, mirroring the `label · count` kanban-column grammar the
+   Quests page uses for every column header (and the `Suggested agents`
+   subhead immediately below). Reads the page as a saved view over a
+   concrete count rather than as a bare label hanging on paper. Sits on
+   the title baseline so the heading + badge read as one unit; tabular-
+   nums mono pill keeps the digit width steady as agents come online or
+   spin down. */
+.trust-agents-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.trust-agents-title-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
+}
 .trust-roles-header-actions,
 .trust-agents-header-actions {
   display: inline-flex;

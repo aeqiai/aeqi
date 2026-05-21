@@ -242,7 +242,17 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
     <div className="trust-agents">
       <header className="trust-agents-header">
         <div className="trust-agents-header-titles">
-          <h1 className="trust-agents-title">Agents</h1>
+          <div className="trust-agents-title-row">
+            <h1 className="trust-agents-title">Agents</h1>
+            {entityAgents.length > 0 && (
+              <span
+                className="trust-agents-title-count"
+                aria-label={`${entityAgents.length} ${entityAgents.length === 1 ? "agent" : "agents"} in this TRUST`}
+              >
+                {entityAgents.length}
+              </span>
+            )}
+          </div>
         </div>
         <div className="trust-agents-header-actions">
           <Tooltip content="New agent (N)">
