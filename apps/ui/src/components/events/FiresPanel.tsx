@@ -4,7 +4,13 @@ import { Loading, Tooltip } from "@/components/ui";
 import { formatInteger, formatShortDate } from "@/lib/i18n";
 import type { EventInvocationRow, ToolCall } from "@/lib/types";
 import StepDetail, { StatusDot, durationMs } from "./StepDetail";
-import { LIFECYCLE_HINT, LIFECYCLE_LABEL, lifecycleGroup, type LifecycleGroup } from "./lifecycle";
+import {
+  LIFECYCLE_HINT,
+  LIFECYCLE_LABEL,
+  lifecycleGroup,
+  routineWhenLabel,
+  type LifecycleGroup,
+} from "./lifecycle";
 
 interface FiresPanelProps {
   eventName: string;
@@ -30,8 +36,7 @@ function relativeWhen(ts: string): string {
 
 function runWhen(pattern: string, lifecycle: LifecycleGroup): string {
   if (lifecycle === "routines") {
-    const cron = pattern.startsWith("schedule:") ? pattern.slice("schedule:".length) : pattern;
-    return cron ? `cron ${cron}` : "cron schedule";
+    return routineWhenLabel(pattern);
   }
   if (lifecycle === "webhooks") {
     const payload = pattern.includes(":") ? pattern.slice(pattern.indexOf(":") + 1) : pattern;

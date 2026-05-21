@@ -8,6 +8,7 @@ import {
   LIFECYCLE_LABEL,
   LIFECYCLE_ORDER,
   eventLifecycle,
+  routineWhenLabel,
 } from "./events/lifecycle";
 import { SCOPE_LABEL } from "./ideas/types";
 
@@ -27,10 +28,11 @@ interface EventsOverviewProps {
   onNew: () => void;
 }
 
-function toolScope(tc: ToolCall): string {
+function toolParts(tc: ToolCall): { scope: string; action: string | null } {
   const name = tc.tool || "?";
   const dot = name.indexOf(".");
-  return dot === -1 ? name : name.slice(0, dot);
+  if (dot === -1) return { scope: name, action: null };
+  return { scope: name.slice(0, dot), action: name.slice(dot + 1) };
 }
 
 const WHY_LABEL: Record<LifecycleGroup, string> = {
@@ -41,10 +43,7 @@ const WHY_LABEL: Record<LifecycleGroup, string> = {
 
 function whenSummary(event: AgentEvent, group: LifecycleGroup): string {
   if (group === "routines") {
-    const cron = event.pattern.startsWith("schedule:")
-      ? event.pattern.slice("schedule:".length)
-      : event.pattern;
-    return cron ? `cron ${cron}` : "cron schedule";
+    return routineWhenLabel(event.pattern);
   }
   if (group === "webhooks") {
     const payload = event.pattern.includes(":")
@@ -264,15 +263,19 @@ function OverviewRow({
               <span className="events-overview-chip is-empty">observer</span>
             </>
           ) : (
-            tools.map((tc, i) => (
-              <span key={i}>
-                <ConnectorTiny />
-                <span className="events-overview-chip is-tool">
-                  <span className="events-overview-chip-step">{formatInteger(i + 1)}</span>
-                  <span>{toolScope(tc)}</span>
+            tools.map((tc, i) => {
+              const { scope, action } = toolParts(tc);
+              return (
+                <span key={i}>
+                  <ConnectorTiny />
+                  <span className="events-overview-chip is-tool">
+                    <span className="events-overview-chip-step">{formatInteger(i + 1)}</span>
+                    <span>{scope}</span>
+                    {action && <span className="events-overview-chip-action">.{action}</span>}
+                  </span>
                 </span>
-              </span>
-            ))
+              );
+            })
           )}
         </div>
         <div className="events-overview-row-meta" aria-hidden>

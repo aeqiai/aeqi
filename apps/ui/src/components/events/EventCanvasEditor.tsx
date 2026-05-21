@@ -3,7 +3,13 @@ import type { ToolCall } from "@/lib/types";
 import { formatDateTime, formatInteger } from "@/lib/i18n";
 import { Popover, Textarea } from "../ui";
 import { COMMON_PATTERNS, KNOWN_TOOLS } from "../EventEditorConstants";
-import { LIFECYCLE_HINT, LIFECYCLE_LABEL, lifecycleGroup, type LifecycleGroup } from "./lifecycle";
+import {
+  LIFECYCLE_HINT,
+  LIFECYCLE_LABEL,
+  lifecycleGroup,
+  routineWhenLabel,
+  type LifecycleGroup,
+} from "./lifecycle";
 
 /**
  * Canvas-as-editor. Each node is the editor for its own slice:
@@ -43,8 +49,7 @@ function patternTone(pattern: string): LifecycleGroup {
 function whenLabel(pattern: string, lifecycle: LifecycleGroup): string {
   if (!pattern) return "(none)";
   if (lifecycle === "routines") {
-    const cron = pattern.startsWith("schedule:") ? pattern.slice("schedule:".length) : pattern;
-    return cron ? `cron ${cron}` : "cron schedule";
+    return routineWhenLabel(pattern);
   }
   if (lifecycle === "webhooks") {
     const payload = pattern.includes(":") ? pattern.slice(pattern.indexOf(":") + 1) : pattern;
@@ -120,6 +125,7 @@ export default function EventCanvasEditor({
 }: EventCanvasEditorProps) {
   const lifecycle = patternTone(draft.pattern);
   const tools = draft.tool_calls;
+  const triggerWhen = whenLabel(draft.pattern, lifecycle);
 
   const insertStep = (at: number) => {
     if (readOnly) return;
@@ -179,6 +185,7 @@ export default function EventCanvasEditor({
         <TriggerNode
           tone={lifecycle}
           pattern={draft.pattern}
+          when={triggerWhen}
           cooldown={draft.cooldown_secs}
           readOnly={readOnly}
           onPattern={(v) => onChange({ pattern: v })}
@@ -252,6 +259,7 @@ function SummaryItem({
 function TriggerNode({
   tone,
   pattern,
+  when,
   cooldown,
   readOnly,
   onPattern,
@@ -259,6 +267,7 @@ function TriggerNode({
 }: {
   tone: Tone;
   pattern: string;
+  when: string;
   cooldown: number;
   readOnly: boolean;
   onPattern: (v: string) => void;
@@ -284,6 +293,9 @@ function TriggerNode({
           <span className="event-canvas-node-label">trigger</span>
           <span className="event-canvas-node-body">
             <span className="event-canvas-node-mono">{pattern || "(none)"}</span>
+            {pattern && when !== pattern && (
+              <span className="event-canvas-node-meta">when {when}</span>
+            )}
             {cooldown > 0 && <span className="event-canvas-node-meta">cooldown {cooldown}s</span>}
           </span>
         </button>

@@ -61,6 +61,10 @@ describe("EventsOverview", () => {
 
     const routines = within(screen.getByLabelText("Routines status"));
     expect(routines.getByText("Dormant")).toBeInTheDocument();
+
+    expect(
+      screen.getByLabelText(/Open Morning digest .*when daily 08:00 · cron 0 8 \* \* \*/),
+    ).toBeInTheDocument();
   });
 
   it("numbers ordered tool calls in the automation chain", () => {
@@ -82,7 +86,9 @@ describe("EventsOverview", () => {
     const row = screen.getByTestId("event-row");
     expect(within(row).getByText("1")).toBeInTheDocument();
     expect(within(row).getByText("ideas")).toBeInTheDocument();
+    expect(within(row).getByText(".search")).toBeInTheDocument();
     expect(within(row).getByText("2")).toBeInTheDocument();
     expect(within(row).getByText("quests")).toBeInTheDocument();
+    expect(within(row).getByText(".create")).toBeInTheDocument();
   });
 });

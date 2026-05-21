@@ -679,6 +679,9 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
+.events-overview-chip-action {
+  color: var(--color-text-muted);
+}
 .events-overview-chip.is-empty {
   color: var(--color-text-muted);
   background: transparent;
