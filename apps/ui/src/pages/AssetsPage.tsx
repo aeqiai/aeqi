@@ -205,6 +205,8 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         />
         <CapitalizeSection
           vaultAuthority={vault.vaultAuthorityPda.toBase58()}
+          entity={entity}
+          holdings={holdings ?? []}
           onSend={() => {
             setSendPrefill({ mint: USDC_MAINNET_MINT, symbol: "USDC" });
             setReceivePrefill(null);

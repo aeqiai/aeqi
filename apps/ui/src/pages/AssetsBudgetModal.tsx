@@ -134,8 +134,10 @@ export function BudgetDetailModal({
         <BudgetSpendTable budgetPda={budget.publicKey.toBase58()} metas={metas} />
         <p className={styles.modalFooterNote}>
           Decoded from each signature&apos;s parsed transaction (top SPL transfer + adjacent SPL
-          Memo instruction). Rows that didn&apos;t move tokens — freeze, allocate-child, policy
-          updates — render as &ldquo;On-chain call&rdquo; with their signature deep-link intact.
+          Memo instruction). Rows that didn&apos;t move tokens render their `aeqi_budget` IDL
+          instruction name when the Anchor discriminator matches (freeze, unfreeze, create_budget,
+          …); third-party CPI calls remain &ldquo;On-chain call&rdquo; with their explorer link
+          intact.
         </p>
       </Stack>
     </Modal>
@@ -179,7 +181,10 @@ function BudgetSpendTable({ budgetPda, metas }: { budgetPda: string; metas: Toke
     );
   }
   const hidden = signatures.length - visible.length;
-  const decodedCount = decoded.filter((d) => d.kind === "spend").length;
+  // Iter-9: decoded count includes IDL-decoded ix rows (freeze, unfreeze,
+  // …) alongside spend rows so the footer reads honestly when an operator
+  // freezes a budget without spending.
+  const decodedCount = decoded.filter((d) => d.kind === "spend" || d.kind === "budget-ix").length;
   return (
     <DetailField
       label={`Recent spend (${formatInteger(visible.length)}${hidden > 0 ? ` of ${formatInteger(signatures.length)}` : ""}${decodedCount > 0 ? ` · ${formatInteger(decodedCount)} decoded` : ""})`}
@@ -188,6 +193,7 @@ function BudgetSpendTable({ budgetPda, metas }: { budgetPda: string; metas: Toke
         {visible.map((sig) => {
           const row = decodedByKey.get(sig.signature);
           const isSpend = row?.kind === "spend";
+          const isBudgetIx = row?.kind === "budget-ix";
           const decoding = decodedLoading && !row;
           return (
             <li key={sig.signature} className={styles.budgetSpendItem}>
@@ -199,6 +205,27 @@ function BudgetSpendTable({ budgetPda, metas }: { budgetPda: string; metas: Toke
                   <span className={styles.budgetSpendAmount}>
                     {formatTokenAmount(row.amount, decimals)} USDC
                   </span>
+                ) : isBudgetIx && row?.budgetIx ? (
+                  // Iter-9: render the decoded `aeqi_budget` IDL ix name —
+                  // freeze / unfreeze / create_budget / record_spend / init.
+                  // freeze/unfreeze use the warmth/success accent family so
+                  // a CFO can scan the timeline for lifecycle events
+                  // without parsing each label. record_spend rows that
+                  // didn't surface a transfer (e.g. failed-but-confirmed
+                  // tx) fall here too — the label is still load-bearing.
+                  <Badge
+                    variant={
+                      row.budgetIx === "freeze"
+                        ? "warning"
+                        : row.budgetIx === "unfreeze"
+                          ? "success"
+                          : "accent"
+                    }
+                    size="sm"
+                    dot
+                  >
+                    {row.budgetIx.replace(/_/g, " ")}
+                  </Badge>
                 ) : decoding ? (
                   <Badge variant="muted" size="sm" dot>
                     Decoding…

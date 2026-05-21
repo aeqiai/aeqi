@@ -22,8 +22,10 @@ import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import { useTreasuryUsdCurve } from "@/hooks/useTreasuryUsdCurve";
 import type { BudgetAccountWithPda, VaultHolding, VestingPositionWithPda } from "@/solana/assets";
+import { entityPath } from "@/lib/entityPath";
 import { formatCurrency, formatInteger, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
+import type { Trust } from "@/lib/types";
 import {
   Badge,
   Banner,
@@ -188,15 +190,47 @@ export function TreasuryOverviewSection({
  * so the corresponding inline shells (WithdrawFormShell /
  * HoldingReceiveCard) render where the operator is already looking.
  */
+/**
+ * Iter-9: known Solana liquid-staking token mints — when any holding
+ * resolves to one of these, the CapitalizeSection surfaces a quiet
+ * "View staking" link beside the existing action row pointing at the
+ * per-mint staking surface. The mainnet mint addresses are canonical
+ * SPL mints listed in each provider's docs (jito.network, marinade.finance,
+ * blazestake.so); referenced here so the affordance is honest about
+ * which mints unlock the surface.
+ */
+const LST_MINTS: Record<string, { symbol: string; provider: string }> = {
+  J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn: { symbol: "jitoSOL", provider: "Jito" },
+  mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So: { symbol: "mSOL", provider: "Marinade" },
+  bSo13r4TkiE4KumL71LsHTuHyG9b69PUwoaTLP4SgGm: { symbol: "bSOL", provider: "BlazeStake" },
+};
+
 export function CapitalizeSection({
   vaultAuthority,
+  entity,
+  holdings,
   onSend,
   onReceive,
 }: {
   vaultAuthority: string;
+  /** Iter-9: the Trust entity so the staking link can resolve through
+   *  `entityPath(entity, "stake", mint)` to the canonical
+   *  `/trust/<addr>/stake/<mint>` (or `/trust/<id>/stake/<mint>`
+   *  pre-bridge) — not a hand-crafted `/c/<id>` literal. Optional;
+   *  when omitted the affordance falls back to the explorer link. */
+  entity?: Pick<Trust, "id" | "trust_address">;
+  /** Iter-9: scan holdings for known LST mints (jitoSOL / mSOL / bSOL)
+   *  and surface a "View staking" affordance when at least one is held.
+   *  Empty list collapses the affordance — we don't surface a link to
+   *  a position that doesn't exist. */
+  holdings?: Array<{ mint: { toBase58: () => string } }>;
   onSend: () => void;
   onReceive: () => void;
 }) {
+  const lstHoldings = (holdings ?? [])
+    .map((h) => ({ mint: h.mint.toBase58(), meta: LST_MINTS[h.mint.toBase58()] }))
+    .filter((x) => !!x.meta) as Array<{ mint: string; meta: { symbol: string; provider: string } }>;
+
   return (
     <PageSection
       title="Capitalize your TRUST"
@@ -240,10 +274,59 @@ export function CapitalizeSection({
                 <span>View on explorer</span>
               </a>
             </Inline>
+            {lstHoldings.length > 0 && (
+              <CapitalizeStakingAffordance entity={entity} lstHoldings={lstHoldings} />
+            )}
           </Stack>
         </Inline>
       </Card>
     </PageSection>
+  );
+}
+
+/**
+ * Iter-9 — Liquid-staking affordance surfaced inside CapitalizeSection.
+ *
+ * When the vault holds at least one known LST mint (jitoSOL / mSOL /
+ * bSOL), we surface a quiet "View staking" link beside the existing
+ * Deposit / Receive / Withdraw row. The link points at
+ * `/c/<trust>/stake/<mint>` — a route that doesn't exist yet (per the
+ * iter-9 brief). We're honest about the gap: the affordance is real
+ * (the holding IS in the vault), and the surface is an explicit TBD
+ * the route handler can pick up.
+ *
+ * Multiple LSTs collapse into a row of mint badges so a TRUST holding
+ * jitoSOL + mSOL renders both without doubling the affordance.
+ */
+function CapitalizeStakingAffordance({
+  entity,
+  lstHoldings,
+}: {
+  entity: Pick<Trust, "id" | "trust_address"> | undefined;
+  lstHoldings: Array<{ mint: string; meta: { symbol: string; provider: string } }>;
+}) {
+  return (
+    <div className={styles.capitalizeStaking}>
+      <span>
+        Holding {lstHoldings.length === 1 ? "a liquid-staking token" : "liquid-staking tokens"} —
+      </span>
+      <span className={styles.capitalizeStakingChips}>
+        {lstHoldings.map((h) => {
+          const href = entity ? entityPath(entity, "stake", h.mint) : explorerAddressUrl(h.mint);
+          return (
+            <a
+              key={h.mint}
+              href={href}
+              className={styles.capitalizeStakingLink}
+              aria-label={`View ${h.meta.symbol} staking position (${h.meta.provider})`}
+              {...(!entity ? { target: "_blank", rel: "noreferrer noopener" } : {})}
+            >
+              View {h.meta.symbol} staking
+            </a>
+          );
+        })}
+      </span>
+    </div>
   );
 }
 

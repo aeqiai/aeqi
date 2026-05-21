@@ -44,6 +44,7 @@ import {
   rawToFloat,
   shortAddress,
 } from "./AssetsSections";
+import { AssetsHistoryModal } from "./AssetsHistoryModal";
 import styles from "./AssetsPage.module.css";
 
 type ActivityRow = VaultSignature & { decoded?: DecodedActivity };
@@ -76,6 +77,11 @@ export function VaultActivitySection({
    *  context where the operator is looking. State is local to the
    *  section so the host page doesn't have to plumb it through. */
   const [expanded, setExpanded] = useState<string | null>(null);
+  /** Iter-9: full history modal. Opens via "View all (N)" in the section
+   *  header — exposes every signature the hook returned with a
+   *  date-range filter, so a CFO scanning a longer window doesn't have
+   *  to drop out to the explorer or page through here at 10/row. */
+  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
 
   const rows = useMemo<ActivityRow[]>(
     () =>
@@ -168,10 +174,26 @@ export function VaultActivitySection({
   const hiddenCount = signatures.length - rows.length;
   const decodedCount = rows.filter((r) => r.decoded && r.decoded.kind !== "other").length;
 
+  // Iter-9: "View all (N)" affordance on the section header — only
+  // surfaces when there are more signatures than the visible cap, so
+  // the action lives where it earns its weight.
+  const sectionActions =
+    signatures.length > rows.length ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setHistoryOpen(true)}
+        aria-label="Open full vault history"
+      >
+        View all ({formatInteger(signatures.length)})
+      </Button>
+    ) : undefined;
+
   return (
     <PageSection
       title="Recent vault activity"
       description="Latest on-chain signatures that touched the vault authority PDA. Top rows decode SPL transfers into deposit / withdraw labels."
+      actions={sectionActions}
     >
       {isLoading && rows.length === 0 ? (
         <Loading variant="section" label="Scanning vault signature tail" />
@@ -211,6 +233,13 @@ export function VaultActivitySection({
           )}
         </>
       )}
+      <AssetsHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        signatures={signatures}
+        decoded={decoded}
+        metas={metas}
+      />
     </PageSection>
   );
 }

@@ -36,6 +36,7 @@ import {
 import bs58 from "bs58";
 
 import { getConnection } from "@/solana/client";
+import { AEQI_BUDGET_PROGRAM_ID } from "@/solana/pdas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 
 const DECODE_LIMIT = 12;
@@ -48,7 +49,41 @@ const MEMO_V3_PROGRAM = "MemoSq4gqABAxKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 /** SPL Memo v1 — still appears in older programs' CPI shape. */
 const MEMO_V1_PROGRAM = "Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo";
 
-export type DecodedBudgetKind = "spend" | "other";
+/**
+ * Iter-9: budget IDL instruction discriminators. Source of truth:
+ * `apps/ui/src/solana/generated/idl/aeqi_budget.json` 2026-05-21 snapshot
+ * — keep in sync if the IDL regenerates. The freeze/unfreeze pair is the
+ * iter-8 "NEXT" gap closure: when an operator freezes/unfreezes a budget,
+ * the on-chain ix touches the Budget PDA but moves no tokens. Iter-5's
+ * decoder fell through to "On-chain call" with no semantic label.
+ *
+ * Stored as hex-encoded first 8 bytes of the instruction data, matching
+ * the discriminator surfaced by `bs58.decode(ix.data).slice(0, 8)`.
+ * `init` is the one-time per-trust BudgetModuleState allocation; it
+ * doesn't touch any Budget PDA but is included so future expansion to a
+ * module-state signature tail can reuse the table.
+ */
+const BUDGET_DISCRIMINATORS: Record<string, DecodedBudgetIxName> = {
+  ebe6b3c9e93a9e48: "create_budget",
+  ff5bcf54fbc2fe3f: "freeze",
+  dc3bcfec6cfa2f64: "init",
+  "6f661140f5ca4f37": "record_spend",
+  "85a044fd50e8daf7": "unfreeze",
+};
+
+export type DecodedBudgetIxName = "create_budget" | "freeze" | "init" | "record_spend" | "unfreeze";
+
+/**
+ * Iter-9: kind taxonomy widened beyond the iter-5 `spend | other` split.
+ * Honest semantics:
+ *  - `spend` — parsed SPL transfer out of the budget's vault ATA (iter-5).
+ *  - `budget-ix` — `aeqi_budget` IDL instruction touched the Budget PDA
+ *    but moved no tokens (freeze, unfreeze, allocate-child, etc).
+ *  - `other` — neither matched. Could be a third-party CPI against the
+ *    Budget PDA or a tx we couldn't parse; we surface the program list
+ *    on the row so the operator can still tell what happened.
+ */
+export type DecodedBudgetKind = "spend" | "budget-ix" | "other";
 
 export interface DecodedBudgetSpend {
   signature: string;
@@ -67,6 +102,9 @@ export interface DecodedBudgetSpend {
   /** Top-level program IDs the transaction called — surfaced in the "other"
    *  fallback so the row can render "called aeqi_budget" honestly. */
   programs: string[];
+  /** Iter-9: IDL instruction name when the row decoded as a `budget-ix`
+   *  (freeze, unfreeze, …). Null for spend rows + truly-other rows. */
+  budgetIx: DecodedBudgetIxName | null;
 }
 
 function isParsedInstruction(
@@ -174,11 +212,75 @@ function extractMemo(ixs: Array<ParsedInstruction | PartiallyDecodedInstruction>
   return null;
 }
 
+/**
+ * Iter-9: extract the first 8 bytes (Anchor instruction discriminator)
+ * from a partially-decoded `aeqi_budget` instruction. Returns null when
+ * the data is too short or undecodable — matches the helper shape used by
+ * `useDecodedModuleActivity` for `aeqi_trust` ix.
+ */
+function bytesToHex(bytes: Uint8Array): string {
+  let out = "";
+  for (const b of bytes) out += b.toString(16).padStart(2, "0");
+  return out;
+}
+
+function discFromPartialIx(ix: PartiallyDecodedInstruction): string | null {
+  if (typeof ix.data !== "string" || ix.data.length === 0) return null;
+  try {
+    const bytes = bs58.decode(ix.data);
+    if (bytes.length < 8) return null;
+    return bytesToHex(bytes.slice(0, 8));
+  } catch {
+    return null;
+  }
+}
+
+const AEQI_BUDGET_PID = AEQI_BUDGET_PROGRAM_ID.toBase58();
+
+/**
+ * Iter-9: detect the IDL instruction name when this tx invoked
+ * `aeqi_budget` against the target Budget PDA. We honestly bail when no
+ * `aeqi_budget` instruction touched the PDA — a third-party CPI that
+ * happens to mention the Budget account in some satellite slot should
+ * NOT be relabelled as a budget mutation.
+ */
+function decodeBudgetIxName(
+  budgetPda: string,
+  allInstructions: Array<ParsedInstruction | PartiallyDecodedInstruction>,
+  accountKeys: string[],
+): DecodedBudgetIxName | null {
+  for (const ix of allInstructions) {
+    if (ix.programId.toBase58() !== AEQI_BUDGET_PID) continue;
+
+    // Confirm the instruction touched the Budget PDA. Partial shape
+    // exposes the accounts list directly; the fully-parsed shape doesn't,
+    // so we fall back to a tx-wide membership check (the sig wouldn't
+    // have been returned otherwise — `aeqi_budget` only writes to
+    // Budget/ModuleState PDAs).
+    if (!isParsedInstruction(ix)) {
+      const touches = ix.accounts.some((k) => k.toBase58() === budgetPda);
+      if (!touches) continue;
+      const disc = discFromPartialIx(ix);
+      if (!disc) continue;
+      const name = BUDGET_DISCRIMINATORS[disc];
+      if (name) return name;
+    } else if (accountKeys.includes(budgetPda)) {
+      // Parsed shape rare for `aeqi_budget` since no parser plugin ships
+      // with the IDL — fall through. Future-proof: if a parser ever
+      // resolves `ix.parsed.type` we honour it.
+      const type = (ix.parsed as { type?: string } | null)?.type;
+      if (type === "create_budget" || type === "freeze" || type === "unfreeze") return type;
+    }
+  }
+  return null;
+}
+
 function decodeParsedSpend(
   parsed: NonNullable<
     Awaited<ReturnType<ReturnType<typeof getConnection>["getParsedTransaction"]>>
   >,
   sig: VaultSignature,
+  budgetPda: string,
 ): DecodedBudgetSpend {
   const message = parsed.transaction.message;
   const accountKeys = message.accountKeys.map((a) => a.pubkey.toBase58());
@@ -226,6 +328,27 @@ function decodeParsedSpend(
       recipient,
       memo,
       programs: [...programs],
+      budgetIx: null,
+    };
+  }
+
+  // Iter-9: no SPL transfer matched — try to surface the `aeqi_budget`
+  // instruction name (freeze, unfreeze, …) so the operator gets a typed
+  // label instead of "On-chain call".
+  const budgetIx = decodeBudgetIxName(budgetPda, allInstructions, accountKeys);
+  if (budgetIx) {
+    return {
+      signature: sig.signature,
+      blockTime: sig.blockTime,
+      slot: sig.slot,
+      err: sig.err,
+      kind: "budget-ix",
+      mint: null,
+      amount: null,
+      recipient: null,
+      memo,
+      programs: [...programs],
+      budgetIx,
     };
   }
 
@@ -240,6 +363,7 @@ function decodeParsedSpend(
     recipient: null,
     memo,
     programs: [...programs],
+    budgetIx: null,
   };
 }
 
@@ -273,6 +397,7 @@ export function useDecodedBudgetSpend(
             recipient: null,
             memo: null,
             programs: [],
+            budgetIx: null,
           };
         }
         new PublicKey(budgetPda);
@@ -293,9 +418,10 @@ export function useDecodedBudgetSpend(
               recipient: null,
               memo: null,
               programs: [],
+              budgetIx: null,
             };
           }
-          return decodeParsedSpend(parsed, sig);
+          return decodeParsedSpend(parsed, sig, budgetPda);
         } catch {
           return {
             signature: sig.signature,
@@ -308,6 +434,7 @@ export function useDecodedBudgetSpend(
             recipient: null,
             memo: null,
             programs: [],
+            budgetIx: null,
           };
         }
       },

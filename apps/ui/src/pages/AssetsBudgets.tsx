@@ -23,6 +23,7 @@ import {
   bytesIdLabel,
   bytesToHex,
   formatTokenAmount,
+  toBigInt,
   type TokenMetaMap,
 } from "./AssetsSections";
 import styles from "./AssetsPage.module.css";
@@ -225,6 +226,14 @@ export function BudgetsSection({
       description="Per-role allocations recorded on `aeqi_budget`. Spend caps are enforced on-chain. Click a row for details."
       actions={actions}
     >
+      {hasHierarchy && (
+        <BudgetAllocationTree
+          topLevel={topLevel}
+          childrenByParent={childrenByParent}
+          orphans={orphans}
+          metas={metas}
+        />
+      )}
       {!hasHierarchy ? (
         <Table
           columns={columns}
@@ -333,5 +342,125 @@ function BudgetUtilization({
         <div className={styles.utilizationFill} data-tone="accent" style={fillStyle} />
       </div>
     </Stack>
+  );
+}
+
+/**
+ * Iter-9 — Cross-budget allocation tree.
+ *
+ * The budget hierarchy view (iter-6) groups child budgets under their
+ * parent in a stacked-table layout. That answers "which budgets live
+ * under X?" but it doesn't show the *shape* of the allocation graph at
+ * a glance — an operator who just landed on the page can't tell "is
+ * this 1 big parent with 5 thin children, or 5 parents with 1 child
+ * each?" without scrolling through the tables.
+ *
+ * This component sits above the tables and renders a compact text-tree
+ * of the parent→child structure — node label = budget ASCII ID, node
+ * meta = utilization %. Top-level budgets render as roots; sub-budgets
+ * indent under their parent with a connector glyph. Orphan sub-budgets
+ * (parent ID present on the row but parent budget not in the loaded
+ * list) collapse under a "Detached" root so they don't disappear from
+ * the visualization.
+ *
+ * Honest scope: utilization is sourced from the same `spent / amount`
+ * on each Budget account that drives the table's utilization meter,
+ * normalised through the shared `budgetDecimals` helper. No fabrication
+ * — when a budget has zero allocated we render "—" rather than a
+ * divide-by-zero NaN.
+ *
+ * Deliberately ASCII-text not mermaid: a SVG/mermaid graph would
+ * compete with the table below for the operator's eye and add chart
+ * library weight to the bundle. The tree is dense, calm, and reads at
+ * a glance — Bloomberg, not Sankey.
+ */
+function BudgetAllocationTree({
+  topLevel,
+  childrenByParent,
+  orphans,
+  metas,
+}: {
+  topLevel: BudgetAccountWithPda[];
+  childrenByParent: Map<string, BudgetAccountWithPda[]>;
+  orphans: BudgetAccountWithPda[];
+  metas: TokenMetaMap;
+}) {
+  const decimals = budgetDecimals(metas);
+
+  /** Format a single node's utilization meta. Honest about empty
+   *  allocations (no divide by zero, render "—"). Frozen budgets carry
+   *  a [frozen] suffix so the tree itself signals lifecycle state. */
+  const nodeMeta = (row: BudgetAccountWithPda): string => {
+    const spent = toBigInt(row.account.spent);
+    const amount = toBigInt(row.account.amount);
+    if (amount === 0n) {
+      return row.account.frozen ? "— · frozen" : "—";
+    }
+    const pct = Number((spent * 10000n) / amount) / 100;
+    const usage = `${formatTokenAmount(spent, decimals)}/${formatTokenAmount(amount, decimals)} · ${formatNumber(
+      pct,
+      { maximumFractionDigits: 0 },
+    )}%`;
+    return row.account.frozen ? `${usage} · frozen` : usage;
+  };
+
+  const lines: Array<{ key: string; depth: number; connector: string; label: string }> = [];
+
+  const walk = (row: BudgetAccountWithPda, depth: number, isLast: boolean, prefix: string) => {
+    const myConnector = depth === 0 ? "" : `${prefix}${isLast ? "└─" : "├─"}`;
+    lines.push({
+      key: row.publicKey.toBase58(),
+      depth,
+      connector: myConnector,
+      label: `${bytesIdLabel(row.account.budgetId)}  ${nodeMeta(row)}`,
+    });
+    const kids = childrenByParent.get(bytesToHex(row.account.budgetId)) ?? [];
+    const childPrefix = depth === 0 ? "" : `${prefix}${isLast ? "   " : "│  "}`;
+    kids.forEach((k, idx) => walk(k, depth + 1, idx === kids.length - 1, childPrefix));
+  };
+
+  topLevel.forEach((root, idx) => walk(root, 0, idx === topLevel.length - 1, ""));
+
+  if (orphans.length > 0) {
+    lines.push({
+      key: "__orphans_head__",
+      depth: 0,
+      connector: "",
+      label: "Detached sub-budgets",
+    });
+    orphans.forEach((o, idx) =>
+      lines.push({
+        key: o.publicKey.toBase58(),
+        depth: 1,
+        connector: idx === orphans.length - 1 ? "└─" : "├─",
+        label: `${bytesIdLabel(o.account.budgetId)}  ${nodeMeta(o)}`,
+      }),
+    );
+  }
+
+  const totalNodes =
+    topLevel.length +
+    [...childrenByParent.values()].reduce((a, b) => a + b.length, 0) +
+    orphans.length;
+
+  return (
+    <details className={styles.budgetTreeBlock}>
+      <summary className={styles.budgetTreeSummary}>
+        <span className={styles.budgetTreeTitle}>Allocation graph</span>
+        <span className={styles.budgetTreeMeta}>
+          {formatInteger(topLevel.length)} root{topLevel.length === 1 ? "" : "s"} ·{" "}
+          {formatInteger(totalNodes)} node{totalNodes === 1 ? "" : "s"}
+        </span>
+      </summary>
+      <pre className={styles.budgetTreePre} aria-label="Budget allocation tree">
+        {lines.map((ln) => (
+          <span key={ln.key} className={styles.budgetTreeLine} data-depth={ln.depth}>
+            {ln.connector}
+            {ln.label}
+            {"\n"}
+          </span>
+        ))}
+      </pre>
+    </details>
   );
 }

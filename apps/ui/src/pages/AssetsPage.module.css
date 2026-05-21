@@ -1037,3 +1037,140 @@
   font-size: var(--text-xs);
   line-height: 1.5;
 }
+
+/* Iter-9: cross-budget allocation tree — a compact ASCII text-tree of
+   the parent→child structure rendered above the Active budgets table.
+   The block is collapsed by default (one click to expand) so the
+   tree doesn't compete with the table for operator attention on the
+   first read; once expanded it sits as a calm dense block above the
+   Top-level budgets table. Density-over-decoration design discipline. */
+.budgetTreeBlock {
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.budgetTreeSummary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  list-style: none;
+  user-select: none;
+}
+
+.budgetTreeSummary::-webkit-details-marker {
+  display: none;
+}
+
+.budgetTreeSummary::before {
+  content: "▸";
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  display: inline-block;
+  transition: transform var(--transition-fast);
+}
+
+.budgetTreeBlock[open] .budgetTreeSummary::before {
+  transform: rotate(90deg);
+}
+
+.budgetTreeTitle {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.budgetTreeMeta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.budgetTreePre {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.budgetTreeLine {
+  display: block;
+}
+
+.budgetTreeLine[data-depth="0"] {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.budgetTreeLine[data-depth="1"],
+.budgetTreeLine[data-depth="2"],
+.budgetTreeLine[data-depth="3"] {
+  color: var(--color-text-secondary);
+}
+
+/* Iter-9: vault history modal — full signature tail with date filter.
+   The modal body grows wider than the standard Modal default to fit
+   a 5-column table without horizontal scroll on desktop. The scroll
+   block bounds the inner table so the modal header + filter row stay
+   pinned while the table itself scrolls within the modal viewport. */
+.historyCount {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.historyTableScroll {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.historyFooterNote {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+/* Iter-9: Capitalize section staking affordance — surfaces when the
+   TRUST holds a known LST mint (jitoSOL / mSOL / bSOL). Sits beside
+   the existing Deposit / Receive / Withdraw action row as a quieter
+   link so it doesn't compete with the primary capitalize CTA. */
+.capitalizeStaking {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.capitalizeStakingChips {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.capitalizeStakingLink {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.capitalizeStakingLink:hover,
+.capitalizeStakingLink:focus-visible {
+  color: var(--color-accent);
+  outline: none;
+  text-decoration: underline;
+}
