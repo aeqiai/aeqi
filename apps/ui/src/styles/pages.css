@@ -3085,15 +3085,15 @@
 }
 
 .quest-status-summary-item[data-status="in_progress"] {
-  background: var(--color-info-bg);
+  background: var(--state-progress-bg);
 }
 
 .quest-status-summary-item[data-status="in_review"] {
-  background: var(--color-warning-bg);
+  background: var(--state-review-bg);
 }
 
 .quest-status-summary-item[data-status="done"] {
-  background: var(--color-success-bg);
+  background: var(--state-verified-bg);
 }
 
 .quest-status-summary-label {
@@ -3560,34 +3560,36 @@
     background 0.15s,
     box-shadow 0.15s;
 }
-/* Status hues per the role-tier pivot:
- *   in_progress → info graphite (work is moving)
- *   in_review   → warning amber (paused for review, almost done)
- *   done        → success jade, carried by the dot and summary chip
+/* Status hues per the canonical --state-* family
+ * (primitives.css):
+ *   in_progress → --state-progress-bg (violet, work is moving)
+ *   in_review   → --state-review-bg   (warmth, paused for review)
+ *   done        → --state-verified-bg (jade, settled)
  *
  * v5.3: the tint moves OFF the full column slab and ONTO the header
  * band. The body now reads as a neutral working lane (--bg-row) like
  * every other column, and status identity concentrates in the 44px
  * header where the dot + label live. Empty columns no longer flood
  * the viewport with a wash of colour disproportionate to their
- * single card. Uses the canonical semantic background tokens. */
+ * single card. The summary band at the top of the page mirrors the
+ * same three tokens so the status vocabulary reads as one register. */
 .quest-col[data-status="in_progress"] > .quest-col-header {
-  background: var(--color-info-bg);
+  background: var(--state-progress-bg);
 }
 .quest-col[data-status="in_progress"] > .quest-col-header--toggle {
-  background: var(--color-info-bg);
+  background: var(--state-progress-bg);
 }
 .quest-col[data-status="in_review"] > .quest-col-header {
-  background: var(--color-warning-bg);
+  background: var(--state-review-bg);
 }
 .quest-col[data-status="in_review"] > .quest-col-header--toggle {
-  background: var(--color-warning-bg);
+  background: var(--state-review-bg);
 }
 .quest-col[data-status="done"] > .quest-col-header {
-  background: var(--color-success-bg);
+  background: var(--state-verified-bg);
 }
 .quest-col[data-status="done"] > .quest-col-header--toggle {
-  background: var(--color-success-bg);
+  background: var(--state-verified-bg);
 }
 /* Active drop target — subtle accent frame + lifted background; children
    keep their own hover so the drop still feels precise. */
