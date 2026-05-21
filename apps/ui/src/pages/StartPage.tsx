@@ -1,125 +1,141 @@
 import { useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  Plus,
-  Inbox as InboxIcon,
-  Store,
-  ArrowUpRight,
   ArrowRight,
-  ArrowDown,
+  ArrowUpRight,
+  BookOpen,
+  Inbox as InboxIcon,
+  Plus,
   Settings,
+  Store,
 } from "lucide-react";
-import { useAuthStore } from "@/store/auth";
+import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
-import { useInboxStore } from "@/store/inbox";
-import { entityPath } from "@/lib/entityPath";
-import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
-import { timeShort } from "@/lib/format";
-import { launchPlanById } from "@/lib/pricing";
+import { useQuests } from "@/queries/quests";
 import BlockAvatar from "@/components/BlockAvatar";
 import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
-import type { Trust } from "@/lib/types";
-
-/**
- * Home surface at `/`. MVP-readiness pass 2026-05-21:
- *
- *   1. Hero states the page job: decide what to do next across TRUSTs.
- *   2. Active TRUST card owns the dominant CTA: Open TRUST, or Launch
- *      TRUST when the user has none.
- *   3. Secondary cards expose Blueprints, other TRUSTs, Inbox, and Economy
- *      without generic "view/continue" language.
- */
+import { entityPath } from "@/lib/entityPath";
+import { timeShort } from "@/lib/format";
+import type { InboxItem } from "@/lib/api";
+import type { Quest, Trust } from "@/lib/types";
+import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
+import { useAuthStore } from "@/store/auth";
+import { useInboxStore } from "@/store/inbox";
+import { useUIStore } from "@/store/ui";
 
 const INBOX_PREVIEW_LIMIT = 4;
-const ALL_TRUSTS_AVATAR_LIMIT = 4;
+const TRUST_PREVIEW_LIMIT = 3;
+const CURRENT_ROLE = "Director";
+
+const LEARN_POSTS = [
+  {
+    title: "The uncompiled institution",
+    kicker: "Thesis",
+    summary: "Institutions are software that has not been compiled yet.",
+    image: "/home/learn-uncompiled-institution.webp",
+    href: "https://aeqi.ai/blog/the-uncompiled-institution",
+  },
+  {
+    title: "The agent economy",
+    kicker: "Network",
+    summary: "Why programmable companies need an economy around them.",
+    image: "/home/learn-agent-economy.webp",
+    href: "https://aeqi.ai/blog/the-agent-economy",
+  },
+  {
+    title: "The company is the primitive",
+    kicker: "Product",
+    summary: "A company becomes a programmable object with roles, agents, and ownership.",
+    image: "/home/learn-company-primitive.webp",
+    href: "https://aeqi.ai/blog/the-company-is-the-primitive",
+  },
+];
 
 export default function StartPage() {
-  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const activeEntityId = useUIStore((s) => s.activeEntity);
   const entities = useEntities();
+  const agents = useAgents();
   const inboxItems = useInboxStore((s) => s.items);
   const fetchInbox = useInboxStore((s) => s.fetchInbox);
 
-  const actorName = useMemo(
-    () => user?.name?.trim() || user?.email?.split("@")[0] || "friend",
-    [user],
-  );
-
   useEffect(() => {
     fetchInbox().catch(() => {
-      // store handles its own error state; preview shows empty affordance.
+      // The inbox store owns error presentation; Home keeps the preview quiet.
     });
   }, [fetchInbox]);
 
-  // The platform doesn't yet surface a `personal` flag on entities — the
-  // first entity is, by signup invariant, the user's own TRUST (signup
-  // auto-creates one 1-owner Company). When a real signal lands, swap
-  // this for that flag.
-  const personal = entities[0] ?? null;
-  const otherTrusts = useMemo(
-    () => (personal ? entities.filter((e) => e.id !== personal.id) : []),
-    [entities, personal],
+  const activeTrust = useMemo(() => {
+    if (activeEntityId) {
+      const selected = entities.find((entity) => entity.id === activeEntityId);
+      if (selected) return selected;
+    }
+    return entities[0] ?? null;
+  }, [activeEntityId, entities]);
+
+  const questParams = useMemo(
+    () => (activeTrust ? { root: activeTrust.id } : undefined),
+    [activeTrust],
   );
+  const quests = useQuests(questParams);
 
-  // Map trust_id → activity tier from the inbox. This turns the All
-  // TRUSTs avatar grid below from a static set of tiles into "live
-  // contexts": tiles that carry a status dot when something is moving
-  // in that TRUST. Awaiting wins (amber/review) — that's where the
-  // user actually has to step in. Any other inbox item promotes the
-  // tile to indigo/progress — live but not blocking. Tiles with no
-  // inbox signal stay clean. Same dot grammar as the hero-pill and
-  // inbox-status rows so the surface reads as one family.
-  const trustActivity = useMemo(() => {
-    const map = new Map<string, "review" | "progress">();
-    for (const it of inboxItems) {
-      if (!it.trust_id) continue;
-      const prev = map.get(it.trust_id);
-      if (it.awaiting_at) {
-        map.set(it.trust_id, "review");
-      } else if (prev !== "review") {
-        map.set(it.trust_id, "progress");
-      }
-    }
-    return map;
-  }, [inboxItems]);
-  const trustNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const entity of entities) {
-      map.set(entity.id, entity.name);
-    }
-    return map;
-  }, [entities]);
+  const actorName = useMemo(
+    () => user?.name?.trim() || user?.email?.split("@")[0] || "Operator",
+    [user],
+  );
+  const actorLine = user?.email ? `Operator · ${user.email}` : "Personal command surface";
 
-  const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
   const inboxCount = inboxItems.length;
   const awaitingCount = useMemo(
-    () => inboxItems.filter((i) => !!i.awaiting_at).length,
+    () => inboxItems.filter((item) => !!item.awaiting_at).length,
     [inboxItems],
   );
-  const planLabel = useMemo(() => {
-    if (!user?.subscription_plan) return "Free";
-    try {
-      return launchPlanById(user.subscription_plan).name;
-    } catch {
-      return "Free";
-    }
-  }, [user?.subscription_plan]);
-  const trustsLabel = `${entities.length} TRUST${entities.length === 1 ? "" : "s"}`;
   const inboxLabel =
     awaitingCount > 0
       ? `${awaitingCount} awaiting`
       : inboxCount > 0
-        ? `${inboxCount} in inbox`
+        ? `${inboxCount} in Inbox`
         : "Inbox clear";
-  // Hero pill carries the home page's at-a-glance state signal. The inbox
-  // stat takes the board status grammar: amber (in_review) when something
-  // is awaiting the user, indigo (in_progress) when items are live but not
-  // blocked, muted when the inbox is clear. This puts the same dot
-  // vocabulary used on the inbox preview rows below into the surface above
-  // them, so the pill summary and the per-row dots read as one signal.
   const inboxPillState: "review" | "progress" | "idle" =
     awaitingCount > 0 ? "review" : inboxCount > 0 ? "progress" : "idle";
+  const trustsLabel = `${entities.length} TRUST${entities.length === 1 ? "" : "s"}`;
+
+  const trustNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entity of entities) map.set(entity.id, entity.name);
+    return map;
+  }, [entities]);
+
+  const activeInboxItems = useMemo(() => {
+    if (!activeTrust) return [];
+    return inboxItems.filter((item) => item.trust_id === activeTrust.id);
+  }, [activeTrust, inboxItems]);
+
+  const currentAgents = useMemo(() => {
+    if (!activeTrust) return [];
+    return agents.filter((agent) => !agent.trust_id || agent.trust_id === activeTrust.id);
+  }, [activeTrust, agents]);
+
+  const currentQuests = useMemo(
+    () => quests.filter((quest) => quest.status !== "done" && quest.status !== "cancelled"),
+    [quests],
+  );
+
+  const latestActivity = useMemo(
+    () => latestActivityLabel(activeTrust, activeInboxItems, currentQuests),
+    [activeTrust, activeInboxItems, currentQuests],
+  );
+
+  const trustPreview = useMemo(() => {
+    if (!activeTrust) return entities.slice(0, TRUST_PREVIEW_LIMIT);
+    return [activeTrust, ...entities.filter((entity) => entity.id !== activeTrust.id)].slice(
+      0,
+      TRUST_PREVIEW_LIMIT,
+    );
+  }, [activeTrust, entities]);
+
+  const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
 
   return (
     <div className="home-page">
@@ -136,457 +152,429 @@ export default function StartPage() {
         <div className="home-hero-overlay">
           <div className="home-hero-identity">
             <span className="home-hero-avatar" aria-hidden="true">
-              <UserAvatar name={actorName} size={56} src={user?.avatar_url} />
+              <UserAvatar name={actorName} size={58} src={user?.avatar_url} />
             </span>
             <div className="home-hero-text">
-              <p className="home-hero-eyebrow">Home</p>
-              <h1 className="home-hero-title">Operate your TRUSTs</h1>
+              <p className="home-hero-eyebrow">Welcome back</p>
+              <h1 className="home-hero-title">{actorName}</h1>
+              <p className="home-hero-subtitle">{actorLine}</p>
             </div>
           </div>
         </div>
-        {/* Hero pill is a status snapshot of the user's TRUSTs and inbox.
-            First-touch (no entities yet) has no status to snapshot —
-            "0 TRUSTs · Inbox clear · Free plan" reads as a deficit
-            ledger, not a welcome. Suppress it until the user has at
-            least one TRUST. The empty-state hint chip (--hint variant)
-            takes the same bottom-left anchor so the hero composition
-            stays balanced — without it, the greeting and gear float at
-            top with no answering weight in the bottom-left, and the
-            mask-faded foreground reads as unfinished rather than
-            quiet. Forward-pointing copy + downward arrow hand the eye
-            off to PersonalTrustCard's create-your-first-TRUST CTA
-            below instead of duplicating it. */}
-        {entities.length > 0 ? (
-          <div className="home-hero-pill" role="status" aria-label="Account snapshot">
-            <span className="home-hero-pill-stat">{trustsLabel}</span>
-            <span className="home-hero-pill-sep" aria-hidden>
-              ·
-            </span>
-            <span className="home-hero-pill-stat home-hero-pill-stat--inbox">
-              <span
-                className={`home-hero-pill-dot home-hero-pill-dot--${inboxPillState}`}
-                aria-hidden="true"
-              />
-              {inboxLabel}
-            </span>
-            <span className="home-hero-pill-sep" aria-hidden>
-              ·
-            </span>
-            <span className="home-hero-pill-stat">{planLabel} plan</span>
-          </div>
-        ) : (
-          <div className="home-hero-pill home-hero-pill--hint" aria-hidden="true">
-            <span className="home-hero-pill-stat">Launch your first TRUST</span>
-            <ArrowDown size={12} strokeWidth={1.8} aria-hidden="true" />
-          </div>
-        )}
+        <div className="home-hero-pill" role="status" aria-label="Account snapshot">
+          <span className="home-hero-pill-stat">{trustsLabel}</span>
+          <span className="home-hero-pill-sep" aria-hidden>
+            ·
+          </span>
+          <span className="home-hero-pill-stat home-hero-pill-stat--inbox">
+            <span
+              className={`home-hero-pill-dot home-hero-pill-dot--${inboxPillState}`}
+              aria-hidden="true"
+            />
+            {inboxLabel}
+          </span>
+        </div>
       </header>
 
-      <section className="home-row-trusts" aria-label="Your TRUSTs">
-        <PersonalTrustCard
-          personal={personal}
-          onOpen={(t) => navigate(entityPath(t))}
-          onCreate={() => navigate("/launch")}
+      <section className="home-row-trusts" aria-label="Operating context">
+        <CurrentContextCard
+          activeTrust={activeTrust}
+          activeRole={CURRENT_ROLE}
+          inboxCount={activeInboxItems.length}
+          questCount={currentQuests.length}
+          agentCount={currentAgents.length}
+          latestActivity={latestActivity}
         />
-        <StepIntoTrustCard
-          hasTrust={!!personal}
-          onNewTrust={() => navigate("/launch")}
-          onBrowseBlueprints={() => navigate("/blueprints")}
-          onOpenEconomy={() => navigate("/economy")}
-        />
-        <AllTrustsCard
-          others={otherTrusts}
-          activity={trustActivity}
-          onViewAll={() => navigate("/trust")}
-          onPick={(t) => navigate(entityPath(t))}
-        />
+        <LaunchTrustCard />
+        <YourTrustsCard trusts={trustPreview} activeTrustId={activeTrust?.id ?? null} />
       </section>
 
       <section className="home-row-two" aria-label="Inbox and economy">
-        {/* First-touch (no entities) mutes the Inbox card via a modifier
-            class. The empty-state circle + display-font headline + hint
-            paragraph compete with the trust-row CTA for visual gravity
-            during onboarding — but hiding the card collapses the
-            two-column row and orphans Economy. Muting keeps the
-            structural slot (so users learn "this is where inbox lives")
-            without staging an editorial empty-state moment they can't
-            act on yet. Once the user creates a TRUST the modifier
-            drops and the card returns to its normal weight. */}
-        <article
-          className={`home-card home-card--inbox${
-            entities.length === 0 ? " home-card--quiet" : ""
-          }`}
-        >
-          <header className="home-card-head">
-            <span className="home-card-icon">
-              <InboxIcon size={16} strokeWidth={1.5} />
-            </span>
-            <span className="home-card-title">Inbox</span>
-            {/* Meta string reuses `inboxLabel` from the hero pill so the
-                card head and the pill stat read as one signal — same
-                three-state vocabulary (N awaiting / N in inbox / Inbox
-                clear), same dot color. Replaces the earlier "N waiting"
-                phrasing, which read the total count as "waiting" even
-                when nothing actually awaited the user. Suppressed during
-                first-touch — without a TRUST the inbox can't carry any
-                signal, so the meta stat would just repeat "Inbox clear"
-                against a card already muted. */}
-            {entities.length > 0 && (
-              <span className="home-card-meta">
-                <span
-                  className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
-                  aria-hidden="true"
-                />
-                {inboxLabel}
-              </span>
-            )}
-            <button type="button" className="home-card-link" onClick={() => navigate("/inbox")}>
-              Review Inbox
-              <ArrowRight size={14} strokeWidth={1.8} />
-            </button>
-          </header>
-          {inboxPreview.length > 0 ? (
-            <ul className="home-inbox-list">
-              {inboxPreview.map((item) => {
-                // Subject is the headline. Use the awaiting subject when
-                // present (decision-request shape), else fall back to a
-                // session name or the first 80 chars of the agent's last
-                // message. The preview line below is suppressed when the
-                // subject already comes from the agent's message — they
-                // duplicate in that case. Keeping only the case where the
-                // subject is a session/awaiting label and the message adds
-                // additional context.
-                const subject =
-                  item.awaiting_subject ||
-                  item.session_name ||
-                  item.last_agent_message?.slice(0, 80) ||
-                  "Untitled session";
-                const subjectFromMessage =
-                  !item.awaiting_subject && !item.session_name && !!item.last_agent_message;
-                const preview = subjectFromMessage
-                  ? ""
-                  : item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
-                const from = item.agent_name || "Agent";
-                const time = timeShort(item.awaiting_at || item.last_active);
-                const trustLabel = item.trust_id
-                  ? trustNameById.get(item.trust_id) || "TRUST"
-                  : "Global scope";
-                // Status uses the board-locked accent grammar so the family
-                // reads coherent across primitives: awaiting → in_review
-                // (amber) makes the rows that actually need the user pop;
-                // every other row stays in_progress (indigo) as "live but
-                // not blocked on you". The "N awaiting" stat in the hero
-                // pill now has a literal visual companion below it.
-                const status = item.awaiting_at ? "in_review" : "in_progress";
-                const statusLabel = item.awaiting_at ? "Awaiting you" : "Active";
-                const objectLine = `Inbox item · ${statusLabel}`;
-                const contextLine = preview
-                  ? `${from} · ${trustLabel} · ${preview}`
-                  : `${from} · ${trustLabel}`;
-                return (
-                  <li key={item.session_id} className="home-inbox-item">
-                    <Link
-                      className="home-inbox-link"
-                      to={sessionDeepUrlFromId(
-                        entities,
-                        item.trust_id,
-                        item.agent_id,
-                        item.session_id,
-                      )}
-                    >
-                      <span
-                        className={`home-inbox-status home-inbox-status--${status}`}
-                        aria-label={statusLabel}
-                        title={statusLabel}
-                      />
-                      <span className="home-inbox-avatar" aria-hidden="true">
-                        <BlockAvatar name={from} size={28} />
-                      </span>
-                      <span className="home-inbox-body">
-                        <span className="home-inbox-row">
-                          <span className="home-inbox-from">{objectLine}</span>
-                          <span className="home-inbox-time">{time}</span>
-                        </span>
-                        <span className="home-inbox-subject">{subject}</span>
-                        <span className="home-inbox-preview">{contextLine}</span>
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : entities.length === 0 ? (
-            // First-touch: one quiet line instead of the editorial empty
-            // state. No filled icon puck, no display-font headline — both
-            // pull attention the user can't act on yet. Single line of
-            // secondary copy keeps the card's vertical slot honest
-            // without staging a competing moment.
-            <div className="home-inbox-empty home-inbox-empty--quiet">
-              <p className="home-inbox-empty-hint">
-                Approvals and proposals appear here once your TRUST is live.
-              </p>
-            </div>
-          ) : (
-            <div className="home-inbox-empty">
-              <span className="home-inbox-empty-icon" aria-hidden="true">
-                <InboxIcon size={28} strokeWidth={1.4} />
-              </span>
-              <p className="home-inbox-empty-title">Inbox is clear.</p>
-              <p className="home-inbox-empty-hint">
-                Approvals and proposals appear here when an agent needs you.
-              </p>
-            </div>
-          )}
-        </article>
-
-        <article className="home-card home-card--economy">
-          <header className="home-card-head">
-            <span className="home-card-icon">
-              <Store size={16} strokeWidth={1.5} />
-            </span>
-            <span className="home-card-title">Economy</span>
-            <button type="button" className="home-card-link" onClick={() => navigate("/economy")}>
-              Open Economy
-              <ArrowRight size={14} strokeWidth={1.8} />
-            </button>
-          </header>
-          <div className="home-economy-body">
-            <p className="home-economy-lede">
-              Discover TRUSTs, Roles, Blueprints, and funding opportunities.
-            </p>
-            <p className="home-economy-aside">
-              Open roles, external TRUST listings, and launch paths live here.
-            </p>
-          </div>
-        </article>
+        <InboxPreviewCard
+          entities={entities}
+          inboxItems={inboxPreview}
+          inboxLabel={inboxLabel}
+          inboxPillState={inboxPillState}
+          trustNameById={trustNameById}
+        />
+        <EconomyCard />
       </section>
 
-      <section className="home-thesis" aria-label="Thesis">
-        <a
-          className="home-thesis-card"
-          href="https://aeqi.ai/blog/the-uncompiled-institution"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <div className="home-thesis-left">
-            <span className="home-thesis-eyebrow">Thesis</span>
-            <h2 className="home-thesis-title">The uncompiled institution.</h2>
-            <p className="home-thesis-quote">
-              Institutions are software that has not been compiled yet.
-            </p>
-          </div>
-          <div className="home-thesis-right">
-            <span className="home-thesis-byline">May 2, 2026 · Luca Eichs</span>
-            <span className="home-thesis-read">
-              Read on aeqi.ai
-              <ArrowUpRight size={14} strokeWidth={1.8} />
-            </span>
-          </div>
-        </a>
-      </section>
+      <LearnAeqiSection />
     </div>
   );
 }
 
-interface PersonalTrustCardProps {
-  personal: Trust | null;
-  onOpen: (trust: Trust) => void;
-  onCreate: () => void;
+interface CurrentContextCardProps {
+  activeTrust: Trust | null;
+  activeRole: string;
+  inboxCount: number;
+  questCount: number;
+  agentCount: number;
+  latestActivity: string;
 }
 
-function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProps) {
-  if (!personal) {
+function CurrentContextCard({
+  activeTrust,
+  activeRole,
+  inboxCount,
+  questCount,
+  agentCount,
+  latestActivity,
+}: CurrentContextCardProps) {
+  if (!activeTrust) {
     return (
-      <button
-        type="button"
-        className="home-card home-card--personal home-card--empty"
-        onClick={onCreate}
-      >
-        <div className="home-personal-body">
-          <span className="home-personal-avatar home-personal-avatar--ghost" aria-hidden="true">
+      <article className="home-card home-card--context home-card--empty">
+        <span className="home-card-eyebrow">Current context</span>
+        <div className="home-context-empty">
+          <span className="home-context-avatar home-context-avatar--ghost" aria-hidden="true">
             <Plus size={26} strokeWidth={1.5} />
           </span>
-          <h3 className="home-personal-name">No TRUST yet</h3>
-          <p className="home-personal-role">TRUST · Not launched</p>
+          <h2 className="home-context-title">No active TRUST</h2>
+          <p className="home-context-copy">
+            Launch a TRUST to create an operating context for roles, agents, quests, and memory.
+          </p>
         </div>
-        <footer className="home-card-foot">
-          <span className="home-card-cta">
-            Launch TRUST
-            <ArrowRight size={14} strokeWidth={1.8} />
-          </span>
-        </footer>
-      </button>
+        <Link to="/launch" className="home-primary-action">
+          Launch TRUST
+          <ArrowRight size={14} strokeWidth={1.8} />
+        </Link>
+      </article>
     );
   }
+
+  const inboxInsight = inboxCount > 0 ? `${inboxCount} need attention` : "Clear";
+  const questInsight = questCount > 0 ? `${questCount} open` : "Board ready";
+  const agentInsight = agentCount > 0 ? `${agentCount} running` : "Runtime connected";
+
   return (
-    <button
-      type="button"
-      className="home-card home-card--personal"
-      onClick={() => onOpen(personal)}
-      aria-label={`Open TRUST, ${personal.name}`}
-    >
-      <div className="home-personal-body">
-        <span className="home-personal-avatar" aria-hidden="true">
-          <TrustAvatar name={personal.name} size={64} />
-        </span>
-        <h3 className="home-personal-name">{personal.name}</h3>
-        <p className="home-personal-role">Active TRUST · Operator scope</p>
-      </div>
-      <footer className="home-card-foot">
-        <span className="home-card-cta">
+    <article className="home-card home-card--context">
+      <div className="home-context-head">
+        <span className="home-card-eyebrow">Current context</span>
+        <Link
+          to={entityPath(activeTrust)}
+          className="home-card-link"
+          aria-label={`Open TRUST ${activeTrust.name}`}
+        >
           Open TRUST
           <ArrowRight size={14} strokeWidth={1.8} />
+        </Link>
+      </div>
+      <div className="home-context-main">
+        <span className="home-context-avatar" aria-hidden="true">
+          <TrustAvatar name={activeTrust.name} size={68} />
         </span>
-      </footer>
-    </button>
+        <div className="home-context-copy">
+          <h2 className="home-context-title">{activeTrust.name}</h2>
+          <p className="home-context-role">{activeRole}</p>
+          <p className="home-context-line">You are operating as {activeRole} inside this TRUST.</p>
+        </div>
+      </div>
+      <dl className="home-context-insights">
+        <div>
+          <dt>Quests</dt>
+          <dd>{questInsight}</dd>
+        </div>
+        <div>
+          <dt>Agents</dt>
+          <dd>{agentInsight}</dd>
+        </div>
+        <div>
+          <dt>Inbox</dt>
+          <dd>{inboxInsight}</dd>
+        </div>
+        <div>
+          <dt>Latest</dt>
+          <dd>{latestActivity}</dd>
+        </div>
+      </dl>
+      <div className="home-context-actions" aria-label="Current context shortcuts">
+        <Link to={`${entityPath(activeTrust)}/quests`}>Quests</Link>
+        <Link to={`${entityPath(activeTrust)}/agents`}>Agents</Link>
+        <Link to={`${entityPath(activeTrust)}/quorum`}>Quorum</Link>
+      </div>
+    </article>
   );
 }
 
-interface StepIntoTrustCardProps {
-  hasTrust: boolean;
-  onNewTrust: () => void;
-  onBrowseBlueprints: () => void;
-  onOpenEconomy: () => void;
-}
-
-function StepIntoTrustCard({
-  hasTrust,
-  onNewTrust,
-  onBrowseBlueprints,
-  onOpenEconomy,
-}: StepIntoTrustCardProps) {
+function LaunchTrustCard() {
   return (
-    <article className="home-card home-card--step">
-      <span className="home-card-eyebrow">{hasTrust ? "Create" : "Blueprints"}</span>
-      <div className="home-step-body">
-        <h3 className="home-step-title">
-          {hasTrust ? "Launch another TRUST." : "Start from a Blueprint."}
-        </h3>
-        <p className="home-step-hint">
-          {hasTrust
-            ? "Use a Blueprint for the next TRUST."
-            : "Choose a proven operating pattern before launch."}
+    <article className="home-card home-card--launch">
+      <span className="home-card-eyebrow">Launch</span>
+      <div className="home-launch-body">
+        <h3 className="home-launch-title">Launch a TRUST</h3>
+        <p className="home-launch-hint">
+          Start from a blueprint or create a blank programmable company.
         </p>
       </div>
-      <div className="home-step-actions">
-        <button type="button" className="home-step-btn" onClick={onBrowseBlueprints}>
+      <div className="home-launch-actions">
+        <Link to="/blueprints" className="home-step-btn home-step-btn--primary">
           <span className="home-step-btn-label">Browse Blueprints</span>
           <span className="home-step-btn-icon">
             <ArrowRight size={16} strokeWidth={1.8} />
           </span>
-        </button>
-        <button
-          type="button"
-          className="home-step-btn"
-          onClick={hasTrust ? onNewTrust : onOpenEconomy}
-        >
-          <span className="home-step-btn-label">{hasTrust ? "Launch TRUST" : "Open Economy"}</span>
+        </Link>
+        <Link to="/launch" className="home-step-btn">
+          <span className="home-step-btn-label">Launch blank TRUST</span>
           <span className="home-step-btn-icon">
-            {hasTrust ? (
-              <Plus size={16} strokeWidth={1.8} />
-            ) : (
-              <ArrowRight size={16} strokeWidth={1.8} />
-            )}
+            <Plus size={16} strokeWidth={1.8} />
           </span>
-        </button>
+        </Link>
       </div>
     </article>
   );
 }
 
-interface AllTrustsCardProps {
-  others: ReadonlyArray<Trust>;
-  activity: ReadonlyMap<string, "review" | "progress">;
-  onViewAll: () => void;
-  onPick: (trust: Trust) => void;
+interface YourTrustsCardProps {
+  trusts: ReadonlyArray<Trust>;
+  activeTrustId: string | null;
 }
 
-function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardProps) {
-  const previewAvatars = others.slice(0, ALL_TRUSTS_AVATAR_LIMIT);
-  const overflow = Math.max(0, others.length - previewAvatars.length);
-  // Promote the eyebrow when any visible tile has activity — gives the
-  // card a single at-a-glance signal even when the per-tile dots are
-  // small. Review wins over progress, mirroring the hero pill.
-  const eyebrowState: "review" | "progress" | null = previewAvatars.reduce<
-    "review" | "progress" | null
-  >((acc, t) => {
-    const s = activity.get(t.id);
-    if (s === "review") return "review";
-    if (s === "progress" && acc !== "review") return "progress";
-    return acc;
-  }, null);
-
-  // First-touch parity with the Inbox card: when the user has no other
-  // TRUSTs, this satellite recedes so the active TRUST card owns the
-  // page's primary action.
-  const isQuiet = others.length === 0;
+function YourTrustsCard({ trusts, activeTrustId }: YourTrustsCardProps) {
   return (
-    <article className={`home-card home-card--all${isQuiet ? " home-card--quiet" : ""}`}>
-      {/* Quiet state suppresses the redundant list action; there are no
-          other TRUST objects to open yet. */}
-      {!isQuiet && (
-        <header className="home-card-head">
-          {eyebrowState && (
-            <span className="home-card-eyebrow home-all-eyebrow" aria-hidden="true">
-              <span className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`} />
-            </span>
-          )}
-          <button type="button" className="home-card-link" onClick={onViewAll}>
-            Open TRUSTs
-            <ArrowRight size={14} strokeWidth={1.8} />
-          </button>
-        </header>
-      )}
-      <div className="home-all-body">
-        <h3 className="home-all-title">
-          {others.length === 0 ? "No other TRUSTs" : "Other TRUSTs"}
-        </h3>
-        <p className="home-all-hint">
-          {others.length === 0
-            ? "Just your personal one for now."
-            : `${others.length} other${others.length === 1 ? "" : "s"} available.`}
-        </p>
-      </div>
-      {previewAvatars.length > 0 && (
-        <ul className="home-all-avatars">
-          {previewAvatars.map((t) => {
-            const state = activity.get(t.id);
-            const label =
-              state === "review" ? "awaiting you" : state === "progress" ? "active" : "";
+    <article className="home-card home-card--your-trusts">
+      <header className="home-card-head">
+        <div>
+          <span className="home-card-eyebrow">Your TRUSTs</span>
+          <h3 className="home-your-title">
+            {trusts.length > 0 ? `${trusts.length} shown` : "None yet"}
+          </h3>
+        </div>
+        <Link to="/trust" className="home-card-link">
+          View all TRUSTs
+          <ArrowRight size={14} strokeWidth={1.8} />
+        </Link>
+      </header>
+      {trusts.length > 0 ? (
+        <ul className="home-trust-list">
+          {trusts.map((trust) => {
+            const active = trust.id === activeTrustId;
             return (
-              <li key={t.id} className="home-all-avatar-item">
-                <button
-                  type="button"
-                  className="home-all-avatar-btn"
-                  onClick={() => onPick(t)}
-                  aria-label={label ? `Open TRUST ${t.name} — ${label}` : `Open TRUST ${t.name}`}
-                  title={label ? `${t.name} · ${label}` : t.name}
+              <li key={trust.id}>
+                <Link
+                  to={entityPath(trust)}
+                  className={`home-trust-row${active ? " home-trust-row--active" : ""}`}
+                  aria-label={`Open TRUST ${trust.name}${active ? " — active" : ""}`}
                 >
-                  <TrustAvatar name={t.name} size={32} />
-                  {state && (
-                    <span
-                      className={`home-all-avatar-dot home-all-avatar-dot--${state}`}
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
+                  <TrustAvatar name={trust.name} size={30} />
+                  <span className="home-trust-row-copy">
+                    <span className="home-trust-row-name">{trust.name}</span>
+                    <span className="home-trust-row-role">
+                      {CURRENT_ROLE}
+                      {active ? " · Active" : ""}
+                    </span>
+                  </span>
+                </Link>
               </li>
             );
           })}
-          {overflow > 0 && (
-            <li className="home-all-avatar-item">
-              <button
-                type="button"
-                className="home-all-avatar-more"
-                onClick={onViewAll}
-                aria-label={`See ${overflow} more TRUST${overflow === 1 ? "" : "s"}`}
-              >
-                +{overflow}
-              </button>
-            </li>
-          )}
         </ul>
+      ) : (
+        <p className="home-your-empty">Launch your first TRUST to create an operating context.</p>
       )}
     </article>
   );
+}
+
+interface InboxPreviewCardProps {
+  entities: ReadonlyArray<Trust>;
+  inboxItems: ReadonlyArray<InboxItem>;
+  inboxLabel: string;
+  inboxPillState: "review" | "progress" | "idle";
+  trustNameById: ReadonlyMap<string, string>;
+}
+
+function InboxPreviewCard({
+  entities,
+  inboxItems,
+  inboxLabel,
+  inboxPillState,
+  trustNameById,
+}: InboxPreviewCardProps) {
+  return (
+    <article className="home-card home-card--inbox">
+      <header className="home-card-head">
+        <span className="home-card-icon">
+          <InboxIcon size={16} strokeWidth={1.5} />
+        </span>
+        <span className="home-card-title">Inbox</span>
+        <span className="home-card-meta">
+          <span
+            className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
+            aria-hidden="true"
+          />
+          {inboxLabel}
+        </span>
+        <Link to="/inbox" className="home-card-link">
+          {inboxItems.length > 0 ? "Review Inbox" : "Open Inbox"}
+          <ArrowRight size={14} strokeWidth={1.8} />
+        </Link>
+      </header>
+      {inboxItems.length > 0 ? (
+        <ul className="home-inbox-list">
+          {inboxItems.map((item) => (
+            <InboxPreviewRow
+              key={item.session_id}
+              item={item}
+              entities={entities}
+              trustNameById={trustNameById}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div className="home-inbox-empty">
+          <span className="home-inbox-empty-icon" aria-hidden="true">
+            <InboxIcon size={28} strokeWidth={1.4} />
+          </span>
+          <p className="home-inbox-empty-title">Inbox clear</p>
+          <p className="home-inbox-empty-hint">
+            No reviews, approvals, failed events, or agent handoffs need attention.
+          </p>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function InboxPreviewRow({
+  item,
+  entities,
+  trustNameById,
+}: {
+  item: InboxItem;
+  entities: ReadonlyArray<Trust>;
+  trustNameById: ReadonlyMap<string, string>;
+}) {
+  const subject =
+    item.awaiting_subject ||
+    item.session_name ||
+    item.last_agent_message?.slice(0, 80) ||
+    "Untitled session";
+  const subjectFromMessage =
+    !item.awaiting_subject && !item.session_name && !!item.last_agent_message;
+  const preview = subjectFromMessage
+    ? ""
+    : item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
+  const from = item.agent_name || "Agent";
+  const time = timeShort(item.awaiting_at || item.last_active);
+  const trustLabel = item.trust_id ? trustNameById.get(item.trust_id) || "TRUST" : "Global scope";
+  const status = item.awaiting_at ? "in_review" : "in_progress";
+  const statusLabel = item.awaiting_at ? "Awaiting you" : "Active";
+  const contextLine = preview ? `${from} · ${trustLabel} · ${preview}` : `${from} · ${trustLabel}`;
+
+  return (
+    <li className="home-inbox-item">
+      <Link
+        className="home-inbox-link"
+        to={sessionDeepUrlFromId(entities, item.trust_id, item.agent_id, item.session_id)}
+      >
+        <span
+          className={`home-inbox-status home-inbox-status--${status}`}
+          aria-label={statusLabel}
+          title={statusLabel}
+        />
+        <span className="home-inbox-avatar" aria-hidden="true">
+          <BlockAvatar name={from} size={28} />
+        </span>
+        <span className="home-inbox-body">
+          <span className="home-inbox-row">
+            <span className="home-inbox-from">Inbox item · {statusLabel}</span>
+            <span className="home-inbox-time">{time}</span>
+          </span>
+          <span className="home-inbox-subject">{subject}</span>
+          <span className="home-inbox-preview">{contextLine}</span>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+function EconomyCard() {
+  return (
+    <article className="home-card home-card--economy">
+      <img src="/home/economy-mood.png" alt="" className="home-economy-image" aria-hidden="true" />
+      <div className="home-economy-shade" aria-hidden="true" />
+      <header className="home-card-head home-economy-head">
+        <span className="home-card-icon home-card-icon--dark">
+          <Store size={16} strokeWidth={1.5} />
+        </span>
+        <span className="home-card-title">Economy</span>
+        <Link to="/economy" className="home-card-link home-card-link--dark">
+          Open Economy
+          <ArrowRight size={14} strokeWidth={1.8} />
+        </Link>
+      </header>
+      <div className="home-economy-body">
+        <p className="home-economy-lede">Discover the network around programmable companies.</p>
+        <p className="home-economy-aside">
+          TRUST listings, open roles, blueprints, and funding opportunities live here.
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function LearnAeqiSection() {
+  return (
+    <section className="home-learn" aria-label="Learn aeqi">
+      <div className="home-learn-head">
+        <div>
+          <span className="home-card-eyebrow">Learn aeqi</span>
+          <h2 className="home-learn-title">Understand programmable companies.</h2>
+        </div>
+        <div className="home-learn-actions">
+          <a
+            href="https://aeqi.ai/blog/the-uncompiled-institution"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read thesis
+            <ArrowUpRight size={14} strokeWidth={1.8} />
+          </a>
+          <a href="https://aeqi.ai/docs" target="_blank" rel="noreferrer">
+            Open docs
+            <BookOpen size={14} strokeWidth={1.8} />
+          </a>
+        </div>
+      </div>
+      <div className="home-learn-grid">
+        {LEARN_POSTS.map((post, index) => (
+          <a
+            key={post.href}
+            className={`home-learn-post${index === 0 ? " home-learn-post--feature" : ""}`}
+            href={post.href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img src={post.image} alt="" className="home-learn-post-image" aria-hidden="true" />
+            <span className="home-learn-post-shade" aria-hidden="true" />
+            <span className="home-learn-post-copy">
+              <span className="home-learn-post-kicker">{post.kicker}</span>
+              <span className="home-learn-post-title">{post.title}</span>
+              <span className="home-learn-post-summary">{post.summary}</span>
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function latestActivityLabel(
+  activeTrust: Trust | null,
+  inboxItems: ReadonlyArray<InboxItem>,
+  quests: ReadonlyArray<Quest>,
+) {
+  const inboxTime = inboxItems
+    .map((item) => item.awaiting_at || item.last_active)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const questTime = quests
+    .map((quest) => quest.updated_at || quest.created_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const timestamp = inboxTime || questTime || activeTrust?.last_active;
+  return timestamp ? timeShort(timestamp) : "Ready";
 }

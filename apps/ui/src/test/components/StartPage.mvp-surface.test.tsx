@@ -3,14 +3,26 @@ import { StrictMode } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import StartPage from "@/pages/StartPage";
+import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
+import { useQuests } from "@/queries/quests";
 import { useAuthStore } from "@/store/auth";
 import { useInboxStore } from "@/store/inbox";
+import { useUIStore } from "@/store/ui";
 import type { InboxItem } from "@/lib/api";
+import type { Agent, Quest } from "@/lib/types";
 import type { Trust } from "@/lib/types";
+
+vi.mock("@/queries/agents", () => ({
+  useAgents: vi.fn(),
+}));
 
 vi.mock("@/queries/entities", () => ({
   useEntities: vi.fn(),
+}));
+
+vi.mock("@/queries/quests", () => ({
+  useQuests: vi.fn(),
 }));
 
 const USER = {
@@ -52,8 +64,24 @@ const AWAITING_INBOX_ITEM: InboxItem = {
   last_active: "2026-05-21T10:05:00Z",
 };
 
+const ALPHA_AGENT: Agent = {
+  id: "agent-alpha",
+  name: "Janus",
+  status: "running",
+  trust_id: "alpha",
+};
+
+const ALPHA_QUEST: Quest = {
+  id: "quest-alpha",
+  status: "in_progress",
+  priority: "high",
+  cost_usd: 0,
+  created_at: "2026-05-21T09:00:00Z",
+};
+
 const initialAuthState = useAuthStore.getState();
 const initialInboxState = useInboxStore.getState();
+const initialUIState = useUIStore.getState();
 
 function LocationProbe() {
   const location = useLocation();
@@ -83,7 +111,10 @@ function renderStartPage() {
 
 function primeStartPage(trusts: Trust[], inboxItems: InboxItem[] = []) {
   vi.mocked(useEntities).mockReturnValue(trusts);
+  vi.mocked(useAgents).mockReturnValue(trusts.length > 0 ? [ALPHA_AGENT] : []);
+  vi.mocked(useQuests).mockReturnValue(trusts.length > 0 ? [ALPHA_QUEST] : []);
   useAuthStore.setState({ user: USER } as never);
+  useUIStore.setState({ activeEntity: trusts[0]?.id ?? "" } as never);
   useInboxStore.setState({
     items: inboxItems,
     loading: false,
@@ -119,6 +150,7 @@ describe("StartPage MVP surface", () => {
     vi.clearAllMocks();
     useAuthStore.setState(initialAuthState, true);
     useInboxStore.setState(initialInboxState, true);
+    useUIStore.setState(initialUIState, true);
   });
 
   it("supports the no-TRUST state with Launch TRUST primary and Browse Blueprints secondary", () => {
@@ -126,19 +158,20 @@ describe("StartPage MVP surface", () => {
 
     const { container } = renderStartPage();
 
-    const trustSection = screen.getByRole("region", { name: "Your TRUSTs" });
-    const primary = within(trustSection).getByRole("button", { name: /launch trust/i });
-    const secondary = within(trustSection).getByRole("button", { name: /browse blueprints/i });
+    const trustSection = screen.getByRole("region", { name: "Operating context" });
+    const primary = within(trustSection).getByRole("link", { name: /launch trust/i });
+    const secondary = within(trustSection).getByRole("link", { name: /browse blueprints/i });
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Operate your TRUSTs" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
+    expect(screen.getByText("Operator · ada@aeqi.ai")).toBeInTheDocument();
+    expect(screen.getByText("No active TRUST")).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
-    expect(screen.getByText(/no other TRUSTs/i)).toBeInTheDocument();
+    expect(screen.getByText(/none yet/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/approvals and proposals appear here once your TRUST is live/i),
+      screen.getByText(/no reviews, approvals, failed events, or agent handoffs/i),
     ).toBeInTheDocument();
+    expect(screen.getByText("Learn aeqi")).toBeInTheDocument();
     expectNoVagueCtaLanguage(container);
 
     fireEvent.click(primary);
@@ -150,19 +183,26 @@ describe("StartPage MVP surface", () => {
 
     const { container } = renderStartPage();
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Operate your TRUSTs" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Account snapshot" })).toHaveTextContent("2 TRUSTs");
     expect(screen.getByRole("status", { name: "Account snapshot" })).toHaveTextContent(
       "1 awaiting",
     );
 
-    const activeTrust = screen.getByRole("button", { name: /open trust.*alpha trust/i });
-    const reviewInbox = screen.getByRole("button", { name: /review inbox/i });
-    const launchTrust = screen.getByRole("button", { name: /launch trust/i });
-    const browseBlueprints = screen.getByRole("button", { name: /browse blueprints/i });
-    const otherTrust = screen.getByRole("button", { name: /open trust.*beta trust/i });
+    expect(screen.getByText("Current context")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Alpha Trust" })).toBeInTheDocument();
+    expect(screen.getAllByText("Director").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("You are operating as Director inside this TRUST."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Your TRUSTs")).toBeInTheDocument();
+    expect(screen.getByText(/Beta Trust/i)).toBeInTheDocument();
+
+    const activeTrust = screen.getAllByRole("link", { name: /open trust.*alpha trust/i })[0];
+    const reviewInbox = screen.getByRole("link", { name: /review inbox/i });
+    const launchTrust = screen.getByRole("link", { name: /launch blank trust/i });
+    const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
+    const otherTrust = screen.getByRole("link", { name: /open trust.*beta trust/i });
 
     expect(activeTrust).toBeInTheDocument();
     expect(reviewInbox).toBeInTheDocument();
@@ -172,6 +212,10 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
     expect(screen.getByText(/Inbox item · Awaiting you/i)).toBeInTheDocument();
     expect(screen.getByText(/Janus · Alpha Trust/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Discover the network around programmable companies/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/The uncompiled institution/i)).toBeInTheDocument();
     expectNoVagueCtaLanguage(container);
 
     fireEvent.click(activeTrust);
