@@ -10,6 +10,7 @@ import type { ModuleAccountWithPda } from "@/solana";
 import type { BudgetAccountWithPda } from "@/solana/assets";
 import { Banner, Button, EmptyState, Loading, Page, PageBody, PageHeader } from "@/components/ui";
 
+import { downloadVaultSnapshot } from "./AssetsSnapshot";
 import { BudgetsSection, VestingPositionsSection, type TokenMetaMap } from "./AssetsSections";
 import { BudgetDetailModal } from "./AssetsBudgetModal";
 import { NewBudgetModal } from "./AssetsNewBudgetModal";
@@ -202,6 +203,35 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           metas={metas}
           decodedActivity={decodedActivity.rows}
           activitySparkline={vaultActivity.data?.sparkline ?? []}
+          onExportSnapshot={() => {
+            // Iter-10: serialise the on-chain state we already have in
+            // memory (holdings + budgets + vesting + modules + roles +
+            // signature tail + decoded activity) into a portable JSON
+            // blob and trigger a browser download. Useful for off-
+            // platform record-keeping, audit hand-off, or feeding into
+            // a spreadsheet.
+            downloadVaultSnapshot(
+              {
+                entity,
+                trustAddress,
+                vault: {
+                  moduleStatePda: vault.moduleStatePda.toBase58(),
+                  vaultAuthorityPda: vault.vaultAuthorityPda.toBase58(),
+                  moduleInitialized: !!vault.moduleState,
+                  treasuryAuthority: vault.moduleState?.treasuryAuthority.toBase58() ?? null,
+                },
+                holdings: holdings ?? [],
+                budgets: budgets ?? [],
+                vestingPositions: vestingPositions ?? [],
+                modules: incorporation.modules,
+                roles: incorporation.roles,
+                signatures: vaultActivity.data?.signatures ?? [],
+                decodedActivity: decodedActivity.rows,
+                metas,
+              },
+              entity?.name,
+            );
+          }}
         />
         <CapitalizeSection
           vaultAuthority={vault.vaultAuthorityPda.toBase58()}
@@ -230,6 +260,9 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           decoded={decodedActivity.rows}
           isLoading={vaultActivity.isLoading || decodedActivity.isLoading}
           metas={metas}
+          roles={incorporation.roles}
+          budgets={budgets ?? []}
+          vestingPositions={vestingPositions ?? []}
         />
         <HoldingsSection
           holdings={holdings ?? []}
@@ -266,6 +299,8 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
         )}
         <BudgetDetailModal
           budget={budgetDetail}
+          budgets={budgets ?? []}
+          trustAuthority={incorporation.trust?.authority.toBase58() ?? null}
           metas={metas}
           onClose={() => setBudgetDetail(null)}
         />

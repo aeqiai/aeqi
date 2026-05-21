@@ -16,7 +16,7 @@
  *      composition bar.
  */
 import { useMemo, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
@@ -92,6 +92,7 @@ export function TreasuryOverviewSection({
   metas,
   decodedActivity,
   activitySparkline,
+  onExportSnapshot,
 }: {
   holdings: VaultHolding[];
   budgets: BudgetAccountWithPda[];
@@ -101,6 +102,10 @@ export function TreasuryOverviewSection({
    *  per-day USD balance backwards from the current stable balance. */
   decodedActivity: DecodedActivity[];
   activitySparkline: number[];
+  /** Iter-10: optional "Download snapshot" affordance. When provided
+   *  the section surfaces a header action that serialises the full
+   *  vault state to JSON and triggers a browser download. */
+  onExportSnapshot?: () => void;
 }) {
   const { stableUsd, nonZeroCount, mintCount } = useMemo(() => {
     let stable = 0;
@@ -136,8 +141,27 @@ export function TreasuryOverviewSection({
   // pre-activity states.
   const usdCurve = useTreasuryUsdCurve(decodedActivity, stableUsd, metas);
 
+  // Iter-10: "Download snapshot" button — exposed when the host wires
+  // `onExportSnapshot`. Sits at the section-action slot (chrome zone)
+  // so it doesn't compete with the four metric tiles below.
+  const sectionActions = onExportSnapshot ? (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={onExportSnapshot}
+      leadingIcon={<Download size={13} strokeWidth={1.8} aria-hidden />}
+      aria-label="Download vault snapshot JSON"
+    >
+      Download snapshot
+    </Button>
+  ) : undefined;
+
   return (
-    <PageSection title="Treasury overview" description="At-a-glance of vault, budgets, and grants.">
+    <PageSection
+      title="Treasury overview"
+      description="At-a-glance of vault, budgets, and grants."
+      actions={sectionActions}
+    >
       <MetricGrid columns={4}>
         <MetricCard
           label="Stablecoin balance"

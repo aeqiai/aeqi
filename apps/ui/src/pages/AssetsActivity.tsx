@@ -20,6 +20,8 @@ import { ExternalLink } from "lucide-react";
 import type { DecodedActivity } from "@/hooks/useDecodedVaultActivity";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
+import type { RoleAccountWithPda } from "@/solana";
+import type { BudgetAccountWithPda, VestingPositionWithPda } from "@/solana/assets";
 import { formatCurrency, formatDateTime, formatInteger } from "@/lib/i18n";
 import { explorerAddressUrl, explorerTxUrl } from "@/lib/solana-explorer";
 import {
@@ -39,6 +41,7 @@ import {
 
 import {
   CopyableMono,
+  bytesIdLabel,
   formatTokenAmount,
   isStableSymbol,
   rawToFloat,
@@ -49,11 +52,28 @@ import styles from "./AssetsPage.module.css";
 
 type ActivityRow = VaultSignature & { decoded?: DecodedActivity };
 
+/**
+ * Iter-10 — counterparty enrichment match.
+ *
+ * A counterparty pubkey can match more than one source (a role
+ * occupant who also receives a vesting grant), so the panel renders
+ * each match as its own typed Badge in a small cluster.
+ */
+interface CounterpartyMatch {
+  kind: "role" | "vesting" | "budget-grantor";
+  /** Short ASCII-prefix label of the role / vesting position / budget
+   *  ID — same encoding the table elsewhere uses. */
+  label: string;
+}
+
 export function VaultActivitySection({
   signatures,
   decoded,
   isLoading,
   metas,
+  roles,
+  budgets,
+  vestingPositions,
 }: {
   signatures: VaultSignature[];
   /** Decoded rows keyed by signature — iter-4 plumbs in `useDecodedVaultActivity`
@@ -62,7 +82,42 @@ export function VaultActivitySection({
   decoded: DecodedActivity[];
   isLoading: boolean;
   metas: Record<string, ResolvedTokenMeta>;
+  /** Iter-10: counterparty enrichment sources. Each counterparty pubkey
+   *  is matched against the TRUST's role occupants, vesting recipients,
+   *  and budget grantees so the expanded panel can tag known actors
+   *  rather than render a bare base58 string. */
+  roles?: RoleAccountWithPda[];
+  budgets?: BudgetAccountWithPda[];
+  vestingPositions?: VestingPositionWithPda[];
 }) {
+  // Iter-10: build a single pubkey-keyed lookup once per render so the
+  // expanded detail panel can stay an O(1) lookup. Each match carries
+  // a "kind" tag (role / vesting / budget-grantor) + a short label so
+  // the panel can render a typed Badge cluster.
+  const counterpartyIndex = useMemo(() => {
+    const map = new Map<string, CounterpartyMatch[]>();
+    const push = (key: string, match: CounterpartyMatch) => {
+      const arr = map.get(key) ?? [];
+      arr.push(match);
+      map.set(key, arr);
+    };
+    for (const r of roles ?? []) {
+      const occupantKey = r.account.account.toBase58();
+      const label = bytesIdLabel(r.account.roleId);
+      push(occupantKey, { kind: "role", label });
+    }
+    for (const v of vestingPositions ?? []) {
+      const recipientKey = v.account.recipient.toBase58();
+      const label = bytesIdLabel(v.account.positionId);
+      push(recipientKey, { kind: "vesting", label });
+    }
+    for (const b of budgets ?? []) {
+      const grantorKey = b.account.grantor.toBase58();
+      const label = bytesIdLabel(b.account.budgetId);
+      push(grantorKey, { kind: "budget-grantor", label });
+    }
+    return map;
+  }, [roles, vestingPositions, budgets]);
   const VISIBLE = 10;
   const decodedByKey = useMemo(() => {
     const map = new Map<string, DecodedActivity>();
@@ -218,6 +273,11 @@ export function VaultActivitySection({
             <ActivityDetailPanel
               row={expandedRow}
               metas={metas}
+              counterpartyMatches={
+                expandedRow.decoded?.counterparty
+                  ? (counterpartyIndex.get(expandedRow.decoded.counterparty) ?? [])
+                  : []
+              }
               onClose={() => setExpanded(null)}
             />
           )}
@@ -375,10 +435,17 @@ function ActivityUsdCell({
 function ActivityDetailPanel({
   row,
   metas,
+  counterpartyMatches,
   onClose,
 }: {
   row: ActivityRow;
   metas: Record<string, ResolvedTokenMeta>;
+  /** Iter-10: matches keyed off the decoded counterparty pubkey. When
+   *  the counterparty is a known role occupant / vesting recipient /
+   *  budget grantee, we tag the field with a typed Badge cluster so
+   *  the auditor doesn't have to copy the pubkey out and re-scan the
+   *  TRUST surfaces by hand. */
+  counterpartyMatches: CounterpartyMatch[];
   onClose: () => void;
 }) {
   const decoded = row.decoded;
@@ -424,12 +491,35 @@ function ActivityDetailPanel({
         </DetailField>
         <DetailField label="Counterparty">
           {decoded?.counterparty ? (
-            <CopyableMono
-              full={decoded.counterparty}
-              display={decoded.counterparty}
-              mode="full"
-              withExplorer
-            />
+            <Stack gap="2">
+              <CopyableMono
+                full={decoded.counterparty}
+                display={decoded.counterparty}
+                mode="full"
+                withExplorer
+              />
+              {counterpartyMatches.length > 0 && (
+                <Inline gap="2" wrap>
+                  {counterpartyMatches.map((m, i) => (
+                    <Badge
+                      key={`${m.kind}-${i}`}
+                      variant={
+                        m.kind === "role" ? "accent" : m.kind === "vesting" ? "success" : "muted"
+                      }
+                      size="sm"
+                      dot
+                    >
+                      {counterpartyKindLabel(m.kind)} · {m.label}
+                    </Badge>
+                  ))}
+                </Inline>
+              )}
+              {counterpartyMatches.length === 0 && (
+                <span className={styles.counterpartyUnknownNote}>
+                  Not a known role occupant, vesting recipient, or budget grantee on this TRUST.
+                </span>
+              )}
+            </Stack>
           ) : (
             <span className={styles.mutedDash}>— (internal / unresolved)</span>
           )}
@@ -488,4 +578,20 @@ function ActivityDetailPanel({
       </p>
     </div>
   );
+}
+
+/**
+ * Iter-10 — surface label for each counterparty match kind. Kept
+ * separate so the renderer stays declarative and the i18n surface can
+ * grow without re-threading the renderer.
+ */
+function counterpartyKindLabel(kind: CounterpartyMatch["kind"]): string {
+  switch (kind) {
+    case "role":
+      return "Role";
+    case "vesting":
+      return "Vesting";
+    case "budget-grantor":
+      return "Budget";
+  }
 }

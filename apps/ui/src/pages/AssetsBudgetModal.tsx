@@ -42,13 +42,32 @@ import styles from "./AssetsPage.module.css";
  * grantor + parent budget chaining, raw spend numbers, and the
  * lifecycle posture (frozen / expiry). Iter-3 adds the on-chain
  * signature tail against the Budget PDA — see `BudgetSignatureTail`.
+ *
+ * Iter-10 — Approval chain walk-up.
+ * When a budget has a non-zero `parent_budget_id`, the host now passes
+ * down the full budget list + the TRUST authority pubkey so we can
+ * resolve the parent chain ("who can ultimately reclaim this
+ * allocation?"). The chain renders as a calm vertical stack inside
+ * the modal — top of chain = TRUST authority, then each parent down
+ * to this budget. Honors the "no hairlines" rule via tinted indent
+ * rather than border-left stripes.
  */
 export function BudgetDetailModal({
   budget,
+  budgets,
+  trustAuthority,
   metas,
   onClose,
 }: {
   budget: BudgetAccountWithPda | null;
+  /** Full budget list — used to walk the `parent_budget_id` chain so
+   *  we can render a top-down "who controls this" hierarchy. */
+  budgets?: BudgetAccountWithPda[];
+  /** Trust authority pubkey (base58) — the terminal node of the
+   *  approval chain. Surfaced as "TRUST authority" at the top of the
+   *  chain so an auditor sees the chain bottoms out at the on-chain
+   *  governance root, not in mid-air. */
+  trustAuthority?: string | null;
   metas: TokenMetaMap;
   onClose: () => void;
 }) {
@@ -71,12 +90,18 @@ export function BudgetDetailModal({
   const idLabel = bytesIdLabel(acc.budgetId);
   const idHex = `0x${bytesToHex(acc.budgetId)}`;
   const roleLabel = bytesIdLabel(acc.targetRoleId);
-  const parentHex = `0x${bytesToHex(acc.parentBudgetId)}`;
   const parentBytes =
     acc.parentBudgetId instanceof Uint8Array
       ? acc.parentBudgetId
       : Uint8Array.from(acc.parentBudgetId);
   const hasParent = Array.from(parentBytes).some((b) => b !== 0);
+
+  // Iter-10: walk the parent chain top-down. The chain starts at the
+  // current budget and follows each `parent_budget_id` lookup until we
+  // hit a budget with no parent (or an orphan). The terminal node is
+  // the TRUST authority — every chain bottoms out there.
+  const chain = walkApprovalChain(budget, budgets ?? []);
+  const orphan = hasParent && chain.length < 2;
 
   return (
     <Modal open={true} onClose={onClose} title={`Budget · ${idLabel}`}>
@@ -88,8 +113,8 @@ export function BudgetDetailModal({
           <span className={styles.monoCell}>{roleLabel}</span>
         </DetailField>
         {hasParent && (
-          <DetailField label="Parent budget">
-            <CopyableMono full={parentHex} display={`${parentHex.slice(0, 14)}…`} mode="short" />
+          <DetailField label="Approval chain">
+            <ApprovalChain chain={chain} trustAuthority={trustAuthority ?? null} orphan={orphan} />
           </DetailField>
         )}
         <DetailField label="Budget PDA">
@@ -141,6 +166,139 @@ export function BudgetDetailModal({
         </p>
       </Stack>
     </Modal>
+  );
+}
+
+/**
+ * Iter-10 — walk the budget parent chain bottom-up, then reverse it
+ * for top-down rendering. Each entry includes its hex ID + the budget
+ * itself when we resolved it inside the visible budgets list. If the
+ * chain hits a parent_budget_id we can't find in the list, we mark
+ * the chain as orphaned and stop walking — the modal surfaces the
+ * gap honestly rather than silently truncating.
+ */
+interface ChainNode {
+  budget: BudgetAccountWithPda;
+  idHex: string;
+  parentHex: string | null;
+}
+
+function walkApprovalChain(
+  start: BudgetAccountWithPda,
+  budgets: BudgetAccountWithPda[],
+): ChainNode[] {
+  const byId = new Map<string, BudgetAccountWithPda>();
+  for (const b of budgets) {
+    byId.set(bytesToHex(b.account.budgetId), b);
+  }
+
+  const seen = new Set<string>();
+  const nodes: ChainNode[] = [];
+  let current: BudgetAccountWithPda | null = start;
+  while (current) {
+    const idHex = bytesToHex(current.account.budgetId);
+    if (seen.has(idHex)) break; // defensive: cycle guard
+    seen.add(idHex);
+    const parentHex = bytesToHex(current.account.parentBudgetId);
+    const hasParent = parentHex.match(/[^0]/) !== null;
+    nodes.push({
+      budget: current,
+      idHex,
+      parentHex: hasParent ? parentHex : null,
+    });
+    if (!hasParent) break;
+    const parent = byId.get(parentHex);
+    if (!parent) break; // chain orphaned — terminate
+    current = parent;
+  }
+  // Reverse for top-down rendering: TRUST authority at the top, this
+  // budget at the bottom.
+  return nodes.reverse();
+}
+
+/**
+ * Iter-10 — vertical approval-chain renderer.
+ *
+ * Renders the chain top-down: TRUST authority (terminal), then each
+ * parent budget, ending in the current budget. Each row is a compact
+ * (label · ID · utilization) strip. The terminal "TRUST authority"
+ * row is rendered with an accent Badge so the reader sees the chain
+ * bottoms out at the on-chain governance root.
+ *
+ * When the chain is orphaned (a parent_budget_id pointed at a budget
+ * we couldn't find in the visible list — e.g. the parent was created
+ * on a different TRUST, or the list was filtered) we surface a quiet
+ * banner so an auditor knows the chain is incomplete.
+ */
+function ApprovalChain({
+  chain,
+  trustAuthority,
+  orphan,
+}: {
+  chain: ChainNode[];
+  trustAuthority: string | null;
+  orphan: boolean;
+}) {
+  const decimals = 6; // USDC convention — matches BudgetDetailModal
+  return (
+    <Stack gap="2" className={styles.approvalChain}>
+      {trustAuthority && (
+        <div className={styles.approvalChainNode}>
+          <div className={styles.approvalChainNodeHead}>
+            <Badge variant="accent" size="sm" dot>
+              TRUST authority
+            </Badge>
+            <CopyableMono
+              full={trustAuthority}
+              display={shortAddress(trustAuthority)}
+              tone="muted"
+              withExplorer
+            />
+          </div>
+          <span className={styles.approvalChainNodeNote}>
+            Terminal node — the on-chain authority that can reclaim every allocation below.
+          </span>
+        </div>
+      )}
+      {chain.map((node, idx) => {
+        const acc = node.budget.account;
+        const isCurrent = idx === chain.length - 1;
+        const amountBI = toBigInt(acc.amount);
+        const spentBI = toBigInt(acc.spent);
+        const pct = amountBI > BigInt(0) ? Number((spentBI * BigInt(10000)) / amountBI) / 100 : 0;
+        const remainingBI = amountBI > spentBI ? amountBI - spentBI : 0n;
+        return (
+          <div
+            key={node.idHex}
+            className={`${styles.approvalChainNode} ${
+              isCurrent ? styles.approvalChainNodeCurrent : ""
+            }`}
+          >
+            <div className={styles.approvalChainNodeHead}>
+              <Badge variant={isCurrent ? "accent" : "muted"} size="sm" dot>
+                {isCurrent ? "This budget" : `Parent ${chain.length - 1 - idx}`}
+              </Badge>
+              <span className={styles.monoCell}>{bytesIdLabel(acc.budgetId)}</span>
+              {acc.frozen && (
+                <Badge variant="warning" size="sm" dot>
+                  Frozen
+                </Badge>
+              )}
+            </div>
+            <span className={styles.approvalChainNodeNote}>
+              {formatTokenAmount(remainingBI, decimals)} USDC remaining ·{" "}
+              {formatNumber(pct, { maximumFractionDigits: 1 })}% spent
+            </span>
+          </div>
+        );
+      })}
+      {orphan && (
+        <p className={styles.approvalChainOrphanNote}>
+          Parent budget not in this TRUST&apos;s visible list — the chain is incomplete. Reclaim
+          authority resolves at the TRUST root above.
+        </p>
+      )}
+    </Stack>
   );
 }
 
