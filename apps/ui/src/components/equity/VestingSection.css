@@ -116,3 +116,63 @@
 .vesting-totals__value--muted {
   color: var(--color-text-muted);
 }
+
+/* iter-11: transfer-position modal. Lives inside the shared Modal
+   primitive; styles below are content-only. Mirrors the
+   equity-funding-activate layout — a brief hint, a meta grid, the
+   input, an action footer. */
+.vesting-transfer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: min(440px, 90vw);
+}
+
+.vesting-transfer__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.vesting-transfer__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.vesting-transfer__meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vesting-transfer__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.vesting-transfer__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.vesting-transfer__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.vesting-transfer__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

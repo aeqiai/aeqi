@@ -29,7 +29,16 @@
  *   - result line under the row reflects success/error from the stub
  */
 import { useMemo, useState } from "react";
-import { Badge, Button, EmptyState, PageSection, Table, Tooltip } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  Modal,
+  PageSection,
+  Table,
+  Tooltip,
+} from "@/components/ui";
 import type { TableColumn } from "@/components/ui";
 import { formatShortDate } from "@/lib/i18n";
 import type { VestingPositionWithPda } from "@/solana";
@@ -157,6 +166,18 @@ export function VestingSection({
   // multiple in-flight claims don't trample each other.
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
 
+  // iter-11: position-transfer modal state. Holds the row being
+  // transferred + the operator-typed new recipient pubkey + per-modal
+  // submission state. Only one transfer flows through the modal at a
+  // time — the row-level "Transfer position" button opens the modal,
+  // the modal owns submission.
+  const [transferRow, setTransferRow] = useState<VestingPositionWithPda | null>(null);
+  const [transferRecipient, setTransferRecipient] = useState("");
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [transferResult, setTransferResult] = useState<{ ok: boolean; message: string } | null>(
+    null,
+  );
+
   // Iter-7: rebind `now` on every refreshTick bump from
   // `useEquityVesting`. The Schedule chart fill, claimable column, and
   // Claim-button disabled state all consume this `now`. Without the
@@ -202,6 +223,52 @@ export function VestingSection({
     const lockedRemaining = granted > vested ? granted - vested : 0n;
     return { granted, vested, claimed, claimable, lockedRemaining };
   }, [rows, now]);
+
+  // iter-11: position-transfer modal handlers. Opening the modal seeds
+  // a clean state so a previously-cancelled transfer doesn't leak its
+  // pasted address into the next row's flow.
+  const openTransfer = (row: VestingPositionWithPda) => {
+    setTransferRow(row);
+    setTransferRecipient("");
+    setTransferResult(null);
+    setTransferSubmitting(false);
+  };
+
+  const closeTransfer = () => {
+    if (transferSubmitting) return;
+    setTransferRow(null);
+  };
+
+  const recipientValid = (s: string) => {
+    const trimmed = s.trim();
+    return trimmed.length >= 32 && trimmed.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(trimmed);
+  };
+
+  const handleTransfer = async () => {
+    if (!transferRow || !recipientValid(transferRecipient)) return;
+    setTransferSubmitting(true);
+    setTransferResult(null);
+    try {
+      const res = await api.vestingTransfer({
+        entity_id: trustId,
+        position_id: positionIdHex(transferRow.account.positionId),
+        new_recipient_pubkey: transferRecipient.trim(),
+      });
+      setTransferResult({
+        ok: true,
+        message: `Transferred to ${res.new_recipient_b58.slice(0, 6)}…${res.new_recipient_b58.slice(-4)}`,
+      });
+      // Same refresh pattern as Claim — invalidates the shared vesting
+      // cache so the section's row recipient + the page-level
+      // HolderDrawer pick up the new owner without a manual reload.
+      onClaimSettled?.();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setTransferResult({ ok: false, message });
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
 
   const handleClaim = async (row: VestingPositionWithPda) => {
     const key = row.publicKey.toBase58();
@@ -355,6 +422,12 @@ export function VestingSection({
         const contributionPaid = Boolean(row.account.contributionPaid);
         const gated = contributionRequired && !contributionPaid;
         const disabled = claimable === 0n || gated;
+        // iter-11: transfer enabled when the position still has
+        // remaining vesting obligation (granted > claimed). A fully-
+        // claimed position has no future tokens left to rotate — the
+        // recipient already collected everything, so transferring is a
+        // no-op. Disable to communicate that clearly.
+        const transferAvailable = total > claimed;
         return (
           <div className="vesting-row__claim">
             <Button
@@ -368,6 +441,19 @@ export function VestingSection({
               }
             >
               Claim
+            </Button>
+            {/* iter-11: rotate the pending vesting position to a new
+                recipient. Honest-stub today — the platform route does
+                NOT exist yet, so the modal surfaces the missing-route
+                error inline. The gesture is right; the wiring lands
+                with the platform-side ix. */}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!transferAvailable}
+              onClick={() => openTransfer(row)}
+            >
+              Transfer position
             </Button>
             {state?.result && (
               <span
@@ -454,6 +540,87 @@ export function VestingSection({
           </div>
         </div>
       )}
+      {/* iter-11: transfer-position modal. Lifted to the section level
+          so the row-level button only owns the open-state trigger; the
+          submission surface, validation, and result lines live here. */}
+      <Modal open={transferRow !== null} onClose={closeTransfer} title="Transfer vesting position">
+        {transferRow && (
+          <div className="vesting-transfer">
+            <p className="vesting-transfer__hint">
+              Rotate this vesting position to a new recipient. The schedule, total amount, and
+              already-claimed balance stay the same — only the wallet that can claim future vested
+              tokens changes. Trust authority signs.
+            </p>
+            <div className="vesting-transfer__meta">
+              <div>
+                <span className="vesting-transfer__label">Current recipient</span>
+                <span className="vesting-transfer__value">
+                  {shortAddress(transferRow.account.recipient.toBase58())}
+                </span>
+              </div>
+              <div>
+                <span className="vesting-transfer__label">Position</span>
+                <span className="vesting-transfer__value">
+                  {shortAddress(transferRow.publicKey.toBase58())}
+                </span>
+              </div>
+              <div>
+                <span className="vesting-transfer__label">Total</span>
+                <span className="vesting-transfer__value">
+                  {formatBaseUnits(bnLikeToBigInt(transferRow.account.totalAmount), decimals)}
+                </span>
+              </div>
+              <div>
+                <span className="vesting-transfer__label">Claimed</span>
+                <span className="vesting-transfer__value">
+                  {formatBaseUnits(bnLikeToBigInt(transferRow.account.claimedAmount), decimals)}
+                </span>
+              </div>
+            </div>
+            <label className="vesting-transfer__field">
+              <span className="vesting-transfer__label">New recipient pubkey</span>
+              <Input
+                value={transferRecipient}
+                onChange={(e) => setTransferRecipient(e.target.value)}
+                disabled={transferSubmitting}
+                placeholder="e.g. 3DvL…abc"
+                aria-label="New recipient pubkey"
+              />
+            </label>
+            {transferResult && (
+              <div
+                className={
+                  transferResult.ok
+                    ? "vesting-row__result vesting-row__result--ok"
+                    : "vesting-row__result vesting-row__result--err"
+                }
+                role="status"
+              >
+                {transferResult.ok ? `✓ ${transferResult.message}` : transferResult.message}
+              </div>
+            )}
+            <div className="vesting-transfer__actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={closeTransfer}
+                disabled={transferSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleTransfer}
+                disabled={!recipientValid(transferRecipient) || transferSubmitting}
+                loading={transferSubmitting}
+              >
+                Transfer position
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageSection>
   );
 }

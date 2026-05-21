@@ -950,6 +950,42 @@ export const api = {
     }),
 
   /**
+   * Transfer a pending vesting position to a new recipient. The on-chain
+   * concept is: a position grants future tokens to a wallet that hasn't
+   * fully vested yet — the recipient should be transferable (employees
+   * leave, addresses rotate, ownership consolidates). The grantor (trust
+   * authority) signs the rotation.
+   *
+   * Status: HONEST STUB. There is no `aeqi_vesting::transfer_position`
+   * instruction yet — vesting positions on chain pin recipient at
+   * `create_vesting_position` time and the program has no rotation path.
+   * The platform-side `/api/solana/vesting-transfer` route is therefore
+   * also missing. This client surface lets the UI present the right
+   * gesture today; the request will fail with a clear "route not
+   * implemented yet" error pointing at the path so operators see what
+   * needs to ship next.
+   *
+   * iter-11: VestingSection wires a row-level "Transfer position" action
+   * to this helper.
+   */
+  vestingTransfer: (data: {
+    entity_id: string;
+    position_id: string;
+    new_recipient_pubkey: string;
+  }) =>
+    request<{
+      ok: boolean;
+      signature_b58: string;
+      position_pubkey_b58: string;
+      position_id_hex: string;
+      previous_recipient_b58: string;
+      new_recipient_b58: string;
+    }>("/solana/vesting-transfer", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  /**
    * Freeze a Solana on-chain budget. The on-chain `aeqi_budget::freeze`
    * instruction flips `account.frozen = true`, after which any
    * `spend_treasury` or `allocate_child_budget` call against the budget
