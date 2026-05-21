@@ -75,7 +75,7 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           label="Roles"
           value={String(total)}
           hint="in this TRUST"
-          sub={total === 0 ? "No roles yet" : ""}
+          sub={total === 0 ? "No roles yet" : undefined}
           footer={
             total > 0 ? (
               <span className="trust-quest-signals" aria-label="role composition breakdown">
@@ -101,7 +101,6 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           label="Directors"
           value={String(directors)}
           hint="stewardship"
-          sub=""
         />
         <PrimitiveCard
           to={`${basePath}/roles?occupant=all&filter=operator`}
@@ -109,7 +108,6 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           label="Operators"
           value={String(operators)}
           hint="execution"
-          sub=""
         />
         <PrimitiveCard
           to={`${basePath}/roles?occupant=vacant`}
@@ -117,7 +115,7 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
           label="Vacant"
           value={String(vacant)}
           hint={vacant === 1 ? "open seat" : "open seats"}
-          sub={vacant === 0 && total > 0 ? "All seats filled" : ""}
+          sub={vacant === 0 && total > 0 ? "All seats filled" : undefined}
           tone={vacant > 0 ? "warmth" : undefined}
         />
       </div>
@@ -131,7 +129,7 @@ interface PrimitiveCardProps {
   label: string;
   value: string;
   hint: string;
-  sub: string;
+  sub?: string;
   tone?: "warmth";
   /** Optional rich footer (e.g. status-dot signal row). Takes precedence over `sub`. */
   footer?: React.ReactNode;
