@@ -10,7 +10,7 @@
  */
 import { findRoleTypeById, isTokenModeId } from "@/solana";
 import type { ProposalAccount, RoleTypeWithPda } from "@/solana";
-import { formatDate } from "@/lib/i18n";
+import { formatDate, formatNumber } from "@/lib/i18n";
 
 export function shortAddress(value: string): string {
   if (value.length <= 12) return value;
@@ -77,7 +77,16 @@ export function modeLabel(bytes: Uint8Array | number[], roleTypes: RoleTypeWithP
 }
 
 export function bpsLabel(bps: number): string {
-  return `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 2)}%`;
+  // Route through `@/lib/i18n` so the percent body respects the active
+  // locale's decimal separator (e.g. comma in de-DE) instead of always
+  // emitting a "." via `.toFixed()`. Whole-bps values stay digit-clean
+  // (e.g. "50%"); fractional bps render with two decimals ("12.34%").
+  const value = bps / 100;
+  const fractionDigits = bps % 100 === 0 ? 0 : 2;
+  return `${formatNumber(value, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}%`;
 }
 
 /**
