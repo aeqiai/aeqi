@@ -102,23 +102,27 @@
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
+/* Summary values inherit the canonical state ladder so canvas + overview
+   read the same vocabulary. Migrated 2026-05-21 from --color-info /
+   --color-success / --color-warning to --state-progress / --state-verified /
+   --state-review per shared-pack mandate. */
 .event-canvas-summary-item--runtime .event-canvas-summary-value,
 .event-canvas-summary-item--webhooks .event-canvas-summary-value {
-  color: var(--color-info);
+  color: var(--state-progress);
 }
 .event-canvas-summary-item--routines .event-canvas-summary-value,
 .event-canvas-summary-item--guard .event-canvas-summary-value {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .event-canvas-summary-item--fire-armed .event-canvas-summary-value {
-  color: var(--color-info);
+  color: var(--state-progress);
 }
 .event-canvas-summary-item--fire-fired .event-canvas-summary-value,
 .event-canvas-summary-item--trace-complete .event-canvas-summary-value {
-  color: var(--color-success);
+  color: var(--state-verified);
 }
 .event-canvas-summary-item--trace-pending .event-canvas-summary-value {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .event-canvas-summary-item--trace-empty .event-canvas-summary-value {
   color: var(--color-text-muted);
@@ -221,7 +225,7 @@
   opacity: 0.9;
 }
 .event-canvas-node--tone-fired::before {
-  background: var(--color-success);
+  background: var(--state-verified);
 }
 .event-canvas-node--tone-empty::before {
   background: transparent;
@@ -631,10 +635,10 @@
   color: var(--state-verified);
 }
 .events-overview-row-meta-item--trace-pending .events-overview-row-meta-value {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .events-overview-row-meta-item--guard .events-overview-row-meta-value {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .events-overview-chip {
   display: inline-flex;
@@ -681,30 +685,35 @@
   margin: 0 4px;
 }
 
-/* Group tones — runtime and webhooks are info graphite; routines use warning. */
+/* Group tones — runtime and webhooks are progress violet (the agent's own
+   loop is live, watching); routines use review warmth (paused/scheduled
+   cadence). Migrated 2026-05-21 from --color-info/--color-warning to the
+   canonical --state-* token family per shared-pack mandate; the chip
+   border falls back to the base `.is-trigger` accent ring since the
+   state ladder doesn't ship a border variant. */
 .events-overview-group-dot.events-overview-tone-runtime {
-  background: var(--color-info);
+  background: var(--state-progress);
 }
 .events-overview-chip.is-trigger.events-overview-tone-runtime {
-  color: var(--color-info);
-  background: var(--color-info-bg);
-  border-color: var(--color-info-border);
+  color: var(--state-progress);
+  background: var(--state-progress-bg);
+  border-color: transparent;
 }
 .events-overview-group-dot.events-overview-tone-webhooks {
-  background: var(--color-info);
+  background: var(--state-progress);
 }
 .events-overview-chip.is-trigger.events-overview-tone-webhooks {
-  color: var(--color-info);
-  background: var(--color-info-bg);
-  border-color: var(--color-info-border);
+  color: var(--state-progress);
+  background: var(--state-progress-bg);
+  border-color: transparent;
 }
 .events-overview-group-dot.events-overview-tone-routines {
-  background: var(--color-warning);
+  background: var(--state-review);
 }
 .events-overview-chip.is-trigger.events-overview-tone-routines {
-  color: var(--color-warning);
-  background: var(--color-warning-bg);
-  border-color: var(--color-warning-border);
+  color: var(--state-review);
+  background: var(--state-review-bg);
+  border-color: transparent;
 }
 
 /* Phase echo on the "N fires" / "never" label — render as a tokenized
@@ -1139,14 +1148,14 @@
 }
 .events-fires-context-item--runtime .events-fires-context-value,
 .events-fires-context-item--webhooks .events-fires-context-value {
-  color: var(--color-info);
+  color: var(--state-progress);
 }
 .events-fires-context-item--routines .events-fires-context-value,
 .events-fires-context-item--pending .events-fires-context-value {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .events-fires-context-item--ready .events-fires-context-value {
-  color: var(--color-success);
+  color: var(--state-verified);
 }
 .events-fires-loading,
 .events-fires-empty {
@@ -1253,13 +1262,13 @@
   flex-shrink: 0;
 }
 .events-fires-dot--ok {
-  background: var(--color-success);
+  background: var(--state-verified);
 }
 .events-fires-dot--err {
-  background: var(--color-warning);
+  background: var(--state-review);
 }
 .events-fires-dot--idle {
-  background: var(--color-info);
+  background: var(--state-progress);
 }
 
 /* ── Step detail — drilled into one invocation ───────────────────────── */
@@ -1376,10 +1385,10 @@
   font-variant-numeric: tabular-nums;
 }
 .events-step-summary-item--ok .events-step-summary-value {
-  color: var(--color-success);
+  color: var(--state-verified);
 }
 .events-step-summary-item--error .events-step-summary-value {
-  color: var(--color-warning);
+  color: var(--state-review);
 }
 .events-step-detail-loading,
 .events-step-detail-empty {
