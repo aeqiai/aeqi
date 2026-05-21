@@ -624,6 +624,28 @@
   }
 }
 
+/* c18 (2026-05-21): the cascade now flows hero bar (c8-c15, ~100-300ms) →
+   Roles tiles (c16, 200/250/300/350ms) → Execution/Ownership cards (c17,
+   400/450ms) — but on tall viewports the Activity + Ideas strip inside
+   .trust-cockpit-secondary-row still sits above the fold and snaps in
+   the same frame the page mounts, cutting the gesture at the cards-tier.
+   Extend the entrance one final beat so the reveal resolves at the
+   activity fold instead of the cards. Each cell rides the same
+   trust-hero-bar-enter keyframe at --transition-normal, picking up 50ms
+   after Ownership lands — Activity at 500ms, Ideas at 550ms. Reads as
+   one composed reveal from URL strip → authority graph →
+   execution/ownership → activity fold, end-to-end. Single iteration,
+   opacity only, gated on prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-cockpit-secondary-row > .trust-cockpit-secondary-cell {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 500ms 1 forwards;
+  }
+  .trust-cockpit-secondary-row > .trust-cockpit-secondary-cell:nth-child(2) {
+    animation-delay: 550ms;
+  }
+}
+
 /* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
    side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
    chain mirror). One rhythm, two surfaces — execution + ownership both
