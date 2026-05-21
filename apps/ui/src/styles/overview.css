@@ -566,6 +566,41 @@
   }
 }
 
+/* c16 (2026-05-21): the hero bar now seats in on a composed L→R sweep
+   (c8/c10/c11/c13/c14/c15 — runtime dot, Solana mark, pending/address
+   pills, both CTA states all ride the trust-hero-bar-enter ramp at
+   coordinated delays), but the four primitive cockpit tiles below
+   (Roles · Directors · Operators · Vacant) used to snap in at full
+   opacity on the same frame the bar started fading. The chrome
+   resolved as a gesture; the primitives appeared as a hard cut. Extend
+   the entrance vocabulary down one tier so the page seats as one
+   continuous reveal from chrome → primitives. Each tile rides the
+   same trust-hero-bar-enter keyframe at --transition-normal, staggered
+   50ms apart starting at 200ms — the hero bar finishes its 100ms-delayed
+   ramp around 300ms, so the first tile begins fading mid-bar and the
+   last tile lands ~250ms after the bar has settled. Reads as one
+   gesture from URL strip → authority graph, not two stacked mounts.
+   nth-child on .trust-cockpit-inner-grid > .trust-cockpit-mini scopes
+   this to the Roles row (the first cockpit-tier row below the bar);
+   the Execution/Ownership cards inside .trust-cockpit-row already sit
+   below the activity fold and don't compete with the bar's entrance.
+   Single iteration, opacity only, gated on prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-cockpit-inner-grid > .trust-cockpit-mini {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 200ms 1 forwards;
+  }
+  .trust-cockpit-inner-grid > .trust-cockpit-mini:nth-child(2) {
+    animation-delay: 250ms;
+  }
+  .trust-cockpit-inner-grid > .trust-cockpit-mini:nth-child(3) {
+    animation-delay: 300ms;
+  }
+  .trust-cockpit-inner-grid > .trust-cockpit-mini:nth-child(4) {
+    animation-delay: 350ms;
+  }
+}
+
 /* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
    side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
    chain mirror). One rhythm, two surfaces — execution + ownership both
