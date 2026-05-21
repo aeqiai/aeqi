@@ -4815,12 +4815,16 @@
   margin-right: auto;
   cursor: inherit;
 }
+/* Group-head count register matches the Quests-board `.quest-col-count`
+   canon: sans `var(--font-sans)`, weight 500, no extra letter-spacing,
+   tabular-nums for clean column alignment. Locked 2026-05-21 to keep
+   one numeric voice across primitive surfaces. */
 .ideas-list-group-count {
   flex-shrink: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
