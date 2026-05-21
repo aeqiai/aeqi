@@ -8787,51 +8787,38 @@ button.home-card:focus-visible {
 
 .home-card--context {
   gap: 0;
-  padding: 0;
   overflow: hidden;
 }
 
-.home-context-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px minmax(220px, 0.42fr);
-  gap: 0;
-  min-height: 100%;
-}
-
-.home-context-panel,
-.home-context-switcher {
+.home-context-panel {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.home-context-panel {
   gap: 20px;
-  padding: 24px;
-}
-
-.home-context-switcher {
-  gap: 14px;
-  padding: 24px 22px;
-  background: var(--bg-row);
-}
-
-.home-context-switcher .home-card-head {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.home-context-divider {
-  width: 1px;
-  background: var(--color-border-subtle);
+  min-width: 0;
+  min-height: 100%;
 }
 
 .home-context-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+}
+
+.home-context-heading {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+
+.home-context-signal {
+  margin-top: 3px;
+  flex-shrink: 0;
 }
 
 .home-context-main {
@@ -8874,14 +8861,30 @@ button.home-card:focus-visible {
 }
 
 .home-context-role {
-  margin: 8px 0 0;
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
+.home-context-role-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--bg-row);
+}
+
+.home-context-role-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 .home-context-line {
-  margin: 8px 0 0;
+  margin: 0;
   max-width: 520px;
   font-size: var(--font-size-sm);
   line-height: 1.5;
@@ -8916,27 +8919,43 @@ button.home-card:focus-visible {
 }
 
 .home-context-insights dd {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.home-context-insight-value {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.home-context-actions {
+.home-context-insight-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.home-context-footer {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
   margin-top: auto;
 }
 
-.home-context-actions > a,
+.home-context-cta,
 .home-primary-action {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-height: 34px;
   padding: 8px 13px;
@@ -8954,13 +8973,20 @@ button.home-card:focus-visible {
     transform 0.12s ease;
 }
 
-.home-context-actions > a:hover,
+.home-context-cta {
+  flex-shrink: 0;
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+}
+
+.home-context-cta:hover,
 .home-primary-action:hover {
-  background: var(--color-card);
+  background: var(--color-text-primary);
+  filter: brightness(1.08);
   transform: translateY(-1px);
 }
 
-.home-context-actions > a:focus-visible,
+.home-context-cta:focus-visible,
 .home-primary-action:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
@@ -9047,96 +9073,6 @@ button.home-card:focus-visible {
 
 .home-card-head > div {
   min-width: 0;
-}
-
-.home-your-title {
-  margin: 5px 0 0;
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.home-trust-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.home-trust-list > li {
-  margin: 0;
-}
-
-.home-trust-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  width: 100%;
-  padding: 10px 11px;
-  border: 0;
-  border-radius: var(--radius-md, 10px);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    transform 0.12s ease;
-}
-
-.home-trust-row:hover,
-.home-trust-row--active {
-  background: var(--bg-row);
-}
-
-.home-context-switcher .home-trust-row:hover,
-.home-context-switcher .home-trust-row--active {
-  background: var(--color-card-elevated);
-}
-
-.home-trust-row:hover {
-  transform: translateY(-1px);
-}
-
-.home-trust-row:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-
-.home-trust-row-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.home-trust-row-name,
-.home-trust-row-role {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-trust-row-name {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.home-trust-row-role {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.home-your-empty {
-  margin: 0;
-  color: var(--color-text-secondary);
-  line-height: 1.55;
 }
 
 .home-card--inbox,
@@ -9584,19 +9520,16 @@ button.home-card:focus-visible {
   .home-context-main {
     grid-template-columns: 1fr;
   }
-  .home-context-grid {
-    grid-template-columns: 1fr;
-  }
-  .home-context-divider {
-    width: auto;
-    height: 1px;
-  }
   .home-context-title {
     white-space: normal;
     font-size: 28px;
   }
   .home-context-insights {
     grid-template-columns: 1fr;
+  }
+  .home-context-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
   .home-learn-head {
     align-items: flex-start;

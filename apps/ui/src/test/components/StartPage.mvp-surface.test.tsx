@@ -5,12 +5,14 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import StartPage from "@/pages/StartPage";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
+import { useVisibleIdeas } from "@/queries/ideas";
 import { useQuests } from "@/queries/quests";
 import { useAuthStore } from "@/store/auth";
+import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import type { InboxItem } from "@/lib/api";
-import type { Agent, Quest } from "@/lib/types";
+import type { ActivityEntry, Agent, Idea, Quest } from "@/lib/types";
 import type { Trust } from "@/lib/types";
 
 vi.mock("@/queries/agents", () => ({
@@ -19,6 +21,10 @@ vi.mock("@/queries/agents", () => ({
 
 vi.mock("@/queries/entities", () => ({
   useEntities: vi.fn(),
+}));
+
+vi.mock("@/queries/ideas", () => ({
+  useVisibleIdeas: vi.fn(),
 }));
 
 vi.mock("@/queries/quests", () => ({
@@ -79,7 +85,30 @@ const ALPHA_QUEST: Quest = {
   created_at: "2026-05-21T09:00:00Z",
 };
 
+const ALPHA_IDEAS: Idea[] = [
+  {
+    id: "idea-alpha-1",
+    name: "Launch context",
+    content: "Home should show the current TRUST.",
+  },
+  {
+    id: "idea-alpha-2",
+    name: "Screenshot framework",
+    content: "Judge screenshots by page job, object, action, and MVP surface.",
+  },
+];
+
+const ALPHA_EVENT: ActivityEntry = {
+  id: 1,
+  timestamp: new Date().toISOString(),
+  decision_type: "session:quest_result",
+  summary: "Launch review completed",
+  agent: "Janus",
+  metadata: { root: "alpha" },
+};
+
 const initialAuthState = useAuthStore.getState();
+const initialDaemonState = useDaemonStore.getState();
 const initialInboxState = useInboxStore.getState();
 const initialUIState = useUIStore.getState();
 
@@ -112,7 +141,11 @@ function renderStartPage() {
 function primeStartPage(trusts: Trust[], inboxItems: InboxItem[] = []) {
   vi.mocked(useEntities).mockReturnValue(trusts);
   vi.mocked(useAgents).mockReturnValue(trusts.length > 0 ? [ALPHA_AGENT] : []);
+  vi.mocked(useVisibleIdeas).mockReturnValue({
+    data: trusts.length > 0 ? ALPHA_IDEAS : [],
+  } as never);
   vi.mocked(useQuests).mockReturnValue(trusts.length > 0 ? [ALPHA_QUEST] : []);
+  useDaemonStore.setState({ events: trusts.length > 0 ? [ALPHA_EVENT] : [] } as never);
   useAuthStore.setState({ user: USER } as never);
   useUIStore.setState({ activeEntity: trusts[0]?.id ?? "" } as never);
   useInboxStore.setState({
@@ -143,12 +176,14 @@ describe("StartPage MVP surface", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.mocked(useEntities).mockReset();
+    vi.mocked(useVisibleIdeas).mockReset();
   });
 
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
     useAuthStore.setState(initialAuthState, true);
+    useDaemonStore.setState(initialDaemonState, true);
     useInboxStore.setState(initialInboxState, true);
     useUIStore.setState(initialUIState, true);
   });
@@ -167,7 +202,6 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByText("No active TRUST")).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
-    expect(screen.getByText(/none yet/i)).toBeInTheDocument();
     expect(
       screen.getByText(/no reviews, approvals, failed events, or agent handoffs/i),
     ).toBeInTheDocument();
@@ -178,35 +212,41 @@ describe("StartPage MVP surface", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/launch");
   });
 
-  it("shows the returning-user operating surface with active TRUST, inbox review, launch, browse, and switch affordances", () => {
+  it("shows the returning-user operating surface with active TRUST activity, inbox review, launch, and browse affordances", () => {
     primeStartPage([ALPHA_TRUST, BETA_TRUST], [AWAITING_INBOX_ITEM]);
 
     const { container } = renderStartPage();
+    const trustSection = screen.getByRole("region", { name: "Operating context" });
 
     expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
     expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
 
-    expect(screen.getByText("Current context")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Alpha Trust" })).toBeInTheDocument();
-    expect(screen.getAllByText("Director").length).toBeGreaterThan(0);
     expect(
-      screen.getByText("You are operating as Director inside this TRUST."),
+      within(trustSection).getByRole("heading", { level: 2, name: "TRUST" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Your TRUSTs")).toBeInTheDocument();
-    expect(screen.getByText(/Beta Trust/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Alpha Trust" })).toBeInTheDocument();
+    expect(screen.getByText("Current role")).toBeInTheDocument();
+    expect(screen.getAllByText("Director").length).toBeGreaterThan(0);
+    expect(screen.getByText("Quests")).toBeInTheDocument();
+    expect(screen.getByText("Ideas")).toBeInTheDocument();
+    expect(screen.getByText("Event triggers")).toBeInTheDocument();
+    expect(screen.getByText("Agents")).toBeInTheDocument();
+    expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText(/Latest activity:/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Beta Trust/i)).not.toBeInTheDocument();
 
-    const activeTrust = screen.getAllByRole("link", { name: /open trust.*alpha trust/i })[0];
+    const yourTrusts = screen.getByRole("link", { name: /your trusts/i });
     const reviewInbox = screen.getByRole("link", { name: /^inbox$/i });
     const launchTrust = screen.getByRole("link", { name: /^launch$/i });
     const browseBlueprints = screen.getByRole("link", { name: /browse blueprints/i });
-    const otherTrust = screen.getByRole("link", { name: /open trust.*beta trust/i });
 
-    expect(activeTrust).toBeInTheDocument();
+    expect(yourTrusts).toBeInTheDocument();
     expect(reviewInbox).toBeInTheDocument();
     expect(launchTrust).toBeInTheDocument();
     expect(browseBlueprints).toBeInTheDocument();
-    expect(otherTrust).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open trust/i })).not.toBeInTheDocument();
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
     expect(screen.getByText(/Inbox item · Awaiting you/i)).toBeInTheDocument();
     expect(screen.getByText(/Janus · Alpha Trust/i)).toBeInTheDocument();
@@ -218,7 +258,7 @@ describe("StartPage MVP surface", () => {
     expect(screen.getAllByRole("button", { name: /^show /i })).toHaveLength(8);
     expectNoVagueCtaLanguage(container);
 
-    fireEvent.click(activeTrust);
-    expect(screen.getByTestId("location")).toHaveTextContent("/trust/alpha");
+    fireEvent.click(yourTrusts);
+    expect(screen.getByTestId("location")).toHaveTextContent("/trust");
   });
 });
