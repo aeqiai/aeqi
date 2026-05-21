@@ -81,11 +81,11 @@
 .launch-flow-card {
   width: min(100%, 520px);
   max-width: 520px;
-  padding: var(--space-8) var(--space-7);
+  padding: var(--space-10) var(--space-8);
 }
 
 .launch-logo {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .launch-loading {
@@ -103,7 +103,7 @@
 .launch-compact-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .launch-form-step {
@@ -117,9 +117,12 @@
   flex-direction: column;
 }
 
+.launch-form-step-body {
+  gap: var(--space-3);
+}
+
 .launch-form-step-head {
   gap: var(--space-1);
-  margin-bottom: var(--space-2);
 }
 
 .launch-form-step-head .auth-heading,
@@ -176,8 +179,8 @@
 .launch-blueprint-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-5);
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-paper);
@@ -225,8 +228,8 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  min-height: 58px;
-  padding: var(--space-3) var(--space-4);
+  min-height: 64px;
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-card);
@@ -296,7 +299,7 @@
 }
 
 .launch-actions {
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
 }
 
 .launch-page {
@@ -655,7 +658,7 @@
 
   .launch-flow-card {
     max-width: 460px;
-    padding: var(--space-7) var(--space-5);
+    padding: var(--space-8) var(--space-5);
   }
 }
 
