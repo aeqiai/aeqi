@@ -33,12 +33,10 @@ export function WelcomeView({
   return (
     <>
       <h1 className="auth-heading">Your account is ready.</h1>
-      <p className="auth-subheading">
-        Create a company from a blueprint or join one from your workspace.
-      </p>
+      <p className="auth-subheading">Launch a TRUST from a blueprint or join one.</p>
       <div className="auth-form">
         <Button variant="primary" size="lg" fullWidth type="button" onClick={onContinue}>
-          Open aeqi →
+          Enter AEQI →
         </Button>
       </div>
     </>

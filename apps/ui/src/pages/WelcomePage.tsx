@@ -218,7 +218,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     return [
       { key: "auth", label: "Identity confirmed", status: "done" },
       { key: "wallet", label: "Setting up your wallet", status: "active" },
-      { key: "ready", label: "Opening your workspace", status: "pending" },
+      { key: "ready", label: "Entering AEQI", status: "pending" },
     ];
   }
 

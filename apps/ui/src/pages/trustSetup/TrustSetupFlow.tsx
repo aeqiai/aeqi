@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Layers3, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RuntimePlanPicker } from "@/components/billing/RuntimePlanPicker";
 import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
@@ -95,15 +95,14 @@ function BlueprintStep({
 }: Pick<TrustSetupFlowProps, "blueprints" | "selectedBlueprintId" | "onChooseBlueprint">) {
   return (
     <section className="launch-step-panel" aria-labelledby="launch-title">
-      <div className="launch-step-icon" aria-hidden="true">
-        <Layers3 size={18} strokeWidth={1.7} />
+      <div className="launch-step-head">
+        <h1 id="launch-title" className="auth-heading">
+          Pick the starting shape.
+        </h1>
+        <p className="auth-subheading">
+          Choose the initial structure. Ownership, roles, and governance can change after creation.
+        </p>
       </div>
-      <h1 id="launch-title" className="auth-heading">
-        Choose the blueprint.
-      </h1>
-      <p className="auth-subheading">
-        Start with a shape. You can change ownership and governance after the TRUST exists.
-      </p>
 
       <div className="launch-blueprint-list" role="list" aria-label="Blueprints">
         {blueprints.slice(0, 6).map((tpl) => {
@@ -141,15 +140,15 @@ function DetailsStep({
 >) {
   return (
     <section className="launch-step-panel" aria-labelledby="launch-title">
-      <div className="launch-step-icon" aria-hidden="true">
-        <ShieldCheck size={18} strokeWidth={1.7} />
+      <div className="launch-step-head">
+        <h1 id="launch-title" className="auth-heading">
+          Name the TRUST.
+        </h1>
+        <p className="auth-subheading">
+          The {blueprint.name} blueprint is selected. This is the vehicle stakeholders will
+          recognize.
+        </p>
       </div>
-      <h1 id="launch-title" className="auth-heading">
-        Name the TRUST.
-      </h1>
-      <p className="auth-subheading">
-        The {blueprint.name} blueprint is selected. Ownership starts with you.
-      </p>
 
       <Input
         aria-label="TRUST name"
@@ -164,7 +163,7 @@ function DetailsStep({
       <div className="launch-trust-preview" aria-live="polite">
         <p className="launch-preview-kicker">Initial ownership</p>
         <p className="launch-preview-title">{trustName || "Your TRUST"}</p>
-        <p className="launch-preview-copy">1 of 1 required - you</p>
+        <p className="launch-preview-copy">1 signer required: you</p>
       </div>
     </section>
   );
@@ -178,15 +177,15 @@ function OperationsStep({
 }: Pick<TrustSetupFlowProps, "operations" | "plan" | "onOperationsChange" | "onPlanChange">) {
   return (
     <section className="launch-step-panel" aria-labelledby="launch-title">
-      <div className="launch-step-icon" aria-hidden="true">
-        <Sparkles size={18} strokeWidth={1.7} />
+      <div className="launch-step-head">
+        <h1 id="launch-title" className="auth-heading">
+          Choose how it operates.
+        </h1>
+        <p className="auth-subheading">
+          Create the TRUST for free, or start the runtime now so agents, quests, events, and memory
+          are ready on entry.
+        </p>
       </div>
-      <h1 id="launch-title" className="auth-heading">
-        Choose operations.
-      </h1>
-      <p className="auth-subheading">
-        A free TRUST can hold roles and assets. Operations add agents, quests, events, and memory.
-      </p>
 
       <div className="launch-operations-grid" role="radiogroup" aria-label="Operations">
         <button
@@ -196,8 +195,10 @@ function OperationsStep({
           onClick={() => onOperationsChange("free")}
           aria-checked={operations === "free"}
         >
-          <span className="launch-operation-title">No operations</span>
-          <span className="launch-operation-price">Free</span>
+          <span className="launch-option-head">
+            <span className="launch-operation-title">No operations</span>
+            <span className="launch-operation-price">Free</span>
+          </span>
           <span className="launch-operation-copy">
             Creates the TRUST without a runtime. Add operations later.
           </span>
@@ -209,8 +210,10 @@ function OperationsStep({
           onClick={() => onOperationsChange("paid")}
           aria-checked={operations === "paid"}
         >
-          <span className="launch-operation-title">Activate operations</span>
-          <span className="launch-operation-price">Standard or Pro</span>
+          <span className="launch-option-head">
+            <span className="launch-operation-title">Activate operations</span>
+            <span className="launch-operation-price">Standard or Pro</span>
+          </span>
           <span className="launch-operation-copy">
             Provision agents and the operating runtime now.
           </span>
@@ -321,6 +324,7 @@ export function TrustSetupFlow({
           <Button
             type="button"
             variant="secondary"
+            size="lg"
             onClick={onBack}
             leadingIcon={<ArrowLeft size={14} strokeWidth={1.7} />}
           >
@@ -336,6 +340,7 @@ export function TrustSetupFlow({
           <Button
             type="button"
             variant="primary"
+            size="lg"
             fullWidth
             onClick={onLaunch}
             disabled={submitting || !canSubmit}
@@ -351,6 +356,7 @@ export function TrustSetupFlow({
           <Button
             type="button"
             variant="primary"
+            size="lg"
             fullWidth
             onClick={onNext}
             disabled={!canGoNext}

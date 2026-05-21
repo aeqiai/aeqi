@@ -167,17 +167,16 @@
   flex-direction: column;
 }
 
-.launch-step-icon {
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-4);
-  border-radius: 999px;
-  background: var(--color-paper);
-  color: var(--color-text-secondary);
-  box-shadow: inset 0 0 0 1px var(--color-border);
+.launch-step-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.launch-step-head .auth-heading,
+.launch-step-head .auth-subheading {
+  margin-bottom: 0;
 }
 
 .launch-blueprint-list,
@@ -210,6 +209,14 @@
     border-color var(--transition-fast),
     box-shadow var(--transition-fast),
     background var(--transition-fast);
+}
+
+.launch-option-head {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .launch-blueprint-card:hover,
@@ -247,9 +254,11 @@
 .launch-operation-price {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
-  line-height: 1;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .launch-operations-grid {
@@ -433,11 +442,11 @@
 }
 
 .launch-secondary-link {
-  min-height: 36px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-5);
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: var(--color-card);
@@ -844,6 +853,16 @@
   .launch-step-pill {
     justify-content: flex-start;
     padding: 0 var(--space-3);
+  }
+
+  .launch-option-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .launch-operation-price {
+    text-align: left;
   }
 
   .launch-capacity-option {
