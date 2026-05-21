@@ -416,13 +416,26 @@
    (the pulse's trough, so the handoff lines up) to 1 once, and the
    color settles to jade as it lands. Single iteration, no bounce.
    Uses the existing --transition-normal token for duration + easing so
-   the curve matches the rest of the system. */
+   the curve matches the rest of the system.
+
+   c15 (2026-05-21): with the bar's entrance cascade now extending across
+   four elements (runtime dot 0ms · Solana mark 0ms · address pill 100ms
+   · live CTA 100ms), the verified mark fired on the exact same frame as
+   the left-edge runtime dot — two anchors competing for the eye instead
+   of one leading anchor. The runtime dot sits at the bar's left edge and
+   the Solana mark sits right-of-centre; firing them together collapses
+   the intended L→R sweep into "both edges → middle". Slip the verified
+   mark to 50ms so the runtime dot owns the 0ms anchor frame alone, then
+   the gesture flows: runtime dot (0ms) → Solana mark (50ms) → address
+   pill + CTA (100ms). Three beats, monotonically rightward, anchor →
+   trailing rhythm. Pending stays at 0ms — when there's no verified mark
+   to anchor against, the pending pill IS the right-side first beat. */
 @media (prefers-reduced-motion: no-preference) {
   .trust-hero-bar-solana[data-pending="true"] {
     animation: trust-pulse 1.6s ease-in-out infinite;
   }
   .trust-hero-bar-solana[data-verified="true"] {
-    animation: trust-solana-verify var(--transition-normal) 1 forwards;
+    animation: trust-solana-verify var(--transition-normal) 50ms 1 both;
   }
 }
 @keyframes trust-solana-verify {
