@@ -41,6 +41,12 @@ pub async fn bootstrap_mcp_registry(
     let cfg = match McpServersConfig::from_toml(&idea.content) {
         Ok(c) => c,
         Err(e) => {
+            if is_legacy_default_mcp_servers_docs(&idea.content) {
+                info!(
+                    "meta:mcp-servers contains legacy default markdown docs — treating as empty config"
+                );
+                return Ok(None);
+            }
             warn!(error = %e, "meta:mcp-servers TOML parse failed — skipping MCP boot");
             return Ok(None);
         }
@@ -58,4 +64,39 @@ pub async fn bootstrap_mcp_registry(
         }
     }
     Ok(Some(registry))
+}
+
+fn is_legacy_default_mcp_servers_docs(body: &str) -> bool {
+    body.contains("```toml")
+        && body.contains("The default body is empty")
+        && body.contains("## Worked examples")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_legacy_default_mcp_servers_docs;
+
+    #[test]
+    fn recognizes_only_legacy_default_mcp_docs() {
+        let legacy = r#"
+# MCP servers
+
+The default body is empty: no MCP servers connect, no MCP tools register,
+zero overhead. Add servers below to opt in.
+
+## Worked examples (commented out — uncomment + customise to enable)
+
+```toml
+# [[server]]
+# name = "filesystem-local"
+```
+"#;
+
+        assert!(is_legacy_default_mcp_servers_docs(legacy));
+        assert!(!is_legacy_default_mcp_servers_docs(
+            r#"[[server]]
+name = "broken"
+"#,
+        ));
+    }
 }

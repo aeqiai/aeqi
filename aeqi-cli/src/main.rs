@@ -74,9 +74,10 @@ async fn main() -> Result<()> {
         Some(Commands::CheckRuntime { root }) => cmd::check_runtime::cmd_check_runtime(root).await,
         Some(Commands::Setup {
             runtime,
+            workspace,
             service,
             force,
-        }) => cmd::setup::cmd_setup(&runtime, service, force).await,
+        }) => cmd::setup::cmd_setup(&runtime, workspace, service, force).await,
         Some(Commands::Secrets { action }) => cmd::secrets::cmd_secrets(&cli.config, action).await,
         Some(Commands::Doctor { fix, strict }) => {
             cmd::doctor::cmd_doctor(&cli.config, fix, strict).await

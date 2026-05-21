@@ -97,6 +97,9 @@ assert_help "mcp"
 echo "[quickstart] aeqi events install-defaults --help"
 run events install-defaults --help >/dev/null
 
+echo "[quickstart] aeqi events list --help"
+run events list --help >/dev/null
+
 # `aeqi assign` requires --root; assert the flag exists.
 echo "[quickstart] aeqi assign --help shows --root"
 run assign --help 2>&1 | grep -q -- "--root" || {
@@ -108,6 +111,22 @@ run assign --help 2>&1 | grep -q -- "--root" || {
 # README "Run" block step 3 — verify before launching.
 echo "[quickstart] aeqi doctor --strict (must pass on a clean ollama_agent install)"
 run doctor --strict >/dev/null
+
+echo "[quickstart] docs mention setup workspace behavior"
+for doc in README.md docs/quickstart.md docs/local-demo.md; do
+    grep -q -- "aeqi setup --workspace" "$doc" || {
+        echo "FAIL: $doc must explain repo-local setup via --workspace."
+        exit 2
+    }
+done
+
+echo "[quickstart] docs mention a concrete first useful quest"
+for doc in README.md docs/quickstart.md docs/local-demo.md; do
+    grep -q -- "Create a concise first-run checklist" "$doc" || {
+        echo "FAIL: $doc must end with the first-run checklist quest."
+        exit 2
+    }
+done
 
 echo
 echo "=== PASS — every documented quickstart command exists and works ==="

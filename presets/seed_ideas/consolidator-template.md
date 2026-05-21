@@ -1,6 +1,6 @@
 ---
 name: meta:consolidator-template
-tags: [meta, template, meta:tag-policy]
+tags: [meta, template]
 description: Persona for the targeted consolidation sub-agent. Fires on ideas:threshold_reached for a single tag; emits ONE synthesized meta-idea as a single-element JSON array.
 ---
 

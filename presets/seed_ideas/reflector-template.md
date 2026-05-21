@@ -1,6 +1,6 @@
 ---
 name: meta:reflector-template
-tags: [meta, template, meta:tag-policy]
+tags: [meta, template]
 description: Persona for the after-quest reflector sub-agent. Emits a JSON array of durable facts extracted from the session transcript; the event's next tool_call persists them.
 ---
 

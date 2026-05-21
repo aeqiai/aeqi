@@ -43,7 +43,15 @@ The script downloads a pre-built binary (Linux amd64 or Darwin arm64) and verifi
 aeqi setup --runtime ollama_agent
 ```
 
-Setup is non-interactive. It writes a starter config to `~/.aeqi/aeqi.toml`, seeds an `assistant` orchestrator agent, and generates a stable dashboard secret. It prints the secret on stdout — copy it; you'll paste it on the dashboard sign-in screen.
+Setup is non-interactive. By default it writes a starter config to
+`~/.aeqi/aeqi.toml`, seeds an `assistant` orchestrator agent under `~/.aeqi/`,
+and generates a stable dashboard secret. It prints the secret on stdout — copy
+it; you'll paste it on the dashboard sign-in screen.
+
+If you run setup from a git checkout, it still keeps runtime files in `~/.aeqi/`
+and prints a note. Use `aeqi setup --workspace --runtime ollama_agent` only when
+you intentionally want repo-local `config/aeqi.toml` and `agents/` files in that
+checkout.
 
 The default model in the rendered config is `llama3.1:8b`. To use the smaller `qwen2.5:0.5b` you just pulled, edit `~/.aeqi/aeqi.toml` and change:
 
@@ -92,15 +100,17 @@ aeqi chat
 
 Type a question. The assistant agent dispatches to the model you configured, streams the response back, and persists the transcript in `~/.aeqi/sessions.db`. No request leaves your machine.
 
-## Step 7 — Try a quest
+## Step 7 — Run a useful first quest
 
-Quests are durable units of work. From the TUI or the dashboard:
+Quests are durable units of work. Start with a small operator artifact that
+captures what you just set up:
 
 ```bash
-aeqi assign "summarize what aeqi does in three sentences" --root assistant
+aeqi assign "Create a concise first-run checklist for this AEQI runtime: include where setup wrote config, which provider/runtime is configured, how to reopen the dashboard, and the next verification command to run." --root assistant
 ```
 
-The assistant agent picks it up, runs the model, and stores the result. Watch progress live:
+The assistant agent picks it up, runs the local model, and stores the result.
+Watch progress live:
 
 ```bash
 aeqi monitor --watch
@@ -110,6 +120,8 @@ aeqi monitor --watch
 
 - Your starter agent is in `~/.aeqi/aeqi.db`.
 - Every chat / quest / event lives in `~/.aeqi/sessions.db` and `~/.aeqi/aeqi.db`.
+- Your first quest result is now a reusable note for reopening and verifying
+  this runtime.
 - Nothing has called an external API. You can `curl` your Ollama at `http://localhost:11434` to confirm it's the only thing handling inference.
 
 ## Where to next

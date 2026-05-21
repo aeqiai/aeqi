@@ -115,7 +115,7 @@ fn print_starting(config_path: &Option<PathBuf>, bind_override: Option<&str>) {
 }
 
 /// Background probe: poll the IPC socket and the web bind until both
-/// respond, or until a 10s deadline elapses. Prints exactly one of
+/// respond, or until a 45s deadline elapses. Prints exactly one of
 /// `Ready` / `Daemon failed to start` / `Web bind never accepted` so
 /// the user knows what state they're in. Never panics — start.rs
 /// already owns the daemon lifecycle.
@@ -127,7 +127,7 @@ async fn probe_readiness(config_path: Option<&PathBuf>, bind_override: Option<&s
     let bind = bind_override.unwrap_or(&config.web.bind).to_string();
     let url = bind_to_url(&bind);
 
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + Duration::from_secs(45);
     let mut daemon_ready = false;
     let mut web_ready = false;
 
@@ -147,16 +147,16 @@ async fn probe_readiness(config_path: Option<&PathBuf>, bind_override: Option<&s
     match (daemon_ready, web_ready) {
         (true, true) => println!("  Ready:    daemon + web up — open {url}"),
         (true, false) => println!(
-            "  WARN:     daemon up but web bind {bind} never accepted within 10s — \
+            "  WARN:     daemon up but web bind {bind} never accepted within 45s — \
              check for port conflicts"
         ),
         (false, true) => println!(
-            "  WARN:     web up but daemon IPC socket {} never appeared — \
+            "  WARN:     web up but daemon IPC socket {} never appeared within 45s — \
              scheduled work won't run",
             socket_path.display()
         ),
         (false, false) => {
-            println!("  ERROR:    neither daemon nor web responded within 10s — see logs above")
+            println!("  ERROR:    neither daemon nor web responded within 45s — see logs above")
         }
     }
 }

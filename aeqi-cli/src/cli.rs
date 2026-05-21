@@ -47,6 +47,9 @@ pub enum Commands {
         /// Default runtime preset (for example: openrouter_agent, anthropic_agent, ollama_agent).
         #[arg(long, default_value = "openrouter_agent")]
         runtime: String,
+        /// Write config and starter agents into the current project checkout.
+        #[arg(long)]
+        workspace: bool,
         /// Install a per-user daemon service after bootstrapping.
         #[arg(long)]
         service: bool,
@@ -553,6 +556,12 @@ pub enum IdeasAction {
 
 #[derive(Subcommand)]
 pub enum EventsAction {
+    /// List configured event handlers.
+    List {
+        /// Restrict the list to handlers visible to this agent.
+        #[arg(long = "agent")]
+        agent: Option<String>,
+    },
     /// Install the two standard schedule events (`daily-digest`,
     /// `weekly-consolidate`) on every existing agent. Idempotent — rows
     /// already present are skipped via the unique index.

@@ -19,7 +19,7 @@ use crate::service::{install_user_service, render_user_service, uninstall_user_s
 pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonAction) -> Result<()> {
     match action {
         DaemonAction::Start => {
-            let (mut config, _) = load_config_with_agents(config_path)?;
+            let (mut config, config_file) = load_config_with_agents(config_path)?;
 
             // ── Boot pre-flight (SA37, AEQI idea 08c226f3) ──
             //
@@ -30,7 +30,7 @@ pub(crate) async fn cmd_daemon(config_path: &Option<PathBuf>, action: DaemonActi
             // init touches disk, plus a minimal env-var presence check
             // (~<1ms total). Both checks are fatal — half-configured
             // boots cost more in lost time than the operator pause.
-            super::preflight::run_boot_preflight(&config)?;
+            super::preflight::run_boot_preflight(&config, &config_file)?;
 
             // Check if already running.
             // In sandboxed environments (bwrap --unshare-pid), PID namespace

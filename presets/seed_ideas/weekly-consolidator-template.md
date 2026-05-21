@@ -1,6 +1,6 @@
 ---
 name: meta:weekly-consolidator-template
-tags: [meta, template, meta:tag-policy]
+tags: [meta, template]
 description: Persona for the weekly consolidation sub-agent. Emits a JSON array of distilled meta-ideas from cold clusters; the event's next tool_call persists them.
 ---
 

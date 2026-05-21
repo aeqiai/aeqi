@@ -4,27 +4,32 @@ use std::path::{Path, PathBuf};
 
 use crate::service::install_user_service;
 
-pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Result<()> {
+pub(crate) async fn cmd_setup(
+    runtime: &str,
+    workspace: bool,
+    service: bool,
+    force: bool,
+) -> Result<()> {
     let starter = starter_runtime(runtime)
         .with_context(|| format!("unknown starter runtime preset: {runtime}"))?;
     let cwd = std::env::current_dir().context("failed to determine current directory")?;
 
-    // Detect workspace: if CWD has config/, agents/, Cargo.toml, or .git, use
-    // CWD as the workspace root. Otherwise default to ~/.aeqi/ so that
-    // curl-install users get a working setup without creating a directory first.
-    let is_workspace = cwd.join("config").exists()
+    // Detect project checkouts for user-facing guidance, but keep setup safe by
+    // default: writing runtime files into a source tree is now an explicit
+    // `--workspace` choice.
+    let cwd_looks_like_workspace = cwd.join("config").exists()
         || cwd.join("agents").exists()
         || cwd.join("Cargo.toml").exists()
         || cwd.join(".git").exists();
 
-    let root = if is_workspace {
+    let root = if workspace {
         cwd.clone()
     } else {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
         home.join(".aeqi")
     };
 
-    let system_name = if is_workspace {
+    let system_name = if workspace {
         cwd.file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("aeqi-workspace")
@@ -33,7 +38,7 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
         "aeqi".to_string()
     };
 
-    let config_dir = if is_workspace {
+    let config_dir = if workspace {
         root.join("config")
     } else {
         root.clone()
@@ -127,6 +132,13 @@ pub(crate) async fn cmd_setup(runtime: &str, service: bool, force: bool) -> Resu
     }
 
     println!("AEQI setup complete.");
+    if cwd_looks_like_workspace && !workspace {
+        println!(
+            "Detected a project checkout; wrote runtime files to ~/.aeqi instead of this repo."
+        );
+        println!("Use `aeqi setup --workspace` when you intentionally want repo-local config.");
+        println!();
+    }
     println!("Workspace: {}", root.display());
     println!("Config: {}", config_path.display());
     println!();

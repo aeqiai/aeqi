@@ -500,6 +500,48 @@ mod tests {
             );
         }
 
+        // Persona templates are markdown prompts, not TOML tag policies. If
+        // they carry meta:tag-policy, TagPolicyCache will try to parse them on
+        // first startup and make a fresh install look broken.
+        for persona in REQUIRED_PERSONAS {
+            let db = store.db.lock().await;
+            let has_policy_tag: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM idea_tags t \
+                     JOIN ideas i ON i.id = t.idea_id \
+                     WHERE i.name = ?1 AND t.tag = 'meta:tag-policy'",
+                    rusqlite::params![persona],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            assert_eq!(
+                has_policy_tag, 0,
+                "persona template '{persona}' must not carry the meta:tag-policy tag"
+            );
+        }
+
+        // The MCP bootstrap parses this idea body directly as TOML. The
+        // default seed is documented with TOML comments only so an empty
+        // opt-in config is still parser-clean.
+        {
+            let db = store.db.lock().await;
+            let body: String = db
+                .query_row(
+                    "SELECT content FROM ideas WHERE name = 'meta:mcp-servers'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            drop(db);
+            let cfg = aeqi_mcp::McpServersConfig::from_toml(&body)
+                .expect("default meta:mcp-servers seed body must parse as TOML");
+            assert!(
+                cfg.servers.is_empty(),
+                "default meta:mcp-servers seed must not register servers"
+            );
+        }
+
         // (T1.11) The default identity + evergreen tag policies opt into
         // prompt-cache breakpoints. This pins the seed-side contract so a
         // file rename or accidental TOML edit surfaces as a test failure.

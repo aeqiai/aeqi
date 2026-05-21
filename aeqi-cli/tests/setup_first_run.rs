@@ -1,5 +1,5 @@
 //! End-to-end coverage for `aeqi setup`: clean home, idempotent re-run,
-//! auth-secret preservation, workspace vs curl-install layout.
+//! auth-secret preservation, and explicit workspace layout.
 //!
 //! Each test boots the debug `aeqi` binary against an isolated `$HOME`
 //! and a neutral cwd, then asserts on the resulting filesystem. The
@@ -168,13 +168,13 @@ fn setup_rerun_preserves_existing_auth_secret() {
 }
 
 #[test]
-fn setup_workspace_mode_writes_to_cwd_not_home() {
+fn setup_inside_checkout_defaults_to_home_layout() {
     let tmp = fresh_layout();
     let home = tmp.path().join("home");
     let cwd = tmp.path().join("work");
 
-    // Mark cwd as a workspace by giving it a Cargo.toml. Setup's detector
-    // checks for any of: config/, agents/, Cargo.toml, .git.
+    // Mark cwd as a workspace by giving it a Cargo.toml. Plain setup should
+    // still avoid writing runtime files into the source checkout.
     std::fs::write(cwd.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
 
     let out = run_aeqi(&home, &cwd, &["setup", "--runtime", "ollama_agent"]);
@@ -185,15 +185,52 @@ fn setup_workspace_mode_writes_to_cwd_not_home() {
         String::from_utf8_lossy(&out.stderr)
     );
 
-    // Workspace mode → starter files land under cwd/config + cwd/agents.
     assert!(
-        cwd.join("config/aeqi.toml").exists(),
-        "workspace mode should write config to cwd/config/aeqi.toml"
+        home.join(".aeqi/aeqi.toml").exists(),
+        "plain setup inside a checkout should write config to ~/.aeqi/aeqi.toml"
     );
     assert!(
-        cwd.join("agents/assistant/agent.md").exists(),
-        "workspace mode should write agents to cwd/agents/<name>"
+        !cwd.join("config/aeqi.toml").exists(),
+        "plain setup should not create repo-local config"
     );
+    assert!(
+        !cwd.join("agents/assistant/agent.md").exists(),
+        "plain setup should not create repo-local agents"
+    );
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("Detected a project checkout"),
+        "setup should explain why it avoided writing into the checkout: {stdout}"
+    );
+    assert!(
+        stdout.contains("aeqi setup --workspace"),
+        "setup should show the explicit repo-local opt-in: {stdout}"
+    );
+}
+
+#[test]
+fn setup_workspace_flag_writes_to_cwd_not_home() {
+    let tmp = fresh_layout();
+    let home = tmp.path().join("home");
+    let cwd = tmp.path().join("work");
+
+    std::fs::write(cwd.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+
+    let out = run_aeqi(
+        &home,
+        &cwd,
+        &["setup", "--runtime", "ollama_agent", "--workspace"],
+    );
+    assert!(
+        out.status.success(),
+        "setup failed: stdout={}\nstderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    assert!(cwd.join("config/aeqi.toml").exists());
+    assert!(cwd.join("agents/assistant/agent.md").exists());
 
     // ~/.aeqi/ should NOT have a config in workspace mode (data_dir is
     // still ~/.aeqi for the secret store, but the toml lives in cwd).

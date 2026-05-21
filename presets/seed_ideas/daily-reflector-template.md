@@ -1,6 +1,6 @@
 ---
 name: meta:daily-reflector-template
-tags: [meta, template, meta:tag-policy]
+tags: [meta, template]
 description: Persona for the daily reflection sub-agent. Emits a JSON array of distilled insights from the last 24h of activity; the event's next tool_call persists them.
 ---
 

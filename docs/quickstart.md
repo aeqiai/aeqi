@@ -30,13 +30,28 @@ The binary is at `target/release/aeqi`.
 
 ## Setup
 
-Run setup. It is non-interactive: it detects your environment (workspace if you're inside a git repo, otherwise `~/.aeqi/`), writes a starter `aeqi.toml`, generates a stable dashboard secret in `[web].auth_secret`, and seeds an `assistant` orchestrator agent under `agents/`.
+Run setup. It is non-interactive and safe to run from a source checkout: by
+default it writes runtime files under `~/.aeqi/`, generates a stable dashboard
+secret in `[web].auth_secret`, and seeds an `assistant` orchestrator agent.
 
 ```bash
 aeqi setup
 ```
 
-Setup prints the dashboard URL and the generated secret — copy the secret; you'll paste it on the dashboard sign-in screen. Runtime SQLite databases are created in `~/.aeqi/` on first daemon boot. No external database is required for the local runtime.
+Setup prints the dashboard URL and the generated secret — copy the secret;
+you'll paste it on the dashboard sign-in screen. Runtime SQLite databases are
+created in `~/.aeqi/` on first daemon boot. No external database is required for
+the local runtime.
+
+When you intentionally want repo-local config for a contributor sandbox, run:
+
+```bash
+aeqi setup --workspace
+```
+
+That writes `config/aeqi.toml` plus starter agents under `agents/` in the
+current checkout. Use it only when those files belong in that workspace; plain
+`aeqi setup` keeps first-run state out of the repository.
 
 Set your provider key (one of):
 
@@ -80,6 +95,24 @@ This default is a single-operator dashboard secret, not hosted SaaS account
 auth. To run multiple local dashboard users, configure `[web.auth] mode =
 "accounts"` with OAuth/SMTP settings in `aeqi.toml`; hosted billing and fleet
 account management remain outside this repository.
+
+## First Useful Quest
+
+Create a small artifact you can keep: ask the assistant to turn your first-run
+state into a contributor checklist.
+
+```bash
+aeqi assign "Create a concise first-run checklist for this AEQI runtime: include where setup wrote config, which provider/runtime is configured, how to reopen the dashboard, and the next verification command to run." --root assistant
+```
+
+Watch it finish:
+
+```bash
+aeqi monitor --watch
+```
+
+The quest and result are persisted in the local runtime databases, so you can
+return to them later from the dashboard or CLI.
 
 ## Development
 

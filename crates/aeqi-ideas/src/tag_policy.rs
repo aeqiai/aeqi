@@ -372,6 +372,14 @@ async fn load_policies(store: &dyn aeqi_core::traits::IdeaStore) -> HashMap<Stri
 
     let mut map: HashMap<String, TagPolicy> = HashMap::with_capacity(ideas.len());
     for idea in ideas {
+        if !is_tag_policy_idea_name(&idea.name) {
+            tracing::debug!(
+                idea_id = %idea.id,
+                name = %idea.name,
+                "TagPolicyCache: skipping meta:tag-policy-tagged idea with non-policy name",
+            );
+            continue;
+        }
         // The idea's `name` is typically `meta:tag-policy:<tag>`. The TOML
         // body SHOULD carry the `tag` field; we fall back to extracting
         // it from the name's suffix if missing.
@@ -395,6 +403,12 @@ async fn load_policies(store: &dyn aeqi_core::traits::IdeaStore) -> HashMap<Stri
         }
     }
     map
+}
+
+fn is_tag_policy_idea_name(name: &str) -> bool {
+    name == "meta:tag-policy"
+        || name.starts_with("meta:tag-policy:")
+        || name.starts_with("meta:tag-policy/")
 }
 
 /// Convenience constructor for callers that want an empty `Arc<TagPolicyCache>`
@@ -595,6 +609,18 @@ pub fn merge_policies(policies: &[TagPolicy]) -> EffectivePolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tag_policy_cache_recognizes_only_policy_meta_idea_names() {
+        assert!(is_tag_policy_idea_name("meta:tag-policy"));
+        assert!(is_tag_policy_idea_name("meta:tag-policy:fact"));
+        assert!(is_tag_policy_idea_name("meta:tag-policy/test-trigger"));
+        assert!(!is_tag_policy_idea_name("meta:tag-policying"));
+        assert!(!is_tag_policy_idea_name("meta:reflector-template"));
+        assert!(!is_tag_policy_idea_name(
+            "meta:weekly-consolidator-template"
+        ));
+    }
 
     #[test]
     fn from_toml_fills_defaults() {

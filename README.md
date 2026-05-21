@@ -80,8 +80,20 @@ aeqi start
 ```
 
 Open `http://127.0.0.1:8400` and sign in with the dashboard secret printed by
-`aeqi setup`. If `doctor --strict` reports Ollama as optional/unhealthy, start
-Ollama and pull the configured model, then run `aeqi doctor --strict` again.
+`aeqi setup`. Plain setup writes first-run state under `~/.aeqi`, even when you
+run it from this repository. Use `aeqi setup --workspace --runtime ollama_agent`
+only when you intentionally want repo-local `config/aeqi.toml` and `agents/`
+files in the checkout.
+
+Once the runtime is up, create a useful first quest:
+
+```bash
+aeqi assign "Create a concise first-run checklist for this AEQI runtime: include where setup wrote config, which provider/runtime is configured, how to reopen the dashboard, and the next verification command to run." --root assistant
+aeqi monitor --watch
+```
+
+If `doctor --strict` reports Ollama as optional/unhealthy, start Ollama and pull
+the configured model, then run `aeqi doctor --strict` again.
 
 ### Existing hosted TRUST
 
@@ -137,10 +149,12 @@ aeqi doctor --strict
 aeqi start
 ```
 
-`aeqi setup` is non-interactive. It writes config, creates a data directory,
-seeds starter runtime state, creates a secrets directory, and prints the
-dashboard secret. `aeqi start` runs the daemon, HTTP/WebSocket server, and
-embedded dashboard in one process, defaulting to `http://127.0.0.1:8400`.
+`aeqi setup` is non-interactive. By default it writes config under `~/.aeqi`,
+creates a data directory, seeds starter runtime state, creates a secrets
+directory, and prints the dashboard secret. In a project checkout, pass
+`--workspace` only when you want repo-local `config/aeqi.toml` and `agents/`
+files. `aeqi start` runs the daemon, HTTP/WebSocket server, and embedded
+dashboard in one process, defaulting to `http://127.0.0.1:8400`.
 
 The default dashboard auth mode is single-operator secret auth. Multi-user
 account auth exists in the runtime, but a self-host operator must configure
