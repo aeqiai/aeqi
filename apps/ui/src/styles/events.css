@@ -208,17 +208,20 @@
 }
 
 /* Tone stripes — one per lifecycle group. Same vocabulary as the
-   overview row chips: graphite for runtime/webhooks (info) and warning
-   for routines (scheduled cadence). Canvas + overview share one
-   semantic ladder; no parallel accent palette. */
+   overview row chips and group-head status strip: progress violet for
+   runtime/webhooks (the agent's own loop is live, watching), review
+   warmth for routines (scheduled cadence, paused between fires).
+   Canvas + overview share one semantic ladder; no parallel accent
+   palette. Migrated 2026-05-21 from --color-info/--color-warning to
+   the canonical --state-* token family. */
 .event-canvas-node--tone-runtime::before {
-  background: var(--color-accent);
+  background: var(--state-progress);
 }
 .event-canvas-node--tone-webhooks::before {
-  background: var(--color-info);
+  background: var(--state-progress);
 }
 .event-canvas-node--tone-routines::before {
-  background: var(--color-warning);
+  background: var(--state-review);
 }
 .event-canvas-node--tone-tool::before {
   background: var(--border);
@@ -776,22 +779,28 @@
   font-size: var(--font-size-micro);
   font-weight: 500;
 }
+/* Group-head status strip chips ("11 Armed", "6 Fired", "6 Traced") —
+   migrated 2026-05-21 from --color-info/--color-success/--color-warning
+   to the canonical --state-* token family so the group-head chips and
+   the row-foot meta-values speak the same lifecycle vocabulary. Armed
+   reads as live/watching (progress violet), fired/trace-complete as
+   settled (verified jade), trace-pending as paused/idle (review warmth). */
 .events-overview-group-status-item--armed {
-  color: var(--color-info);
-  background: var(--color-info-bg);
+  color: var(--state-progress);
+  background: var(--state-progress-bg);
 }
 .events-overview-group-status-item--fired,
 .events-overview-group-status-item--trace-complete {
-  color: var(--color-success);
-  background: var(--color-success-bg);
+  color: var(--state-verified);
+  background: var(--state-verified-bg);
 }
 .events-overview-group-status-item--dormant {
   color: var(--color-text-muted);
   background: var(--bg-row);
 }
 .events-overview-group-status-item--trace-pending {
-  color: var(--color-warning);
-  background: var(--color-warning-bg);
+  color: var(--state-review);
+  background: var(--state-review-bg);
 }
 
 /* ── Add-event form — guided transport picker ──────────────────────── */
