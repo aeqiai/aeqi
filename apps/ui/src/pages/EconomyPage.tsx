@@ -267,8 +267,9 @@ export default function EconomyPage() {
     [poolRows, normalizedSearch, poolKindFilter],
   );
   // Role types present in the visible openings set, stable order. Chip strip
-  // renders only when >= 1 type is present so the row stays calm when one
-  // tier dominates today's vacancies.
+  // renders only when >= 2 types are present — with a single type the strip
+  // is a no-op "All | <type>" toggle and the Type column dot already carries
+  // the palette, so the row collapses to remove duplicated signal.
   const roleTypesPresent = useMemo<RoleType[]>(
     () =>
       (["owner", "director", "operational", "advisor"] as RoleType[]).filter((t) =>
@@ -419,7 +420,7 @@ export default function EconomyPage() {
                 onChange={setTrustVisibilityFilter}
               />
             )}
-            {activeTab === "roles" && roleTypesPresent.length > 0 && (
+            {activeTab === "roles" && roleTypesPresent.length > 1 && (
               <RoleTypeChips
                 roleTypes={roleTypesPresent}
                 value={roleTypeFilter}
