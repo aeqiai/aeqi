@@ -204,18 +204,17 @@
 }
 
 /* Tone stripes — one per lifecycle group. Same vocabulary as the
-   overview row chips: graphite for runtime (the agent's own loop),
-   jade `--state-verified` for webhooks (settled, incoming traffic),
-   warmth `--state-review` for routines (paused/scheduled cadence).
-   Canvas + overview share one accent ladder; no parallel orange/gold. */
+   overview row chips: graphite for runtime/webhooks (info) and warning
+   for routines (scheduled cadence). Canvas + overview share one
+   semantic ladder; no parallel accent palette. */
 .event-canvas-node--tone-runtime::before {
   background: var(--color-accent);
 }
 .event-canvas-node--tone-webhooks::before {
-  background: var(--state-verified);
+  background: var(--color-info);
 }
 .event-canvas-node--tone-routines::before {
-  background: var(--state-review);
+  background: var(--color-warning);
 }
 .event-canvas-node--tone-tool::before {
   background: var(--border);
