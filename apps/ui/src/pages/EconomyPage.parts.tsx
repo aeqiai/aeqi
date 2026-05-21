@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
-import { Badge, Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
+import { Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
 import type { Role, RoleType, Trust } from "@/lib/types";
 import {
@@ -22,6 +22,20 @@ export interface RoleOpeningRow {
   trust: Trust;
   role: Role;
 }
+
+/** Role-type → dot state mapping. The chip strip narrows the table by this
+ * axis; the row reinforces it with the same dot grammar used by the other
+ * Economy columns (TableStatus) so eye and filter agree:
+ * - owner       → jade   (`done`)        — founder tier, verified ownership
+ * - director    → indigo (`in_progress`) — active governance
+ * - advisor     → amber  (`in_review`)   — pending / consultative
+ * - operational → muted  (`backlog`)     — line execution, no special signal */
+const ROLE_TYPE_DOT_STATE: Record<RoleType, MetricStatusState> = {
+  owner: "done",
+  director: "in_progress",
+  advisor: "in_review",
+  operational: "backlog",
+};
 
 /** Column factory for the open-roles table. Mirrors `makePoolColumns` so
  * the EconomyPage shell stays under the file-length cap. */
@@ -45,9 +59,10 @@ export function makeRoleColumns(
       key: "kind",
       header: "Type",
       cell: (row) => (
-        <Badge variant="muted" size="sm">
-          {row.role.role_type}
-        </Badge>
+        <TableStatus
+          state={ROLE_TYPE_DOT_STATE[row.role.role_type]}
+          label={ROLE_TYPE_CHIP_LABEL[row.role.role_type]}
+        />
       ),
       width: "130px",
     },
