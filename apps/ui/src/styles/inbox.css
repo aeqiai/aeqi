@@ -249,8 +249,7 @@
 /* Awaiting status dot — adopts the canonical `.quest-status-dot--in_review`
  * grammar (7px / 999px / warmth). The icon+label pair the strip used to
  * carry compressed into dot+label — same `in_review` semantic, two-element
- * header instead of three, less visual debt. `margin-left` is the small
- * inset from the strip's left padding (horizontal nudge, not vertical).
+ * header instead of three, less visual debt.
  *
  * c12 — anchor the dot to the LABEL's optical center, not the body's
  * bounding-box center. The strip's parent uses `align-items: center`,
@@ -261,9 +260,19 @@
  * `margin-top` pins the dot to the first-line line-box, then a 1px
  * upward translate trims the residual cap-height offset (label glyphs
  * have descenders pulling the line-box center below the visual cap
- * mid-point). One rule, both render branches, no JSX fork. */
+ * mid-point). One rule, both render branches, no JSX fork.
+ *
+ * c15 — drop the `margin-left: var(--space-1)` inset. c14 retired the
+ * strip's bottom hairline, leaving the header's hairline as the single
+ * chrome line between header and thread. With the doubled-boundary noise
+ * gone, the 4px dot inset reads as arbitrary — it was sized against a
+ * boundary that no longer exists. Letting the dot sit flush at the
+ * strip's left content edge aligns its left edge with the header
+ * title's left edge (both rest on the same `--space-5` page gutter).
+ * The header title and the in_review dot now share a single vertical
+ * axis: header → (hairline) → dot+label → thread, one reading column.
+ * Removes one ad-hoc nudge; aligns to a real grid line. */
 .inbox-awaiting-strip-dot {
-  margin-left: var(--space-1);
   align-self: flex-start;
   margin-top: var(--space-1);
   transform: translateY(-1px);
