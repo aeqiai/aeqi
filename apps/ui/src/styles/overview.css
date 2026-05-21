@@ -362,10 +362,27 @@
    from c11) so the CTA crosses its midpoint just as the address pill
    resolves, and the whole bar verifies as a single gesture. Single
    iteration, opacity only — color stays indigo throughout — gated on
-   prefers-reduced-motion: no-preference. */
+   prefers-reduced-motion: no-preference.
+
+   c14 (2026-05-21): every other piece of the bar has now earned an
+   entrance — the runtime dot fades when going live (c12), the Solana
+   mark fades to jade (c8), the pending and address pills both ride
+   trust-hero-bar-enter on mount (c9/c10/c11), and the live CTA arrow
+   fades into indigo (c13). The static-state CTA ("Launch a TRUST")
+   was the lone holdout: it appeared at full opacity on first paint
+   while the rest of the bar gently seated in. Mirror the address
+   pill's mount entrance (c10) on the non-live CTA so the bar's first
+   impression seats as one composed gesture instead of one element
+   snapping ahead of its neighbours. Provisioning gets the same beat —
+   its tone is transient, the entrance reads the same. Pure mount-time
+   CSS, no JS trigger; single iteration, opacity only, gated. */
 @media (prefers-reduced-motion: no-preference) {
   .trust-hero-bar-cta[data-tone="live"] {
     animation: trust-solana-verify var(--transition-normal) 100ms 1 forwards;
+  }
+  .trust-hero-bar-cta:not([data-tone="live"]) {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 100ms 1 forwards;
   }
 }
 .trust-hero-bar-cta:hover {
