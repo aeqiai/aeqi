@@ -526,10 +526,15 @@
   min-width: 0;
 }
 /* The trigger pin carries the event's phase:
-   armed = info (live, watching) · fired = success (has history) ·
-   dormant = muted ring (operator-disabled). The lifecycle group — runtime
-   vs webhooks vs routines — is already carried by the group-section
-   header dot above, so the row pin is free to express phase instead. */
+   armed = --state-progress (live, watching) ·
+   fired = --state-verified (has history, settled) ·
+   dormant = muted ring (operator-disabled).
+   Migrated 2026-05-21 from --color-info/--color-success to the canonical
+   --state-* family so the row's phase echo speaks the same status
+   vocabulary as Quests' in_progress/done columns. The lifecycle group —
+   runtime vs webhooks vs routines — is already carried by the
+   group-section header dot above, so the row pin is free to express
+   phase instead. */
 .events-overview-row-pin {
   width: 4px;
   height: 14px;
@@ -539,10 +544,10 @@
   flex-shrink: 0;
 }
 .events-overview-row-pin--armed {
-  background: var(--color-info);
+  background: var(--state-progress);
 }
 .events-overview-row-pin--fired {
-  background: var(--color-success);
+  background: var(--state-verified);
 }
 .events-overview-row-pin--dormant {
   background: transparent;
@@ -614,17 +619,17 @@
   font-variant-numeric: tabular-nums;
 }
 .events-overview-row-meta-item--armed .events-overview-row-meta-value {
-  color: var(--color-info);
+  color: var(--state-progress);
 }
 .events-overview-row-meta-item--fired .events-overview-row-meta-value {
-  color: var(--color-success);
+  color: var(--state-verified);
 }
 .events-overview-row-meta-item--dormant .events-overview-row-meta-value,
 .events-overview-row-meta-item--trace-empty .events-overview-row-meta-value {
   color: var(--color-text-muted);
 }
 .events-overview-row-meta-item--trace-complete .events-overview-row-meta-value {
-  color: var(--color-success);
+  color: var(--state-verified);
 }
 .events-overview-row-meta-item--trace-pending .events-overview-row-meta-value {
   color: var(--color-warning);
@@ -700,23 +705,25 @@
 
 /* Phase echo on the "N fires" / "never" label — render as a tokenized
    chip pair so the phase reads consistently across the row (pin + chip
-   agree). Armed gets violet on tinted ground (live, watching). Fired
-   gets ink on subtle ground (settled, has history) — same chip register
-   as armed so the pair reads as one vocabulary, just shifted in tone.
-   Tabular numerals so the chip width doesn't jitter as the count grows. */
+   agree). Armed gets --state-progress (violet, live, watching). Fired
+   gets --state-verified (jade, settled, has history) — same chip
+   register as armed so the pair reads as one vocabulary, just shifted
+   in tone. Tabular numerals so the chip width doesn't jitter as the
+   count grows. Migrated 2026-05-21 from --color-info/--color-success
+   to the canonical --state-* token family per shared-pack mandate. */
 .events-overview-row-fires {
   padding: 1px 7px;
   border-radius: var(--radius-sm);
   letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="armed"] .events-overview-row-fires {
-  color: var(--color-info);
-  background: var(--color-info-bg);
+  color: var(--state-progress);
+  background: var(--state-progress-bg);
   letter-spacing: 0.02em;
 }
 .events-overview-row[data-phase="fired"] .events-overview-row-fires {
-  color: var(--color-success);
-  background: var(--color-success-bg);
+  color: var(--state-verified);
+  background: var(--state-verified-bg);
   font-weight: 500;
 }
 
