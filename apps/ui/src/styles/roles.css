@@ -1346,10 +1346,18 @@
    are NOT what the pill is naming) while ghost chips glow up with
    the implicit-destination titles. Transition matches the rest of
    the inspector's 0.12s ease motion vocabulary. */
+/* Hover-in delay (80ms) on the emphasis-flip mirrors c13's chip-hover
+   grace: a brief cursor sweep across the small "+n implicit" pill
+   shouldn't half-trigger the explicit-chip fade on its release edge.
+   The c12 JS grace already covers hover-OUT with a 200ms tail, so the
+   in-delay only applies while the class is being applied — when the
+   class is removed, the chip falls back to its base 0ms transition
+   and snaps back to rest in lockstep with the ghost-chip retract. */
 .role-inspector-field--implicit-hover .role-inspector-chip--explicit {
   background: var(--color-card-subtle);
   color: var(--color-text-muted);
   opacity: 0.55;
+  transition-delay: 80ms;
 }
 .role-inspector-field--implicit-hover .role-inspector-chip--ghost {
   opacity: 1;
