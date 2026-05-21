@@ -51,6 +51,7 @@ export {
   readHolders,
   readVestingPositions,
   readFundingRequests,
+  readFundingPrimitive,
   deriveCapTableMintPda,
 } from "./equity";
 export type {
@@ -59,6 +60,10 @@ export type {
   TokenHolder,
   FundingRequestAccount,
   FundingRequestWithPda,
+  FundingPrimitive,
+  BondingCurveAccount,
+  CommitmentSaleAccount,
+  ExitAccount,
 } from "./equity";
 export {
   readGovernanceConfigs,

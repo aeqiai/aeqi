@@ -266,3 +266,82 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+/* Iter-10: ActivatedRoundLedger — collapsible commit/proceeds summary
+   for activated funding rounds. Lives below the row's meta line. */
+.equity-funding-declared__ledger {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Iter-10: the ghost-Button primitive ships with chrome padding sized
+   for full-width chips. Trim it here so the chevron + headline reads as
+   a quiet inline disclosure, not a button-shaped block, while still
+   reusing the primitive's hover + focus styling. */
+.equity-funding-declared__ledgerToggle {
+  align-self: flex-start;
+  padding-inline: 0;
+  padding-block: var(--space-1);
+  min-height: 0;
+  height: auto;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-normal);
+  gap: var(--space-2);
+}
+
+.equity-funding-declared__ledgerToggle:hover .equity-funding-declared__ledgerHeadline {
+  color: var(--color-text);
+}
+
+.equity-funding-declared__ledgerChevron {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  width: 0.9em;
+  display: inline-block;
+}
+
+.equity-funding-declared__ledgerHeadline {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.equity-funding-declared__ledgerBody {
+  padding: var(--space-3);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-md);
+}
+
+.equity-funding-declared__ledgerMeta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.equity-funding-declared__ledgerMeta div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.equity-funding-declared__ledgerMeta dt {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.equity-funding-declared__ledgerMeta dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.equity-funding-declared__ledgerMono {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}

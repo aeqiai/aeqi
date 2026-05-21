@@ -67,3 +67,52 @@
   max-width: 140px;
   min-width: 80px;
 }
+
+/* Iter-10: roll-up totals strip. Five tiles in a single row, wrap on
+   narrow viewports so the surface stays readable. Lives below the
+   Table — separated by a generous gap, no hairline (per page-system
+   rule). Each tile is a paper card-on-card so totals read as
+   "summary surface" against the Table's chrome zone. */
+.vesting-totals {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .vesting-totals {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.vesting-totals__tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-card-subtle);
+  border-radius: var(--radius-md);
+}
+
+.vesting-totals__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.vesting-totals__value {
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.vesting-totals__value--live {
+  color: var(--color-success);
+}
+
+.vesting-totals__value--muted {
+  color: var(--color-text-muted);
+}

@@ -83,3 +83,37 @@
 .share-control-status--error {
   color: var(--color-error);
 }
+
+/* Iter-10: preview-and-confirm body. Lives inside ConfirmDialog, so we
+   inherit its modal chrome; the body here only owns rhythm + emphasis. */
+.share-control-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.share-control-preview__line {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.share-control-preview__line strong {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.share-control-preview__mono {
+  font-family: var(--font-mono);
+  background: var(--color-card-subtle);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.share-control-preview__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}

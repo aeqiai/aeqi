@@ -41,10 +41,16 @@ import {
 import type { IdlAccounts } from "@coral-xyz/anchor";
 
 import { getConnection } from "./client";
-import { getFundingProgram, getTokenProgram, getVestingProgram } from "./programs";
-import { deriveTokenModuleStatePda, deriveTokenMintPda } from "./pdas";
+import {
+  getFundingProgram,
+  getTokenProgram,
+  getUnifuturesProgram,
+  getVestingProgram,
+} from "./programs";
+import { AEQI_UNIFUTURES_PROGRAM_ID, deriveTokenModuleStatePda, deriveTokenMintPda } from "./pdas";
 import type { AeqiFunding } from "./generated/types/aeqi_funding";
 import type { AeqiToken } from "./generated/types/aeqi_token";
+import type { AeqiUnifutures } from "./generated/types/aeqi_unifutures";
 import type { AeqiVesting } from "./generated/types/aeqi_vesting";
 
 /** Typed alias for the TokenModuleState account as returned by Anchor's fetch. */
@@ -252,4 +258,97 @@ export async function readFundingRequests(
     publicKey: r.publicKey,
     account: r.account as FundingRequestAccount,
   }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Funding-round ledger reads — iter-10                                */
+/* ------------------------------------------------------------------ */
+
+/** Typed alias for the BondingCurve account from the Unifutures program. */
+export type BondingCurveAccount = IdlAccounts<AeqiUnifutures>["bondingCurve"];
+
+/** Typed alias for the CommitmentSale account from the Unifutures program. */
+export type CommitmentSaleAccount = IdlAccounts<AeqiUnifutures>["commitmentSale"];
+
+/** Typed alias for the Exit account from the Unifutures program. */
+export type ExitAccount = IdlAccounts<AeqiUnifutures>["exit"];
+
+/**
+ * Result of reading the underlying Unifutures primitive for an activated
+ * FundingRequest. Each kind carries its native shape; consumers
+ * pattern-match on `kind` to extract the right counters.
+ *
+ * Returned shape mirrors the on-chain account exactly so the UI doesn't
+ * have to re-derive counters when more fields are surfaced. `null` ⇒ the
+ * primitive_id on the FundingRequest doesn't resolve to an account on
+ * the configured cluster (typical for honest-stub activations the
+ * platform handler hasn't backfilled yet).
+ */
+export type FundingPrimitive =
+  | { kind: "commitment_sale"; address: PublicKey; account: CommitmentSaleAccount }
+  | { kind: "bonding_curve"; address: PublicKey; account: BondingCurveAccount }
+  | { kind: "exit"; address: PublicKey; account: ExitAccount };
+
+/**
+ * Resolve the underlying Unifutures primitive backing an activated
+ * FundingRequest. PDA derivation mirrors `aeqi-unifutures`:
+ *
+ *   - kind 0 (CommitmentSale): `[b"sale",  trust, sale_id]`
+ *   - kind 1 (BondingCurve):   `[b"curve", trust, curve_id]`
+ *   - kind 2 (Exit):           `[b"exit",  trust, exit_id]`
+ *
+ * `primitive_id` lives on the FundingRequest and is set on activation by
+ * the platform to the sale_id / curve_id / exit_id of the newly-created
+ * primitive. Pre-activation it's all-zeros — caller must filter to
+ * status == 1 (Activated) before calling this.
+ *
+ * Soft-fails to `null` on any fetch error so the UI can render a quiet
+ * "ledger not yet visible" state without crashing the section. The
+ * platform's activation route is itself an honest stub (see
+ * `api.fundingActivate`), so this read may return null for sessions
+ * after the toggle-flip until the real activation handler ships.
+ */
+export async function readFundingPrimitive(
+  trustPda: string | PublicKey,
+  kind: number,
+  primitiveId: Uint8Array | number[],
+): Promise<FundingPrimitive | null> {
+  const trustKey = typeof trustPda === "string" ? new PublicKey(trustPda) : trustPda;
+  const idBytes = primitiveId instanceof Uint8Array ? primitiveId : Uint8Array.from(primitiveId);
+  if (idBytes.length !== 32 || idBytes.every((b) => b === 0)) return null;
+
+  const program = getUnifuturesProgram();
+
+  const seedPrefix = kind === 0 ? "sale" : kind === 1 ? "curve" : kind === 2 ? "exit" : null;
+  if (!seedPrefix) return null;
+
+  const [pda] = PublicKey.findProgramAddressSync(
+    [new TextEncoder().encode(seedPrefix), trustKey.toBytes(), idBytes],
+    AEQI_UNIFUTURES_PROGRAM_ID,
+  );
+
+  try {
+    if (kind === 0) {
+      const account = (await program.account.commitmentSale.fetchNullable(
+        pda,
+      )) as CommitmentSaleAccount | null;
+      if (!account) return null;
+      return { kind: "commitment_sale", address: pda, account };
+    }
+    if (kind === 1) {
+      const account = (await program.account.bondingCurve.fetchNullable(
+        pda,
+      )) as BondingCurveAccount | null;
+      if (!account) return null;
+      return { kind: "bonding_curve", address: pda, account };
+    }
+    const account = (await program.account.exit.fetchNullable(pda)) as ExitAccount | null;
+    if (!account) return null;
+    return { kind: "exit", address: pda, account };
+  } catch {
+    // Common cause on stub clusters: program not deployed at the
+    // expected ID. Treat as "ledger not visible yet" rather than a
+    // section-blocking error.
+    return null;
+  }
 }

@@ -165,6 +165,44 @@ export function VestingSection({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const now = useMemo(() => BigInt(Math.floor(Date.now() / 1000)), [refreshTick]);
 
+  // Iter-10: roll-up totals across every position in the section.
+  //   - granted: sum(account.totalAmount)
+  //   - vested:  sum(vested_at(now)) including FDV-unlock short-circuit
+  //   - claimed: sum(account.claimedAmount)
+  //   - claimable: sum(max(0, vested - claimed)) skipping contribution-gated
+  //   - lockedRemaining: granted - vested (still under schedule)
+  // Same on-chain math the per-row Claim column uses, so the totals line
+  // reads "what the page is currently telling me, summed". Memoised on
+  // (rows, now) so the section doesn't recompute on unrelated re-renders.
+  const totals = useMemo(() => {
+    let granted = 0n;
+    let vested = 0n;
+    let claimed = 0n;
+    let claimable = 0n;
+    for (const row of rows) {
+      const total = bnLikeToBigInt(row.account.totalAmount);
+      const claimedAmt = bnLikeToBigInt(row.account.claimedAmount);
+      const vestedAmt = vestedAt(
+        total,
+        claimedAmt,
+        bnLikeToBigInt(row.account.startTime),
+        bnLikeToBigInt(row.account.cliffTime),
+        bnLikeToBigInt(row.account.endTime),
+        Boolean(row.account.fdvMilestoneUnlocked),
+        now,
+      );
+      const contributionRequired = bnLikeToBigInt(row.account.contributionRequired) > 0n;
+      const contributionPaid = Boolean(row.account.contributionPaid);
+      const gated = contributionRequired && !contributionPaid;
+      granted += total;
+      claimed += claimedAmt;
+      vested += vestedAmt;
+      if (!gated && vestedAmt > claimedAmt) claimable += vestedAmt - claimedAmt;
+    }
+    const lockedRemaining = granted > vested ? granted - vested : 0n;
+    return { granted, vested, claimed, claimable, lockedRemaining };
+  }, [rows, now]);
+
   const handleClaim = async (row: VestingPositionWithPda) => {
     const key = row.publicKey.toBase58();
     setRowStates((s) => ({ ...s, [key]: { result: null, pending: true } }));
@@ -370,6 +408,52 @@ export function VestingSection({
         }
         ariaLabel="Vesting positions"
       />
+      {rows.length > 0 && (
+        /* Iter-10: roll-up totals strip. Mirrors the cap-table "% of
+           supply" column rhythm — tabular-nums, label-on-top, value-
+           below. Five tiles: granted · vested · claimed · claimable now ·
+           locked remaining. Helps the operator answer "how much
+           obligation does this TRUST currently carry?" without summing
+           rows by eye. */
+        <div className="vesting-totals" role="group" aria-label="Vesting roll-up totals">
+          <div className="vesting-totals__tile">
+            <span className="vesting-totals__label">Granted</span>
+            <span className="vesting-totals__value">
+              {formatBaseUnits(totals.granted, decimals)}
+            </span>
+          </div>
+          <div className="vesting-totals__tile">
+            <span className="vesting-totals__label">Vested</span>
+            <span className="vesting-totals__value">
+              {formatBaseUnits(totals.vested, decimals)}
+            </span>
+          </div>
+          <div className="vesting-totals__tile">
+            <span className="vesting-totals__label">Claimed</span>
+            <span className="vesting-totals__value">
+              {formatBaseUnits(totals.claimed, decimals)}
+            </span>
+          </div>
+          <div className="vesting-totals__tile">
+            <span className="vesting-totals__label">Claimable now</span>
+            <span
+              className={
+                totals.claimable > 0n
+                  ? "vesting-totals__value vesting-totals__value--live"
+                  : "vesting-totals__value vesting-totals__value--muted"
+              }
+            >
+              {formatBaseUnits(totals.claimable, decimals)}
+            </span>
+          </div>
+          <div className="vesting-totals__tile">
+            <span className="vesting-totals__label">Locked remaining</span>
+            <span className="vesting-totals__value">
+              {formatBaseUnits(totals.lockedRemaining, decimals)}
+            </span>
+          </div>
+        </div>
+      )}
     </PageSection>
   );
 }

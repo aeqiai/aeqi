@@ -322,3 +322,12 @@
   color: var(--color-text-muted);
   text-align: right;
 }
+
+/* Iter-10: snapshot affordance hint — quiet helper copy above the two
+   copy buttons. Matches the .holder-drawer__emptyVesting register. */
+.holder-drawer__snapshotHint {
+  margin: 0 0 var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}

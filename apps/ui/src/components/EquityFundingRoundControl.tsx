@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Badge, Button, EmptyState, Input, Modal, PageSection, Select } from "@/components/ui";
 import { api } from "@/lib/api";
+import { ActivatedRoundLedger } from "@/components/equity/ActivatedRoundLedger";
 import type { FundingRequestWithPda } from "@/solana";
 import "./EquityFundingRoundControl.css";
 
@@ -558,6 +559,16 @@ function DeclaredRoundsList({
                       {optimisticSig.slice(0, 6)}…{optimisticSig.slice(-4)}
                     </span>
                   </div>
+                )}
+                {effectiveStatus === 1 && (
+                  /* Iter-10: live commit history. For Activated rounds we
+                     read the underlying Unifutures primitive (sale /
+                     curve / exit) and render the on-chain counters
+                     beside the row. Click expands a small ledger
+                     summary; the primitive's full ledger lives on
+                     explorer for now (sigs-for-address paging is a
+                     follow-up). */
+                  <ActivatedRoundLedger trustId={trustId} round={r} />
                 )}
               </li>
             );

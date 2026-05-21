@@ -178,6 +178,10 @@ export function HolderDrawer({
 }: HolderDrawerProps) {
   const { mintTo, transferTo, vestingRecipient } = useEquityPrefill();
   const [copied, setCopied] = useState(false);
+  // Iter-10: snapshot copy feedback. Distinct from `copied` (which
+  // tracks the address-only copy on the hero row) so the two affordances
+  // can confirm independently.
+  const [snapshotCopied, setSnapshotCopied] = useState<"json" | "csv" | null>(null);
 
   const ownerAddress = holder?.owner.toBase58() ?? "";
   const tokenAccountAddress = holder?.tokenAccount.toBase58() ?? "";
@@ -255,6 +259,168 @@ export function HolderDrawer({
     }
     return { totalGranted, totalClaimable, totalClaimed };
   }, [targeting, now]);
+
+  // Iter-10: full-holder snapshot. JSON shape covers everything the
+  // drawer currently surfaces — balance, % of supply, token account,
+  // vesting roll-up + per-position breakdown, recent on-chain activity,
+  // and mint-history rows. Useful for due-diligence sharing where the
+  // recipient needs the holder's complete state at a point in time. All
+  // values are on-chain public data (no PII concerns).
+  //
+  // Two output shapes:
+  //   - JSON: full nested structure, the default. Easy to diff, easy to
+  //     re-render in another tool.
+  //   - CSV: flat tabular shape — one section per logical block, blank
+  //     line separator. Sufficient for "paste into a spreadsheet to
+  //     reconcile against an off-chain investor list".
+  //
+  // Build once when the drawer renders (cheap), copy on click.
+  const snapshot = useMemo(() => {
+    if (!holder) return null;
+    const positions = targeting.map((p, idx) => {
+      const total = bnLikeToBigInt(p.account.totalAmount);
+      const claimed = bnLikeToBigInt(p.account.claimedAmount);
+      const vested = vestedAt(
+        total,
+        claimed,
+        bnLikeToBigInt(p.account.startTime),
+        bnLikeToBigInt(p.account.cliffTime),
+        bnLikeToBigInt(p.account.endTime),
+        Boolean(p.account.fdvMilestoneUnlocked),
+        now,
+      );
+      const claimable = vested > claimed ? vested - claimed : 0n;
+      const contributionRequired = bnLikeToBigInt(p.account.contributionRequired) > 0n;
+      const contributionPaid = Boolean(p.account.contributionPaid);
+      return {
+        index: idx + 1,
+        position_pda: p.publicKey.toBase58(),
+        total: formatBaseUnits(total, decimals),
+        claimed: formatBaseUnits(claimed, decimals),
+        vested: formatBaseUnits(vested, decimals),
+        claimable: formatBaseUnits(claimable, decimals),
+        start_time: bnLikeToBigInt(p.account.startTime).toString(),
+        cliff_time: bnLikeToBigInt(p.account.cliffTime).toString(),
+        end_time: bnLikeToBigInt(p.account.endTime).toString(),
+        end_human: formatUnixTime(bnLikeToBigInt(p.account.endTime)),
+        contribution_required: contributionRequired,
+        contribution_paid: contributionPaid,
+        fdv_milestone_unlocked: Boolean(p.account.fdvMilestoneUnlocked),
+      };
+    });
+    const curveActivity = holderTrades.map((t) => {
+      let tokenAmount: bigint;
+      let quoteAmount: bigint;
+      try {
+        tokenAmount = BigInt(t.token_amount);
+        quoteAmount = BigInt(t.quote_amount);
+      } catch {
+        tokenAmount = 0n;
+        quoteAmount = 0n;
+      }
+      return {
+        kind: t.kind,
+        token_amount: formatBaseUnits(tokenAmount, decimals),
+        quote_amount_usdc: formatLamports(quoteAmount),
+        signature: t.signature_b58,
+      };
+    });
+    const mintRows = inflowRows.map((r) => ({
+      kind: r.kind,
+      amount: r.amount === null ? null : formatBaseUnits(r.amount, decimals),
+      source: r.kind === "transfer-in" ? (r.source ?? null) : null,
+      slot: r.slot,
+      block_time: r.blockTime,
+      signature: r.signature,
+    }));
+    return {
+      generated_at_iso: new Date().toISOString(),
+      holder: ownerAddress,
+      token_account: tokenAccountAddress,
+      balance: formatBaseUnits(holder.amount, decimals),
+      balance_base_units: holder.amount.toString(),
+      decimals,
+      percent_of_supply: formatPercent(holder.amount, totalSupply),
+      total_supply_base_units: totalSupply.toString(),
+      vesting_summary: {
+        position_count: targeting.length,
+        total_granted: formatBaseUnits(rollup.totalGranted, decimals),
+        total_claimed: formatBaseUnits(rollup.totalClaimed, decimals),
+        total_claimable_now: formatBaseUnits(rollup.totalClaimable, decimals),
+      },
+      vesting_positions: positions,
+      recent_curve_activity: curveActivity,
+      mint_history: mintRows,
+    };
+  }, [
+    holder,
+    targeting,
+    holderTrades,
+    inflowRows,
+    rollup.totalGranted,
+    rollup.totalClaimed,
+    rollup.totalClaimable,
+    now,
+    decimals,
+    totalSupply,
+    ownerAddress,
+    tokenAccountAddress,
+  ]);
+
+  const handleCopySnapshotJson = () => {
+    if (!snapshot) return;
+    const text = JSON.stringify(snapshot, null, 2);
+    void navigator.clipboard.writeText(text);
+    setSnapshotCopied("json");
+    window.setTimeout(() => setSnapshotCopied(null), 1800);
+  };
+  const handleCopySnapshotCsv = () => {
+    if (!snapshot) return;
+    const lines: string[] = [];
+    lines.push("# aeqi holder snapshot");
+    lines.push(`generated_at_iso,${snapshot.generated_at_iso}`);
+    lines.push(`holder,${snapshot.holder}`);
+    lines.push(`token_account,${snapshot.token_account}`);
+    lines.push(`balance,${snapshot.balance}`);
+    lines.push(`percent_of_supply,${snapshot.percent_of_supply}`);
+    lines.push("");
+    lines.push("# vesting_positions");
+    lines.push(
+      "index,position_pda,total,claimed,vested,claimable,end_human,contribution_required,contribution_paid",
+    );
+    for (const p of snapshot.vesting_positions) {
+      lines.push(
+        [
+          p.index,
+          p.position_pda,
+          p.total,
+          p.claimed,
+          p.vested,
+          p.claimable,
+          p.end_human,
+          p.contribution_required,
+          p.contribution_paid,
+        ].join(","),
+      );
+    }
+    lines.push("");
+    lines.push("# recent_curve_activity");
+    lines.push("kind,token_amount,quote_amount_usdc,signature");
+    for (const t of snapshot.recent_curve_activity) {
+      lines.push([t.kind, t.token_amount, t.quote_amount_usdc, t.signature].join(","));
+    }
+    lines.push("");
+    lines.push("# mint_history");
+    lines.push("kind,amount,source,slot,block_time,signature");
+    for (const m of snapshot.mint_history) {
+      lines.push(
+        [m.kind, m.amount ?? "", m.source ?? "", m.slot, m.block_time ?? "", m.signature].join(","),
+      );
+    }
+    void navigator.clipboard.writeText(lines.join("\n") + "\n");
+    setSnapshotCopied("csv");
+    window.setTimeout(() => setSnapshotCopied(null), 1800);
+  };
 
   if (!holder) return null;
 
@@ -539,6 +705,28 @@ export function HolderDrawer({
           </Button>
           <Button variant="secondary" size="sm" onClick={handleVest}>
             Grant vesting
+          </Button>
+        </div>
+      </div>
+
+      <div className="holder-drawer__section">
+        {/* Iter-10: full-holder snapshot copy. JSON is the canonical
+            shape (preserves vesting structure); CSV is the spreadsheet-
+            friendly variant for reconciling against off-chain investor
+            lists. Both shapes carry exactly what's on screen — balance,
+            vesting roll-up, per-position breakdown, recent on-chain
+            activity, and mint history — at the moment of the click. */}
+        <div className="holder-drawer__sectionLabel">Share snapshot</div>
+        <p className="holder-drawer__snapshotHint">
+          Copy everything this drawer shows — balance, vesting positions, on-chain activity — for
+          due-diligence sharing.
+        </p>
+        <div className="holder-drawer__actions">
+          <Button variant="secondary" size="sm" onClick={handleCopySnapshotJson}>
+            {snapshotCopied === "json" ? "Copied JSON ✓" : "Copy as JSON"}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleCopySnapshotCsv}>
+            {snapshotCopied === "csv" ? "Copied CSV ✓" : "Copy as CSV"}
           </Button>
         </div>
       </div>
