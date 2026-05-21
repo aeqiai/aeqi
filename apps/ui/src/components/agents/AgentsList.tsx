@@ -41,9 +41,9 @@ export default function AgentsList({
         sortable: true,
         sortAccessor: (a) => a.name.toLowerCase(),
         cell: (a) => (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <span className="agents-list-name">
             <AgentAvatar name={a.name} src={a.avatar} />
-            <strong style={{ fontWeight: 500 }}>{a.name}</strong>
+            <span>{a.name}</span>
           </span>
         ),
       },
@@ -53,7 +53,7 @@ export default function AgentsList({
         width: "22%",
         sortable: true,
         sortAccessor: (a) => (a.model ?? "").toLowerCase(),
-        cell: (a) => a.model ?? <span style={{ color: "var(--color-text-muted)" }}>—</span>,
+        cell: (a) => a.model ?? <span className="agents-list-muted">—</span>,
       },
       {
         key: "status",
@@ -77,7 +77,7 @@ export default function AgentsList({
         width: "16%",
         sortable: true,
         sortAccessor: (a) => (a.last_active ? Date.parse(a.last_active) : 0),
-        cell: (a) => relativeTime(a.last_active) || "—",
+        cell: (a) => relativeTime(a.last_active) || <span className="agents-list-muted">—</span>,
       },
       {
         key: "spend",
@@ -91,11 +91,9 @@ export default function AgentsList({
           return (
             <span
               title={`Lifetime inference spend: ${formatSpendUsd(spend)}`}
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontVariantNumeric: "tabular-nums",
-                color: spend > 0 ? "var(--color-text-primary)" : "var(--color-text-muted)",
-              }}
+              className={
+                spend > 0 ? "agents-list-spend" : "agents-list-spend agents-list-spend--zero"
+              }
             >
               {formatSpendUsd(spend)}
             </span>

@@ -497,6 +497,35 @@
   opacity: 0.6;
 }
 
+/* Agents list cells — tokenised cell-level primitives consumed by
+   `AgentsList.tsx`. Pulls inline `style={...}` objects off the column
+   defs so the table inherits the Notion-minimal Table register from
+   `components/ui/Table.module.css` (no hairlines, hover paints
+   `--color-card-elevated`) without per-row literal hex / weights.
+
+   Name cell rides at weight 500 — heavier than the body row default
+   so the agent identity reads as the primary affordance, matching the
+   `QuestActiveCard` title register. Avatar + label live on the same
+   baseline with an 8px gap that matches the liveness dot register. */
+.agents-list-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.agents-list-muted {
+  color: var(--color-text-muted);
+}
+.agents-list-spend {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+.agents-list-spend--zero {
+  color: var(--color-text-muted);
+}
+
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
  * Header + snapshot + content row with inspector. The toolbar above
  * the content uses the shared `.ideas-list-head` grammar so the page
