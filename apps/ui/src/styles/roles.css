@@ -526,6 +526,28 @@
   color: var(--color-text-muted);
 }
 
+/* Agents-table column-header band — tinted slab register scoped to
+   `.agents-list` only. The shared Notion-minimal Table primitive paints
+   thead transparent so headers float on paper; on the Agents page the
+   thead row sits on a `--bg-row` substrate (the same slab vocabulary
+   the Quest kanban columns use) so the column band reads as a unified
+   header surface anchoring the rows below. Keeps Notion typography
+   (tiny uppercase muted via Table.module.css); only the substrate is
+   page-scoped, no font / weight / spacing override on the labels.
+   Rounded top-corners match the body row register; the bottom edge
+   meets the first row flush so the slab + table read as one shape. */
+.agents-list table thead th {
+  background: var(--bg-row);
+}
+.agents-list table thead th:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+.agents-list table thead th:last-child {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
  * Header + snapshot + content row with inspector. The toolbar above
  * the content uses the shared `.ideas-list-head` grammar so the page
