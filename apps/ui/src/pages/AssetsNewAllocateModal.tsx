@@ -28,6 +28,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
+import { formatCurrency, formatNumber } from "@/lib/i18n";
 import { Badge, Banner, Button, Inline, Input, Modal, Stack } from "@/components/ui";
 
 import { bytesIdLabel, bytesToHex, formatTokenAmount, toBigInt } from "./AssetsSections";
@@ -173,7 +174,7 @@ export function NewAllocateModal({ parent, trustId, onClose, onAllocated }: NewA
             hint={
               amountStr.length > 0 && !amountValid
                 ? "Amount must be a positive number."
-                : `Max ${remainingHuman.toFixed(2)} USDC available from parent.`
+                : `Max ${formatNumber(remainingHuman, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC available from parent.`
             }
             disabled={submitting}
             required
@@ -230,7 +231,7 @@ export function NewAllocateModal({ parent, trustId, onClose, onAllocated }: NewA
                   : undefined
               }
             >
-              Allocate {amountValid ? `$${amountNum.toFixed(2)}` : "sub-budget"}
+              Allocate {amountValid ? formatCurrency(amountNum) : "sub-budget"}
             </Button>
           </Inline>
         </Stack>
