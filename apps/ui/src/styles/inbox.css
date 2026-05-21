@@ -344,7 +344,24 @@
    `--state-review-bg` (rgba(200,152,96,0.08), an 8% wash), so the
    keyboard delta lands as the ring, not as a second color shift.
    Do NOT split these into separate blocks to "add" a focus ring —
-   the ring is already there via the primitive. (Investigated c18.) */
+   the ring is already there via the primitive. (Investigated c18.)
+
+   c19 — extended the audit across the entire inbox in_review-state
+   surface (events.css being out of lane, the equivalent sweep happens
+   here). `--state-review` is consumed in inbox.css in exactly two
+   places: this rule (a `<Button variant="ghost">` primitive, focus
+   ring inherited as documented above) and `.sessions-rail-awaiting-dot`
+   (line 546+, a decorative `<span>` — no focus state needed). Every
+   other raw `<button>` in the inbox surface (the 2 chip buttons in
+   MeInboxPage.tsx, the 8 raw buttons across InboxFilterPopover.tsx
+   and InboxSortPopover.tsx) uses shared `ideas-toolbar-btn` /
+   `ideas-filter-row` / `ideas-list-chip` classes whose focus styles
+   live in layout.css (out of the inbox lane) and none of them
+   consume `--state-review` — they speak the chrome tier vocabulary,
+   not the in_review tier. Net: the in_review focus-ring contract
+   in inbox is single-source (this rule), already correct, and
+   the c18 cliff-note above is the canonical reference. No raw
+   `<button>` inside inbox.css needs a focus-visible addition. */
 .inbox-awaiting-strip-action {
   flex-shrink: 0;
   white-space: nowrap;
