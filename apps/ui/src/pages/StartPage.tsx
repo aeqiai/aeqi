@@ -434,9 +434,18 @@ interface StepIntoTrustCardProps {
 function StepIntoTrustCard({ onNewTrust, onBrowseBlueprints }: StepIntoTrustCardProps) {
   return (
     <article className="home-card home-card--step">
-      <header className="home-card-head">
-        <span className="home-card-eyebrow">New</span>
-      </header>
+      {/* c20: the `<header>` wrapper was layout boilerplate. AllTrusts'
+          head earns the flex wrapper because it pairs an eyebrow with a
+          right-anchored "View all" link (`margin-left: auto`). Step's
+          head only ever carried one child — the "New" eyebrow — so the
+          flex container had nothing to space and read as a slot
+          pretending to be a header (same anti-pattern c17/c19 swept on
+          AllTrusts, but here with no conditional escape needed). The
+          card itself is `flex-direction: column; gap: 20px`, so the
+          eyebrow sitting as a direct child of `<article>` lands in the
+          exact same visual position the header occupied, just without
+          the wrapper. */}
+      <span className="home-card-eyebrow">New</span>
       <div className="home-step-body">
         <h3 className="home-step-title">Step into a TRUST.</h3>
         <p className="home-step-hint">Start your own or use a blueprint.</p>
