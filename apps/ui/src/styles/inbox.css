@@ -332,7 +332,19 @@
    ghost concentrates the family `--state-review` language to ONE
    earned moment — hover/focus, where the amber wash + ink doubles as
    the discoverable call-to-action signal. Aligns with the ratio rule
-   (2% accent earned by scarcity) and the prune test from c10. */
+   (2% accent earned by scarcity) and the prune test from c10.
+
+   :hover and :focus-visible share the amber-wash + amber-ink
+   declaration deliberately — the warmth treatment is the same earned
+   moment regardless of input device. Keyboard focus stays optically
+   distinct because the Button primitive's `.button:focus-visible`
+   rule (Button.module.css:23) layers `box-shadow: var(--focus-ring)`
+   on top: a 2px `--color-card` inner ring + 4px graphite-alpha outer
+   ring. The inner whisper-paper ring reads cleanly against
+   `--state-review-bg` (rgba(200,152,96,0.08), an 8% wash), so the
+   keyboard delta lands as the ring, not as a second color shift.
+   Do NOT split these into separate blocks to "add" a focus ring —
+   the ring is already there via the primitive. (Investigated c18.) */
 .inbox-awaiting-strip-action {
   flex-shrink: 0;
   white-space: nowrap;
