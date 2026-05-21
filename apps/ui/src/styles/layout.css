@@ -4072,29 +4072,32 @@
 .ideas-list-sort-btn:disabled {
   cursor: default;
 }
-/* "+ N more" / "show less" affordance for the tag chip row — same shape
-   family as a ghost chip but signalled as an affordance via dashed
-   border and accent color on hover. Keeps the tag row capped at a
-   readable line without amputating the long tail. */
+/* "+ N more" / "show less" affordance for the tag chip row — register-
+   matched to its `.ideas-tag-chip` neighbors (same padding, same 11px,
+   same `--state-hover` resting fill, same `--bg-row` lift on hover) so
+   the strip reads as one rhythmic row of affordances rather than a
+   wall of chips with a dead-text trailer. Resting color stays muted to
+   keep "expand the long tail" subordinate to the named tags. */
 .ideas-list-tag-more {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 2px 8px 2px 7px;
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
   color: var(--color-text-muted);
-  background: transparent;
+  background: var(--state-hover);
   border: 0;
   border-radius: var(--radius-sm);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
-    color 0.15s,
-    background 0.15s;
+    color 0.12s ease,
+    background 0.12s ease;
 }
 .ideas-list-tag-more:hover {
-  color: var(--accent);
-  background: var(--state-hover);
+  color: var(--color-text-primary);
+  background: var(--bg-row);
 }
 
 /* ------------------------------------------------------------------
