@@ -149,6 +149,14 @@
   line-height: 1.25;
 }
 
+.launch-section-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .launch-section-copy {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -192,19 +200,12 @@
 .launch-blueprint-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-5);
+  gap: var(--space-1);
+  padding: var(--space-4);
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-lg);
   background: var(--color-card-muted);
   color: var(--color-text-primary);
-}
-
-.launch-blueprint-summary-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
 }
 
 .launch-blueprint-summary-name {
@@ -223,7 +224,7 @@
 }
 
 .launch-blueprint-summary-meta {
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -238,9 +239,9 @@
   min-width: 0;
   text-align: left;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: stretch;
-  gap: var(--space-4);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
   min-height: 74px;
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--color-border);
@@ -277,6 +278,33 @@
   box-shadow: 0 0 0 3px var(--color-warmth-bg);
 }
 
+.launch-operation-radio {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-card);
+}
+
+.launch-operation-radio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.launch-operation-card.is-selected .launch-operation-radio {
+  border-color: var(--color-accent);
+}
+
+.launch-operation-card.is-selected .launch-operation-radio-dot {
+  background: var(--color-accent);
+}
+
 .launch-operation-title {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -299,20 +327,6 @@
   justify-content: center;
   gap: var(--space-1);
   text-align: right;
-}
-
-.launch-operation-selected {
-  min-height: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-full);
-  background: var(--color-accent-bg);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-3xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
 }
 
 .launch-operation-price {
@@ -697,10 +711,11 @@
 
 @media (max-width: 520px) {
   .launch-operation-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .launch-operation-side {
+    grid-column: 2;
     align-items: flex-start;
     text-align: left;
   }

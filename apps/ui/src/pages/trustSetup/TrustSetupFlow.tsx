@@ -1,4 +1,4 @@
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Banner, Button, EmptyState, Input, Loading } from "@/components/ui";
 import { countBlueprintStructures } from "@/lib/blueprintStructures";
@@ -105,16 +105,16 @@ function BlueprintSection({
   return (
     <section className="launch-form-step" aria-labelledby="launch-blueprint-title">
       <div className="launch-form-step-body">
+        <div className="launch-section-row">
+          <h2 id="launch-blueprint-title" className="launch-section-title">
+            Blueprint
+          </h2>
+          <Link to={blueprintPath} className="launch-inline-link">
+            View
+            <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
+          </Link>
+        </div>
         <div className="launch-blueprint-summary">
-          <div className="launch-blueprint-summary-head">
-            <span id="launch-blueprint-title" className="launch-section-title">
-              Blueprint
-            </span>
-            <Link to={blueprintPath} className="launch-inline-link">
-              Blueprints
-              <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
-            </Link>
-          </div>
           <span className="launch-blueprint-summary-name">{blueprint.name}</span>
           <span className="launch-blueprint-summary-copy">
             Start with your first agent, ownership structure, and operating layer.
@@ -196,6 +196,9 @@ function OperationsSection({
               onClick={choice.onSelect}
               aria-checked={choice.selected}
             >
+              <span className="launch-operation-radio" aria-hidden="true">
+                <span className="launch-operation-radio-dot" />
+              </span>
               <span className="launch-operation-main">
                 <span className="launch-option-head">
                   <span className="launch-operation-title">{choice.title}</span>
@@ -203,12 +206,6 @@ function OperationsSection({
                 </span>
               </span>
               <span className="launch-operation-side">
-                {choice.selected && (
-                  <span className="launch-operation-selected">
-                    <Check size={12} strokeWidth={2} />
-                    Selected
-                  </span>
-                )}
                 <span className="launch-operation-price">{choice.price}</span>
                 {choice.secondaryPrice && (
                   <span className="launch-operation-price-sub">{choice.secondaryPrice}</span>
