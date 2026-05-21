@@ -138,8 +138,8 @@ export function LaunchingReveal({
       ariaBusy={busy}
       pitch={{
         eyebrow: "LAUNCH A TRUST",
-        lines: ["Ownership signs.", "Operations start.", "The TRUST exists."],
-        lead: "One confirmation flow for every TRUST you create.",
+        lines: ["Programmable", "company", "vehicle."],
+        lead: "A TRUST aligns stakeholders inside one programmable company, so ownership and operations move toward the same outcome: creating value.",
       }}
     >
       <h1 className="auth-heading">

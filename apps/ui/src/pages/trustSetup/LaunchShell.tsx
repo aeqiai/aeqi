@@ -10,8 +10,8 @@ export interface LaunchPitchContent {
 
 const DEFAULT_PITCH: LaunchPitchContent = {
   eyebrow: "LAUNCH A TRUST",
-  lines: ["Own first.", "Operate when", "you are ready."],
-  lead: "Blueprint. Name. Operations. Governance comes after creation.",
+  lines: ["Programmable", "company", "vehicle."],
+  lead: "A TRUST aligns stakeholders inside one programmable company, so ownership and operations move toward the same outcome: creating value.",
 };
 
 function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) {
