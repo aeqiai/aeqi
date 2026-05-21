@@ -400,6 +400,23 @@ aeqi_vesting    = "DCZKRmxjUyAZ3nptbkCBnAGqTe4E7xTvXfLbnf95uj7y"
     }
 
     #[test]
+    fn manifest_rejects_duplicate_pubkeys() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("dup-pubkey.json");
+        write(
+            &path,
+            r#"{ "cluster": "localnet", "programs": [
+              { "name": "aeqi_trust", "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV" },
+              { "name": "aeqi_factory", "pubkey": "CCbs4TCqE6FXmRdyLexx2rSSHAShymWrrR9QWeJUJbXV" }
+            ] }"#,
+        );
+        let err = Manifest::load(&path).expect_err("duplicate pubkeys should fail");
+        let msg = format!("{err}");
+        assert!(msg.contains("declares pubkey"), "{}", msg);
+        assert!(msg.contains("twice"), "{}", msg);
+    }
+
+    #[test]
     fn manifest_rejects_malformed_idl_hashes() {
         let tmp = TempDir::new().unwrap();
         let path = tmp.path().join("bad-idl-hash.json");
