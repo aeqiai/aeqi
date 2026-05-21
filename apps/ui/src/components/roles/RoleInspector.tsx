@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Bot, Copy, Check, FileText, Landmark, Pencil, Mail } from "lucide-react";
 import RoundAvatar from "@/components/RoundAvatar";
@@ -188,6 +188,40 @@ export default function RoleInspector({
   // implicit-destination ghost chips glow into view — so the count's
   // referents are visually identified without leaving the inspector.
   const [hoveringImplicitPill, setHoveringImplicitPill] = useState(false);
+  // 200ms hover-out grace mirrors the c11 pattern on `.role-node-edge-hint`
+  // in RoleNode.tsx: a quick mouse jitter between the small "+n implicit"
+  // pill and the adjacent explicit chips used to strobe the ghost-chip
+  // fade — mouseLeave fired as the cursor crossed into a few pixels of
+  // padding, dropping `hoveringImplicitPill` for a frame before mouseEnter
+  // re-fired. The delay swallows those sub-perceptual gaps; the
+  // cancel-on-re-enter guarantees a sustained hover holds the ghosts
+  // without a stale clear landing later. Cleared on unmount so an
+  // unmounting inspector mid-grace doesn't leave a pending setter.
+  const implicitHoverGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (implicitHoverGraceRef.current !== null) {
+        clearTimeout(implicitHoverGraceRef.current);
+        implicitHoverGraceRef.current = null;
+      }
+    };
+  }, []);
+  const handleImplicitPillEnter = useCallback(() => {
+    if (implicitHoverGraceRef.current !== null) {
+      clearTimeout(implicitHoverGraceRef.current);
+      implicitHoverGraceRef.current = null;
+    }
+    setHoveringImplicitPill(true);
+  }, []);
+  const handleImplicitPillLeave = useCallback(() => {
+    if (implicitHoverGraceRef.current !== null) {
+      clearTimeout(implicitHoverGraceRef.current);
+    }
+    implicitHoverGraceRef.current = setTimeout(() => {
+      implicitHoverGraceRef.current = null;
+      setHoveringImplicitPill(false);
+    }, 200);
+  }, []);
   const copy = (value: string, fieldId: string) => {
     navigator.clipboard.writeText(value);
     setCopiedField(fieldId);
@@ -531,10 +565,10 @@ export default function RoleInspector({
                     title={`Also implicitly delegates to ${childRoles.implicitChildren
                       .map((c) => c.title)
                       .join(", ")}`}
-                    onMouseEnter={() => setHoveringImplicitPill(true)}
-                    onMouseLeave={() => setHoveringImplicitPill(false)}
-                    onFocus={() => setHoveringImplicitPill(true)}
-                    onBlur={() => setHoveringImplicitPill(false)}
+                    onMouseEnter={handleImplicitPillEnter}
+                    onMouseLeave={handleImplicitPillLeave}
+                    onFocus={handleImplicitPillEnter}
+                    onBlur={handleImplicitPillLeave}
                     tabIndex={0}
                   >
                     +{childRoles.implicitChildren.length} implicit
