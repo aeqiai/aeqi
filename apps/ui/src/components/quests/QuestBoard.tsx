@@ -17,7 +17,6 @@ import QuestBoardEmptyState from "./QuestBoardEmptyState";
 import QuestBoardNoMatches from "./QuestBoardNoMatches";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
 import QuestBoardScope from "./QuestBoardScope";
-import QuestStatusSummary from "./QuestStatusSummary";
 import {
   importQuestFromMarkdown,
   isDirectChildOf,
@@ -26,14 +25,6 @@ import {
   type QuestFilter,
 } from "./agentQuestsHelpers";
 
-/**
- * Board view shown when no quest is selected.
- *
- * Toolbar — search + filter popover + plus button (navigates to the
- * `QuestCanvas` at `/<agentId>/quests/new`). Below: four kanban columns
- * (Todo / In Progress / Blocked / Done). Done is capped to 10
- * most-recent to keep the column from blowing out after months of work.
- */
 export default function QuestBoard({
   agentId: _agentId,
   resolvedAgentId,
@@ -261,6 +252,7 @@ export default function QuestBoard({
     }
     return buckets;
   }, [sortedVisibleQuests, optimistic]);
+  const scopeSummary = { columns, grouped, collapsed: collapsedCols, onToggle: toggleColumn };
   const hasSearch = search.trim().length > 0;
   const hasBoardNarrowing = scopeFilter !== "all" || !!boardScopeId;
 
@@ -453,7 +445,6 @@ export default function QuestBoard({
           <QuestsViewPopover view={view} onChange={onViewChange} />
         </div>
       </div>
-      <QuestStatusSummary columns={columns} grouped={grouped} />
       <QuestBoardScope
         scope={boardScopeQuest}
         childCount={
@@ -465,6 +456,7 @@ export default function QuestBoard({
             : null
         }
         projectCount={scopeOptions.length}
+        summary={scopeSummary}
         dragging={dragging}
         dropActive={scopeDropActive}
         onDropActiveChange={setScopeDropActive}

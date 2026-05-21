@@ -2965,10 +2965,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: var(--space-2);
-  margin: var(--space-3) var(--space-5) 0;
+  margin: 0;
   padding: var(--space-2);
   border-radius: var(--radius-sm);
-  background: var(--bg-row);
+  background: var(--bg-subtle);
 }
 
 .quest-status-summary-item {
@@ -2980,6 +2980,14 @@
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--color-card);
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    opacity 0.12s ease;
 }
 
 .quest-status-summary-item[data-status="in_progress"] {
@@ -2992,6 +3000,24 @@
 
 .quest-status-summary-item[data-status="done"] {
   background: var(--state-verified-bg);
+}
+
+.quest-status-summary-item:hover {
+  background: var(--color-card-elevated);
+}
+
+.quest-status-summary-item:focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: -2px;
+}
+
+.quest-status-summary-item[data-collapsed] {
+  background: transparent;
+  opacity: 0.58;
+}
+
+.quest-status-summary-item[data-collapsed]:hover {
+  opacity: 0.82;
 }
 
 .quest-status-summary-label {
@@ -3024,7 +3050,6 @@
 @media (max-width: 620px) {
   .quest-status-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-inline: var(--space-4);
   }
 }
 
@@ -3285,6 +3310,10 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.quest-scope-summary {
+  margin: 0 8px 8px;
 }
 
 /* The slot sits inside the slab with a small inset so the slab

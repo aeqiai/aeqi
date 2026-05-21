@@ -2,6 +2,14 @@ import { ArrowUp, FolderOpen, X } from "lucide-react";
 import { Button, Icon, IconButton } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import QuestActiveCard from "./QuestActiveCard";
+import QuestStatusSummary from "./QuestStatusSummary";
+
+type ScopeSummary = {
+  columns: Array<{ status: QuestStatus; label: string }>;
+  grouped: Record<QuestStatus, Quest[]>;
+  collapsed: Partial<Record<QuestStatus, boolean>>;
+  onToggle: (status: QuestStatus) => void;
+};
 
 /**
  * Scope band — its own kanban-column-style slab above the board.
@@ -32,6 +40,7 @@ export interface QuestBoardScopeProps {
   childCount: number;
   parentScopeId: string | null;
   projectCount: number;
+  summary?: ScopeSummary;
   dragging: string | null;
   dropActive: boolean;
   onDropActiveChange: (next: boolean) => void;
@@ -55,6 +64,7 @@ export default function QuestBoardScope({
   childCount,
   parentScopeId,
   projectCount,
+  summary,
   dragging,
   dropActive,
   onDropActiveChange,
@@ -119,6 +129,16 @@ export default function QuestBoardScope({
           </span>
         )}
       </header>
+      {summary && (
+        <div className="quest-scope-summary">
+          <QuestStatusSummary
+            columns={summary.columns}
+            grouped={summary.grouped}
+            collapsed={summary.collapsed}
+            onToggle={summary.onToggle}
+          />
+        </div>
+      )}
       <div
         className="quest-scope-slot"
         data-empty={!scope || undefined}
