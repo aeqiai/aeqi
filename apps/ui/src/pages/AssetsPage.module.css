@@ -747,3 +747,151 @@
 .budgetSpendLink:focus-visible {
   color: var(--color-accent);
 }
+
+/* Iter-6: hover crosshair on the USD treasury curve. The SVG container
+   keeps a positioning context so the floating tooltip can anchor to a
+   percentage x-offset matching the cursor inside the viewBox. */
+.activityStrip {
+  position: relative;
+}
+
+.activityStripSvg[data-hoverable] {
+  cursor: crosshair;
+}
+
+.activityStripTooltip {
+  position: absolute;
+  /* Approx top of the SVG region (label header + gap) — clamped via
+     calc so the tooltip never collides with the sparkline itself. */
+  top: calc(var(--space-6) + var(--space-1));
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.activityStripTooltipDate {
+  color: var(--color-text-muted);
+}
+
+.activityStripTooltipValue {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Iter-6: dedicated empty-state card for the Holdings section when the
+   vault has not yet received any deposit. The EmptyState component
+   handles the title + description + action stacking; this wrapper just
+   provides the card padding + center alignment so it reads as a
+   deliberate surface rather than a missing table. */
+.holdingsEmpty {
+  text-align: left;
+}
+
+/* Iter-6: budget hierarchy view. When `parent_budget_id != 0`, render
+   the child budget rows nested under their parent. The hierarchy
+   indicator is a left-rail glyph + indentation so the grouping is
+   visible at a glance without restructuring the existing Table
+   primitive. */
+.budgetHierarchyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.budgetHierarchyHead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.budgetHierarchyCount {
+  color: var(--color-text-muted);
+}
+
+.budgetHierarchyChildren {
+  /* Indent the child rows so the hierarchy reads at a glance. No
+     hairlines — the spacing is the affordance, per the no-hairlines
+     design rule. The header row's "Sub-budgets of …" label carries
+     the grouping signal. */
+  padding-left: var(--space-4);
+  margin-left: var(--space-2);
+}
+
+/* Iter-6: per-module detail modal — opened when a module row in the
+   Vault identity section is clicked. The modal reuses the Modal
+   primitive; this wrapper just gives the recent-signature list a
+   readable shape. */
+.moduleDetailHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.moduleDetailSubtitle {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.moduleSignatureList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moduleSignatureItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-muted);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+
+.moduleSignatureWhen {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.moduleRowButton {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: inherit;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
+  display: block;
+  border-radius: var(--radius-md);
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.moduleRowButton:hover,
+.moduleRowButton:focus-visible {
+  background: var(--color-card-muted);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-border) inset;
+}

@@ -41,6 +41,18 @@ import {
   type TableColumn,
 } from "@/components/ui";
 
+/**
+ * Iter-6: dedicated empty-state copy for "vault has no holdings yet".
+ * Lifted to module scope so both the section and any future host that
+ * reuses the message can share one source of truth. The CTA points to
+ * the same vault address that the Capitalize section above renders —
+ * giving the operator a deliberate exit ("inspect what landed") instead
+ * of a silent table.
+ */
+const HOLDINGS_EMPTY_TITLE = "No tokens in the vault yet";
+const HOLDINGS_EMPTY_DESCRIPTION =
+  "Treasury holdings appear here the moment any SPL token lands in the vault PDA. Until the first deposit confirms, this surface stays empty on purpose — we don't fabricate placeholder rows.";
+
 import {
   CopyableMono,
   formatTokenAmount,
@@ -383,6 +395,39 @@ export function HoldingsSection({
 
   const expandedRow = expanded ? (rows.find((r) => r.mint === expanded) ?? null) : null;
 
+  // Iter-6: empty-state card. The legacy table renders `empty` inside the
+  // table body which reads as "we couldn't find any" — true, but a fresh
+  // Foundation TRUST has *no holdings at all*, and the silent table is
+  // ambiguous between "broken" and "deliberately empty". When there are
+  // zero rows, we surface a dedicated EmptyState card with a vault
+  // explorer CTA so the page reads intentional. The composition bar and
+  // detail-row machinery sit below the empty card for the future case
+  // where deposits show up.
+  if (allRows.length === 0 && vaultAuthority) {
+    return (
+      <PageSection title="Holdings" description={description}>
+        <Card padding="lg" className={styles.holdingsEmpty}>
+          <EmptyState
+            title={HOLDINGS_EMPTY_TITLE}
+            description={HOLDINGS_EMPTY_DESCRIPTION}
+            action={
+              <a
+                href={explorerAddressUrl(vaultAuthority)}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={styles.capitalizeExplorer}
+                aria-label="Open vault address in Solana explorer"
+              >
+                <Icon icon={ExternalLink} size="xs" />
+                <span>View vault on explorer</span>
+              </a>
+            }
+          />
+        </Card>
+      </PageSection>
+    );
+  }
+
   return (
     <PageSection title="Holdings" description={description} actions={sectionActions}>
       <TreasuryCompositionBar rows={allRows} totalUsd={totalUsd} />
@@ -393,8 +438,8 @@ export function HoldingsSection({
         onRowClick={(row) => setExpanded((cur) => (cur === row.mint ? null : row.mint))}
         empty={
           <EmptyState
-            title="No holdings yet"
-            description="Send USDC or any other SPL token to the vault deposit address above to capitalize the TRUST."
+            title="No holdings match this filter"
+            description="Toggle the zero-balance filter above to surface historical mints with no current balance."
           />
         }
         ariaLabel="Vault holdings"

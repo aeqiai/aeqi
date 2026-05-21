@@ -6,12 +6,14 @@ import { useDecodedVaultActivity } from "@/hooks/useDecodedVaultActivity";
 import { useIncorporation } from "@/hooks/useIncorporation";
 import { useTokenMetas } from "@/hooks/useTokenMetas";
 import { useVaultActivity } from "@/hooks/useVaultActivity";
+import type { ModuleAccountWithPda } from "@/solana";
 import type { BudgetAccountWithPda } from "@/solana/assets";
 import { Banner, Button, EmptyState, Loading, Page, PageBody, PageHeader } from "@/components/ui";
 
 import { BudgetsSection, VestingPositionsSection, type TokenMetaMap } from "./AssetsSections";
 import { BudgetDetailModal } from "./AssetsBudgetModal";
 import { NewBudgetModal } from "./AssetsNewBudgetModal";
+import { ModuleDetailModal } from "./AssetsModuleModal";
 import { VaultActivitySection } from "./AssetsActivity";
 import { VaultIdentitySection } from "./AssetsExtras";
 import { CapitalizeSection, HoldingsSection, TreasuryOverviewSection } from "./AssetsOverview";
@@ -78,6 +80,9 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
 
   const [budgetDetail, setBudgetDetail] = useState<BudgetAccountWithPda | null>(null);
   const [newBudgetOpen, setNewBudgetOpen] = useState(false);
+  /** Iter-6: click-through on a Vault identity module row opens the
+   *  ModuleDetailModal with ACL bits + recent signatures. */
+  const [moduleDetail, setModuleDetail] = useState<ModuleAccountWithPda | null>(null);
   /** Active "send" prefill — populated when an operator clicks Send on a
    *  holdings row or the Capitalize Withdraw action. Drives the inline
    *  WithdrawFormShell beneath the Holdings table. */
@@ -192,6 +197,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           trustAuthority={incorporation.trust?.authority.toBase58() ?? null}
           moduleInitialized={!!vault.moduleState}
           modules={incorporation.modules ?? []}
+          onSelectModule={(m) => setModuleDetail(m)}
         />
         <VaultActivitySection
           signatures={vaultActivity.data?.signatures ?? []}
@@ -242,6 +248,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
             refetch();
           }}
         />
+        <ModuleDetailModal module={moduleDetail} onClose={() => setModuleDetail(null)} />
       </PageBody>
     </Page>
   );

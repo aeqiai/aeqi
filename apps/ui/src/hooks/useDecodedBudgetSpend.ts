@@ -33,6 +33,7 @@ import {
   type ParsedInstruction,
   type PartiallyDecodedInstruction,
 } from "@solana/web3.js";
+import bs58 from "bs58";
 
 import { getConnection } from "@/solana/client";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
@@ -108,10 +109,40 @@ function buildResolver(
 }
 
 /**
+ * Decode a partially-decoded SPL Memo instruction's data into the human
+ * UTF-8 string. The RPC delivers Memo instruction data as base58 when it
+ * can't (or doesn't) parse the program shape — the bytes themselves
+ * still carry a plain UTF-8 payload, so we run them through
+ * `bs58.decode` and `TextDecoder("utf-8", { fatal: true })`. If the
+ * payload isn't valid UTF-8 we return `null` rather than surface raw
+ * base58 to the operator (which reads as garbled mojibake — strictly
+ * worse than no memo).
+ */
+function decodeMemoBytes(data: string): string | null {
+  try {
+    const bytes = bs58.decode(data);
+    if (bytes.length === 0) return null;
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    const text = decoder.decode(bytes);
+    // Strip NUL + C0 control bytes that occasionally pad short memos.
+    // We never trim real printable whitespace; .trim() handles edges.
+    // The regex is intentional — `no-control-regex` is the wrong check
+    // for byte-payload sanitization where the control range IS the target.
+    // eslint-disable-next-line no-control-regex
+    const cleaned = text.replace(/[\x00-\x1f\x7f]+/g, "").trim();
+    return cleaned.length > 0 ? cleaned : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pull a memo string out of either a parsed memo instruction (memo lives
- * on `parsed.info` as a string) or the partially-decoded form (data is
- * base58 / base64 depending on the RPC). When neither survives, return
- * `null` rather than guessing.
+ * on `parsed.info` as a string) or the partially-decoded form. When the
+ * partially-decoded shape is the only one available we run the base58
+ * data through `bs58.decode` → UTF-8; iter-5 surfaced the raw base58
+ * blob ("3aS9F2QbvR…") which is unreadable, iter-6 surfaces the actual
+ * memo text. Returns `null` rather than guessing when nothing decodes.
  */
 function extractMemo(ixs: Array<ParsedInstruction | PartiallyDecodedInstruction>): string | null {
   for (const ix of ixs) {
@@ -129,17 +160,14 @@ function extractMemo(ixs: Array<ParsedInstruction | PartiallyDecodedInstruction>
         }
       }
     } else {
-      // partially-decoded — the data is base58; decode best-effort.
+      // partially-decoded — the data string is base58 (web3.js default).
+      // Decode the raw bytes and interpret as UTF-8 so the user-facing
+      // memo lands as plain text. If the bytes aren't valid UTF-8 we
+      // return null (the memo wasn't really a string).
       const data = ix.data;
       if (typeof data === "string" && data.length > 0) {
-        try {
-          // best-effort latin1; memo's typically UTF-8 but base58 decode
-          // would need bs58 import. We surface the encoded form rather
-          // than fabricating a clean string.
-          return data;
-        } catch {
-          /* fall through */
-        }
+        const decoded = decodeMemoBytes(data);
+        if (decoded) return decoded;
       }
     }
   }

@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
-import type { BudgetAccountWithPda, VestingPositionWithPda } from "@/solana/assets";
+import type { VestingPositionWithPda } from "@/solana/assets";
 import { formatInteger, formatMediumDate, formatNumber } from "@/lib/i18n";
 import { explorerAddressUrl } from "@/lib/solana-explorer";
 import {
@@ -46,96 +46,11 @@ function pickMeta(metas: TokenMetaMap | undefined, mint: string): ResolvedTokenM
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Budgets section                                                     */
+/* Budgets section — moved to ./AssetsBudgets.tsx in iter-6 so this    */
+/* file stays under the 600-line lint ceiling. Import from there.       */
 /* ────────────────────────────────────────────────────────────────── */
 
-export function BudgetsSection({
-  budgets,
-  metas,
-  onSelect,
-  actions,
-}: {
-  budgets: BudgetAccountWithPda[];
-  metas: TokenMetaMap;
-  onSelect: (row: BudgetAccountWithPda) => void;
-  /** Section-level actions slot — host page mounts a "+ New budget" CTA. */
-  actions?: React.ReactNode;
-}) {
-  const rows = useMemo(
-    () =>
-      [...budgets].sort((a, b) => {
-        // Frozen budgets last; otherwise stable by budget_id.
-        const aFrozen = a.account.frozen ? 1 : 0;
-        const bFrozen = b.account.frozen ? 1 : 0;
-        if (aFrozen !== bFrozen) return aFrozen - bFrozen;
-        return bytesToHex(a.account.budgetId).localeCompare(bytesToHex(b.account.budgetId));
-      }),
-    [budgets],
-  );
-
-  const columns: Array<TableColumn<BudgetAccountWithPda>> = [
-    {
-      key: "budgetId",
-      header: "Budget",
-      cell: (row) => <span className={styles.monoCell}>{bytesIdLabel(row.account.budgetId)}</span>,
-    },
-    {
-      key: "role",
-      header: "Target role",
-      cell: (row) => (
-        <span className={styles.monoCell}>{bytesIdLabel(row.account.targetRoleId)}</span>
-      ),
-    },
-    {
-      key: "utilization",
-      header: "Utilization",
-      cell: (row) => (
-        <BudgetUtilization
-          spent={row.account.spent}
-          amount={row.account.amount}
-          decimals={budgetDecimals(metas)}
-        />
-      ),
-    },
-    {
-      key: "expiry",
-      header: "Expiry",
-      align: "end",
-      cell: (row) => <ExpiryCell expiry={Number(row.account.expiry)} />,
-    },
-    {
-      key: "status",
-      header: "Status",
-      align: "end",
-      cell: (row) =>
-        row.account.frozen ? (
-          <Badge variant="warning" dot>
-            Frozen
-          </Badge>
-        ) : (
-          <Badge variant="success" dot>
-            Active
-          </Badge>
-        ),
-    },
-  ];
-
-  return (
-    <PageSection
-      title="Active budgets"
-      description="Per-role allocations recorded on `aeqi_budget`. Spend caps are enforced on-chain. Click a row for details."
-      actions={actions}
-    >
-      <Table
-        columns={columns}
-        data={rows}
-        rowKey={(row) => row.publicKey.toBase58()}
-        ariaLabel="Active budgets"
-        onRowClick={onSelect}
-      />
-    </PageSection>
-  );
-}
+export { BudgetsSection } from "./AssetsBudgets";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Vesting positions section                                           */
@@ -357,54 +272,17 @@ export function VestingPositionsSection({
 /* ────────────────────────────────────────────────────────────────── */
 
 /**
- * Inline utilization meter. Bar fill is driven by a CSS custom property
- * so the only dynamic styling is one width — keeps the design-system
- * audit happy (no inline color/tone hex).
- *
+ * USDC-decimals lookup used by both BudgetsSection and BudgetSpendTable.
  * Budgets are denominated in USDC base units by convention (the only
- * mint the budget program initializes against today). We look up
- * decimals once per metas snapshot so utilization rows render with the
- * right scale even on localnet where the registry USDC mint differs.
+ * mint the budget program initializes against today). Exposing the
+ * helper from this module keeps the cross-file consumers (Budgets,
+ * BudgetSpendTable) sharing one source of truth.
  */
 const MAINNET_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const LOCALNET_USDC = "BscBtSVDbZCzSHikQSwmCuszX4f4nbESdnfrFYkbv3F3";
 
 export function budgetDecimals(metas: TokenMetaMap): number {
   return metas[MAINNET_USDC]?.decimals ?? metas[LOCALNET_USDC]?.decimals ?? 6;
-}
-
-function BudgetUtilization({
-  spent,
-  amount,
-  decimals,
-}: {
-  spent: bigint;
-  amount: bigint;
-  decimals: number;
-}) {
-  const spentNum = Number(spent);
-  const totalNum = Number(amount);
-  const pct = totalNum > 0 ? Math.min(100, (spentNum / totalNum) * 100) : 0;
-  const fillStyle: CSSProperties = { width: `${pct}%` };
-  return (
-    <Stack gap="1" className={styles.utilization}>
-      <div className={styles.utilizationMeta}>
-        <span>
-          {formatTokenAmount(spent, decimals)} / {formatTokenAmount(amount, decimals)}
-        </span>
-        <span>{formatNumber(pct, { maximumFractionDigits: 0 })}%</span>
-      </div>
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(pct)}
-        className={styles.utilizationTrack}
-      >
-        <div className={styles.utilizationFill} data-tone="accent" style={fillStyle} />
-      </div>
-    </Stack>
-  );
 }
 
 function VestingProgress({

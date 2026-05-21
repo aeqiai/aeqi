@@ -20,14 +20,12 @@
  * and the HoldingDetailPanel; it lives in this file so the panel and
  * the page share one type without circling back through AssetsPage.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-import type { ModuleAccountWithPda } from "@/solana";
-import { getAeqiProgramName } from "@/solana/program-names";
-import { formatCurrency, formatInteger } from "@/lib/i18n";
-import { explorerAddressUrl, explorerClusterLabel } from "@/lib/solana-explorer";
+import { formatCurrency, formatInteger, formatMediumDate } from "@/lib/i18n";
+import { explorerAddressUrl } from "@/lib/solana-explorer";
 import {
   Badge,
   Button,
@@ -36,12 +34,11 @@ import {
   Icon,
   Inline,
   Input,
-  PageSection,
   QRCode,
   Stack,
 } from "@/components/ui";
 
-import { CopyableMono, bytesIdLabel, shortAddress } from "./AssetsSections";
+import { CopyableMono, shortAddress } from "./AssetsSections";
 import styles from "./AssetsPage.module.css";
 
 /**
@@ -108,29 +105,34 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
   const padding = 4;
   const innerH = height - padding * 2;
 
-  const linePoints = useMemo(() => {
-    if (series.length === 0) return "";
+  // Per-index point coordinates kept as numbers (not just a string) so the
+  // hover crosshair can index back into them when the cursor moves. We
+  // still derive the SVG `points` attribute from the same array below.
+  const points = useMemo<Array<{ x: number; y: number; value: number }>>(() => {
+    if (series.length === 0) return [];
     const range = max - min || 1;
-    return series
-      .map((v, i) => {
-        const x = (i / Math.max(series.length - 1, 1)) * width;
-        const y = isFlat ? height - padding : height - padding - ((v - min) / range) * innerH;
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      })
-      .join(" ");
+    return series.map((v, i) => {
+      const x = (i / Math.max(series.length - 1, 1)) * width;
+      const y = isFlat ? height - padding : height - padding - ((v - min) / range) * innerH;
+      return { x, y, value: v };
+    });
   }, [series, min, max, isFlat, innerH]);
+
+  const linePoints = useMemo(
+    () => points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" "),
+    [points],
+  );
 
   // Area fill path for USD mode — same coords, but closed back to the
   // baseline so the polyline reads as a treasury "filled" curve.
   const areaPath = useMemo(() => {
-    if (mode !== "usd" || series.length === 0) return "";
-    const coords = linePoints.split(" ");
-    if (coords.length === 0) return "";
-    const first = coords[0]?.split(",")[0];
-    const last = coords[coords.length - 1]?.split(",")[0];
-    if (!first || !last) return "";
-    return `M ${first},${height - padding} L ${coords.join(" L ")} L ${last},${height - padding} Z`;
-  }, [linePoints, series, mode]);
+    if (mode !== "usd" || points.length === 0) return "";
+    const segments = points.map((p) => `L ${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+    const firstX = points[0]?.x.toFixed(2);
+    const lastX = points[points.length - 1]?.x.toFixed(2);
+    if (!firstX || !lastX) return "";
+    return `M ${firstX},${height - padding} ${segments} L ${lastX},${height - padding} Z`;
+  }, [points, mode]);
 
   const headerLabel = label ?? (mode === "usd" ? "Treasury value · 30d" : "Vault activity · 30d");
   const headerValue =
@@ -155,6 +157,53 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
     return { diff, pct };
   }, [series, mode]);
 
+  /* iter-6: hover crosshair. The vault USD curve is line-only — without a
+     hover guide the operator can read the shape ("trending up", "flat
+     last week") but never the per-day value. We mirror the Equity
+     `CurveChart` crosshair: vertical guide + intersection dot + per-day
+     tooltip with date and USD value. Touch / count-mode skip the
+     crosshair (the count line is a quieter signal and crosshairs on
+     touch surfaces flicker without a hover-clear). */
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const hoverEnabled = mode === "usd" && points.length > 1;
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!hoverEnabled) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const xPx = ((e.clientX - rect.left) / rect.width) * width;
+    if (xPx < 0 || xPx > width) {
+      setHoverIdx(null);
+      return;
+    }
+    // Snap to the nearest day index — keeps the tooltip stable across
+    // sub-pixel mouse motion within one bucket.
+    const ratio = xPx / width;
+    const idx = Math.round(ratio * (points.length - 1));
+    if (idx < 0 || idx >= points.length) {
+      setHoverIdx(null);
+      return;
+    }
+    setHoverIdx(idx);
+  };
+  const handleMouseLeave = () => setHoverIdx(null);
+
+  const hoverPoint = hoverIdx !== null ? (points[hoverIdx] ?? null) : null;
+  /* Render the hover tooltip beside the cursor — clamp inside the SVG so
+     it never overflows the right edge. The tooltip carries the day label
+     (`May 12`) + USD value. */
+  const hoverDate = useMemo(() => {
+    if (hoverIdx === null) return null;
+    const daysFromToday = points.length - 1 - hoverIdx;
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() - daysFromToday);
+    return formatMediumDate(day);
+  }, [hoverIdx, points.length]);
+
   return (
     <div className={styles.activityStrip}>
       <div className={styles.activityStripHead}>
@@ -174,6 +223,7 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
         </span>
       </div>
       <svg
+        ref={svgRef}
         className={styles.activityStripSvg}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
@@ -184,6 +234,9 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
             : "Vault touches per day, last 30 days"
         }
         data-mode={mode}
+        data-hoverable={hoverEnabled || undefined}
+        onMouseMove={hoverEnabled ? handleMouseMove : undefined}
+        onMouseLeave={hoverEnabled ? handleMouseLeave : undefined}
       >
         {mode === "usd" && areaPath && <path d={areaPath} fill="currentColor" opacity="0.08" />}
         <polyline
@@ -194,7 +247,42 @@ export function VaultActivityStrip({ series, mode, total, label }: VaultActivity
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {hoverPoint && (
+          <g pointerEvents="none">
+            <line
+              x1={hoverPoint.x}
+              x2={hoverPoint.x}
+              y1={padding}
+              y2={height - padding}
+              stroke="currentColor"
+              strokeWidth={1}
+              strokeDasharray="2 3"
+              opacity={0.55}
+            />
+            <circle
+              cx={hoverPoint.x}
+              cy={hoverPoint.y}
+              r={3}
+              fill="var(--color-card)"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            />
+          </g>
+        )}
       </svg>
+      {hoverPoint && hoverDate && (
+        <div
+          className={styles.activityStripTooltip}
+          style={{ left: `${(hoverPoint.x / width) * 100}%` }}
+          role="status"
+          aria-live="polite"
+        >
+          <span className={styles.activityStripTooltipDate}>{hoverDate}</span>
+          <span className={styles.activityStripTooltipValue}>
+            {formatCurrency(hoverPoint.value, "USD", { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+      )}
       {isFlat && mode === "count" && (
         <span className={styles.activityStripNote}>
           No on-chain signatures touched the vault in the last 30 days.
@@ -390,171 +478,12 @@ export function HoldingReceiveCard({
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Vault identity                                                      */
+/* Vault identity — moved to ./AssetsVaultIdentity.tsx in iter-6 to    */
+/* keep this file under the 600-line lint ceiling. Re-export so any    */
+/* legacy import path keeps working until the next sweep.              */
 /* ────────────────────────────────────────────────────────────────── */
 
-export function VaultIdentitySection({
-  moduleStatePda,
-  vaultAuthorityPda,
-  treasuryAuthority,
-  trustAuthority,
-  moduleInitialized,
-  modules,
-}: {
-  moduleStatePda: string;
-  vaultAuthorityPda: string;
-  treasuryAuthority: string | null;
-  trustAuthority: string | null;
-  moduleInitialized: boolean;
-  modules: ModuleAccountWithPda[];
-}) {
-  const cluster = explorerClusterLabel();
-  const clusterPretty = formatClusterLabel(cluster);
-  const clusterVariant = clusterTone(cluster);
-
-  // Per-module rows — one row per module *slot* (not per distinct
-  // program). Two slots pointing at the same program ID is rare but
-  // valid; surfacing both keeps the operator honest about the TRUST's
-  // module count. Iter-5: surfacing the `initialized` flag + version
-  // turns "modules registered" from a count into a real provisioning
-  // table — the operator sees which slots have actually been initialized
-  // on-chain vs which are still pending the post-deploy module-init
-  // instruction.
-  const moduleRows = useMemo(() => {
-    return modules.map((m) => {
-      const pid = m.account.programId.toBase58();
-      return {
-        key: m.publicKey.toBase58(),
-        programId: pid,
-        programName: getAeqiProgramName(pid),
-        moduleLabel: bytesIdLabel(m.account.moduleId),
-        // `initialized` is a u8 flag on the on-chain Module struct; the
-        // post-deploy module-init instruction flips it from 0 → 1.
-        initialized: Number(m.account.initialized) > 0,
-        // Anchor returns u64 as BN; toString avoids the bigint coercion
-        // hassle for a value we only render.
-        version: m.account.implementationVersion.toString(),
-        provider: m.account.provider.toBase58(),
-      };
-    });
-  }, [modules]);
-
-  // Aggregate provisioning state for the section header — initialized
-  // count vs total slots. "Fully provisioned" only when every slot is
-  // initialized; "partial" when some are. "Not initialized" when none.
-  const provisioning = useMemo(() => {
-    if (moduleRows.length === 0) return { initialized: 0, total: 0 };
-    const initialized = moduleRows.filter((m) => m.initialized).length;
-    return { initialized, total: moduleRows.length };
-  }, [moduleRows]);
-
-  return (
-    <PageSection title="Vault identity">
-      <DetailField label="Network">
-        <Inline gap="2">
-          <Badge variant={clusterVariant} dot>
-            {clusterPretty}
-          </Badge>
-          <span className={styles.mutedLabel}>{cluster}</span>
-        </Inline>
-      </DetailField>
-      <DetailField label="Vault authority (PDA)">
-        <CopyableMono
-          full={vaultAuthorityPda}
-          display={shortAddress(vaultAuthorityPda)}
-          withExplorer
-        />
-      </DetailField>
-      <DetailField label="Module state (PDA)">
-        <CopyableMono full={moduleStatePda} display={shortAddress(moduleStatePda)} withExplorer />
-      </DetailField>
-      <DetailField label="Treasury authority">
-        {treasuryAuthority ? (
-          <CopyableMono
-            full={treasuryAuthority}
-            display={shortAddress(treasuryAuthority)}
-            withExplorer
-          />
-        ) : (
-          <span className={styles.mutedDash}>—</span>
-        )}
-      </DetailField>
-      <DetailField label="TRUST authority">
-        {trustAuthority ? (
-          <CopyableMono full={trustAuthority} display={shortAddress(trustAuthority)} withExplorer />
-        ) : (
-          <span className={styles.mutedDash}>—</span>
-        )}
-      </DetailField>
-      <DetailField label="Treasury module">
-        <Badge variant={moduleInitialized ? "success" : "muted"} dot>
-          {moduleInitialized ? "Initialized" : "Not initialized"}
-        </Badge>
-      </DetailField>
-      <DetailField
-        label={
-          moduleRows.length === 0
-            ? "Modules registered"
-            : `Modules registered (${formatInteger(provisioning.initialized)}/${formatInteger(provisioning.total)} initialized)`
-        }
-      >
-        {moduleRows.length === 0 ? (
-          <span className={styles.mutedDash}>None yet</span>
-        ) : (
-          <ul className={styles.moduleRowsList}>
-            {moduleRows.map((m) => (
-              <li key={m.key} className={styles.moduleRow}>
-                <div className={styles.moduleRowHead}>
-                  <span className={styles.modulesName}>{m.programName ?? "External program"}</span>
-                  <Badge variant={m.initialized ? "success" : "muted"} size="sm" dot>
-                    {m.initialized ? "Initialized" : "Not initialized"}
-                  </Badge>
-                  {m.version !== "0" && <span className={styles.moduleVersion}>v{m.version}</span>}
-                </div>
-                <div className={styles.moduleRowMeta}>
-                  <span className={styles.moduleRowField}>
-                    <span className={styles.moduleRowFieldLabel}>Slot</span>
-                    <span className={styles.monoCellInline}>{m.moduleLabel}</span>
-                  </span>
-                  <span className={styles.moduleRowField}>
-                    <span className={styles.moduleRowFieldLabel}>Program</span>
-                    <CopyableMono
-                      full={m.programId}
-                      display={shortAddress(m.programId)}
-                      tone="muted"
-                      withExplorer
-                    />
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </DetailField>
-    </PageSection>
-  );
-}
-
-/** Cluster label → human-readable label. The env var carries the raw
- *  cluster slug (`mainnet`, `devnet`, `localnet-solana`); the badge wants
- *  Title Case without the redundant `-solana` suffix. */
-function formatClusterLabel(cluster: string): string {
-  if (cluster === "mainnet" || cluster === "mainnet-beta") return "Mainnet";
-  if (cluster === "devnet") return "Devnet";
-  if (cluster === "testnet") return "Testnet";
-  if (cluster.startsWith("localnet")) return "Localnet";
-  return cluster.charAt(0).toUpperCase() + cluster.slice(1);
-}
-
-/** Map the cluster to a badge variant. Mainnet is the production
- *  signal (success-tinted); devnet/testnet are warning-tinted so the
- *  operator never misreads where the read is coming from. Localnet
- *  is neutral — clearly dev. */
-function clusterTone(cluster: string): "success" | "warning" | "muted" {
-  if (cluster === "mainnet" || cluster === "mainnet-beta") return "success";
-  if (cluster === "devnet" || cluster === "testnet") return "warning";
-  return "muted";
-}
+export { VaultIdentitySection } from "./AssetsVaultIdentity";
 
 /* ────────────────────────────────────────────────────────────────── */
 /* Holding detail panel                                                */
