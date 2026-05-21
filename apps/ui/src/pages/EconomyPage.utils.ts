@@ -1,4 +1,4 @@
-import type { Role, Trust } from "@/lib/types";
+import type { Role, RoleType, Trust } from "@/lib/types";
 
 export type EconomyTab = "overview" | "trusts" | "pools" | "funding" | "roles";
 
@@ -26,6 +26,29 @@ export type TrustVisibilityFilter = "all" | "public";
 export function isTrustVisibilityParam(value: string | null | undefined): value is "public" {
   return value === "1" || value === "public";
 }
+
+/** Roles-tab scoped role-type filter. `?role_type=owner|director|operational|advisor`
+ * narrows the open-roles table to one tier — founder/director vs operational
+ * openings read very differently. Mirrors the `?kind=` pattern: a multi-value
+ * enum chip strip with "All" as the unfiltered default. Missing/invalid
+ * param = "all". */
+export type RoleTypeFilter = "all" | RoleType;
+
+const ROLE_TYPES: readonly RoleType[] = ["owner", "director", "operational", "advisor"];
+
+export function isRoleType(value: string | null | undefined): value is RoleType {
+  return !!value && (ROLE_TYPES as readonly string[]).includes(value);
+}
+
+/** Title-case chip label for the role-type filter. The wire value stays
+ * lowercase (URL identifier); the display layer renders Title Case per the
+ * design-system lockword ("Lowercase is brand, not labels"). */
+export const ROLE_TYPE_CHIP_LABEL: Record<RoleType, string> = {
+  owner: "Owner",
+  director: "Director",
+  operational: "Operator",
+  advisor: "Advisor",
+};
 
 export interface EconomyPoolSearchRow {
   trust: Trust;

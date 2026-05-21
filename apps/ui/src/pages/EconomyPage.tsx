@@ -19,7 +19,7 @@ import {
 import { api } from "@/lib/api";
 import { entityBasePath, entityPath } from "@/lib/entityPath";
 import { formatMediumDate } from "@/lib/i18n";
-import type { Role, Trust } from "@/lib/types";
+import type { Role, RoleType, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
 import {
   makePoolColumns,
@@ -29,6 +29,7 @@ import {
   type PoolRow,
   RegistryCard,
   type RoleOpeningRow,
+  RoleTypeChips,
   TableStatus,
   TrustDirectory,
   TrustVisibilityChips,
@@ -38,12 +39,14 @@ import {
   ECONOMY_TABS,
   isEconomyTab,
   isPoolKind,
+  isRoleType,
   isTrustVisibilityParam,
   matchesPoolQuery,
   matchesRoleQuery,
   matchesTrustQuery,
   type PoolKind,
   type PoolKindFilter,
+  type RoleTypeFilter,
   type TrustVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
@@ -108,6 +111,22 @@ export default function EconomyPage() {
       const params = new URLSearchParams(searchParams);
       if (next === "all") params.delete("public");
       else params.set("public", "1");
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  // Roles-tab role-type chip selection round-trips through
+  // `?role_type=owner|director|operational|advisor` so a refresh keeps the
+  // operator's scope. Mirrors the `?kind=` multi-value pattern: missing or
+  // invalid param = "all".
+  const roleTypeParam = searchParams.get("role_type");
+  const roleTypeFilter: RoleTypeFilter = isRoleType(roleTypeParam) ? roleTypeParam : "all";
+  const setRoleTypeFilter = useCallback(
+    (next: RoleTypeFilter) => {
+      const params = new URLSearchParams(searchParams);
+      if (next === "all") params.delete("role_type");
+      else params.set("role_type", next);
       setSearchParams(params, { replace: true });
     },
     [searchParams, setSearchParams],
@@ -247,9 +266,25 @@ export default function EconomyPage() {
       ),
     [poolRows, normalizedSearch, poolKindFilter],
   );
+  // Role types present in the visible openings set, stable order. Chip strip
+  // renders only when >= 1 type is present so the row stays calm when one
+  // tier dominates today's vacancies.
+  const roleTypesPresent = useMemo<RoleType[]>(
+    () =>
+      (["owner", "director", "operational", "advisor"] as RoleType[]).filter((t) =>
+        roleOpenings.some((row) => row.role.role_type === t),
+      ),
+    [roleOpenings],
+  );
+
   const visibleRoleOpenings = useMemo(
-    () => roleOpenings.filter((row) => matchesRoleQuery(row, normalizedSearch)),
-    [roleOpenings, normalizedSearch],
+    () =>
+      roleOpenings.filter(
+        (row) =>
+          (roleTypeFilter === "all" || row.role.role_type === roleTypeFilter) &&
+          matchesRoleQuery(row, normalizedSearch),
+      ),
+    [roleOpenings, normalizedSearch, roleTypeFilter],
   );
 
   const publicTrusts = entities.filter((entity) => entity.public);
@@ -382,6 +417,13 @@ export default function EconomyPage() {
               <TrustVisibilityChips
                 value={trustVisibilityFilter}
                 onChange={setTrustVisibilityFilter}
+              />
+            )}
+            {activeTab === "roles" && roleTypesPresent.length > 0 && (
+              <RoleTypeChips
+                roleTypes={roleTypesPresent}
+                value={roleTypeFilter}
+                onChange={setRoleTypeFilter}
               />
             )}
             {hasSearch && (
@@ -576,9 +618,13 @@ export default function EconomyPage() {
                   ariaLabel="Open roles"
                   empty={
                     <EmptyState
-                      title={hasSearch ? "No matching roles" : "No open roles"}
+                      title={
+                        hasSearch || roleTypeFilter !== "all"
+                          ? "No matching roles"
+                          : "No open roles"
+                      }
                       description={
-                        hasSearch
+                        hasSearch || roleTypeFilter !== "all"
                           ? "Try a role title, role type, trust name, or trust address."
                           : "Vacant roles will appear here when trusts publish roles without occupants."
                       }

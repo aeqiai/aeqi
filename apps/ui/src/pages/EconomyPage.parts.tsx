@@ -4,13 +4,15 @@ import { ArrowUpRight } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import { Badge, Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
-import type { Role, Trust } from "@/lib/types";
+import type { Role, RoleType, Trust } from "@/lib/types";
 import {
   compactAddress,
   POOL_KIND_CHIP_LABEL,
   POOL_KIND_LABEL,
+  ROLE_TYPE_CHIP_LABEL,
   type PoolKind,
   type PoolKindFilter,
+  type RoleTypeFilter,
   type TrustVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
@@ -238,6 +240,27 @@ export function TrustVisibilityChips({
   return (
     <FilterChips ariaLabel="Trust visibility" options={options} value={value} onChange={onChange} />
   );
+}
+
+/** Roles toolbar — `All / Owner / Director / Operator / Advisor`. Renders
+ * only role types present in the openings set so the strip stays calm
+ * when one tier dominates. Founder vs operational openings read very
+ * differently; the chip strip lets the operator narrow without typing
+ * the role_type string into search. */
+export function RoleTypeChips({
+  roleTypes,
+  value,
+  onChange,
+}: {
+  roleTypes: RoleType[];
+  value: RoleTypeFilter;
+  onChange: (next: RoleTypeFilter) => void;
+}) {
+  const options = (["all", ...roleTypes] as RoleTypeFilter[]).map((id) => ({
+    id,
+    label: id === "all" ? "All" : ROLE_TYPE_CHIP_LABEL[id],
+  }));
+  return <FilterChips ariaLabel="Role type" options={options} value={value} onChange={onChange} />;
 }
 
 export function TrustDirectory({
