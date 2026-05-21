@@ -5,7 +5,7 @@ import { useAssets } from "@/hooks/useAssets";
 import { useEquity } from "@/hooks/useEquity";
 import { useQuorum } from "@/hooks/useQuorum";
 import { deriveProposalStatus, lookupTokenMeta } from "@/solana";
-import { formatInteger } from "@/lib/i18n";
+import { formatCurrency, formatInteger } from "@/lib/i18n";
 
 interface TrustOwnershipGroupProps {
   trustAddress: string | null | undefined;
@@ -185,18 +185,22 @@ function OwnershipPrimitiveCard({
 
 /**
  * Format a raw USDC amount (in base units; 6-decimal token by convention)
- * as `$X.YZ` with two decimal places. Uses bigint division to avoid
- * Number-overflow at large balances; the truncation is intentional —
- * displaying $0.000001 in a cockpit tile reads as noise. Rounds toward
- * zero (truncates) so the tile never overstates the balance.
+ * as a locale-aware `$X.YZ` with two decimal places. Truncates beyond
+ * two fractional digits at the bigint layer (rounds toward zero) so the
+ * tile never overstates the balance, then routes through `formatCurrency`
+ * so the `$` glyph and thousands separators come from the user's locale
+ * instead of a hardcoded prefix. Symmetric with the c13 `formatInteger`
+ * sweep — every numeric formatter goes through `@/lib/i18n`.
+ *
+ * The bigint pre-scale keeps precision intact above 2^53 base units
+ * (~9.0 trillion micro-USDC); only the final two-decimal value crosses
+ * into Number, where the magnitude is bounded.
  */
 function formatUsdc(amountRaw: bigint, decimals: number): string {
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const whole = amountRaw / divisor;
-  const fracScaled =
+  const truncatedScaled =
     decimals <= 2
-      ? (amountRaw % divisor) * BigInt(10) ** BigInt(2 - decimals)
-      : (amountRaw % divisor) / BigInt(10) ** BigInt(decimals - 2);
-  const fracStr = fracScaled.toString().padStart(2, "0");
-  return `$${whole.toString()}.${fracStr}`;
+      ? amountRaw * BigInt(10) ** BigInt(2 - decimals)
+      : amountRaw / BigInt(10) ** BigInt(decimals - 2);
+  const value = Number(truncatedScaled) / 100;
+  return formatCurrency(value, "USD", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
