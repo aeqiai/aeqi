@@ -38,6 +38,10 @@ import { useHolderMintHistory } from "@/hooks/useHolderMintHistory";
 import { formatShortDate } from "@/lib/i18n";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import type { CurveTrade } from "./RecentTradesLog";
+// iter-11: share the cap-table format helpers with EquityPage so both
+// surfaces render identical balance / percent strings without two
+// near-duplicate implementations drifting.
+import { formatBaseUnits, formatPercent, groupThousands, shortAddress } from "./capTableFormat";
 
 import "./HolderDrawer.css";
 
@@ -51,42 +55,10 @@ function explorerUrl(addr: string): string {
   return `https://solana.fm/address/${addr}?cluster=${SOLANA_CLUSTER}`;
 }
 
-function shortAddress(value: string): string {
-  if (value.length <= 12) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
 function holderMonogram(address: string): string {
   const cleaned = address.replace(/[^A-Za-z0-9]/g, "");
   if (cleaned.length === 0) return "—";
   return (cleaned.slice(0, 2) + cleaned.slice(-2)).toUpperCase();
-}
-
-function groupThousands(digits: string): string {
-  if (digits.length <= 3) return digits;
-  const isNegative = digits.startsWith("-");
-  const body = isNegative ? digits.slice(1) : digits;
-  const grouped = body.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return isNegative ? `-${grouped}` : grouped;
-}
-
-function formatBaseUnits(amount: bigint, decimals: number): string {
-  if (decimals === 0) return groupThousands(amount.toString());
-  const divisor = 10n ** BigInt(decimals);
-  const integerPart = amount / divisor;
-  const fractionalPart = amount % divisor;
-  const integerStr = groupThousands(integerPart.toString());
-  if (fractionalPart === 0n) return integerStr;
-  const fracStr = fractionalPart.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return fracStr.length > 0 ? `${integerStr}.${fracStr}` : integerStr;
-}
-
-function formatPercent(amount: bigint, total: bigint): string {
-  if (total === 0n) return "—";
-  const basisPoints = (amount * 10_000n) / total;
-  const whole = basisPoints / 100n;
-  const frac = basisPoints % 100n;
-  return `${whole.toString()}.${frac.toString().padStart(2, "0")}%`;
 }
 
 function bnLikeToBigInt(value: bigint | { toString(): string } | number): bigint {
@@ -182,6 +154,11 @@ export function HolderDrawer({
   // tracks the address-only copy on the hero row) so the two affordances
   // can confirm independently.
   const [snapshotCopied, setSnapshotCopied] = useState<"json" | "csv" | null>(null);
+  // iter-11: share-link copy feedback. Tracked separately so the
+  // JSON / CSV / Share-link affordances confirm independently and the
+  // operator can tell at a glance which clipboard write actually
+  // landed.
+  const [shareCopied, setShareCopied] = useState(false);
 
   const ownerAddress = holder?.owner.toBase58() ?? "";
   const tokenAccountAddress = holder?.tokenAccount.toBase58() ?? "";
@@ -420,6 +397,31 @@ export function HolderDrawer({
     void navigator.clipboard.writeText(lines.join("\n") + "\n");
     setSnapshotCopied("csv");
     window.setTimeout(() => setSnapshotCopied(null), 1800);
+  };
+
+  /**
+   * iter-11: shareable deep-link for the holder drawer. Builds the URL
+   * off `window.location` (whatever the operator is on right now —
+   * `/trust/<addr>/equity` or the legacy `/c/<id>/equity`) and pins the
+   * holder via a `holder=<address>` query string.
+   *
+   * Honest stub: the route doesn't yet auto-open the drawer when it
+   * sees the query param — that's a follow-up in EquityPage. The URL
+   * itself is real and openable in a fresh tab; recipients land on the
+   * cap table with the holder address pre-highlighted via the search
+   * box once the param-binding lands. Producing the link first lets us
+   * design the share gesture before the routing plumbing is in place.
+   */
+  const handleCopyShareLink = () => {
+    if (!ownerAddress) return;
+    const base =
+      typeof window !== "undefined" && window.location
+        ? `${window.location.origin}${window.location.pathname}`
+        : "";
+    const url = `${base}?holder=${encodeURIComponent(ownerAddress)}`;
+    void navigator.clipboard.writeText(url);
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 1800);
   };
 
   if (!holder) return null;
@@ -727,6 +729,14 @@ export function HolderDrawer({
           </Button>
           <Button variant="secondary" size="sm" onClick={handleCopySnapshotCsv}>
             {snapshotCopied === "csv" ? "Copied CSV ✓" : "Copy as CSV"}
+          </Button>
+          {/* iter-11: shareable deep-link. Generates a URL pinning this
+              holder on the current equity page; the cap-table page will
+              learn to auto-open the drawer when it sees the `holder`
+              query param in a follow-up iter. Honest stub today — the
+              URL is real and openable. */}
+          <Button variant="secondary" size="sm" onClick={handleCopyShareLink}>
+            {shareCopied ? "Copied link ✓" : "Generate share link"}
           </Button>
         </div>
       </div>

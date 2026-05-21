@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSection";
@@ -338,6 +338,24 @@ function CapTableSection({
   // in the section so the parent EquityPage doesn't grow another
   // dialog-state knob.
   const [importOpen, setImportOpen] = useState(false);
+
+  // iter-11: deep-link honoring. When the URL carries a `holder=...`
+  // query param (typically from a HolderDrawer share link), open the
+  // drawer for that holder on first mount. Skips when the address
+  // doesn't match any current holder (operator probably shared from a
+  // different TRUST; renders cap-table normally without a drawer).
+  // Only fires once per mount — the deep-link is a single-shot
+  // affordance, not an ongoing URL sync; closing the drawer doesn't
+  // strip the query param.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.location) return;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("holder");
+    if (!target) return;
+    const match = holders.find((h) => h.owner.toBase58() === target);
+    if (match) setDrawerHolder(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Iter-6: free-text holder search. Sits above the table so it shares
   // the same row as the sort/filter affordances — operators can scope
   // by substring (handy for finding a specific seed/founder address
