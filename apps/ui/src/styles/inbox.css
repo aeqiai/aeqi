@@ -279,10 +279,19 @@
   flex-shrink: 0;
 }
 
+/* c16 — promote label/subject gap from 1px to 2px to match
+ * `.session-detail-header-from` (line 156), the sibling label+meta stack
+ * directly above this strip in the right column. Both stack a primary
+ * line over a smaller, muted line; matching their internal rhythm aligns
+ * the strip with the header's grammar instead of inventing a tighter
+ * one. The 4pt-grid preamble (line 13) flags literal pixel values
+ * outside the grid as anti-pattern; 1px was a hand-tuned outlier with
+ * no specific intent in the commit that introduced it. 2px is half-grid
+ * and matches every other label+meta stack in layout.css. */
 .inbox-awaiting-strip-body {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   flex: 1 1 auto;
 }
