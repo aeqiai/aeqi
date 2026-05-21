@@ -3903,14 +3903,26 @@
 .quest-card-head .quest-status-dot {
   margin-top: 5px;
 }
+/* Subject is the primary identity on the card — the one thing the eye
+   should resolve before any glyph in the meta row. Pre-fix the weight
+   sat at 450 (between normal 400 and medium 500), which left the line
+   reading softer than the same quest's title in `.ideas-list-row-name`
+   (14px / 500 / -0.005em). On the board the surrounding atoms (dot,
+   chips, due, time) all paint 11-12.5px / 500 secondary text, so a 450
+   subject lost its primary tier and flattened into them. Lift to
+   medium 500 + matched -0.005em tracking so the subject reads as a
+   real header line, and tighten line-height 1.35 → 1.3 to match the
+   denser column-header letterforms one slot above. Size stays 12.5px;
+   the card's two-line clamp budget is unchanged. */
 .quest-card-subject {
   flex: 1;
   min-width: 0;
   font-family: var(--font-sans);
   font-size: 12.5px;
-  line-height: 1.35;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
   color: var(--color-text-primary);
-  font-weight: 450;
+  font-weight: 500;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
