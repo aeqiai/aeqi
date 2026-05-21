@@ -87,6 +87,28 @@
   gap: var(--space-3);
 }
 
+.auth-optional-fields,
+.auth-primary-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-optional-fields {
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.auth-field-group-label {
+  margin: 0 0 calc(var(--space-1) * -1);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
 .waitlist-form {
   gap: var(--space-3);
 }

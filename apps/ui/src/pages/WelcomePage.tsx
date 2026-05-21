@@ -100,8 +100,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const getSignupName = (): string | undefined => {
     if (mode !== "signup") return undefined;
     const name = displayName.trim();
-    if (name) return name;
-    return localStorage.getItem(PENDING_SIGNUP_NAME_KEY)?.trim() || undefined;
+    return name || undefined;
   };
 
   /**
@@ -323,6 +322,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       const inviteCode = getInviteCode();
       const name = getSignupName();
       if (name) localStorage.setItem(PENDING_SIGNUP_NAME_KEY, name);
+      else localStorage.removeItem(PENDING_SIGNUP_NAME_KEY);
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -510,7 +510,6 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
-    if (mode === "signup" && !displayName.trim()) return;
     setPicked("email");
     setSubmitting(true);
     try {
@@ -567,7 +566,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
               copy={copy}
               displayName={displayName}
               setDisplayName={setDisplayName}
-              requireName={mode === "signup"}
+              showNameField={mode === "signup"}
               email={email}
               setEmail={setEmail}
               inviteInput={inviteInput}
