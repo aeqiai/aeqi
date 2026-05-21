@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { BriefcaseBusiness, CircleDollarSign, Droplets, Search } from "lucide-react";
+import { Blocks, BriefcaseBusiness, Droplets, Search } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import PageRail from "@/components/PageRail";
 import {
@@ -13,6 +13,7 @@ import {
   PageBody,
   PageHeader,
   PageSection,
+  PageToolbar,
   Table,
   type TableColumn,
 } from "@/components/ui";
@@ -22,6 +23,7 @@ import { formatMediumDate } from "@/lib/i18n";
 import type { Role, RoleType, Trust } from "@/lib/types";
 import { useEntitiesQuery } from "@/queries/entities";
 import {
+  BlueprintDiscoverySection,
   makePoolColumns,
   makeRoleColumns,
   MetricStatus,
@@ -381,20 +383,20 @@ export default function EconomyPage() {
         <Page width="wide" padding="lg" gap="6">
           <PageHeader
             title="Economy"
-            description="Browse the public operating layer: trusts, live liquidity, funding surfaces, and roles that can be filled."
+            description="Discover Blueprints, public TRUSTs, open roles, and live capital surfaces across the operating graph."
             actions={
               <Button
                 variant="primary"
-                size="sm"
-                leadingIcon={<BriefcaseBusiness size={14} strokeWidth={1.5} />}
-                onClick={() => navigate("/launch")}
+                size="md"
+                leadingIcon={<Blocks size={14} strokeWidth={1.5} />}
+                onClick={() => navigate("/blueprints")}
               >
-                New Trust
+                Browse Blueprints
               </Button>
             }
           />
 
-          <div className={styles.toolbar}>
+          <PageToolbar grow className={styles.toolbar}>
             <span className={styles.searchField}>
               <span className={styles.searchIcon} aria-hidden>
                 <Search size={13} strokeWidth={1.6} />
@@ -433,7 +435,7 @@ export default function EconomyPage() {
                 {visibleRoleOpenings.length} roles
               </span>
             )}
-          </div>
+          </PageToolbar>
 
           <MetricGrid columns={4}>
             <MetricCard
@@ -499,6 +501,7 @@ export default function EconomyPage() {
           <PageBody gap="6">
             {activeTab === "overview" && (
               <>
+                <BlueprintDiscoverySection onBrowse={() => navigate("/blueprints")} />
                 <TrustDirectory
                   trusts={visibleTrusts.slice(0, 6)}
                   loading={entitiesLoading}
@@ -511,23 +514,15 @@ export default function EconomyPage() {
                     title="Liquidity pools"
                     value={poolRows.length}
                     tone="live"
-                    body="Genesis curves and pool addresses surface here as soon as launch status confirms the on-chain pool."
+                    body="Genesis curves and pool addresses appear once launch status confirms an on-chain pool."
                     onOpen={() => navigate("/economy/pools")}
-                  />
-                  <RegistryCard
-                    icon={<CircleDollarSign size={16} strokeWidth={1.6} />}
-                    title="Funding rounds"
-                    value={0}
-                    tone="pending"
-                    body="The funding module lane is wired into the economy surface; live rounds land here when the indexer exposes funding requests."
-                    onOpen={() => navigate("/economy/funding")}
                   />
                   <RegistryCard
                     icon={<BriefcaseBusiness size={16} strokeWidth={1.6} />}
                     title="Open roles"
                     value={visibleRoleOpenings.length}
                     tone="pending"
-                    body="Vacant roles across visible trusts become the apply surface for joining a trust."
+                    body="Vacant TRUST roles are the clearest path to join an operating company."
                     onOpen={() => navigate("/economy/roles")}
                   />
                 </div>

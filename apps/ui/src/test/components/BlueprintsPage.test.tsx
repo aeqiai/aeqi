@@ -91,6 +91,10 @@ describe("BlueprintsPage (catalog)", () => {
     expect(
       await screen.findByRole("searchbox", { name: /search blueprints/i }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Blueprints" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Launch TRUST" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("TRUST shells")).toBeInTheDocument();
+    expect(screen.getByText("Operating seeds")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText("Solo Founder")).toBeInTheDocument();
     });

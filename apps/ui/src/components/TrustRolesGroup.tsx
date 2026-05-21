@@ -67,7 +67,7 @@ export default function TrustRolesGroup({ trustId, basePath }: TrustRolesGroupPr
         <h2 id="trust-roles-heading" className="trust-cockpit-card-title">
           Roles
         </h2>
-        <span className="trust-cockpit-card-sub">Authority graph</span>
+        <span className="trust-cockpit-card-sub">Authority</span>
       </header>
       <div className="trust-cockpit-inner-grid">
         <PrimitiveCard

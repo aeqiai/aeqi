@@ -85,8 +85,8 @@ export default function TrustHeroOverview({
       });
   };
 
-  const ctaPath = runtime.hostActive ? `${basePath}/agents` : "/launch";
-  const ctaLabel = runtime.hostActive ? "Open" : "Launch";
+  const ctaPath = runtime.hostActive ? `${basePath}/quests/new` : "/launch";
+  const ctaLabel = runtime.hostActive ? "Create Quest" : "Launch Runtime";
 
   return (
     <div className="trust-hero-bar">
@@ -154,8 +154,8 @@ export default function TrustHeroOverview({
             )}
           </span>
         ) : (
-          <span className="trust-hero-bar-pending" title="On-chain mirror is mid-bridge">
-            Bridge pending
+          <span className="trust-hero-bar-pending" title="TRUST registration is still settling">
+            TRUST registration pending
           </span>
         )}
       </div>

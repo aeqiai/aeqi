@@ -129,6 +129,8 @@ describe("EconomyPage", () => {
     renderEconomy();
 
     expect(screen.getByRole("heading", { level: 1, name: "Economy" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Browse Blueprints" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Start from a Blueprint" })).toBeInTheDocument();
     expect(screen.getByText("Alpha Trust")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/alpha");
 

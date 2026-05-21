@@ -39,8 +39,8 @@ function formatRuntimeLine(t: SingleBlueprint): string {
 /**
  * Catalog card on `/blueprints`. Shows:
  * - Name + tagline (unchanged)
- * - On-chain (TRUST) inclusion list derived from `template`
- * - Runtime counts (agents · events · ideas · quests)
+ * - TRUST shell inclusion list derived from `template`
+ * - Operating seed counts (agents · events · ideas · quests)
  *
  * No bespoke colors. No accents. Pure typography hierarchy via design-
  * system tokens. Card surface, hover, radius from the `Card` primitive.
@@ -67,12 +67,12 @@ function BlueprintCardImpl({ template, importTargetSuffix = "" }: BlueprintCardP
         <div className="bp-card-inclusions">
           {onchainModules && (
             <div className="bp-card-inclusion-row">
-              <span className="bp-card-inclusion-label">On-chain</span>
+              <span className="bp-card-inclusion-label">TRUST shell</span>
               <span className="bp-card-inclusion-value">{onchainModules}</span>
             </div>
           )}
           <div className="bp-card-inclusion-row">
-            <span className="bp-card-inclusion-label">Runtime</span>
+            <span className="bp-card-inclusion-label">Operating seed</span>
             <span className="bp-card-inclusion-value">{runtimeLine}</span>
           </div>
         </div>

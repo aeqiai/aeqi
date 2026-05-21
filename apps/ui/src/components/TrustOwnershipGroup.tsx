@@ -74,9 +74,9 @@ export default function TrustOwnershipGroup({ trustAddress, basePath }: TrustOwn
     <section className="trust-cockpit-card" aria-labelledby="trust-ownership-heading">
       <header className="trust-cockpit-card-header">
         <h2 id="trust-ownership-heading" className="trust-cockpit-card-title">
-          Ownership
+          Capital &amp; Governance
         </h2>
-        <span className="trust-cockpit-card-sub">On-chain state</span>
+        <span className="trust-cockpit-card-sub">Solana state</span>
       </header>
       <div className="trust-cockpit-inner-grid">
         <OwnershipPrimitiveCard
@@ -155,7 +155,7 @@ function OwnershipPrimitiveCard({
         // tile uses for vacant seats — keeps the awaiting vocabulary
         // consistent across the Ownership row.
         <span className="trust-primitive-pending" role="status">
-          Bridge pending
+          TRUST registration pending
         </span>
       ) : (
         <span className="trust-primitive-value">

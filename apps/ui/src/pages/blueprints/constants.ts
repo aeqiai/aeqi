@@ -30,15 +30,15 @@ export const VIEW_VALUES = new Set<View>(VIEW_ORDER);
 export const CATEGORY_ORDER: BlueprintCategory[] = ["company", "foundation", "fund"];
 
 export const CATEGORY_LABELS: Record<BlueprintCategory, string> = {
-  company: "Company",
-  foundation: "Foundation",
-  fund: "Fund",
+  company: "Operating Company",
+  foundation: "Foundation TRUST",
+  fund: "Fund TRUST",
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<BlueprintCategory, string> = {
-  company: "Smart account with role-based governance",
-  foundation: "Public-good org with grant flows",
-  fund: "LP cap table for investment vehicles",
+  company: "Launch an operating TRUST with roles, agents, and runtime memory.",
+  foundation: "Launch a public-good TRUST with grant and governance rails.",
+  fund: "Launch an investment TRUST with capital, holders, and governance.",
 };
 
 /** Set of valid category param values. */

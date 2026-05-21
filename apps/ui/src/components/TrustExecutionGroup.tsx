@@ -89,7 +89,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
         <h2 id="trust-operations-heading" className="trust-cockpit-card-title">
           Operations
         </h2>
-        <span className="trust-cockpit-card-sub">Live runtime activity</span>
+        <span className="trust-cockpit-card-sub">Operating work</span>
       </header>
       <div className="trust-cockpit-inner-grid trust-cockpit-inner-grid--split">
         <PrimitiveCard
@@ -98,7 +98,7 @@ export default function TrustExecutionGroup({ trustId, basePath }: TrustExecutio
           label="Agents"
           value={formatInteger(activeAgents)}
           hint={`of ${subtreeAgents.length}`}
-          sub={subtreeAgents.length === 0 ? "No agents yet" : ""}
+          sub={subtreeAgents.length === 0 ? "Add first Agent" : ""}
           footer={
             subtreeAgents.length > 0 ? (
               <span className="trust-quest-signals" aria-label="agent online breakdown">

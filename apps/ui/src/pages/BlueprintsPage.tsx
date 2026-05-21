@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
+import { countBlueprintStructures } from "@/lib/blueprintStructures";
 import type { AgentTemplate, Blueprint, BlueprintCategory, SingleBlueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
-import { Button, Card, Loading, Tooltip } from "@/components/ui";
+import { Button, Card, Loading, MetricCard, MetricGrid, PageHeader } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import PageRail from "@/components/PageRail";
 import { parseTags, serializeTags } from "@/components/ideas/types";
@@ -259,6 +261,27 @@ export default function BlueprintsPage() {
   const importTargetSuffix = isImportMode ? `?import_into=${importIntoId}` : "";
   const filtersActive = query.trim() !== "" || selectedTags.length > 0 || !!activeCategory;
   const totalFiltered = filtered.length;
+  const totalRuntimeSeeds = useMemo(
+    () =>
+      singleBlueprints.reduce(
+        (sum, t) =>
+          sum +
+          (t.seed_agents?.length ?? 0) +
+          (t.seed_events?.length ?? 0) +
+          (t.seed_ideas?.length ?? 0) +
+          (t.seed_quests?.length ?? 0),
+        0,
+      ),
+    [singleBlueprints],
+  );
+  const totalStructures = useMemo(
+    () => singleBlueprints.reduce((sum, t) => sum + countBlueprintStructures(t), 0),
+    [singleBlueprints],
+  );
+  const activeLaunchLanes = useMemo(
+    () => CATEGORY_ORDER.filter((cat) => singleBlueprints.some((t) => t.category === cat)).length,
+    [singleBlueprints],
+  );
 
   // "/" focuses search; Esc clears or blurs.
   useEffect(() => {
@@ -284,6 +307,24 @@ export default function BlueprintsPage() {
     <div className="page-rail-shell">
       <PageRail tabs={KIND_TABS} defaultTab="companies" title="Blueprints" basePath="/blueprints" />
       <main className="page-rail-content page-rail-content--full">
+        <div className="bp-page-head">
+          <PageHeader
+            title="Blueprints"
+            description="Launch a TRUST with ownership, roles, agents, quests, ideas, and runtime triggers already wired."
+            actions={
+              activeKind === "companies" && !isImportMode ? (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => navigate("/launch")}
+                  leadingIcon={<Plus size={14} strokeWidth={1.5} />}
+                >
+                  Launch TRUST
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
         <div className="ideas-list-head">
           <div className="ideas-toolbar">
             <span className="ideas-list-search-field">
@@ -358,32 +399,6 @@ export default function BlueprintsPage() {
               value={view}
               onChange={(next) => setSearchParam("view", next === "grid" ? null : next)}
             />
-
-            {activeKind === "companies" && !isImportMode && (
-              <Tooltip content="New organization">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => navigate("/launch")}
-                  leadingIcon={
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 13 13"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      aria-hidden
-                    >
-                      <path d="M6.5 2.5v8M2.5 6.5h8" />
-                    </svg>
-                  }
-                >
-                  Launch organization
-                </Button>
-              </Tooltip>
-            )}
           </div>
         </div>
 
@@ -403,6 +418,26 @@ export default function BlueprintsPage() {
             <div className="bp-error" role="alert">
               {error} — showing default Blueprints.
             </div>
+          )}
+
+          {activeKind === "companies" && (
+            <MetricGrid columns={3} className="bp-supply-metrics">
+              <MetricCard
+                label="TRUST shells"
+                value={singleBlueprints.length}
+                detail="launchable blueprints"
+              />
+              <MetricCard
+                label="Operating seeds"
+                value={totalRuntimeSeeds}
+                detail="agents, events, ideas, quests"
+              />
+              <MetricCard
+                label="Launch lanes"
+                value={activeLaunchLanes || CATEGORY_ORDER.length}
+                detail={`${totalStructures} seeded structures`}
+              />
+            </MetricGrid>
           )}
 
           {loading && (activeKind === "companies" || activeKind === "agents") ? (

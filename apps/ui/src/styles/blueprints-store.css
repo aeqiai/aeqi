@@ -5,11 +5,19 @@
    (cards / list / empty state) lives below in `.bp-catalog-body` with
    its own padding. Surface-specific bits below. */
 
+.bp-page-head {
+  padding: var(--space-6) 28px var(--space-3);
+}
+
 .bp-catalog-body {
   display: flex;
   flex-direction: column;
   gap: 18px;
   padding: 24px 28px 56px;
+}
+
+.bp-supply-metrics {
+  margin-bottom: var(--space-1);
 }
 
 /* ── Category sections ────────────────────────────────
@@ -115,7 +123,7 @@
   text-transform: uppercase;
   color: var(--color-text-muted);
   flex-shrink: 0;
-  min-width: 52px;
+  min-width: 84px;
 }
 
 .bp-card-inclusion-value {

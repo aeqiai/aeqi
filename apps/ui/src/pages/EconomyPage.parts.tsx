@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Blocks } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
 import { Button, EmptyState, Loading, PageSection, type TableColumn } from "@/components/ui";
 import { formatInteger, formatMediumDate } from "@/lib/i18n";
@@ -16,6 +16,33 @@ import {
   type TrustVisibilityFilter,
 } from "./EconomyPage.utils";
 import styles from "./EconomyPage.module.css";
+
+export function BlueprintDiscoverySection({ onBrowse }: { onBrowse: () => void }) {
+  return (
+    <PageSection
+      title="Start from a Blueprint"
+      description="Blueprints supply the TRUST shell, seeded roles, agents, quests, ideas, and operating memory."
+    >
+      <div className={styles.blueprintLane}>
+        <div className={styles.blueprintLaneMain}>
+          <span className={styles.blueprintLaneTitle}>Launch supply</span>
+          <span className={styles.blueprintLaneCopy}>
+            Choose a Blueprint before launching a new TRUST, or inspect existing TRUSTs below for
+            operating references.
+          </span>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onBrowse}
+          leadingIcon={<Blocks size={13} strokeWidth={1.5} />}
+        >
+          Browse Blueprints
+        </Button>
+      </div>
+    </PageSection>
+  );
+}
 
 export interface RoleOpeningRow {
   id: string;
@@ -291,8 +318,8 @@ export function TrustDirectory({
 }) {
   return (
     <PageSection
-      title="Trust directory"
-      description="The public operating graph starts with every trust that can be inspected."
+      title="TRUST directory"
+      description="Inspect programmable companies that can be operated, joined, or used as launch references."
       actions={
         <Button
           variant="secondary"
@@ -300,7 +327,7 @@ export function TrustDirectory({
           onClick={onViewAll}
           trailingIcon={<ArrowUpRight size={13} strokeWidth={1.5} />}
         >
-          View all
+          All TRUSTs
         </Button>
       }
     >
@@ -340,6 +367,7 @@ export function TrustDirectory({
                     Profile
                   </Link>
                 )}
+                {!trust.public && <span className={styles.publicLink}>Open TRUST</span>}
               </span>
             </article>
           ))}
