@@ -530,64 +530,76 @@ function LearnAeqiSection() {
         <div className="home-learn-head">
           <h2 className="home-learn-title">Learn more</h2>
         </div>
-        <div className="home-learn-body">
-          <div className="home-learn-carousel">
+        <div className="home-learn-carousel">
+          <a
+            className="home-learn-carousel-media"
+            href={activePost.href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img
+              key={activePost.image}
+              src={activePost.image}
+              alt=""
+              className="home-learn-carousel-image"
+              aria-hidden="true"
+            />
+          </a>
+          <span key={activePost.href} className="home-learn-carousel-copy">
             <a
-              className="home-learn-carousel-media"
+              className="home-learn-carousel-link"
               href={activePost.href}
               target="_blank"
               rel="noreferrer"
             >
-              <img
-                key={activePost.image}
-                src={activePost.image}
-                alt=""
-                className="home-learn-carousel-image"
-                aria-hidden="true"
-              />
+              <span className="home-learn-post-kicker">{activePost.kicker}</span>
+              <span className="home-learn-post-title">{activePost.title}</span>
+              <span className="home-learn-post-summary">{activePost.summary}</span>
             </a>
-            <span key={activePost.href} className="home-learn-carousel-copy">
-              <a
-                className="home-learn-carousel-link"
-                href={activePost.href}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span className="home-learn-post-kicker">{activePost.kicker}</span>
-                <span className="home-learn-post-title">{activePost.title}</span>
-                <span className="home-learn-post-summary">{activePost.summary}</span>
-              </a>
-              <span className="home-learn-rotation" aria-label="Learning article rotation">
-                {LEARN_POSTS.map((post, index) => (
-                  <button
-                    key={post.href}
-                    type="button"
-                    className={`home-learn-dot${index === postIndex ? " home-learn-dot--active" : ""}`}
-                    aria-label={`Show ${post.title}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setPostIndex(index);
-                    }}
-                  />
-                ))}
-              </span>
+            <span className="home-learn-rotation" aria-label="Learning article rotation">
+              {LEARN_POSTS.map((post, index) => (
+                <button
+                  key={post.href}
+                  type="button"
+                  className={`home-learn-dot${index === postIndex ? " home-learn-dot--active" : ""}`}
+                  aria-label={`Show ${post.title}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setPostIndex(index);
+                  }}
+                />
+              ))}
             </span>
-          </div>
-          <a
-            className="home-learn-docs-card"
-            href="https://aeqi.ai/docs"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span className="home-learn-docs-kicker">
-              <BookOpen size={15} strokeWidth={1.7} aria-hidden="true" />
-              Docs
-            </span>
-            <span className="home-learn-docs-title">Read docs</span>
-            <ArrowRight size={15} strokeWidth={1.8} />
-          </a>
+          </span>
         </div>
       </article>
+      <aside className="home-learn-rail" aria-label="Learn aeqi links">
+        <a
+          className="home-learn-rail-card"
+          href="https://aeqi.ai/docs"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="home-learn-rail-kicker">
+            <BookOpen size={15} strokeWidth={1.7} aria-hidden="true" />
+            Docs
+          </span>
+          <span className="home-learn-rail-title">Read docs</span>
+          <span className="home-learn-rail-copy">TRUSTs, agents, quests, and launch basics.</span>
+          <ArrowRight size={15} strokeWidth={1.8} />
+        </a>
+        <a
+          className="home-learn-rail-card"
+          href="https://x.com/aeqiai"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="home-learn-rail-kicker">Community</span>
+          <span className="home-learn-rail-title">Follow aeqi</span>
+          <span className="home-learn-rail-copy">Updates, builds, and operator notes.</span>
+          <ArrowRight size={15} strokeWidth={1.8} />
+        </a>
+      </aside>
     </section>
   );
 }
