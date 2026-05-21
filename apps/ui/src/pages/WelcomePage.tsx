@@ -38,6 +38,8 @@ import {
 
 export type { WelcomeMode } from "./welcome/types";
 
+const PENDING_SIGNUP_NAME_KEY = "aeqi_pending_signup_name";
+
 /**
  * Welcome — combined sign-in / sign-up entry point. A user authenticates
  * with wallet, passkey, email, Google, or GitHub; the server resolves or
@@ -98,7 +100,8 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const getSignupName = (): string | undefined => {
     if (mode !== "signup") return undefined;
     const name = displayName.trim();
-    return name || undefined;
+    if (name) return name;
+    return localStorage.getItem(PENDING_SIGNUP_NAME_KEY)?.trim() || undefined;
   };
 
   /**
@@ -247,6 +250,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     data: AccountSessionResponse & { session_jwt: string; session_expires_at: string },
   ) {
     persistWelcomeSession(data, handleOAuthCallback);
+    localStorage.removeItem(PENDING_SIGNUP_NAME_KEY);
     if (mode !== "signup" && data.already_existed) {
       navigate(getRedirectAfterAuth(searchParams), { replace: true });
       return;
@@ -318,6 +322,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     try {
       const inviteCode = getInviteCode();
       const name = getSignupName();
+      if (name) localStorage.setItem(PENDING_SIGNUP_NAME_KEY, name);
       const startRes = await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
