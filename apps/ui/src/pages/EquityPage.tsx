@@ -5,6 +5,14 @@ import { EquityGenesisCurveSection } from "@/components/EquityGenesisCurveSectio
 import { EquityShareControls } from "@/components/EquityShareControls";
 import { EquityVestingControls } from "@/components/EquityVestingControls";
 import EquityFundingRoundControl from "@/components/EquityFundingRoundControl";
+import { CapTableImportModal } from "@/components/equity/CapTableImportModal";
+import {
+  csvEscape,
+  formatBaseUnits,
+  formatPct,
+  formatPercent,
+  shortAddress,
+} from "@/components/equity/capTableFormat";
 import { EquityPrefillProvider, useEquityPrefill } from "@/components/equity/equityPrefillContext";
 import { HolderDrawer } from "@/components/equity/HolderDrawer";
 import { MintIdentitySection } from "@/components/equity/MintIdentitySection";
@@ -13,7 +21,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useEquity } from "@/hooks/useEquity";
 import { useCurveTrades } from "@/hooks/useCurveTrades";
 import { useEquityVesting } from "@/hooks/useEquityVesting";
-import { formatInteger, formatNumber } from "@/lib/i18n";
+import { formatInteger } from "@/lib/i18n";
 import type { CurveTrade } from "@/components/equity/RecentTradesLog";
 import type { TokenHolder, VestingPositionWithPda } from "@/solana";
 import {
@@ -227,6 +235,7 @@ export default function EquityPage({ trustId }: { trustId: string }) {
             registryInitialized={tokenModuleState.initialized}
           />
           <CapTableSection
+            trustId={trustId}
             holders={holders ?? []}
             totalSupply={mint.supply}
             decimals={mint.decimals}
@@ -295,6 +304,7 @@ const CAP_TABLE_FILTER_LABELS: Record<CapTableFilter, string> = {
 };
 
 function CapTableSection({
+  trustId,
   holders,
   totalSupply,
   decimals,
@@ -302,6 +312,7 @@ function CapTableSection({
   vestingTick,
   recentTrades,
 }: {
+  trustId: string;
   holders: TokenHolder[];
   totalSupply: bigint;
   decimals: number;
@@ -322,6 +333,11 @@ function CapTableSection({
   const [drawerHolder, setDrawerHolder] = useState<TokenHolder | null>(null);
   const [sort, setSort] = useState<CapTableSort>("largest");
   const [filter, setFilter] = useState<CapTableFilter>("all");
+  // iter-11: CSV import dialog. Opens via the "Import CSV" toolbar
+  // action; closes on backdrop click or Close button. Modal state lives
+  // in the section so the parent EquityPage doesn't grow another
+  // dialog-state knob.
+  const [importOpen, setImportOpen] = useState(false);
   // Iter-6: free-text holder search. Sits above the table so it shares
   // the same row as the sort/filter affordances — operators can scope
   // by substring (handy for finding a specific seed/founder address
@@ -606,6 +622,13 @@ function CapTableSection({
                 Export CSV
               </Button>
             )}
+            {/* iter-11: Import CSV bulk-issues or redistributes shares.
+                Always visible (even at zero holders — the first cap-table
+                load is exactly when bulk-mint matters most). The modal
+                holds the mode toggle and per-row settlement results. */}
+            <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+              Import CSV
+            </Button>
             {/* Iter-7: section-level "+ Issue shares" hero CTA. Mirrors
                 the row-menu "Mint more to holder" path but is always
                 discoverable from the cap-table head — operators no
@@ -689,14 +712,25 @@ function CapTableSection({
         recentTrades={recentTrades}
         onClose={() => setDrawerHolder(null)}
       />
+      <CapTableImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        trustId={trustId}
+      />
     </>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────── */
-/* Helpers                                                             */
+/* Page-local helpers                                                  */
 /* ────────────────────────────────────────────────────────────────── */
 
+/**
+ * Inline copy affordance for cap-table mono columns. Stays in this file
+ * because it consumes the page's Tooltip primitive — the format helpers
+ * went to `equity/capTableFormat.ts` to lift the page back under the
+ * 600-line lint ceiling (iter-11).
+ */
 function CopyableMono({ full, display }: { full: string; display: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.SyntheticEvent) => {
@@ -726,77 +760,4 @@ function CopyableMono({ full, display }: { full: string; display: string }) {
       </span>
     </Tooltip>
   );
-}
-
-function shortAddress(value: string): string {
-  if (value.length <= 12) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
-/**
- * Format a raw base-unit amount with the given decimals into a
- * human-readable token quantity. Splits at the decimal place, groups
- * the integer part with thousands separators, and trims trailing zeros
- * in the fractional part so "100000000.000000000" renders as
- * "100,000,000".
- *
- * Why not `formatInteger` (from `@/lib/i18n`)? Cap-table token amounts
- * can exceed `Number.MAX_SAFE_INTEGER` (a 9-decimal mint with 1B supply
- * = 10^18 base units, well past 2^53). `Intl.NumberFormat` supports
- * `bigint` natively, but the project's i18n helpers take `number`.
- * The manual grouping below stays exact for any size bigint.
- */
-function formatBaseUnits(amount: bigint, decimals: number): string {
-  if (decimals === 0) return groupThousands(amount.toString());
-  const divisor = 10n ** BigInt(decimals);
-  const integerPart = amount / divisor;
-  const fractionalPart = amount % divisor;
-  const integerStr = groupThousands(integerPart.toString());
-  if (fractionalPart === 0n) return integerStr;
-  const fracStr = fractionalPart.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return fracStr.length > 0 ? `${integerStr}.${fracStr}` : integerStr;
-}
-
-/**
- * Insert `,` thousands separators into a digit string. Locale-neutral
- * by design — the project's i18n helpers can't handle bigint, and this
- * function is only used for non-localized numeric formatting.
- */
-function groupThousands(digits: string): string {
-  if (digits.length <= 3) return digits;
-  const isNegative = digits.startsWith("-");
-  const body = isNegative ? digits.slice(1) : digits;
-  const grouped = body.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return isNegative ? `-${grouped}` : grouped;
-}
-
-/**
- * Render `holderAmount / totalSupply` as a two-decimal percentage.
- * Falls back to "—" when supply is zero (avoid divide-by-zero on a
- * never-minted mint; the cap-table section should be empty in that
- * case anyway, but the column renders defensively).
- */
-/**
- * Iter-6 CSV escape — RFC-4180-flavoured: wrap any value that contains
- * a comma, double-quote, or newline in double-quotes, and double-up
- * embedded quotes. Sufficient for cap-table fields (addresses are
- * comma-free base58, amounts are formatted numbers, percentages carry
- * a `%` and a `.`). Keeps the export legible in Excel, Sheets, and
- * `cut -d,`.
- */
-function csvEscape(value: string): string {
-  return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-const formatPct = (value: number): string =>
-  `${formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
-
-function formatPercent(amount: bigint, total: bigint): string {
-  if (total === 0n) return "—";
-  // Scale to ten-thousandths then divide back — keeps two-decimal
-  // precision without leaving bigint.
-  const basisPoints = (amount * 10_000n) / total;
-  const whole = basisPoints / 100n;
-  const frac = basisPoints % 100n;
-  return `${whole.toString()}.${frac.toString().padStart(2, "0")}%`;
 }
