@@ -3748,6 +3748,11 @@
   outline: 2px solid var(--accent-dim);
   outline-offset: -2px;
 }
+/* Chevron sits inside the toggle button, so it has no own hover/focus
+   events — its state is driven by the parent `.quest-col-header--toggle`
+   so the row reads as one affordance. Matches the active-column `+`
+   hover lift (line ~3785): icon brightens to --color-text-primary when
+   the row is about to be clicked. */
 .quest-col-collapse {
   display: inline-flex;
   align-items: center;
@@ -3761,6 +3766,12 @@
   transition:
     background 0.12s ease,
     color 0.12s ease;
+}
+.quest-col-header--toggle:hover .quest-col-collapse {
+  color: var(--color-text-primary);
+}
+.quest-col-header--toggle:focus-visible .quest-col-collapse {
+  color: var(--color-text-primary);
 }
 
 /* Per-column `+` — same ghost icon-button language as the list group's
