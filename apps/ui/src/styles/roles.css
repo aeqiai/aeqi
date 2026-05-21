@@ -1379,15 +1379,27 @@
      micro-flickers that fire when the cursor sweeps across a chip row
      without resting on any single chip, while keeping the response
      feeling instant on a deliberate hover. Mirrors the c11/c12 hover-
-     grace work on RoleNode + RoleInspector edge-hint, in CSS form. */
+     grace work on RoleNode + RoleInspector edge-hint, in CSS form.
+     :focus-visible + :active mirror the c17/c18/c19 focus-vocab sweep
+     (invite button, copy button, charter card, count-link) so every
+     clickable surface inside RoleInspector shares one ring + press. */
   transition:
     background 0.12s ease 0ms,
     color 0.12s ease 0ms,
-    opacity 0.12s ease 0ms;
+    opacity 0.12s ease 0ms,
+    box-shadow 0.12s ease 0ms,
+    transform 0.12s ease 0ms;
 }
 .role-inspector-chip:hover {
   background: var(--color-card-subtle);
   transition-delay: 80ms;
+}
+.role-inspector-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.role-inspector-chip:active {
+  transform: translateY(0.5px);
 }
 /* Implicit edge variant — the link is real (you can click through to
    the inferred role) but the data underneath is synthesised, not
