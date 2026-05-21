@@ -237,7 +237,7 @@ export default function AppLayout() {
   const search = location.search || "";
 
   if (entities.length === 0 && (isHome || isStart)) {
-    return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/launch?blueprint=personal-os" replace />;
   }
 
   // Stale entity ref after a data reset would point at a non-existent

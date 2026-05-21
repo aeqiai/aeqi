@@ -54,8 +54,8 @@ export default function VerifyEmailPage() {
       verifyEmail(email, full).then((ok) => {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          // Post-signup verify → onboarding (no companies yet).
-          navigate("/launch", { replace: true });
+          // Post-signup verify -> first TRUST launch with the Personal blueprint selected.
+          navigate("/launch?blueprint=personal-os", { replace: true });
         }
       });
     }
@@ -77,8 +77,8 @@ export default function VerifyEmailPage() {
       verifyEmail(email, text).then((ok) => {
         if (ok) {
           localStorage.removeItem("aeqi_pending_email");
-          // Post-signup verify → onboarding (no companies yet).
-          navigate("/launch", { replace: true });
+          // Post-signup verify -> first TRUST launch with the Personal blueprint selected.
+          navigate("/launch?blueprint=personal-os", { replace: true });
         }
       });
     }

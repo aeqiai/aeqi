@@ -24,10 +24,10 @@ const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const InvitationAcceptPage = lazy(() => import("@/pages/InvitationAcceptPage"));
 const MagicLinkPage = lazy(() => import("@/pages/MagicLinkPage"));
-const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
 const PublicProfilePage = lazy(() => import("@/pages/PublicProfilePage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const TrustSetupPage = lazy(() => import("@/pages/TrustSetupPage"));
 const VerifyEmailPage = lazy(() => import("@/pages/VerifyEmailPage"));
 
 /**
@@ -186,7 +186,9 @@ export default function App() {
             intentionally do NOT inherit the shell. */}
         <Route path="agents" element={<AgentsPage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
-        <Route path="onboarding" element={<OnboardingPage />} />
+        <Route path="launch" element={<TrustSetupPage />} />
+        <Route path="launch/:blueprintId" element={<TrustSetupPage />} />
+        <Route path="onboarding" element={<TrustSetupPage entry="personal" />} />
 
         {/* Legacy flat session URL — resolves the owning agent +
             entity, then Navigate replace to the canonical deep shape. */}
@@ -198,8 +200,6 @@ export default function App() {
           <Route path="account" element={null} />
           <Route path="account/:tab" element={null} />
           <Route path="admin" element={null} />
-          <Route path="launch" element={null} />
-          <Route path="launch/:blueprintId" element={null} />
           <Route path="economy" element={null} />
           <Route path="economy/:tab" element={null} />
           <Route path="acting-as" element={null} />
@@ -248,9 +248,8 @@ export default function App() {
           <Route path="/login" element={<WelcomePage mode="login" />} />
           <Route path="/signup" element={<WelcomePage mode="signup" />} />
           <Route path="/welcome" element={<WelcomePage mode="welcome" />} />
-          {/* `/launch` is the sole in-shell Company-launch surface.
-              Routes through GatedAppShell so the LeftSidebar stays
-              mounted and unauth visitors bounce to /login. */}
+          {/* `/launch` is the standalone TRUST launch surface; unauth
+              visitors bounce through the protected route below. */}
           <Route path="/waitlist" element={<Navigate to="/signup" replace />} />
           <Route path="/verify" element={<VerifyEmailPage />} />
           <Route path="/auth/magic" element={<MagicLinkPage />} />
@@ -282,7 +281,23 @@ export default function App() {
             path="/onboarding"
             element={
               <ProtectedRoute>
-                <OnboardingPage />
+                <TrustSetupPage entry="personal" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/launch"
+            element={
+              <ProtectedRoute>
+                <TrustSetupPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/launch/:blueprintId"
+            element={
+              <ProtectedRoute>
+                <TrustSetupPage />
               </ProtectedRoute>
             }
           />

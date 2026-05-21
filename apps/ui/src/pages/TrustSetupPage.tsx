@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
 import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
@@ -10,14 +10,23 @@ import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { isSingleBlueprint } from "@/lib/types";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
-import { Banner, Button, Card, EmptyState, Input, Loading, Textarea } from "@/components/ui";
-import { BlueprintTreePreview } from "@/components/blueprints/BlueprintTreePreview";
+import { useUIStore } from "@/store/ui";
 import { LaunchingReveal } from "@/components/LaunchingReveal";
+import {
+  LaunchShellError,
+  LaunchShellLoading,
+  TrustSetupFlow,
+} from "@/pages/trustSetup/TrustSetupFlow";
 import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
 
 const PROVISION_POLL_INTERVAL_MS = 1000;
 const PROVISION_POLL_TIMEOUT_MS = 60_000;
+const FIRST_RUN_BLUEPRINT_SLUG = "personal-os";
+
+type LaunchEntry = "standard" | "personal";
+type LaunchStep = "blueprint" | "details" | "operations";
+type OperationsChoice = "free" | "paid";
 
 type NameCheckState =
   | { status: "idle" }
@@ -37,25 +46,55 @@ function pickInitialBlueprintId(
   return blueprints[0] ? blueprintId(blueprints[0]) : null;
 }
 
-export default function TrustSetupPage() {
+function pickFirstRunBlueprintId(byBlueprintId: Map<string, Blueprint>): string | null {
+  if (byBlueprintId.has(FIRST_RUN_BLUEPRINT_SLUG)) return FIRST_RUN_BLUEPRINT_SLUG;
+  if (byBlueprintId.has(DEFAULT_BLUEPRINT_SLUG)) return DEFAULT_BLUEPRINT_SLUG;
+  return byBlueprintId.keys().next().value ?? null;
+}
+
+function userFallbackName(user: { name?: string | null; email?: string | null } | null): string {
+  return user?.name?.trim() || user?.email?.split("@")[0] || "You";
+}
+
+function defaultTrustName(
+  user: { name?: string | null; email?: string | null } | null,
+  blueprint: Blueprint | null,
+): string {
+  const base = userFallbackName(user);
+  if (blueprint && blueprintId(blueprint) !== FIRST_RUN_BLUEPRINT_SLUG) {
+    return blueprint.root?.name || blueprint.name || `${base} TRUST`;
+  }
+  return `${base}'s TRUST`;
+}
+
+export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchEntry } = {}) {
   const navigate = useNavigate();
   const { blueprintId: blueprintIdParam = "" } = useParams<{ blueprintId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const launchId = searchParams.get("launch");
+  const requestedBlueprint = searchParams.get("blueprint") || blueprintIdParam;
+  const isFirstRun = entry === "personal" || requestedBlueprint === FIRST_RUN_BLUEPRINT_SLUG;
 
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const entities = useDaemonStore((s) => s.entities);
+  const setActiveEntity = useUIStore((s) => s.setActiveEntity);
+  const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
   const canSkipCheckout = isAdmin;
 
+  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [step, setStep] = useState<LaunchStep>(
+    isFirstRun || requestedBlueprint ? "details" : "blueprint",
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState(false);
-  const [organizationName, setOrganizationName] = useState("");
-  const [mission, setMission] = useState("");
+  const [trustName, setTrustName] = useState("");
+  const [trustNameTouched, setTrustNameTouched] = useState(false);
+  const [operations, setOperations] = useState<OperationsChoice>("free");
   const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
   const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
 
@@ -74,39 +113,36 @@ export default function TrustSetupPage() {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    const loadBlueprint = async () => {
-      try {
-        if (blueprintIdParam) {
-          const resp = await api.getBlueprint(blueprintIdParam);
-          if (cancelled) return;
-          const tpl = resp.blueprint;
-          if (!tpl || !isSingleBlueprint(tpl)) {
-            setLoadError("Blueprint not found.");
-            return;
-          }
-          setBlueprint(tpl);
-          const initialName = tpl.root?.name ?? tpl.name;
-          setOrganizationName(initialName);
-          setMission(tpl.tagline || tpl.description || "");
-          setPlan(DEFAULT_LAUNCH_PLAN);
-          return;
-        }
 
+    const loadBlueprints = async () => {
+      try {
         const resp = await api.getBlueprints();
         if (cancelled) return;
-        const blueprints = (resp.blueprints ?? []).filter(isSingleBlueprint);
+        const available = (resp.blueprints ?? []).filter(isSingleBlueprint);
         const byId = new Map<string, Blueprint>();
-        for (const tpl of blueprints) byId.set(blueprintId(tpl), tpl);
-        const selectedId = pickInitialBlueprintId(blueprints, byId);
-        const tpl = selectedId ? (byId.get(selectedId) ?? null) : null;
-        if (!tpl) {
+        for (const tpl of available) byId.set(blueprintId(tpl), tpl);
+
+        let selectedId = requestedBlueprint || "";
+        if (isFirstRun) selectedId = pickFirstRunBlueprintId(byId) ?? selectedId;
+        if (!selectedId) selectedId = pickInitialBlueprintId(available, byId) ?? "";
+
+        let selected = selectedId ? (byId.get(selectedId) ?? null) : null;
+        if (!selected && selectedId) {
+          const detail = await api.getBlueprint(selectedId);
+          if (cancelled) return;
+          if (detail.blueprint && isSingleBlueprint(detail.blueprint)) {
+            selected = detail.blueprint;
+            available.push(detail.blueprint);
+          }
+        }
+
+        if (!selected) {
           setLoadError("No blueprints are available yet.");
           return;
         }
-        setBlueprint(tpl);
-        const initialName = tpl.root?.name ?? tpl.name;
-        setOrganizationName(initialName);
-        setMission(tpl.tagline || tpl.description || "");
+
+        setBlueprints(available);
+        setBlueprint(selected);
         setPlan(DEFAULT_LAUNCH_PLAN);
       } catch (e) {
         if (cancelled) return;
@@ -117,52 +153,47 @@ export default function TrustSetupPage() {
       }
     };
 
-    void loadBlueprint();
+    void loadBlueprints();
     return () => {
       cancelled = true;
     };
-  }, [blueprintIdParam]);
+  }, [isFirstRun, requestedBlueprint]);
+
+  useEffect(() => {
+    if (trustNameTouched || !blueprint) return;
+    setTrustName(defaultTrustName(user, blueprint));
+  }, [blueprint, trustNameTouched, user]);
 
   const selectedLaunchPlan = useMemo(
     () => LAUNCH_PLANS.find((p) => p.id === plan) ?? LAUNCH_PLANS[0],
     [plan],
   );
 
-  const blueprintMode = useMemo(() => {
-    if (!blueprint) {
-      return {
-        label: "Company",
-        meta: "A flexible organization that adapts as your mission evolves.",
-      };
-    }
-    const category = blueprint.category ?? "company";
-    if (category === "foundation") {
-      return {
-        label: "Foundation",
-        meta: "A flexible organization that adapts as your mission evolves.",
-      };
-    }
-    if (category === "fund") {
-      return {
-        label: "Fund",
-        meta: "A flexible organization that adapts as your mission evolves.",
-      };
-    }
-    return {
-      label: "Company",
-      meta: "A flexible organization that adapts as your mission evolves.",
-    };
-  }, [blueprint]);
+  const visibleSteps: Array<{ id: LaunchStep; label: string }> = useMemo(
+    () =>
+      isFirstRun
+        ? [
+            { id: "details", label: "Name" },
+            { id: "operations", label: "Operations" },
+          ]
+        : [
+            { id: "blueprint", label: "Blueprint" },
+            { id: "details", label: "Name" },
+            { id: "operations", label: "Operations" },
+          ],
+    [isFirstRun],
+  );
 
-  const blueprintPath = useMemo(() => {
-    if (!blueprint) return "/blueprints";
-    return `/blueprints/${encodeURIComponent(blueprintId(blueprint))}`;
-  }, [blueprint]);
+  const stepIndex = visibleSteps.findIndex((item) => item.id === step);
+  const selectedBlueprintId = blueprint ? blueprintId(blueprint) : "";
+  const blueprintPath = blueprint
+    ? `/blueprints/${encodeURIComponent(selectedBlueprintId)}`
+    : "/blueprints";
 
   const nameHint = useMemo(() => {
     switch (nameCheck.status) {
       case "checking":
-        return "Checking availability…";
+        return "Checking availability...";
       case "available":
         return "Name is available.";
       case "error":
@@ -171,7 +202,7 @@ export default function TrustSetupPage() {
         return undefined;
       case "idle":
       default:
-        return "This can be changed later.";
+        return "Ownership starts as 1 of 1: you.";
     }
   }, [nameCheck]);
 
@@ -183,7 +214,7 @@ export default function TrustSetupPage() {
   }, [nameCheck]);
 
   useEffect(() => {
-    const name = organizationName.trim();
+    const name = trustName.trim();
     if (!name) {
       setNameCheck({ status: "idle" });
       return;
@@ -210,7 +241,7 @@ export default function TrustSetupPage() {
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [organizationName]);
+  }, [trustName]);
 
   useEffect(() => {
     if (!launchId || provisionHandled.current) return;
@@ -252,7 +283,7 @@ export default function TrustSetupPage() {
         if (!cancelled) {
           setProvisioning(false);
           setSubmitError(
-            "Payment received. Your organization is still provisioning. Refresh in a moment.",
+            "Payment received. Your TRUST is still provisioning. Refresh in a moment.",
           );
           setSearchParams(new URLSearchParams(), { replace: true });
         }
@@ -268,10 +299,66 @@ export default function TrustSetupPage() {
     };
   }, [fetchEntities, launchId, navigate, setSearchParams]);
 
-  const handleLaunch = useCallback(async () => {
+  const chooseBlueprint = (tpl: Blueprint) => {
+    setBlueprint(tpl);
+    setTrustNameTouched(false);
+    setSubmitError(null);
+    setStep("details");
+  };
+
+  const handleBack = () => {
+    setSubmitError(null);
+    if (step === "operations") {
+      setStep("details");
+      return;
+    }
+    if (step === "details" && !isFirstRun) {
+      setStep("blueprint");
+    }
+  };
+
+  const handleNext = () => {
+    setSubmitError(null);
+    if (step === "blueprint" && blueprint) setStep("details");
+    if (step === "details" && trustName.trim() && nameCheck.status === "available") {
+      setStep("operations");
+    }
+  };
+
+  const handleFreeTrust = useCallback(async () => {
     if (!blueprint) return;
-    const displayName = organizationName.trim();
-    const shortMission = mission.trim();
+    const displayName = trustName.trim();
+    if (!displayName || nameCheck.status !== "available") return;
+
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const created = await api.createPersonalTrust({
+        name: displayName,
+        owner_name: userFallbackName(user),
+        goal: "launch",
+        tagline: `${blueprint.name} blueprint - operations off`,
+      });
+      const trustId = created.trust?.id || created.id;
+      if (!trustId) throw new Error("The TRUST was created without an id.");
+
+      setActiveEntity(trustId);
+      await fetchEntities();
+      const refreshed = useDaemonStore.getState().entities.find((entity) => entity.id === trustId);
+      if (refreshed?.trust_address) {
+        navigate(`/trust/${encodeURIComponent(refreshed.trust_address)}`, { replace: true });
+      } else {
+        navigate("/trust", { replace: true });
+      }
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Could not create this TRUST.");
+      setSubmitting(false);
+    }
+  }, [blueprint, fetchEntities, nameCheck.status, navigate, setActiveEntity, trustName, user]);
+
+  const handlePaidLaunch = useCallback(async () => {
+    if (!blueprint) return;
+    const displayName = trustName.trim();
     if (!displayName || nameCheck.status !== "available") return;
 
     setSubmitError(null);
@@ -282,7 +369,7 @@ export default function TrustSetupPage() {
         const resp = await api.startLaunch({
           template: blueprintId(blueprint),
           display_name: displayName,
-          mission: shortMission,
+          mission: "",
           plan,
         });
 
@@ -298,7 +385,7 @@ export default function TrustSetupPage() {
       const { url } = await api.createCheckoutSession({
         blueprint: blueprintId(blueprint),
         display_name: displayName,
-        mission: shortMission,
+        mission: "",
         plan,
         launch: true,
       });
@@ -309,14 +396,14 @@ export default function TrustSetupPage() {
           const { url } = await api.createCheckoutSession({
             blueprint: blueprintId(blueprint),
             display_name: displayName,
-            mission: shortMission,
+            mission: "",
             plan,
             launch: true,
           });
           goExternal(url);
           return;
         } catch {
-          setSubmitError("Payment is required to launch this organization.");
+          setSubmitError("Payment is required to activate operations for this TRUST.");
         }
       } else {
         setSubmitError(e instanceof Error ? e.message : "Launch failed. Try again.");
@@ -324,40 +411,22 @@ export default function TrustSetupPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [
-    blueprint,
-    canSkipCheckout,
-    mission,
-    nameCheck.status,
-    organizationName,
-    plan,
-    setSearchParams,
-  ]);
+  }, [blueprint, canSkipCheckout, nameCheck.status, plan, setSearchParams, trustName]);
+
+  const handleLaunch = () => {
+    if (operations === "free") {
+      void handleFreeTrust();
+      return;
+    }
+    void handlePaidLaunch();
+  };
 
   if (loading && !blueprint) {
-    return (
-      <div className="wizard-page">
-        <div className="bp-status">
-          <Loading size="sm" /> Loading blueprint…
-        </div>
-      </div>
-    );
+    return <LaunchShellLoading />;
   }
 
   if (!blueprint) {
-    return (
-      <div className="wizard-page">
-        <EmptyState
-          title="Blueprint not found."
-          description={loadError || "We couldn't find a blueprint with that id."}
-          action={
-            <Button variant="secondary" onClick={() => navigate("/blueprints")}>
-              Back to catalog
-            </Button>
-          }
-        />
-      </div>
-    );
+    return <LaunchShellError error={loadError} onBack={() => navigate("/blueprints")} />;
   }
 
   if (provisioning && launchId) {
@@ -365,171 +434,48 @@ export default function TrustSetupPage() {
       <div className="launch-page launch-page--provisioning">
         <LaunchingReveal
           trustId={launchId}
-          fallbackDisplayName={activeLaunchEntity?.name || organizationName.trim() || undefined}
+          fallbackDisplayName={activeLaunchEntity?.name || trustName.trim() || undefined}
         />
       </div>
     );
   }
 
+  const canGoNext =
+    step === "blueprint" || (trustName.trim().length > 1 && nameCheck.status === "available");
+  const canSubmit = trustName.trim().length > 1 && nameCheck.status === "available";
+  const showBack = step === "operations" || (step === "details" && !isFirstRun);
+
   return (
-    <div className="launch-page">
-      <header className="launch-head">
-        <div className="start-head-copy">
-          <h1 className="page-title">Launch your organization.</h1>
-        </div>
-        <div className="start-head-actions">
-          <Link to="/blueprints" className="start-secondary-link">
-            Browse blueprints
-          </Link>
-        </div>
-      </header>
-
-      {submitError && (
-        <Banner kind="error" className="start-banner">
-          {submitError}
-        </Banner>
-      )}
-
-      {loadError && !submitError && (
-        <Banner kind="error" className="start-banner">
-          {loadError}
-        </Banner>
-      )}
-
-      <section className="launch-grid">
-        <div className="launch-main">
-          <Card variant="default" padding="lg" className="launch-card">
-            <div className="launch-card-head">
-              <p className="start-section-kicker">Identity</p>
-            </div>
-
-            <div className="launch-fields">
-              <div className="launch-field launch-field--name">
-                <p className="launch-field-title">Organization name</p>
-                <Input
-                  aria-label="Organization name"
-                  hint={nameHint}
-                  error={nameError}
-                  value={organizationName}
-                  onChange={(e) => setOrganizationName(e.target.value)}
-                  placeholder="Enter a name"
-                  size="lg"
-                />
-                <p className="launch-field-note">This becomes the registered name.</p>
-              </div>
-
-              <div className="launch-field">
-                <Textarea
-                  label="Mission"
-                  hint="One sentence is enough."
-                  value={mission}
-                  onChange={(e) => setMission(e.target.value)}
-                  rows={2}
-                  placeholder="What should this organization do?"
-                />
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <div className="launch-side">
-          <Card variant="default" padding="lg" className="launch-preview-card">
-            <div className="launch-preview-head">
-              <div>
-                <p className="start-section-kicker">Blueprint</p>
-                <h3 className="start-section-title">{blueprint.name}</h3>
-              </div>
-              <span className="launch-preview-type">{blueprintMode.label}</span>
-            </div>
-            <p className="start-sub launch-preview-sub">
-              {blueprint.tagline || blueprint.description || blueprintMode.meta}
-            </p>
-            <p className="launch-preview-structure">Starting structure</p>
-            <p className="launch-preview-structure-copy">
-              Includes a default lead agent. Roles can be edited later.
-            </p>
-            <BlueprintTreePreview template={blueprint} />
-            <div className="launch-blueprint-actions">
-              <Link to={blueprintPath} className="launch-secondary-link">
-                Customize blueprint
-              </Link>
-            </div>
-          </Card>
-        </div>
-      </section>
-
-      <div className="launch-footer">
-        <div className="launch-footer-meta">
-          <p className="start-section-kicker">Choose execution capacity</p>
-          <p className="launch-footer-note">
-            Both plans include the full organization and unlimited agents. Pro gives you 4× more LLM
-            capacity and 4× more runtime.
-          </p>
-        </div>
-
-        <div className="launch-footer-plans" role="list" aria-label="Launch plans">
-          {LAUNCH_PLANS.map((item) => {
-            const selected = item.id === plan;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`plan-card launch-plan-card launch-plan-card--footer ${
-                  selected ? "plan-card--selected" : ""
-                } ${item.recommended ? "plan-card--popular" : ""}`}
-                onClick={() => setPlan(item.id)}
-                aria-pressed={selected}
-              >
-                {item.recommended && <span className="plan-card-badge">Recommended</span>}
-                <div className="plan-card-top">
-                  <div className="plan-card-name">{item.name}</div>
-                  <span className="plan-card-check" aria-hidden="true">
-                    {selected ? "✓" : ""}
-                  </span>
-                </div>
-                <div className="plan-card-price">
-                  <span className="plan-card-price-amount">
-                    {item.id === "growth" ? item.dueToday : item.price}
-                  </span>
-                  <span className="plan-card-price-cadence">
-                    {item.id === "growth"
-                      ? `first month · then ${item.price}${item.cadence}`
-                      : item.cadence}
-                  </span>
-                </div>
-                <p className="launch-plan-intro">{item.intro}</p>
-                <ul className="launch-plan-bullets">
-                  {item.features.map((feature) => (
-                    <li key={feature} className="launch-plan-bullet">
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <p className="launch-plan-footer">{item.blurb}</p>
-              </button>
-            );
-          })}
-        </div>
-        <div className="launch-footer-action">
-          <div className="launch-footer-copy">
-            <p className="launch-footer-note">Due today: {selectedLaunchPlan.dueToday}</p>
-          </div>
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            onClick={() => void handleLaunch()}
-            disabled={submitting || !organizationName.trim() || nameCheck.status !== "available"}
-            loading={submitting}
-            loadingLabel="Creating"
-          >
-            {`Pay ${selectedLaunchPlan.dueToday} and launch`}
-          </Button>
-          <p className="launch-footer-support">
-            Created automatically after checkout succeeds. You can change capacity later.
-          </p>
-        </div>
-      </div>
-    </div>
+    <TrustSetupFlow
+      visibleSteps={visibleSteps}
+      stepIndex={stepIndex}
+      step={step}
+      blueprints={blueprints}
+      blueprint={blueprint}
+      selectedBlueprintId={selectedBlueprintId}
+      blueprintPath={blueprintPath}
+      submitError={submitError}
+      loadError={loadError}
+      trustName={trustName}
+      nameHint={nameHint}
+      nameError={nameError}
+      operations={operations}
+      plan={plan}
+      selectedLaunchPlan={selectedLaunchPlan}
+      showBack={showBack}
+      canGoNext={canGoNext}
+      canSubmit={canSubmit}
+      submitting={submitting}
+      onChooseBlueprint={chooseBlueprint}
+      onTrustNameChange={(value) => {
+        setTrustNameTouched(true);
+        setTrustName(value);
+      }}
+      onOperationsChange={setOperations}
+      onPlanChange={setPlan}
+      onBack={handleBack}
+      onNext={handleNext}
+      onLaunch={handleLaunch}
+    />
   );
 }

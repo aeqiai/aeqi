@@ -649,7 +649,9 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
             <WelcomeView
               outcome={outcome}
               onContinue={() =>
-                navigate(outcome.already_existed ? "/" : "/onboarding", { replace: true })
+                navigate(outcome.already_existed ? "/" : "/launch?blueprint=personal-os", {
+                  replace: true,
+                })
               }
             />
           )}
