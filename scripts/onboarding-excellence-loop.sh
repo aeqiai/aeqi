@@ -108,6 +108,11 @@ smoke_paths_if_available() {
     rm -rf "$tmp"
 }
 
+smoke_contributor_setup_helper() {
+    scripts/setup-contributor.sh --help >/dev/null
+    scripts/setup-contributor.sh --rust-only --check-only >/dev/null
+}
+
 check_optional_hermes_signals() {
     if [ -z "${HERMES_REPO:-}" ]; then
         log "SKIP: HERMES_REPO not set"
@@ -160,10 +165,12 @@ main() {
 
     if require_aeqi_bin; then
         run_step "public surface scan" scripts/public-surface-scan.sh
+        run_step "contributor setup helper smoke" smoke_contributor_setup_helper
         run_step "golden README quickstart smoke" scripts/smoke-quickstart-readme.sh
         run_step "aeqi paths smoke if available" smoke_paths_if_available
     else
         run_step "public surface scan" scripts/public-surface-scan.sh
+        run_step "contributor setup helper smoke" smoke_contributor_setup_helper
         record_fail "golden README quickstart smoke requires an AEQI binary"
         record_fail "aeqi paths smoke requires an AEQI binary"
     fi

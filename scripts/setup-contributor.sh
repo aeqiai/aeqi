@@ -13,6 +13,7 @@ RUN_UI_INSTALL=1
 RUN_UI_BUILD=1
 RUN_CARGO_BUILD=1
 CHECK_ONLY=0
+REQUIRED_NODE_MAJOR="$(tr -d '[:space:]' < "$REPO_ROOT/.nvmrc")"
 
 usage() {
     cat <<'USAGE'
@@ -26,6 +27,8 @@ Prepares source build prerequisites in a conservative order:
 
 Options:
   --check-only        Verify tools and print guidance without installing/building
+  --rust-only         Check/build only the Rust workspace; skip UI steps
+  --skip-ui           Alias for --skip-ui-install --skip-ui-build
   --skip-ui-install  Skip npm run ui:install
   --skip-ui-build    Skip npm run ui:build
   --skip-cargo-build Skip cargo build
@@ -59,9 +62,14 @@ parse_args() {
         case "$1" in
             --check-only)
                 CHECK_ONLY=1
+                ;;
+            --rust-only)
                 RUN_UI_INSTALL=0
                 RUN_UI_BUILD=0
-                RUN_CARGO_BUILD=0
+                ;;
+            --skip-ui)
+                RUN_UI_INSTALL=0
+                RUN_UI_BUILD=0
                 ;;
             --skip-ui-install)
                 RUN_UI_INSTALL=0
@@ -87,11 +95,63 @@ parse_args() {
 check_node_version() {
     local major
 
+    activate_project_node_if_available
     need node
     major="$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || true)"
-    if [ -z "$major" ] || [ "$major" -lt 22 ]; then
-        die "Node.js 22+ is required for apps/ui; found $(node --version 2>/dev/null || printf 'unknown')"
+    if [ -z "$major" ] || [ "$major" -lt "$REQUIRED_NODE_MAJOR" ]; then
+        cat >&2 <<EOF
+error: Node.js ${REQUIRED_NODE_MAJOR}+ is required for apps/ui; found $(node --version 2>/dev/null || printf 'unknown')
+
+Use a Node version manager, then re-run this helper:
+  nvm install
+  nvm use
+  scripts/setup-contributor.sh
+
+For Rust-only work, skip UI checks/builds:
+  scripts/setup-contributor.sh --rust-only
+EOF
+        exit 1
     fi
+}
+
+load_nvm_if_available() {
+    command -v nvm >/dev/null 2>&1 && return 0
+
+    local nvm_script=""
+    if [ -n "${NVM_DIR:-}" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+        nvm_script="$NVM_DIR/nvm.sh"
+    elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+        nvm_script="$HOME/.nvm/nvm.sh"
+    fi
+
+    if [ -n "$nvm_script" ]; then
+        # shellcheck disable=SC1090
+        . "$nvm_script"
+    fi
+
+    command -v nvm >/dev/null 2>&1
+}
+
+activate_project_node_if_available() {
+    local current_major
+
+    current_major="$(node -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || true)"
+    if [ -n "$current_major" ] && [ "$current_major" -ge "$REQUIRED_NODE_MAJOR" ]; then
+        return 0
+    fi
+
+    if load_nvm_if_available; then
+        log "Activating Node.js from .nvmrc"
+        if nvm use --silent >/dev/null 2>&1; then
+            return 0
+        fi
+        note "nvm is available, but Node $(cat "$REPO_ROOT/.nvmrc") is not installed."
+        note "Install it with: nvm install"
+    fi
+}
+
+ui_steps_enabled() {
+    [ "$RUN_UI_INSTALL" -eq 1 ] || [ "$RUN_UI_BUILD" -eq 1 ]
 }
 
 print_runtime_boundary() {
@@ -126,12 +186,18 @@ main() {
     cd "$REPO_ROOT"
 
     log "Checking prerequisites"
-    need npm
-    need cargo
-    check_node_version
-    note "npm: $(npm --version)"
-    note "node: $(node --version)"
-    note "cargo: $(cargo --version)"
+    if [ "$RUN_CARGO_BUILD" -eq 1 ] || [ "$CHECK_ONLY" -eq 1 ]; then
+        need cargo
+        note "cargo: $(cargo --version)"
+    fi
+    if ui_steps_enabled; then
+        check_node_version
+        need npm
+        note "node: $(node --version)"
+        note "npm: $(npm --version)"
+    else
+        note "UI checks/builds skipped; Node.js and npm are not required for this run."
+    fi
 
     print_runtime_boundary
 

@@ -134,9 +134,12 @@ from the dashboard or CLI.
 For contributors working on the frontend:
 
 ```bash
-npm run ui:install
-npm run ui:build
+scripts/setup-contributor.sh
 ```
+
+That helper keeps runtime setup separate from source setup. It uses `.nvmrc`
+for the Node.js 22 requirement when nvm is available, and
+`scripts/setup-contributor.sh --rust-only` skips UI checks for Rust-only work.
 
 For hot-reload during UI development:
 

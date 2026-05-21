@@ -34,6 +34,10 @@ and builds the UI before running `cargo build`. It deliberately does not run
 `aeqi setup`, create `.env` files, write secrets, install services, or create
 runtime state inside the source checkout.
 
+If your shell is on an older Node, the helper will try `nvm use` from `.nvmrc`
+when nvm is installed. For Rust-only work, run
+`scripts/setup-contributor.sh --rust-only`.
+
 First-run init (non-interactive — writes config, seeds a starter orchestrator agent, and generates a stable dashboard secret):
 
 ```bash
