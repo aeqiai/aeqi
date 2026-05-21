@@ -36,6 +36,7 @@ import type {
 } from "@/solana";
 import { ApiError, api } from "@/lib/api";
 import { Badge, Button, EmptyState, Inline, Modal, Popover, Stack, Tooltip } from "@/components/ui";
+import { useProposalVoteRecords } from "@/hooks/useProposalVoteRecords";
 import styles from "./QuorumPage.module.css";
 import {
   CopyableMono,
@@ -44,6 +45,7 @@ import {
   SnapshotIndicator,
   TallyDetail,
 } from "./QuorumPage.parts";
+import { TallyMomentumStrip } from "./QuorumPage.momentum";
 import {
   bytesToHex,
   countdownLabel,
@@ -60,6 +62,12 @@ import {
   VoteHistorySection,
   useQuorumInvalidator,
 } from "./QuorumPage.actions";
+import {
+  computeProposerReputation,
+  recentProposalsBy,
+  type ProposerReputation,
+  type RecentProposalSummary,
+} from "./QuorumPage.reputation";
 
 export { ProposalCompareTray } from "./QuorumPage.compare";
 
@@ -124,6 +132,19 @@ export function ProposalDetailModal({
     });
   }, [entry, configs]);
 
+  // iter-8: share the vote-record query between the momentum sparkline
+  // and the existing VoteHistorySection. Both consume the same query
+  // key so the RPC round-trip happens once per (trust, proposal).
+  // `useProposalVoteRecords` is a no-op until we have a proposalId, so
+  // we pass an empty array sentinel when the modal is closed.
+  const proposalIdForRecords: Uint8Array | number[] = entry
+    ? entry.proposal.account.proposalId
+    : new Uint8Array(32);
+  const { data: voteRecordsForMomentum } = useProposalVoteRecords(
+    trustAddress,
+    proposalIdForRecords,
+  );
+
   return (
     <Modal open={open} onClose={onClose} title="Proposal detail">
       {entry ? (
@@ -146,6 +167,13 @@ export function ProposalDetailModal({
             <div>
               <h3 className={`${styles.detailLabel} ${styles.tallyHeading}`}>Tallies</h3>
               <TallyDetail proposal={entry.proposal.account} config={matchedConfig} />
+              <TallyMomentumStrip
+                proposal={entry.proposal.account}
+                config={matchedConfig}
+                trustAddress={trustAddress}
+                voteRecords={voteRecordsForMomentum}
+                nowSeconds={nowSeconds}
+              />
             </div>
             <ExecutionPayloadSection proposal={entry.proposal.account} />
             <VoteHistorySection
@@ -278,58 +306,11 @@ function ProposalMeta({ proposal }: { proposal: ProposalAccount }) {
 /* ────────────────────────────────────────────────────────────────── */
 /* Proposer reputation — iter-6 glyph next to detail-modal proposer    */
 /* ────────────────────────────────────────────────────────────────── */
-
-/**
- * Aggregate stats for a proposer on this TRUST. Computed locally from
- * the proposals already loaded by `useQuorum` — no extra RPC call.
- *
- * `settled` counts every proposal that has reached a terminal state at
- * the current cluster clock (succeeded / executed / defeated / canceled).
- * Active and pending proposals do NOT contribute to the success rate
- * because they haven&apos;t resolved yet; counting them as failures would
- * read as "this proposer is bad" the moment they open something, which
- * isn&apos;t honest.
- *
- * `successRate` is `(succeeded + executed) / settled` — a proposer with
- * 2 executed + 1 defeated reads as 67% success.
- */
-interface ProposerReputation {
-  total: number;
-  settled: number;
-  succeeded: number;
-  successRate: number | null;
-}
-
-function computeProposerReputation(
-  proposer: string,
-  proposals: ProposalWithPda[],
-  nowSeconds: number,
-): ProposerReputation {
-  let total = 0;
-  let settled = 0;
-  let succeeded = 0;
-  for (const p of proposals) {
-    if (p.account.proposer.toBase58() !== proposer) continue;
-    total += 1;
-    // We can&apos;t import `deriveProposalStatus` here without forming a
-    // cycle through parts.tsx, so inline the terminal-state check using
-    // the same on-chain fields.
-    const isExecuted = p.account.executed;
-    const isCanceled = p.account.canceled;
-    const succeededAt = Number(p.account.succeededAt.toString());
-    const voteEnd =
-      Number(p.account.voteStart.toString()) + Number(p.account.voteDuration.toString());
-    const voteClosed = Number.isFinite(voteEnd) && nowSeconds >= voteEnd;
-    if (isExecuted || isCanceled || voteClosed) {
-      settled += 1;
-      if (isExecuted || (succeededAt > 0 && !isCanceled)) {
-        succeeded += 1;
-      }
-    }
-  }
-  const successRate = settled > 0 ? succeeded / settled : null;
-  return { total, settled, succeeded, successRate };
-}
+//
+// iter-8: `computeProposerReputation` / `recentProposalsBy` moved to
+// `./QuorumPage.reputation.ts` so the proposals-table proposer cell
+// can render the same hover preview without forming an import cycle
+// through this file's modal exports.
 
 /**
  * Compact glyph rendered next to the proposer address. Reads as:
@@ -424,102 +405,9 @@ function ProposerReputationGlyph({
   );
 }
 
-/* ────────────────────────────────────────────────────────────────── */
-/* Recent-proposals helper for the reputation glyph popover           */
-/* ────────────────────────────────────────────────────────────────── */
-
-/**
- * One row in the reputation popover. Each carries enough to render a
- * single-line summary without re-deriving status downstream.
- */
-interface RecentProposalSummary {
-  /** Full 0x-prefixed hex of the on-chain proposal_id. */
-  id: string;
-  /** First/last 4 of the hex id for the row label. */
-  idShort: string;
-  /** Canonical lifecycle tone used by the rest of the page. */
-  tone: "in_progress" | "in_review" | "done" | "defeated" | "canceled";
-  /** Plain-English status label (e.g. "Active", "Executed"). */
-  label: string;
-}
-
-const TONE_AND_LABEL_BY_STATE: Record<
-  "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled",
-  { tone: RecentProposalSummary["tone"]; label: string }
-> = {
-  active: { tone: "in_progress", label: "Active" },
-  pending: { tone: "in_review", label: "Pending" },
-  succeeded: { tone: "done", label: "Succeeded" },
-  defeated: { tone: "defeated", label: "Defeated" },
-  executed: { tone: "done", label: "Executed" },
-  canceled: { tone: "canceled", label: "Canceled" },
-};
-
-/**
- * Walk every proposal on the TRUST, keep the ones opened by `proposer`,
- * sort by vote_start DESC, and return the first `limit`. We mirror the
- * status-derivation logic from `computeProposerReputation` so the
- * popover stays internally consistent with the headline rate.
- */
-function recentProposalsBy(
-  proposer: string,
-  proposals: ProposalWithPda[],
-  nowSeconds: number,
-  limit: number,
-): RecentProposalSummary[] {
-  const owned = proposals.filter((p) => p.account.proposer.toBase58() === proposer);
-  // vote_start is the earliest stable timestamp on a Proposal — sort
-  // DESC so "newest first" matches what the operator scans top-down.
-  owned.sort(
-    (a, b) => Number(b.account.voteStart.toString()) - Number(a.account.voteStart.toString()),
-  );
-  const slice = owned.slice(0, limit);
-  return slice.map((p) => {
-    const idHex = bytesToHexFromAccount(p.account.proposalId);
-    const state = deriveLifecycleStateLocal(p.account, nowSeconds);
-    const meta = TONE_AND_LABEL_BY_STATE[state];
-    return {
-      id: `0x${idHex}`,
-      idShort: shortHexId(idHex),
-      tone: meta.tone,
-      label: meta.label,
-    };
-  });
-}
-
-function bytesToHexFromAccount(bytes: Uint8Array | number[]): string {
-  const arr = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
-  let out = "";
-  for (const b of arr) out += b.toString(16).padStart(2, "0");
-  return out;
-}
-
-function shortHexId(hex: string): string {
-  if (hex.length <= 12) return `0x${hex}`;
-  return `0x${hex.slice(0, 6)}…${hex.slice(-4)}`;
-}
-
-/**
- * Inline lifecycle derivation — we can't import `deriveProposalStatus`
- * here without crossing the module boundary that already exists for
- * `computeProposerReputation`. Same predicate logic; kept local so the
- * popover never goes out of sync with the headline reputation tile.
- */
-function deriveLifecycleStateLocal(
-  account: ProposalAccount,
-  nowSeconds: number,
-): "active" | "pending" | "succeeded" | "defeated" | "executed" | "canceled" {
-  if (account.executed) return "executed";
-  if (account.canceled) return "canceled";
-  const voteStart = Number(account.voteStart.toString());
-  const voteDuration = Number(account.voteDuration.toString());
-  const voteEnd = voteStart + voteDuration;
-  if (nowSeconds < voteStart) return "pending";
-  if (nowSeconds <= voteEnd) return "active";
-  const forVotes = BigInt(account.forVotes.toString());
-  const againstVotes = BigInt(account.againstVotes.toString());
-  return forVotes > againstVotes ? "succeeded" : "defeated";
-}
+// `recentProposalsBy` + supporting helpers moved to
+// `./QuorumPage.reputation.ts` so the table-row proposer hover preview
+// can reuse them. The detail-modal glyph re-imports them at the top.
 
 /* ────────────────────────────────────────────────────────────────── */
 /* New proposal — moved to `./QuorumPage.new-proposal` for line cap   */

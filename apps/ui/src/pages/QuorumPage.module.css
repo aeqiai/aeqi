@@ -1107,6 +1107,264 @@
   }
 }
 
+/* ── iter-8: TallyDetail momentum sparkline + outcome forecast ─────── */
+
+/* Two thin tracks stacked above/below a midline. The momentum tracks
+ * read as the velocity beneath the existing For/Against threshold rows
+ * so an operator can see at a glance whether tally is accelerating or
+ * stalling. */
+.momentumStrip {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.momentumHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.momentumLabel {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+}
+
+.momentumTracks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.momentumTrack {
+  display: flex;
+  align-items: flex-end;
+  height: 18px;
+  gap: 2px;
+  padding: 0;
+}
+
+.momentumTrack[data-tone="against"] {
+  align-items: flex-start;
+}
+
+.momentumBar {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--momentum-h, 6%);
+  border-radius: 1px;
+  transition: height var(--ease-soft, 220ms) ease-out;
+}
+
+.momentumBar[data-tone="for"] {
+  background: var(--color-success);
+  opacity: 0.85;
+}
+
+.momentumBar[data-tone="against"] {
+  background: var(--color-text-strong);
+  opacity: 0.6;
+}
+
+.momentumBar[data-empty="true"] {
+  background: var(--color-border-subtle);
+  opacity: 1;
+}
+
+.momentumFootnote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Outcome verdict pill — opacity fades with the elapsed-window
+ * confidence so an early-window forecast reads as tentative. */
+.momentumVerdict {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-card-subtle);
+  color: var(--color-text);
+}
+
+.momentumVerdict[data-tone="done"] {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-card-subtle));
+}
+
+.momentumVerdict[data-tone="defeated"] {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text-strong) 8%, var(--color-card-subtle));
+}
+
+.momentumVerdict[data-tier="low"] {
+  opacity: 0.5;
+}
+
+.momentumVerdict[data-tier="medium"] {
+  opacity: 0.8;
+}
+
+.momentumVerdict[data-tier="strong"] {
+  opacity: 1;
+}
+
+/* Screen-reader only — used by the momentum strip for accessible
+ * description of the normalized peak. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── iter-8: table-row proposer reputation hover popover ───────────── */
+
+/* Wraps the table's proposer mono-string so the hover preview gets a
+ * positioning anchor without disturbing the row layout. The trigger is
+ * the mono address itself; the popover bumps the styles already used
+ * by the detail-modal glyph so the two surfaces read identically. */
+.proposerCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.proposerHoverDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  opacity: 0.55;
+}
+
+.proposerHoverDot[data-tone="done"] {
+  background: var(--color-success);
+  opacity: 0.85;
+}
+
+.proposerHoverDot[data-tone="in_review"] {
+  background: var(--color-warmth);
+  opacity: 0.85;
+}
+
+.proposerHoverDot[data-tone="defeated"] {
+  background: var(--color-text-strong);
+  opacity: 0.5;
+}
+
+.proposerHoverDot[data-tone="in_progress"] {
+  background: var(--quorum-accent-in-progress, #7c6cd6);
+  opacity: 0.85;
+}
+
+.proposerHoverDot[data-tone="canceled"] {
+  background: var(--color-text-strong);
+  opacity: 0.35;
+}
+
+.proposerHoverPanel {
+  padding: var(--space-3);
+  min-width: 220px;
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-md, 8px);
+}
+
+.proposerHoverHeading {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-strong);
+}
+
+.proposerHoverRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+}
+
+.proposerHoverId {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.proposerHoverStatus {
+  margin-left: auto;
+  color: var(--color-text-muted);
+}
+
+.proposerHoverStatus[data-tone="done"] {
+  color: var(--color-success);
+}
+
+.proposerHoverStatus[data-tone="in_review"] {
+  color: var(--color-warmth);
+}
+
+.proposerHoverStatus[data-tone="in_progress"] {
+  color: var(--quorum-accent-in-progress, #7c6cd6);
+}
+
+.proposerHoverFootnote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── iter-8: cancelled proposals collapsible disclosure ────────────── */
+
+.cancelledDisclosure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* The cancelled-disclosure toggle is a Button(variant=ghost,size=sm) —
+ * the primitive owns chrome (bg, border, focus ring). We add gap + a
+ * left-aligned position so it sits at the top of the disclosure column
+ * rather than centered. */
+.cancelledToggle {
+  align-self: flex-start;
+  gap: var(--space-2);
+}
+
+.cancelledToggleGlyph {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent currentColor;
+  transition: transform var(--ease-soft, 220ms) ease-out;
+}
+
+.cancelledToggle[aria-expanded="true"] .cancelledToggleGlyph {
+  transform: rotate(90deg);
+}
+
+.cancelledToggleCount {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
 /* ── Local token aliases (sourced from semantic tokens) ─────────────── */
 
 .scope {

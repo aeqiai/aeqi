@@ -29,8 +29,10 @@ import type {
   RoleTypeWithPda,
 } from "@/solana";
 import { Button, Inline, PageSection, Stack, Table, type TableColumn } from "@/components/ui";
+import { ProposerCellHover } from "./QuorumPage.proposer-cell";
+import { CancelledDisclosure } from "./QuorumPage.cancelled-disclosure";
+import { useTableRowHighlight } from "@/hooks/useTableRowHighlight";
 import {
-  CopyableMono,
   FilterChip,
   ModeBadge,
   ProposalStatusBadge,
@@ -39,7 +41,6 @@ import {
   TallyBars,
   bytesToHex,
   configIdLabel,
-  shortAddress,
   shortBytes32,
   voteWindowLabel,
   voteWindowSeconds,
@@ -307,6 +308,31 @@ export function ProposalsSection({
     return arr;
   }, [filtered, sort]);
 
+  // iter-8: on `all`, hide canceled rows behind a disclosure (default
+  // closed). URL `cn=1` preserves the open state across refresh.
+  const cancelledOpenRaw = searchParams.get("cn") === "1";
+  const setCancelledOpen = useCallback(
+    (next: boolean) => {
+      patchParams((p) => {
+        if (next) p.set("cn", "1");
+        else p.delete("cn");
+      });
+    },
+    [patchParams],
+  );
+  const { visibleRows, cancelledRows } = useMemo(() => {
+    if (filter !== "all") {
+      return { visibleRows: rows, cancelledRows: [] as typeof rows };
+    }
+    const visible: typeof rows = [];
+    const cancelled: typeof rows = [];
+    for (const r of rows) {
+      if (r.status === "canceled") cancelled.push(r);
+      else visible.push(r);
+    }
+    return { visibleRows: visible, cancelledRows: cancelled };
+  }, [rows, filter]);
+
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = {
       all: 0,
@@ -383,9 +409,10 @@ export function ProposalsSection({
       key: "proposer",
       header: "Proposer",
       cell: (row) => (
-        <CopyableMono
-          full={row.proposal.account.proposer.toBase58()}
-          display={shortAddress(row.proposal.account.proposer.toBase58())}
+        <ProposerCellHover
+          proposerB58={row.proposal.account.proposer.toBase58()}
+          proposals={proposals}
+          nowSeconds={nowSeconds}
         />
       ),
     },
@@ -475,34 +502,36 @@ export function ProposalsSection({
   // Clamp the selected index whenever the visible rows shrink (filter
   // change, compare-mode pick removal, async refetch) — otherwise the
   // pointer can dangle past the end of the list and `v` would no-op.
+  // iter-8: navigation operates on the visible primary table only.
+  // Canceled rows in the disclosure don't participate in arrow nav.
   useEffect(() => {
-    if (rows.length === 0) {
+    if (visibleRows.length === 0) {
       if (selectedIndex !== 0) setSelectedIndex(0);
       return;
     }
-    if (selectedIndex >= rows.length) {
-      setSelectedIndex(rows.length - 1);
+    if (selectedIndex >= visibleRows.length) {
+      setSelectedIndex(visibleRows.length - 1);
     }
-  }, [rows.length, selectedIndex]);
+  }, [visibleRows.length, selectedIndex]);
 
   const handleMoveSelection = useCallback(
     (delta: 1 | -1) => {
-      if (rows.length === 0) return;
+      if (visibleRows.length === 0) return;
       setSelectedIndex((prev) => {
         const next = prev + delta;
         if (next < 0) return 0;
-        if (next >= rows.length) return rows.length - 1;
+        if (next >= visibleRows.length) return visibleRows.length - 1;
         return next;
       });
     },
-    [rows.length],
+    [visibleRows.length],
   );
 
   const handleViewSelected = useCallback(() => {
-    const row = rows[selectedIndex];
+    const row = visibleRows[selectedIndex];
     if (!row) return;
     setDetail(row);
-  }, [rows, selectedIndex, setDetail]);
+  }, [visibleRows, selectedIndex, setDetail]);
 
   const handleToggleCompare = useCallback(() => {
     if (!canCompare) return;
@@ -514,37 +543,15 @@ export function ProposalsSection({
   const shortcutsActive = detail === null;
   useQuorumKeyboardShortcuts({
     onToggleCompare: shortcutsActive && canCompare ? handleToggleCompare : undefined,
-    onViewSelected: shortcutsActive && rows.length > 0 ? handleViewSelected : undefined,
-    onMoveSelection: shortcutsActive && rows.length > 0 ? handleMoveSelection : undefined,
+    onViewSelected: shortcutsActive && visibleRows.length > 0 ? handleViewSelected : undefined,
+    onMoveSelection: shortcutsActive && visibleRows.length > 0 ? handleMoveSelection : undefined,
   });
 
-  // Mark the selected row via a `data-quorum-selected="true"` attribute
-  // so the CSS module can paint the highlight without forking the Table
-  // primitive. The effect runs after each render so the data attr
-  // always matches `selectedIndex` even when `rows` shuffles under us.
+  // Paint the highlight + scroll the selected row into view; logic
+  // extracted so this file stays under the 600-line lint cap.
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
-  const selectedKey = rows[selectedIndex]?.proposal.publicKey.toBase58() ?? null;
-  useEffect(() => {
-    const wrapper = tableWrapperRef.current;
-    if (!wrapper) return;
-    const trs = wrapper.querySelectorAll<HTMLTableRowElement>("tbody tr[data-row-key]");
-    let hit: HTMLTableRowElement | null = null;
-    for (const tr of Array.from(trs)) {
-      const match = selectedKey !== null && tr.dataset.rowKey === selectedKey;
-      if (match) {
-        tr.setAttribute("data-quorum-selected", "true");
-        hit = tr;
-      } else {
-        tr.removeAttribute("data-quorum-selected");
-      }
-    }
-    // Scroll the selected row into view when arrow-driven selection
-    // moves outside the visible portion of the table. `nearest` block
-    // alignment avoids the jarring center-scroll on each tick.
-    if (hit !== null) {
-      hit.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  }, [selectedKey, rows]);
+  const selectedKey = visibleRows[selectedIndex]?.proposal.publicKey.toBase58() ?? null;
+  useTableRowHighlight(tableWrapperRef, selectedKey, [visibleRows]);
 
   return (
     <PageSection
@@ -636,7 +643,7 @@ export function ProposalsSection({
         <div ref={tableWrapperRef} className={styles.proposalsTableWrap}>
           <Table
             columns={columns}
-            data={rows}
+            data={visibleRows}
             rowKey={(row) => row.proposal.publicKey.toBase58()}
             onRowClick={
               compareMode
@@ -650,6 +657,13 @@ export function ProposalsSection({
             ariaLabel="Governance proposals"
           />
         </div>
+        <CancelledDisclosure
+          rows={cancelledRows}
+          columns={columns}
+          open={cancelledOpenRaw}
+          onToggle={() => setCancelledOpen(!cancelledOpenRaw)}
+          onRowClick={compareMode ? undefined : (row) => setDetail(row)}
+        />
         {compareMode ? (
           <ProposalCompareTray
             picks={pickedProposals}
@@ -675,3 +689,5 @@ export function ProposalsSection({
     </PageSection>
   );
 }
+
+// `ProposerCellHover` moved to `./QuorumPage.proposer-cell.tsx`.

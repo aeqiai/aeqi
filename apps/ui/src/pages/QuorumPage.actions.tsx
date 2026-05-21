@@ -26,10 +26,9 @@
  *     read of who's tipping the scale.
  */
 import { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
-  readVoteRecords,
   VOTE_CHOICE_LABEL,
   type ProposalAccount,
   type ProposalStatus,
@@ -38,6 +37,7 @@ import {
 import { ApiError, api } from "@/lib/api";
 import { Banner, Button, Inline, Modal, Stack, Textarea, Tooltip } from "@/components/ui";
 import { formatInteger } from "@/lib/i18n";
+import { useProposalVoteRecords } from "@/hooks/useProposalVoteRecords";
 import styles from "./QuorumPage.module.css";
 import { CopyableMono } from "./QuorumPage.parts";
 import { bytesToHex, shortAddress } from "./QuorumPage.format";
@@ -138,12 +138,7 @@ export function VoteHistorySection({
   trustAddress: string;
   proposalId: Uint8Array | number[];
 }) {
-  const idKey = useMemo(() => bytesToHex(proposalId), [proposalId]);
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["quorum", "voteRecords", trustAddress, idKey],
-    queryFn: () => readVoteRecords(trustAddress, proposalId),
-    staleTime: 30_000,
-  });
+  const { data, isLoading, error } = useProposalVoteRecords(trustAddress, proposalId);
 
   // Sort by weight DESC then voter address — gives the highest-impact
   // signer first, which is what an operator actually wants to scan for.
