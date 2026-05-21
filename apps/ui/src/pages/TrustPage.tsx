@@ -28,9 +28,9 @@ export default function TrustPage() {
   const activeTrust = useActiveTrust(activeEntityId);
   const trusts = useTrusts();
 
-  // Stub: the runtime doesn't surface a "current acting role" yet. When
-  // it does, this resolves to a real value per (user × trust).
-  const currentRole = "Director";
+  // The runtime doesn't surface a current acting role here yet, so avoid
+  // presenting a fabricated office title on the selection surface.
+  const currentContextLabel = "Active context";
 
   const otherContexts = useMemo(
     () =>
@@ -38,7 +38,7 @@ export default function TrustPage() {
         .filter((trust) => trust.id !== activeEntityId)
         .map((trust) => ({
           id: trust.id,
-          role: "Director",
+          role: "Open TRUST",
           trust: trust.name,
           href: `/trust/${encodeURIComponent(trust.id)}`,
         })),
@@ -56,7 +56,7 @@ export default function TrustPage() {
             <div className="network-anchor-text">
               <p className="network-anchor-eyebrow">Currently operating</p>
               <h1 className="network-anchor-trust">{activeTrust.name}</h1>
-              <p className="network-anchor-role">as {currentRole}</p>
+              <p className="network-anchor-role">{currentContextLabel}</p>
             </div>
           </>
         ) : (
@@ -79,7 +79,7 @@ export default function TrustPage() {
               type="button"
               className="network-tile"
               onClick={() => navigate(ctx.href)}
-              aria-label={`${ctx.role} at ${ctx.trust}`}
+              aria-label={`${ctx.trust}, ${ctx.role}`}
             >
               <span className="network-tile-avatar">
                 <TrustAvatar name={ctx.trust} size={56} />

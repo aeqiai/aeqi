@@ -3507,6 +3507,37 @@
 .quest-board-block[data-block="right"] .quest-col[data-status="cancelled"] {
   grid-area: archive;
 }
+
+@media (max-width: 1100px) {
+  .quest-board-grid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .quest-board-block {
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 720px) {
+  .quest-board-grid {
+    padding: 12px 14px 18px;
+  }
+  .quest-board-block {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "topleft"
+      "topright"
+      "archive";
+    min-height: 0;
+  }
+  .quest-board-block:not([data-archive-collapsed]) {
+    grid-template-rows: auto;
+  }
+  .quest-col {
+    min-height: 280px;
+  }
+}
 /* Active columns get a fixed height filling the block; the body
  * scrolls internally. Standard kanban pattern: a fixed visual
  * envelope, scroll-within-column for card overflow. */

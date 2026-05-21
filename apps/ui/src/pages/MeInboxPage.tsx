@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CornerUpLeft, Plus } from "lucide-react";
+import { Archive, CornerUpLeft, Plus } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -86,27 +86,6 @@ function inboxMessagesAdapter(raw: Record<string, unknown>, agentName?: string):
     });
   }
   return result;
-}
-
-// Archive icon — matches the prior InboxComposer icon shape.
-function ArchiveIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 13 13"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="1" y="2" width="11" height="2.5" rx="0.5" />
-      <path d="M2 4.5v5.5a1 1 0 001 1h7a1 1 0 001-1V4.5" />
-      <path d="M4.5 7.5h4" />
-    </svg>
-  );
 }
 
 /**
@@ -456,6 +435,23 @@ export default function MeInboxPage() {
     const kindLabel = KIND_ITEM_LABEL[selectedRow.kind] ?? "Inbox item";
     const subtitle = [kindLabel, subjectLine].filter(Boolean).join(" · ") || undefined;
 
+    const archiveButton =
+      dismissAvailable === true ? (
+        <Tooltip content="Archive this thread">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="inbox-archive-btn"
+            onClick={() => void handleDismiss()}
+            loading={dismissing}
+            aria-label="Archive"
+            leadingIcon={<Archive size={13} strokeWidth={1.7} aria-hidden />}
+          >
+            Archive
+          </Button>
+        </Tooltip>
+      ) : undefined;
+
     const headerExtras = (
       <>
         <span className="inbox-detail-state" data-state={headerState}>
@@ -509,64 +505,9 @@ export default function MeInboxPage() {
         >
           Open
         </Button>
+        {archiveButton}
       </>
     );
-
-    // ── Archive placement audit (c7) ──────────────────────────────────────
-    // Surfaces considered:
-    //   (A) move next to Reply on the awaiting strip
-    //   (B) keep in composerExtraActions (current)
-    // Decision: (B). The awaiting strip only renders when `awaiting === true`,
-    // so moving Archive there would orphan it on resolved threads (any thread
-    // can be archived). `composerExtraActions` is the slot the universal
-    // SessionDetail primitive defines for thread-level actions; the agent
-    // surface (the other consumer) renders SessionDetail with `hideComposer`
-    // so there is no contract collision. Archive sits in the composer footer's
-    // action zone alongside Send — both are "I'm done with this turn" verbs.
-    //
-    // Probe gate: only render when the backend endpoint is confirmed live.
-    // A disabled "Coming soon" button is dead pixels on the canonical
-    // composer surface; per the prune test, if it can't do its job, it
-    // shouldn't take up space. The probe is localStorage-cached so the
-    // chrome stabilises on the first call after login.
-    //
-    // ── Variant audit (c20) ──────────────────────────────────────────────
-    // Surveyed peer Archive verbs in the codebase before touching this one:
-    //   - RoleDetailPage:155     → variant="danger"      (org-chart removal,
-    //                                                     not reversibly
-    //                                                     surfaced in the UI)
-    //   - QuestArchiveStrips     → strip toggle, no Button (reversible by
-    //                                                       toggling strip)
-    //   - SessionsFilterPopover  → "Archived" is a filter state, meaning
-    //                              archived threads remain visible behind
-    //                              the filter and can be unarchived
-    //
-    // Decision: keep `variant="secondary"`. The design pack's restraint
-    // rule says destructive states should be rare and explicit. Inbox
-    // archive is reversible (the SessionsFilterPopover "Archived" filter
-    // surfaces archived threads), so it does not earn the danger accent
-    // that Role archive earned by being effectively one-way. Promoting
-    // this to `danger` — or layering a custom hover-warmth tint — would
-    // dilute the danger-variant signal everywhere else and break the
-    // composer's `paper Archive + ink Send` reading rhythm documented in
-    // `inbox.css:527`. Future cycles: do not sweep this to match the
-    // Role precedent; the asymmetry is intentional.
-    const archiveButton =
-      dismissAvailable === true ? (
-        <Tooltip content="Archive this thread">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="inbox-archive-btn"
-            onClick={() => void handleDismiss()}
-            loading={dismissing}
-            aria-label="Archive"
-            leadingIcon={<ArchiveIcon />}
-          >
-            Archive
-          </Button>
-        </Tooltip>
-      ) : undefined;
 
     const threadTrailingSlot =
       wsChat.streaming || wsChat.liveSegments.length > 0 ? (
@@ -614,7 +555,6 @@ export default function MeInboxPage() {
         onSend={handleSend}
         onStop={() => wsChat.handleStop(selectedRow.id)}
         composerRef={composerRef}
-        composerExtraActions={archiveButton}
         attachmentTypes={["idea", "quest", "file"]}
         composerPlaceholder={`Message ${selectedRow.from.name}…`}
         emptyTitle={contextLoading ? "Loading context…" : "No prior messages."}

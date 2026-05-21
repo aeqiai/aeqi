@@ -62,7 +62,6 @@ export interface SessionDetailProps {
   onSend: (body: string) => void | Promise<void>;
   onStop?: () => void;
   composerRef?: React.RefObject<HTMLTextAreaElement | null>;
-  composerExtraActions?: React.ReactNode;
   attachmentTypes?: ComposerAttachmentKind[];
   historySource?: string[];
   composerPlaceholder?: string;
@@ -123,7 +122,6 @@ export default function SessionDetail({
   onSend,
   onStop,
   composerRef,
-  composerExtraActions,
   attachmentTypes,
   historySource,
   composerPlaceholder = "Message…",
@@ -368,7 +366,6 @@ export default function SessionDetail({
                 onAttachClick={onAttachClick}
                 onReadFiles={onReadFiles}
                 historySource={historySource}
-                extraActions={composerExtraActions}
               />
             </div>
           </div>

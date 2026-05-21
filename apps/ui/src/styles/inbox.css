@@ -104,9 +104,9 @@
   flex: 1;
   min-height: 0;
   margin: var(--space-2) var(--space-5) var(--space-5);
-  border-radius: var(--radius-sm);
-  background: var(--bg-row);
-  overflow: hidden;
+  gap: var(--space-3);
+  background: transparent;
+  overflow: visible;
 }
 
 /* Left pane — fixed width, full height, contains toolbar + scrollable list */
@@ -117,8 +117,9 @@
   min-width: 280px;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--bg-row);
-  padding: var(--space-2);
+  background: var(--color-card);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
 }
 
 /* Pass-through flex column — `<SessionRail>` inside owns the actual
@@ -136,11 +137,11 @@
 }
 
 .inbox-shell .sessions-rail-list {
-  padding: 0 0 var(--space-2);
+  padding: 0;
 }
 
 .inbox-shell .sessions-rail-group {
-  padding: var(--space-4) var(--space-2) var(--space-2);
+  padding: var(--space-4) 0 var(--space-2);
 }
 
 .inbox-shell .sessions-rail-group:first-child {
@@ -158,7 +159,7 @@
   padding: var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--color-card-elevated);
+  background: var(--bg-row);
   transition:
     background 0.12s ease,
     box-shadow 0.12s ease,
@@ -167,14 +168,16 @@
 
 .inbox-shell .sessions-rail-row:hover,
 .inbox-shell .sessions-rail-row:focus-visible {
-  background: var(--color-card-elevated);
+  background: var(--bg-row);
   filter: brightness(1.02);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .inbox-shell .sessions-rail-row.active {
-  background: var(--color-card-elevated);
-  box-shadow: 0 0 0 2px var(--accent-dim);
+  background: var(--color-card);
+  box-shadow:
+    0 0 0 2px var(--accent-dim),
+    var(--shadow-sm);
 }
 
 .inbox-shell .sessions-rail-row--multi {
@@ -223,13 +226,13 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card-elevated);
+  background: var(--color-card);
   position: relative;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-sm);
 }
 
 /* Scroll-fade strip — 32px gradient sitting ABOVE the (opaque) wrap. The
-   wrap below has `background: var(--color-card-elevated)` so any content
+   wrap below has `background: var(--color-card)` so any content
    scrolling under it is hidden by the wrap itself. The fade strip is the smooth
    visual transition between scrolling content and the anchored composer:
    transparent at the top, solid elevated-card at the bottom. Thread reserves
@@ -244,7 +247,7 @@
   bottom: var(--inbox-composer-height, 96px);
   height: 32px;
   pointer-events: none;
-  background: linear-gradient(to bottom, transparent, var(--color-card-elevated));
+  background: linear-gradient(to bottom, transparent, var(--color-card));
   z-index: 1;
 }
 
@@ -304,8 +307,25 @@
   min-height: 76px;
   padding: var(--space-4) var(--space-5);
   flex-shrink: 0;
-  background: var(--color-card-elevated);
+  background: var(--color-card);
   box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.inbox-pane-detail .asv-msg-user .asv-msg-content {
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 10px 24px -18px rgba(0, 0, 0, 0.52);
+}
+
+.inbox-pane-detail .asv-msg-user .asv-msg-content .asv-entity-ref {
+  color: var(--btn-primary-text);
+  text-decoration-color: color-mix(in srgb, var(--btn-primary-text) 62%, transparent);
+}
+
+.inbox-pane-detail .asv-msg-user .asv-msg-chrome-meta {
+  color: var(--color-text-muted);
 }
 
 .session-detail-header-from {
@@ -406,7 +426,7 @@
  * The canonical `.quest-status-dot--in_review` (c9) now carries the
  * `in_review` semantic continuously from the rail row into this header,
  * so the strip drops its 4% warmth wash and rests on the page's reading
- * surface (`--color-card-elevated`). The dot signals state; the strip reads as
+ * surface (`--color-card`). The dot signals state; the strip reads as
  * chrome. Warmth concentrates to one earned moment — the Reply button's
  * hover, where it doubles as a discoverable call-to-action — so amber
  * stops appearing at rest in three places at once (dot, wash, button
@@ -422,7 +442,7 @@
  * c14 — drop the bottom hairline. With the strip collapsed close to the
  * thread (c13 padding-only sizing), the header's own bottom hairline
  * (line 149) and this strip's bottom hairline read as two parallel lines
- * ~32px apart, both on the same `--color-card-elevated` surface. That doubles the
+ * ~32px apart, both on the same `--color-card` surface. That doubles the
  * boundary signal and reads as border-as-decoration — exactly the pattern
  * the four-tier elevation ladder + "no hairlines" rule retire. The header's
  * existing hairline is now the single line of value contrast; the strip
@@ -435,7 +455,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-5);
-  background: var(--color-card-elevated);
+  background: var(--color-card);
   flex-shrink: 0;
 }
 
@@ -692,11 +712,11 @@
   align-items: center;
   /* Tight 8px padding above + below the composer card. */
   padding: var(--space-2) var(--space-4) var(--space-2);
-  /* Solid elevated-card background — covers any scrolling content so the
+  /* Solid card background — covers any scrolling content so the
      composer's transparent wrap padding can't reveal text behind it.
      The fade strip ABOVE this wrap (rule above) handles the visual
      transition from scrolling content into the anchored composer. */
-  background: var(--color-card-elevated);
+  background: var(--color-card);
   pointer-events: none;
 }
 
@@ -717,12 +737,9 @@
   max-width: 820px;
 }
 
-/* Archive button — secondary Button promoted to the paper tier of the
-   ladder (PatternsToolbar.mdx). The composer's action zone reads as
-   `paper Archive + ink Send`; the secondary variant gives the archive a
-   labeled, visible-at-rest affordance instead of the icon-only sidebar
-   circle it inherited from `.sidebar-row-action-btn`. Nothing
-   custom — the Button primitive ships the disabled/loading states. */
+.inbox-archive-btn {
+  flex-shrink: 0;
+}
 
 /* Detail header back button — Button ghost, mobile-only.
    `Button variant="ghost"` paints the chrome itself (transparent fill,
@@ -779,6 +796,7 @@
 
   .inbox-shell {
     margin: var(--space-4);
+    gap: 0;
   }
 
   .inbox-pane-list {

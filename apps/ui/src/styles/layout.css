@@ -9588,22 +9588,30 @@ button.home-card:focus-visible {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 64px;
-  padding: 64px 48px 56px;
+  align-items: stretch;
+  gap: 24px;
+  padding: 32px 40px 40px;
 }
 .network-anchor {
   display: flex;
   align-items: center;
-  gap: 28px;
-  max-width: 720px;
+  gap: 20px;
+  max-width: 960px;
   width: 100%;
+  margin: 0 auto;
+  padding: 22px;
+  border-radius: var(--radius-md);
+  background: var(--color-card-elevated);
+  box-shadow: var(--shadow-sm);
 }
 .network-anchor-avatar {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-row);
 }
 .network-anchor-text {
   display: flex;
@@ -9625,9 +9633,9 @@ button.home-card:focus-visible {
 .network-anchor-trust {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 300;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--color-text-primary);
   line-height: 1.1;
 }
@@ -9641,7 +9649,8 @@ button.home-card:focus-visible {
   flex-direction: column;
   gap: 14px;
   width: 100%;
-  max-width: 880px;
+  max-width: 960px;
+  margin: 0 auto;
 }
 .network-switcher-label {
   margin: 0;
@@ -9661,24 +9670,27 @@ button.home-card:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  padding: 20px;
-  background: var(--color-card);
+  padding: 18px;
+  background: var(--color-card-elevated);
   border: 0;
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-md);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
+  box-shadow: var(--shadow-sm);
   transition:
     background 0.12s ease,
+    box-shadow 0.12s ease,
     transform 0.12s ease;
 }
 .network-tile:hover {
-  background: var(--bg-row);
-  transform: translateY(-2px);
+  background: var(--color-card-elevated);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .network-tile:focus-visible {
   outline: none;
-  background: var(--bg-row);
+  background: var(--color-card-elevated);
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 .network-tile-avatar {
@@ -9703,11 +9715,37 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 .network-tile--create {
-  background: transparent;
+  background: var(--bg-row);
+  box-shadow: none;
 }
 .network-tile--create:hover {
   background: var(--bg-row);
+  box-shadow: var(--shadow-sm);
 }
 .network-tile--create .network-tile-trust {
   color: var(--color-text-secondary);
+}
+
+@media (max-width: 720px) {
+  .network-page {
+    gap: 18px;
+    padding: 20px 16px 24px;
+  }
+  .network-anchor {
+    align-items: flex-start;
+    padding: 18px;
+  }
+  .network-anchor-avatar {
+    padding: 8px;
+  }
+  .network-anchor-avatar svg {
+    width: 72px;
+    height: 72px;
+  }
+  .network-anchor-trust {
+    font-size: 28px;
+  }
+  .network-switcher-grid {
+    grid-template-columns: 1fr;
+  }
 }
