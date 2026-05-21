@@ -3864,6 +3864,7 @@
 .ideas-toolbar-btn.primary:hover {
   background: var(--btn-primary-bg-hover, #000);
   border-color: var(--btn-primary-bg-hover, #000);
+  color: var(--btn-primary-text, #fff);
 }
 .ideas-toolbar-btn.disabled,
 .ideas-toolbar-btn:disabled {
@@ -8300,6 +8301,7 @@ button.home-card:focus-visible {
 }
 .home-step-btn--primary:hover {
   background: var(--color-text-primary);
+  color: var(--btn-primary-text);
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
@@ -8982,6 +8984,7 @@ button.home-card:focus-visible {
 .home-context-cta:hover,
 .home-primary-action:hover {
   background: var(--color-text-primary);
+  color: var(--btn-primary-text);
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
@@ -9068,6 +9071,7 @@ button.home-card:focus-visible {
 
 .home-card--launch .home-step-btn--primary:hover {
   background: var(--btn-primary-text);
+  color: var(--color-text-primary);
   filter: brightness(1.04);
 }
 
@@ -9135,6 +9139,7 @@ button.home-card:focus-visible {
 }
 
 .home-inbox-cta:hover {
+  color: var(--btn-primary-text);
   filter: brightness(1.08);
   transform: translateY(-1px);
 }

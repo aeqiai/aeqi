@@ -54,6 +54,7 @@
 .primary:hover {
   background: var(--btn-primary-bg-hover);
   border-color: var(--btn-primary-bg-hover);
+  color: var(--btn-primary-text);
   box-shadow: var(--shadow-md);
 }
 
