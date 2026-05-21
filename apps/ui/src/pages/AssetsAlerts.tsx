@@ -309,11 +309,7 @@ export function TreasuryAlertsBanner({
     <div className={styles.treasuryAlerts}>
       <Stack gap="2">
         {overAllocation && overAllocSignal && (
-          <DismissibleBanner
-            kind="warning"
-            storageKey="over-allocation"
-            signal={overAllocSignal}
-          >
+          <DismissibleBanner kind="warning" storageKey="over-allocation" signal={overAllocSignal}>
             Active budgets promise{" "}
             {formatCurrency(overAllocation.promised, "USD", { maximumFractionDigits: 2 })} across{" "}
             {formatInteger(overAllocation.activeCount)} role

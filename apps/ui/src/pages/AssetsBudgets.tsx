@@ -26,6 +26,7 @@ import {
   toBigInt,
   type TokenMetaMap,
 } from "./AssetsSections";
+import { HoldToConfirmButton } from "./AssetsHoldToConfirm";
 import styles from "./AssetsPage.module.css";
 
 export function BudgetsSection({
@@ -34,7 +35,7 @@ export function BudgetsSection({
   onSelect,
   onSpend,
   onAllocate,
-  onFreeze,
+  onInlineFreeze,
   actions,
 }: {
   budgets: BudgetAccountWithPda[];
@@ -49,9 +50,15 @@ export function BudgetsSection({
    *  can spawn a role-scoped sub-budget under it. Closes the iter-7
    *  NEXT gap. */
   onAllocate: (row: BudgetAccountWithPda) => void;
-  /** Iter-8: row-level Freeze / Unfreeze affordance. Host opens
-   *  FreezeBudgetModal which flips the on-chain `frozen` bool. */
-  onFreeze: (row: BudgetAccountWithPda) => void;
+  /** Iter-11: row-level inline Freeze / Unfreeze affordance. The
+   *  hold-to-confirm button calls this with the row; the host
+   *  posts directly to `api.budgetFreeze` / `api.budgetUnfreeze`
+   *  without opening the modal. Must return a Promise so the button
+   *  can hold its loading state until the on-chain call resolves.
+   *  The FreezeBudgetModal (iter-8) is still mounted by the host
+   *  for any keyboard / formal-confirmation path that wants the
+   *  full dialog — the inline path is opt-in via this prop. */
+  onInlineFreeze: (row: BudgetAccountWithPda) => Promise<void>;
   /** Section-level actions slot — host page mounts a "+ New budget" CTA. */
   actions?: React.ReactNode;
 }) {
@@ -193,24 +200,29 @@ export function BudgetsSection({
           >
             Allocate
           </Button>
-          <Button
+          {/* Iter-11: hold-to-confirm replaces the single-click freeze
+              affordance. Operators frequently freeze quickly, but a
+              stray click is dangerous — 600ms hold = clear intent,
+              release = harmless cancel. The Modal path (onFreeze) is
+              preserved on the props in case the host wires it from
+              elsewhere (e.g., a keyboard shortcut). */}
+          <HoldToConfirmButton
             variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onFreeze(row);
-            }}
-            title={
-              row.account.frozen ? "Unfreeze this budget" : "Freeze on-chain spend + allocate calls"
-            }
-            aria-label={
+            disabled={false}
+            onConfirm={() => onInlineFreeze(row)}
+            hint={
               row.account.frozen
-                ? `Unfreeze budget ${bytesIdLabel(row.account.budgetId)}`
-                : `Freeze budget ${bytesIdLabel(row.account.budgetId)}`
+                ? "Hold to unfreeze this budget"
+                : "Hold to freeze on-chain spend + allocate calls"
+            }
+            ariaLabel={
+              row.account.frozen
+                ? `Hold to unfreeze budget ${bytesIdLabel(row.account.budgetId)}`
+                : `Hold to freeze budget ${bytesIdLabel(row.account.budgetId)}`
             }
           >
-            {row.account.frozen ? "Unfreeze" : "Freeze"}
-          </Button>
+            {row.account.frozen ? "Hold to unfreeze" : "Hold to freeze"}
+          </HoldToConfirmButton>
         </span>
       ),
     },

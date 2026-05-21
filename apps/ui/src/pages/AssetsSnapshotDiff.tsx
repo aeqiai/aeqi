@@ -409,9 +409,9 @@ export function SnapshotDiffModal({ open, onClose }: SnapshotDiffModalProps) {
       <div className={styles.snapshotDiffBody}>
         <Stack gap="4">
           <Banner kind="info">
-            Upload two vault snapshot JSON files. The diff runs entirely in your browser — the
-            bytes never leave the page. The earlier snapshot is treated as the baseline; the
-            later one is the comparison.
+            Upload two vault snapshot JSON files. The diff runs entirely in your browser — the bytes
+            never leave the page. The earlier snapshot is treated as the baseline; the later one is
+            the comparison.
           </Banner>
           <div className={styles.snapshotDiffInputs}>
             <SnapshotInput
@@ -501,9 +501,7 @@ function SnapshotInput({
               })}
             </Badge>
             <Badge variant="neutral">schema v{snap.snap.schema_version}</Badge>
-            {snap.snap.entity ? (
-              <Badge variant="neutral">{snap.snap.entity.name}</Badge>
-            ) : null}
+            {snap.snap.entity ? <Badge variant="neutral">{snap.snap.entity.name}</Badge> : null}
           </Inline>
           <Inline gap="2">
             <Button variant="ghost" size="sm" onClick={onClear}>
@@ -543,18 +541,13 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
 
   return (
     <div className={styles.snapshotDiffResult}>
-      <PageSection
-        title="Summary"
-        description={`Older → newer · ${olderLabel} → ${newerLabel}`}
-      >
+      <PageSection title="Summary" description={`Older → newer · ${olderLabel} → ${newerLabel}`}>
         <div className={styles.snapshotDiffSummary}>
           <div className={styles.snapshotDiffSummaryRow}>
             <span className={styles.snapshotDiffSummaryLabel}>Stablecoin USD</span>
             <span
               className={styles.snapshotDiffSummaryValue}
-              data-tone={
-                treasuryUsdDelta > 0 ? "up" : treasuryUsdDelta < 0 ? "down" : "neutral"
-              }
+              data-tone={treasuryUsdDelta > 0 ? "up" : treasuryUsdDelta < 0 ? "down" : "neutral"}
             >
               {treasuryUsdDelta > 0 ? "+" : ""}
               {formatCurrency(treasuryUsdDelta, "USD", { maximumFractionDigits: 2 })}
@@ -590,11 +583,7 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
                 <Inline gap="2" align="center" wrap>
                   <Badge
                     variant={
-                      b.kind === "added"
-                        ? "success"
-                        : b.kind === "removed"
-                          ? "error"
-                          : "neutral"
+                      b.kind === "added" ? "success" : b.kind === "removed" ? "error" : "neutral"
                     }
                   >
                     {b.kind}
@@ -642,11 +631,7 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
                 <Inline gap="2" align="center" wrap>
                   <Badge
                     variant={
-                      v.kind === "added"
-                        ? "success"
-                        : v.kind === "removed"
-                          ? "error"
-                          : "neutral"
+                      v.kind === "added" ? "success" : v.kind === "removed" ? "error" : "neutral"
                     }
                   >
                     {v.kind}
@@ -682,11 +667,7 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
                 <Inline gap="2" align="center" wrap>
                   <Badge
                     variant={
-                      h.kind === "added"
-                        ? "success"
-                        : h.kind === "removed"
-                          ? "error"
-                          : "neutral"
+                      h.kind === "added" ? "success" : h.kind === "removed" ? "error" : "neutral"
                     }
                   >
                     {h.kind}
@@ -697,11 +678,7 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
                   <span
                     className={styles.snapshotDiffMeta}
                     data-tone={
-                      h.amountDeltaRaw > 0n
-                        ? "up"
-                        : h.amountDeltaRaw < 0n
-                          ? "down"
-                          : "neutral"
+                      h.amountDeltaRaw > 0n ? "up" : h.amountDeltaRaw < 0n ? "down" : "neutral"
                     }
                   >
                     {formatDelta(h.amountDeltaRaw, h.decimals)} {h.symbol ?? ""}
@@ -709,9 +686,7 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
                   {Math.abs(h.usdParDelta) > 0.0001 ? (
                     <span
                       className={styles.snapshotDiffMeta}
-                      data-tone={
-                        h.usdParDelta > 0 ? "up" : h.usdParDelta < 0 ? "down" : "neutral"
-                      }
+                      data-tone={h.usdParDelta > 0 ? "up" : h.usdParDelta < 0 ? "down" : "neutral"}
                     >
                       {h.usdParDelta > 0 ? "+" : ""}
                       {formatCurrency(h.usdParDelta, "USD", { maximumFractionDigits: 2 })}
@@ -725,8 +700,8 @@ function SnapshotDiffResult({ diff }: { diff: SnapshotDiff }) {
       ) : null}
 
       <div className={styles.snapshotDiffFootnote}>
-        {formatNumber(budgetChanges.length + vestingChanges.length + holdingChanges.length)}{" "}
-        total changes · diff scope is on-chain IDs (budget_id_hex / position_id_hex / mint).
+        {formatNumber(budgetChanges.length + vestingChanges.length + holdingChanges.length)} total
+        changes · diff scope is on-chain IDs (budget_id_hex / position_id_hex / mint).
       </div>
     </div>
   );

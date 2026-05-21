@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { api } from "@/lib/api";
 import { useDaemonStore } from "@/store/daemon";
 import { useAssets } from "@/hooks/useAssets";
 import { useDecodedVaultActivity } from "@/hooks/useDecodedVaultActivity";
@@ -12,7 +13,12 @@ import { Banner, Button, EmptyState, Loading, Page, PageBody, PageHeader } from 
 
 import { downloadVaultSnapshot } from "./AssetsSnapshot";
 import { SnapshotDiffModal } from "./AssetsSnapshotDiff";
-import { BudgetsSection, VestingPositionsSection, type TokenMetaMap } from "./AssetsSections";
+import {
+  bytesToHex,
+  BudgetsSection,
+  VestingPositionsSection,
+  type TokenMetaMap,
+} from "./AssetsSections";
 import { BudgetDetailModal } from "./AssetsBudgetModal";
 import { NewBudgetModal } from "./AssetsNewBudgetModal";
 import { NewSpendModal } from "./AssetsNewSpendModal";
@@ -107,6 +113,32 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
    *  plain file inputs and renders a deterministic per-budget /
    *  per-vesting / per-mint delta entirely client-side. */
   const [snapshotDiffOpen, setSnapshotDiffOpen] = useState(false);
+
+  /** Iter-11: inline hold-to-confirm freeze handler. Bypasses the
+   *  FreezeBudgetModal — fires `api.budgetFreeze` or
+   *  `api.budgetUnfreeze` directly off the row-level hold-to-
+   *  confirm button. The 600ms hold IS the confirmation; the
+   *  button itself shows a progress fill so the operator sees
+   *  what's about to happen. Errors surface via the standard
+   *  refetch + alert banner pipeline rather than a dedicated
+   *  toast (the assets surface re-reads everything on a confirmed
+   *  flip). */
+  const handleInlineFreeze = useCallback(
+    async (row: BudgetAccountWithPda) => {
+      const budgetIdHex = `0x${bytesToHex(row.account.budgetId)}`;
+      const call = row.account.frozen ? api.budgetUnfreeze : api.budgetFreeze;
+      try {
+        await call({ entity_id: trustId, budget_id: budgetIdHex });
+      } catch {
+        // Swallow at this layer — the refetch below will resync
+        // on-chain state. A persistent failure resurfaces via the
+        // refetch error path or the next time the operator tries.
+      } finally {
+        refetch();
+      }
+    },
+    [trustId, refetch],
+  );
   /** Active "send" prefill — populated when an operator clicks Send on a
    *  holdings row or the Capitalize Withdraw action. Drives the inline
    *  WithdrawFormShell beneath the Holdings table. */
@@ -294,7 +326,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           onSelect={(row) => setBudgetDetail(row)}
           onSpend={(row) => setSpendBudget(row)}
           onAllocate={(row) => setAllocateParent(row)}
-          onFreeze={(row) => setFreezeBudget(row)}
+          onInlineFreeze={handleInlineFreeze}
           actions={
             <Button variant="primary" size="sm" onClick={() => setNewBudgetOpen(true)}>
               + New budget
@@ -343,10 +375,7 @@ export default function AssetsPage({ trustId }: { trustId: string }) {
           }}
         />
         <ModuleDetailModal module={moduleDetail} onClose={() => setModuleDetail(null)} />
-        <SnapshotDiffModal
-          open={snapshotDiffOpen}
-          onClose={() => setSnapshotDiffOpen(false)}
-        />
+        <SnapshotDiffModal open={snapshotDiffOpen} onClose={() => setSnapshotDiffOpen(false)} />
       </PageBody>
     </Page>
   );

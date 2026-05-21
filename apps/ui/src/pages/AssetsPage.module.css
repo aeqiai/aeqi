@@ -987,6 +987,34 @@
   justify-content: flex-end;
 }
 
+/* Iter-11: hold-to-confirm button. The button itself stays a normal
+   Button primitive — we just layer a progress fill via a pseudo-
+   element keyed off `data-hold`. Releasing before the animation
+   completes cancels the action (handled in TS); the visual fade-
+   out is intentionally instant so the operator sees a decisive
+   cancel rather than a slow retraction. */
+.holdConfirmButton {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.holdConfirmButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-accent-tint, color-mix(in srgb, var(--color-accent) 18%, transparent));
+  transform-origin: left center;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+
+.holdConfirmButton[data-hold="true"]::after {
+  transform: scaleX(1);
+  transition: transform 600ms linear;
+}
+
 /* Iter-8: treasury-level alerts stack above the overview tile. Each
    alert is its own Banner; the wrapper just spaces them. Hidden
    entirely when no alert fires.
