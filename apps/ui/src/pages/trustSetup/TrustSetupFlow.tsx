@@ -111,7 +111,8 @@ function BlueprintSection({
               Blueprint
             </span>
             <Link to={blueprintPath} className="launch-inline-link">
-              Blueprints -&gt;
+              Blueprints
+              <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
             </Link>
           </div>
           <span className="launch-blueprint-summary-name">{blueprint.name}</span>
@@ -273,7 +274,7 @@ export function TrustSetupFlow({
         <Button
           type="button"
           variant="primary"
-          size="lg"
+          size="xl"
           fullWidth
           onClick={onLaunch}
           disabled={submitting || !canSubmit}
