@@ -22,19 +22,13 @@ import UserAvatar from "@/components/UserAvatar";
 import type { Trust } from "@/lib/types";
 
 /**
- * Home dashboard at `/`. Reframed 2026-05-19 (cards-v3):
+ * Home surface at `/`. MVP-readiness pass 2026-05-21:
  *
- *   1. Hero image with greeting overlay + a soft top-left fade so the
- *      surface reads ethereal, not flat.
- *   2. Trust row — three side-by-side cards:
- *        · Personal TRUST  (your own, click to step in)
- *        · Step into a TRUST  (New TRUST + Browse blueprints)
- *        · All TRUSTs  (browse every TRUST you can step into)
- *   3. Two-column row: live Inbox (left) + Economy (right). Each card
- *      carries its "View all →" link in the top-right of the head, not
- *      the foot, so the navigation action is where the eye goes first.
- *   4. Thesis card (full-width): editorial moment linking the canonical
- *      blog post.
+ *   1. Hero states the page job: decide what to do next across TRUSTs.
+ *   2. Active TRUST card owns the dominant CTA: Open TRUST, or Launch
+ *      TRUST when the user has none.
+ *   3. Secondary cards expose Blueprints, other TRUSTs, Inbox, and Economy
+ *      without generic "view/continue" language.
  */
 
 const INBOX_PREVIEW_LIMIT = 4;
@@ -89,6 +83,13 @@ export default function StartPage() {
     }
     return map;
   }, [inboxItems]);
+  const trustNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entity of entities) {
+      map.set(entity.id, entity.name);
+    }
+    return map;
+  }, [entities]);
 
   const inboxPreview = inboxItems.slice(0, INBOX_PREVIEW_LIMIT);
   const inboxCount = inboxItems.length;
@@ -138,8 +139,8 @@ export default function StartPage() {
               <UserAvatar name={actorName} size={56} src={user?.avatar_url} />
             </span>
             <div className="home-hero-text">
-              <p className="home-hero-eyebrow">Welcome back</p>
-              <h1 className="home-hero-title">{actorName}</h1>
+              <p className="home-hero-eyebrow">Home</p>
+              <h1 className="home-hero-title">Operate your TRUSTs</h1>
             </div>
           </div>
         </div>
@@ -175,7 +176,7 @@ export default function StartPage() {
           </div>
         ) : (
           <div className="home-hero-pill home-hero-pill--hint" aria-hidden="true">
-            <span className="home-hero-pill-stat">Let&rsquo;s set up your first TRUST</span>
+            <span className="home-hero-pill-stat">Launch your first TRUST</span>
             <ArrowDown size={12} strokeWidth={1.8} aria-hidden="true" />
           </div>
         )}
@@ -188,8 +189,10 @@ export default function StartPage() {
           onCreate={() => navigate("/launch")}
         />
         <StepIntoTrustCard
+          hasTrust={!!personal}
           onNewTrust={() => navigate("/launch")}
           onBrowseBlueprints={() => navigate("/blueprints")}
+          onOpenEconomy={() => navigate("/economy")}
         />
         <AllTrustsCard
           others={otherTrusts}
@@ -238,7 +241,7 @@ export default function StartPage() {
               </span>
             )}
             <button type="button" className="home-card-link" onClick={() => navigate("/inbox")}>
-              View all
+              Review Inbox
               <ArrowRight size={14} strokeWidth={1.8} />
             </button>
           </header>
@@ -265,6 +268,9 @@ export default function StartPage() {
                   : item.last_agent_message?.replace(/\s+/g, " ").trim() || "";
                 const from = item.agent_name || "Agent";
                 const time = timeShort(item.awaiting_at || item.last_active);
+                const trustLabel = item.trust_id
+                  ? trustNameById.get(item.trust_id) || "TRUST"
+                  : "Global scope";
                 // Status uses the board-locked accent grammar so the family
                 // reads coherent across primitives: awaiting → in_review
                 // (amber) makes the rows that actually need the user pop;
@@ -273,6 +279,10 @@ export default function StartPage() {
                 // pill now has a literal visual companion below it.
                 const status = item.awaiting_at ? "in_review" : "in_progress";
                 const statusLabel = item.awaiting_at ? "Awaiting you" : "Active";
+                const objectLine = `Inbox item · ${statusLabel}`;
+                const contextLine = preview
+                  ? `${from} · ${trustLabel} · ${preview}`
+                  : `${from} · ${trustLabel}`;
                 return (
                   <li key={item.session_id} className="home-inbox-item">
                     <Link
@@ -294,11 +304,11 @@ export default function StartPage() {
                       </span>
                       <span className="home-inbox-body">
                         <span className="home-inbox-row">
-                          <span className="home-inbox-from">{from}</span>
+                          <span className="home-inbox-from">{objectLine}</span>
                           <span className="home-inbox-time">{time}</span>
                         </span>
                         <span className="home-inbox-subject">{subject}</span>
-                        {preview && <span className="home-inbox-preview">{preview}</span>}
+                        <span className="home-inbox-preview">{contextLine}</span>
                       </span>
                     </Link>
                   </li>
@@ -334,18 +344,18 @@ export default function StartPage() {
             <span className="home-card-icon">
               <Store size={16} strokeWidth={1.5} />
             </span>
-            <span className="home-card-title">The economy</span>
+            <span className="home-card-title">Economy</span>
             <button type="button" className="home-card-link" onClick={() => navigate("/economy")}>
-              View all
+              Open Economy
               <ArrowRight size={14} strokeWidth={1.8} />
             </button>
           </header>
           <div className="home-economy-body">
             <p className="home-economy-lede">
-              Discover TRUSTs, agents, markets, and capital changing hands.
+              Discover TRUSTs, Roles, Blueprints, and funding opportunities.
             </p>
             <p className="home-economy-aside">
-              The places where TRUSTs meet — and where the value moves between them.
+              Open roles, external TRUST listings, and launch paths live here.
             </p>
           </div>
         </article>
@@ -396,9 +406,15 @@ function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProp
           <span className="home-personal-avatar home-personal-avatar--ghost" aria-hidden="true">
             <Plus size={26} strokeWidth={1.5} />
           </span>
-          <h3 className="home-personal-name">Your personal TRUST</h3>
-          <p className="home-personal-role">Create one to begin</p>
+          <h3 className="home-personal-name">No TRUST yet</h3>
+          <p className="home-personal-role">TRUST · Not launched</p>
         </div>
+        <footer className="home-card-foot">
+          <span className="home-card-cta">
+            Launch TRUST
+            <ArrowRight size={14} strokeWidth={1.8} />
+          </span>
+        </footer>
       </button>
     );
   }
@@ -407,18 +423,18 @@ function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProp
       type="button"
       className="home-card home-card--personal"
       onClick={() => onOpen(personal)}
-      aria-label={`Step into your personal TRUST, ${personal.name}`}
+      aria-label={`Open TRUST, ${personal.name}`}
     >
       <div className="home-personal-body">
         <span className="home-personal-avatar" aria-hidden="true">
           <TrustAvatar name={personal.name} size={64} />
         </span>
         <h3 className="home-personal-name">{personal.name}</h3>
-        <p className="home-personal-role">Your TRUST</p>
+        <p className="home-personal-role">Active TRUST · Operator scope</p>
       </div>
       <footer className="home-card-foot">
         <span className="home-card-cta">
-          Step in
+          Open TRUST
           <ArrowRight size={14} strokeWidth={1.8} />
         </span>
       </footer>
@@ -427,40 +443,50 @@ function PersonalTrustCard({ personal, onOpen, onCreate }: PersonalTrustCardProp
 }
 
 interface StepIntoTrustCardProps {
+  hasTrust: boolean;
   onNewTrust: () => void;
   onBrowseBlueprints: () => void;
+  onOpenEconomy: () => void;
 }
 
-function StepIntoTrustCard({ onNewTrust, onBrowseBlueprints }: StepIntoTrustCardProps) {
+function StepIntoTrustCard({
+  hasTrust,
+  onNewTrust,
+  onBrowseBlueprints,
+  onOpenEconomy,
+}: StepIntoTrustCardProps) {
   return (
     <article className="home-card home-card--step">
-      {/* c20: the `<header>` wrapper was layout boilerplate. AllTrusts'
-          head earns the flex wrapper because it pairs an eyebrow with a
-          right-anchored "View all" link (`margin-left: auto`). Step's
-          head only ever carried one child — the "New" eyebrow — so the
-          flex container had nothing to space and read as a slot
-          pretending to be a header (same anti-pattern c17/c19 swept on
-          AllTrusts, but here with no conditional escape needed). The
-          card itself is `flex-direction: column; gap: 20px`, so the
-          eyebrow sitting as a direct child of `<article>` lands in the
-          exact same visual position the header occupied, just without
-          the wrapper. */}
-      <span className="home-card-eyebrow">New</span>
+      <span className="home-card-eyebrow">{hasTrust ? "Create" : "Blueprints"}</span>
       <div className="home-step-body">
-        <h3 className="home-step-title">Step into a TRUST.</h3>
-        <p className="home-step-hint">Start your own or use a blueprint.</p>
+        <h3 className="home-step-title">
+          {hasTrust ? "Launch another TRUST." : "Start from a Blueprint."}
+        </h3>
+        <p className="home-step-hint">
+          {hasTrust
+            ? "Use a Blueprint for the next TRUST."
+            : "Choose a proven operating pattern before launch."}
+        </p>
       </div>
       <div className="home-step-actions">
-        <button type="button" className="home-step-btn home-step-btn--primary" onClick={onNewTrust}>
-          <span className="home-step-btn-icon">
-            <Plus size={16} strokeWidth={1.8} />
-          </span>
-          <span className="home-step-btn-label">New TRUST</span>
-        </button>
         <button type="button" className="home-step-btn" onClick={onBrowseBlueprints}>
-          <span className="home-step-btn-label">Browse blueprints</span>
+          <span className="home-step-btn-label">Browse Blueprints</span>
           <span className="home-step-btn-icon">
             <ArrowRight size={16} strokeWidth={1.8} />
+          </span>
+        </button>
+        <button
+          type="button"
+          className="home-step-btn"
+          onClick={hasTrust ? onNewTrust : onOpenEconomy}
+        >
+          <span className="home-step-btn-label">{hasTrust ? "Launch TRUST" : "Open Economy"}</span>
+          <span className="home-step-btn-icon">
+            {hasTrust ? (
+              <Plus size={16} strokeWidth={1.8} />
+            ) : (
+              <ArrowRight size={16} strokeWidth={1.8} />
+            )}
           </span>
         </button>
       </div>
@@ -490,78 +516,35 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
     return acc;
   }, null);
 
-  // First-touch parity with the Inbox card (c8). When the user has no
-  // other TRUSTs to step into, the "No other TRUSTs" headline stages an
-  // empty state the user can't act on yet — the same anti-pattern
-  // muted on Inbox. Apply `home-card--quiet` so the satellite recedes
-  // and StepIntoTrustCard (the actual CTA in this row) becomes the
-  // visual focal point during onboarding. Once a second TRUST exists,
-  // the modifier drops and the card returns to full weight. Reordering
-  // the grid was the alternative; muting wins because the 2fr/1fr/1fr
-  // asymmetry of `.home-row-trusts` is the anchor pattern (Personal =
-  // "where you live") — disturbing the column order to compensate for
-  // a transient state would forfeit that signal.
+  // First-touch parity with the Inbox card: when the user has no other
+  // TRUSTs, this satellite recedes so the active TRUST card owns the
+  // page's primary action.
   const isQuiet = others.length === 0;
   return (
     <article className={`home-card home-card--all${isQuiet ? " home-card--quiet" : ""}`}>
-      {/* c17: drop the entire head while `isQuiet`. c13 had already hidden
-          the eyebrow on the empty state, which left only the right-
-          anchored "View all" link floating above an empty header row —
-          a slot pretending to be a header. The link itself is redundant
-          in the quiet state: `/trust` would only show the user's own
-          personal TRUST (the very tile sitting two columns to the
-          left), so the navigation pays the user back with what they
-          already see. Hiding the head at the row-level — same move as
-          c14/c15 made on the puck/Users circle — lets the body
-          ("No other TRUSTs / Just your personal one for now.") anchor
-          the card cleanly. Once a second TRUST appears the head
-          returns to carry both eyebrow and View all. */}
+      {/* Quiet state suppresses the redundant list action; there are no
+          other TRUST objects to open yet. */}
       {!isQuiet && (
         <header className="home-card-head">
-          {/* c18 dropped the literal "All" — the eyebrow's only job is to
-              carry the activity-dot. c19: when no tile has activity,
-              skip the eyebrow span entirely instead of rendering an
-              empty container. The previous shape relied on
-              `margin-left: auto` on `.home-card-link` to keep the link
-              right-anchored above an invisible left-side slot — a slot
-              pretending to be content (the same anti-pattern c17 caught
-              at the head level). With the span gone, the link is the
-              head's only child in the no-activity case and its
-              `margin-left: auto` reads as explicit "push to the right
-              edge". When activity exists, the eyebrow renders with its
-              dot and the link still right-anchors via the same rule.
-              Screen-reader anchor isn't lost: the title `<h3>` ("Step
-              elsewhere") and the "View all" button carry the card's
-              meaning without an empty span advertising itself. */}
           {eyebrowState && (
             <span className="home-card-eyebrow home-all-eyebrow" aria-hidden="true">
               <span className={`home-all-eyebrow-dot home-all-eyebrow-dot--${eyebrowState}`} />
             </span>
           )}
           <button type="button" className="home-card-link" onClick={onViewAll}>
-            View all
+            Open TRUSTs
             <ArrowRight size={14} strokeWidth={1.8} />
           </button>
         </header>
       )}
-      {/* c12: the two-TRUST seam.
-          "Switch context" read as jargon-fog the moment a second TRUST
-          appeared — the row's vocabulary is the Step-family ("Step in",
-          "Step into a TRUST", "to step into") and "context" jumped to
-          a different register. "Step elsewhere" keeps the verb the row
-          is already speaking, and closes on a word the reader has to
-          unpack (where?) instead of a literal noun. The avatar grid
-          below is the answer, so the curiosity gets paid off in the
-          same card. Empty-state copy stays literal — first-touch isn't
-          the moment to be playful. */}
       <div className="home-all-body">
         <h3 className="home-all-title">
-          {others.length === 0 ? "No other TRUSTs" : "Step elsewhere"}
+          {others.length === 0 ? "No other TRUSTs" : "Other TRUSTs"}
         </h3>
         <p className="home-all-hint">
           {others.length === 0
             ? "Just your personal one for now."
-            : `${others.length} other${others.length === 1 ? "" : "s"} to step into.`}
+            : `${others.length} other${others.length === 1 ? "" : "s"} available.`}
         </p>
       </div>
       {previewAvatars.length > 0 && (
@@ -576,7 +559,7 @@ function AllTrustsCard({ others, activity, onViewAll, onPick }: AllTrustsCardPro
                   type="button"
                   className="home-all-avatar-btn"
                   onClick={() => onPick(t)}
-                  aria-label={label ? `Step into ${t.name} — ${label}` : `Step into ${t.name}`}
+                  aria-label={label ? `Open TRUST ${t.name} — ${label}` : `Open TRUST ${t.name}`}
                   title={label ? `${t.name} · ${label}` : t.name}
                 >
                   <TrustAvatar name={t.name} size={32} />

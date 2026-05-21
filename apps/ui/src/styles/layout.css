@@ -7879,14 +7879,11 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   color: var(--color-text-primary);
 }
 
-/* ── Home dashboard — surface at `/`. Cards-v2 (2026-05-19):
-   1. Hero image with greeting overlay + account-avatar affordance.
-   2. "Step into a trust" CARD with per-trust tiles (avatar + name +
-      role context) and inline action tiles ([+ New trust],
-      [Browse blueprints]). Header link routes to /trust.
-   3. Two-column row of Inbox + Economy CARDs, heights aligned.
-   4. Thesis CARD with editorial typography linking to the canonical
-      /blog/the-uncompiled-institution post.
+/* ── Home surface at `/`:
+   1. Hero states the page job for operating across TRUSTs.
+   2. Active TRUST card carries the primary Open/Launch TRUST action.
+   3. Secondary surfaces expose Blueprints, other TRUSTs, Inbox, and Economy.
+   4. Thesis CARD links the canonical /blog/the-uncompiled-institution post.
    Graphite + ink palette, no hairlines, no decorative motion. ── */
 .home-page {
   flex: 1;
@@ -8230,17 +8227,20 @@ button.home-card:focus-visible {
 .home-card-cta {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--color-accent);
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
 }
 
 /* Trust row — three side-by-side cards above the inbox/economy row:
-   Personal · Step into a TRUST · All TRUSTs. Cards stretch to the same
+   Active TRUST · Blueprints/create · Other TRUSTs. Cards stretch to the same
    height so the row reads as a single horizontal beat. Collapses to a
    single column at narrow widths. */
-/* Trust row — Personal is the anchor (2fr), Step + All are satellites
+/* Trust row — Personal is the anchor (2fr); create/Blueprints + Other TRUSTs are satellites
    (1fr each). The asymmetry establishes "this is where you live" vs
    "these are options" without needing different surface tones. */
 .home-row-trusts {
@@ -8266,7 +8266,7 @@ button.home-card:focus-visible {
 }
 
 /* Personal TRUST card — the row's anchor (2fr column). Big 64px
-   avatar, name in display weight at 28px, "Step in →" CTA at the foot.
+   avatar, name in display weight at 28px, Open/Launch TRUST CTA at the foot.
    The eyebrow was dropped — the avatar + display name already tells
    the user "this is yours" without a label. */
 .home-personal-body {
@@ -8285,17 +8285,8 @@ button.home-card:focus-visible {
   border-radius: 999px;
   flex-shrink: 0;
 }
-/* First-touch ghost avatar — c10 lifts it from --bg-row/secondary
-   (which read as quiet/inactive) to the ink-on-paper treatment used
-   by Step's primary button. With Inbox + All-TRUSTs both muted on
-   first-touch (c8/c9), PersonalTrustCard becomes the row's central
-   CTA — but its empty-state Plus circle was painting at satellite
-   weight, undercutting that role. Same --color-text-primary +
-   --btn-primary-text pair as `.home-step-btn--primary` so the
-   "+ create your first TRUST" affordance reads at the same gravity
-   as the row's other ink action, instead of fading into the card
-   surface. Drops back to the filled state's avatar palette once a
-   TRUST exists. */
+/* First-touch ghost avatar uses the same ink-on-paper treatment as the
+   dominant CTA so Launch TRUST owns the no-TRUST state. */
 .home-personal-avatar--ghost {
   background: var(--color-text-primary);
   color: var(--btn-primary-text);
@@ -8316,10 +8307,8 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 
-/* Step-into-a-TRUST card — the center beat. Carries the "Step into a
-   TRUST." phrase and the two action buttons (New TRUST + Browse
-   blueprints). The primary button is ink-on-paper to make it the focal
-   action of the row. */
+/* Blueprints/create card — the center beat. It stays secondary so the
+   active TRUST card remains the primary action. */
 .home-step-body {
   display: flex;
   flex-direction: column;
