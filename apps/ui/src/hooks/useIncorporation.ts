@@ -1,26 +1,19 @@
 /**
- * `useIncorporation` — React Query wrapper around the three on-chain
- * reads the Incorporation surface (and the Overview cockpit rollup) need:
- * the Trust account, the list of Module accounts hanging off it, and the
- * list of Role accounts on `aeqi_role`. Roles are folded in here (rather
- * than into their own hook) because the Overview cockpit's "signers /
- * modules / roles" identity strip wants all three together — the cost
- * is one extra parallel `getProgramAccounts`, and the staleness is the
- * same operator cadence.
+ * `useIncorporation` — React Query wrapper around the server-side
+ * Incorporation snapshot the surface (and the Overview cockpit rollup)
+ * need: the Trust account, the list of Module accounts hanging off it,
+ * and the list of Role accounts on `aeqi_role`.
  *
  * The TRUST PDA address (`trust_address`) is the cache key for all three
- * queries. A 30s staleTime matches the cadence at which these accounts
+ * query. A 30s staleTime matches the cadence at which these accounts
  * actually change (manual operator actions through aeqi-platform —
  * pause/unpause, adopt new module implementation, ACL edits, role
  * assign / resign) rather than the every-block churn of token balances.
- *
- * The role scan is soft-failed (try/catch → []) because Foundation-shaped
- * TRUSTs that haven't adopted `aeqi_role` should degrade to "0 roles"
- * instead of surfacing an error in the cockpit header.
  */
 import { useQuery } from "@tanstack/react-query";
+import { PublicKey } from "@solana/web3.js";
 
-import { readModules, readRoles, readTrust } from "@/solana";
+import { api } from "@/lib/api";
 import type { ModuleAccountWithPda, RoleAccountWithPda, TrustAccount } from "@/solana";
 
 const STALE_TIME_MS = 30_000;
@@ -44,44 +37,68 @@ export interface UseIncorporationResult {
 export function useIncorporation(trustAddress: string | null | undefined): UseIncorporationResult {
   const enabled = !!trustAddress;
 
-  const trustQuery = useQuery({
-    queryKey: ["incorporation", "trust", trustAddress ?? null],
-    queryFn: () => readTrust(trustAddress as string),
-    enabled,
-    staleTime: STALE_TIME_MS,
-  });
-
-  const modulesQuery = useQuery({
-    queryKey: ["incorporation", "modules", trustAddress ?? null],
-    queryFn: () => readModules(trustAddress as string),
-    enabled,
-    staleTime: STALE_TIME_MS,
-  });
-
-  const rolesQuery = useQuery({
-    queryKey: ["incorporation", "roles", trustAddress ?? null],
-    queryFn: async () => {
-      try {
-        return await readRoles(trustAddress as string);
-      } catch {
-        // Foundation-shaped TRUSTs without `aeqi_role` adopted should
-        // degrade to "0 roles" in the cockpit instead of erroring.
-        return [];
-      }
-    },
+  const snapshotQuery = useQuery({
+    queryKey: ["incorporation", "snapshot", trustAddress ?? null],
+    queryFn: async () =>
+      decodeIncorporationSnapshot(await api.getTrustIncorporationByAddress(trustAddress as string)),
     enabled,
     staleTime: STALE_TIME_MS,
   });
 
   return {
-    trust: trustQuery.data,
-    modules: modulesQuery.data,
-    roles: rolesQuery.data,
-    isLoading: enabled && (trustQuery.isLoading || modulesQuery.isLoading || rolesQuery.isLoading),
-    error:
-      (trustQuery.error as Error | null) ??
-      (modulesQuery.error as Error | null) ??
-      (rolesQuery.error as Error | null) ??
-      null,
+    trust: snapshotQuery.data?.trust,
+    modules: snapshotQuery.data?.modules,
+    roles: snapshotQuery.data?.roles,
+    isLoading: enabled && snapshotQuery.isLoading,
+    error: (snapshotQuery.error as Error | null) ?? null,
+  };
+}
+
+type RawIncorporationSnapshot = Awaited<ReturnType<typeof api.getTrustIncorporationByAddress>>;
+
+function decodeIncorporationSnapshot(raw: RawIncorporationSnapshot): {
+  trust: TrustAccount | null;
+  modules: ModuleAccountWithPda[];
+  roles: RoleAccountWithPda[];
+} {
+  return {
+    trust: raw.trust
+      ? ({
+          trustId: raw.trust.trust_id,
+          authority: new PublicKey(raw.trust.authority),
+          creationMode: raw.trust.creation_mode,
+          paused: raw.trust.paused,
+          moduleCount: raw.trust.module_count,
+          bump: raw.trust.bump,
+        } as TrustAccount)
+      : null,
+    modules: raw.modules.map((m) => ({
+      publicKey: new PublicKey(m.public_key),
+      account: {
+        trust: new PublicKey(m.account.trust),
+        moduleId: m.account.module_id,
+        programId: new PublicKey(m.account.program_id),
+        provider: new PublicKey(m.account.provider),
+        implementationVersion: BigInt(m.account.implementation_version),
+        implementationMetadataHash: m.account.implementation_metadata_hash,
+        trustAcl: BigInt(m.account.trust_acl),
+        initialized: m.account.initialized,
+        bump: m.account.bump,
+      },
+    })) as ModuleAccountWithPda[],
+    roles: raw.roles.map((r) => ({
+      publicKey: new PublicKey(r.public_key),
+      account: {
+        trust: new PublicKey(r.account.trust),
+        roleId: r.account.role_id,
+        roleTypeId: r.account.role_type_id,
+        account: new PublicKey(r.account.account),
+        parentRoleId: r.account.parent_role_id,
+        status: r.account.status,
+        statusSince: BigInt(r.account.status_since),
+        ipfsCid: r.account.ipfs_cid,
+        bump: r.account.bump,
+      },
+    })) as RoleAccountWithPda[],
   };
 }

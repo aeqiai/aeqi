@@ -837,6 +837,54 @@ export const api = {
     }>(`/public/trust/${encodeURIComponent(trustAddress)}/assets`),
 
   /**
+   * Server-side Solana incorporation snapshot. Platform owns TRUST/module/role
+   * reads so hosted browsers never need direct Solana RPC access.
+   */
+  getTrustIncorporationByAddress: (trustAddress: string) =>
+    request<{
+      ok: true;
+      cluster: string;
+      trust_id: string;
+      trust_address: string;
+      trust: {
+        trust_id: number[];
+        authority: string;
+        creation_mode: boolean;
+        paused: boolean;
+        module_count: number;
+        bump: number;
+      } | null;
+      modules: Array<{
+        public_key: string;
+        account: {
+          trust: string;
+          module_id: number[];
+          program_id: string;
+          provider: string;
+          implementation_version: string;
+          implementation_metadata_hash: number[];
+          trust_acl: string;
+          initialized: number;
+          bump: number;
+        };
+      }>;
+      roles: Array<{
+        public_key: string;
+        account: {
+          trust: string;
+          role_id: number[];
+          role_type_id: number[];
+          account: string;
+          parent_role_id: number[];
+          status: number;
+          status_since: string;
+          ipfs_cid: number[];
+          bump: number;
+        };
+      }>;
+    }>(`/public/trust/${encodeURIComponent(trustAddress)}/incorporation`),
+
+  /**
    * Grant a vesting position. position_id is generated server-side and
    * returned so the caller can look the position up on chain.
    * Schedule: start_time < end_time AND start_time <= cliff_time <= end_time

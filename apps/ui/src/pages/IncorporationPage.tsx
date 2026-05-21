@@ -24,8 +24,7 @@ import {
  * The TRUST's constitutional surface — identity, authority, and the
  * module slots the TRUST has adopted on-chain. Replaces the prior
  * placeholder (commit pre-ja-001.2) with a real surface that reads
- * directly from the Solana cluster through the shared client in
- * `apps/ui/src/solana/`.
+ * through the platform Incorporation snapshot API.
  *
  * Sections:
  *   1. Identity — trust_id (hex), authority (base58), creation_mode,
@@ -70,7 +69,7 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
       <Page>
         <PageHeader title="Incorporation" description="The TRUST's constitutional surface." />
         <PageBody>
-          <Loading variant="section" label="Reading on-chain Trust state" />
+          <Loading variant="section" label="Loading Trust snapshot" />
         </PageBody>
       </Page>
     );
@@ -83,7 +82,7 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
         <PageBody>
           <EmptyState
             title="Couldn't read Trust state"
-            description={error.message || "The RPC call to the configured Solana cluster failed."}
+            description={error.message || "The platform could not load the Trust snapshot."}
           />
         </PageBody>
       </Page>
@@ -97,7 +96,7 @@ export default function IncorporationPage({ trustId }: { trustId: string }) {
         <PageBody>
           <EmptyState
             title="Trust account not found"
-            description={`No Trust account at ${shortAddress(trustAddress)} on the configured cluster. Check that the RPC URL matches the cluster the TRUST was deployed to.`}
+            description={`No Trust account at ${shortAddress(trustAddress)} on the configured cluster. Check that the platform is pointed at the cluster the TRUST was deployed to.`}
           />
         </PageBody>
       </Page>
