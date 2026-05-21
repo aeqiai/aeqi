@@ -17,13 +17,11 @@ import {
   LaunchShellLoading,
   TrustSetupFlow,
 } from "@/pages/trustSetup/TrustSetupFlow";
-import "@/styles/blueprints-store.css";
 import "@/styles/blueprint-launch-picker.css";
 
 const FIRST_RUN_BLUEPRINT_SLUG = "personal-os";
 
 type LaunchEntry = "standard" | "personal";
-type LaunchStep = "blueprint" | "details" | "operations";
 type OperationsChoice = "free" | "paid";
 
 type NameCheckState =
@@ -80,11 +78,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
   const canSkipCheckout = isAdmin;
 
-  const [blueprints, setBlueprints] = useState<Blueprint[]>([]);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-  const [step, setStep] = useState<LaunchStep>(
-    isFirstRun || requestedBlueprint ? "details" : "blueprint",
-  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -138,7 +132,6 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
           return;
         }
 
-        setBlueprints(available);
         setBlueprint(selected);
         setPlan(DEFAULT_LAUNCH_PLAN);
       } catch (e) {
@@ -166,22 +159,6 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
     [plan],
   );
 
-  const visibleSteps: Array<{ id: LaunchStep; label: string }> = useMemo(
-    () =>
-      isFirstRun
-        ? [
-            { id: "details", label: "Name" },
-            { id: "operations", label: "Operations" },
-          ]
-        : [
-            { id: "blueprint", label: "Blueprint" },
-            { id: "details", label: "Name" },
-            { id: "operations", label: "Operations" },
-          ],
-    [isFirstRun],
-  );
-
-  const stepIndex = visibleSteps.findIndex((item) => item.id === step);
   const selectedBlueprintId = blueprint ? blueprintId(blueprint) : "";
   const blueprintPath = blueprint
     ? `/blueprints/${encodeURIComponent(selectedBlueprintId)}`
@@ -244,32 +221,6 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
     setProvisioning(Boolean(launchId));
     if (launchId) setSubmitError(null);
   }, [launchId]);
-
-  const chooseBlueprint = (tpl: Blueprint) => {
-    setBlueprint(tpl);
-    setTrustNameTouched(false);
-    setSubmitError(null);
-    setStep("details");
-  };
-
-  const handleBack = () => {
-    setSubmitError(null);
-    if (step === "operations") {
-      setStep("details");
-      return;
-    }
-    if (step === "details" && !isFirstRun) {
-      setStep("blueprint");
-    }
-  };
-
-  const handleNext = () => {
-    setSubmitError(null);
-    if (step === "blueprint" && blueprint) setStep("details");
-    if (step === "details" && trustName.trim() && nameCheck.status === "available") {
-      setStep("operations");
-    }
-  };
 
   const handleFreeTrust = useCallback(async () => {
     if (!blueprint) return;
@@ -384,19 +335,11 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
     );
   }
 
-  const canGoNext =
-    step === "blueprint" || (trustName.trim().length > 1 && nameCheck.status === "available");
   const canSubmit = trustName.trim().length > 1 && nameCheck.status === "available";
-  const showBack = step === "operations" || (step === "details" && !isFirstRun);
 
   return (
     <TrustSetupFlow
-      visibleSteps={visibleSteps}
-      stepIndex={stepIndex}
-      step={step}
-      blueprints={blueprints}
       blueprint={blueprint}
-      selectedBlueprintId={selectedBlueprintId}
       blueprintPath={blueprintPath}
       submitError={submitError}
       loadError={loadError}
@@ -406,19 +349,14 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       operations={operations}
       plan={plan}
       selectedLaunchPlan={selectedLaunchPlan}
-      showBack={showBack}
-      canGoNext={canGoNext}
       canSubmit={canSubmit}
       submitting={submitting}
-      onChooseBlueprint={chooseBlueprint}
       onTrustNameChange={(value) => {
         setTrustNameTouched(true);
         setTrustName(value);
       }}
       onOperationsChange={setOperations}
       onPlanChange={setPlan}
-      onBack={handleBack}
-      onNext={handleNext}
       onLaunch={handleLaunch}
     />
   );
