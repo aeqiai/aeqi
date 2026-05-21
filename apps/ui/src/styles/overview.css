@@ -679,6 +679,41 @@
   }
 }
 
+/* c20 (2026-05-21): the cockpit tiles inside Roles (c16, 200-350ms) and
+   Execution/Ownership (c19, 600/650ms) now fade in, but the inner status
+   signals — the `.trust-role-dot` trio on the Roles tile and the
+   `.trust-quest-signals` dot+count clusters on Agents/Quests (and the
+   Ownership mini-tiles) — still snap into the tile at full opacity on
+   the same frame the tile begins fading. The tile resolves as a soft
+   surface, but the status verification inside it appears fully-formed
+   mid-fade, collapsing the tile's entrance into a hard cut on its own
+   semantics. Add a one-beat signals-row fade anchored to each tile's
+   animation-end so the dots verify in *as* the tile resolves:
+     · Roles row (.trust-cockpit-inner-grid > .mini, c16 ends 400-550ms):
+       signals at 600ms — first dot fades in just as the last Vacant tile
+       lands.
+     · Execution card mini-tiles (c19 ends ~800ms): signals at 850ms.
+     · Ownership card mini-tiles (c19 ends ~850ms): signals at 950ms.
+   Selector `.trust-cockpit-mini .trust-quest-signals` wraps both the
+   `.trust-role-dot` trio (it sits inside `.trust-quest-signals` per
+   TrustRolesGroup.tsx:82) and the Agents/Quests/Ownership status
+   clusters, so one selector covers all three primitives. The
+   Execution/Ownership scopes override via the cockpit-row context, so
+   the Roles row stays on its earlier beat. Single iteration, opacity
+   only, gated on prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .trust-cockpit-mini .trust-quest-signals {
+    opacity: 0;
+    animation: trust-hero-bar-enter var(--transition-normal) 600ms 1 forwards;
+  }
+  .trust-cockpit-row > .trust-cockpit-card .trust-cockpit-mini .trust-quest-signals {
+    animation-delay: 850ms;
+  }
+  .trust-cockpit-row > .trust-cockpit-card:nth-child(2) .trust-cockpit-mini .trust-quest-signals {
+    animation-delay: 950ms;
+  }
+}
+
 /* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
    side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
    chain mirror). One rhythm, two surfaces — execution + ownership both
