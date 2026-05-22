@@ -54,6 +54,7 @@ export const Empty: Story = {
     onSend: noopAsync,
     composerPlaceholder: "Reply to AEQI EA…",
     emptyTitle: "No prior messages.",
+    surface: "recessed",
   },
   render: (args) => (
     <div style={{ height: "80vh", display: "flex", flexDirection: "column" }}>
@@ -74,6 +75,7 @@ export const WithMessages: Story = {
     composerPlaceholder: "Reply to AEQI EA…",
     attachmentTypes: ["idea", "quest", "file"],
     agentId: "agent-aeqi-ea",
+    surface: "recessed",
   },
   render: (args) => (
     <div style={{ height: "80vh", display: "flex", flexDirection: "column" }}>
@@ -92,6 +94,7 @@ export const DecisionRequest: Story = {
     messages: SAMPLE_MESSAGES.slice(0, 1),
     onSend: noopAsync,
     composerPlaceholder: "Reply to AEQI EA…",
+    surface: "recessed",
   },
   render: (args) => (
     <div style={{ height: "80vh", display: "flex", flexDirection: "column" }}>
@@ -112,6 +115,7 @@ export const Streaming: Story = {
     isStreaming: true,
     composerPlaceholder: "Message AEQI EA…",
     attachmentTypes: ["idea", "quest", "file"],
+    surface: "recessed",
   },
   render: (args) => (
     <div style={{ height: "80vh", display: "flex", flexDirection: "column" }}>

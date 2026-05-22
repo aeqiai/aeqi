@@ -445,6 +445,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
         onEdit={handleEdit}
         onResend={handleResend}
         emptyTitle="no messages yet"
+        surface="recessed"
       />
     </div>
   );

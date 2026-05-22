@@ -37,6 +37,10 @@ export interface SessionRailProps {
   rows: SessionRailRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Visual density: compact for persistent agent rails, comfortable for Inbox/Home cards. */
+  density?: "compact" | "comfortable";
+  /** Surface treatment: plain legacy rail, or card rows on a recessed lane. */
+  surface?: "plain" | "card";
   /** Sessions that are currently streaming — drive the ThinkingDot. */
   streamingIds?: Record<string, boolean>;
   /** Empty-state title (e.g. "no sessions yet" / "inbox is clear"). */
@@ -68,12 +72,19 @@ export default function SessionRail({
   rows,
   selectedId,
   onSelect,
+  density = "compact",
+  surface = "plain",
   streamingIds,
   emptyTitle,
   emptyHint,
   traversalEventName,
 }: SessionRailProps) {
   const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const railClassName = [
+    "sessions-rail",
+    `sessions-rail--${density}`,
+    `sessions-rail--${surface}`,
+  ].join(" ");
 
   // j/k traversal bridge — only listens when a parent registers an event
   // name. The parent's keyboard handler dispatches a CustomEvent and we
@@ -107,7 +118,7 @@ export default function SessionRail({
   // emptyTitle / emptyHint.
   if (rows.length === 0) {
     return (
-      <div className="sessions-rail">
+      <div className={railClassName}>
         <div className="sessions-rail-list">
           <div className="sessions-rail-empty">
             <div className="sessions-rail-empty-title">{emptyTitle}</div>
@@ -119,7 +130,7 @@ export default function SessionRail({
   }
 
   return (
-    <div className="sessions-rail">
+    <div className={railClassName}>
       <div className="sessions-rail-list">
         {rows.map((item, i) => {
           const showHeader = i === 0 || rows[i - 1]?.group !== item.group;

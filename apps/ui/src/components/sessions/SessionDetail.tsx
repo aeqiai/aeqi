@@ -103,6 +103,8 @@ export interface SessionDetailProps {
   /** Hide the composer chrome entirely (e.g. when an external chrome owns it).
    * Default: composer renders inside the primitive. */
   hideComposer?: boolean;
+  /** Shared visual surface. Recessed is the Inbox/agent chat canvas. */
+  surface?: "plain" | "recessed";
 }
 
 // Distance (px) from the bottom of the thread within which the user is still
@@ -143,6 +145,7 @@ export default function SessionDetail({
   onResend,
   errorMessage,
   hideComposer = false,
+  surface = "plain",
 }: SessionDetailProps) {
   // Subscribe to the shared 60 s tick so the header's "Active 2m ago" label
   // advances even when no new message arrives.
@@ -209,15 +212,14 @@ export default function SessionDetail({
   };
 
   // Publish the composer's live height as `--inbox-composer-height` on
-  // the enclosing `.inbox-pane-detail` so the thread's bottom padding
-  // and the fade-gradient grow with the draft. Mirrors the prior
-  // InboxComposer ResizeObserver — same idiom, scoped variable, same
-  // CSS consumer (the inbox.css `.inbox-pane-detail::after` rule).
+  // the nearest recessed surface so the thread's bottom padding and the
+  // fade-gradient grow with the draft. Mirrors the prior InboxComposer
+  // ResizeObserver — same idiom, scoped variable, shared CSS consumer.
   useEffect(() => {
     if (hideComposer) return;
     const el = wrapRef.current;
     if (!el) return;
-    const detail = el.closest<HTMLElement>(".inbox-pane-detail");
+    const detail = el.closest<HTMLElement>(".session-detail--recessed, .inbox-pane-detail");
     if (!detail) return;
 
     const apply = () => {
@@ -261,8 +263,16 @@ export default function SessionDetail({
       ? `Active ${formatRelative(lastTimestamp)}`
       : null;
 
+  const className = [
+    "session-detail",
+    surface === "recessed" ? "session-detail--recessed" : "",
+    hideComposer ? "session-detail--external-composer" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="session-detail">
+    <div className={className}>
       {(title || headerExtras || sessionId) && (
         <div className="session-detail-header">
           <div className="session-detail-header-from">

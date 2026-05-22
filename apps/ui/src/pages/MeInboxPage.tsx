@@ -570,6 +570,7 @@ export default function MeInboxPage() {
         errorMessage={sendError}
         preThreadSlot={preThreadSlot}
         threadTrailingSlot={threadTrailingSlot}
+        surface="recessed"
       />
     );
   };
@@ -649,6 +650,8 @@ export default function MeInboxPage() {
                 rows={[]}
                 selectedId={null}
                 onSelect={setSelectedId}
+                density="comfortable"
+                surface="card"
                 emptyTitle="Inbox clear"
                 emptyHint="No reviews, approvals, failed events, or agent handoffs need attention."
               />
@@ -678,6 +681,8 @@ export default function MeInboxPage() {
                 })}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                density="comfortable"
+                surface="card"
                 emptyTitle="Inbox clear"
                 emptyHint="No reviews, approvals, failed events, or agent handoffs need attention."
                 traversalEventName="inbox:traverse"

@@ -70,6 +70,8 @@ export const Default: Story = {
     rows: SAMPLE_ROWS,
     selectedId: "s-1",
     onSelect: () => {},
+    density: "compact",
+    surface: "card",
     emptyTitle: "no sessions yet",
   },
   render: (args) => (
@@ -88,6 +90,8 @@ export const Filtered: Story = {
     rows: SEARCH_NARROWED,
     selectedId: "s-1",
     onSelect: () => {},
+    density: "comfortable",
+    surface: "card",
     emptyTitle: "no sessions yet",
   },
   parameters: {
@@ -112,6 +116,8 @@ export const Empty: Story = {
     rows: [],
     selectedId: null,
     onSelect: () => {},
+    density: "comfortable",
+    surface: "card",
     emptyTitle: "inbox is clear",
     emptyHint: "decisions and replies your agents need will land here.",
   },

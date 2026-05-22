@@ -30,7 +30,7 @@ const DEFAULT_FILTER: SessionsFilterState = { status: "all" };
  * Filter: status — all / active / archived. Matches `s.status === "active"`.
  *
  * Row shape is single-line h=32 across both adopters — visual parity
- * with the inbox.
+ * with the inbox through the compact card rail variant.
  */
 export default function SessionsRail() {
   // Mounted under `/trust/<addr>/agents/<agent>/inbox[/...]`. The route
@@ -130,6 +130,8 @@ export default function SessionsRail() {
         rows={rows}
         selectedId={itemId ?? null}
         onSelect={handleSelect}
+        density="compact"
+        surface="card"
         streamingIds={streamingSessions}
         emptyTitle={emptyTitle}
         emptyHint={emptyHint}
