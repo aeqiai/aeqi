@@ -268,6 +268,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
               <span className="sidebar-brand-collapsed-hover" aria-hidden="true">
                 <ExpandSidebarIcon />
               </span>
+              <span className="sidebar-brand-collapsed-mobile-wordmark" aria-hidden="true">
+                <Wordmark size={28} />
+              </span>
             </button>
           </Tooltip>
         )}
