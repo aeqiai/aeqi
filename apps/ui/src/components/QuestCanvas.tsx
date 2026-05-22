@@ -227,6 +227,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
           onBack={cancel}
           onCancel={cancel}
           onSave={submit}
+          breadcrumbLabel={pinnedIdea?.name ?? (presetName || "New quest")}
           linkedIdeaSlot={
             <LinkedIdeaPicker
               ideas={ideas}
@@ -478,6 +479,7 @@ function ViewCanvas({
           onAssigneeOpenChange={setAssigneeOpen}
           dueOpen={dueOpen}
           onDueOpenChange={setDueOpen}
+          breadcrumbLabel={quest.idea?.name ?? quest.id}
           trailingSlot={
             quest.sibling_quest_ids && quest.sibling_quest_ids.length > 0 ? (
               <span

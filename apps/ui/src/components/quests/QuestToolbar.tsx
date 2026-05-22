@@ -40,6 +40,7 @@ export default function QuestToolbar({
   onSave,
   linkedIdeaSlot,
   trailingSlot,
+  breadcrumbLabel,
   statusOpen,
   onStatusOpenChange,
   priorityOpen,
@@ -75,6 +76,7 @@ export default function QuestToolbar({
   onSave: () => void;
   linkedIdeaSlot?: React.ReactNode;
   trailingSlot?: React.ReactNode;
+  breadcrumbLabel?: string;
   /** Controlled-open hooks. Threaded so the parent (ViewCanvas) can pop
    * the popovers via the S / P / A / D keyboard shortcuts. Optional —
    * uncontrolled by default so ComposeCanvas keeps its existing UX. */
@@ -114,6 +116,14 @@ export default function QuestToolbar({
           Quests
         </Button>
       </Tooltip>
+      {breadcrumbLabel && (
+        <span className="quest-detail-breadcrumb" aria-label="Quest detail">
+          <span className="quest-detail-breadcrumb-sep" aria-hidden>
+            /
+          </span>
+          <span className="quest-detail-breadcrumb-item">{breadcrumbLabel}</span>
+        </span>
+      )}
       {onNew && (
         <Tooltip content="New quest (N)">
           <Button

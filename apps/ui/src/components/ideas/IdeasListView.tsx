@@ -1,39 +1,23 @@
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ChevronRight, FolderOpen, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
-import { Button, Icon, IconButton, PrimitivePageHeader, Tooltip } from "../ui";
-import type { Idea, ScopeValue } from "@/lib/types";
+import { Button, Icon, PrimitivePageHeader, Tooltip } from "../ui";
+import type { Idea } from "@/lib/types";
 import { storeIdea, uploadFileToIdea } from "@/api/ideas";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
-import { formatDateTime } from "@/lib/i18n";
 import { useAgentIdeasCache } from "@/queries/ideas";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import { ImportMenu } from "@/components/blueprints/ImportMenu";
 import IdeasToolbar from "./IdeasToolbar";
 import IdeasListFilterChips from "./IdeasListFilterChips";
 import IdeasFolderScopeBar from "./IdeasFolderScopeBar";
+import IdeasListRow from "./IdeasListRow";
+import IdeasMemoryScan from "./IdeasMemoryScan";
+import { importIdeaProperties, importIdeaScope, isMarkdownFile } from "./ideaImport";
 import { buildIdeaTree, flattenIdeaTree } from "./ideaTree";
-import {
-  type FilterState,
-  type IdeasFilter,
-  SCOPE_LABEL,
-  matchRank,
-  snippetFor,
-  highlightMatches,
-  relativeTime,
-} from "./types";
+import { type FilterState, type IdeasFilter, SCOPE_LABEL, matchRank } from "./types";
 
 const TAG_CHIP_LIMIT = 8;
-
-function isMarkdownFile(file: File): boolean {
-  return /\.(md|markdown)$/i.test(file.name) || file.type === "text/markdown";
-}
-
-function ScopeChip({ scope }: { scope: ScopeValue }) {
-  if (scope === "self") return null;
-  return <span className={`scope-chip scope-chip--${scope}`}>{SCOPE_LABEL[scope]}</span>;
-}
 
 export interface IdeasListViewProps {
   agentId: string;
@@ -149,6 +133,7 @@ export default function IdeasListView({
             file.name.replace(/\.(md|markdown)$/i, "") ||
             "Untitled";
           const tags = asStringArray(data.tags);
+          const scope = importIdeaScope(data);
           const summary = typeof data.summary === "string" ? data.summary.trim() : "";
           // Stash summary as a leading paragraph if present and not already
           // duplicated in the body — the Idea schema has no `summary` field.
@@ -159,7 +144,9 @@ export default function IdeasListView({
             content,
             tags,
             agent_id: agentId,
+            scope,
             parent_idea_id: parentIdeaId ?? undefined,
+            properties: importIdeaProperties(data, file.name),
           });
         } else {
           const upload = await uploadFileToIdea({
@@ -363,6 +350,13 @@ export default function IdeasListView({
         childCounts={childCounts}
         onFolderChange={onFolderChange}
       />
+      <IdeasMemoryScan
+        agentId={agentId}
+        childCounts={childCounts}
+        filterScope={filter.scope}
+        folderHref={folderHref}
+        treeRows={treeRows}
+      />
 
       <div
         className="ideas-list-body"
@@ -460,146 +454,30 @@ export default function IdeasListView({
               <section className="ideas-list-group ideas-list-group--nested">
                 {treeRows.map(({ node, depth }, myIndex) => {
                   const idea = node.idea;
-                  const flatContent = blockTreeToPlainText(idea.content);
-                  const snippet = snippetFor(flatContent, filter.search);
-                  const wordCount = flatContent.trim().split(/\s+/).filter(Boolean).length;
-                  const ago = relativeTime(idea.created_at);
-                  const tags = idea.tags ?? [];
-                  const isCandidate =
-                    tags.includes("skill") &&
-                    tags.includes("candidate") &&
-                    !tags.includes("promoted") &&
-                    !tags.includes("rejected");
-                  const extraTags = Math.max(0, tags.length - 1);
-                  // Show scope chip when the scope isn't the default "self".
-                  // Suppress the chip when the filter tab already communicates it.
-                  const resolvedScope: ScopeValue | null =
-                    idea.scope ??
-                    (idea.agent_id == null ? "global" : idea.agent_id === agentId ? "self" : null);
-                  const showScopeChip =
-                    resolvedScope != null &&
-                    resolvedScope !== "self" &&
-                    filter.scope !== resolvedScope;
-                  const isInheritedRow = idea.agent_id != null && idea.agent_id !== agentId;
-                  const nestedChildCount = node.children.length;
-                  const childCount = childCounts.get(idea.id) ?? nestedChildCount;
-                  const hasNestedChildren = nestedChildCount > 0;
-                  const hasChildren = childCount > 0;
-                  const depthClass = `ideas-list-row-depth-${Math.min(depth, 6)}`;
                   const defaultExpanded = depth === 0;
-                  const isExpanded = expandedIdeas[idea.id] ?? defaultExpanded;
                   return (
-                    <div
+                    <IdeasListRow
                       key={idea.id}
-                      className={`ideas-list-row-wrap ${depthClass}`}
-                      data-has-children={hasChildren ? "true" : "false"}
-                      onDragOver={(event) => {
-                        if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+                      agentId={agentId}
+                      childCounts={childCounts}
+                      defaultExpanded={defaultExpanded}
+                      depth={depth}
+                      filter={filter}
+                      focusNext={() => rowRefs.current[myIndex + 1]?.focus()}
+                      focusPrevious={() => rowRefs.current[myIndex - 1]?.focus()}
+                      focusSearch={() => searchRef.current?.focus()}
+                      folderHref={folderHref}
+                      idea={idea}
+                      index={myIndex}
+                      isExpanded={expandedIdeas[idea.id] ?? defaultExpanded}
+                      nestedChildCount={node.children.length}
+                      onDropFiles={handleDropFiles}
+                      onFolderChange={onFolderChange}
+                      rowRef={(el) => {
+                        rowRefs.current[myIndex] = el;
                       }}
-                      onDrop={(event) => handleDropFiles(event, idea.id)}
-                    >
-                      {hasNestedChildren ? (
-                        <IconButton
-                          size="xs"
-                          className={`ideas-list-row-disclosure${isExpanded ? " is-open" : ""}`}
-                          aria-label={isExpanded ? "Collapse child ideas" : "Expand child ideas"}
-                          aria-expanded={isExpanded}
-                          onClick={() => toggleIdea(idea.id, defaultExpanded)}
-                        >
-                          <Icon icon={ChevronRight} size="xs" />
-                        </IconButton>
-                      ) : (
-                        <span className="ideas-list-row-disclosure-spacer" aria-hidden />
-                      )}
-                      <Link
-                        ref={(el) => {
-                          rowRefs.current[myIndex] = el;
-                        }}
-                        to={folderHref(idea.id)}
-                        className="ideas-list-row"
-                        data-testid="idea-row"
-                        data-idea-id={idea.id}
-                        onKeyDown={(e) => {
-                          if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            const next = rowRefs.current[myIndex + 1];
-                            if (next) next.focus();
-                          } else if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            if (myIndex === 0) {
-                              searchRef.current?.focus();
-                            } else {
-                              rowRefs.current[myIndex - 1]?.focus();
-                            }
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            searchRef.current?.focus();
-                          } else if (e.key === "ArrowRight" && hasNestedChildren && !isExpanded) {
-                            e.preventDefault();
-                            toggleIdea(idea.id, defaultExpanded);
-                          } else if (e.key === "ArrowRight" && hasChildren && !hasNestedChildren) {
-                            e.preventDefault();
-                            onFolderChange?.(idea.id);
-                          } else if (e.key === "ArrowLeft" && hasNestedChildren && isExpanded) {
-                            e.preventDefault();
-                            toggleIdea(idea.id, defaultExpanded);
-                          }
-                        }}
-                      >
-                        <div className="ideas-list-row-head">
-                          <span className="ideas-list-row-name">
-                            {isInheritedRow && idea.agent_id && (
-                              <span className="scope-inherited-prefix">
-                                from @{idea.agent_id.slice(0, 8)}
-                              </span>
-                            )}
-                            {highlightMatches(idea.name, filter.search)}
-                          </span>
-                          {isCandidate && (
-                            <span
-                              className="ideas-list-row-candidate"
-                              title="Candidate skill — needs review"
-                            >
-                              needs review
-                            </span>
-                          )}
-                          {showScopeChip && resolvedScope && <ScopeChip scope={resolvedScope} />}
-                          {extraTags > 0 && (
-                            <span className="ideas-list-row-more">+{extraTags}</span>
-                          )}
-                          {ago ? (
-                            <span
-                              className="ideas-list-row-time"
-                              title={idea.created_at ? formatDateTime(idea.created_at) : undefined}
-                            >
-                              {ago}
-                            </span>
-                          ) : wordCount > 0 ? (
-                            <span className="ideas-list-row-words" aria-hidden>
-                              {wordCount}w
-                            </span>
-                          ) : null}
-                        </div>
-                        {snippet && (
-                          <div className="ideas-list-row-snippet">
-                            {highlightMatches(snippet, filter.search)}
-                          </div>
-                        )}
-                      </Link>
-                      {hasChildren && onFolderChange && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="ideas-list-row-folder"
-                          aria-label={`Open folder for ${idea.name}, ${childCount} child ideas`}
-                          onClick={() => onFolderChange(idea.id)}
-                          leadingIcon={<Icon icon={FolderOpen} size="xs" />}
-                        >
-                          <span className="ideas-list-row-child-count">{childCount}</span>
-                        </Button>
-                      )}
-                    </div>
+                      toggleIdea={toggleIdea}
+                    />
                   );
                 })}
               </section>
