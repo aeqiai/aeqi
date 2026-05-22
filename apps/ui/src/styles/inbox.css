@@ -215,30 +215,23 @@
   font-size: var(--font-size-2xs);
 }
 
-/* Right pane — fills available space. `position: relative` anchors
-   the absolute-positioned composer wrapper at the bottom (visual
-   parity with the agent surface's `.content-main-col` + `.composer-row`
-   pattern). The fade gradient ::after sits between the scrolling
-   thread (z:0) and the floating composer (z:2). */
+/* Right pane — the active conversation canvas. Uses the same recessed
+   slab token as the Roles chart canvas so the thread reads as the
+   primary working area, with header/composer chrome lifted inside it. */
 .inbox-pane-detail {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-card);
+  background: var(--color-card-muted);
   position: relative;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
 }
 
 /* Scroll-fade strip — 32px gradient sitting ABOVE the (opaque) wrap. The
-   wrap below has `background: var(--color-card)` so any content
-   scrolling under it is hidden by the wrap itself. The fade strip is the smooth
-   visual transition between scrolling content and the anchored composer:
-   transparent at the top, solid elevated-card at the bottom. Thread reserves
-   `composer-height + 32px` of bottom padding (rule below) so when scrolled
-   fully down the last message sits at the strip's TOP edge — fully
-   visible, with the gradient handling the visual handoff into the card. */
+   wrap below paints the same recessed canvas, so scrolling messages fade
+   into the conversation surface instead of into the page paper. */
 .inbox-pane-detail:has(.inbox-composer-wrap)::after {
   content: "";
   position: absolute;
@@ -247,7 +240,7 @@
   bottom: var(--inbox-composer-height, 96px);
   height: 32px;
   pointer-events: none;
-  background: linear-gradient(to bottom, transparent, var(--color-card));
+  background: linear-gradient(to bottom, transparent, var(--color-card-muted));
   z-index: 1;
 }
 
@@ -283,6 +276,7 @@
   height: 100%;
   overflow: hidden;
   position: relative;
+  background: transparent;
 }
 
 .session-detail--empty {
@@ -307,8 +301,10 @@
   min-height: 76px;
   padding: var(--space-4) var(--space-5);
   flex-shrink: 0;
-  background: var(--color-card);
-  box-shadow: inset 0 -1px 0 var(--border);
+  margin: var(--space-3) var(--space-3) 0;
+  border-radius: var(--radius-md);
+  background: var(--color-card-elevated);
+  box-shadow: var(--shadow-sm);
 }
 
 .inbox-pane-detail .asv-msg-user .asv-msg-content {
@@ -634,7 +630,7 @@
 .session-detail-thread {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-2) var(--space-5)
+  padding: var(--space-4) var(--space-5)
     calc(var(--inbox-composer-height, var(--composer-height, 96px)) + 32px);
   display: flex;
   flex-direction: column;
@@ -712,11 +708,11 @@
   align-items: center;
   /* Tight 8px padding above + below the composer card. */
   padding: var(--space-2) var(--space-4) var(--space-2);
-  /* Solid card background — covers any scrolling content so the
+  /* Solid canvas background — covers any scrolling content so the
      composer's transparent wrap padding can't reveal text behind it.
-     The fade strip ABOVE this wrap (rule above) handles the visual
-     transition from scrolling content into the anchored composer. */
-  background: var(--color-card);
+     The fade strip ABOVE this wrap handles the visual transition from
+     scrolling content into the anchored composer. */
+  background: var(--color-card-muted);
   pointer-events: none;
 }
 
