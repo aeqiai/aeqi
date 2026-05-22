@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Inbox,
@@ -86,8 +87,42 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
+  const [isMobileShell, setIsMobileShell] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMac =
     typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
+  const commandKey = isMac ? "⌘" : "Ctrl";
+  const mobileToggleLabel = mobileMenuOpen ? "Close navigation menu" : "Open navigation menu";
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const handleChange = () => {
+      const matches = mediaQuery.matches;
+      setIsMobileShell(matches);
+      if (!matches) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [path]);
+
+  const handleSidebarToggle = () => {
+    if (isMobileShell) {
+      setMobileMenuOpen((open) => !open);
+      return;
+    }
+
+    toggleSidebar();
+  };
 
   const openPalette = () => window.dispatchEvent(new CustomEvent("aeqi:open-palette"));
 
@@ -220,7 +255,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
 
   return (
     <div
-      className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}`}
+      className={`left-sidebar${sidebarCollapsed ? " collapsed" : ""}${mobileMenuOpen ? " mobile-open" : ""}`}
       style={sidebarCollapsed ? undefined : { width: `${sidebarWidth}px` }}
     >
       {/* ── Header — aeqi wordmark top-left, collapse toggle on the
@@ -233,46 +268,61 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
             <Link to="/" className="sidebar-brand" aria-label="aeqi — home">
               <Wordmark size={28} />
             </Link>
-            <Tooltip content={`Collapse sidebar (${isMac ? "⌘" : "Ctrl"}B)`}>
+            <Tooltip
+              content={isMobileShell ? mobileToggleLabel : `Collapse sidebar (${commandKey}B)`}
+            >
               <IconButton
                 className="sidebar-collapse-btn"
-                onClick={toggleSidebar}
-                aria-label="Collapse sidebar"
+                onClick={handleSidebarToggle}
+                aria-label={isMobileShell ? mobileToggleLabel : "Collapse sidebar"}
               >
-                <CollapseSidebarIcon />
+                {isMobileShell && !mobileMenuOpen ? <ExpandSidebarIcon /> : <CollapseSidebarIcon />}
               </IconButton>
             </Tooltip>
           </>
         ) : (
-          <Tooltip content={`Expand sidebar (${isMac ? "⌘" : "Ctrl"}B)`}>
-            <button
-              type="button"
-              className="sidebar-nav-item sidebar-brand-collapsed"
-              onClick={toggleSidebar}
-              aria-label="Expand sidebar"
+          <>
+            <Tooltip
+              content={isMobileShell ? mobileToggleLabel : `Expand sidebar (${commandKey}B)`}
             >
-              <span className="sidebar-brand-collapsed-rest" aria-hidden="true">
-                <span
-                  style={{
-                    fontFamily: "var(--font-brand)",
-                    fontSize: 18,
-                    fontWeight: 400,
-                    letterSpacing: "-0.02em",
-                    color: "var(--color-accent)",
-                    lineHeight: 1,
-                  }}
-                >
-                  æ
+              <button
+                type="button"
+                className="sidebar-nav-item sidebar-brand-collapsed"
+                onClick={handleSidebarToggle}
+                aria-label={isMobileShell ? mobileToggleLabel : "Expand sidebar"}
+              >
+                <span className="sidebar-brand-collapsed-rest" aria-hidden="true">
+                  <span
+                    style={{
+                      fontFamily: "var(--font-brand)",
+                      fontSize: 18,
+                      fontWeight: 400,
+                      letterSpacing: "-0.02em",
+                      color: "var(--color-accent)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    æ
+                  </span>
                 </span>
-              </span>
-              <span className="sidebar-brand-collapsed-hover" aria-hidden="true">
-                <ExpandSidebarIcon />
-              </span>
-              <span className="sidebar-brand-collapsed-mobile-wordmark" aria-hidden="true">
-                <Wordmark size={28} />
-              </span>
-            </button>
-          </Tooltip>
+                <span className="sidebar-brand-collapsed-hover" aria-hidden="true">
+                  <ExpandSidebarIcon />
+                </span>
+                <span className="sidebar-brand-collapsed-mobile-wordmark" aria-hidden="true">
+                  <Wordmark size={28} />
+                </span>
+              </button>
+            </Tooltip>
+            <Tooltip content={mobileToggleLabel}>
+              <IconButton
+                className="sidebar-collapse-btn sidebar-mobile-menu-btn"
+                onClick={handleSidebarToggle}
+                aria-label={mobileToggleLabel}
+              >
+                {mobileMenuOpen ? <CollapseSidebarIcon /> : <ExpandSidebarIcon />}
+              </IconButton>
+            </Tooltip>
+          </>
         )}
       </div>
 
