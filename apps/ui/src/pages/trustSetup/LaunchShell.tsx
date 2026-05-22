@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import AuthMobileNav from "@/components/AuthMobileNav";
 import Wordmark from "@/components/Wordmark";
 
 export interface LaunchPitchContent {
@@ -55,6 +56,12 @@ export function LaunchShell({
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
+      <AuthMobileNav
+        ariaLabel="Launch navigation"
+        actionHref="/blueprints"
+        actionLabel="Blueprints"
+        className="launch-mobile-nav"
+      />
 
       <div className="signup-form-side launch-form-side" id="main-content">
         <section

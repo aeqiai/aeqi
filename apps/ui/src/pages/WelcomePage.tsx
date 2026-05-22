@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import AuthMobileNav from "@/components/AuthMobileNav";
 import Wordmark from "@/components/Wordmark";
 import { useAuthStore } from "@/store/auth";
 import { goExternal } from "@/lib/navigation";
@@ -537,6 +538,11 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
         <a className="skip-link" href="#main-content">
           Skip to main content
         </a>
+        <AuthMobileNav
+          ariaLabel="Authentication navigation"
+          actionHref={copy.switchHref}
+          actionLabel={copy.switchCta}
+        />
         <div className="signup-form-side" id="main-content" />
       </main>
     );
@@ -551,6 +557,11 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
+      <AuthMobileNav
+        ariaLabel="Authentication navigation"
+        actionHref={copy.switchHref}
+        actionLabel={copy.switchCta}
+      />
       <div className="signup-form-side" id="main-content">
         <div
           className={isWaitlistStage ? "auth-container auth-container--waitlist" : "auth-container"}

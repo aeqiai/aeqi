@@ -1,5 +1,9 @@
 /* ── Auth Pages (Login, Signup) ───────────────────────── */
 
+.auth-mobile-nav {
+  display: none;
+}
+
 .auth-page {
   display: flex;
   flex-direction: column;
@@ -489,6 +493,65 @@
 @media (max-width: 768px) {
   .signup-split {
     flex-direction: column;
+    background: var(--bg-base);
+  }
+  .auth-mobile-nav {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    width: 100%;
+    padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-4) var(--space-2);
+    background: var(--bg-base);
+  }
+  .auth-mobile-nav-brand {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    color: var(--color-text-title);
+    line-height: 1;
+    text-decoration: none;
+  }
+  .auth-mobile-nav-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-card);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    text-decoration: none;
+  }
+  .auth-mobile-nav-action:hover {
+    color: var(--color-text-title);
+    border-color: var(--color-border-strong);
+  }
+  .auth-mobile-nav-action:focus-visible,
+  .auth-mobile-nav-brand:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  .signup-form-side {
+    justify-content: flex-start;
+    padding: var(--space-2) var(--space-4) var(--space-6);
+  }
+  .auth-mobile-nav + .signup-form-side .auth-logo {
+    display: none;
+  }
+  .auth-container {
+    max-width: 100%;
+    padding: var(--space-8) var(--space-6);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
   }
   .signup-pitch-side {
     min-height: 320px;
