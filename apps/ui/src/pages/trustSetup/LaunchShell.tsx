@@ -35,19 +35,23 @@ function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) 
 export function LaunchShell({
   children,
   sideSlot,
+  topSlot,
   pitch,
   cardClassName = "",
   mobileActionHref,
   mobileActionLabel,
+  mobileActionOnClick,
   ariaLive,
   ariaBusy,
 }: {
   children: ReactNode;
   sideSlot?: ReactNode;
+  topSlot?: ReactNode;
   pitch?: LaunchPitchContent;
   cardClassName?: string;
   mobileActionHref?: string | null;
   mobileActionLabel?: string;
+  mobileActionOnClick?: () => void;
   ariaLive?: "off" | "polite" | "assertive";
   ariaBusy?: boolean;
 }) {
@@ -64,10 +68,13 @@ export function LaunchShell({
         ariaLabel="Launch navigation"
         actionHref={mobileActionHref ?? undefined}
         actionLabel={mobileActionLabel}
+        actionOnClick={mobileActionOnClick}
         className="launch-mobile-nav"
       />
 
       <div className="signup-form-side launch-form-side" id="main-content">
+        {topSlot}
+
         <section
           className={["auth-container launch-flow-card", cardClassName].filter(Boolean).join(" ")}
         >

@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Banner, Button, EmptyState, Input, Loading } from "@/components/ui";
 import { countBlueprintStructures } from "@/lib/blueprintStructures";
 import type { LaunchPlan, LaunchPlanId } from "@/lib/pricing";
@@ -244,17 +244,36 @@ export function TrustSetupFlow({
   onPlanChange,
   onLaunch,
 }: TrustSetupFlowProps) {
-  return (
-    <LaunchShell mobileActionHref={exitHref} mobileActionLabel="Exit">
-      {exitHref && (
-        <div className="launch-flow-exit">
-          <Link to={exitHref} className="launch-exit-link">
-            <ArrowLeft size={14} strokeWidth={1.8} aria-hidden="true" />
-            <span>Back to TRUST</span>
-          </Link>
-        </div>
-      )}
+  const navigate = useNavigate();
+  const handleExit = () => {
+    const historyState = window.history.state as { idx?: unknown } | null;
 
+    if (typeof historyState?.idx === "number" && historyState.idx > 0) {
+      navigate(-1);
+      return;
+    }
+
+    if (exitHref) {
+      navigate(exitHref);
+    }
+  };
+
+  const exitAction = exitHref ? (
+    <nav className="launch-flow-exit" aria-label="Launch exit">
+      <button type="button" className="launch-exit-link" onClick={handleExit}>
+        <ArrowLeft size={14} strokeWidth={1.8} aria-hidden="true" />
+        <span>Back</span>
+      </button>
+    </nav>
+  ) : null;
+
+  return (
+    <LaunchShell
+      mobileActionHref={exitHref}
+      mobileActionLabel="Back"
+      mobileActionOnClick={exitHref ? handleExit : undefined}
+      topSlot={exitAction}
+    >
       {submitError && (
         <div className="launch-flow-error">
           <Banner kind="error">{submitError}</Banner>

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { LAUNCH_PLANS } from "@/lib/pricing";
 import type { SingleBlueprint } from "@/lib/types";
@@ -30,18 +30,64 @@ const baseProps = {
 };
 
 describe("TrustSetupFlow", () => {
-  it("shows an exit affordance when a returning user's TRUST path is provided", () => {
+  it("shows an outside-card back affordance when a returning user's TRUST path is provided", () => {
     render(
       <MemoryRouter>
         <TrustSetupFlow {...baseProps} exitHref="/trust/trust-1" />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("link", { name: "Back to TRUST" })).toHaveAttribute(
-      "href",
-      "/trust/trust-1",
+    const exitNav = screen.getByRole("navigation", { name: "Launch exit" });
+    const backButton = within(exitNav).getByRole("button", { name: "Back" });
+
+    expect(backButton.closest(".launch-flow-card")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Back" })).toHaveLength(2);
+  });
+
+  it("falls back to the TRUST path when opened without app history", async () => {
+    window.history.replaceState({ idx: 0 }, "", "/launch");
+
+    render(
+      <MemoryRouter initialEntries={["/launch"]}>
+        <Routes>
+          <Route
+            path="/launch"
+            element={<TrustSetupFlow {...baseProps} exitHref="/trust/trust-1" />}
+          />
+          <Route path="/trust/trust-1" element={<div>Returned to TRUST</div>} />
+        </Routes>
+      </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: "Exit" })).toHaveAttribute("href", "/trust/trust-1");
+
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Launch exit" })).getByRole("button"),
+    );
+
+    expect(await screen.findByText("Returned to TRUST")).toBeInTheDocument();
+  });
+
+  it("uses the browser's previous app route when one exists", async () => {
+    window.history.replaceState({ idx: 1 }, "", "/launch");
+
+    render(
+      <MemoryRouter initialEntries={["/trust/source", "/launch"]} initialIndex={1}>
+        <Routes>
+          <Route path="/trust/source" element={<div>Previous TRUST route</div>} />
+          <Route
+            path="/launch"
+            element={<TrustSetupFlow {...baseProps} exitHref="/trust/trust-1" />}
+          />
+          <Route path="/trust/trust-1" element={<div>Fallback TRUST route</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Launch exit" })).getByRole("button"),
+    );
+
+    await waitFor(() => expect(screen.getByText("Previous TRUST route")).toBeInTheDocument());
+    expect(screen.queryByText("Fallback TRUST route")).not.toBeInTheDocument();
   });
 
   it("keeps the launch flow closed when no returning TRUST path is provided", () => {
@@ -51,7 +97,6 @@ describe("TrustSetupFlow", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByRole("link", { name: "Back to TRUST" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Exit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
   });
 });
