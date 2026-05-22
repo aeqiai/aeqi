@@ -9663,7 +9663,7 @@ button.role-context-card:disabled {
 .trust-role-option-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--color-border-subtle);
@@ -9727,8 +9727,20 @@ button.role-context-card:disabled {
 
 .trust-role-option-card-role.role-context-card {
   width: 100%;
-  border: 1px solid var(--color-border-subtle);
-  background: var(--bg-row);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.trust-role-option-card-role.role-context-card.is-clickable:hover {
+  box-shadow: none;
+}
+
+.trust-role-option-card-role .role-context-card-trust-avatar,
+.trust-role-option-card-role .role-context-card-trust-name {
+  display: none;
 }
 
 .trust-role-option-card--map {
@@ -9741,8 +9753,8 @@ button.role-context-card:disabled {
 }
 
 .trust-role-option-card--map .trust-role-option-card-role.role-context-card {
-  min-height: 80px;
-  padding: 10px;
+  min-height: 0;
+  padding: 0;
 }
 
 .home-card--launch {
@@ -10391,16 +10403,11 @@ button.role-context-card:disabled {
 
 .trust-context-page {
   flex: 1;
+  height: 100%;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-6);
-}
-
-.trust-context-header {
-  padding: 0 var(--space-6) var(--space-1);
 }
 
 .trust-context-active {
@@ -10464,32 +10471,6 @@ button.role-context-card:disabled {
   color: var(--color-text-secondary);
 }
 
-.trust-context-toolbar {
-  padding-right: var(--space-6);
-  padding-left: var(--space-6);
-}
-
-.trust-context-filters {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-
-.trust-context-filters .ideas-toolbar-btn {
-  width: auto;
-  min-width: 0;
-  padding: 0 var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: 650;
-}
-
-.trust-context-filters .ideas-toolbar-btn.is-active {
-  background: var(--color-card-elevated);
-  border-color: var(--color-text-primary);
-  color: var(--color-text-primary);
-}
-
 .trust-context-enter {
   display: inline-flex;
   align-items: center;
@@ -10525,14 +10506,16 @@ button.role-context-card:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(288px, 328px);
   gap: var(--space-3);
+  flex: 1;
   min-height: 0;
   padding: 0 var(--space-6) var(--space-6);
+  overflow: hidden;
 }
 
 .trust-context-canvas,
 .trust-context-inspector {
   min-width: 0;
-  min-height: 660px;
+  min-height: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-card-elevated);
@@ -10546,7 +10529,7 @@ button.role-context-card:disabled {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 660px;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg-row);
   touch-action: none;
@@ -10641,6 +10624,16 @@ button.role-context-card:disabled {
   border-color: var(--color-text-secondary);
 }
 
+.trust-context-map-node--role-options {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.trust-context-map-node--role-options:hover {
+  border-color: transparent;
+}
+
 .trust-context-map-node.is-active-path {
   border-color: var(--color-accent);
   box-shadow:
@@ -10652,6 +10645,13 @@ button.role-context-card:disabled {
   background: var(--color-card-elevated);
   border-color: var(--color-accent);
   color: var(--color-text-primary);
+}
+
+.trust-context-map-node--role-options.is-selected,
+.trust-context-map-node--role-options.is-active-path {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .trust-context-map-node--self {
@@ -10853,7 +10853,8 @@ button.role-context-card:disabled {
 
 @media (max-width: 760px) {
   .trust-context-page {
-    padding: var(--space-4);
+    height: auto;
+    overflow-y: auto;
   }
 
   .trust-context-section-title,
@@ -10867,10 +10868,6 @@ button.role-context-card:disabled {
   .trust-context-workbench {
     padding-right: 0;
     padding-left: 0;
-  }
-
-  .trust-context-filters {
-    overflow-x: auto;
   }
 
   .trust-context-canvas,

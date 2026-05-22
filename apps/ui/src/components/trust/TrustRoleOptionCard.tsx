@@ -78,6 +78,7 @@ export default function TrustRoleOptionCard({
         terminalCount={terminalCount}
         routeCount={routeCount}
         agentName={agentName}
+        showPathMeta={false}
         className="trust-role-option-card-role"
         onClick={onClick}
         onDoubleClick={onDoubleClick}

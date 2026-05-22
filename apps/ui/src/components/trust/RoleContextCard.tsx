@@ -24,6 +24,7 @@ interface RoleContextCardProps {
   terminalCount?: number;
   routeCount?: number;
   agentName?: string;
+  showPathMeta?: boolean;
   className?: string;
   style?: CSSProperties;
   onClick?: () => void;
@@ -42,6 +43,7 @@ export default function RoleContextCard({
   terminalCount = 0,
   routeCount = 1,
   agentName,
+  showPathMeta = true,
   className,
   style,
   onClick,
@@ -78,7 +80,7 @@ export default function RoleContextCard({
         ? `${routeDepth} steps`
         : terminalCount > 1
           ? `${terminalCount} routes`
-          : "Available";
+          : "";
   const body = (
     <>
       <span className="role-context-card-head">
@@ -86,7 +88,9 @@ export default function RoleContextCard({
           <TrustAvatar name={trust.name} size={variant === "map" ? 28 : 38} />
         </span>
         <span className="role-context-card-copy">
-          <span className="role-context-card-kicker">{relationLabel(terminalRelation)}</span>
+          {showPathMeta ? (
+            <span className="role-context-card-kicker">{relationLabel(terminalRelation)}</span>
+          ) : null}
           <span className="role-context-card-title">
             {role.title || roleTypeLabel(role.role_type)}
           </span>
@@ -101,7 +105,9 @@ export default function RoleContextCard({
           <OccupantAvatar role={role} label={occupant.label} />
           <span className="role-context-card-holder-label">{occupant.label}</span>
         </span>
-        <span className="role-context-card-route">{routeLabel}</span>
+        {showPathMeta && routeLabel ? (
+          <span className="role-context-card-route">{routeLabel}</span>
+        ) : null}
       </span>
     </>
   );

@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Rocket, ShieldCheck } from "lucide-react";
+import { ArrowRight, Plus, ShieldCheck } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
-import OperatingContextCard from "@/components/trust/OperatingContextCard";
 import TrustGraphZoomViewport from "@/components/trust/TrustGraphZoomViewport";
 import TrustRoleOptionCard from "@/components/trust/TrustRoleOptionCard";
 import { Button, PrimitivePageHeader, PrimitiveSearchField } from "@/components/ui";
@@ -15,7 +14,6 @@ import {
   buildTrustMapLayout,
   persistRoleContext,
   pickDefaultContext,
-  relationLabel,
   roleTypeLabel,
   SELF_NODE_ID,
   type RoleBundle,
@@ -28,15 +26,6 @@ import { useTrusts, useActiveTrust } from "@/queries/trusts";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 
-type ContextFilter = "all" | "direct" | "nested" | "multi";
-
-const FILTERS: Array<{ id: ContextFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "direct", label: "Direct" },
-  { id: "nested", label: "Nested" },
-  { id: "multi", label: "Multi-route" },
-];
-
 const EMPTY_BUNDLES: RoleBundle[] = [];
 
 export default function TrustPage() {
@@ -47,7 +36,6 @@ export default function TrustPage() {
   const activeTrust = useActiveTrust(activeEntityId);
   const trusts = useTrusts();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ContextFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const controlledTrustIds = useMemo(
     () => Array.from(new Set([...(user?.roots ?? []), ...(user?.entities ?? [])])),
@@ -76,9 +64,6 @@ export default function TrustPage() {
   const filteredContexts = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return roleContexts.filter((ctx) => {
-      if (filter === "direct" && ctx.route.length !== 1) return false;
-      if (filter === "nested" && ctx.route.length <= 1) return false;
-      if (filter === "multi" && ctx.status !== "ambiguous") return false;
       if (!normalized) return true;
       return [
         ctx.role.title,
@@ -91,7 +76,7 @@ export default function TrustPage() {
         .toLowerCase()
         .includes(normalized);
     });
-  }, [filter, query, roleContexts]);
+  }, [query, roleContexts]);
 
   const handleEnter = (ctx: RoleContextOption) => {
     persistRoleContext(ctx, user?.id ?? null);
@@ -104,26 +89,18 @@ export default function TrustPage() {
       <PrimitivePageHeader
         title="TRUST"
         className="trust-context-header"
-        padding="none"
         actions={
           <Button
             type="button"
             variant="primary"
             size="md"
             onClick={() => navigate("/launch")}
-            leadingIcon={<Rocket size={14} strokeWidth={1.8} />}
+            leadingIcon={<Plus size={14} strokeWidth={1.8} />}
           >
             Launch TRUST
           </Button>
         }
-      >
-        <OperatingContextCard
-          variant="inline"
-          activeTrust={activeTrust}
-          roleContext={selected}
-          inlineLabel="Current role"
-        />
-      </PrimitivePageHeader>
+      />
 
       <div className="trust-context-toolbar ideas-list-head" aria-label="TRUST controls">
         <div className="ideas-toolbar">
@@ -133,19 +110,6 @@ export default function TrustPage() {
             placeholder="Search TRUSTs or roles"
             onEscapeEmpty={(event) => event.currentTarget.blur()}
           />
-          <div className="trust-context-filters" aria-label="Role path filters">
-            {FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`ideas-toolbar-btn ${filter === item.id ? "is-active" : ""}`}
-                onClick={() => setFilter(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="ideas-toolbar-spacer" aria-hidden />
         </div>
       </div>
 
@@ -205,7 +169,6 @@ export default function TrustPage() {
                       <span>
                         {segment.trust.name} / {segment.role.title}
                       </span>
-                      <small>{relationLabel(segment.relation)}</small>
                     </li>
                   ))}
                 </ol>
@@ -469,6 +432,7 @@ function TrustMapNodeButton({
       className={[
         "trust-context-map-node",
         "trust-context-map-node--trust",
+        terminalContexts.length > 0 ? "trust-context-map-node--role-options" : "",
         selected ? "is-selected" : "",
         activePath ? "is-active-path" : "",
       ]
