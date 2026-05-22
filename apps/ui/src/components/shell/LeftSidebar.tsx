@@ -327,18 +327,20 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
       </div>
 
       <div className="left-sidebar-body">
-        {/* ── Home rail — top-level discovery surfaces stay directly under
-            Home, with search owned by the home row rather than Inbox. ── */}
+        {/* ── Start rail — global personal surfaces stay directly under Home.
+            Search is still owned by the Home row; Inbox is a first-order
+            destination, not a trust-scoped tab. ── */}
         <nav className="sidebar-surface-nav sidebar-zone" aria-label="Start">
           {topLevelItem("/", "Home", <HomeIcon />, isStart, {
             action: rowAction("Search", <SearchIcon />, openPalette, `${isMac ? "⌘" : "Ctrl"}K`),
           })}
+          {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox)}
           {topLevelItem("/economy", "Economy", <EconomyIcon />, isEconomy)}
           {topLevelItem("/blueprints", "Blueprints", <BlueprintsIcon />, isBlueprints)}
         </nav>
 
         {/* ── Trust group — folds the identity selector (the operating-
-            context ID badge) and the trust-scoped tabs (Overview, Inbox, Roles)
+            context ID badge) and the trust-scoped tabs (Overview, Roles)
             into one coherent block. Viewing the current trust and the
             role you hold in it are the SAME concern — splitting them
             into "Identity" + "Trust" groups was redundant. The selector
@@ -364,7 +366,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   <span className="sidebar-nav-label">Overview</span>
                 </a>
               </div>
-              {topLevelItem("/inbox", "Inbox", <InboxIcon />, isInbox)}
               {/* Roles — the org-chart / authority graph. Sits inside the
                   Trust group alongside Overview; both describe what the
                   Trust IS rather than what it owns or what it does. */}
@@ -427,7 +428,7 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         {/* ── Bottom — AccountDropdown (with Admin link inside its menu
             for admin users) + HelpMenu pinned right. Uses the same
             `.sidebar-surface-nav` / `.sidebar-nav-row` wrapping as the
-            top Inbox+Search row so widths, hover reveal of the right-
+            top Home+Search row so widths, hover reveal of the right-
             cap action, and collapsed-mode hiding all behave identically
             across the rail (2026-05-19). ── */}
         <div className="sidebar-bottom-group">
