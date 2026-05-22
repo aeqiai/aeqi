@@ -3745,7 +3745,7 @@
 .ideas-list-head {
   display: flex;
   align-items: center;
-  padding: 14px 28px;
+  padding: 14px var(--space-6);
   border-bottom: none;
   padding-bottom: var(--space-1);
   margin-bottom: var(--space-1);

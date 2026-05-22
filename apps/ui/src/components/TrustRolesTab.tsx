@@ -283,23 +283,22 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     <div className="trust-roles">
       <PrimitivePageHeader
         title="Roles"
-        padding="none"
         className="trust-roles-page-header"
         actions={
           <>
             <Button
               variant="secondary"
-              size="sm"
+              size="md"
               onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-              leadingIcon={<Mail size={13} strokeWidth={1.6} />}
+              leadingIcon={<Mail size={14} strokeWidth={1.6} />}
             >
               Invite
             </Button>
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-              leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+              leadingIcon={<Plus size={14} strokeWidth={1.8} />}
             >
               Role
             </Button>
