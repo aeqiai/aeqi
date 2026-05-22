@@ -140,6 +140,7 @@ function OperationsSection({
     price: string;
     secondaryPrice?: string;
     copy: string;
+    detail?: string;
     selected: boolean;
     onSelect: () => void;
   }> = [
@@ -168,6 +169,7 @@ function OperationsSection({
       price: `${proPlan.dueToday} today`,
       secondaryPrice: `then ${proPlan.price}${proPlan.cadence}`,
       copy: "More capacity for serious execution.",
+      detail: "4x Operating capacity",
       selected: operations === "paid" && plan === "growth",
       onSelect: () => {
         onPlanChange("growth");
@@ -203,6 +205,9 @@ function OperationsSection({
                 <span className="launch-option-head">
                   <span className="launch-operation-title">{choice.title}</span>
                   <span className="launch-operation-copy">{choice.copy}</span>
+                  {choice.detail && (
+                    <span className="launch-operation-detail">{choice.detail}</span>
+                  )}
                 </span>
               </span>
               <span className="launch-operation-side">

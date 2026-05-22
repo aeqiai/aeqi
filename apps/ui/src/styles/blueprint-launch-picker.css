@@ -231,7 +231,11 @@
 .launch-operations-grid {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-lg);
+  background: var(--color-card-muted);
 }
 
 .launch-operation-card {
@@ -242,11 +246,11 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  min-height: 74px;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-card-elevated);
+  min-height: 66px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
   color: var(--color-text-primary);
   cursor: pointer;
   transition:
@@ -264,7 +268,7 @@
 
 .launch-operation-card:hover {
   border-color: var(--color-border-strong);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
 }
 
 .launch-operation-card:focus-visible {
@@ -273,9 +277,11 @@
 }
 
 .launch-operation-card.is-selected {
-  border-color: var(--color-accent);
-  background: var(--color-card);
-  box-shadow: 0 0 0 3px var(--color-warmth-bg);
+  border-color: var(--color-warmth);
+  background: var(--color-card-elevated);
+  box-shadow:
+    0 0 0 1px var(--color-warmth),
+    0 0 0 4px var(--color-warmth-bg);
 }
 
 .launch-operation-radio {
@@ -298,11 +304,11 @@
 }
 
 .launch-operation-card.is-selected .launch-operation-radio {
-  border-color: var(--color-accent);
+  border-color: var(--color-warmth);
 }
 
 .launch-operation-card.is-selected .launch-operation-radio-dot {
-  background: var(--color-accent);
+  background: var(--color-warmth);
 }
 
 .launch-operation-title {
@@ -339,10 +345,16 @@
 }
 
 .launch-operation-copy,
+.launch-operation-detail,
 .launch-operation-price-sub {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   line-height: 1.45;
+}
+
+.launch-operation-detail {
+  color: var(--color-warmth);
+  font-weight: var(--font-weight-semibold);
 }
 
 .launch-actions {
