@@ -187,6 +187,20 @@ const RailRow = memo(function RailRow({
       aria-current={isActive ? "true" : undefined}
       onClick={handleClick}
     >
+      <SessionRailRowContent item={item} isStreaming={isStreaming} />
+    </button>
+  );
+});
+
+export function SessionRailRowContent({
+  item,
+  isStreaming = false,
+}: {
+  item: SessionRailRow;
+  isStreaming?: boolean;
+}) {
+  return (
+    <>
       {isStreaming ? (
         <ThinkingDot size="md" className="sessions-rail-row-thinking" />
       ) : (
@@ -194,6 +208,7 @@ const RailRow = memo(function RailRow({
           className={`sessions-rail-row-status${
             item.status === "active" ? "" : " sessions-rail-row-status--idle"
           }`}
+          aria-hidden="true"
         />
       )}
       <span className="sessions-rail-row-body">
@@ -212,9 +227,9 @@ const RailRow = memo(function RailRow({
         {item.secondary && <span className="sessions-rail-row-secondary">{item.secondary}</span>}
       </span>
       <span className="sessions-rail-row-time">{item.time}</span>
-    </button>
+    </>
   );
-});
+}
 
 /**
  * Helper: build a SessionRailRow from a basic ISO timestamp + label set.

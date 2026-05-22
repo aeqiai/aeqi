@@ -282,8 +282,7 @@ describe("StartPage MVP surface", () => {
     expect(browseBlueprints).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open trust/i })).not.toBeInTheDocument();
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
-    expect(screen.getByText(/Inbox item · Awaiting you/i)).toBeInTheDocument();
-    expect(screen.getByText(/Janus · Alpha Trust/i)).toBeInTheDocument();
+    expect(screen.getByText(/Awaiting reply · Janus · Alpha Trust/i)).toBeInTheDocument();
     expect(screen.getByText("Economy")).toBeInTheDocument();
     expect(screen.getByText(/Unlock the agent economy/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /explore economy/i })).toBeInTheDocument();

@@ -16,6 +16,7 @@ import { toInboxRow, DEFAULT_FILTER } from "@/components/inbox/types";
 import type { InboxFilterState, InboxRow, InboxSort } from "@/components/inbox/types";
 import type { Message, SessionInfo } from "@/components/session/types";
 import { recencyBucket, timeShort } from "@/lib/format";
+import { getInboxSignal, visibleInboxSignalLabel } from "@/lib/inboxState";
 
 const KIND_LABEL: Record<string, string> = {
   decision_request: "Decision requests",
@@ -430,9 +431,10 @@ export default function MeInboxPage() {
       selectedRow.id,
     );
 
-    const headerState = selectedRow.awaiting ? "review" : selectedRow.unread ? "unread" : "open";
-    const headerStateLabel =
-      headerState === "review" ? "Awaiting reply" : headerState === "unread" ? "Unread" : "Open";
+    const headerSignal = getInboxSignal({
+      awaiting: selectedRow.awaiting,
+      unread: selectedRow.unread,
+    });
     const subjectLine =
       selectedRow.subject && selectedRow.subject !== selectedRow.from.name
         ? selectedRow.subject
@@ -459,9 +461,11 @@ export default function MeInboxPage() {
 
     const headerExtras = (
       <>
-        <span className="inbox-detail-state" data-state={headerState}>
-          {headerStateLabel}
-        </span>
+        {headerSignal.detailState && (
+          <span className="inbox-detail-state" data-state={headerSignal.detailState}>
+            {headerSignal.label}
+          </span>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -490,7 +494,7 @@ export default function MeInboxPage() {
           variant="ghost"
           size="sm"
           onClick={() => navigate(deepUrl)}
-          title="Open full session"
+          title="View full session"
           trailingIcon={
             <svg
               width="12"
@@ -508,7 +512,7 @@ export default function MeInboxPage() {
           }
           trailingIconMode="inline"
         >
-          Open
+          Full session
         </Button>
         {archiveButton}
       </>
@@ -654,13 +658,17 @@ export default function MeInboxPage() {
                   const scopeName = r.trust_id
                     ? (entityNameById.get(r.trust_id) ?? r.trust_id)
                     : null;
+                  const signal = getInboxSignal({ awaiting: r.awaiting, unread: r.unread });
+                  const signalLabel = visibleInboxSignalLabel(signal);
                   return {
                     id: r.id,
                     primary: r.subject,
-                    secondary: [r.from.name, rowKind, scopeName].filter(Boolean).join(" · "),
+                    secondary: [signalLabel, r.from.name, rowKind, scopeName]
+                      .filter(Boolean)
+                      .join(" · "),
                     time: timeShort(r.created_at),
-                    status: r.unread ? "active" : undefined,
-                    awaiting: r.awaiting,
+                    status: signal.rowStatus,
+                    awaiting: signal.awaiting,
                     group: recencyBucket(r.created_at),
                     sortKey: Date.parse(r.created_at) || 0,
                     pulseNew: newIds.has(r.id),

@@ -8193,7 +8193,7 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
   font-weight: 500;
 }
-/* Inbox card meta dot — same 7px / 999px shape as `.home-inbox-status`,
+/* Inbox card meta dot — same 7px / 999px shape as the shared rail cue,
    so the label string in the card head mirrors the row markers below. */
 .home-card-meta-dot {
   display: inline-block;
@@ -8538,8 +8538,8 @@ button.home-card:focus-visible {
   min-height: 360px;
 }
 
-/* Inbox preview — operational queue rows. A slim status rail and clear
-   subject hierarchy carry the state without circular icon pucks. */
+/* Inbox preview — reuses the canonical SessionRail row grammar so Home
+   and Inbox do not drift into separate status languages. */
 .home-inbox-list {
   list-style: none;
   margin: 0;
@@ -8552,80 +8552,40 @@ button.home-card:focus-visible {
 .home-inbox-item {
   margin: 0;
 }
-.home-inbox-link {
-  display: grid;
-  grid-template-columns: 3px minmax(0, 1fr);
-  align-items: stretch;
-  gap: 11px;
-  padding: 11px 12px;
-  border-radius: var(--radius-md, 10px);
+.home-inbox-link.sessions-rail-row {
+  width: 100%;
+  min-height: 70px;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   background: var(--bg-row);
   color: inherit;
   text-decoration: none;
   transition:
     background 0.12s ease,
-    transform 0.12s ease;
+    border-color 0.12s ease;
 }
-.home-inbox-link:hover {
-  background: var(--color-card);
-  transform: translateY(-1px);
+.home-inbox-link.sessions-rail-row:hover,
+.home-inbox-link.sessions-rail-row:focus-visible {
+  background: var(--color-card-subtle);
+  border-color: var(--border-faint);
 }
-/* Inbox status rail — same token colors as quest status, expressed as a
-   column marker so the row feels like a work queue rather than a feed. */
-.home-inbox-status {
-  display: inline-block;
-  width: 3px;
-  min-height: 100%;
-  border-radius: 3px;
-  flex-shrink: 0;
-  background: var(--color-text-muted);
-}
-.home-inbox-status--in_progress {
-  background: var(--state-progress);
-}
-.home-inbox-status--in_review {
-  background: var(--state-review);
-}
-.home-inbox-body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  flex: 1;
-}
-.home-inbox-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.home-inbox-from {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  letter-spacing: 0.01em;
-}
-.home-inbox-time {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-.home-inbox-subject {
+.home-inbox-link.sessions-rail-row .sessions-rail-row-primary {
   font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 550;
 }
-.home-inbox-preview {
+.home-inbox-link.sessions-rail-row .sessions-rail-row-secondary {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.home-inbox-link.sessions-rail-row .sessions-rail-row-status {
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+}
+.home-inbox-link.sessions-rail-row .sessions-rail-row-time {
+  font-size: var(--font-size-2xs);
 }
 /* Inbox empty state — a calm operating-state panel, not an illustration. */
 .home-inbox-empty {
@@ -8638,18 +8598,19 @@ button.home-card:focus-visible {
   background: var(--bg-row);
   text-align: left;
 }
-.home-inbox-empty-rail {
-  align-self: stretch;
-  width: 3px;
-  border-radius: 3px;
+.home-inbox-empty-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
   background: var(--color-text-muted);
   opacity: 0.45;
+  flex-shrink: 0;
 }
-.home-inbox-empty-rail--progress {
+.home-inbox-empty-dot--progress {
   background: var(--state-progress);
   opacity: 1;
 }
-.home-inbox-empty-rail--review {
+.home-inbox-empty-dot--review {
   background: var(--state-review);
   opacity: 1;
 }

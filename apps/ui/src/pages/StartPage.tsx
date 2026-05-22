@@ -6,11 +6,13 @@ import { useEntities } from "@/queries/entities";
 import { useVisibleIdeas } from "@/queries/ideas";
 import { useQuests } from "@/queries/quests";
 import RoleNode from "@/components/roles/RoleNode";
+import { makeRailRow, SessionRailRowContent } from "@/components/sessions/SessionRail";
 import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
 import { timeShort } from "@/lib/format";
+import { getInboxSignal, visibleInboxSignalLabel } from "@/lib/inboxState";
 import type { InboxItem } from "@/lib/api";
 import type { Role, Trust } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -427,7 +429,7 @@ function InboxPreviewCard({
       ) : (
         <div className="home-inbox-empty">
           <span
-            className={`home-inbox-empty-rail home-inbox-empty-rail--${inboxPillState}`}
+            className={`home-inbox-empty-dot home-inbox-empty-dot--${inboxPillState}`}
             aria-hidden="true"
           />
           <span className="home-inbox-empty-copy">
@@ -473,29 +475,28 @@ function InboxPreviewRow({
   const from = item.agent_name || "Agent";
   const time = timeShort(item.awaiting_at || item.last_active);
   const trustLabel = item.trust_id ? trustNameById.get(item.trust_id) || "TRUST" : "Global scope";
-  const status = item.awaiting_at ? "in_review" : "in_progress";
-  const statusLabel = item.awaiting_at ? "Awaiting you" : "Active";
-  const contextLine = preview ? `${from} · ${trustLabel} · ${preview}` : `${from} · ${trustLabel}`;
+  const signal = getInboxSignal({ awaiting: !!item.awaiting_at });
+  const signalLabel = visibleInboxSignalLabel(signal);
+  const contextLine = [signalLabel, from, trustLabel, preview].filter(Boolean).join(" · ");
+  const row = makeRailRow({
+    id: item.session_id,
+    primary: subject,
+    secondary: contextLine,
+    time,
+    status: signal.rowStatus,
+    awaiting: signal.awaiting,
+    isoTimestamp: item.awaiting_at || item.last_active,
+    wrapPrimary: true,
+  });
 
   return (
     <li className="home-inbox-item">
       <Link
-        className="home-inbox-link"
+        className="home-inbox-link sessions-rail-row sessions-rail-row--multi"
         to={sessionDeepUrlFromId(entities, item.trust_id, item.agent_id, item.session_id)}
+        aria-label={`${signal.label}: ${subject}`}
       >
-        <span
-          className={`home-inbox-status home-inbox-status--${status}`}
-          aria-label={statusLabel}
-          title={statusLabel}
-        />
-        <span className="home-inbox-body">
-          <span className="home-inbox-row">
-            <span className="home-inbox-from">Inbox item · {statusLabel}</span>
-            <span className="home-inbox-time">{time}</span>
-          </span>
-          <span className="home-inbox-subject">{subject}</span>
-          <span className="home-inbox-preview">{contextLine}</span>
-        </span>
+        <SessionRailRowContent item={row} />
       </Link>
     </li>
   );
