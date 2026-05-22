@@ -65,4 +65,14 @@ describe("useNav", () => {
       `/trust/${TRUST_ADDR}/ideas/idea-1`,
     );
   });
+
+  it("resolves trustId when the trust route slug is the entity id", () => {
+    useDaemonStore.setState({ entities: [ENTITY] });
+    const { result } = renderUseNav(`/trust/${ENTITY.id}/ideas`);
+
+    expect(result.current.trustId).toBe(ENTITY.id);
+    expect(result.current.entityPath(result.current.trustId, "ideas", "idea-1")).toBe(
+      `/trust/${TRUST_ADDR}/ideas/idea-1`,
+    );
+  });
 });

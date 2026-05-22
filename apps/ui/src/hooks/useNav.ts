@@ -82,7 +82,11 @@ export function useNav() {
   const trustEntityId = useMemo(() => {
     if (trustId) return trustId;
     if (!trustAddress) return "";
-    return entities.find((e) => e.trust_address === trustAddress)?.id ?? "";
+    return (
+      entities.find((e) => e.trust_address === trustAddress)?.id ??
+      entities.find((e) => e.id === trustAddress)?.id ??
+      ""
+    );
   }, [trustId, trustAddress, entities]);
 
   return { go, href, entityPath, goEntity, trustId: trustEntityId, base };
