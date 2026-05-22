@@ -109,8 +109,9 @@
   overflow: visible;
 }
 
-/* Left pane — fixed-width card surface. Session rows inside are recessed
-   cards, so the rail reads as one deliberate card with item wells on top. */
+/* Left pane — fixed-width white card surface. Session rows inside are
+   recessed cards, so the rail reads as one deliberate vertical card with
+   item wells on top. */
 .inbox-pane-list {
   display: flex;
   flex-direction: column;
@@ -118,7 +119,8 @@
   min-width: 280px;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--color-card);
+  background: var(--color-card-elevated);
+  box-shadow: var(--card-elevation);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
 }
