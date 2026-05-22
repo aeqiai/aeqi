@@ -7,7 +7,6 @@ import { Icon } from "../ui";
 import AssigneeAvatar from "./AssigneeAvatar";
 import AssigneePicker from "./AssigneePicker";
 import PriorityIcon from "./PriorityIcon";
-import QuestScopeChip from "./QuestScopeChip";
 import StatusDot from "./StatusDot";
 
 /**
@@ -123,19 +122,6 @@ export default function QuestActiveCard({
       <div className="quest-card-meta">
         <span className="quest-card-meta-left">
           <PriorityIcon priority={q.priority} />
-          {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-          {canTake && (
-            <button
-              type="button"
-              className="quest-take-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                void onTake(q.id);
-              }}
-            >
-              Take
-            </button>
-          )}
         </span>
         <span className="quest-card-meta-right">
           <span
@@ -147,6 +133,19 @@ export default function QuestActiveCard({
               assignee={q.assignee}
               agents={agents}
               users={users}
+              quickActions={
+                canTake
+                  ? [
+                      {
+                        key: "take",
+                        label: "Take",
+                        description: "Assign to me and start",
+                        assignee: users[0]?.id ? `user:${users[0].id}` : undefined,
+                        onSelect: () => void onTake(q.id),
+                      },
+                    ]
+                  : []
+              }
               onChange={async (next) => {
                 try {
                   await api.updateQuest(q.id, { assignee: next });

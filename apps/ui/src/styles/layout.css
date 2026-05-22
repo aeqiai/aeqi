@@ -4506,6 +4506,9 @@
   background: var(--accent-bg, var(--bg-row));
   color: var(--color-text-primary);
 }
+.assignee-picker-row--quick {
+  background: var(--bg-row);
+}
 .assignee-picker-row-avatar {
   display: inline-flex;
   flex-shrink: 0;
@@ -4516,6 +4519,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.assignee-picker-row-description {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  line-height: 1.2;
 }
 .assignee-picker-row-kind {
   flex-shrink: 0;
@@ -6268,6 +6278,175 @@
   color: var(--color-text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.quest-detail-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.quest-detail-head {
+  flex-shrink: 0;
+}
+
+.quest-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  padding: 16px 20px 20px;
+  overflow: hidden;
+}
+
+.quest-detail-document {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--color-card-muted, var(--bg-surface));
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 2px var(--border-faint);
+}
+
+.quest-detail-document > .ideas-canvas {
+  min-height: 100%;
+}
+
+.quest-detail-document .ideas-canvas-content {
+  --ideas-canvas-editor-gutter: 36px;
+  --ideas-canvas-editor-gutter-end: 6px;
+  padding: 24px 24px 32px;
+}
+
+.quest-detail-document .ideas-canvas-title {
+  font-size: clamp(26px, 2vw, 31px);
+}
+
+.quest-detail-summary {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--color-card-elevated);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-md);
+}
+
+.quest-detail-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-faint));
+}
+
+.quest-detail-summary-kicker {
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.quest-detail-summary-id {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 12px 0 0;
+}
+
+.quest-detail-meta-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 30px;
+}
+
+.quest-detail-meta-row dt {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+.quest-detail-meta-row dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.quest-detail-value {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-detail-context {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, var(--border-faint));
+}
+
+.quest-detail-context h2 {
+  margin: 0 0 8px;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.quest-detail-context p {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 1120px) {
+  .quest-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .quest-detail-document {
+    min-height: 520px;
+    overflow: visible;
+  }
+
+  .quest-detail-summary {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 /* Inline reference strip — sits below the tag row in the canvas head

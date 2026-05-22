@@ -136,6 +136,7 @@ export interface Quest {
   sibling_quest_ids?: string[];
   status: QuestStatus;
   priority: QuestPriority;
+  project?: string;
   /**
    * Structural identity. Canonical: 'task' (default — atomic claimable work)
    * or 'project' (container of sub-Quests + retrospective on completion).

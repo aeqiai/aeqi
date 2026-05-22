@@ -9,6 +9,7 @@ import { formatAssignee } from "@/lib/assignee";
 import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue, User } from "@/lib/types";
 import { Events, useTrack } from "@/lib/analytics";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
+import QuestDetailSummary from "./quests/QuestDetailSummary";
 import QuestToolbar from "./quests/QuestToolbar";
 import LinkedIdeaPicker from "./quests/LinkedIdeaPicker";
 
@@ -418,16 +419,12 @@ function ViewCanvas({
     );
   }
 
+  const backToQuests = () => goEntity(trustId, "quests", undefined, { replace: true });
+  const newQuest = () => goEntity(trustId, "quests", "new", { replace: false });
+
   return (
-    <IdeaCanvas
-      ref={canvasRef}
-      agentId={quest.agent_id ?? resolvedAgentId}
-      idea={quest.idea}
-      activityRefreshKey={activityRefreshSeq}
-      onBack={() => goEntity(trustId, "quests", undefined, { replace: true })}
-      onNew={() => goEntity(trustId, "quests", "new", { replace: false })}
-      onDirtyChange={setBodyDirty}
-      headerSlot={
+    <div className="asv-main quest-detail-page">
+      <div className="ideas-list-head ideas-canvas-head quest-detail-head">
         <QuestToolbar
           agentId={agentId}
           agents={agents}
@@ -467,8 +464,8 @@ function ViewCanvas({
             setDueAt(next);
             scheduleLifecycleSave();
           }}
-          onBack={() => goEntity(trustId, "quests", undefined, { replace: true })}
-          onNew={() => goEntity(trustId, "quests", "new", { replace: false })}
+          onBack={backToQuests}
+          onNew={newQuest}
           onCancel={handleRevertBody}
           onSave={handleSaveBody}
           statusOpen={statusOpen}
@@ -491,7 +488,31 @@ function ViewCanvas({
             ) : undefined
           }
         />
-      }
-    />
+      </div>
+      <div className="quest-detail-layout">
+        <main className="quest-detail-document">
+          <IdeaCanvas
+            ref={canvasRef}
+            agentId={quest.agent_id ?? resolvedAgentId}
+            idea={quest.idea}
+            activityRefreshKey={activityRefreshSeq}
+            onBack={backToQuests}
+            onNew={newQuest}
+            onDirtyChange={setBodyDirty}
+            embedded
+          />
+        </main>
+        <QuestDetailSummary
+          quest={quest}
+          status={status}
+          priority={priority}
+          assignee={assignee}
+          scope={scope}
+          dueAt={dueAt}
+          agents={agents}
+          users={assigneeUsers}
+        />
+      </div>
+    </div>
   );
 }

@@ -26,6 +26,7 @@ export default function AssigneePicker({
   agents,
   users,
   onChange,
+  quickActions = [],
   renderTrigger,
   placement = "bottom-start",
   open: openProp,
@@ -35,6 +36,13 @@ export default function AssigneePicker({
   agents: Pick<Agent, "id" | "name">[];
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   onChange: (next: string | null) => void;
+  quickActions?: {
+    key: string;
+    label: string;
+    description?: string;
+    assignee?: string | null;
+    onSelect: () => void;
+  }[];
   renderTrigger: (args: { open: boolean; display: AssigneeDisplay | null }) => ReactNode;
   placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
   /** Optional controlled-open. When provided, the parent owns the popover
@@ -118,6 +126,35 @@ export default function AssigneePicker({
           onChange={(e) => setQuery(e.target.value)}
         />
         <div className="assignee-picker-list" role="listbox">
+          {quickActions.map((action) => (
+            <button
+              key={action.key}
+              type="button"
+              role="option"
+              aria-selected={false}
+              className="assignee-picker-row assignee-picker-row--quick"
+              onClick={() => {
+                action.onSelect();
+                setOpen(false);
+              }}
+            >
+              <span className="assignee-picker-row-avatar" aria-hidden>
+                <AssigneeAvatar
+                  assignee={action.assignee}
+                  agents={agents}
+                  users={users}
+                  size={18}
+                />
+              </span>
+              <span className="assignee-picker-row-name">
+                {action.label}
+                {action.description && (
+                  <span className="assignee-picker-row-description">{action.description}</span>
+                )}
+              </span>
+              <span className="assignee-picker-row-kind">action</span>
+            </button>
+          ))}
           <button
             type="button"
             role="option"
