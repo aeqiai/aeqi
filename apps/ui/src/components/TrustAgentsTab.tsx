@@ -7,7 +7,14 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatCurrency } from "@/lib/i18n";
 import "@/styles/roles.css"; // shared trust-snapshot card primitives
-import { Button, Icon, Tooltip, ToolbarRadioPopover } from "./ui";
+import {
+  Button,
+  Icon,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+  Tooltip,
+  ToolbarRadioPopover,
+} from "./ui";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import AgentsEmptyState from "./agents/AgentsEmptyState";
 import AgentsList from "./agents/AgentsList";
@@ -240,10 +247,11 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-agents">
-      <header className="trust-agents-header">
-        <div className="trust-agents-header-titles">
-          <div className="trust-agents-title-row">
-            <h1 className="trust-agents-title">Agents</h1>
+      <PrimitivePageHeader
+        className="trust-agents-page-header"
+        title={
+          <span className="trust-agents-title-row">
+            <span>Agents</span>
             {entityAgents.length > 0 && (
               <span
                 className="trust-agents-title-count"
@@ -252,9 +260,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
                 {entityAgents.length}
               </span>
             )}
-          </div>
-        </div>
-        <div className="trust-agents-header-actions">
+          </span>
+        }
+        actions={
           <Tooltip content="New agent (N)">
             <Button
               variant="primary"
@@ -265,121 +273,54 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
               New
             </Button>
           </Tooltip>
+        }
+      />
+
+      <div className="trust-agents-toolbar ideas-list-head">
+        <div className="ideas-toolbar">
+          <PrimitiveSearchField
+            inputRef={searchRef}
+            placeholder="Search agents"
+            value={search}
+            onChange={(next) => setSearchParam("q", next)}
+            showKbdHint
+            onEscapeEmpty={(e) => e.currentTarget.blur()}
+          />
+
+          <ToolbarRadioPopover
+            label="Sort"
+            current={SORT_LABELS[sort]}
+            glyph={GLYPHS.sort}
+            options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
+            value={sort}
+            onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
+          />
+
+          <ToolbarRadioPopover
+            label="Filter"
+            current={LIVENESS_FILTER_LABELS[status]}
+            glyph={GLYPHS.filter}
+            options={LIVENESS_FILTER_ORDER.map((s) => ({
+              id: s,
+              label: LIVENESS_FILTER_LABELS[s],
+            }))}
+            value={status}
+            onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
+            indicator={status !== "all"}
+          />
+
+          <ToolbarRadioPopover
+            label="View"
+            current={VIEW_LABELS[view]}
+            glyph={GLYPHS.view}
+            options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
+            value={view}
+            onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
+          />
         </div>
-      </header>
+      </div>
 
       <div className="trust-agents-main">
-        <section className="trust-agents-snapshot" aria-label="Snapshot">
-          <AgentSnapshotCard
-            label={snapshot.total === 1 ? "Agent" : "Agents"}
-            value={snapshot.total}
-            sublabel="Total in this TRUST"
-          />
-          <AgentSnapshotCard
-            label="Active"
-            value={snapshot.active}
-            sublabel={
-              snapshot.active === 0
-                ? "None online"
-                : snapshot.active === snapshot.total
-                  ? "All online"
-                  : "Currently online"
-            }
-          />
-          <AgentSnapshotCard
-            label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
-            value={snapshot.runningQuests}
-            sublabel="In progress now"
-          />
-          <AgentSnapshotCard
-            label="Lifetime spend"
-            value={formatCurrency(snapshot.totalSpend, "USD")}
-            valueVariant="mono"
-            sublabel="Across every inference call"
-          />
-        </section>
-
-        <div className="ideas-list-head">
-          <div className="ideas-toolbar">
-            <span className="ideas-list-search-field">
-              <svg
-                className="ideas-list-search-glyph"
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <circle cx="5.2" cy="5.2" r="3.2" />
-                <path d="M7.6 7.6 L10 10" />
-              </svg>
-              <input
-                ref={searchRef}
-                className="ideas-list-search"
-                type="text"
-                placeholder="Search agents"
-                value={search}
-                onChange={(e) => setSearchParam("q", e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    if (search) setSearchParam("q", "");
-                    else (e.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-              {!search && (
-                <kbd className="ideas-list-search-kbd" aria-hidden>
-                  /
-                </kbd>
-              )}
-              {search && (
-                <button
-                  type="button"
-                  className="ideas-list-search-clear"
-                  onClick={() => setSearchParam("q", "")}
-                  aria-label="Clear search"
-                >
-                  ×
-                </button>
-              )}
-            </span>
-
-            <ToolbarRadioPopover
-              label="Sort"
-              current={SORT_LABELS[sort]}
-              glyph={GLYPHS.sort}
-              options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
-              value={sort}
-              onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
-            />
-
-            <ToolbarRadioPopover
-              label="Filter"
-              current={LIVENESS_FILTER_LABELS[status]}
-              glyph={GLYPHS.filter}
-              options={LIVENESS_FILTER_ORDER.map((s) => ({
-                id: s,
-                label: LIVENESS_FILTER_LABELS[s],
-              }))}
-              value={status}
-              onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
-              indicator={status !== "all"}
-            />
-
-            <ToolbarRadioPopover
-              label="View"
-              current={VIEW_LABELS[view]}
-              glyph={GLYPHS.view}
-              options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
-              value={view}
-              onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
-            />
-          </div>
-        </div>
-
         {activeChips.length > 0 && (
           <div className="ideas-tags-strip">
             <div className="ideas-list-chips" role="list" aria-label="Active filters">
@@ -409,6 +350,36 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
             </div>
           </div>
         )}
+
+        <section className="trust-agents-snapshot" aria-label="Snapshot">
+          <AgentSnapshotCard
+            label={snapshot.total === 1 ? "Agent" : "Agents"}
+            value={snapshot.total}
+            sublabel="Total in this TRUST"
+          />
+          <AgentSnapshotCard
+            label="Active"
+            value={snapshot.active}
+            sublabel={
+              snapshot.active === 0
+                ? "None online"
+                : snapshot.active === snapshot.total
+                  ? "All online"
+                  : "Currently online"
+            }
+          />
+          <AgentSnapshotCard
+            label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
+            value={snapshot.runningQuests}
+            sublabel="In progress now"
+          />
+          <AgentSnapshotCard
+            label="Lifetime spend"
+            value={formatCurrency(snapshot.totalSpend, "USD")}
+            valueVariant="mono"
+            sublabel="Across every inference call"
+          />
+        </section>
 
         {entityAgents.length === 0 ? (
           <div className="ideas-list-body">
