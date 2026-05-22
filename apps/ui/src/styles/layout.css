@@ -8757,6 +8757,16 @@ button.home-card:focus-visible {
 .home-inbox-link.sessions-rail-row .sessions-rail-row-time {
   font-size: var(--font-size-2xs);
 }
+.home-inbox-empty-canvas {
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
+  padding: var(--space-5);
+}
+.home-inbox-empty-canvas .inbox-empty-canvas-hint {
+  max-width: 300px;
+}
 /* First-touch quiet variant. The Inbox card stays in its column so the
    home-row-two grid keeps its two-column composition during onboarding,
    but its visual weight steps down: the head icon + title fade to

@@ -2,13 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpen, Globe, Plus, Rocket, Settings, Users } from "lucide-react";
 import OperatingContextCard from "@/components/trust/OperatingContextCard";
+import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
-import {
-  makeRailRow,
-  SessionRailEmptyState,
-  SessionRailRowContent,
-} from "@/components/sessions/SessionRail";
+import { makeRailRow, SessionRailRowContent } from "@/components/sessions/SessionRail";
 import UserAvatar from "@/components/UserAvatar";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
@@ -230,11 +227,11 @@ function InboxPreviewCard({ entities, inboxItems, trustNameById }: InboxPreviewC
           ))}
         </ul>
       ) : (
-        <SessionRailEmptyState
+        <InboxEmptyCanvas
           title="Inbox clear"
           hint="No reviews, approvals, failed events, or agent handoffs need attention."
-          signal="idle"
-          variant="panel"
+          kind="empty"
+          className="home-inbox-empty-canvas"
         />
       )}
     </article>
