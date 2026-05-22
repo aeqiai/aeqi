@@ -10,31 +10,10 @@ import TrustPublicRow from "./TrustPublicRow";
 import "@/styles/overview.css";
 
 /**
- * `/trust/<addr>/overview` — TRUST cockpit (v4, 2026-05-20).
+ * Bare `/trust/<addr>` — private Trust cockpit.
  *
- * The hero is now a photo-backed card (same start-hero portal + radial
- * mask as the / page) with a right-sided overview panel that
- * consolidates the two group header bars (programmable execution +
- * programmable ownership) that used to sit on their own rows. The
- * 4-card execution row and 4-card ownership row underneath lose their
- * header bars — they're bare card grids now, anchored by the hero's
- * aside panel.
- *
- *   1. Hero card — left: avatar + display name + tagline (identity).
- *      right: TrustHeroOverview (runtime state + CTA, TRUST address +
- *      signers + on-chain mirror status).
- *   2. Execution cards — Agents · Quests · Events · Ideas.
- *   3. Ownership cards — Assets · Equity · Quorum · Incorporation.
- *      Every signal is sourced from on-chain reads (`useAssets` /
- *      `useEquity` / `useQuorum` / `useIncorporation`).
- *   4. Public surface (half/half) — Updates (timeline) + Data Room
- *      (documents). Placeholders for now; structure is what matters.
- *
- * Retired in this pass:
- *   · TrustExecutionGroup header bar → in TrustHeroOverview
- *   · TrustOwnershipGroup header bar → in TrustHeroOverview
- *   · TrustHeroStrip plan label + public/private toggle + "TRUST"
- *     eyebrow → bloated header chrome that didn't earn the space.
+ * MVP layout: identity/status header, one activity readout, then the three
+ * route groups the operator needs to orient: authority, operations, capital.
  */
 export default function TrustOverviewTab({ trustId }: { trustId: string }) {
   const entities = useDaemonStore((s) => s.entities);
@@ -50,12 +29,12 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
           <TrustHeroOverview trustId={trustId} basePath={basePath} trustAddress={trustAddress} />
         }
       />
-      <TrustRolesGroup trustId={trustId} basePath={basePath} />
+      <TrustActivityCard trustAddress={trustAddress ?? trustId} />
       <div className="trust-cockpit-row">
+        <TrustRolesGroup trustId={trustId} basePath={basePath} />
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
         <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
       </div>
-      <TrustActivityCard trustAddress={trustAddress} />
       <TrustPublicRow />
     </div>
   );

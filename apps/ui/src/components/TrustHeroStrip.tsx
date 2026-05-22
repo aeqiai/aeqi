@@ -8,24 +8,11 @@ import TrustAvatar from "./TrustAvatar";
 import { Textarea } from "./ui";
 
 /**
- * `TrustHeroStrip` — top of every Company Overview surface.
+ * `TrustHeroStrip` — compact Trust identity header.
  *
- * Reframed 2026-05-20 as a photo-backed card. Borrows the start-hero
- * portal image + radial mask fade from the / page so the trust feels
- * like a destination, not a status header. Identity sits on the left;
- * the right side is reserved for a sibling `<aside>` (the consolidated
- * Execution + Ownership overview that the parent injects via the
- * `aside` prop). When absent, the right slot stays empty and the
- * identity span the full width — that's the public-profile read.
- *
- * Click-to-edit name + tagline persist via `api.updateEntity`. The
- * plan label, public/private toggle, and "TRUST" eyebrow were dropped
- * 2026-05-20 — they bloated the header with chrome that didn't earn
- * the space. Renaming + tagline editing remain.
- *
- * In `public` mode the strip renders read-only (no inline edit, no
- * aside slot). Data switches to `publicEntity` since the daemon store
- * is empty for unauth visitors.
+ * Private Overview uses this as cockpit chrome, not a second Home hero. Public
+ * profile mode can still carry the atmospheric image because that route has no
+ * surrounding operator shell.
  */
 interface PublicEntityShape {
   display_name: string;
@@ -116,28 +103,17 @@ export default function TrustHeroStrip({
 
   return (
     <header
-      className={`trust-hero${aside ? " trust-hero--with-bar" : ""}`}
+      className={`trust-hero${isPublicMode ? " trust-hero--public" : ""}${
+        aside ? " trust-hero--with-bar" : ""
+      }`}
       aria-label="Trust identity"
     >
-      <img src="/welcome/start-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
-      {settingsPath && (
-        <Link
-          to={settingsPath}
-          className="trust-hero-settings"
-          aria-label="Open TRUST settings"
-          title="TRUST settings"
-        >
-          <Settings size={16} strokeWidth={1.6} />
-        </Link>
+      {isPublicMode && (
+        <img src="/welcome/start-hero.png" alt="" className="trust-hero-image" aria-hidden="true" />
       )}
       <div className="trust-hero-identity">
         <div className="trust-hero-avatar" aria-hidden>
-          {/* The canonical TrustAvatar primitive owns the brandmark-
-             as-default behavior; the hero just calls it at 144px and
-             gets the same default the sidebar/switcher get. When the
-             entity later carries a custom image_url, that fills the
-             frame via object-fit: cover and the brandmark steps aside. */}
-          <TrustAvatar name={name} size={144} />
+          <TrustAvatar name={name} size={88} />
         </div>
 
         <div className="trust-hero-body">
@@ -210,6 +186,16 @@ export default function TrustHeroStrip({
             </button>
           )}
         </div>
+        {settingsPath && (
+          <Link
+            to={settingsPath}
+            className="trust-hero-settings"
+            aria-label="Open TRUST settings"
+            title="TRUST settings"
+          >
+            <Settings size={16} strokeWidth={1.6} />
+          </Link>
+        )}
       </div>
 
       {aside && <div className="trust-hero-footer">{aside}</div>}

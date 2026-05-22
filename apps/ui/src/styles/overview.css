@@ -1,97 +1,67 @@
-/* Trust overview — v3 (2026-05-19).
+/* Trust overview cockpit.
  *
- * Page composition:
- *   1. Hero — full-width identity card.
- *   2. Programmable execution GROUP — header bar (runtime status + CTA)
- *      followed by a 4-card row (Agents · Quests · Events · Ideas).
- *   3. Programmable ownership GROUP — header bar (TRUST address +
- *      signers) followed by a 4-card row (Assets · Equity · Quorum ·
- *      Incorporation).
- *   4. Public row — half/half (Updates + Data Room).
- *
- * The "group" is the visual primitive: a bar that anchors the row of
- * cards underneath as a single beat. No outer box wrapping; the bar
- * IS the visual cue.
- *
- * All cards paint --color-card-elevated (cards-on-paper canon). Color
- * is the v6 atmospheric warm palette; --color-warmth carries every
- * "alive" indicator on this surface.
+ * Private overview is an operator surface: compact identity, one activity
+ * readout, then grouped routes. Public profile mode can still use the image
+ * hero through `.trust-hero--public`.
  */
-
-/* ── Page ─────────────────────────────────────────────────────────── */
 
 .trust-overview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  padding: var(--space-6);
+  gap: var(--space-4);
   width: 100%;
   max-width: 1280px;
-  margin: 0 auto;
-  box-sizing: border-box;
   height: 100%;
+  margin: 0 auto;
+  padding: var(--space-5);
+  box-sizing: border-box;
   overflow-y: auto;
 }
 
-/* ── Shared card shell ────────────────────────────────────────────── */
-
 .trust-card {
-  background: var(--color-card-elevated);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  min-width: 0;
-  box-sizing: border-box;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
+  min-width: 0;
+  padding: var(--space-5);
+  box-sizing: border-box;
   color: var(--color-text-primary);
   text-decoration: none;
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
 }
 
-/* ── Hero ─────────────────────────────────────────────────────────── */
+/* Header */
 
-/* Trust hero — photo-backed card (start-hero portal + radial mask
-   fade in the top-left, matching the / page). Identity on the left,
-   optional aside slot on the right (TrustHeroOverview). When the
-   aside is absent (public-profile read) the identity span the full
-   width. */
-/* Trust hero — photo-backed card. Column layout: identity on top
-   (avatar + name + tagline taking the full breathing room), subtle
-   inset bar pinned at the bottom carrying runtime + on-chain
-   summary. Avatar bumped to 144px so the trust feels present, not
-   tokenized. */
 .trust-hero {
   position: relative;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  overflow: hidden;
   background: var(--color-card-elevated);
   border-radius: var(--radius-lg);
-  min-width: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.trust-hero--public {
   min-height: 280px;
-  overflow: hidden;
+  justify-content: space-between;
+  padding: var(--space-6);
 }
-.trust-hero--with-bar {
-  /* keeps the column layout — the footer pins to the bottom of the
-     card via `justify-content: space-between` above. */
-}
-/* Photo-backed hero — same image and height as the home-page hero
-   (`.home-hero-image` in layout.css, 280px) so the trust page reads
-   as a continuation of the start surface. Radial corner-fade
-   dissolves the image into the warm paper across the top-left
-   quadrant where the avatar + identity sit; the focal subject (the
-   portal ring on the right) stays sharp. */
+
 .trust-hero-image {
   position: absolute;
   inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center 45%;
-  border-radius: var(--radius-lg);
   pointer-events: none;
-  z-index: 0;
   mask-image: radial-gradient(circle farthest-corner at 100% 100%, black 50%, transparent 100%);
   -webkit-mask-image: radial-gradient(
     circle farthest-corner at 100% 100%,
@@ -99,396 +69,243 @@
     transparent 100%
   );
 }
-/* Top-right gear shortcut to /trust/<addr>/settings. Same affordance
-   grammar as `.home-hero-settings` on the start page so users learn
-   one icon once. */
+
 .trust-hero-settings {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+  z-index: 2;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--color-card-elevated);
+  width: 32px;
+  height: 32px;
   color: var(--color-text-secondary);
   text-decoration: none;
-  z-index: 2;
+  background: var(--color-card);
+  border-radius: 999px;
   transition:
     color 0.12s ease,
-    transform 0.12s ease,
-    filter 0.12s ease;
+    background 0.12s ease;
 }
+
 .trust-hero-settings:hover {
   color: var(--color-text-primary);
-  transform: translateY(-1px);
-  filter: brightness(1.04);
+  background: var(--color-card-muted);
 }
+
 .trust-hero-settings:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
 }
+
 .trust-hero-identity {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  min-width: 0;
   position: relative;
   z-index: 1;
-}
-/* TRUST hero avatar slot — sized container only. The TrustAvatar
-   primitive inside owns the shape, background, and brandmark-or-
-   image rendering so the hero matches every other surface that
-   shows a TRUST avatar. */
-.trust-hero-avatar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.trust-hero-body {
-  flex: 1;
+  gap: var(--space-4);
   min-width: 0;
+}
+
+.trust-hero-avatar {
   display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.trust-hero-body {
+  display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
 }
-.trust-hero-eyebrow {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
+
 .trust-hero-name,
 .trust-hero-name-input {
+  width: 100%;
+  padding: 0;
   margin: 0;
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 500;
   line-height: 1.1;
-  letter-spacing: -0.025em;
   color: var(--color-text-primary);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  width: 100%;
-  outline: none;
   text-align: left;
+  letter-spacing: -0.02em;
   word-break: break-word;
+  background: transparent;
+  border: 0;
+  outline: none;
 }
+
 .trust-hero-name--button {
   cursor: text;
   font: inherit;
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 500;
   line-height: 1.1;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
 }
+
 .trust-hero-tagline,
 .trust-hero-tagline-input {
-  margin: 2px 0 0 0;
+  width: 100%;
+  padding: 0;
+  margin: 0;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  font-style: italic;
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--color-text-secondary);
-  padding: 0;
-  border: 0;
+  text-align: left;
   background: transparent;
-  width: 100%;
+  border: 0;
   outline: none;
   resize: none;
-  text-align: left;
 }
+
 .trust-hero-tagline--button {
   cursor: text;
   font: inherit;
-  font-style: italic;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
+
 .trust-hero-tagline--empty {
   color: var(--color-text-muted);
 }
-.trust-hero-chrome {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  flex-wrap: wrap;
-}
-.trust-hero-chrome-link {
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-variant-numeric: tabular-nums;
-}
-.trust-hero-chrome-link:hover {
-  color: var(--color-text-primary);
-}
-.trust-hero-chrome-sep {
-  opacity: 0.5;
-}
-.trust-hero-public {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  user-select: none;
-  color: var(--color-text-secondary);
-}
-.trust-hero-public input[type="checkbox"] {
-  accent-color: var(--color-accent);
-}
 
-/* ── Trust hero footer bar (subtle inset, sits at the card bottom) ── */
-
-/* Consolidated runtime + on-chain identity summary that sits inside
-   the hero card at the bottom. White inset bar with two columns:
-   LEFT  — state dot + runtime label + agent count + open arrow.
-   RIGHT — Solana mark + TRUST address (copy) + signers + roles.
-   Subtler than v4's right-sided panel so the avatar + name carry
-   the visual weight; the bar reads as "specs at a glance". */
 .trust-hero-footer {
   position: relative;
   z-index: 1;
   width: 100%;
 }
+
 .trust-hero-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3) var(--space-5);
-  padding: 10px 14px;
-  background: var(--color-card-elevated);
-  border-radius: 999px;
+  gap: var(--space-2) var(--space-4);
+  padding: 10px 12px;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+  background: var(--color-card);
+  border-radius: var(--radius-md);
 }
+
 .trust-hero-bar-left,
 .trust-hero-bar-right {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex-wrap: wrap;
 }
+
 .trust-hero-bar-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
   background: var(--color-text-muted);
+  border-radius: 999px;
 }
-/* Status accents pulled from the family vocabulary (see primitives.css).
-   Live = indigo (active/streaming) — same color the quest board uses on
-   `in_progress`. Provisioning = warmth (pending/awaiting). Static = muted
-   (parked). Before this pass `live` borrowed warmth, which collided with
-   `in_review` semantics elsewhere in the app. */
+
 .trust-hero-bar-dot[data-tone="live"] {
   background: var(--state-progress);
-  box-shadow: 0 0 0 3px var(--state-progress-bg);
 }
+
 .trust-hero-bar-dot[data-tone="provisioning"] {
   background: var(--state-review);
-  animation: trust-pulse 1.6s ease-in-out infinite;
 }
-.trust-hero-bar-dot[data-tone="static"] {
-  background: var(--color-text-muted);
-}
-/* When the runtime transitions from `provisioning` to `live`, the dot
-   previously hard-snapped from warmth-pulse to indigo-resting. The right
-   side (chain mirror) already rides a composed pending → verified beat
-   (c8: pulse → jade fade), so the left side (execution) deserves the
-   same gesture — mirror the c8 fade on the runtime dot so both sides
-   verify with one rhythm. Reuses `trust-solana-verify` so the opacity
-   ramp (0.45 → 1) lines up with the pulse trough and lands at full
-   opacity over --transition-normal. Color resolves to indigo as the
-   ramp completes. Single iteration, gated on prefers-reduced-motion:
-   no-preference. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-hero-bar-dot[data-tone="live"] {
-    animation: trust-solana-verify var(--transition-normal) 1 forwards;
-  }
-}
+
 .trust-hero-bar-headline {
   font-weight: 600;
   color: var(--color-text-primary);
 }
+
 .trust-hero-bar-text {
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
 .trust-hero-bar-sep {
   color: var(--color-text-muted);
-  opacity: 0.5;
 }
+
 .trust-hero-bar-cta {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  font-weight: 500;
   color: var(--color-accent);
   text-decoration: none;
-  font-weight: 500;
   transition: color 0.12s ease;
 }
-/* When the runtime is live, the dot to the CTA's left lights indigo
-   (state-progress) — let the "Open →" arrow own the same zone instead
-   of borrowing the brand graphite ink. Brand accent stays reserved for
-   the "Launch" conversion CTA (static state), keeping the ~2% accent
-   ratio honest. Provisioning keeps graphite: the pulsing warmth dot is
-   already the loudest element in the bar; doubling it on the CTA would
-   over-claim attention. */
+
 .trust-hero-bar-cta[data-tone="live"] {
   color: var(--state-progress);
 }
-/* c13 (2026-05-21): the live CTA closes the hero bar's left-to-right
-   reveal sequence — runtime dot fades (c12), Solana mark fades (c8),
-   address pill stagger-fades (c11), and the "Open →" arrow used to
-   snap into indigo on the same frame the data-tone flipped. With the
-   three preceding beats already on the trust-solana-verify ramp, the
-   CTA's hard-snap broke the otherwise composed sweep — the eye landed
-   on the right edge before the gesture finished. Mirror the same
-   opacity ramp with a 100ms delay (matching the addr pill's stagger
-   from c11) so the CTA crosses its midpoint just as the address pill
-   resolves, and the whole bar verifies as a single gesture. Single
-   iteration, opacity only — color stays indigo throughout — gated on
-   prefers-reduced-motion: no-preference.
 
-   c14 (2026-05-21): every other piece of the bar has now earned an
-   entrance — the runtime dot fades when going live (c12), the Solana
-   mark fades to jade (c8), the pending and address pills both ride
-   trust-hero-bar-enter on mount (c9/c10/c11), and the live CTA arrow
-   fades into indigo (c13). The static-state CTA ("Launch a TRUST")
-   was the lone holdout: it appeared at full opacity on first paint
-   while the rest of the bar gently seated in. Mirror the address
-   pill's mount entrance (c10) on the non-live CTA so the bar's first
-   impression seats as one composed gesture instead of one element
-   snapping ahead of its neighbours. Provisioning gets the same beat —
-   its tone is transient, the entrance reads the same. Pure mount-time
-   CSS, no JS trigger; single iteration, opacity only, gated. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-hero-bar-cta[data-tone="live"] {
-    animation: trust-solana-verify var(--transition-normal) 100ms 1 forwards;
-  }
-  .trust-hero-bar-cta:not([data-tone="live"]) {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 100ms 1 forwards;
-  }
-}
 .trust-hero-bar-cta:hover {
   text-decoration: underline;
 }
-/* Solana mark sits next to the TRUST address. Muted grey when there's
-   no on-chain mirror yet ("Bridge pending"); jade when the TRUST is
-   registered on chain — the "verified on Solana" affordance the brief
-   calls out. Same semantic as `done`/verified across the app. */
+
 .trust-hero-bar-solana {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
-  flex-shrink: 0;
 }
+
 .trust-hero-bar-solana[data-verified="true"] {
   color: var(--state-verified);
 }
-/* When the on-chain mirror hasn't materialized, the Solana mark echoes the
-   left-side `data-tone="provisioning"` runtime dot — same `trust-pulse`
-   rhythm, gated on `prefers-reduced-motion: no-preference` so the chain side
-   reads as awaiting registration rather than parked. Reuses the existing
-   keyframe; static color stays --color-text-muted so the pulse rides opacity
-   only, matching the dot's behaviour.
 
-   When the bridge completes, the verified state previously popped from
-   muted-grey to jade instantly — the moment was illegible. A one-shot
-   200ms ease-out fade-in (c8, 2026-05-21) gives the verification a
-   readable beat without veering into delight: opacity ramps from 0.45
-   (the pulse's trough, so the handoff lines up) to 1 once, and the
-   color settles to jade as it lands. Single iteration, no bounce.
-   Uses the existing --transition-normal token for duration + easing so
-   the curve matches the rest of the system.
-
-   c15 (2026-05-21): with the bar's entrance cascade now extending across
-   four elements (runtime dot 0ms · Solana mark 0ms · address pill 100ms
-   · live CTA 100ms), the verified mark fired on the exact same frame as
-   the left-edge runtime dot — two anchors competing for the eye instead
-   of one leading anchor. The runtime dot sits at the bar's left edge and
-   the Solana mark sits right-of-centre; firing them together collapses
-   the intended L→R sweep into "both edges → middle". Slip the verified
-   mark to 50ms so the runtime dot owns the 0ms anchor frame alone, then
-   the gesture flows: runtime dot (0ms) → Solana mark (50ms) → address
-   pill + CTA (100ms). Three beats, monotonically rightward, anchor →
-   trailing rhythm. Pending stays at 0ms — when there's no verified mark
-   to anchor against, the pending pill IS the right-side first beat. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-hero-bar-solana[data-pending="true"] {
-    animation: trust-pulse 1.6s ease-in-out infinite;
-  }
-  .trust-hero-bar-solana[data-verified="true"] {
-    animation: trust-solana-verify var(--transition-normal) 50ms 1 both;
-  }
-}
-@keyframes trust-solana-verify {
-  from {
-    opacity: 0.45;
-  }
-  to {
-    opacity: 1;
-  }
-}
-/* On-chain identity reads as one composed pill: address (interactive,
-   denser tint) on the left, modules · roles (quiet metadata, lighter
-   tint of the same shape) on the right. The two zones share a single
-   999px outline and a 1px value step — no hairline divider, just a
-   tint shift between --color-card-subtle (button) and --color-card-muted
-   (tail), per the "no hairlines" rule. */
 .trust-hero-bar-addr-pill {
   display: inline-flex;
   align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
   background: var(--color-card-muted);
   border-radius: 999px;
-  overflow: hidden;
-  min-width: 0;
 }
+
 .trust-hero-bar-addr {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  background: var(--color-card-subtle);
-  border: 0;
-  border-radius: 999px 0 0 999px;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   cursor: pointer;
+  background: var(--color-card-subtle);
+  border: 0;
+  border-radius: 999px 0 0 999px;
   transition: background 0.12s ease;
 }
-/* When the address pill has no metadata tail, the button is the whole
-   pill — restore the full pill radius on the right edge. */
+
 .trust-hero-bar-addr-pill:not(:has(.trust-hero-bar-addr-meta)) .trust-hero-bar-addr {
   border-radius: 999px;
 }
+
 .trust-hero-bar-addr:hover {
   background: var(--color-card-muted);
 }
+
 .trust-hero-bar-addr:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--color-accent);
 }
+
 .trust-hero-bar-addr span {
   font-variant-numeric: tabular-nums;
 }
+
 .trust-hero-bar-addr-meta {
   display: inline-flex;
   align-items: center;
@@ -498,410 +315,444 @@
   color: var(--color-text-secondary);
 }
 
-/* Bridge-pending pill (c6, 2026-05-21) — when the on-chain mirror hasn't
-   materialized yet, the right side renders a warmth-tier pill that
-   shares the address pill's 999px shape and the Ownership row's
-   `.trust-primitive-pending` vocabulary. Warmth = actively bridging
-   (transient awaiting work), distinct from graphite = permanently-soon.
-   The muted Solana mark to the left keeps acting as the chain-mirror
-   chip; together they read as "chain side is awaiting registration"
-   rather than the bare text node the bar showed before.
-
-   On first mount the pill previously appeared in place with no
-   entrance — a hard snap that broke the bridge's three-beat arc
-   (pending appears → mark pulses warmth → verification fades). A
-   one-shot fade-in (c9, 2026-05-21) seats the pill into the bar with
-   the same --transition-normal curve the c8 verify ramp uses, so the
-   pending → verified sequence reads as one composed gesture rather
-   than three independent state snaps. Gated on prefers-reduced-motion:
-   no-preference; single iteration; opacity only, no transform — the
-   pill lands where it lives. */
 .trust-hero-bar-pending {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: 999px;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--state-review);
-  background: var(--state-review-bg);
   font-variant-numeric: tabular-nums;
-}
-/* Shared mount-fade for the right-side identity slot (c10, 2026-05-21).
-   The slot conditionally renders one of two pills: `.trust-hero-bar-pending`
-   while the bridge is mid-flight, then `.trust-hero-bar-addr-pill` once the
-   TRUST is verified on-chain. Both mount the same way React-wise, so both
-   ride the same one-shot opacity ramp — the verified address pill no
-   longer hard-snaps in when the bridge resolves. Closes the bridge arc:
-   pending fades in → Solana mark pulses → mark fades to jade (c8) and the
-   address pill fades in beside it (c10), one composed gesture. Single
-   iteration, opacity only, gated on prefers-reduced-motion: no-preference.
-
-   c11 (2026-05-21): the verified-side handoff originally fired both the
-   Solana mark's verify ramp (c8) and the addr pill's entrance fade (c10)
-   on the same frame. Readable, but two identical 200ms curves landing
-   simultaneously read as a synchronous flash rather than a left-to-right
-   reveal. The addr pill now waits 100ms (half of --transition-normal) so
-   the Solana mark crosses the midpoint of its jade ramp before the pill
-   begins fading in, and settles to full jade just as the pill crosses
-   its own midpoint. Reads as "verified → address", not "verified+address
-   together". The pending pill keeps a 0ms delay — its arrival is the
-   first beat of the bridge arc and has no sibling to coordinate with. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-hero-bar-pending {
-    animation: trust-hero-bar-enter var(--transition-normal) 1 forwards;
-  }
-  .trust-hero-bar-addr-pill {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 100ms 1 forwards;
-  }
-}
-@keyframes trust-hero-bar-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  background: var(--state-review-bg);
+  border-radius: 999px;
 }
 
-/* c16 (2026-05-21): the hero bar now seats in on a composed L→R sweep
-   (c8/c10/c11/c13/c14/c15 — runtime dot, Solana mark, pending/address
-   pills, both CTA states all ride the trust-hero-bar-enter ramp at
-   coordinated delays), but the four primitive cockpit tiles below
-   (Roles · Directors · Operators · Vacant) used to snap in at full
-   opacity on the same frame the bar started fading. The chrome
-   resolved as a gesture; the primitives appeared as a hard cut. Extend
-   the entrance vocabulary down one tier so the page seats as one
-   continuous reveal from chrome → primitives. Each tile rides the
-   same trust-hero-bar-enter keyframe at --transition-normal, staggered
-   50ms apart starting at 200ms — the hero bar finishes its 100ms-delayed
-   ramp around 300ms, so the first tile begins fading mid-bar and the
-   last tile lands ~250ms after the bar has settled. Reads as one
-   gesture from URL strip → authority graph, not two stacked mounts.
-   nth-child on .trust-cockpit-inner-grid > .trust-cockpit-mini scopes
-   this to the Roles row (the first cockpit-tier row below the bar);
-   the Execution/Ownership cards inside .trust-cockpit-row already sit
-   below the activity fold and don't compete with the bar's entrance.
-   Single iteration, opacity only, gated on prefers-reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-cockpit-inner-grid > .trust-cockpit-mini {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 200ms 1 forwards;
-  }
-  .trust-cockpit-inner-grid > .trust-cockpit-mini:nth-child(2) {
-    animation-delay: 250ms;
-  }
-  .trust-cockpit-inner-grid > .trust-cockpit-mini:nth-child(3) {
-    animation-delay: 300ms;
-  }
-  .trust-cockpit-inner-grid > .trust-cockpit-mini:nth-child(4) {
-    animation-delay: 350ms;
-  }
+/* Cockpit groups */
+
+.trust-cockpit-row {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: stretch;
 }
 
-/* c17 (2026-05-21): the L→R sweep (hero bar c8-c15 → Roles row c16
-   200/250/300/350ms) now resolves cleanly through the authority graph,
-   but on tall viewports the Execution + Ownership cards inside
-   .trust-cockpit-row sit above the activity fold and snap in at full
-   opacity the same frame the page mounts. The gesture trails off at
-   the Roles row and the cards-tier appears as a hard cut underneath.
-   Extend the entrance one beat further: each card rides the same
-   trust-hero-bar-enter keyframe at --transition-normal, picking up where
-   the Roles row leaves off — Execution at 400ms (50ms after the last
-   Vacant tile), Ownership at 450ms. Reads as one composed reveal from
-   URL strip → authority graph → execution/ownership above the fold,
-   not three stacked mounts. Single iteration, opacity only, gated on
-   prefers-reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-cockpit-row > .trust-cockpit-card {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 400ms 1 forwards;
-  }
-  .trust-cockpit-row > .trust-cockpit-card:nth-child(2) {
-    animation-delay: 450ms;
-  }
+.trust-cockpit-card {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--color-card-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-/* c18 (2026-05-21): the cascade now flows hero bar (c8-c15, ~100-300ms) →
-   Roles tiles (c16, 200/250/300/350ms) → Execution/Ownership cards (c17,
-   400/450ms) — but on tall viewports the Activity + Ideas strip inside
-   .trust-cockpit-secondary-row still sits above the fold and snaps in
-   the same frame the page mounts, cutting the gesture at the cards-tier.
-   Extend the entrance one final beat so the reveal resolves at the
-   activity fold instead of the cards. Each cell rides the same
-   trust-hero-bar-enter keyframe at --transition-normal, picking up 50ms
-   after Ownership lands — Activity at 500ms, Ideas at 550ms. Reads as
-   one composed reveal from URL strip → authority graph →
-   execution/ownership → activity fold, end-to-end. Single iteration,
-   opacity only, gated on prefers-reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-cockpit-secondary-row > .trust-cockpit-secondary-cell {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 500ms 1 forwards;
-  }
-  .trust-cockpit-secondary-row > .trust-cockpit-secondary-cell:nth-child(2) {
-    animation-delay: 550ms;
-  }
+.trust-cockpit-card--wide {
+  grid-column: 1 / -1;
 }
 
-/* c19 (2026-05-21): the Execution + Ownership cards now fade in at
-   400/450ms (c17), but the inline action chips that live inside their
-   bodies — the Agents/Quests mini-tiles inside Execution's
-   .trust-cockpit-inner-grid--split, and the four Ownership mini-tiles
-   inside Ownership's .trust-cockpit-inner-grid — mount at full opacity
-   on the same frame their parent card begins fading. The parent reads
-   as a faded-in surface but the affordances inside it appear
-   fully-formed mid-fade, which collapses the card's entrance into a
-   single hard cut once the parent crosses ~30% opacity. Add a 600/650ms
-   intra-card stagger anchored to the parent's animation-end (Execution
-   settles at ~600ms, Ownership at ~650ms) so the card surface lands
-   first and its action chips settle into place a beat later. The
-   secondary-row Events/Ideas cells inside Execution already ride
-   c18's 500/550ms ramp; this c19 rule adds the missing beat for the
-   primary mini-tile tier above them, completing the chip-tier reveal
-   within each card. Scoped via `.trust-cockpit-row > .trust-cockpit-card`
-   so the c16 Roles tier (200-350ms) stays unaffected — only the inline
-   chips inside the Execution/Ownership cockpit cards pick up the
-   delayed stagger. Single iteration, opacity only, gated on
-   prefers-reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-cockpit-row > .trust-cockpit-card .trust-cockpit-inner-grid > .trust-cockpit-mini {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 600ms 1 forwards;
-  }
-  .trust-cockpit-row
-    > .trust-cockpit-card:nth-child(2)
-    .trust-cockpit-inner-grid
-    > .trust-cockpit-mini {
-    animation-delay: 650ms;
-  }
+.trust-cockpit-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
-/* c20 (2026-05-21): the cockpit tiles inside Roles (c16, 200-350ms) and
-   Execution/Ownership (c19, 600/650ms) now fade in, but the inner status
-   signals — the `.trust-role-dot` trio on the Roles tile and the
-   `.trust-quest-signals` dot+count clusters on Agents/Quests (and the
-   Ownership mini-tiles) — still snap into the tile at full opacity on
-   the same frame the tile begins fading. The tile resolves as a soft
-   surface, but the status verification inside it appears fully-formed
-   mid-fade, collapsing the tile's entrance into a hard cut on its own
-   semantics. Add a one-beat signals-row fade anchored to each tile's
-   animation-end so the dots verify in *as* the tile resolves:
-     · Roles row (.trust-cockpit-inner-grid > .mini, c16 ends 400-550ms):
-       signals at 600ms — first dot fades in just as the last Vacant tile
-       lands.
-     · Execution card mini-tiles (c19 ends ~800ms): signals at 850ms.
-     · Ownership card mini-tiles (c19 ends ~850ms): signals at 950ms.
-   Selector `.trust-cockpit-mini .trust-quest-signals` wraps both the
-   `.trust-role-dot` trio (it sits inside `.trust-quest-signals` per
-   TrustRolesGroup.tsx:82) and the Agents/Quests/Ownership status
-   clusters, so one selector covers all three primitives. The
-   Execution/Ownership scopes override via the cockpit-row context, so
-   the Roles row stays on its earlier beat. Single iteration, opacity
-   only, gated on prefers-reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .trust-cockpit-mini .trust-quest-signals {
-    opacity: 0;
-    animation: trust-hero-bar-enter var(--transition-normal) 600ms 1 forwards;
-  }
-  .trust-cockpit-row > .trust-cockpit-card .trust-cockpit-mini .trust-quest-signals {
-    animation-delay: 850ms;
-  }
-  .trust-cockpit-row > .trust-cockpit-card:nth-child(2) .trust-cockpit-mini .trust-quest-signals {
-    animation-delay: 950ms;
-  }
+.trust-cockpit-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: -0.015em;
 }
 
-/* Keyframe consumed by .trust-hero-bar-dot[data-tone="provisioning"] (left
-   side, runtime) AND .trust-hero-bar-solana[data-pending="true"] (right side,
-   chain mirror). One rhythm, two surfaces — execution + ownership both
-   awaiting work read with the same heartbeat. */
-@keyframes trust-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
+.trust-cockpit-card-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-/* ── Primitive tile sub-elements (icon · label · value · hint · sub) ── */
+.trust-cockpit-inner-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
 
-/* Shared text + icon parts of the cockpit-mini tiles. The wrapper
-   itself is `.trust-cockpit-mini` (see below) — the old
-   `.trust-primitive-card` base+modifiers were retired when the
-   cockpit row replaced the 4-up primitive-card layout. */
+.trust-cockpit-inner-grid--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trust-cockpit-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 96px;
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  transition:
+    background 0.12s ease,
+    transform 0.12s ease;
+}
+
+.trust-cockpit-mini:hover {
+  background: var(--color-card-muted);
+  transform: translateY(-1px);
+}
+
+.trust-cockpit-mini:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.trust-cockpit-mini--warmth .trust-primitive-value {
+  color: var(--state-review);
+}
+
+.trust-cockpit-mini--soon {
+  cursor: not-allowed;
+}
+
+.trust-cockpit-mini--soon:hover {
+  background: var(--color-card);
+  transform: none;
+}
 
 .trust-primitive-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: var(--color-card-muted);
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
   color: var(--color-text-primary);
-  margin-bottom: 4px;
+  background: var(--color-card-muted);
+  border-radius: 999px;
 }
+
 .trust-primitive-label {
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
+
 .trust-primitive-value {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
 }
+
 .trust-primitive-hint {
-  margin-left: 6px;
+  margin-left: 5px;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--color-text-muted);
   letter-spacing: 0;
 }
+
 .trust-primitive-sub {
   margin-top: auto;
+  overflow: hidden;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* ── Public row (Updates + Data Room) ─────────────────────────────── */
+.trust-primitive-pending {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  margin-top: 2px;
+  margin-bottom: 2px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--state-review);
+  background: var(--state-review-bg);
+  border-radius: var(--radius-sm);
+}
 
-/* Public row — Updates + Data Room. Both cards stretch to fill the
-   row's height (align-items: stretch via grid default) and the row
-   itself flexes within the page column so they grow to fill the rest
-   of the viewport. They're live, not coming-soon — empty states say
-   "nothing posted yet" not "feature pending". */
-.trust-public-row {
+.trust-primitive-pending--graphite {
+  color: var(--color-text-muted);
+  background: var(--bg-row);
+}
+
+.trust-quest-signals {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.trust-quest-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+
+.trust-agent-dot,
+.trust-role-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  background: var(--color-text-muted);
+  border-radius: 999px;
+}
+
+.trust-agent-dot--online,
+.trust-role-dot--operator {
+  background: var(--state-progress);
+}
+
+.trust-agent-dot--offline {
+  opacity: 0.6;
+}
+
+.trust-role-dot--director {
+  background: var(--state-verified);
+}
+
+.trust-role-dot--vacant {
+  background: var(--state-review);
+}
+
+.trust-cockpit-secondary-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
-  flex: 1;
-  min-height: 320px;
 }
+
+.trust-cockpit-secondary-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.trust-cockpit-secondary-cell:hover {
+  color: var(--color-text-primary);
+  background: var(--color-card-muted);
+}
+
+.trust-cockpit-secondary-cell:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.trust-cockpit-secondary-cell > svg {
+  flex: 0 0 auto;
+  align-self: center;
+  color: var(--color-text-muted);
+}
+
+.trust-cockpit-secondary-label {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.trust-cockpit-secondary-value {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.trust-cockpit-secondary-value--placeholder,
+.trust-cockpit-secondary-hint {
+  color: var(--color-text-muted);
+}
+
+.trust-cockpit-secondary-hint {
+  font-size: var(--font-size-xs);
+}
+
+/* Activity */
+
+.trust-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.trust-activity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 118px;
+  padding: var(--space-4);
+  color: var(--color-accent);
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+}
+
+.trust-activity-cell-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.trust-activity-cell-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.trust-activity-svg {
+  display: block;
+  width: 100%;
+  height: 54px;
+  margin-top: auto;
+}
+
+.trust-activity-svg--empty {
+  opacity: 0.28;
+}
+
+.trust-activity-area {
+  fill: currentColor;
+  opacity: 0.08;
+}
+
+/* Public modules */
+
+.trust-public-row {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  min-height: 260px;
+}
+
 .trust-public-card {
   gap: var(--space-4);
-  padding: var(--space-6);
   height: 100%;
+  padding: var(--space-5);
 }
+
 .trust-public-head {
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
-.trust-public-icon {
+
+.trust-public-icon,
+.trust-public-empty-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
+  color: var(--color-text-secondary);
   background: var(--color-card-muted);
-  color: var(--color-text-primary);
-  flex-shrink: 0;
+  border-radius: 999px;
 }
-.trust-public-titles {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+
+.trust-public-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
 }
-.trust-public-eyebrow {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
+
 .trust-public-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
   font-weight: 500;
-  letter-spacing: -0.015em;
   color: var(--color-text-primary);
+  letter-spacing: -0.015em;
 }
+
 .trust-public-body {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-2);
-  flex: 1;
 }
-/* Empty state — the surface is live, just unpopulated. Quiet icon
-   + headline + hint, centered vertically so the card reads as "ready
-   for content" rather than "broken / placeholder". */
+
 .trust-public-body--empty {
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  text-align: center;
   padding: var(--space-4) 0;
+  text-align: center;
 }
+
 .trust-public-empty-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  background: var(--color-card-muted);
-  color: var(--color-text-secondary);
+  width: 48px;
+  height: 48px;
 }
+
 .trust-public-empty-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
   font-weight: 400;
-  letter-spacing: -0.01em;
   color: var(--color-text-primary);
+  letter-spacing: -0.01em;
 }
+
 .trust-public-empty-hint {
-  margin: 0;
   max-width: 320px;
+  margin: 0;
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--color-text-secondary);
 }
 
-/* ── Ownership group wrapper + transfer control ───────────────────── */
+/* Ownership transfer control */
 
-/* Wraps the 4-card ownership row and the meta-action footer underneath
-   (Transfer ownership). The group section in TrustOverviewTab already
-   provides the outer gap; this wrapper just stacks the cards above the
-   footer with a comfortable rhythm. */
 .trust-ownership-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-/* Footer-row under the ownership cards — quiet danger-zone affordance
-   for transferring the whole TRUST to a new principal. Styled like a
-   muted card row, not a stop-sign banner; the destructive intent is
-   carried by the button itself and the confirmation gauntlet that
-   fires when the on-chain ix lands (ja-023 / platform-019). */
 .trust-transfer-control {
   display: flex;
   align-items: center;
@@ -921,437 +772,97 @@
 }
 
 .trust-transfer-control-title {
-  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  margin: 0;
   font-family: var(--font-display);
   font-size: var(--font-size-base);
   font-weight: 500;
-  letter-spacing: -0.01em;
   color: var(--color-text-primary);
+  letter-spacing: -0.01em;
 }
 
 .trust-transfer-control-tag {
+  padding: 2px 8px;
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
   color: var(--color-text-muted);
-  padding: 2px 8px;
   background: var(--bg-subtle);
   border-radius: 999px;
 }
 
 .trust-transfer-control-body {
+  max-width: 60ch;
   margin: 0;
   font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--color-text-secondary);
-  max-width: 60ch;
 }
 
 .trust-transfer-control-action {
   flex: 0 0 auto;
 }
 
-/* ── Responsive ───────────────────────────────────────────────────── */
+/* Responsive */
+
+@media (max-width: 1180px) {
+  .trust-cockpit-row {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-cockpit-inner-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .trust-activity-grid,
+  .trust-cockpit-inner-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
 @media (max-width: 720px) {
   .trust-overview {
+    gap: var(--space-4);
     padding: var(--space-4);
-    gap: var(--space-5);
   }
+
   .trust-hero {
-    padding: var(--space-5);
-    min-height: 220px;
+    padding: var(--space-4);
   }
+
   .trust-hero-identity {
-    flex-direction: column;
     align-items: flex-start;
   }
-  .trust-hero-avatar {
-    width: 96px;
-    height: 96px;
-  }
+
   .trust-hero-name,
   .trust-hero-name--button,
   .trust-hero-name-input {
     font-size: 26px;
   }
+
   .trust-hero-bar {
-    border-radius: var(--radius-lg);
+    align-items: flex-start;
   }
+
+  .trust-activity-grid,
+  .trust-cockpit-inner-grid,
+  .trust-cockpit-inner-grid--split,
+  .trust-cockpit-secondary-row,
   .trust-public-row {
     grid-template-columns: 1fr;
   }
+
   .trust-transfer-control {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-3);
   }
+
   .trust-transfer-control-action {
     width: 100%;
-  }
-}
-
-/* ── Cockpit cards (v5, 2026-05-20) ───────────────────────────────────
-   Trust overview restructure: each section is its own elevated card
-   with the title rendered INSIDE the card (not as a section heading on
-   the page background). Operations + Ownership sit side-by-side as
-   peer cards; Roles + Activity span full width. The inner mini-tile
-   grid replaces the old 4-up primitive-card row.
-*/
-
-.trust-cockpit-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-  align-items: stretch;
-}
-
-.trust-cockpit-card {
-  background: var(--color-card-elevated);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  box-shadow: var(--shadow-sm);
-  min-width: 0;
-}
-
-.trust-cockpit-card--wide {
-  grid-column: 1 / -1;
-}
-
-.trust-cockpit-card-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.trust-cockpit-card-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-lg);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  color: var(--color-text-primary);
-}
-
-.trust-cockpit-card-sub {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 500;
-}
-
-.trust-cockpit-inner-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-/* Cycle 2 split: prominent two-column tier for the primitives that
-   actually carry a live signal (Agents + Quests). Events + Ideas
-   move below into `.trust-cockpit-secondary-row`. The row no longer
-   spends 50% real estate on inert tiles, and Agents/Quests each get
-   ~2x width to surface their dot+count signal-rows without
-   crowding. */
-.trust-cockpit-inner-grid--split {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-/* Inner mini-tile. Reads like the previous primitive-card but tighter:
-   no shadow (it lives inside an elevated card), softer surface, same
-   icon + label + value + hint + sub stack. */
-.trust-cockpit-mini {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--space-4);
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  text-decoration: none;
-  min-width: 0;
-  min-height: 120px;
-  transition:
-    transform 0.12s ease,
-    background 0.12s ease;
-}
-.trust-cockpit-mini:hover {
-  transform: translateY(-1px);
-  background: var(--color-card-muted);
-}
-.trust-cockpit-mini:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-
-.trust-cockpit-mini--warmth .trust-primitive-value {
-  color: var(--color-warmth);
-}
-
-/* Provisioning variant (c4, 2026-05-21) — used by Ownership tiles when
-   the matching on-chain module hasn't materialized yet. Instead of the
-   28px display value rendering as a giant "—" that dominates the row,
-   the tile shows a quiet "Bridge pending" badge in --state-review
-   (warmth). The badge sits where the value would, keeps the tile's
-   icon+label+badge stack readable, and matches the awaiting accent the
-   Roles tile uses for vacant seats so the family vocabulary stays
-   aligned. */
-.trust-primitive-pending {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  height: 24px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--state-review);
-  background: var(--state-review-bg);
-  /* Reserve roughly the same vertical band the 28px value occupies so
-     a provisioning tile and a value-bearing tile in the same row keep
-     the label+payload baselines aligned. */
-  margin-top: 4px;
-  margin-bottom: 4px;
-}
-
-/* Graphite variant (c5, 2026-05-21) — used by the Incorporation tile,
-   which is permanently-soon rather than transiently provisioning. The
-   warmth tier ("Bridge pending") would mis-signal awaiting work; the
-   graphite tier reads as "scheduled for later" — chrome muted ink on
-   a chrome surface, no semantic accent. Same badge shape so the row's
-   icon+label+payload rhythm stays uniform whether the tile is
-   provisioning, soon, or live. */
-.trust-primitive-pending--graphite {
-  color: var(--color-text-muted);
-  background: var(--bg-row);
-}
-
-/* `--soon` tiles (e.g. Incorporation) carry their own "v2" graphite
-   badge in the payload slot, so whole-tile opacity dimming (the pre-c5
-   treatment) is redundant and reads as sickly rather than reserved.
-   Keep the cursor signal and suppress hover transforms so the tile
-   reads as non-interactive without flattening the row's rhythm. */
-.trust-cockpit-mini--soon {
-  cursor: not-allowed;
-}
-.trust-cockpit-mini--soon:hover {
-  transform: none;
-  background: var(--color-card);
-}
-
-/* Quest signal-row footer — three board accents (in_progress · in_review
-   · done in 24h) rendered as a quiet dot+count cluster underneath the
-   headline value of the Quests tile. Uses the canonical
-   `.quest-status-dot--*` vocabulary from pages.css so the overview reads
-   as a quiet echo of the board itself. Tokens only — color comes from
-   the dots, the row stays in muted ink at xs weight so the value above
-   keeps the visual lead. */
-.trust-quest-signals {
-  margin-top: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.trust-quest-signal {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  line-height: 1;
-}
-
-/* Agents tile signal dots — same shape + tier as quest-status-dot but
-   only two states: online (state-progress, live/streaming semantic) +
-   offline (muted text token, parked semantic). Keeps the family
-   vocabulary aligned without inventing a new color slot. */
-.trust-agent-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-text-muted);
-  flex-shrink: 0;
-}
-.trust-agent-dot--online {
-  background: var(--state-progress);
-}
-.trust-agent-dot--offline {
-  background: var(--color-text-muted);
-  opacity: 0.6;
-}
-
-/* Roles tile signal dots — same shape + tier as quest-status-dot and
-   trust-agent-dot, mapped to the three role composition states on the
-   leading Roles tile (c3, 2026-05-21):
-     · director → state-verified (jade)   — stewardship, settled
-     · operator → state-progress (indigo) — execution, active
-     · vacant   → state-review (warmth)   — awaiting / open seat
-   The Vacant tile to the right also uses warmth via
-   `.trust-cockpit-mini--warmth` on its value; the two surfaces share
-   the same accent so the eye traces the open-seat signal from the
-   total breakdown straight to its dedicated tile. */
-.trust-role-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-text-muted);
-  flex-shrink: 0;
-}
-.trust-role-dot--director {
-  background: var(--state-verified);
-}
-.trust-role-dot--operator {
-  background: var(--state-progress);
-}
-.trust-role-dot--vacant {
-  background: var(--state-review);
-}
-
-/* Cycle 2 secondary row — Events + Ideas as a quiet inline pair under
-   the prominent Agents + Quests tiles. No icon-above-value stack; the
-   row reads inline (icon · label · value · hint) so the two cells
-   carry less visual weight than the primary tiles above. */
-.trust-cockpit-secondary-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-.trust-cockpit-secondary-cell {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-size: var(--font-size-sm);
-  min-width: 0;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-.trust-cockpit-secondary-cell:hover {
-  background: var(--color-card-muted);
-  color: var(--color-text-primary);
-}
-.trust-cockpit-secondary-cell:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-.trust-cockpit-secondary-cell > svg {
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-  align-self: center;
-}
-.trust-cockpit-secondary-label {
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-.trust-cockpit-secondary-value {
-  margin-left: auto;
-  font-family: var(--font-display);
-  font-weight: 500;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-.trust-cockpit-secondary-value--placeholder {
-  color: var(--color-text-muted);
-}
-.trust-cockpit-secondary-hint {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
-
-/* ── Activity card sparklines ─────────────────────────────────────── */
-
-.trust-activity-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.trust-activity-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  min-width: 0;
-  color: var(--color-accent);
-}
-
-.trust-activity-cell-label {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.trust-activity-cell-value {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.trust-activity-svg {
-  width: 100%;
-  height: 56px;
-  display: block;
-  margin-top: var(--space-2);
-}
-.trust-activity-svg--empty {
-  opacity: 0.35;
-}
-.trust-activity-area {
-  fill: currentColor;
-  opacity: 0.12;
-}
-
-/* ── Responsive — cockpit ─────────────────────────────────────────── */
-
-@media (max-width: 1100px) {
-  .trust-cockpit-row {
-    grid-template-columns: 1fr;
-  }
-  .trust-cockpit-inner-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .trust-activity-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .trust-cockpit-inner-grid {
-    grid-template-columns: 1fr;
-  }
-  .trust-cockpit-secondary-row {
-    grid-template-columns: 1fr;
-  }
-  .trust-activity-grid {
-    grid-template-columns: 1fr;
   }
 }
