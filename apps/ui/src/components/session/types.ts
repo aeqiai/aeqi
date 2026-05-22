@@ -86,6 +86,13 @@ export interface Message {
   tokenUsage?: { prompt: number; completion: number };
   eventType?: string;
   taskId?: string;
+  quest?: {
+    id?: string;
+    subject?: string;
+    status?: string;
+    runtime?: string | null;
+    outcomeSummary?: string | null;
+  };
   queued?: boolean;
   /**
    * "split" — assistant turn was interrupted by a UserInjected event and
@@ -116,6 +123,43 @@ export interface Message {
    * subject. Surfaced in the message panel header.
    */
   askSubject?: string;
+}
+
+export function questIdFromText(text: string): string | undefined {
+  const match = text.match(/\b(?:platform-\d+|\d{2,3}-\d{3}|[0-9a-f]{8}-[0-9a-f-]{27})\b/i);
+  return match?.[0];
+}
+
+function stringFrom(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+export function questIdFromMeta(meta: Record<string, unknown>): string | undefined {
+  return stringFrom(meta.quest_id) ?? stringFrom(meta.task_id);
+}
+
+export function questSnapshotFromMeta(
+  meta: Record<string, unknown>,
+): NonNullable<Message["quest"]> {
+  const rawTask =
+    meta.task && typeof meta.task === "object" && !Array.isArray(meta.task)
+      ? (meta.task as Record<string, unknown>)
+      : null;
+  const rawOutcome =
+    rawTask?.outcome && typeof rawTask.outcome === "object" && !Array.isArray(rawTask.outcome)
+      ? (rawTask.outcome as Record<string, unknown>)
+      : null;
+  return {
+    id: stringFrom(rawTask?.id) ?? questIdFromMeta(meta),
+    subject:
+      stringFrom(rawTask?.subject) ??
+      stringFrom(rawTask?.title) ??
+      stringFrom(rawTask?.name) ??
+      stringFrom(meta.subject),
+    status: stringFrom(rawTask?.status) ?? stringFrom(meta.status) ?? stringFrom(meta.to),
+    runtime: stringFrom(rawTask?.runtime) ?? null,
+    outcomeSummary: stringFrom(rawOutcome?.summary) ?? stringFrom(meta.summary) ?? null,
+  };
 }
 
 export interface SessionInfo {

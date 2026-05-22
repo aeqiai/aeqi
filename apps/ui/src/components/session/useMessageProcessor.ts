@@ -7,6 +7,9 @@ import {
   countStepSegments,
   numberFromMeta,
   applyAssistantMeta,
+  questIdFromMeta,
+  questIdFromText,
+  questSnapshotFromMeta,
 } from "./types";
 
 export function useMessageProcessor() {
@@ -71,7 +74,7 @@ export function useMessageProcessor() {
     };
 
     for (const m of rawMessages) {
-      const eventType = m.event_type || "message";
+      const eventType = String(m.event_type || "message");
       const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
 
       if (eventType === "tool_complete") {
@@ -123,6 +126,24 @@ export function useMessageProcessor() {
         flushAgent();
         stepCount = 0;
         sawStoredStepMarkers = false;
+      } else if (m.role === "quest_event" || eventType.startsWith("quest_")) {
+        if (pendingTools.length > 0 && currentAgent) {
+          currentAgent.segments!.push(...pendingTools);
+          pendingTools = [];
+        }
+        flushAgent();
+        stepCount = 0;
+        sawStoredStepMarkers = false;
+        const meta = (m.metadata || {}) as Record<string, unknown>;
+        const quest = questSnapshotFromMeta(meta);
+        processed.push({
+          role: "quest_event",
+          content: String(m.content || quest.subject || eventType.replace(/_/g, " ")),
+          timestamp: ts,
+          eventType,
+          taskId: quest.id ?? questIdFromMeta(meta) ?? questIdFromText(String(m.content || "")),
+          quest,
+        });
       } else if (m.role === "assistant") {
         const agent = !sawStoredStepMarkers ? startStep(undefined, ts) : ensureCurrentAgent(ts);
         if (agent.timestamp == null) {

@@ -326,6 +326,7 @@ export default function SessionDetail({
                 key={msg.messageId ?? i}
                 msg={msg}
                 sessionAgentId={agentId}
+                sessionTrustId={trustId}
                 onFork={onFork}
                 onEdit={onEdit}
                 onResend={onResend}

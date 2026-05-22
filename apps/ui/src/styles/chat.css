@@ -1173,30 +1173,100 @@
 /* ── Quest events (system messages) ── */
 
 .asv-quest-event {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 0;
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--space-3);
+  width: min(100%, 640px);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  box-shadow: var(--card-elevation);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
+  text-decoration: none;
+}
+
+.asv-quest-event.is-linked {
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.asv-quest-event.is-linked:hover,
+.asv-quest-event.is-linked:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  outline: none;
 }
 
 .asv-quest-event-icon {
-  flex-shrink: 0;
-  width: 14px;
-  text-align: center;
-  opacity: 0.5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-secondary);
 }
 
-.asv-quest-event-text {
-  flex: 1;
+.asv-quest-event--complete .asv-quest-event-icon {
+  color: var(--success);
+}
+
+.asv-quest-event--blocked .asv-quest-event-icon {
+  color: var(--error);
+}
+
+.asv-quest-event-body {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  gap: var(--space-1);
 }
 
-.asv-quest-event-time {
-  flex-shrink: 0;
-  opacity: 0.5;
+.asv-quest-event-kicker,
+.asv-quest-event-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.3;
+}
+
+.asv-quest-event-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-weight-semibold);
+}
+
+.asv-quest-event-title {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.asv-quest-event-summary {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.asv-quest-event-status {
+  color: var(--color-text-primary);
+  text-transform: capitalize;
+}
+
+.asv-quest-event-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  color: var(--color-text-secondary);
 }
 
 /* ── Event-fire row (events → injected ideas) ── */

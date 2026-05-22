@@ -1,5 +1,6 @@
 import { useMemo, useState, memo } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, CircleDot, CirclePlus, ExternalLink } from "lucide-react";
 import { IconButton, Tooltip } from "@/components/ui";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
@@ -135,22 +136,72 @@ function ErrorBubble({ msg }: { msg: Message }) {
   );
 }
 
-// ── Quest-event bubble ──────────────────────────────────────────────────
+// ── Quest activity card ─────────────────────────────────────────────────
 
-function questEventIcon(eventType: string | undefined): string {
+function questEventTone(
+  eventType: string | undefined,
+): "create" | "complete" | "blocked" | "update" {
   const t = eventType ?? "";
-  if (t.includes("create")) return "+";
-  if (t.includes("complete") || t.includes("close")) return "✓";
-  if (t.includes("block")) return "!";
-  return "→";
+  if (t.includes("create")) return "create";
+  if (t.includes("complete") || t.includes("close") || t.includes("done")) return "complete";
+  if (t.includes("block") || t.includes("fail") || t.includes("cancel")) return "blocked";
+  return "update";
 }
 
-function QuestEventBubble({ msg }: { msg: Message }) {
+function QuestEventIcon({ tone }: { tone: ReturnType<typeof questEventTone> }) {
+  if (tone === "create") return <CirclePlus size={16} strokeWidth={1.7} />;
+  if (tone === "complete") return <CheckCircle2 size={16} strokeWidth={1.7} />;
+  if (tone === "blocked") return <AlertTriangle size={16} strokeWidth={1.7} />;
+  return <CircleDot size={16} strokeWidth={1.7} />;
+}
+
+function QuestEventBubble({ msg, trustId: contextTrustId }: { msg: Message; trustId?: string }) {
+  const { trustId: routeTrustId, entityPath } = useNav();
+  const trustId = contextTrustId ?? routeTrustId;
+  const tone = questEventTone(msg.eventType);
+  const title = msg.quest?.subject || msg.content || "Quest updated";
+  const status = msg.quest?.status ? msg.quest.status.replace(/_/g, " ") : null;
+  const summary = msg.quest?.outcomeSummary || (msg.quest?.subject ? msg.content : "");
+  const questId = msg.quest?.id || msg.taskId;
+  const href = questId && trustId ? entityPath(trustId, "quests", questId) : null;
+  const className = `asv-quest-event asv-quest-event--${tone}${href ? " is-linked" : ""}`;
+  const ariaLabel = `Quest ${status ? `${status}: ` : ""}${title}`;
+  const body = (
+    <>
+      <span className="asv-quest-event-icon" aria-hidden="true">
+        <QuestEventIcon tone={tone} />
+      </span>
+      <span className="asv-quest-event-body">
+        <span className="asv-quest-event-kicker">
+          <span>Quest update</span>
+          {msg.timestamp && <span>{formatTime(msg.timestamp)}</span>}
+        </span>
+        <span className="asv-quest-event-title">{title}</span>
+        {summary && summary !== title && <span className="asv-quest-event-summary">{summary}</span>}
+        <span className="asv-quest-event-meta">
+          {status && <span className="asv-quest-event-status">{status}</span>}
+          {msg.quest?.runtime && <span>{msg.quest.runtime}</span>}
+          {href && (
+            <span className="asv-quest-event-open">
+              Open quest <ExternalLink size={12} strokeWidth={1.7} aria-hidden="true" />
+            </span>
+          )}
+        </span>
+      </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link className={className} to={href} aria-label={ariaLabel}>
+        {body}
+      </Link>
+    );
+  }
+
   return (
-    <div className="asv-quest-event">
-      <span className="asv-quest-event-icon">{questEventIcon(msg.eventType)}</span>
-      <span className="asv-quest-event-text">{msg.content}</span>
-      {msg.timestamp && <span className="asv-quest-event-time">{formatTime(msg.timestamp)}</span>}
+    <div className={className} aria-label={ariaLabel}>
+      {body}
     </div>
   );
 }
@@ -348,6 +399,7 @@ const MessageItem = memo(function MessageItem({
   onEdit,
   onResend,
   sessionAgentId,
+  sessionTrustId,
 }: {
   msg: Message;
   onFork?: (messageId: number) => void;
@@ -355,8 +407,11 @@ const MessageItem = memo(function MessageItem({
   onResend?: (text: string) => void;
   /** The agent ID for this session — used by resolveAuthor for legacy fallback. */
   sessionAgentId?: string;
+  /** Entity scope for top-level inbox routes that are not under /trust/:id. */
+  sessionTrustId?: string;
 }) {
-  const { trustId } = useNav();
+  const { trustId: routeTrustId } = useNav();
+  const trustId = sessionTrustId ?? routeTrustId;
   const agents = useDaemonStore((s) => s.agents);
   const entitiesList = useDaemonStore((s) => s.entities);
   const userEmail = useAuthStore((s) => s.user?.email ?? "");
@@ -377,7 +432,7 @@ const MessageItem = memo(function MessageItem({
   );
 
   if (msg.role === "event_fire") return <EventFireItem msg={msg} />;
-  if (msg.role === "quest_event") return <QuestEventBubble msg={msg} />;
+  if (msg.role === "quest_event") return <QuestEventBubble msg={msg} trustId={trustId} />;
   if (msg.role === "error") return <ErrorBubble msg={msg} />;
 
   const author = resolveAuthor(msg, authorCtx);

@@ -8,6 +8,7 @@ import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
 import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
+import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
@@ -28,67 +29,6 @@ const KIND_ITEM_LABEL: Record<string, string> = {
   decision_request: "Decision request",
   system: "System",
 };
-
-interface RawApiMessage {
-  role?: string;
-  content?: string;
-  created_at?: string;
-  from_kind?: string | null;
-  from_id?: string | null;
-}
-
-/**
- * Map the inbox API's raw message shape to the canonical session `Message`
- * type so the SessionDetail/MessageItem render path is identical to the
- * agent surface. `from_kind` / `from_id` come straight from the IPC row
- * — do NOT synthesise from `role`. Cron / schedule prompts ship as
- * `from_kind === "system"` and must NOT be attributed to the viewing
- * user; synthesising `role === "user"` → `from_kind: "user"` is the bug
- * that makes cron rows render with the founder's name.
- */
-function inboxMessagesAdapter(raw: Record<string, unknown>, agentName?: string): Message[] {
-  const items = Array.isArray(raw.messages) ? (raw.messages as RawApiMessage[]) : [];
-  const result: Message[] = [];
-  for (const m of items) {
-    const role = typeof m.role === "string" ? m.role.toLowerCase() : "";
-    // Render user / assistant / system rows. System rows are runtime-
-    // originated (cron-fired schedule prompts, lifecycle seeds) and the
-    // canonical resolveAuthor path renders them as a muted system bubble
-    // with no avatar / no author name.
-    if (role !== "user" && role !== "assistant" && role !== "system") continue;
-    const content = typeof m.content === "string" ? m.content : "";
-    if (!content.trim()) continue;
-    const ts = m.created_at ? new Date(String(m.created_at)).getTime() : Date.now();
-    // Read from_kind from the IPC row; fall back to role-based mapping
-    // ONLY when the field is null/missing (legacy rows the boot
-    // migration has not backfilled yet).
-    const rawFromKind = typeof m.from_kind === "string" ? m.from_kind : null;
-    let from_kind: Message["from_kind"];
-    if (rawFromKind === "user" || rawFromKind === "agent" || rawFromKind === "system") {
-      from_kind = rawFromKind;
-    } else if (rawFromKind === "position") {
-      from_kind = "position";
-    } else if (role === "system") {
-      from_kind = "system";
-    } else if (role === "assistant") {
-      from_kind = "agent";
-    } else {
-      from_kind = "user";
-    }
-    const from_id = typeof m.from_id === "string" ? m.from_id : null;
-    result.push({
-      role,
-      from_kind,
-      from_id,
-      content,
-      timestamp: ts,
-      // Synthetic key — agent rows benefit from agent_name fallback in
-      // resolveAuthor when agentNames doesn't carry the agent yet.
-      ...(role === "assistant" && agentName ? { askSubject: agentName } : {}),
-    });
-  }
-  return result;
-}
 
 /**
  * `/trust/<addr>/inbox` — the canonical
