@@ -1,37 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, GitBranch, Plus, Route, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, GitBranch, Plus, Route, ShieldCheck } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
+import { Button, PrimitivePageHeader, PrimitiveSearchField } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
-import type { Role, RoleEdge, RoleType, Trust } from "@/lib/types";
+import {
+  buildRoleContexts,
+  buildTrustMapLayout,
+  persistRoleContext,
+  pickDefaultContext,
+  relationLabel,
+  roleTypeLabel,
+  routeNodeId,
+  SELF_NODE_ID,
+  type RoleBundle,
+  type RoleContextOption,
+  type TrustMapNode,
+} from "@/lib/trustRoleContext";
+import type { Trust } from "@/lib/types";
 import { useTrusts, useActiveTrust } from "@/queries/trusts";
 import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
-
-interface RoleBundle {
-  trust: Trust;
-  roles: Role[];
-  edges: RoleEdge[];
-  unavailable?: boolean;
-}
-
-interface AuthoritySegment {
-  trust: Trust;
-  role: Role;
-  relation: "direct" | "identity" | "nested";
-}
-
-interface RoleContextOption {
-  id: string;
-  trust: Trust;
-  role: Role;
-  route: AuthoritySegment[];
-  status: "available" | "ambiguous";
-  routeCount: number;
-}
 
 type ContextFilter = "all" | "direct" | "nested" | "ambiguous";
 
@@ -42,7 +34,6 @@ const FILTERS: Array<{ id: ContextFilter; label: string }> = [
   { id: "ambiguous", label: "Ambiguous" },
 ];
 
-const MAX_ROUTE_DEPTH = 4;
 const EMPTY_BUNDLES: RoleBundle[] = [];
 
 /**
@@ -124,73 +115,72 @@ export default function TrustPage() {
 
   return (
     <div className="trust-context-page">
-      <header className="trust-context-ledger">
-        <div className="trust-context-ledger-main">
-          <span className="trust-context-ledger-avatar" aria-hidden="true">
-            <TrustAvatar name={activeTrust?.name ?? selected?.trust.name ?? "TRUST"} size={64} />
+      <PrimitivePageHeader
+        title="TRUST"
+        className="trust-context-header"
+        padding="none"
+        actions={
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={() => navigate("/launch")}
+            leadingIcon={<Plus size={14} strokeWidth={1.8} />}
+          >
+            Create TRUST
+          </Button>
+        }
+      >
+        <div className="trust-context-active" aria-label="Active role context">
+          <span className="trust-context-active-avatar" aria-hidden="true">
+            <TrustAvatar name={activeTrust?.name ?? selected?.trust.name ?? "TRUST"} size={32} />
           </span>
-          <div className="trust-context-ledger-copy">
-            <p className="trust-context-kicker">Acting as</p>
-            <h1 className="trust-context-title">
-              {selected ? roleTypeLabel(selected.role.role_type) : "No role context"}
-            </h1>
-            <p className="trust-context-subtitle">
+          <span className="trust-context-active-copy">
+            <span className="trust-context-kicker">Acting as</span>
+            <span className="trust-context-active-title">
               {selected
                 ? `${selected.role.title} in ${selected.trust.name}`
                 : activeTrust
                   ? `${activeTrust.name} has no assumable role loaded`
-                  : "Choose an assumable role below"}
-            </p>
+                  : "Choose an assumable role"}
+            </span>
+          </span>
+        </div>
+      </PrimitivePageHeader>
+
+      <div
+        className="trust-context-toolbar ideas-list-head"
+        aria-label="Switch role context controls"
+      >
+        <div className="ideas-toolbar">
+          <PrimitiveSearchField
+            value={query}
+            onChange={setQuery}
+            placeholder="Search roles or TRUSTs"
+            onEscapeEmpty={(event) => event.currentTarget.blur()}
+          />
+          <div className="trust-context-filters" aria-label="Role context filters">
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`ideas-toolbar-btn ${filter === item.id ? "is-active" : ""}`}
+                onClick={() => setFilter(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="trust-context-toolbar-stats" aria-label="Role-context summary">
+            <Metric label="Role contexts" value={metrics.total} />
+            <Metric label="Nested routes" value={metrics.nested} />
+            <Metric label="Ambiguous" value={metrics.ambiguous} />
           </div>
         </div>
-        <div className="trust-context-ledger-stats" aria-label="Role-context summary">
-          <Metric label="Role contexts" value={metrics.total} />
-          <Metric label="Nested routes" value={metrics.nested} />
-          <Metric label="Ambiguous" value={metrics.ambiguous} />
-        </div>
-        <button type="button" className="trust-context-create" onClick={() => navigate("/launch")}>
-          <Plus size={15} strokeWidth={1.7} />
-          Create TRUST
-        </button>
-      </header>
-
-      <section className="trust-context-toolbar" aria-label="Switch role context controls">
-        <div className="trust-context-toolbar-copy">
-          <p className="trust-context-kicker">Switch role context</p>
-          <h2 className="trust-context-section-title">Influence table</h2>
-        </div>
-        <label className="trust-context-search">
-          <Search size={15} strokeWidth={1.7} aria-hidden="true" />
-          <span className="sr-only">Search role contexts</span>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search roles or TRUSTs"
-          />
-        </label>
-        <div className="trust-context-filters" aria-label="Role context filters">
-          {FILTERS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={filter === item.id ? "is-active" : undefined}
-              onClick={() => setFilter(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </section>
+      </div>
 
       <main className="trust-context-workbench">
         <section className="trust-context-canvas" aria-label="Available role contexts">
-          <div className="trust-context-lanes" aria-hidden="true">
-            <span>Self</span>
-            <span>Authority route</span>
-            <span>Terminal role</span>
-            <span>Scope</span>
-          </div>
-
           {bundlesQuery.isLoading ? (
             <div className="trust-context-empty">
               <Route size={20} strokeWidth={1.6} />
@@ -198,17 +188,12 @@ export default function TrustPage() {
               <span>Reading role graphs across your TRUSTs.</span>
             </div>
           ) : filteredContexts.length > 0 ? (
-            <div className="trust-context-route-list">
-              {filteredContexts.map((ctx) => (
-                <RoleContextRow
-                  key={ctx.id}
-                  context={ctx}
-                  selected={selected?.id === ctx.id}
-                  onSelect={() => setSelectedId(ctx.id)}
-                  onEnter={() => handleEnter(ctx)}
-                />
-              ))}
-            </div>
+            <TrustContextMap
+              contexts={filteredContexts}
+              selectedId={selected?.id ?? null}
+              onSelect={setSelectedId}
+              onEnter={handleEnter}
+            />
           ) : (
             <div className="trust-context-empty">
               <ShieldCheck size={20} strokeWidth={1.6} />
@@ -325,94 +310,176 @@ function useRoleBundles(trusts: Trust[], enabled: boolean) {
   });
 }
 
-function RoleContextRow({
-  context,
-  selected,
+function TrustContextMap({
+  contexts,
+  selectedId,
   onSelect,
   onEnter,
 }: {
-  context: RoleContextOption;
-  selected: boolean;
-  onSelect: () => void;
-  onEnter: () => void;
+  contexts: RoleContextOption[];
+  selectedId: string | null;
+  onSelect: (contextId: string) => void;
+  onEnter: (context: RoleContextOption) => void;
 }) {
-  const direct = context.route[0];
-  const nested = context.route.slice(1, -1);
-  const terminal = context.route[context.route.length - 1];
-  const routeLabel = context.route.length === 1 ? "Direct access" : routeSummary(context.route);
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    onSelect();
-  };
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const contextById = useMemo(() => new Map(contexts.map((ctx) => [ctx.id, ctx])), [contexts]);
+  const activeId = previewId ?? selectedId;
+  const layout = useMemo(() => buildTrustMapLayout(contexts), [contexts]);
+  const activeContext = activeId ? contextById.get(activeId) : undefined;
+  const activeRouteIds = activeContext ? new Set(activeContext.route.map(routeNodeId)) : new Set();
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      className={`trust-context-route-row ${selected ? "is-selected" : ""}`}
-      onClick={onSelect}
-      onKeyDown={handleKeyDown}
-      aria-label={`${context.role.title} in ${context.trust.name}, ${routeLabel}`}
-    >
-      <span className="trust-context-actor-node">
-        <span>You</span>
-        <small>Operator</small>
-      </span>
-      <span className="trust-context-route-cell">
-        <RoleMiniNode segment={direct} />
-        {nested.map((segment) => (
-          <RoleMiniNode key={`${segment.trust.id}:${segment.role.id}`} segment={segment} muted />
-        ))}
-      </span>
-      <span className="trust-context-terminal-cell">
-        <RoleMiniNode segment={terminal} terminal />
-      </span>
-      <span className="trust-context-scope-cell">
-        <span className="trust-context-status">
-          {context.status === "ambiguous" ? `${context.routeCount} routes` : "Available"}
+    <div className="trust-context-map">
+      <div className="trust-context-map-head">
+        <div>
+          <p className="trust-context-kicker">Authority web</p>
+          <h2 className="trust-context-section-title">Choose the role you want to assume</h2>
+        </div>
+        <span className="trust-context-map-hint">
+          {contexts.length} route{contexts.length === 1 ? "" : "s"} visible
         </span>
-        <span className="trust-context-route-label">{routeLabel}</span>
-        <button
-          type="button"
-          className="trust-context-row-enter"
-          onClick={(event) => {
-            event.stopPropagation();
-            onEnter();
-          }}
-        >
-          Assume role
-        </button>
-      </span>
+      </div>
+      <div
+        className="trust-context-map-viewport"
+        style={
+          {
+            "--trust-map-width": `${layout.width}px`,
+            "--trust-map-height": `${layout.height}px`,
+          } as CSSProperties
+        }
+      >
+        <div className="trust-context-map-stage">
+          <svg
+            className="trust-context-map-edges"
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
+            aria-hidden="true"
+            focusable="false"
+          >
+            {layout.edges.map((edge) => {
+              const from = layout.byId.get(edge.from);
+              const to = layout.byId.get(edge.to);
+              if (!from || !to) return null;
+              const active = Boolean(activeId && edge.routeIds.includes(activeId));
+              const startX = from.x + from.width;
+              const startY = from.y + from.height / 2;
+              const endX = to.x;
+              const endY = to.y + to.height / 2;
+              return (
+                <path
+                  key={edge.id}
+                  className={[
+                    "trust-context-map-edge",
+                    `trust-context-map-edge--${edge.relation}`,
+                    active ? "is-active" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  d={`M ${startX} ${startY} C ${startX + 70} ${startY}, ${endX - 70} ${endY}, ${endX} ${endY}`}
+                />
+              );
+            })}
+          </svg>
+          {layout.nodes.map((node) => {
+            const isSelf = node.id === SELF_NODE_ID;
+            const primary = contextById.get(node.primaryContextId) ?? contexts[0];
+            const terminal = Boolean(selectedId && node.terminalContextIds.includes(selectedId));
+            const activePath = isSelf || activeRouteIds.has(node.id);
+            return (
+              <TrustMapNodeButton
+                key={node.id}
+                node={node}
+                selected={terminal}
+                activePath={activePath}
+                onSelect={() => onSelect(node.primaryContextId)}
+                onEnter={primary ? () => onEnter(primary) : undefined}
+                onPreview={(next) => setPreviewId(next ? node.primaryContextId : null)}
+              />
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-function RoleMiniNode({
-  segment,
-  muted = false,
-  terminal = false,
+function TrustMapNodeButton({
+  node,
+  selected,
+  activePath,
+  onSelect,
+  onEnter,
+  onPreview,
 }: {
-  segment: AuthoritySegment;
-  muted?: boolean;
-  terminal?: boolean;
+  node: TrustMapNode;
+  selected: boolean;
+  activePath: boolean;
+  onSelect: () => void;
+  onEnter?: () => void;
+  onPreview: (previewing: boolean) => void;
 }) {
+  const isSelf = node.id === SELF_NODE_ID;
+  const terminalCount = node.terminalContextIds.length;
+  const segment = node.segment;
+  const routeCount = node.routeIds.length;
+  const label = isSelf
+    ? "You, operator root"
+    : `${segment?.role.title ?? "Untitled role"} in ${segment?.trust.name ?? "TRUST"}, ${routeCount} route${routeCount === 1 ? "" : "s"}`;
+
   return (
-    <span
-      className={["trust-context-role-node", muted ? "is-muted" : "", terminal ? "is-terminal" : ""]
+    <button
+      type="button"
+      className={[
+        "trust-context-map-node",
+        isSelf ? "trust-context-map-node--self" : "",
+        terminalCount > 0 ? "trust-context-map-node--terminal" : "",
+        selected ? "is-selected" : "",
+        activePath ? "is-active-path" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
+      style={{
+        left: node.x,
+        top: node.y,
+        width: node.width,
+        minHeight: node.height,
+      }}
+      aria-pressed={selected}
+      aria-label={label}
+      onClick={onSelect}
+      onDoubleClick={onEnter}
+      onMouseEnter={() => onPreview(true)}
+      onMouseLeave={() => onPreview(false)}
+      onFocus={() => onPreview(true)}
+      onBlur={() => onPreview(false)}
     >
-      <span className="trust-context-role-avatar" aria-hidden="true">
-        <TrustAvatar name={segment.trust.name} size={28} />
-      </span>
-      <span className="trust-context-role-copy">
-        <strong>{segment.role.title || roleTypeLabel(segment.role.role_type)}</strong>
-        <small>
-          {segment.trust.name} / {roleTypeLabel(segment.role.role_type)}
-        </small>
-      </span>
-    </span>
+      {isSelf ? (
+        <>
+          <span className="trust-context-map-node-kicker">Root</span>
+          <span className="trust-context-map-node-title">You</span>
+          <span className="trust-context-map-node-meta">Operator</span>
+        </>
+      ) : (
+        <>
+          <span className="trust-context-map-node-head">
+            <span className="trust-context-role-avatar" aria-hidden="true">
+              <TrustAvatar name={segment?.trust.name ?? "TRUST"} size={28} />
+            </span>
+            <span className="trust-context-map-node-copy">
+              <span className="trust-context-map-node-title">
+                {segment?.role.title || roleTypeLabel(segment?.role.role_type ?? "operational")}
+              </span>
+              <span className="trust-context-map-node-meta">{segment?.trust.name ?? "TRUST"}</span>
+            </span>
+          </span>
+          <span className="trust-context-map-node-foot">
+            <span>{relationLabel(segment?.relation ?? "direct")}</span>
+            {terminalCount > 0 && (
+              <span>{terminalCount > 1 ? `${terminalCount} routes` : "Assumable"}</span>
+            )}
+          </span>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -432,131 +499,4 @@ function InspectorBlock({ title, children }: { title: string; children: ReactNod
       {children}
     </section>
   );
-}
-
-function buildRoleContexts(
-  bundles: RoleBundle[],
-  userId: string,
-  controlledTrustIds: string[],
-): RoleContextOption[] {
-  if (!userId) return [];
-
-  const byTrust = new Map(bundles.map((bundle) => [bundle.trust.id, bundle]));
-  const allRoles = bundles.flatMap((bundle) => bundle.roles.map((role) => ({ bundle, role })));
-  const controlledTrusts = new Set(controlledTrustIds);
-  const directRoutes: AuthoritySegment[][] = allRoles
-    .filter(
-      ({ role }) =>
-        role.occupant_kind === "human" &&
-        (role.occupant_id === userId ||
-          (role.occupant_id ? controlledTrusts.has(role.occupant_id) : false)),
-    )
-    .map(({ bundle, role }) => [
-      {
-        trust: bundle.trust,
-        role,
-        relation: role.occupant_id === userId ? ("direct" as const) : ("identity" as const),
-      },
-    ]);
-
-  const queue = [...directRoutes];
-  const routes: AuthoritySegment[][] = [];
-  const seenRoutes = new Set<string>();
-
-  while (queue.length > 0) {
-    const route = queue.shift();
-    if (!route) continue;
-    const key = route.map((segment) => `${segment.trust.id}:${segment.role.id}`).join(">");
-    if (seenRoutes.has(key)) continue;
-    seenRoutes.add(key);
-    routes.push(route);
-
-    if (route.length >= MAX_ROUTE_DEPTH) continue;
-    const terminalTrust = route[route.length - 1].trust;
-    for (const { bundle, role } of allRoles) {
-      if (role.occupant_kind !== "trust" || role.occupant_id !== terminalTrust.id) continue;
-      if (!byTrust.has(bundle.trust.id)) continue;
-      if (route.some((segment) => segment.role.id === role.id)) continue;
-      queue.push([...route, { trust: bundle.trust, role, relation: "nested" }]);
-    }
-  }
-
-  const counts = new Map<string, number>();
-  for (const route of routes) {
-    const terminal = route[route.length - 1];
-    const id = `${terminal.trust.id}:${terminal.role.id}`;
-    counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-
-  return routes
-    .map((route, index) => {
-      const terminal = route[route.length - 1];
-      const terminalId = `${terminal.trust.id}:${terminal.role.id}`;
-      const routeCount = counts.get(terminalId) ?? 1;
-      return {
-        id: `${terminalId}:${index}`,
-        trust: terminal.trust,
-        role: terminal.role,
-        route,
-        status: routeCount > 1 ? "ambiguous" : "available",
-        routeCount,
-      } satisfies RoleContextOption;
-    })
-    .sort((a, b) => {
-      if (a.route.length !== b.route.length) return a.route.length - b.route.length;
-      return `${a.trust.name}:${a.role.title}`.localeCompare(`${b.trust.name}:${b.role.title}`);
-    });
-}
-
-function pickDefaultContext(contexts: RoleContextOption[], activeTrust: Trust | null) {
-  if (contexts.length === 0) return null;
-  if (activeTrust) {
-    const activeMatch = contexts.find((ctx) => ctx.trust.id === activeTrust.id);
-    if (activeMatch) return activeMatch;
-  }
-  return contexts[0];
-}
-
-function roleTypeLabel(type: RoleType) {
-  if (type === "operational") return "Operator";
-  if (type === "director") return "Director";
-  if (type === "owner") return "Owner";
-  return "Advisor";
-}
-
-function relationLabel(relation: AuthoritySegment["relation"]) {
-  if (relation === "direct") return "Direct";
-  if (relation === "identity") return "TRUST identity";
-  return "Nested authority";
-}
-
-function routeSummary(route: AuthoritySegment[]) {
-  return route
-    .map(
-      (segment) =>
-        `${segment.trust.name} / ${segment.role.title || roleTypeLabel(segment.role.role_type)}`,
-    )
-    .join(" -> ");
-}
-
-function persistRoleContext(ctx: RoleContextOption, userId: string | null) {
-  try {
-    localStorage.setItem(
-      "aeqi_role_context",
-      JSON.stringify({
-        user_id: userId,
-        trust_id: ctx.trust.id,
-        role_id: ctx.role.id,
-        route: ctx.route.map((segment) => ({
-          trust_id: segment.trust.id,
-          trust_name: segment.trust.name,
-          role_id: segment.role.id,
-          role_title: segment.role.title,
-          relation: segment.relation,
-        })),
-      }),
-    );
-  } catch {
-    // localStorage may be unavailable; navigation still works.
-  }
 }
