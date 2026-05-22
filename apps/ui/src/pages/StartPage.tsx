@@ -6,7 +6,11 @@ import { useEntities } from "@/queries/entities";
 import { useVisibleIdeas } from "@/queries/ideas";
 import { useQuests } from "@/queries/quests";
 import RoleNode from "@/components/roles/RoleNode";
-import { makeRailRow, SessionRailRowContent } from "@/components/sessions/SessionRail";
+import {
+  makeRailRow,
+  SessionRailEmptyState,
+  SessionRailRowContent,
+} from "@/components/sessions/SessionRail";
 import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
 import { api } from "@/lib/api";
@@ -427,18 +431,12 @@ function InboxPreviewCard({
           ))}
         </ul>
       ) : (
-        <div className="home-inbox-empty">
-          <span
-            className={`home-inbox-empty-dot home-inbox-empty-dot--${inboxPillState}`}
-            aria-hidden="true"
-          />
-          <span className="home-inbox-empty-copy">
-            <p className="home-inbox-empty-title">Inbox clear</p>
-            <p className="home-inbox-empty-hint">
-              No reviews, approvals, failed events, or agent handoffs need attention.
-            </p>
-          </span>
-        </div>
+        <SessionRailEmptyState
+          title="Inbox clear"
+          hint="No reviews, approvals, failed events, or agent handoffs need attention."
+          signal={inboxPillState}
+          variant="panel"
+        />
       )}
       <footer className="home-inbox-footer">
         <span className="home-card-meta home-inbox-signal">

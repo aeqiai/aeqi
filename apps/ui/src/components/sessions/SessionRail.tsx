@@ -53,6 +53,40 @@ export interface SessionRailProps {
   traversalEventName?: string;
 }
 
+export interface SessionRailEmptyStateProps {
+  title: string;
+  hint?: string;
+  /** Panel fills cards such as Home; rail stays quieter inside a list column. */
+  variant?: "rail" | "panel";
+  signal?: "idle" | "progress" | "review";
+  className?: string;
+}
+
+export function SessionRailEmptyState({
+  title,
+  hint,
+  variant = "rail",
+  signal = "idle",
+  className,
+}: SessionRailEmptyStateProps) {
+  return (
+    <div
+      className={["sessions-rail-empty", `sessions-rail-empty--${variant}`, className ?? ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span
+        className={`sessions-rail-empty-mark sessions-rail-empty-mark--${signal}`}
+        aria-hidden="true"
+      />
+      <span className="sessions-rail-empty-copy">
+        <span className="sessions-rail-empty-title">{title}</span>
+        {hint && <span className="sessions-rail-empty-hint">{hint}</span>}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Universal session rail — the left-adjacent index column for every
  * conversation surface (agent sessions, inbox, channels). Owns row
@@ -120,10 +154,7 @@ export default function SessionRail({
     return (
       <div className={railClassName}>
         <div className="sessions-rail-list">
-          <div className="sessions-rail-empty">
-            <div className="sessions-rail-empty-title">{emptyTitle}</div>
-            {emptyHint && <div className="sessions-rail-empty-hint">{emptyHint}</div>}
-          </div>
+          <SessionRailEmptyState title={emptyTitle} hint={emptyHint} />
         </div>
       </div>
     );

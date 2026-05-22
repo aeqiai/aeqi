@@ -1729,21 +1729,53 @@
   font-size: var(--font-size-2xs);
 }
 .sessions-rail-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
   min-height: 160px;
   padding: 28px 24px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
   border-radius: var(--radius-sm);
   background: var(--bg-row);
+  text-align: left;
+}
+.sessions-rail-empty--rail {
+  margin: var(--space-2);
+}
+.sessions-rail-empty--panel {
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  padding: var(--space-5);
+}
+.sessions-rail-empty-mark {
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--color-text-muted);
+  opacity: 0.45;
+  flex-shrink: 0;
+}
+.sessions-rail-empty-mark--progress {
+  background: var(--state-progress);
+  opacity: 1;
+}
+.sessions-rail-empty-mark--review {
+  background: var(--state-review);
+  opacity: 1;
+}
+.sessions-rail-empty-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 .sessions-rail-empty-title {
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
+  line-height: 1.35;
 }
 .sessions-rail-empty-hint {
   font-family: var(--font-sans);
@@ -8740,62 +8772,11 @@ button.home-card:focus-visible {
 .home-inbox-link.sessions-rail-row .sessions-rail-row-time {
   font-size: var(--font-size-2xs);
 }
-/* Home only needs a quiet summary when the inbox is empty; the full empty
-   state belongs on the dedicated /inbox route. */
-.home-inbox-empty {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  flex: 1;
-  padding: var(--space-3) 0 0;
-  border-top: 1px solid var(--border-faint);
-  background: transparent;
-  text-align: left;
-}
-.home-inbox-empty-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-text-muted);
-  opacity: 0.45;
-  flex-shrink: 0;
-}
-.home-inbox-empty-dot--progress {
-  background: var(--state-progress);
-  opacity: 1;
-}
-.home-inbox-empty-dot--review {
-  background: var(--state-review);
-  opacity: 1;
-}
-.home-inbox-empty-copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-.home-inbox-empty-title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--color-text-primary);
-}
-.home-inbox-empty-hint {
-  margin: 0;
-  max-width: 280px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.45;
-}
 /* First-touch quiet variant. The Inbox card stays in its column so the
    home-row-two grid keeps its two-column composition during onboarding,
    but its visual weight steps down: the head icon + title fade to
-   secondary ink, and the empty body is a single quiet sentence anchored
-   to the bottom instead of an editorial centerpiece. Once the user has
-   a TRUST, the modifier is dropped by StartPage and the card returns
-   to full weight. */
+   secondary ink. Once the user has a TRUST, the modifier is dropped by
+   StartPage and the card returns to full weight. */
 .home-card--quiet .home-card-icon {
   /* Drop the head puck entirely while quiet so it joins meta + dot in
      stepping out of the head. Transparent bg alone left the 16px glyph
@@ -8807,19 +8788,6 @@ button.home-card:focus-visible {
 .home-card--quiet .home-card-title {
   color: var(--color-text-secondary);
   font-weight: 500;
-}
-.home-inbox-empty--quiet {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  text-align: left;
-  padding: 0;
-  gap: 0;
-}
-.home-inbox-empty--quiet .home-inbox-empty-hint {
-  max-width: none;
-  color: var(--color-text-muted);
 }
 /* All-TRUSTs satellite (c9) reuses the same quiet pattern: when the user
    has no other TRUSTs to step into, the display-weight headline and the
@@ -9383,10 +9351,6 @@ button.home-card:focus-visible {
 .home-inbox-cta:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-accent);
-}
-
-.home-inbox-empty-title {
-  letter-spacing: 0;
 }
 
 .home-card--economy {
