@@ -15,6 +15,7 @@ import RolesSortPopover from "./roles/RolesSortPopover";
 import RolesFilterPopover from "./roles/RolesFilterPopover";
 import RolesViewPopover from "./roles/RolesViewPopover";
 import RoleInspector from "./roles/RoleInspector";
+import RoleEditorPane from "./roles/RoleEditorPane";
 import {
   type OccupantFilter,
   type RolesFilterState,
@@ -47,6 +48,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const occupantFilter = parseOccupantFilter(searchParams.get("occupant"));
   const search = searchParams.get("q") ?? "";
   const selectedRoleId = searchParams.get("role");
+  const mode = searchParams.get("mode");
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [edges, setEdges] = useState<RoleEdge[]>([]);
@@ -146,6 +148,24 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     (id: string) =>
       patchParams((p) => {
         p.set("role", id);
+        p.delete("mode");
+      }),
+    [patchParams],
+  );
+
+  const startEditingRole = useCallback(
+    (id: string) =>
+      patchParams((p) => {
+        p.set("role", id);
+        p.set("mode", "edit");
+      }),
+    [patchParams],
+  );
+
+  const stopEditingRole = useCallback(
+    () =>
+      patchParams((p) => {
+        p.delete("mode");
       }),
     [patchParams],
   );
@@ -268,6 +288,15 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
     }
     return defaultSelectedRole;
   }, [selectedRoleId, rolesById, defaultSelectedRole]);
+  const isEditingRole = mode === "edit" && selectedRole !== null;
+
+  const handleRoleSaved = useCallback(
+    (updated: Role) => {
+      setRoles((prev) => prev.map((role) => (role.id === updated.id ? updated : role)));
+      stopEditingRole();
+    },
+    [stopEditingRole],
+  );
 
   const handleSelectRole = useCallback(
     (role: Role) => {
@@ -280,7 +309,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   const showNoMatch = !loading && !error && roles.length > 0 && filtered.length === 0;
 
   return (
-    <div className="trust-roles">
+    <div className={isEditingRole ? "trust-roles trust-roles--editing" : "trust-roles"}>
       <PrimitivePageHeader
         title="Roles"
         className="trust-roles-page-header"
@@ -325,60 +354,55 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
       </div>
 
       <div className="trust-roles-main">
-        <section className="trust-roles-snapshot" aria-label="Snapshot">
-          {/* Three-tier model. Card 1 carries the total count of role
-             seats AND the vacant-seat count as its breakdown line —
-             "vacant" is a state, not a tier, so it collapses into
-             Roles instead of standing as a peer card. Cards 2-4 are
-             the Owner / Director / Operator tiers in canonical order:
-             Owners hold the upside, Directors govern the bridge,
-             Operators execute. */}
-          <SnapshotCard
-            singular="Role"
-            plural="Roles"
-            value={snapshot.total}
-            sublabel="Across this TRUST"
-            breakdown={
-              snapshot.vacant === 0
-                ? "All seats filled"
-                : `${snapshot.vacant} ${snapshot.vacant === 1 ? "vacant seat" : "vacant seats"}`
-            }
-            tone={snapshot.vacant > 0 ? "warmth" : undefined}
-          />
-          <SnapshotCard
-            singular="Owner"
-            plural="Owners"
-            value={snapshot.owners.total}
-            sublabel="Ownership authority"
-            breakdown={breakdownText(
-              snapshot.owners.agents,
-              snapshot.owners.humans,
-              snapshot.owners.vacant,
-            )}
-          />
-          <SnapshotCard
-            singular="Director"
-            plural="Directors"
-            value={snapshot.directors.total}
-            sublabel="Stewardship authority"
-            breakdown={breakdownText(
-              snapshot.directors.agents,
-              snapshot.directors.humans,
-              snapshot.directors.vacant,
-            )}
-          />
-          <SnapshotCard
-            singular="Operator"
-            plural="Operators"
-            value={snapshot.operators.total}
-            sublabel="Operations authority"
-            breakdown={breakdownText(
-              snapshot.operators.agents,
-              snapshot.operators.humans,
-              snapshot.operators.vacant,
-            )}
-          />
-        </section>
+        <RoleSnapshotBand
+          total={snapshot.total}
+          items={[
+            {
+              singular: "Role",
+              plural: "Roles",
+              value: snapshot.total,
+              sublabel: "Across this TRUST",
+              breakdown:
+                snapshot.vacant === 0
+                  ? "All seats filled"
+                  : `${snapshot.vacant} ${snapshot.vacant === 1 ? "vacant seat" : "vacant seats"}`,
+              tone: snapshot.vacant > 0 ? "warmth" : undefined,
+            },
+            {
+              singular: "Owner",
+              plural: "Owners",
+              value: snapshot.owners.total,
+              sublabel: "Ownership authority",
+              breakdown: breakdownText(
+                snapshot.owners.agents,
+                snapshot.owners.humans,
+                snapshot.owners.vacant,
+              ),
+            },
+            {
+              singular: "Director",
+              plural: "Directors",
+              value: snapshot.directors.total,
+              sublabel: "Stewardship authority",
+              breakdown: breakdownText(
+                snapshot.directors.agents,
+                snapshot.directors.humans,
+                snapshot.directors.vacant,
+              ),
+            },
+            {
+              singular: "Operator",
+              plural: "Operators",
+              value: snapshot.operators.total,
+              sublabel: "Operations authority",
+              breakdown: breakdownText(
+                snapshot.operators.agents,
+                snapshot.operators.humans,
+                snapshot.operators.vacant,
+              ),
+            },
+          ]}
+        />
 
         <div className="trust-roles-canvas">
           {loading && <RolesLoading />}
@@ -423,13 +447,17 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         </div>
       </div>
       <aside className="trust-roles-side">
-        {selectedRole && (
+        {selectedRole && isEditingRole && (
+          <RoleEditorPane role={selectedRole} onBack={stopEditingRole} onSaved={handleRoleSaved} />
+        )}
+        {selectedRole && !isEditingRole && (
           <RoleInspector
             role={selectedRole}
             edges={edges}
             rolesById={rolesById}
             trustId={trustId}
             basePath={basePath}
+            onEdit={() => startEditingRole(selectedRole.id)}
           />
         )}
       </aside>
@@ -437,7 +465,7 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
   );
 }
 
-interface SnapshotCardProps {
+interface SnapshotItem {
   /** Singular form — rendered when `value === 1`. */
   singular: string;
   /** Plural form — rendered for any value other than 1 (including 0). */
@@ -453,10 +481,34 @@ interface SnapshotCardProps {
   tone?: "warmth";
 }
 
-function SnapshotCard({ singular, plural, value, sublabel, breakdown, tone }: SnapshotCardProps) {
+function RoleSnapshotBand({ total, items }: { total: number; items: SnapshotItem[] }) {
+  return (
+    <section className="trust-roles-snapshot" aria-label="Role snapshot">
+      <header className="trust-roles-snapshot-header">
+        <span className="trust-roles-snapshot-header-label">Authority map</span>
+        <span className="trust-roles-snapshot-header-count">
+          {total} {total === 1 ? "seat" : "seats"}
+        </span>
+      </header>
+      <div className="trust-roles-snapshot-grid">
+        {items.map((item) => (
+          <SnapshotCell key={item.plural} {...item} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SnapshotCell({ singular, plural, value, sublabel, breakdown, tone }: SnapshotItem) {
   const label = value === 1 ? singular : plural;
   return (
-    <article className="trust-roles-snapshot-card">
+    <article
+      className={
+        tone === "warmth"
+          ? "trust-roles-snapshot-cell trust-roles-snapshot-cell--warmth"
+          : "trust-roles-snapshot-cell"
+      }
+    >
       <header className="trust-roles-snapshot-head">
         <span className="trust-roles-snapshot-label">{label}</span>
         <span

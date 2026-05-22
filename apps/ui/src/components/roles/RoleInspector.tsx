@@ -6,6 +6,7 @@ import type { Role, RoleEdge, Quest } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { api } from "@/lib/api";
 import { formatMediumDate } from "@/lib/i18n";
+import { Button } from "@/components/ui";
 
 interface RoleInspectorProps {
   role: Role;
@@ -13,6 +14,7 @@ interface RoleInspectorProps {
   rolesById: ReadonlyMap<string, Role>;
   trustId: string;
   basePath: string;
+  onEdit?: () => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export default function RoleInspector({
   rolesById,
   trustId,
   basePath,
+  onEdit,
 }: RoleInspectorProps) {
   void trustId;
   const agents = useDaemonStore((s) => s.agents);
@@ -304,38 +307,69 @@ export default function RoleInspector({
     <aside className="role-inspector" aria-label="Selected role">
       {/* Header */}
       <header className="role-inspector-head">
-        <div
-          className={`role-inspector-avatar role-inspector-avatar--${role.occupant_kind}`}
-          aria-hidden
-        >
-          {isVacant ? (
-            <span className="role-inspector-avatar-vacant">—</span>
-          ) : isHuman ? (
-            <RoundAvatar
-              name={occupantDisplayName ?? role.title}
-              src={role.occupant_avatar_url ?? null}
-              size={48}
-            />
-          ) : isTrust ? (
-            <span className="role-inspector-avatar-trust">
-              <Landmark size={28} strokeWidth={1.5} />
-            </span>
-          ) : (
-            <span className="role-inspector-avatar-agent">
-              <Bot size={28} strokeWidth={1.5} />
-            </span>
-          )}
+        <div className="role-inspector-head-main">
+          <div
+            className={`role-inspector-avatar role-inspector-avatar--${role.occupant_kind}`}
+            aria-hidden
+          >
+            {isVacant ? (
+              <span className="role-inspector-avatar-vacant">—</span>
+            ) : isHuman ? (
+              <RoundAvatar
+                name={occupantDisplayName ?? role.title}
+                src={role.occupant_avatar_url ?? null}
+                size={48}
+              />
+            ) : isTrust ? (
+              <span className="role-inspector-avatar-trust">
+                <Landmark size={28} strokeWidth={1.5} />
+              </span>
+            ) : (
+              <span className="role-inspector-avatar-agent">
+                <Bot size={28} strokeWidth={1.5} />
+              </span>
+            )}
+          </div>
+          <div className="role-inspector-titles">
+            <p className="role-inspector-eyebrow">{roleTypeLabel}</p>
+            <h2 className="role-inspector-title">{role.title}</h2>
+            {!isVacant && occupantDisplayName && (
+              <p className="role-inspector-holder">Held by {occupantDisplayName}</p>
+            )}
+            {!isVacant && !occupantDisplayName && (
+              <p className="role-inspector-holder">Held by {heldByLabel} · see ID below</p>
+            )}
+            {isVacant && <p className="role-inspector-holder">Seat open</p>}
+          </div>
         </div>
-        <div className="role-inspector-titles">
-          <p className="role-inspector-eyebrow">{roleTypeLabel}</p>
-          <h2 className="role-inspector-title">{role.title}</h2>
-          {!isVacant && occupantDisplayName && (
-            <p className="role-inspector-holder">Held by {occupantDisplayName}</p>
+        <div className="role-inspector-head-actions">
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="role-inspector-action"
+              onClick={onEdit}
+              leadingIcon={<Pencil size={13} strokeWidth={1.7} />}
+            >
+              Edit
+            </Button>
+          ) : (
+            <Link
+              to={`${basePath}/roles/${encodeURIComponent(role.id)}/edit`}
+              className="role-inspector-action"
+            >
+              <Pencil size={13} strokeWidth={1.7} />
+              Edit
+            </Link>
           )}
-          {!isVacant && !occupantDisplayName && (
-            <p className="role-inspector-holder">Held by {heldByLabel} · see ID below</p>
-          )}
-          {isVacant && <p className="role-inspector-holder">Seat open</p>}
+          <Link
+            to={`${basePath}/roles/${encodeURIComponent(role.id)}/invite`}
+            className="role-inspector-action role-inspector-action--primary"
+          >
+            <Mail size={13} strokeWidth={1.7} />
+            {isVacant ? "Invite" : "Reassign"}
+          </Link>
         </div>
       </header>
 
