@@ -10,6 +10,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
 import { timeShort } from "@/lib/format";
+import { formatHeroClock } from "@/lib/i18n";
 import { getInboxSignal, visibleInboxSignalLabel } from "@/lib/inboxState";
 import type { InboxItem } from "@/lib/api";
 import type { Role, Trust } from "@/lib/types";
@@ -22,7 +23,6 @@ import { pickFeaturedRole } from "./startPageUtils";
 import "@/styles/roles.css";
 
 const INBOX_PREVIEW_LIMIT = 4;
-const HERO_STATUS_LINE = "aeqi v0.1 · alpha · online";
 
 export default function StartPage() {
   const navigate = useNavigate();
@@ -34,12 +34,18 @@ export default function StartPage() {
   const fetchInbox = useInboxStore((s) => s.fetchInbox);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [heroClock, setHeroClock] = useState(() => new Date());
 
   useEffect(() => {
     fetchInbox().catch(() => {
       // The inbox store owns error presentation; Home keeps the preview quiet.
     });
   }, [fetchInbox]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setHeroClock(new Date()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const activeTrust = useMemo(() => {
     if (activeEntityId) {
@@ -79,6 +85,8 @@ export default function StartPage() {
     () => user?.name?.trim() || user?.email?.split("@")[0] || "Operator",
     [user],
   );
+  const actorEmail = user?.email?.trim() || "Personal command surface";
+  const heroClockLine = useMemo(() => formatHeroClock(heroClock), [heroClock]);
 
   const trustNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -126,9 +134,10 @@ export default function StartPage() {
               <UserAvatar name={actorName} size={64} src={user?.avatar_url} />
             </span>
             <div className="home-hero-text">
-              <p className="home-hero-eyebrow">Operator shell</p>
-              <h1 className="home-hero-title">{actorName}</h1>
-              <p className="home-hero-subtitle">{HERO_STATUS_LINE}</p>
+              <p className="home-hero-eyebrow">{heroClockLine}</p>
+              <h1 className="home-hero-title">Welcome back</h1>
+              <p className="home-hero-subtitle">{actorName}</p>
+              <p className="home-hero-email">{actorEmail}</p>
             </div>
           </div>
         </div>

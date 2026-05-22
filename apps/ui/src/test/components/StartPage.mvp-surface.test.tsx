@@ -180,9 +180,14 @@ describe("StartPage MVP surface", () => {
     const primary = within(trustSection).getByRole("link", { name: /launch trust/i });
     const secondary = within(trustSection).getByRole("link", { name: /browse blueprints/i });
 
-    expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
-    expect(screen.getByText("Operator shell")).toBeInTheDocument();
-    expect(screen.getByText("aeqi v0.1 · alpha · online")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Welcome back" })).toBeInTheDocument();
+    expect(screen.getByText("Ada Founder")).toBeInTheDocument();
+    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Operator shell")).not.toBeInTheDocument();
+    expect(screen.queryByText(/aeqi v0\.1/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
     expect(screen.getByText("No active TRUST")).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
@@ -203,10 +208,15 @@ describe("StartPage MVP surface", () => {
     const { container } = renderStartPage();
     const trustSection = screen.getByRole("region", { name: "Operating context" });
 
-    expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Welcome back" })).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
-    expect(screen.getByText("Operator shell")).toBeInTheDocument();
-    expect(screen.getByText("aeqi v0.1 · alpha · online")).toBeInTheDocument();
+    expect(screen.getByText("Ada Founder")).toBeInTheDocument();
+    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Operator shell")).not.toBeInTheDocument();
+    expect(screen.queryByText(/aeqi v0\.1/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
 
     expect(

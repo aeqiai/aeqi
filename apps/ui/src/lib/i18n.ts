@@ -37,6 +37,16 @@ export const DATE_FORMATS = {
     hour: "2-digit",
     minute: "2-digit",
   },
+  heroClockDate: {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  },
+  heroClockTime: {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  },
 } as const satisfies Record<string, Intl.DateTimeFormatOptions>;
 
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
@@ -83,6 +93,16 @@ export function formatDateTimeWithSeconds(value: DateInput, config?: FormatConfi
 
 export function formatShortTime(value: DateInput, config?: FormatConfig): string {
   return formatDate(value, DATE_FORMATS.shortTime, config);
+}
+
+export function formatHeroClock(value: DateInput, config: FormatConfig = {}): string {
+  const date = toDate(value);
+  if (!date) return config.fallback ?? "—";
+  return `${formatDate(date, DATE_FORMATS.heroClockDate, config)} - ${formatDate(
+    date,
+    DATE_FORMATS.heroClockTime,
+    config,
+  )}`;
 }
 
 export function formatNumber(

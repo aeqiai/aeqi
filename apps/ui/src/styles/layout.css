@@ -8533,7 +8533,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 .home-hero-eyebrow {
@@ -9170,8 +9170,18 @@ button.home-card:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.home-hero-email {
+  margin: 0;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 }
 
 .home-row-trusts {
@@ -9923,7 +9933,8 @@ button.home-card:focus-visible {
 }
 
 @media (max-width: 720px) {
-  .home-hero-subtitle {
+  .home-hero-subtitle,
+  .home-hero-email {
     white-space: normal;
   }
   .home-context-title {
