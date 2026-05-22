@@ -160,24 +160,25 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--bg-row);
+  position: relative;
+  overflow: hidden;
   transition:
     background 0.12s ease,
-    box-shadow 0.12s ease,
-    transform 0.12s ease;
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .inbox-shell .sessions-rail-row:hover,
 .inbox-shell .sessions-rail-row:focus-visible {
-  background: var(--bg-row);
-  filter: brightness(1.02);
+  background: var(--color-card-subtle);
+  border-color: var(--border-faint);
   box-shadow: none;
 }
 
 .inbox-shell .sessions-rail-row.active {
-  background: var(--color-card);
-  box-shadow:
-    0 0 0 2px var(--accent-dim),
-    var(--shadow-sm);
+  background: var(--color-card-elevated);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-hover);
 }
 
 .inbox-shell .sessions-rail-row--multi {
@@ -208,6 +209,14 @@
   width: 6px;
   height: 6px;
   margin-top: 6px;
+}
+
+.inbox-shell .sessions-rail-row.active .sessions-rail-row-status {
+  background: var(--accent);
+}
+
+.inbox-shell .sessions-rail-row.active .sessions-rail-row-secondary {
+  color: var(--color-text-primary);
 }
 
 .inbox-shell .sessions-rail-row-time {

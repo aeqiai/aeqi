@@ -108,6 +108,7 @@ export default function MeInboxPage() {
   const allItems = useInboxStore((s) => s.items);
   const loading = useInboxStore((s) => s.loading);
   const pending = useInboxStore((s) => s.pendingDismissal);
+  const fetchInbox = useInboxStore((s) => s.fetchInbox);
   const answerItem = useInboxStore((s) => s.answerItem);
   const dismissItem = useInboxStore((s) => s.dismissItem);
   const entities = useDaemonStore((s) => s.entities);
@@ -273,6 +274,10 @@ export default function MeInboxPage() {
   useEffect(() => {
     document.title = "aeqi";
   }, []);
+
+  useEffect(() => {
+    void fetchInbox();
+  }, [fetchInbox]);
 
   // ── Per-selection message fetch ──────────────────────────────────────
   // Loads the trailing N messages for the selected session. Was inlined
