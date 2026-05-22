@@ -17,6 +17,18 @@ const NO_SESSIONS: SessionInfo[] = [];
 
 const DEFAULT_FILTER: SessionsFilterState = { status: "all" };
 
+function sessionStatusLabel(status: string | undefined): string {
+  if (!status) return "Session";
+  if (status === "running") return "Active";
+  const label = status.replace(/_/g, " ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function messageCountLabel(count: number | undefined): string | null {
+  if (!count || count <= 0) return null;
+  return `${count} message${count === 1 ? "" : "s"}`;
+}
+
 /**
  * Sessions rail — the left-adjacent index column for the drilled-agent
  * inbox. Renders the canonical `<SessionsToolbar>` (search + sort +
@@ -77,6 +89,10 @@ export default function SessionsRail() {
         return {
           id: s.id,
           primary: sessionLabel(s),
+          secondary: [sessionStatusLabel(s.status), messageCountLabel(s.message_count)]
+            .filter(Boolean)
+            .join(" · "),
+          wrapPrimary: true,
           time: timeShort(tsRaw ?? null),
           status: s.status,
           awaiting: awaitingSessionIds.has(s.id),
@@ -130,7 +146,7 @@ export default function SessionsRail() {
         rows={rows}
         selectedId={itemId ?? null}
         onSelect={handleSelect}
-        density="compact"
+        density="comfortable"
         surface="card"
         streamingIds={streamingSessions}
         emptyTitle={emptyTitle}

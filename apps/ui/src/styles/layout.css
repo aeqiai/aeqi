@@ -1261,10 +1261,10 @@
   background: transparent;
 }
 
-/* Sessions rail — the Inbox's left-side index column, now embedded
-   inside the content card (below the topbar, above the composer). The
-   right-hand hairline keeps it reading as the index pane of a
-   master/detail pair. */
+/* Sessions rail — legacy shell wrapper for the drilled-agent inbox.
+   The chat-specific rule below upgrades this into the same white-card
+   master column used by `/inbox`; the base shape stays quiet for any
+   future non-chat shell adopter. */
 .sessions-rail-col {
   width: var(--sidebar-panel-width);
   flex-shrink: 0;
@@ -1274,6 +1274,29 @@
   background: var(--color-card);
   box-shadow: inset -1px 0 0 var(--border);
   border-radius: 0;
+}
+
+/* Drilled-agent inbox = the same master/detail geometry as `/inbox`:
+   a raised white rail card with recessed row cards, then the recessed
+   conversation canvas to the right. */
+.content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) {
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) .sessions-rail-col {
+  width: clamp(300px, 32vw, 420px);
+  min-width: 280px;
+  background: var(--color-card-elevated);
+  box-shadow: var(--card-elevation);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed)
+  .sessions-rail-col
+  .sessions-toolbar {
+  flex-shrink: 0;
 }
 @media (max-width: 768px) {
   .sessions-rail-col {
