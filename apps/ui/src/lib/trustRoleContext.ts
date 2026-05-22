@@ -29,7 +29,8 @@ export interface TrustMapNode {
   y: number;
   width: number;
   height: number;
-  segment: AuthoritySegment | null;
+  kind: "self" | "trust";
+  trust: Trust | null;
   routeIds: string[];
   primaryContextId: string;
   terminalContextIds: string[];
@@ -40,7 +41,9 @@ export interface TrustMapEdge {
   from: string;
   to: string;
   routeIds: string[];
+  role: Role | null;
   relation: AuthoritySegment["relation"];
+  label: string;
 }
 
 export interface TrustMapLayout {
@@ -54,22 +57,31 @@ export interface TrustMapLayout {
 export const SELF_NODE_ID = "actor:self";
 
 const MAX_ROUTE_DEPTH = 4;
-const MAP_NODE_WIDTH = 212;
-const MAP_NODE_HEIGHT = 76;
+const MAP_NODE_WIDTH = 278;
+const MAP_NODE_HEIGHT = 96;
 const MAP_SELF_WIDTH = 156;
 const MAP_SELF_HEIGHT = 68;
-const MAP_LAYER_GAP = 248;
-const MAP_SIBLING_COLUMN_GAP = 56;
-const MAP_ROW_GAP = 106;
-const MAP_X_PAD = 32;
-const MAP_Y_PAD = 36;
+const MAP_ROLE_CARD_HEIGHT = 92;
+const MAP_LAYER_GAP = 342;
+const MAP_SIBLING_COLUMN_GAP = 84;
+const MAP_ROW_GAP = 300;
+const MAP_X_PAD = 52;
+const MAP_Y_PAD = 52;
 const MAP_MAX_ROWS_PER_COLUMN = 4;
 
-export function buildTrustMapLayout(contexts: RoleContextOption[]): TrustMapLayout {
+export function buildTrustMapLayout(
+  contexts: RoleContextOption[],
+  trusts: Trust[] = [],
+): TrustMapLayout {
   const nodeMap = new Map<string, TrustMapNode>();
   const edgeMap = new Map<string, TrustMapEdge>();
-  const layerBuckets = new Map<number, TrustMapNode[]>();
   const sortedContexts = [...contexts].sort(compareRoleContexts);
+  const trustById = new Map<string, Trust>();
+  for (const trust of trusts) trustById.set(trust.id, trust);
+  for (const context of sortedContexts) {
+    trustById.set(context.trust.id, context.trust);
+    for (const segment of context.route) trustById.set(segment.trust.id, segment.trust);
+  }
 
   nodeMap.set(SELF_NODE_ID, {
     id: SELF_NODE_ID,
@@ -78,61 +90,103 @@ export function buildTrustMapLayout(contexts: RoleContextOption[]): TrustMapLayo
     y: MAP_Y_PAD,
     width: MAP_SELF_WIDTH,
     height: MAP_SELF_HEIGHT,
-    segment: null,
+    kind: "self",
+    trust: null,
     routeIds: sortedContexts.map((ctx) => ctx.id),
     primaryContextId: sortedContexts[0]?.id ?? "",
     terminalContextIds: [],
   });
 
+  const ensureTrustNode = (
+    trust: Trust,
+    layer: number,
+    contextId: string,
+    terminal: boolean,
+  ): TrustMapNode => {
+    const id = trustNodeId(trust.id);
+    const existing = nodeMap.get(id);
+    if (existing) {
+      existing.layer = Math.min(existing.layer, layer);
+      if (!existing.routeIds.includes(contextId)) existing.routeIds.push(contextId);
+      if (terminal && !existing.terminalContextIds.includes(contextId)) {
+        existing.terminalContextIds.push(contextId);
+      }
+      existing.height = trustNodeHeight(existing.terminalContextIds.length);
+      return existing;
+    }
+
+    const node: TrustMapNode = {
+      id,
+      layer,
+      x: MAP_X_PAD + MAP_SELF_WIDTH + 72 + (layer - 1) * MAP_LAYER_GAP,
+      y: MAP_Y_PAD,
+      width: MAP_NODE_WIDTH,
+      height: trustNodeHeight(terminal ? 1 : 0),
+      kind: "trust",
+      trust,
+      routeIds: [contextId],
+      primaryContextId: contextId,
+      terminalContextIds: terminal ? [contextId] : [],
+    };
+    nodeMap.set(id, node);
+    return node;
+  };
+
+  const upsertEdge = (
+    from: string,
+    to: string,
+    contextId: string,
+    role: Role | null,
+    relation: AuthoritySegment["relation"],
+    label: string,
+  ) => {
+    const edgeId = role ? `${from}->${to}:${role.id}` : `${from}->${to}:identity`;
+    const edge = edgeMap.get(edgeId);
+    if (edge) {
+      if (!edge.routeIds.includes(contextId)) edge.routeIds.push(contextId);
+      return;
+    }
+    edgeMap.set(edgeId, {
+      id: edgeId,
+      from,
+      to,
+      routeIds: [contextId],
+      role,
+      relation,
+      label,
+    });
+  };
+
   for (const context of sortedContexts) {
     let previous = SELF_NODE_ID;
     context.route.forEach((segment, index) => {
-      const id = routeNodeId(segment, index);
-      const layer = index + 1;
+      let layer = index + 1;
+      if (index === 0 && segment.role.occupant_kind === "trust" && segment.role.occupant_id) {
+        const originTrust = trustById.get(segment.role.occupant_id);
+        if (originTrust) {
+          const origin = ensureTrustNode(originTrust, 1, context.id, false);
+          upsertEdge(SELF_NODE_ID, origin.id, context.id, null, "identity", "");
+          previous = origin.id;
+          layer = 2;
+        }
+      }
       const terminal = index === context.route.length - 1;
-      const existing = nodeMap.get(id);
-      if (existing) {
-        existing.routeIds.push(context.id);
-        if (terminal) existing.terminalContextIds.push(context.id);
-      } else {
-        const node: TrustMapNode = {
-          id,
-          layer,
-          x: MAP_X_PAD + MAP_SELF_WIDTH + 48 + (layer - 1) * MAP_LAYER_GAP,
-          y: MAP_Y_PAD,
-          width: MAP_NODE_WIDTH,
-          height: MAP_NODE_HEIGHT,
-          segment,
-          routeIds: [context.id],
-          primaryContextId: context.id,
-          terminalContextIds: terminal ? [context.id] : [],
-        };
-        nodeMap.set(id, node);
-        const bucket = layerBuckets.get(layer) ?? [];
-        bucket.push(node);
-        layerBuckets.set(layer, bucket);
-      }
-
-      const edgeId = `${previous}->${id}`;
-      const edge = edgeMap.get(edgeId);
-      if (edge) {
-        edge.routeIds.push(context.id);
-      } else {
-        edgeMap.set(edgeId, {
-          id: edgeId,
-          from: previous,
-          to: id,
-          routeIds: [context.id],
-          relation: segment.relation,
-        });
-      }
-      previous = id;
+      const node = ensureTrustNode(segment.trust, layer, context.id, terminal);
+      upsertEdge(previous, node.id, context.id, segment.role, segment.relation, segment.role.title);
+      previous = node.id;
     });
   }
 
   let maxLayer = 0;
   let maxHeight = MAP_Y_PAD * 2 + MAP_SELF_HEIGHT;
   let nextLayerX = MAP_X_PAD + MAP_SELF_WIDTH + 48;
+  const layerBuckets = new Map<number, TrustMapNode[]>();
+  for (const node of nodeMap.values()) {
+    if (node.kind === "self") continue;
+    const bucket = layerBuckets.get(node.layer) ?? [];
+    bucket.push(node);
+    layerBuckets.set(node.layer, bucket);
+  }
   for (const [layer, nodes] of [...layerBuckets.entries()].sort((a, b) => a[0] - b[0])) {
     maxLayer = Math.max(maxLayer, layer);
     nodes.sort(compareMapNodes);
@@ -142,14 +196,14 @@ export function buildTrustMapLayout(contexts: RoleContextOption[]): TrustMapLayo
       const column = Math.floor(index / rowsPerColumn);
       const row = index % rowsPerColumn;
       node.x = nextLayerX + column * (MAP_NODE_WIDTH + MAP_SIBLING_COLUMN_GAP);
-      node.y = MAP_Y_PAD + row * MAP_ROW_GAP + column * Math.floor(MAP_ROW_GAP / 2);
+      node.y = MAP_Y_PAD + row * MAP_ROW_GAP + column * Math.floor(MAP_ROW_GAP / 3);
       maxHeight = Math.max(maxHeight, node.y + MAP_NODE_HEIGHT + MAP_Y_PAD);
     });
     nextLayerX +=
       columns * MAP_NODE_WIDTH + Math.max(0, columns - 1) * MAP_SIBLING_COLUMN_GAP + MAP_LAYER_GAP;
   }
 
-  const height = Math.max(380, maxHeight);
+  const height = Math.max(540, maxHeight);
   const self = nodeMap.get(SELF_NODE_ID);
   if (self) {
     self.y = Math.max(MAP_Y_PAD, Math.floor(height / 2 - MAP_SELF_HEIGHT / 2));
@@ -295,11 +349,18 @@ function compareRoleContexts(a: RoleContextOption, b: RoleContextOption) {
 }
 
 function compareMapNodes(a: TrustMapNode, b: TrustMapNode) {
-  const left = a.segment;
-  const right = b.segment;
-  return [left?.trust.name ?? "", left?.role.title ?? "", a.id]
-    .join(":")
-    .localeCompare([right?.trust.name ?? "", right?.role.title ?? "", b.id].join(":"));
+  const left = a.trust;
+  const right = b.trust;
+  return [left?.name ?? "", a.id].join(":").localeCompare([right?.name ?? "", b.id].join(":"));
+}
+
+function trustNodeId(trustId: string) {
+  return `trust:${trustId}`;
+}
+
+function trustNodeHeight(roleCount: number) {
+  if (roleCount <= 0) return MAP_NODE_HEIGHT;
+  return MAP_NODE_HEIGHT + Math.min(roleCount, 3) * MAP_ROLE_CARD_HEIGHT;
 }
 
 function contextSortKey(ctx: RoleContextOption) {

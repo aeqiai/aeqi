@@ -1,7 +1,7 @@
 import { ArrowRight, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import TrustAvatar from "@/components/TrustAvatar";
-import RoleContextCard from "@/components/trust/RoleContextCard";
+import TrustRoleOptionCard from "@/components/trust/TrustRoleOptionCard";
 import type { RoleContextOption } from "@/lib/trustRoleContext";
 import type { Role, Trust } from "@/lib/types";
 
@@ -24,6 +24,7 @@ interface OperatingContextCardProps {
   ctaLabel?: string;
   emptyActionTo?: string;
   emptyActionLabel?: string;
+  inlineLabel?: string;
   className?: string;
 }
 
@@ -41,6 +42,7 @@ export default function OperatingContextCard({
   ctaLabel = "Your TRUSTs",
   emptyActionTo = "/launch",
   emptyActionLabel = "Launch TRUST",
+  inlineLabel = "Current role",
   className,
 }: OperatingContextCardProps) {
   const contextTrust = roleContext?.trust ?? activeTrust;
@@ -57,13 +59,13 @@ export default function OperatingContextCard({
           <TrustAvatar name={contextTrust?.name ?? "TRUST"} size={32} />
         </span>
         <span className="trust-context-active-copy">
-          <span className="trust-context-kicker">Acting as</span>
+          <span className="trust-context-kicker">{inlineLabel}</span>
           <span className="trust-context-active-title">
             {contextTrust && contextRole
               ? `${contextRole.title} in ${contextTrust.name}`
               : contextTrust
-                ? `${contextTrust.name} has no assumable role loaded`
-                : "Choose an assumable role"}
+                ? `${contextTrust.name} has no role loaded`
+                : "Choose a role"}
           </span>
         </span>
       </div>
@@ -108,20 +110,12 @@ export default function OperatingContextCard({
           </Link>
         </header>
         <div className="home-context-representation" aria-label="Active TRUST role representation">
-          <div className="home-context-identity">
-            <span className="home-context-avatar" aria-hidden="true">
-              <TrustAvatar name={contextTrust.name} size={52} />
-            </span>
-            <div className="home-context-copy">
-              <span className="home-context-kicker">Active TRUST</span>
-              <h3 className="home-context-title">{contextTrust.name}</h3>
-            </div>
-          </div>
           {contextRole ? (
-            <RoleContextCard
+            <TrustRoleOptionCard
               trust={contextTrust}
               role={contextRole}
               roleContext={roleContext}
+              trustLabel="Active TRUST"
               agentName={
                 contextRole.occupant_id ? agentNames?.get(contextRole.occupant_id) : undefined
               }
@@ -130,6 +124,8 @@ export default function OperatingContextCard({
             />
           ) : (
             <div className="home-context-role-empty">
+              <span className="home-context-kicker">Active TRUST</span>
+              <h3 className="home-context-title">{contextTrust.name}</h3>
               <span className="home-context-role-empty-title">
                 {rolesLoading ? "Loading role" : "No active role"}
               </span>

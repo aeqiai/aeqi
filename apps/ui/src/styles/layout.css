@@ -9299,9 +9299,8 @@ button.home-card:focus-visible {
   background: var(--bg-row);
 }
 
-.home-context-role-card.role-context-card {
+.home-context-role-card.trust-role-option-card {
   width: 100%;
-  min-height: 86px;
 }
 
 .home-context-role-empty {
@@ -9636,6 +9635,91 @@ button.role-context-card:disabled {
 
 .role-context-card--map .role-context-card-holder {
   display: none;
+}
+
+.trust-role-option-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  color: var(--color-text-primary);
+}
+
+.trust-role-option-card.is-active-path {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.trust-role-option-card.is-selected {
+  border-color: var(--color-accent);
+  box-shadow:
+    0 0 0 1px var(--color-accent),
+    0 0 14px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.trust-role-option-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.trust-role-option-card-avatar {
+  display: inline-flex;
+}
+
+.trust-role-option-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trust-role-option-card-kicker,
+.trust-role-option-card-copy h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trust-role-option-card-kicker {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.trust-role-option-card-copy h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  font-weight: 650;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+}
+
+.trust-role-option-card-role.role-context-card {
+  width: 100%;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--bg-row);
+}
+
+.trust-role-option-card--map {
+  gap: 8px;
+  padding: 10px;
+}
+
+.trust-role-option-card--map .trust-role-option-card-head {
+  gap: 8px;
+}
+
+.trust-role-option-card--map .trust-role-option-card-role.role-context-card {
+  min-height: 80px;
+  padding: 10px;
 }
 
 .home-card--launch {
@@ -10254,7 +10338,7 @@ button.role-context-card:disabled {
     padding: 10px;
   }
 
-  .home-context-role-card.role-context-card,
+  .home-context-role-card.trust-role-option-card,
   .home-context-role-empty {
     padding: 12px;
   }
@@ -10268,10 +10352,8 @@ button.role-context-card:disabled {
   }
 }
 
-/* ── Trust context router — `/trust`.
-   The selectable unit is a role context: final role + TRUST + authority route.
-   The layout stays table-like and auditable so the graph never becomes
-   decorative. ── */
+/* ── TRUST role map — `/trust`.
+   TRUST identities are nodes; roles are the connecting edges. ── */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -10364,8 +10446,7 @@ button.role-context-card:disabled {
   padding-left: var(--space-6);
 }
 
-.trust-context-filters,
-.trust-context-toolbar-stats {
+.trust-context-filters {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -10384,33 +10465,6 @@ button.role-context-card:disabled {
   background: var(--color-card-elevated);
   border-color: var(--color-text-primary);
   color: var(--color-text-primary);
-}
-
-.trust-context-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 78px;
-  min-height: var(--input-h);
-  justify-content: center;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius-sm);
-  background: var(--input-bg);
-}
-
-.trust-context-metric strong {
-  font-size: var(--font-size-md);
-  line-height: 1;
-  color: var(--color-text-primary);
-}
-
-.trust-context-metric span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
 }
 
 .trust-context-enter {
@@ -10446,7 +10500,7 @@ button.role-context-card:disabled {
 
 .trust-context-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(288px, 328px);
   gap: var(--space-3);
   min-height: 0;
   padding: 0 var(--space-6) var(--space-6);
@@ -10455,7 +10509,7 @@ button.role-context-card:disabled {
 .trust-context-canvas,
 .trust-context-inspector {
   min-width: 0;
-  min-height: 520px;
+  min-height: 660px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-card-elevated);
@@ -10465,41 +10519,30 @@ button.role-context-card:disabled {
   overflow: hidden;
 }
 
-.trust-context-map {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.trust-context-map-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.trust-context-map-hint {
-  flex-shrink: 0;
-  padding-top: 2px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
 .trust-context-map-viewport {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 660px;
+  overflow: hidden;
   background: var(--bg-row);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.trust-context-map-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
 }
 
 .trust-context-map-stage {
   position: relative;
   width: var(--trust-map-width);
-  min-width: 100%;
   height: var(--trust-map-height);
-  min-height: 380px;
+  flex-shrink: 0;
 }
 
 .trust-context-map-edges {
@@ -10513,23 +10556,40 @@ button.role-context-card:disabled {
 .trust-context-map-edge {
   fill: none;
   stroke: var(--color-text-muted);
-  stroke-width: 1.4;
+  stroke-width: 1.25;
   stroke-dasharray: 5 5;
-  opacity: 0.45;
+  stroke-linecap: round;
+  opacity: 0.42;
   transition:
     opacity 0.12s ease,
     stroke 0.12s ease,
     stroke-width 0.12s ease;
 }
 
-.trust-context-map-edge--direct {
+.trust-context-map-edge--role {
   stroke-dasharray: none;
+  opacity: 0.66;
+}
+
+.trust-context-map-edge--identity {
+  opacity: 0.24;
 }
 
 .trust-context-map-edge.is-active {
   stroke: var(--color-accent);
-  stroke-width: 2.2;
+  stroke-width: 2.4;
   opacity: 1;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 26%, transparent));
+}
+
+.trust-context-map-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .trust-context-map-node {
@@ -10538,14 +10598,14 @@ button.role-context-card:disabled {
   flex-direction: column;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: 14px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-card-elevated);
   color: var(--color-text-primary);
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
   transition:
     border-color 0.12s ease,
     box-shadow 0.12s ease,
@@ -10560,17 +10620,20 @@ button.role-context-card:disabled {
 
 .trust-context-map-node.is-active-path {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  box-shadow:
+    0 0 0 1px var(--color-accent),
+    0 0 14px color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
 .trust-context-map-node.is-selected {
-  background: var(--color-text-primary);
-  border-color: var(--color-text-primary);
-  color: var(--btn-primary-text);
+  background: var(--color-card-elevated);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
 }
 
 .trust-context-map-node--self {
   background: var(--color-card-muted);
+  cursor: pointer;
 }
 
 .trust-context-map-node-kicker {
@@ -10592,6 +10655,39 @@ button.role-context-card:disabled {
   min-width: 0;
 }
 
+.trust-context-map-node-head-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trust-context-map-role-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.trust-context-map-role-card.trust-role-option-card {
+  width: 100%;
+}
+
+.trust-context-map-role-more {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+  color: var(--color-text-secondary);
+}
+
 .trust-context-map-node-copy {
   display: flex;
   flex-direction: column;
@@ -10600,8 +10696,7 @@ button.role-context-card:disabled {
 }
 
 .trust-context-map-node-title,
-.trust-context-map-node-meta,
-.trust-context-map-node-foot span {
+.trust-context-map-node-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -10619,16 +10714,7 @@ button.role-context-card:disabled {
 }
 
 .trust-context-map-node.is-selected .trust-context-map-node-meta,
-.trust-context-map-node.is-selected .trust-context-map-node-foot,
 .trust-context-map-node.is-selected .trust-context-map-node-kicker {
-  color: var(--btn-primary-text);
-}
-
-.trust-context-map-node-foot {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
@@ -10740,10 +10826,6 @@ button.role-context-card:disabled {
   .trust-context-workbench {
     grid-template-columns: 1fr;
   }
-
-  .trust-context-toolbar-stats {
-    display: none;
-  }
 }
 
 @media (max-width: 760px) {
@@ -10777,11 +10859,7 @@ button.role-context-card:disabled {
     min-height: 560px;
   }
 
-  .trust-context-map-head {
-    flex-direction: column;
-  }
-
   .trust-context-map-viewport {
-    max-height: 460px;
+    min-height: 560px;
   }
 }

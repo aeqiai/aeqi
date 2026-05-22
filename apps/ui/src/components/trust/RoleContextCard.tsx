@@ -78,7 +78,7 @@ export default function RoleContextCard({
         ? `${routeDepth} steps`
         : terminalCount > 1
           ? `${terminalCount} routes`
-          : "Assumable";
+          : "Available";
   const body = (
     <>
       <span className="role-context-card-head">
