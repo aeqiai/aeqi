@@ -1,4 +1,3 @@
-import { useCallback, useState } from "react";
 import { FolderOpen, Plus } from "lucide-react";
 import { Button, Icon } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
@@ -22,6 +21,8 @@ import StatusDot from "./StatusDot";
  */
 export default function QuestList({
   groups,
+  collapsedStatuses,
+  onToggleStatus,
   optimistic,
   focusId,
   totalCount,
@@ -37,6 +38,8 @@ export default function QuestList({
   childCounts,
 }: {
   groups: Array<{ status: QuestStatus; label: string; quests: Quest[] }>;
+  collapsedStatuses: Partial<Record<QuestStatus, boolean>>;
+  onToggleStatus: (status: QuestStatus) => void;
   optimistic: Record<string, QuestStatus>;
   focusId: string | null;
   totalCount: number;
@@ -51,15 +54,6 @@ export default function QuestList({
   users: Pick<User, "id" | "name" | "email" | "avatar_url">[];
   childCounts: Map<string, number>;
 }) {
-  // Per-group collapsed state. Empty groups stay hidden entirely; the
-  // four canonical statuses (todo / in progress / blocked / done) all
-  // render their headers when non-empty so the list mirrors the board's
-  // left-to-right reading order.
-  const [collapsed, setCollapsed] = useState<Partial<Record<QuestStatus, boolean>>>({});
-  const toggle = useCallback((s: QuestStatus) => {
-    setCollapsed((prev) => ({ ...prev, [s]: !prev[s] }));
-  }, []);
-
   // Tick the "X ago" labels on each row once a minute.
   useRelativeNow();
 
@@ -105,8 +99,7 @@ export default function QuestList({
         <span>Updated</span>
       </div>
       {groups.map((group) => {
-        if (group.quests.length === 0) return null;
-        const isCollapsed = !!collapsed[group.status];
+        const isCollapsed = !!collapsedStatuses[group.status];
         return (
           <section key={group.status} className="ideas-list-group" data-status={group.status}>
             <div className="ideas-list-group-head">
@@ -114,7 +107,7 @@ export default function QuestList({
                 type="button"
                 className="ideas-list-group-toggle"
                 aria-expanded={!isCollapsed}
-                onClick={() => toggle(group.status)}
+                onClick={() => onToggleStatus(group.status)}
               >
                 <svg
                   className={`ideas-list-group-chevron${isCollapsed ? "" : " is-open"}`}
@@ -146,133 +139,137 @@ export default function QuestList({
             </div>
             {!isCollapsed && (
               <div className="ideas-list-group-body">
-                {group.quests.map((q) => {
-                  const status = optimistic[q.id] ?? q.status;
-                  const isFocused = focusId === q.id;
-                  const childCount = childCounts.get(q.id) ?? 0;
-                  return (
-                    <div
-                      key={q.id}
-                      className={`ideas-list-row${isFocused ? " focus" : ""}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onPick(q.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onPick(q.id);
-                        }
-                      }}
-                    >
-                      <div className="ideas-list-row-head quest-list-row-head">
-                        <span className="quest-list-row-main">
-                          <StatusDot status={status} />
-                          <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
-                          {childCount > 0 && (
-                            <span
-                              className="quest-child-count"
-                              aria-label={`${childCount} subquests`}
-                            >
-                              <Icon icon={FolderOpen} size="xs" />
-                              {childCount}
-                            </span>
-                          )}
-                          {q.kind === "project" && (
-                            <span
-                              className="quest-kind-chip quest-kind-chip--project"
-                              title="Project — container of sub-Quests"
-                            >
-                              project
-                            </span>
-                          )}
-                          {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
-                          <PriorityIcon priority={q.priority} />
-                          {q.cost_usd > 0 && (
-                            <span
-                              className="quest-cost-chip"
-                              title={`Inference cost across all sessions on this ${q.kind === "project" ? "project" : "quest"}`}
-                            >
-                              ${q.cost_usd.toFixed(2)}
-                            </span>
-                          )}
-                          {status !== "in_progress" &&
-                            status !== "in_review" &&
-                            status !== "done" &&
-                            status !== "cancelled" && (
-                              <button
-                                type="button"
-                                className="quest-take-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onTake(q.id);
-                                }}
+                {group.quests.length === 0 ? (
+                  <div className="quest-list-empty-row">No {group.label.toLowerCase()} quests</div>
+                ) : (
+                  group.quests.map((q) => {
+                    const status = optimistic[q.id] ?? q.status;
+                    const isFocused = focusId === q.id;
+                    const childCount = childCounts.get(q.id) ?? 0;
+                    return (
+                      <div
+                        key={q.id}
+                        className={`ideas-list-row${isFocused ? " focus" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onPick(q.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onPick(q.id);
+                          }
+                        }}
+                      >
+                        <div className="ideas-list-row-head quest-list-row-head">
+                          <span className="quest-list-row-main">
+                            <StatusDot status={status} />
+                            <span className="ideas-list-row-name">{q.idea?.name ?? q.id}</span>
+                            {childCount > 0 && (
+                              <span
+                                className="quest-child-count"
+                                aria-label={`${childCount} subquests`}
                               >
-                                Take
-                              </button>
+                                <Icon icon={FolderOpen} size="xs" />
+                                {childCount}
+                              </span>
                             )}
-                        </span>
-                        <span className="quest-list-row-meta">
-                          <span
-                            className="ideas-list-row-assignee"
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          >
-                            <AssigneePicker
-                              assignee={q.assignee}
-                              agents={agents}
-                              users={users}
-                              onChange={(next) => onAssigneeChange(q.id, next)}
-                              renderTrigger={({ open, display }) => (
+                            {q.kind === "project" && (
+                              <span
+                                className="quest-kind-chip quest-kind-chip--project"
+                                title="Project — container of sub-Quests"
+                              >
+                                project
+                              </span>
+                            )}
+                            {q.scope && q.scope !== "self" && <QuestScopeChip scope={q.scope} />}
+                            <PriorityIcon priority={q.priority} />
+                            {q.cost_usd > 0 && (
+                              <span
+                                className="quest-cost-chip"
+                                title={`Inference cost across all sessions on this ${q.kind === "project" ? "project" : "quest"}`}
+                              >
+                                ${q.cost_usd.toFixed(2)}
+                              </span>
+                            )}
+                            {status !== "in_progress" &&
+                              status !== "in_review" &&
+                              status !== "done" &&
+                              status !== "cancelled" && (
                                 <button
                                   type="button"
-                                  className={`quest-row-assignee quest-row-assignee--labeled${
-                                    open ? " open" : ""
-                                  }`}
-                                  aria-haspopup="dialog"
-                                  aria-expanded={open}
-                                  aria-label={
-                                    display
-                                      ? `Assigned to ${display.name}. Click to reassign.`
-                                      : "Unassigned. Click to assign."
-                                  }
-                                  title={display ? `Assigned to ${display.name}` : "Unassigned"}
+                                  className="quest-take-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTake(q.id);
+                                  }}
                                 >
-                                  <AssigneeAvatar
-                                    assignee={q.assignee}
-                                    agents={agents}
-                                    users={users}
-                                    size={18}
-                                  />
-                                  <span className="quest-row-assignee-name">
-                                    {display?.name ?? "Unassigned"}
-                                  </span>
+                                  Take
                                 </button>
                               )}
-                            />
                           </span>
-                          {q.due_at ? (
+                          <span className="quest-list-row-meta">
                             <span
-                              className={`quest-due-chip${
-                                isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""
-                              }`}
-                              title={`Due ${formatDateTime(q.due_at)}`}
+                              className="ideas-list-row-assignee"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                             >
-                              {dueLabel(q.due_at)}
+                              <AssigneePicker
+                                assignee={q.assignee}
+                                agents={agents}
+                                users={users}
+                                onChange={(next) => onAssigneeChange(q.id, next)}
+                                renderTrigger={({ open, display }) => (
+                                  <button
+                                    type="button"
+                                    className={`quest-row-assignee quest-row-assignee--labeled${
+                                      open ? " open" : ""
+                                    }`}
+                                    aria-haspopup="dialog"
+                                    aria-expanded={open}
+                                    aria-label={
+                                      display
+                                        ? `Assigned to ${display.name}. Click to reassign.`
+                                        : "Unassigned. Click to assign."
+                                    }
+                                    title={display ? `Assigned to ${display.name}` : "Unassigned"}
+                                  >
+                                    <AssigneeAvatar
+                                      assignee={q.assignee}
+                                      agents={agents}
+                                      users={users}
+                                      size={18}
+                                    />
+                                    <span className="quest-row-assignee-name">
+                                      {display?.name ?? "Unassigned"}
+                                    </span>
+                                  </button>
+                                )}
+                              />
                             </span>
-                          ) : (
-                            <span className="quest-due-chip quest-due-chip--empty">No due</span>
-                          )}
-                          {q.updated_at && (
-                            <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
-                          )}
-                          {!q.updated_at && (
-                            <span className="ideas-list-row-time quest-list-time-empty">--</span>
-                          )}
-                        </span>
+                            {q.due_at ? (
+                              <span
+                                className={`quest-due-chip${
+                                  isOverdue(q.due_at) ? " quest-due-chip--overdue" : ""
+                                }`}
+                                title={`Due ${formatDateTime(q.due_at)}`}
+                              >
+                                {dueLabel(q.due_at)}
+                              </span>
+                            ) : (
+                              <span className="quest-due-chip quest-due-chip--empty">No due</span>
+                            )}
+                            {q.updated_at && (
+                              <span className="ideas-list-row-time">{timeAgo(q.updated_at)}</span>
+                            )}
+                            {!q.updated_at && (
+                              <span className="ideas-list-row-time quest-list-time-empty">--</span>
+                            )}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             )}
           </section>

@@ -18,6 +18,8 @@ import QuestBoardNoMatches from "./QuestBoardNoMatches";
 import QuestColumnEmptyState, { COLLAPSIBLE_STATUSES } from "./QuestColumnEmptyState";
 import QuestBoardScope from "./QuestBoardScope";
 import {
+  QUEST_ACTIVE_COLUMNS,
+  QUEST_ALL_COLUMNS,
   importQuestFromMarkdown,
   isDirectChildOf,
   questParentId,
@@ -146,6 +148,12 @@ export default function QuestBoard({
   const toggleColumn = useCallback((status: QuestStatus) => {
     setCollapsedCols((prev) => ({ ...prev, [status]: !prev[status] }));
   }, []);
+  const [collapsedListGroups, setCollapsedListGroups] = useState<
+    Partial<Record<QuestStatus, boolean>>
+  >({});
+  const toggleListGroup = useCallback((status: QuestStatus) => {
+    setCollapsedListGroups((prev) => ({ ...prev, [status]: !prev[status] }));
+  }, []);
   // Keyboard-navigation focus. Separate from DOM focus so j/k can traverse
   // cards even when the board root has programmatic focus — and so Esc can
   // clear the outline without blurring anything visible.
@@ -216,21 +224,7 @@ export default function QuestBoard({
   // on the board, top-to-bottom in the list view.
   // When `splitLayout` is on, Backlog and Cancelled get demoted into
   // collapsible strips below the main board — see the JSX below the grid.
-  const columns: Array<{ status: QuestStatus; label: string }> = splitLayout
-    ? [
-        { status: "todo", label: "Todo" },
-        { status: "in_progress", label: "In progress" },
-        { status: "in_review", label: "In review" },
-        { status: "done", label: "Done" },
-      ]
-    : [
-        { status: "backlog", label: "Backlog" },
-        { status: "todo", label: "Todo" },
-        { status: "in_progress", label: "In progress" },
-        { status: "in_review", label: "In review" },
-        { status: "done", label: "Done" },
-        { status: "cancelled", label: "Cancelled" },
-      ];
+  const columns = splitLayout ? QUEST_ACTIVE_COLUMNS : QUEST_ALL_COLUMNS;
 
   // Bucket the already-sorted source by displayed status. Stable sort
   // means within-column order honors the active sort mode without a
@@ -252,7 +246,10 @@ export default function QuestBoard({
     }
     return buckets;
   }, [sortedVisibleQuests, optimistic]);
-  const scopeSummary = { columns, grouped, collapsed: collapsedCols, onToggle: toggleColumn };
+  const scopeSummary =
+    view === "list"
+      ? { columns, grouped, collapsed: collapsedListGroups, onToggle: toggleListGroup }
+      : { columns, grouped, collapsed: collapsedCols, onToggle: toggleColumn };
   const hasSearch = search.trim().length > 0;
   const hasBoardNarrowing = scopeFilter !== "all" || !!boardScopeId;
 
@@ -457,6 +454,8 @@ export default function QuestBoard({
             label: col.label,
             quests: grouped[col.status] || [],
           }))}
+          collapsedStatuses={collapsedListGroups}
+          onToggleStatus={toggleListGroup}
           optimistic={optimistic}
           focusId={focusId}
           totalCount={sortedVisibleQuests.length}

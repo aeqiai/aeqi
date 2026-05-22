@@ -4931,12 +4931,11 @@
   padding: 6px 14px 14px;
 }
 
-/* List-view groups — same four buckets as the board (Todo / In progress
-   / Blocked / Done), stacked vertically with a collapsible header per
-   group. Header sits at `--bg-row` (slab #ededf0) so it reads as a
-   clear tier below the card surface, distinct from the soft hover
-   tint on individual rows. Empty groups are skipped at the React
-   layer, so the header always anchors a non-empty section. */
+/* List-view groups — same status ladder as the board, stacked vertically
+   with a collapsible header per group. Header sits at `--bg-row` (slab
+   #ededf0) so it reads as a clear tier below the card surface, distinct
+   from the soft hover tint on individual rows. Empty groups stay visible
+   so the list never silently drops Backlog / In review / archive states. */
 .ideas-list-group {
   display: flex;
   flex-direction: column;
@@ -5080,6 +5079,15 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.quest-list-empty-row {
+  min-height: 32px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-card);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
 }
 .ideas-list-row-wrap {
   display: flex;

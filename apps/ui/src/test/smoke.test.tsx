@@ -12,6 +12,7 @@ import AgentOrgChart from "@/components/AgentOrgChart";
 import ShortcutsOverlay from "@/components/ShortcutsOverlay";
 import { agentKeys, entityKeys, runtimeKeys } from "@/queries/keys";
 import { api } from "@/lib/api";
+import type { Quest, QuestStatus, ScopeValue } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 import { useUIStore } from "@/store/ui";
 
@@ -65,6 +66,27 @@ function isLoopError(e: unknown): boolean {
 function LocationProbe() {
   const location = useLocation();
   return <div data-testid="location">{location.pathname}</div>;
+}
+
+function questFixture(
+  id: string,
+  name: string,
+  status: QuestStatus,
+  scope: ScopeValue = "self",
+  agentId = "root-1",
+): Quest {
+  return {
+    id,
+    idea_id: `idea-${id}`,
+    status,
+    priority: "normal",
+    agent_id: agentId,
+    scope,
+    cost_usd: 0,
+    created_at: "2026-05-16T00:00:00Z",
+    updated_at: "2026-05-16T00:00:00Z",
+    idea: { id: `idea-${id}`, name, content: "", tags: [] },
+  };
 }
 
 function ShellUnderTest() {
@@ -232,6 +254,94 @@ describe("AgentQuestsTab smoke", () => {
     expect(screen.getByRole("button", { name: /New subquest/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Clear scope/ })).toBeInTheDocument();
     expect(screen.getByText("Scope")).toBeInTheDocument();
+  });
+
+  it("list view keeps Backlog and In review visible", () => {
+    useDaemonStore.setState({
+      quests: [
+        questFixture("67-backlog", "Backlog quest", "backlog"),
+        questFixture("67-review", "Review quest", "in_review"),
+        questFixture("67-todo", "Todo quest", "todo"),
+      ] as never,
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/trust/root-1/quests?view=list"]}>
+          <Routes>
+            <Route
+              path="trust/:trustAddress/:tab/*"
+              element={<AgentQuestsTab agentId="root-1" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(screen.getAllByText("Backlog").length).toBeGreaterThan(0);
+    expect(screen.getByText("Backlog quest")).toBeInTheDocument();
+    expect(screen.getAllByText("In review").length).toBeGreaterThan(0);
+    expect(screen.getByText("Review quest")).toBeInTheDocument();
+  });
+
+  it("scope status toggles collapse matching list groups", () => {
+    useDaemonStore.setState({
+      quests: [
+        questFixture("67-review", "Review quest", "in_review"),
+        questFixture("67-done", "Done quest", "done"),
+      ] as never,
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/trust/root-1/quests?view=list"]}>
+          <Routes>
+            <Route
+              path="trust/:trustAddress/:tab/*"
+              element={<AgentQuestsTab agentId="root-1" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(screen.getByText("Review quest")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Hide In review column/ }));
+
+    expect(screen.queryByText("Review quest")).not.toBeInTheDocument();
+    expect(screen.getByText("Done quest")).toBeInTheDocument();
+  });
+
+  it("visibility scope filter applies in list view", () => {
+    useDaemonStore.setState({
+      quests: [
+        questFixture("67-self", "Role quest", "todo", "self"),
+        questFixture("67-global", "TRUST quest", "todo", "global", undefined),
+      ] as never,
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={["/trust/root-1/quests?view=list"]}>
+          <Routes>
+            <Route
+              path="trust/:trustAddress/:tab/*"
+              element={<AgentQuestsTab agentId="root-1" />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    expect(screen.getByText("Role quest")).toBeInTheDocument();
+    expect(screen.getByText("TRUST quest")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Filter"));
+    fireEvent.click(screen.getByRole("radio", { name: /TRUST/ }));
+
+    expect(screen.queryByText("Role quest")).not.toBeInTheDocument();
+    expect(screen.getByText("TRUST quest")).toBeInTheDocument();
   });
 
   it("does not log a React error during render", () => {

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
 import { QUEST_SORT_MODES, type QuestSort } from "./QuestsSortPopover";
-import type { Quest, QuestPriority, ScopeValue } from "@/lib/types";
+import type { Quest, QuestPriority, QuestStatus, ScopeValue } from "@/lib/types";
 import { matchesVisibilityFilter } from "../ideas/types";
 
 export const PRIORITY_RANK: Record<QuestPriority, number> = {
@@ -10,6 +10,19 @@ export const PRIORITY_RANK: Record<QuestPriority, number> = {
   normal: 2,
   low: 3,
 };
+
+export const QUEST_ACTIVE_COLUMNS: Array<{ status: QuestStatus; label: string }> = [
+  { status: "todo", label: "Todo" },
+  { status: "in_progress", label: "In progress" },
+  { status: "in_review", label: "In review" },
+  { status: "done", label: "Done" },
+];
+
+export const QUEST_ALL_COLUMNS: Array<{ status: QuestStatus; label: string }> = [
+  { status: "backlog", label: "Backlog" },
+  ...QUEST_ACTIVE_COLUMNS,
+  { status: "cancelled", label: "Cancelled" },
+];
 
 export const byUpdatedDesc = (a: Quest, b: Quest) =>
   (b.updated_at || "").localeCompare(a.updated_at || "");
