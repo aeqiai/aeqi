@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { Bot, Landmark } from "lucide-react";
 import type { Role } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -17,37 +17,9 @@ export interface RoleNodeProps {
    * cross-zone connector geometry (director → operational lines). */
   nodeRef?: (el: HTMLButtonElement | null) => void;
   /** True when every governance edge touching this node is synthesized
-   *  (no `role_edges` wiring). Set on the director side when every
-   *  outbound director→operational edge is synthesized, and on the
-   *  apex-operator side when every inbound director→operator edge is
-   *  synthesized — so the implication reads bidirectionally on canvas.
-   *  The tile renders a quiet "implicit" hint in the head row and a
-   *  quieter selected state, mirroring the dashed cross-edges shipped
-   *  in cycle 2 and the inspector's implicit chip treatment. Without
-   *  this flag, an apex operator under implicit governance looks
-   *  identical to one with explicit director delegates. */
+   *  (no `role_edges` wiring). The node keeps a quieter selected state,
+   *  but the tile does not render provenance copy. */
   implicit?: boolean;
-  /** True when this tile is the counterpart endpoint of the currently
-   *  active focal beam — i.e. the user is hovering the implicit hint on
-   *  the OTHER end of a dashed cross-zone edge that touches this tile.
-   *  Director-side beam (hovered director hint) sets this on each apex
-   *  operator the director governs implicitly; operator-side beam
-   *  (hovered operator hint) sets this on each director governing the
-   *  operator implicitly. Closes the bidirectional tile↔edge coupling
-   *  gap: c7/c8 wired the EDGES, c10 wires the receiving TILE so the
-   *  inbound endpoint visibly participates in the focal story instead
-   *  of sitting silent under a lit-up beam. */
-  focalCounterpart?: boolean;
-  /** Fired when the head-row "implicit" hint receives or loses
-   *  hover/focus. RolesChart wires this on BOTH ends of an implicit
-   *  governance edge: on directors (c7) to scope the brighten effect
-   *  to dashed cross-edges leaving THIS director, and on apex operators
-   *  (c8) to scope it to dashed cross-edges INBOUND to THIS operator.
-   *  The two beams are mutually exclusive — entering one hint clears
-   *  the other — so only one focal story plays at a time. Mirrors the
-   *  c6 inspector chip-fade so chart and inspector tell the same focal
-   *  story bidirectionally. */
-  onImplicitHintHover?: (hovering: boolean) => void;
 }
 
 const AVATAR_SIZE = 32;
@@ -85,8 +57,6 @@ export default function RoleNode({
   style,
   nodeRef,
   implicit = false,
-  focalCounterpart = false,
-  onImplicitHintHover,
 }: RoleNodeProps) {
   // Entity name lookup for `occupant_kind === "trust"` holders (parent
   // holding's TRUST in a Director / board seat). Falls back to "a TRUST"
@@ -96,43 +66,6 @@ export default function RoleNode({
     if (role.occupant_kind !== "trust" || !role.occupant_id) return undefined;
     return entities.find((e) => e.id === role.occupant_id)?.name;
   }, [entities, role.occupant_id, role.occupant_kind]);
-
-  // 200ms hover-out grace on the implicit hint (c11). A quick mouse jitter
-  // between the small "implicit" label and the surrounding tile body used
-  // to strobe the focal beam — mouseLeave fired on the hint as the cursor
-  // crossed into adjacent padding/title pixels, clearing
-  // hoveredImplicitDir/Op for a frame before mouseEnter re-fired. The
-  // delay swallows those sub-perceptual gaps; the cancel-on-re-enter
-  // guarantees a sustained hover holds the beam without a stale clear
-  // landing later. Cleared on unmount so an unmounting tile mid-grace
-  // doesn't leave the parent stuck in the focal state.
-  const hoverGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (hoverGraceRef.current !== null) {
-        clearTimeout(hoverGraceRef.current);
-        hoverGraceRef.current = null;
-      }
-    };
-  }, []);
-  const handleImplicitHintEnter = useCallback(() => {
-    if (!onImplicitHintHover) return;
-    if (hoverGraceRef.current !== null) {
-      clearTimeout(hoverGraceRef.current);
-      hoverGraceRef.current = null;
-    }
-    onImplicitHintHover(true);
-  }, [onImplicitHintHover]);
-  const handleImplicitHintLeave = useCallback(() => {
-    if (!onImplicitHintHover) return;
-    if (hoverGraceRef.current !== null) {
-      clearTimeout(hoverGraceRef.current);
-    }
-    hoverGraceRef.current = setTimeout(() => {
-      hoverGraceRef.current = null;
-      onImplicitHintHover(false);
-    }, 200);
-  }, [onImplicitHintHover]);
 
   const occupant = describeOccupant(role, agentName, entityName);
   const isVacant = role.occupant_kind === "vacant";
@@ -149,7 +82,6 @@ export default function RoleNode({
     selected ? "is-selected" : "",
     onClick ? "is-clickable" : "",
     implicit ? "role-node--implicit" : "",
-    focalCounterpart ? "role-node--focal-counterpart" : "",
     className ?? "",
   ]
     .filter(Boolean)
@@ -171,26 +103,6 @@ export default function RoleNode({
          even when the occupant rotates. */}
       <span className="role-node-head">
         <span className="role-node-title">{role.title || "Untitled"}</span>
-        {implicit && (
-          /* "implicit" tag — sits beside the authority pill on directors
-             whose governance edges are all synthesized. Lowercase italic
-             marker mirrors `.role-inspector-edge-hint` so the canvas
-             tells the same provenance story the inspector does.
-             Hover/focus on this hint scopes a brighten effect to the
-             dashed cross-edges touching THIS node — outbound on
-             directors (c7) and inbound on apex operators (c8) — so the
-             chart tells the same focal story the c6 inspector tells
-             about explicit-vs-implicit relationships, in both
-             directions. */
-          <span
-            className="role-node-edge-hint"
-            aria-label="Implicit governance"
-            onMouseEnter={onImplicitHintHover ? handleImplicitHintEnter : undefined}
-            onMouseLeave={onImplicitHintHover ? handleImplicitHintLeave : undefined}
-          >
-            implicit
-          </span>
-        )}
         <span className={`role-node-pill role-node-pill--${pillTone(role)}`} aria-hidden>
           {pillLabel(role)}
         </span>

@@ -24,27 +24,13 @@ interface CrossConnector {
   y1: number;
   x2: number;
   y2: number;
-  /** Explicit edges come from `role_edges` data — they were wired by an
-   *  operator and read as solid ink. Implicit edges are synthesized
-   *  (director → apex operator) when no explicit governance wiring
-   *  exists; they render dashed + muted to match the inspector's
-   *  implicit chip treatment so canvas and inspector tell the same
-   *  story about edge provenance. */
+  /** Explicit edges come from `role_edges` data and render as solid ink.
+   *  Synthesized director → apex-operator edges render dashed and muted,
+   *  without visible provenance copy. */
   implicit: boolean;
-  /** Director role id that originates this edge. Carried on the
-   *  connector so hover on a director's "implicit" head-row hint can
-   *  scope the brighten-stroke effect to just the dashed edges leaving
-   *  THAT director — mirrors the c6 inspector hover (which fades
-   *  explicit chips for the focused row) so canvas and inspector tell
-   *  the same focal story bidirectionally. */
+  /** Director role id that originates this edge. */
   directorId: string;
-  /** Apex-operator role id that terminates this edge. Mirror of
-   *  `directorId` for the operator side: hover on an apex operator's
-   *  "implicit" head-row hint scopes the brighten-stroke effect to
-   *  just the dashed edges INBOUND to THAT operator (c8). Completes
-   *  the bidirectional inspector↔chart correspondence — the c7
-   *  outbound beam from directors now has a matching inbound beam
-   *  into operators. */
+  /** Apex-operator role id that terminates this edge. */
   operatorId: string;
 }
 
@@ -109,16 +95,13 @@ export default function RolesChart({
   //
   // When the data has explicit director→operational edges, draw those.
   // When it doesn't (very common — Foundation TRUSTs rarely encode the
-  // implicit "board governs leadership" relation as an edge), synthesize
+  // board-governs-leadership relation as an edge), synthesize
   // a connection from each director to each operational APEX role
   // (roles with no operational parent). The relationship is structural,
   // not data-driven, and not showing it makes the board look orphaned.
   // Each cross-zone edge carries an `implicit` flag so downstream
-  // rendering can distinguish wired governance from synthesized
-  // governance. The inspector already encodes this distinction via
-  // chip variants; the canvas should too — otherwise a quick glance
-  // at the chart misreads "definitely wired" for what is in fact
-  // "structurally implied because the schema is empty here".
+  // rendering can draw synthesized connectors more quietly without
+  // turning them into role-detail facts.
   const crossEdges = useMemo<Array<RoleEdge & { implicit: boolean }>>(() => {
     if (directors.length === 0 || operational.length === 0) return [];
     // Apex = operational roles with no operational parent.
@@ -139,12 +122,9 @@ export default function RolesChart({
     );
 
     // Per-director synthesis of director→APEX coverage. For each director,
-    // fill in implicit edges to every apex operator the director has NOT
+    // fill in synthesized edges to every apex operator the director has NOT
     // explicitly wired. A director with zero explicit edges gets full
-    // implicit fan-out (current cycle-2 behaviour). A director with
-    // explicit edges to every apex gets none. A director with explicit
-    // edges to a subset gets the "partial implicit" mix the c5 tooltip
-    // surfaces in the inspector.
+    // fan-out. A director with explicit edges to every apex gets none.
     const explicitApexByDir = new Map<string, Set<string>>();
     for (const e of explicitEdges) {
       if (!apexIds.has(e.child_role_id)) continue;
@@ -168,12 +148,8 @@ export default function RolesChart({
   }, [edges, directorIds, opIds, directors, operational]);
 
   // Director IDs whose governance edges to the operational tree are
-  // ALL synthesized (no explicit wiring). RoleNode uses this to render
-  // a quieter selected ring + a small "implicit" head-row hint, so
-  // governance-by-implication is legible on the node itself — not just
-  // on the cross-edge stroke. Pairs with the dashed/muted edge variant
-  // shipped in cycle 2 and the inspector's implicit chip/hint pair so
-  // inspector / canvas / node all carry the same provenance signal.
+  // all synthesized. RoleNode uses this only for a quieter selected ring;
+  // no provenance copy is rendered in the tile.
   const implicitDirectorIds = useMemo<Set<string>>(() => {
     const ids = new Set<string>();
     for (const e of crossEdges) {
@@ -190,13 +166,7 @@ export default function RolesChart({
   }, [crossEdges]);
 
   // Operator IDs whose inbound governance edges from the director roster
-  // are ALL synthesized — the apex-operator mirror of `implicitDirectorIds`.
-  // Without this, an apex operator under an implicit-governance board
-  // looks identical to one whose director->operator delegation is wired
-  // in `role_edges`. The dashed cross-edge already tells the story for
-  // the line; the receiving node should carry the same provenance hint
-  // so the implication reads bidirectionally on canvas — director AND
-  // apex both marked implicit, mirroring the inspector's chip treatment.
+  // are all synthesized — the apex-operator mirror of `implicitDirectorIds`.
   const implicitOperatorIds = useMemo<Set<string>>(() => {
     const ids = new Set<string>();
     for (const e of crossEdges) {
@@ -204,8 +174,7 @@ export default function RolesChart({
       ids.add(e.child_role_id);
     }
     // Any explicit inbound governance edge promotes the operator out of
-    // the implicit set — explicit wiring wins, matching the director
-    // rule above.
+    // the synthesized set — explicit wiring wins, matching the director rule.
     for (const e of crossEdges) {
       if (!e.implicit) ids.delete(e.child_role_id);
     }
@@ -223,46 +192,6 @@ export default function RolesChart({
   );
   const [crossConnectors, setCrossConnectors] = useState<CrossConnector[]>([]);
   const [stackSize, setStackSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
-  // Director role id whose head-row "implicit" hint is currently
-  // hovered/focused. Drives a scoped highlight on the dashed cross-edges
-  // originating from that director — mirrors the c6 inspector hover
-  // (which fades explicit chips for the focused row) so the chart
-  // surface tells the same focal story when a board node is interrogated.
-  // null = no scoped highlight; default dashed treatment paints.
-  const [hoveredImplicitDir, setHoveredImplicitDir] = useState<string | null>(null);
-  // Apex-operator role id whose head-row "implicit" hint is currently
-  // hovered/focused. Mirror of `hoveredImplicitDir` for the operator
-  // side — scopes the brighten/dim treatment to dashed cross-edges
-  // INBOUND to THAT operator. Completes the bidirectional inspector↔
-  // chart correspondence: c7 wired the director-side outbound beam,
-  // c8 wires the operator-side inbound beam. The two are mutually
-  // exclusive — entering one hint clears the other — so only one
-  // focal story plays at a time.
-  const [hoveredImplicitOp, setHoveredImplicitOp] = useState<string | null>(null);
-
-  // Counterpart tiles for the active focal beam (c10) — when a director's
-  // implicit hint is hovered, the apex operators that receive its dashed
-  // edges should pulse a subtler tile-level echo so the inbound endpoint
-  // is visibly part of the focal story, not just the line. Mirror on the
-  // operator side: hovering an apex operator's hint pulses the originating
-  // directors. Closes the bidirectional tile↔edge coupling gap — c7/c8
-  // wired the edges; without this the receiving tile sits silent while
-  // its incoming beam lights up.
-  const focalCounterpartIds = useMemo<Set<string>>(() => {
-    const ids = new Set<string>();
-    if (hoveredImplicitDir !== null) {
-      for (const e of crossEdges) {
-        if (!e.implicit) continue;
-        if (e.parent_role_id === hoveredImplicitDir) ids.add(e.child_role_id);
-      }
-    } else if (hoveredImplicitOp !== null) {
-      for (const e of crossEdges) {
-        if (!e.implicit) continue;
-        if (e.child_role_id === hoveredImplicitOp) ids.add(e.parent_role_id);
-      }
-    }
-    return ids;
-  }, [crossEdges, hoveredImplicitDir, hoveredImplicitOp]);
 
   useLayoutEffect(() => {
     const stack = stackRef.current;
@@ -320,73 +249,34 @@ export default function RolesChart({
               const midX = (c.x1 + c.x2) / 2;
               const midY = (c.y1 + c.y2) / 2;
               const d = `M ${c.x1} ${c.y1} C ${c.x1} ${midY}, ${c.x2} ${midY}, ${c.x2} ${c.y2}`;
-              // Explicit edges = wired role_edges -> solid ink, no
-              // hedge. Implicit edges = structurally synthesized ->
-              // dashed + muted, labelled "implicit" so the canvas
-              // tells the same provenance story as the inspector.
-              //
-              // Scoped hover overlay: c7 wired the director-side
-              // outbound beam (`hoveredImplicitDir` -> edges leaving
-              // that director). c8 mirrors it on the operator side
-              // (`hoveredImplicitOp` -> edges inbound to that apex
-              // operator) so the inspector↔chart focal correspondence
-              // reads bidirectionally. The two hints are mutually
-              // exclusive in practice (entering one clears the other),
-              // but the match condition tolerates either being active:
-              // an edge is focused when EITHER endpoint hint targets
-              // it, dimmed when SOME hint is active but neither
-              // endpoint matches. Explicit edges are unaffected —
-              // hovering an implicit marker is about provenance, not
-              // action. The class suffix is applied to the whole <g>
-              // so the label pill can ride along.
-              const hoveringSomeHint = hoveredImplicitDir !== null || hoveredImplicitOp !== null;
-              const matchesDir = hoveredImplicitDir !== null && hoveredImplicitDir === c.directorId;
-              const matchesOp = hoveredImplicitOp !== null && hoveredImplicitOp === c.operatorId;
-              const isFocused = c.implicit && (matchesDir || matchesOp);
-              const isDimmed = c.implicit && hoveringSomeHint && !isFocused;
-              const focusClass = isFocused
-                ? " roles-chart-cross-edge-path--focused"
-                : isDimmed
-                  ? " roles-chart-cross-edge-path--dimmed"
-                  : "";
               const pathClass = c.implicit
-                ? `roles-chart-cross-edge-path roles-chart-cross-edge-path--implicit${focusClass}`
+                ? "roles-chart-cross-edge-path roles-chart-cross-edge-path--implicit"
                 : "roles-chart-cross-edge-path";
-              const groupClass = isFocused
-                ? "roles-chart-cross-edge--focused"
-                : isDimmed
-                  ? "roles-chart-cross-edge--dimmed"
-                  : undefined;
-              const label = c.implicit ? "implicit governance" : "delegates execution";
-              const labelW = c.implicit ? 132 : 128;
+              const label = "delegates execution";
+              const labelW = 128;
               return (
-                <g key={i} className={groupClass}>
+                <g key={i}>
                   <path d={d} className={pathClass} />
-                  {/* Label rendered as a paper-coloured pill in the middle
-                     of the line so the stroke visibly threads through it.
-                     For implicit edges the pill carries the provenance
-                     hint ("implicit governance") so a reader can see at
-                     a glance that the edge is inferred, not wired. */}
-                  <rect
-                    x={midX - labelW / 2}
-                    y={midY - 8}
-                    width={labelW}
-                    height={16}
-                    rx={8}
-                    className="roles-chart-cross-edge-label-bg"
-                  />
-                  <text
-                    x={midX}
-                    y={midY + 3}
-                    className={
-                      c.implicit
-                        ? "roles-chart-cross-edge-label roles-chart-cross-edge-label--implicit"
-                        : "roles-chart-cross-edge-label"
-                    }
-                    textAnchor="middle"
-                  >
-                    {label}
-                  </text>
+                  {!c.implicit && (
+                    <>
+                      <rect
+                        x={midX - labelW / 2}
+                        y={midY - 8}
+                        width={labelW}
+                        height={16}
+                        rx={8}
+                        className="roles-chart-cross-edge-label-bg"
+                      />
+                      <text
+                        x={midX}
+                        y={midY + 3}
+                        className="roles-chart-cross-edge-label"
+                        textAnchor="middle"
+                      >
+                        {label}
+                      </text>
+                    </>
+                  )}
                 </g>
               );
             })}
@@ -405,19 +295,6 @@ export default function RolesChart({
                   selected={r.id === selectedRoleId}
                   nodeRef={setNodeRef(r.id)}
                   implicit={implicitDirectorIds.has(r.id)}
-                  focalCounterpart={focalCounterpartIds.has(r.id)}
-                  onImplicitHintHover={
-                    implicitDirectorIds.has(r.id)
-                      ? (hovering) => {
-                          // Mutually exclusive with the operator-side
-                          // beam — entering the director hint clears
-                          // any active operator hint so only one focal
-                          // story plays at a time.
-                          if (hovering) setHoveredImplicitOp(null);
-                          setHoveredImplicitDir(hovering ? r.id : null);
-                        }
-                      : undefined
-                  }
                   style={{ width: NODE_W, height: NODE_H }}
                 />
               ))}
@@ -462,18 +339,6 @@ export default function RolesChart({
                   nodeRef={setNodeRef(n.role.id)}
                   className={n.layer === 0 ? "role-node--apex" : undefined}
                   implicit={implicitOperatorIds.has(n.role.id)}
-                  focalCounterpart={focalCounterpartIds.has(n.role.id)}
-                  onImplicitHintHover={
-                    implicitOperatorIds.has(n.role.id)
-                      ? (hovering) => {
-                          // Mirror of the director hint: mutually
-                          // exclusive with the director-side beam so
-                          // only one focal story plays at a time.
-                          if (hovering) setHoveredImplicitDir(null);
-                          setHoveredImplicitOp(hovering ? n.role.id : null);
-                        }
-                      : undefined
-                  }
                   style={{
                     position: "absolute",
                     left: n.x,

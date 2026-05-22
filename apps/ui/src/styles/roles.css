@@ -1498,14 +1498,8 @@
   color: var(--color-text-primary);
   text-decoration: none;
   /* Hover-in is delayed 80ms (see :hover rule); hover-out uses 0ms so the
-     chip falls back to rest immediately. Asymmetric delay swallows the
-     micro-flickers that fire when the cursor sweeps across a chip row
-     without resting on any single chip, while keeping the response
-     feeling instant on a deliberate hover. Mirrors the c11/c12 hover-
-     grace work on RoleNode + RoleInspector edge-hint, in CSS form.
-     :focus-visible + :active mirror the c17/c18/c19 focus-vocab sweep
-     (invite button, copy button, charter card, count-link) so every
-     clickable surface inside RoleInspector shares one ring + press. */
+     chip falls back to rest immediately. Asymmetric delay swallows brief
+     cursor sweeps across a chip row while keeping deliberate hover crisp. */
   transition:
     background 0.12s ease 0ms,
     color 0.12s ease 0ms,
@@ -1523,128 +1517,6 @@
 }
 .role-inspector-chip:active {
   transform: translateY(0.5px);
-}
-/* Implicit edge variant — the link is real (you can click through to
-   the inferred role) but the data underneath is synthesised, not
-   wired. Quieter background + secondary text colour so the eye
-   weights it below explicit chips on the same row. Pairs with the
-   "implicit" hint pill rendered alongside the chips. */
-.role-inspector-chip--implicit {
-  background: var(--color-card-subtle);
-  color: var(--color-text-secondary);
-}
-.role-inspector-chip--implicit:hover {
-  background: var(--color-card-muted);
-  color: var(--color-text-primary);
-  transition-delay: 80ms;
-}
-.role-inspector-edge-hint {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 6px;
-  height: 18px;
-  background: transparent;
-  color: var(--color-text-muted);
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: lowercase;
-  font-style: italic;
-  align-self: center;
-}
-/* Partial variant — a director with mixed delegation (some wired chips +
-   some synthesized apex destinations). The pill carries a "+n implicit"
-   count and a tooltip naming the synthesized roles, so the inspector
-   telegraphs the partial-synthesis state the chart was already drawing
-   silently as dashed edges. Subtle muted-tint background distinguishes
-   it from the bare-text fully-implicit hint above it on its own row. */
-.role-inspector-edge-hint--partial {
-  background: var(--color-card-subtle);
-  border-radius: 999px;
-  padding: 0 8px;
-  cursor: help;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
-}
-.role-inspector-edge-hint--partial:hover,
-.role-inspector-edge-hint--partial:focus-visible {
-  color: var(--color-text-secondary);
-  background: var(--color-card-muted);
-}
-.role-inspector-edge-hint--partial:focus-visible {
-  outline: 1px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* Ghost chips — implicit-destination chips kept in the DOM at rest in
-   a near-invisible state, then glow into view when the partial-implicit
-   pill is hovered. Compressed width + zero opacity at rest keeps the
-   inspector's resting visual weight identical to before; the hover
-   state names the count's referents in-place. */
-.role-inspector-chip--ghost {
-  background: var(--color-card-subtle);
-  color: var(--color-text-muted);
-  font-style: italic;
-  opacity: 0;
-  max-width: 0;
-  padding-inline: 0;
-  margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  pointer-events: none;
-  transition:
-    opacity 0.12s ease,
-    max-width 0.12s ease,
-    padding 0.12s ease,
-    color 0.12s ease,
-    background 0.12s ease;
-}
-.role-inspector-meta--ghost {
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  pointer-events: none;
-  transition:
-    opacity 0.12s ease,
-    max-width 0.12s ease;
-}
-
-/* Hover-driven inversion: when the partial-implicit pill is hovered
-   the field flips its emphasis — explicit chips fade to muted (they
-   are NOT what the pill is naming) while ghost chips glow up with
-   the implicit-destination titles. Transition matches the rest of
-   the inspector's 0.12s ease motion vocabulary. */
-/* Hover-in delay (80ms) on the emphasis-flip mirrors c13's chip-hover
-   grace: a brief cursor sweep across the small "+n implicit" pill
-   shouldn't half-trigger either half of the emphasis flip on its
-   release edge. Paired on both halves — explicit-chip fade AND
-   ghost-chip glow-in — so the flip commits in lockstep rather than
-   one half racing ahead. The c12 JS grace already covers hover-OUT
-   with a 200ms tail, so the in-delay only applies while the class
-   is being applied; when the class is removed, both chips fall back
-   to their base 0ms transition and snap back to rest together. */
-.role-inspector-field--implicit-hover .role-inspector-chip--explicit {
-  background: var(--color-card-subtle);
-  color: var(--color-text-muted);
-  opacity: 0.55;
-  transition-delay: 80ms;
-}
-.role-inspector-field--implicit-hover .role-inspector-chip--ghost {
-  opacity: 1;
-  max-width: 240px;
-  padding-inline: 10px;
-  color: var(--color-text-primary);
-  background: var(--color-card-muted);
-  pointer-events: auto;
-  transition-delay: 80ms;
-}
-.role-inspector-field--implicit-hover .role-inspector-meta--ghost {
-  opacity: 1;
-  max-width: 120px;
-  transition-delay: 80ms;
 }
 /* Inline count-link used on "Active quests" — a small numeric link
    that routes to the quests surface. Lives in the inspector's
