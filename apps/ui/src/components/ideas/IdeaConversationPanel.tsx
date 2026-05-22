@@ -196,38 +196,43 @@ export default function IdeaConversationPanel({
         </div>
       )}
 
-      <div className="idea-convo-head">
-        <div className="idea-convo-title">
-          <span>Comments</span>
-          <span className="idea-convo-section-count">{commentCount}</span>
-        </div>
-        <SubscribeBar
-          subscribed={subscribed}
-          onSubscribe={handleSubscribe}
-          disabled={!user?.id}
-          busy={subscribeBusy}
-        />
-      </div>
-
-      <section className="idea-convo-panel" aria-label="Comments">
-        {loadingComments ? (
-          <div className="idea-convo-loading">
-            <Loading size="sm" />
+      <section className="idea-convo-card idea-convo-card--comments" aria-label="Comments">
+        <div className="idea-convo-head">
+          <div className="idea-convo-title">
+            <span>Comments</span>
+            <span className="idea-convo-section-count">{commentCount}</span>
           </div>
-        ) : commentError ? (
-          <div className="idea-convo-error">{commentError}</div>
-        ) : (
-          <IdeaCommentsList rows={comments} trustId={trustId} />
-        )}
-        <IdeaCommentComposer
-          ideaId={ideaId}
-          onOptimistic={handleOptimistic}
-          onConfirm={handleConfirm}
-          onError={handleError}
-        />
+          <SubscribeBar
+            subscribed={subscribed}
+            onSubscribe={handleSubscribe}
+            disabled={!user?.id}
+            busy={subscribeBusy}
+          />
+        </div>
+
+        <div className="idea-convo-panel">
+          {loadingComments ? (
+            <div className="idea-convo-loading">
+              <Loading size="sm" />
+            </div>
+          ) : commentError ? (
+            <div className="idea-convo-error">{commentError}</div>
+          ) : (
+            <IdeaCommentsList rows={comments} trustId={trustId} />
+          )}
+          <IdeaCommentComposer
+            ideaId={ideaId}
+            onOptimistic={handleOptimistic}
+            onConfirm={handleConfirm}
+            onError={handleError}
+          />
+        </div>
       </section>
 
-      <section className="idea-convo-activity-peek" aria-label="Recent activity">
+      <section
+        className="idea-convo-card idea-convo-card--activity idea-convo-activity-peek"
+        aria-label="Recent activity"
+      >
         <div className="idea-convo-peek-head">
           <span>Activity</span>
           <span className="idea-convo-section-count">{activityCount}</span>

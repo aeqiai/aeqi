@@ -648,90 +648,95 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         </div>
       )}
       <div className="ideas-canvas-frame">
-        {error && <div className="ideas-canvas-error">{error}</div>}
-        <div className="ideas-tags-strip ideas-canvas-strip">
-          <TagsEditor
-            tags={inlineTags}
-            typed={typedTags}
-            suggestions={tagSuggestions}
-            onAdd={(t) => {
-              const next = [...typedTags, t];
-              setTypedTags(next);
-              markDirty();
-            }}
-            onRemove={(t) => {
-              if (typedTags.includes(t)) {
-                const next = typedTags.filter((x) => x !== t);
+        <div className="ideas-canvas-paper">
+          {error && <div className="ideas-canvas-error">{error}</div>}
+          <div className="ideas-tags-strip ideas-canvas-strip">
+            <TagsEditor
+              tags={inlineTags}
+              typed={typedTags}
+              suggestions={tagSuggestions}
+              onAdd={(t) => {
+                const next = [...typedTags, t];
                 setTypedTags(next);
                 markDirty();
-              }
-            }}
-          />
-          {isEdit && idea ? (
-            <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
-          ) : (
-            <RefsRow
-              candidates={ideas ?? []}
-              refs={pendingRefs}
-              onAdd={(target) =>
-                setPendingRefs((prev) =>
-                  prev.some((r) => r.target_id === target.id)
-                    ? prev
-                    : [...prev, { target_id: target.id, name: target.name, relation: "adjacent" }],
-                )
-              }
-              onRemove={({ target_id }) =>
-                setPendingRefs((prev) => prev.filter((r) => r.target_id !== target_id))
-              }
-            />
-          )}
-        </div>
-
-        <div className="ideas-canvas-content">
-          <input
-            ref={titleRef}
-            className="ideas-canvas-title"
-            type="text"
-            placeholder={isEdit ? "Untitled" : "Name this idea…"}
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              markDirty();
-            }}
-          />
-
-          {showDecisionBtns && (
-            <IdeaCanvasDecisionPanel
-              decisionState={decisionState}
-              decisionError={decisionError}
-              showRejectPanel={showRejectPanel}
-              setShowRejectPanel={setShowRejectPanel}
-              rejectRationale={rejectRationale}
-              setRejectRationale={setRejectRationale}
-              onPromote={handlePromote}
-              onReject={handleReject}
-            />
-          )}
-
-          {isEdit && idea && <IdeaPropertyChips ideaId={idea.id} properties={idea.properties} />}
-
-          <div className="ideas-canvas-body ideas-canvas-body-block">
-            <LazyBlockEditor
-              initialContent={idea?.content ?? content ?? null}
-              onChange={(json) => {
-                setContent(json);
-                markDirty();
               }}
-              placeholder={
-                isEdit ? "Keep writing…" : "Write the idea. Type / for blocks · #tag to tag"
-              }
-              autofocus={!isEdit && !!initialName && initialName.length > 0}
+              onRemove={(t) => {
+                if (typedTags.includes(t)) {
+                  const next = typedTags.filter((x) => x !== t);
+                  setTypedTags(next);
+                  markDirty();
+                }
+              }}
             />
+            {isEdit && idea ? (
+              <IdeaLinksPanel ideaId={idea.id} agentId={agentId} />
+            ) : (
+              <RefsRow
+                candidates={ideas ?? []}
+                refs={pendingRefs}
+                onAdd={(target) =>
+                  setPendingRefs((prev) =>
+                    prev.some((r) => r.target_id === target.id)
+                      ? prev
+                      : [
+                          ...prev,
+                          { target_id: target.id, name: target.name, relation: "adjacent" },
+                        ],
+                  )
+                }
+                onRemove={({ target_id }) =>
+                  setPendingRefs((prev) => prev.filter((r) => r.target_id !== target_id))
+                }
+              />
+            )}
           </div>
 
-          {isEdit && idea && (
-            <IdeaChildrenList ideaId={idea.id} agentId={agentId} scope={idea.scope} />
-          )}
+          <div className="ideas-canvas-content">
+            <input
+              ref={titleRef}
+              className="ideas-canvas-title"
+              type="text"
+              placeholder={isEdit ? "Untitled" : "Name this idea…"}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                markDirty();
+              }}
+            />
+
+            {showDecisionBtns && (
+              <IdeaCanvasDecisionPanel
+                decisionState={decisionState}
+                decisionError={decisionError}
+                showRejectPanel={showRejectPanel}
+                setShowRejectPanel={setShowRejectPanel}
+                rejectRationale={rejectRationale}
+                setRejectRationale={setRejectRationale}
+                onPromote={handlePromote}
+                onReject={handleReject}
+              />
+            )}
+
+            {isEdit && idea && <IdeaPropertyChips ideaId={idea.id} properties={idea.properties} />}
+
+            <div className="ideas-canvas-body ideas-canvas-body-block">
+              <LazyBlockEditor
+                initialContent={idea?.content ?? content ?? null}
+                onChange={(json) => {
+                  setContent(json);
+                  markDirty();
+                }}
+                placeholder={
+                  isEdit ? "Keep writing…" : "Write the idea. Type / for blocks · #tag to tag"
+                }
+                autofocus={!isEdit && !!initialName && initialName.length > 0}
+              />
+            </div>
+
+            {isEdit && idea && (
+              <IdeaChildrenList ideaId={idea.id} agentId={agentId} scope={idea.scope} />
+            )}
+          </div>
         </div>
         {/* Conversation panel — only shown when viewing an existing idea */}
         {isEdit && idea && (
