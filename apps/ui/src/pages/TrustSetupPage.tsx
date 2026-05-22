@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import { blueprintId } from "@/lib/blueprintId";
 import { DEFAULT_BLUEPRINT_SLUG } from "@/lib/blueprintDefaults";
+import { entityBasePath } from "@/lib/entityPath";
 import { goExternal } from "@/lib/navigation";
 import { DEFAULT_LAUNCH_PLAN, LAUNCH_PLANS, type LaunchPlanId } from "@/lib/pricing";
 import { RECOMMENDED_BLUEPRINTS } from "@/lib/recommendedBlueprints";
@@ -78,6 +79,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
 
   const fetchEntities = useDaemonStore((s) => s.fetchEntities);
   const entities = useDaemonStore((s) => s.entities);
+  const activeEntityId = useUIStore((s) => s.activeEntity);
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
@@ -104,6 +106,10 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   useEffect(() => {
     document.title = "aeqi";
   }, []);
+
+  useEffect(() => {
+    void fetchEntities();
+  }, [fetchEntities]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,6 +174,15 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const blueprintPath = blueprint
     ? `/blueprints/${encodeURIComponent(selectedBlueprintId)}`
     : "/blueprints";
+  const exitEntity = useMemo(() => {
+    if (isFirstRun) return null;
+    return (
+      (activeEntityId ? entities.find((entity) => entity.id === activeEntityId) : null) ??
+      entities[0] ??
+      null
+    );
+  }, [activeEntityId, entities, isFirstRun]);
+  const exitHref = exitEntity ? entityBasePath(exitEntity) : null;
 
   const nameHint = useMemo(() => {
     switch (nameCheck.status) {
@@ -354,6 +369,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       operations={operations}
       plan={plan}
       selectedLaunchPlan={selectedLaunchPlan}
+      exitHref={exitHref}
       canSubmit={canSubmit}
       submitting={submitting}
       onTrustNameChange={(value) => {

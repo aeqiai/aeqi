@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Banner, Button, EmptyState, Input, Loading } from "@/components/ui";
 import { countBlueprintStructures } from "@/lib/blueprintStructures";
@@ -20,6 +20,7 @@ interface TrustSetupFlowProps {
   operations: OperationsChoice;
   plan: LaunchPlanId;
   selectedLaunchPlan: LaunchPlan;
+  exitHref?: string | null;
   canSubmit: boolean;
   submitting: boolean;
   onTrustNameChange: (value: string) => void;
@@ -235,6 +236,7 @@ export function TrustSetupFlow({
   operations,
   plan,
   selectedLaunchPlan,
+  exitHref,
   canSubmit,
   submitting,
   onTrustNameChange,
@@ -243,7 +245,16 @@ export function TrustSetupFlow({
   onLaunch,
 }: TrustSetupFlowProps) {
   return (
-    <LaunchShell>
+    <LaunchShell mobileActionHref={exitHref} mobileActionLabel="Exit">
+      {exitHref && (
+        <div className="launch-flow-exit">
+          <Link to={exitHref} className="launch-exit-link">
+            <ArrowLeft size={14} strokeWidth={1.8} aria-hidden="true" />
+            <span>Back to TRUST</span>
+          </Link>
+        </div>
+      )}
+
       {submitError && (
         <div className="launch-flow-error">
           <Banner kind="error">{submitError}</Banner>

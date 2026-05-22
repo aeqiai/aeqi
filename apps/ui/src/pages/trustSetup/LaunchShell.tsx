@@ -37,6 +37,8 @@ export function LaunchShell({
   sideSlot,
   pitch,
   cardClassName = "",
+  mobileActionHref,
+  mobileActionLabel,
   ariaLive,
   ariaBusy,
 }: {
@@ -44,6 +46,8 @@ export function LaunchShell({
   sideSlot?: ReactNode;
   pitch?: LaunchPitchContent;
   cardClassName?: string;
+  mobileActionHref?: string | null;
+  mobileActionLabel?: string;
   ariaLive?: "off" | "polite" | "assertive";
   ariaBusy?: boolean;
 }) {
@@ -58,8 +62,8 @@ export function LaunchShell({
       </a>
       <AuthMobileNav
         ariaLabel="Launch navigation"
-        actionHref="/blueprints"
-        actionLabel="Blueprints"
+        actionHref={mobileActionHref ?? undefined}
+        actionLabel={mobileActionLabel}
         className="launch-mobile-nav"
       />
 
