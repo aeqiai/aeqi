@@ -1,14 +1,17 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { getIdeaGraph } from "@/api/ideas";
+import { getIdeaGraph, storeIdea } from "@/api/ideas";
+import { useCurrentTrust } from "@/hooks/useCurrentTrust";
 import { useNav } from "@/hooks/useNav";
-import { useAgentIdeas, useVisibleIdeas } from "@/queries/ideas";
+import { useAgentIdeas, useAgentIdeasCache, useVisibleIdeas } from "@/queries/ideas";
 import type { Idea } from "@/lib/types";
 import type { GraphNode, GraphEdge } from "./IdeaGraph";
 import IdeasListView from "./ideas/IdeasListView";
+import IdeasWorkspaceView from "./ideas/IdeasWorkspaceView";
 import type { IdeasView } from "./ideas/IdeasViewPopover";
 import { blockTreeToPlainText } from "./editor/blockEditorContent";
 import { Loading } from "./ui";
+import { findTrustRootIdea, trustRootProperties } from "./ideas/ideaTree";
 import {
   type FilterState,
   type IdeasFilter,
@@ -55,9 +58,13 @@ export default function AgentIdeasTab({
   scope?: "agent" | "entity";
 }) {
   const { goEntity, trustId } = useNav();
+  const { entity } = useCurrentTrust();
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
+  const { addIdea } = useAgentIdeasCache(agentId);
+  const rootCreateRef = useRef(false);
+  const [rootCreateError, setRootCreateError] = useState<string | null>(null);
   const view: IdeasView = ((): IdeasView => {
     const raw = searchParams.get("view");
     if (raw === "graph" || raw === "table") return raw;
@@ -131,6 +138,42 @@ export default function AgentIdeasTab({
   const visibleIdeas = useVisibleIdeas(scope === "entity");
   const ideasQuery = scope === "entity" ? visibleIdeas : agentIdeas;
   const { data: ideas = NO_IDEAS, isLoading: ideasLoading } = ideasQuery;
+  const trustName = (scope === "entity" ? entity?.name : null) || "TRUST";
+  const trustRootIdea = useMemo(
+    () => (scope === "entity" ? findTrustRootIdea(ideas, trustId) : null),
+    [ideas, scope, trustId],
+  );
+
+  useEffect(() => {
+    if (scope !== "entity" || ideasLoading || trustRootIdea || rootCreateRef.current || !trustId) {
+      return;
+    }
+    rootCreateRef.current = true;
+    setRootCreateError(null);
+    const name = trustName.trim() || "TRUST";
+    storeIdea({
+      name,
+      content: "",
+      tags: ["trust"],
+      scope: "global",
+      properties: trustRootProperties(trustId),
+    })
+      .then((res) => {
+        addIdea({
+          id: res.id,
+          name,
+          content: "",
+          tags: ["trust"],
+          scope: "global",
+          parent_idea_id: null,
+          properties: trustRootProperties(trustId),
+        });
+      })
+      .catch((error) => {
+        rootCreateRef.current = false;
+        setRootCreateError(error instanceof Error ? error.message : "Could not create TRUST root");
+      });
+  }, [scope, ideasLoading, trustRootIdea, trustId, trustName, addIdea]);
 
   // Apply scope + search + tag to the agent's ideas. The graph view
   // filters its own nodes against this same universe so the two views
@@ -321,6 +364,27 @@ export default function AgentIdeasTab({
     });
   };
 
+  const currentListSearch = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("compose");
+    params.delete("name");
+    params.delete("parent");
+    params.delete("folder");
+    if (params.get("view") === "list") params.delete("view");
+    const out: Record<string, string> = {};
+    for (const [key, value] of params.entries()) {
+      if (value) out[key] = value;
+    }
+    return out;
+  }, [searchParams]);
+
+  const openIdea = useCallback(
+    (ideaId: string) => {
+      goEntity(trustId, "ideas", ideaId, { search: currentListSearch() });
+    },
+    [goEntity, trustId, currentListSearch],
+  );
+
   // "+ New idea" — compose mode is an explicit search param so the default
   // no-itemId state stays on the inline picker. Optional `name` survives
   // the navigate so a create-from-query click lands on a pre-filled canvas.
@@ -330,27 +394,34 @@ export default function AgentIdeasTab({
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ name?: string; parentIdeaId?: string | null }>).detail;
       const name = detail?.name;
-      const parentIdeaId = detail?.parentIdeaId ?? activeFolderId;
+      const parentIdeaId =
+        detail?.parentIdeaId ??
+        (scope === "entity" ? selectedId || trustRootIdea?.id || activeFolderId : activeFolderId);
       const search: Record<string, string> = { compose: "1" };
       if (name) search.name = name;
       if (parentIdeaId) {
         search.parent = parentIdeaId;
-        search.folder = parentIdeaId;
+        if (scope !== "entity") search.folder = parentIdeaId;
       }
       goEntity(trustId, "ideas", undefined, { replace: true, search });
     };
     window.addEventListener("aeqi:new-idea", handler);
     return () => window.removeEventListener("aeqi:new-idea", handler);
-  }, [trustId, goEntity, activeFolderId]);
+  }, [trustId, goEntity, activeFolderId, scope, selectedId, trustRootIdea?.id]);
 
   const fireNewIdea = useCallback(
-    (name?: string, parentIdeaId: string | null = activeFolderId) =>
+    (
+      name?: string,
+      parentIdeaId: string | null = scope === "entity"
+        ? selectedId || trustRootIdea?.id || activeFolderId
+        : activeFolderId,
+    ) =>
       window.dispatchEvent(
         new CustomEvent("aeqi:new-idea", {
           detail: { ...(name ? { name } : {}), ...(parentIdeaId ? { parentIdeaId } : {}) },
         }),
       ),
-    [activeFolderId],
+    [activeFolderId, scope, selectedId, trustRootIdea?.id],
   );
 
   // Graph-mode keyboard: `n` / `l` while the canvas is focused so the user
@@ -423,6 +494,36 @@ export default function AgentIdeasTab({
   }
 
   const selected = selectedId ? ideas.find((i) => i.id === selectedId) : undefined;
+
+  if (scope === "entity") {
+    const presetName = composing ? (searchParams.get("name") ?? "") : "";
+    const composeParentId = composing
+      ? (searchParams.get("parent") ?? selectedId ?? trustRootIdea?.id ?? null)
+      : null;
+    return (
+      <IdeasWorkspaceView
+        agentId={agentId}
+        ideas={ideas}
+        filtered={filtered}
+        rootIdea={trustRootIdea}
+        selectedIdea={selected}
+        composing={composing}
+        presetName={presetName}
+        composeParentId={composeParentId}
+        trustName={trustName}
+        filter={filter}
+        scopeCounts={scopeCounts}
+        needsReviewCount={needsReviewCount}
+        view={view}
+        onViewChange={setView}
+        onFilter={setFilter}
+        onNew={fireNewIdea}
+        onSelect={openIdea}
+        preparingRoot={ideasLoading || (!trustRootIdea && !rootCreateError)}
+        rootError={rootCreateError}
+      />
+    );
+  }
 
   if (selected || composing) {
     const presetName = composing ? (searchParams.get("name") ?? "") : "";
