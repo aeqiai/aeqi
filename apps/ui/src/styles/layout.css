@@ -3846,7 +3846,7 @@
 .ideas-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
@@ -3877,8 +3877,9 @@
  * rest so the toolbar reads as a single set of related controls — the
  * search field and the ring of circles beside it wear the same fill and
  * hairline. Hover lifts to --bg-row + a darker border; open/active
- * states pick up the accent. 30px circle, aligned to the search field's
- * baseline.
+ * states pick up the accent. 40px rounded square, aligned to the search
+ * field's block height so product surfaces share the same stronger toolbar
+ * density as Quests.
  *
  * REUSE: this is the canonical "icon button matching input field" for
  * the ideas surface. Other surfaces should copy this pattern verbatim
@@ -3888,8 +3889,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   /* v5.1: icons read at full ink-text strength on the new white
      button surface. Pre-bump rest was --text-secondary (54%) ×
@@ -3899,7 +3900,7 @@
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -4669,13 +4670,15 @@
 .ideas-list-search {
   flex: 1;
   min-width: 0;
-  padding: 7px 28px 7px 30px;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 10px 32px 10px 34px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--input-radius, var(--radius-sm));
+  border-radius: var(--input-radius, var(--radius-md));
   outline: none;
   transition:
     border-color 0.15s,
@@ -4706,8 +4709,10 @@
 .ideas-list-search-glyph {
   position: absolute;
   top: 50%;
-  left: 10px;
+  left: 12px;
   transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
   color: var(--color-text-muted);
   pointer-events: none;
   transition: color 0.15s;
