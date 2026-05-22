@@ -4,7 +4,7 @@ import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import IdeaCanvas from "@/components/IdeaCanvas";
 import { formatDateTime } from "@/lib/i18n";
 import type { Idea } from "@/lib/types";
-import { Button, Icon, PrimitivePageHeader, Tooltip, Loading } from "../ui";
+import { Button, Icon, Tooltip, Loading } from "../ui";
 import IdeasToolbar from "./IdeasToolbar";
 import type { IdeasView } from "./IdeasViewPopover";
 import { buildWorkspaceTree, flattenIdeaTree, type IdeaTreeNode } from "./ideaTree";
@@ -125,9 +125,27 @@ export default function IdeasWorkspaceView({
 
   return (
     <div className="ideas-workspace">
-      <PrimitivePageHeader
-        title="Ideas"
-        actions={
+      <header className="ideas-workspace-head">
+        <h1>Ideas</h1>
+        <IdeasToolbar
+          filter={filter}
+          scopeCounts={scopeCounts}
+          needsReviewCount={needsReviewCount}
+          onFilter={onFilter}
+          view={view}
+          onViewChange={onViewChange}
+          searchInputRef={searchRef}
+          showKbdHint
+          inline
+          onSearchKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            const first = treeRows.find((row) => row.node.idea.id !== rootIdea?.id)?.node.idea;
+            if (first) onSelect(first.id);
+            else if (noMatchName) onNew(noMatchName, rootIdea?.id ?? null);
+          }}
+        />
+        <div className="ideas-workspace-head-actions">
           <Tooltip content={activeIdea ? `New under ${activeIdea.name}` : "New idea"}>
             <Button
               variant="primary"
@@ -139,25 +157,8 @@ export default function IdeasWorkspaceView({
               New
             </Button>
           </Tooltip>
-        }
-      />
-      <IdeasToolbar
-        filter={filter}
-        scopeCounts={scopeCounts}
-        needsReviewCount={needsReviewCount}
-        onFilter={onFilter}
-        view={view}
-        onViewChange={onViewChange}
-        searchInputRef={searchRef}
-        showKbdHint
-        onSearchKeyDown={(event) => {
-          if (event.key !== "Enter") return;
-          event.preventDefault();
-          const first = treeRows.find((row) => row.node.idea.id !== rootIdea?.id)?.node.idea;
-          if (first) onSelect(first.id);
-          else if (noMatchName) onNew(noMatchName, rootIdea?.id ?? null);
-        }}
-      />
+        </div>
+      </header>
       {rootError && (
         <div className="bp-error ideas-workspace-error" role="alert">
           {rootError}

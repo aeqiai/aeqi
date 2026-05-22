@@ -40,6 +40,7 @@ export interface IdeasToolbarProps {
   showKbdHint?: boolean;
   toolbarMeta?: React.ReactNode;
   importMenu?: React.ReactNode;
+  inline?: boolean;
 }
 
 export default function IdeasToolbar({
@@ -54,34 +55,35 @@ export default function IdeasToolbar({
   showKbdHint = false,
   toolbarMeta,
   importMenu,
+  inline = false,
 }: IdeasToolbarProps) {
   const searchActive = filter.search.trim() !== "";
-  return (
-    <div className="ideas-list-head">
-      <div className="ideas-toolbar">
-        <PrimitiveSearchField
-          inputRef={searchInputRef}
-          placeholder="Search ideas"
-          value={filter.search}
-          onChange={(next) => onFilter({ search: next })}
-          showKbdHint={showKbdHint}
-          onKeyDown={onSearchKeyDown}
-        />
-        {toolbarMeta}
-        <IdeasSortPopover
-          sort={filter.sort}
-          disabled={searchActive}
-          onChange={(next) => onFilter({ sort: next })}
-        />
-        <IdeasFilterPopover
-          filter={filter}
-          scopeCounts={scopeCounts}
-          needsReviewCount={needsReviewCount}
-          onChange={onFilter}
-        />
-        <IdeasViewPopover view={view} onChange={onViewChange} />
-        {importMenu}
-      </div>
+  const toolbar = (
+    <div className={`ideas-toolbar${inline ? " ideas-toolbar--inline" : ""}`}>
+      <PrimitiveSearchField
+        inputRef={searchInputRef}
+        placeholder="Search ideas"
+        value={filter.search}
+        onChange={(next) => onFilter({ search: next })}
+        showKbdHint={showKbdHint}
+        onKeyDown={onSearchKeyDown}
+      />
+      {toolbarMeta}
+      <IdeasSortPopover
+        sort={filter.sort}
+        disabled={searchActive}
+        onChange={(next) => onFilter({ sort: next })}
+      />
+      <IdeasFilterPopover
+        filter={filter}
+        scopeCounts={scopeCounts}
+        needsReviewCount={needsReviewCount}
+        onChange={onFilter}
+      />
+      <IdeasViewPopover view={view} onChange={onViewChange} />
+      {importMenu}
     </div>
   );
+  if (inline) return toolbar;
+  return <div className="ideas-list-head">{toolbar}</div>;
 }

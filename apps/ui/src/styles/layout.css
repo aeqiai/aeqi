@@ -4105,6 +4105,34 @@
   margin: 0 20px 8px;
 }
 
+.ideas-workspace-head {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+  padding: 16px 20px 8px;
+}
+
+.ideas-workspace-head h1 {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.ideas-workspace-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .ideas-workspace-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 268px;
@@ -4279,7 +4307,8 @@
 }
 
 .ideas-workspace-inspector {
-  align-self: start;
+  align-self: stretch;
+  height: 100%;
   max-height: 100%;
   overflow-y: auto;
   padding-bottom: 12px;
@@ -4339,6 +4368,15 @@
 }
 
 @media (max-width: 820px) {
+  .ideas-workspace-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .ideas-workspace-head .ideas-toolbar--inline {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .ideas-workspace-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -4365,6 +4403,11 @@
   flex: 1;
   min-width: 0;
 }
+
+.ideas-toolbar--inline {
+  width: 100%;
+}
+
 /* Search flexes to fill the row — the modifier cluster (sort /
    filter / view) and the labeled `+ New <primitive>` pill sit
    together on the right edge, pushed there by the search's grow. */
