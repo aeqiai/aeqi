@@ -8513,21 +8513,19 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 36px 56px;
+  padding: 34px 72px;
   pointer-events: none;
 }
 .home-hero-identity {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  max-width: 620px;
+  display: block;
+  max-width: 600px;
 }
 .home-hero-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 46px;
+  height: 46px;
   border-radius: 999px;
   overflow: hidden;
   background: var(--color-card-muted);
@@ -8536,7 +8534,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero-text {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
   min-width: 0;
 }
 .home-hero-eyebrow {
@@ -8551,7 +8549,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 46px;
   font-weight: 300;
   letter-spacing: 0;
   color: var(--color-text-primary);
@@ -8559,6 +8557,19 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.home-hero-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 4px;
+}
+.home-hero-profile-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 /* Card shell — shared by trust card, inbox, economy, and thesis.
    Generous padding (28px) so every card reads as a deliberate
@@ -9148,7 +9159,7 @@ button.home-card:focus-visible {
     padding: 24px 24px;
   }
   .home-hero-title {
-    font-size: 26px;
+    font-size: 34px;
   }
   .home-thesis-card {
     grid-template-columns: 1fr;
@@ -10008,6 +10019,10 @@ button.home-card:focus-visible {
   .home-hero-title {
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  .home-hero-profile {
+    align-items: center;
   }
 
   .home-card {

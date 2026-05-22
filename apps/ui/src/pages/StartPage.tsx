@@ -130,14 +130,18 @@ export default function StartPage() {
         <img src="/welcome/start-hero.png" alt="" className="home-hero-image" aria-hidden="true" />
         <div className="home-hero-overlay">
           <div className="home-hero-identity">
-            <span className="home-hero-avatar" aria-hidden="true">
-              <UserAvatar name={actorName} size={64} src={user?.avatar_url} />
-            </span>
             <div className="home-hero-text">
               <p className="home-hero-eyebrow">{heroClockLine}</p>
               <h1 className="home-hero-title">Welcome back</h1>
-              <p className="home-hero-subtitle">{actorName}</p>
-              <p className="home-hero-email">{actorEmail}</p>
+              <div className="home-hero-profile">
+                <span className="home-hero-avatar" aria-hidden="true">
+                  <UserAvatar name={actorName} size={46} src={user?.avatar_url} />
+                </span>
+                <span className="home-hero-profile-copy">
+                  <span className="home-hero-subtitle">{actorName}</span>
+                  <span className="home-hero-email">{actorEmail}</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
