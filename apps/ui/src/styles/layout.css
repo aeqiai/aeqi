@@ -9301,11 +9301,9 @@ button.home-card:focus-visible {
   background: var(--bg-row);
 }
 
-.home-context-role-node.role-node {
+.home-context-role-card.role-context-card {
   width: 100%;
   min-height: 86px;
-  padding: 12px 14px;
-  background: var(--color-card-elevated);
 }
 
 .home-context-role-empty {
@@ -9437,6 +9435,209 @@ button.home-card:focus-visible {
   margin-top: auto;
   background: var(--color-text-primary);
   color: var(--btn-primary-text);
+}
+
+.role-context-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+button.role-context-card {
+  cursor: pointer;
+}
+
+button.role-context-card:disabled {
+  cursor: default;
+}
+
+.role-context-card.is-clickable:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.role-context-card.is-clickable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.role-context-card.is-active-path {
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.role-context-card.is-selected {
+  background: var(--color-text-primary);
+  color: var(--btn-primary-text);
+}
+
+.role-context-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.role-context-card-trust-avatar,
+.role-context-card-occupant-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.role-context-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.role-context-card-kicker,
+.role-context-card-title,
+.role-context-card-trust-name,
+.role-context-card-holder-label,
+.role-context-card-route {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-context-card-kicker {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.role-context-card-title {
+  font-size: var(--font-size-md);
+  font-weight: 650;
+  line-height: 1.1;
+  color: inherit;
+}
+
+.role-context-card-trust-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.role-context-card-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.role-context-card-pill--director,
+.role-context-card-pill--owner {
+  background: var(--color-accent-bg);
+  color: var(--color-text-primary);
+}
+
+.role-context-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.role-context-card-holder {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.role-context-card-holder-label {
+  min-width: 0;
+}
+
+.role-context-card-route {
+  flex-shrink: 0;
+}
+
+.role-context-card-occupant-avatar {
+  width: 24px;
+  height: 24px;
+}
+
+.role-context-card-occupant-avatar--agent {
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--btn-primary-text);
+}
+
+.role-context-card-occupant-avatar--trust {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-card);
+  color: var(--accent);
+}
+
+.role-context-card-occupant-avatar--vacant {
+  border: 1px dashed var(--color-text-muted);
+  border-radius: 999px;
+}
+
+.role-context-card.is-selected .role-context-card-kicker,
+.role-context-card.is-selected .role-context-card-trust-name,
+.role-context-card.is-selected .role-context-card-foot,
+.role-context-card.is-selected .role-context-card-pill,
+.role-context-card.is-selected .role-context-card-occupant-avatar--trust {
+  color: var(--btn-primary-text);
+}
+
+.role-context-card.is-selected .role-context-card-pill,
+.role-context-card.is-selected .role-context-card-occupant-avatar--trust {
+  border-color: var(--btn-primary-text);
+  background: transparent;
+}
+
+.role-context-card.is-selected .role-context-card-occupant-avatar--agent {
+  background: var(--btn-primary-text);
+  color: var(--color-text-primary);
+}
+
+.role-context-card--map {
+  gap: 8px;
+  min-height: 76px;
+  padding: 12px;
+}
+
+.role-context-card--map .role-context-card-head {
+  gap: 8px;
+}
+
+.role-context-card--map .role-context-card-title {
+  font-size: var(--font-size-sm);
+}
+
+.role-context-card--map .role-context-card-foot {
+  gap: 8px;
+}
+
+.role-context-card--map .role-context-card-holder {
+  display: none;
 }
 
 .home-card--launch {
@@ -10055,7 +10256,7 @@ button.home-card:focus-visible {
     padding: 10px;
   }
 
-  .home-context-role-node.role-node,
+  .home-context-role-card.role-context-card,
   .home-context-role-empty {
     padding: 12px;
   }

@@ -1,7 +1,7 @@
 import { ArrowRight, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
-import RoleNode from "@/components/roles/RoleNode";
 import TrustAvatar from "@/components/TrustAvatar";
+import RoleContextCard from "@/components/trust/RoleContextCard";
 import type { RoleContextOption } from "@/lib/trustRoleContext";
 import type { Role, Trust } from "@/lib/types";
 
@@ -19,7 +19,6 @@ interface OperatingContextCardProps {
   metrics?: ReadonlyArray<OperatingContextMetric>;
   latestActivity?: string;
   agentNames?: ReadonlyMap<string, string>;
-  agentAvatars?: ReadonlyMap<string, string>;
   onSelectRole?: (role: Role) => void;
   ctaTo?: string;
   ctaLabel?: string;
@@ -37,7 +36,6 @@ export default function OperatingContextCard({
   metrics = [],
   latestActivity,
   agentNames,
-  agentAvatars,
   onSelectRole,
   ctaTo = "/trust",
   ctaLabel = "Your TRUSTs",
@@ -120,16 +118,15 @@ export default function OperatingContextCard({
             </div>
           </div>
           {contextRole ? (
-            <RoleNode
+            <RoleContextCard
+              trust={contextTrust}
               role={contextRole}
+              roleContext={roleContext}
               agentName={
                 contextRole.occupant_id ? agentNames?.get(contextRole.occupant_id) : undefined
               }
-              agentAvatar={
-                contextRole.occupant_id ? agentAvatars?.get(contextRole.occupant_id) : undefined
-              }
               onClick={() => onSelectRole?.(contextRole)}
-              className="home-context-role-node"
+              className="home-context-role-card"
             />
           ) : (
             <div className="home-context-role-empty">

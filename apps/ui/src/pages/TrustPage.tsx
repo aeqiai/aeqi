@@ -3,8 +3,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, GitBranch, Plus, Route, ShieldCheck } from "lucide-react";
-import TrustAvatar from "@/components/TrustAvatar";
 import OperatingContextCard from "@/components/trust/OperatingContextCard";
+import RoleContextCard from "@/components/trust/RoleContextCard";
 import { Button, PrimitivePageHeader, PrimitiveSearchField } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
@@ -313,7 +313,9 @@ function TrustContextMap({
   const activeId = previewId ?? selectedId;
   const layout = useMemo(() => buildTrustMapLayout(contexts), [contexts]);
   const activeContext = activeId ? contextById.get(activeId) : undefined;
-  const activeRouteIds = activeContext ? new Set(activeContext.route.map(routeNodeId)) : new Set();
+  const activeRouteIds = activeContext
+    ? new Set(activeContext.route.map((segment, index) => routeNodeId(segment, index)))
+    : new Set();
 
   return (
     <div className="trust-context-map">
@@ -411,25 +413,49 @@ function TrustMapNodeButton({
   const label = isSelf
     ? "You, operator root"
     : `${segment?.role.title ?? "Untitled role"} in ${segment?.trust.name ?? "TRUST"}, ${routeCount} route${routeCount === 1 ? "" : "s"}`;
+  const nodeStyle = {
+    left: node.x,
+    top: node.y,
+    width: node.width,
+    minHeight: node.height,
+  };
+
+  if (!isSelf && segment) {
+    return (
+      <RoleContextCard
+        variant="map"
+        trust={segment.trust}
+        role={segment.role}
+        relation={segment.relation}
+        selected={selected}
+        activePath={activePath}
+        terminalCount={terminalCount}
+        routeCount={routeCount}
+        className={[
+          "trust-context-map-node",
+          terminalCount > 0 ? "trust-context-map-node--terminal" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={nodeStyle}
+        onClick={onSelect}
+        onDoubleClick={onEnter}
+        onPreview={onPreview}
+      />
+    );
+  }
 
   return (
     <button
       type="button"
       className={[
         "trust-context-map-node",
-        isSelf ? "trust-context-map-node--self" : "",
-        terminalCount > 0 ? "trust-context-map-node--terminal" : "",
-        selected ? "is-selected" : "",
+        "trust-context-map-node--self",
         activePath ? "is-active-path" : "",
       ]
         .filter(Boolean)
         .join(" ")}
-      style={{
-        left: node.x,
-        top: node.y,
-        width: node.width,
-        minHeight: node.height,
-      }}
+      style={nodeStyle}
       aria-pressed={selected}
       aria-label={label}
       onClick={onSelect}
@@ -439,33 +465,9 @@ function TrustMapNodeButton({
       onFocus={() => onPreview(true)}
       onBlur={() => onPreview(false)}
     >
-      {isSelf ? (
-        <>
-          <span className="trust-context-map-node-kicker">Root</span>
-          <span className="trust-context-map-node-title">You</span>
-          <span className="trust-context-map-node-meta">Operator</span>
-        </>
-      ) : (
-        <>
-          <span className="trust-context-map-node-head">
-            <span className="trust-context-role-avatar" aria-hidden="true">
-              <TrustAvatar name={segment?.trust.name ?? "TRUST"} size={28} />
-            </span>
-            <span className="trust-context-map-node-copy">
-              <span className="trust-context-map-node-title">
-                {segment?.role.title || roleTypeLabel(segment?.role.role_type ?? "operational")}
-              </span>
-              <span className="trust-context-map-node-meta">{segment?.trust.name ?? "TRUST"}</span>
-            </span>
-          </span>
-          <span className="trust-context-map-node-foot">
-            <span>{relationLabel(segment?.relation ?? "direct")}</span>
-            {terminalCount > 0 && (
-              <span>{terminalCount > 1 ? `${terminalCount} routes` : "Assumable"}</span>
-            )}
-          </span>
-        </>
-      )}
+      <span className="trust-context-map-node-kicker">Root</span>
+      <span className="trust-context-map-node-title">You</span>
+      <span className="trust-context-map-node-meta">Operator</span>
     </button>
   );
 }

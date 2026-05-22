@@ -105,14 +105,6 @@ export default function StartPage() {
     return map;
   }, [currentAgents]);
 
-  const agentAvatars = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const agent of currentAgents) {
-      if (agent.avatar) map.set(agent.id, agent.avatar);
-    }
-    return map;
-  }, [currentAgents]);
-
   const activeRole = useMemo(() => pickFeaturedRole(roles, user?.id), [roles, user?.id]);
   const handleSelectRole = useCallback(
     (role: Role) => {
@@ -153,7 +145,6 @@ export default function StartPage() {
           activeRole={activeRole}
           rolesLoading={rolesLoading}
           agentNames={agentNames}
-          agentAvatars={agentAvatars}
           onSelectRole={handleSelectRole}
         />
         <LaunchTrustCard />

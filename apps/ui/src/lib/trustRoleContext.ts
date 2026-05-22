@@ -59,9 +59,11 @@ const MAP_NODE_HEIGHT = 76;
 const MAP_SELF_WIDTH = 156;
 const MAP_SELF_HEIGHT = 68;
 const MAP_LAYER_GAP = 248;
+const MAP_SIBLING_COLUMN_GAP = 56;
 const MAP_ROW_GAP = 106;
 const MAP_X_PAD = 32;
 const MAP_Y_PAD = 36;
+const MAP_MAX_ROWS_PER_COLUMN = 4;
 
 export function buildTrustMapLayout(contexts: RoleContextOption[]): TrustMapLayout {
   const nodeMap = new Map<string, TrustMapNode>();
@@ -129,32 +131,34 @@ export function buildTrustMapLayout(contexts: RoleContextOption[]): TrustMapLayo
   }
 
   let maxLayer = 0;
-  let maxRows = 1;
-  for (const [layer, nodes] of layerBuckets) {
+  let maxHeight = MAP_Y_PAD * 2 + MAP_SELF_HEIGHT;
+  let nextLayerX = MAP_X_PAD + MAP_SELF_WIDTH + 48;
+  for (const [layer, nodes] of [...layerBuckets.entries()].sort((a, b) => a[0] - b[0])) {
     maxLayer = Math.max(maxLayer, layer);
-    maxRows = Math.max(maxRows, nodes.length);
     nodes.sort(compareMapNodes);
+    const columns = Math.max(1, Math.ceil(nodes.length / MAP_MAX_ROWS_PER_COLUMN));
+    const rowsPerColumn = Math.ceil(nodes.length / columns);
     nodes.forEach((node, index) => {
-      node.y = MAP_Y_PAD + index * MAP_ROW_GAP;
+      const column = Math.floor(index / rowsPerColumn);
+      const row = index % rowsPerColumn;
+      node.x = nextLayerX + column * (MAP_NODE_WIDTH + MAP_SIBLING_COLUMN_GAP);
+      node.y = MAP_Y_PAD + row * MAP_ROW_GAP + column * Math.floor(MAP_ROW_GAP / 2);
+      maxHeight = Math.max(maxHeight, node.y + MAP_NODE_HEIGHT + MAP_Y_PAD);
     });
+    nextLayerX +=
+      columns * MAP_NODE_WIDTH + Math.max(0, columns - 1) * MAP_SIBLING_COLUMN_GAP + MAP_LAYER_GAP;
   }
 
-  const height = Math.max(
-    380,
-    MAP_Y_PAD * 2 + maxRows * MAP_NODE_HEIGHT + (maxRows - 1) * (MAP_ROW_GAP - MAP_NODE_HEIGHT),
-  );
+  const height = Math.max(380, maxHeight);
   const self = nodeMap.get(SELF_NODE_ID);
   if (self) {
-    const rootRow = Math.min(2, Math.max(0, maxRows - 1));
-    self.y = MAP_Y_PAD + rootRow * MAP_ROW_GAP;
+    self.y = Math.max(MAP_Y_PAD, Math.floor(height / 2 - MAP_SELF_HEIGHT / 2));
   }
 
   const width =
-    MAP_X_PAD * 2 +
-    MAP_SELF_WIDTH +
-    48 +
-    Math.max(1, maxLayer) * MAP_NODE_WIDTH +
-    Math.max(0, maxLayer - 1) * (MAP_LAYER_GAP - MAP_NODE_WIDTH);
+    maxLayer === 0
+      ? MAP_X_PAD * 2 + MAP_SELF_WIDTH
+      : Math.max(MAP_X_PAD * 2 + MAP_SELF_WIDTH, nextLayerX - MAP_LAYER_GAP + MAP_X_PAD);
 
   return {
     nodes: [...nodeMap.values()].sort((a, b) => a.layer - b.layer || a.y - b.y),
