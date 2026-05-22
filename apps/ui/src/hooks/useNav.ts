@@ -45,11 +45,14 @@ export function useNav() {
   /** Absolute path for an organization surface. Resolves to the trust route. */
   const entityPath = useCallback(
     (id: string, tab?: string, itemId?: string) => {
-      const entity = entities.find((e) => e.id === id);
       const parts = [tab, itemId].filter(Boolean) as string[];
-      return entity ? makeEntityPath(entity, ...parts) : "/launch";
+      const append = (routeBase: string) =>
+        parts.length > 0 ? `${routeBase}/${parts.join("/")}` : routeBase;
+      if (!id) return base ? append(base) : "/launch";
+      const entity = entities.find((e) => e.id === id || e.trust_address === id);
+      return entity ? makeEntityPath(entity, ...parts) : makeEntityPath({ id }, ...parts);
     },
-    [entities],
+    [base, entities],
   );
 
   const goEntity = useCallback(
