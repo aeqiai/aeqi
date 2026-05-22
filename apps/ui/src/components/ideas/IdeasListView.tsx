@@ -2,7 +2,7 @@ import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Link } from "react-router-dom";
 import { ChevronRight, FolderOpen, Plus } from "lucide-react";
 import { useNav } from "@/hooks/useNav";
-import { Button, Icon, IconButton, Tooltip } from "../ui";
+import { Button, Icon, IconButton, PrimitivePageHeader, Tooltip } from "../ui";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { storeIdea, uploadFileToIdea } from "@/api/ideas";
 import { asStringArray, parseFrontmatter } from "@/lib/frontmatter";
@@ -287,36 +287,33 @@ export default function IdeasListView({
 
   return (
     <div className="ideas-list">
-      {/* Page header — matches the Quests + Events pattern: display
-         title on the left, primary CTAs on the right. Toolbar (search +
-         sort + filter + view) sits in the row beneath. Anchors the
-         surface with a destination label instead of jumping straight
-         into the search field. */}
-      <header className="ideas-page-header">
-        <h1 className="ideas-page-title">Ideas</h1>
-        <div className="ideas-page-header-actions">
-          <ImportMenu
-            size="md"
-            trustId={trustId}
-            parts={["ideas"]}
-            blueprintTitle="Import ideas from a Blueprint"
-            accept="*/*"
-            fileLabel="From files"
-            onMarkdownPicked={(files) => void handleFileImport(files, folderId)}
-            onBlueprintSpawned={() => void invalidateIdeas()}
-          />
-          <Tooltip content="New idea (N)">
-            <Button
-              variant="primary"
+      <PrimitivePageHeader
+        title="Ideas"
+        actions={
+          <>
+            <ImportMenu
               size="md"
-              onClick={() => fireNew()}
-              leadingIcon={<Icon icon={Plus} size="sm" />}
-            >
-              New
-            </Button>
-          </Tooltip>
-        </div>
-      </header>
+              trustId={trustId}
+              parts={["ideas"]}
+              blueprintTitle="Import ideas from a Blueprint"
+              accept="*/*"
+              fileLabel="From files"
+              onMarkdownPicked={(files) => void handleFileImport(files, folderId)}
+              onBlueprintSpawned={() => void invalidateIdeas()}
+            />
+            <Tooltip content="New idea (N)">
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => fireNew()}
+                leadingIcon={<Icon icon={Plus} size="sm" />}
+              >
+                New
+              </Button>
+            </Tooltip>
+          </>
+        }
+      />
       <IdeasToolbar
         filter={filter}
         scopeCounts={scopeCounts}

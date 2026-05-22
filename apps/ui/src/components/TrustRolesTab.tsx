@@ -7,7 +7,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { entityPathFromId, entityBasePath } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import { Button, EmptyState, Loading } from "./ui";
+import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -281,29 +281,49 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-roles">
-      <header className="trust-roles-header">
-        <div className="trust-roles-header-titles">
-          <h1 className="trust-roles-title">Roles</h1>
+      <PrimitivePageHeader
+        title="Roles"
+        padding="none"
+        className="trust-roles-page-header"
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
+              leadingIcon={<Mail size={13} strokeWidth={1.6} />}
+            >
+              Invite
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+              leadingIcon={<Plus size={13} strokeWidth={1.8} />}
+            >
+              Role
+            </Button>
+          </>
+        }
+      />
+
+      <div className="trust-roles-toolbar ideas-list-head">
+        <div className="ideas-toolbar">
+          <PrimitiveSearchField
+            placeholder="Search roles"
+            value={search}
+            onChange={(next) => setFilter({ search: next })}
+            onEscapeEmpty={(e) => e.currentTarget.blur()}
+          />
+          <RolesSortPopover sort={sort} onChange={(next) => setFilter({ sort: next })} />
+          <RolesFilterPopover
+            filter={filter}
+            occupantCounts={occupantCounts}
+            onChange={setFilter}
+          />
+          <RolesViewPopover view={view} onChange={setView} />
         </div>
-        <div className="trust-roles-header-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-            leadingIcon={<Mail size={13} strokeWidth={1.6} />}
-          >
-            Invite
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-            leadingIcon={<Plus size={13} strokeWidth={1.8} />}
-          >
-            Role
-          </Button>
-        </div>
-      </header>
+      </div>
 
       <div className="trust-roles-main">
         <section className="trust-roles-snapshot" aria-label="Snapshot">
@@ -360,54 +380,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             )}
           />
         </section>
-
-        <div className="ideas-list-head">
-          <div className="ideas-toolbar">
-            <span className="ideas-list-search-field">
-              <svg
-                className="ideas-list-search-glyph"
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <circle cx="5.2" cy="5.2" r="3.2" />
-                <path d="M7.6 7.6 L10 10" />
-              </svg>
-              <input
-                className="ideas-list-search"
-                type="text"
-                placeholder="Search roles"
-                value={search}
-                onChange={(e) => setFilter({ search: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape" && search) setFilter({ search: "" });
-                }}
-              />
-              {search && (
-                <button
-                  type="button"
-                  className="ideas-list-search-clear"
-                  onClick={() => setFilter({ search: "" })}
-                  aria-label="Clear search"
-                >
-                  ×
-                </button>
-              )}
-            </span>
-            <RolesSortPopover sort={sort} onChange={(next) => setFilter({ sort: next })} />
-            <RolesFilterPopover
-              filter={filter}
-              occupantCounts={occupantCounts}
-              onChange={setFilter}
-            />
-            <RolesViewPopover view={view} onChange={setView} />
-          </div>
-        </div>
 
         <div className="trust-roles-canvas">
           {loading && <RolesLoading />}

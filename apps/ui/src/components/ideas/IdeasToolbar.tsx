@@ -1,4 +1,5 @@
 import type React from "react";
+import { PrimitiveSearchField } from "../ui";
 import IdeasFilterPopover from "./IdeasFilterPopover";
 import IdeasSortPopover from "./IdeasSortPopover";
 import IdeasViewPopover, { type IdeasView } from "./IdeasViewPopover";
@@ -58,56 +59,14 @@ export default function IdeasToolbar({
   return (
     <div className="ideas-list-head">
       <div className="ideas-toolbar">
-        <span className="ideas-list-search-field">
-          <svg
-            className="ideas-list-search-glyph"
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <circle cx="5.2" cy="5.2" r="3.2" />
-            <path d="M7.6 7.6 L10 10" />
-          </svg>
-          <input
-            ref={searchInputRef}
-            className="ideas-list-search"
-            type="text"
-            placeholder="Search ideas"
-            value={filter.search}
-            onChange={(e) => onFilter({ search: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                if (filter.search) {
-                  onFilter({ search: "" });
-                } else {
-                  (e.target as HTMLInputElement).blur();
-                }
-                return;
-              }
-              onSearchKeyDown?.(e);
-            }}
-          />
-          {showKbdHint && !filter.search && (
-            <kbd className="ideas-list-search-kbd" aria-hidden>
-              /
-            </kbd>
-          )}
-          {filter.search && (
-            <button
-              type="button"
-              className="ideas-list-search-clear"
-              onClick={() => onFilter({ search: "" })}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </span>
+        <PrimitiveSearchField
+          inputRef={searchInputRef}
+          placeholder="Search ideas"
+          value={filter.search}
+          onChange={(next) => onFilter({ search: next })}
+          showKbdHint={showKbdHint}
+          onKeyDown={onSearchKeyDown}
+        />
         {toolbarMeta}
         <IdeasSortPopover
           sort={filter.sort}

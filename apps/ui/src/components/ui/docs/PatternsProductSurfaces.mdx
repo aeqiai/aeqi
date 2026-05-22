@@ -1,0 +1,137 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Patterns/Product Surfaces" />
+
+# Product Surfaces
+
+This is the contract for the 14 aeqi product surfaces. The design system
+is only real when every page follows the same page grammar, surface
+ladder, toolbar semantics, and screenshot acceptance rubric.
+
+Use this before designing or reviewing Home, TRUST Overview, Quests,
+Quest Detail, Ideas, Agents, Inbox, Events, Roles, Assets, Equity,
+Quorum, Economy, and Blueprints.
+
+## Page Stack
+
+Every index/list surface starts with the same vertical order:
+
+1. **Title/action row** — page noun on the left; create/invite/import
+   actions on the right.
+2. **Toolbar row** — search first, then sort/filter/view/scope controls.
+3. **Optional context strip** — active chips, folder/scope breadcrumb,
+   warning banner, or runtime state.
+4. **Summary or work surface** — metrics, board, graph, table, list, or
+   object canvas.
+5. **Inspector/detail** — only when the page naturally has a selected
+   object.
+
+Do not put metrics above search. The user should be able to find/narrow
+the page immediately after reading the title. If a page needs a KPI row,
+it sits below the toolbar.
+
+## Object Contract
+
+Every surface must make the primary object obvious. A strong page shows:
+
+- object name
+- object type
+- state/status
+- scope
+- responsible actor or holder
+- linked objects
+- one primary action
+
+Allowed primary objects: TRUST, Role, Agent, Event, Quest, Idea, Asset,
+Transaction, Budget, Equity allocation, Proposal, Decision, Inbox item,
+Blueprint, Economy listing.
+
+Avoid generic page nouns such as Item, Workspace, Project, Thing,
+Dashboard, Step, Explore, Continue, or Manage unless they are literal
+product concepts in the data model.
+
+## Surface Ladder
+
+Use the color tiers by job, not by taste:
+
+| Job                   | Token                                              | Use                                                                  |
+| --------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| App shell             | `--color-paper` / `--bg-sidebar`                   | Sidebar, outer app world                                             |
+| Primary page surface  | `--color-card`                                     | The main readable content panel                                      |
+| Raised controls/cards | `--color-card-elevated`                            | Header action buttons, cards on page, popovers, inspector cards      |
+| Recessed work surface | `--color-card-muted` / `--bg-row` / `--bg-surface` | Boards, graph canvases, grouped rows, lanes, toolbar chrome          |
+| Text hierarchy        | `--color-text-*`                                   | Title, primary, secondary, muted, disabled                           |
+| Primary action/focus  | `--color-accent`                                   | Create, Save, active nav, selected object, focus ring                |
+| Status                | `--color-success/error/warning/info`               | Dots, small tints, status text; never decorative full-surface washes |
+
+Accent should stay scarce. If a screenshot reads as mostly graphite,
+purple, blue, beige, or status color, the page has drifted.
+
+## Toolbar Contract
+
+Use **Patterns -> Toolbar** for implementation details. The short rule:
+
+- Search grows left and owns the slack.
+- Sort, filter, view, and scope controls are chrome.
+- Create, Save, Delete, Invite, and Import are actions.
+- Tags and active-filter chips live below the toolbar in a sibling band.
+- Toolbar height is stable across pages.
+
+Current shared primitives:
+
+- `PrimitivePageHeader` — title/action row for primitive product pages.
+- `PrimitiveSearchField` — canonical search field for toolbar chrome.
+- `.ideas-list-head` + `.ideas-toolbar` — existing toolbar band/chrome
+  grammar shared by Ideas, Quests, Roles, Events, and adjacent surfaces.
+
+## Page-Specific Jobs
+
+| Surface        | Primary job                                | Primary object      | Primary action                     |
+| -------------- | ------------------------------------------ | ------------------- | ---------------------------------- |
+| Home           | Decide what to do next across TRUSTs       | Active TRUST        | Open TRUST                         |
+| TRUST Overview | Show operating state of one TRUST          | TRUST               | Create Quest / Open active work    |
+| Quests         | Manage operational work                    | Quest board/list    | New Quest                          |
+| Quest Detail   | Read, execute, and review one work unit    | Quest               | Start / Assign / Review / Complete |
+| Ideas          | Store and retrieve operational knowledge   | Idea                | New Idea / Create Quest from Idea  |
+| Agents         | Understand and manage operational actors   | Agent               | Assign Quest                       |
+| Inbox          | Review items requiring human attention     | Inbox item          | Review selected item               |
+| Events         | Show triggers, runs, and operational trace | Event               | Open Event / Retry failed event    |
+| Roles          | Show authority and responsibility          | Role                | Create Role / Assign Holder        |
+| Assets         | Show treasury and financial operations     | Asset / account     | Create Budget / Send Payment       |
+| Equity         | Show ownership state                       | Equity allocation   | Add Allocation / View Cap Table    |
+| Quorum         | Show decisions and authority flow          | Proposal / Decision | Create Proposal / Approve Proposal |
+| Economy        | Discover network opportunities             | Economy listing     | View / Apply / Join / Invest       |
+| Blueprints     | Discover reusable company structures       | Blueprint           | Launch TRUST / Import Blueprint    |
+
+If the current page cannot be summarized by one row in this table, stop
+and fix the product model before polishing the UI.
+
+## Screenshot Rubric
+
+Every surface review scores these seven checks:
+
+1. **Page job** — can the user name the screen's job within five seconds?
+2. **Object clarity** — is the primary object obvious?
+3. **Next action** — is there one clear primary action?
+4. **Information hierarchy** — can the page be read in layers?
+5. **Product semantics** — does the copy use aeqi-native nouns?
+6. **MVP functionality** — are loaded, empty, blocked, and error states
+   represented honestly?
+7. **Visual quality** — calm, precise, institutional, minimal, warm,
+   operational, production-grade.
+
+Do not polish a page that fails page job, object clarity, or next action.
+Those are structure problems, not styling problems.
+
+## Anti-Drift Rules
+
+- Do not design a page from a blank canvas when a sibling page has the
+  same structural job.
+- Do not add page-level header, toolbar, search, metric, or card classes
+  when a primitive or pattern exists.
+- Do not hardcode colors, radii, spacing, or shadows.
+- Do not use cards inside cards for page sections.
+- Do not use visible instructional copy to explain standard controls.
+- Do not use vague CTAs: View, Go, Explore, Step in, Continue, Manage.
+- Do not make all 14 pages visually identical. They should share grammar,
+  not content shape.

@@ -84,6 +84,12 @@ export type { MenuProps, MenuItem } from "./Menu";
 export { Icon } from "./Icon";
 export type { IconProps, IconComponent } from "./Icon";
 
+export { PrimitivePageHeader } from "./PrimitivePageHeader";
+export type { PrimitivePageHeaderProps } from "./PrimitivePageHeader";
+
+export { PrimitiveSearchField } from "./PrimitiveSearchField";
+export type { PrimitiveSearchFieldProps } from "./PrimitiveSearchField";
+
 export { Stack } from "./Stack";
 export type { StackProps, StackAlign, SpaceToken } from "./Stack";
 

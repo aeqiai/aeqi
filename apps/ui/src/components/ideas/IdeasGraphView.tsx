@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Lightbulb, Plus } from "lucide-react";
-import { Button, Icon, Loading, Tooltip } from "../ui";
+import { Button, Icon, Loading, PrimitivePageHeader, Tooltip } from "../ui";
 import IdeaGraph, { type GraphNode, type GraphEdge } from "../IdeaGraph";
 import IdeasToolbar from "./IdeasToolbar";
 import { type IdeasView } from "./IdeasViewPopover";
@@ -61,9 +61,9 @@ export default function IdeasGraphView({
 
   return (
     <div className="ideas-graph">
-      <header className="ideas-page-header">
-        <h1 className="ideas-page-title">Ideas</h1>
-        <div className="ideas-page-header-actions">
+      <PrimitivePageHeader
+        title="Ideas"
+        actions={
           <Tooltip content="New idea (N)">
             <Button
               variant="primary"
@@ -74,8 +74,8 @@ export default function IdeasGraphView({
               New
             </Button>
           </Tooltip>
-        </div>
-      </header>
+        }
+      />
       <IdeasToolbar
         filter={filter}
         scopeCounts={scopeCounts}

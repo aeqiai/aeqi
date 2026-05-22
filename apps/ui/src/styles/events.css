@@ -29,7 +29,7 @@
 }
 
 /* ── Page header — title left + primary CTA right ─────────────────────
-   Mirrors `.quest-board-header` so the destination label registers at
+   Mirrors the primitive page header so the destination label registers at
    the same display-font scale and rhythm. Toolbar (`.ideas-list-head`)
    sits in the row beneath. */
 .events-list-header {

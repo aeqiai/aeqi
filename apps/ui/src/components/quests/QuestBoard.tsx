@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import { Banner, Button, Icon } from "../ui";
+import { Banner, Button, Icon, PrimitivePageHeader, PrimitiveSearchField } from "../ui";
 import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
@@ -346,95 +346,53 @@ export default function QuestBoard({
 
   return (
     <div className="quest-board">
-      {/* Page header — matches the Roles-page pattern: title on the
-         left, primary actions on the right. Toolbar (search + sort +
-         filter + view) lives in the row beneath. */}
-      <header className="quest-board-header">
-        <h1 className="quest-board-title">Quests</h1>
-        <div className="quest-board-header-actions">
-          <ImportMenu
-            size="md"
-            trustId={trustId}
-            parts={["quests"]}
-            blueprintTitle="Import quests from a Blueprint"
-            onMarkdownPicked={async (files) => {
-              setErr(null);
-              const failures: string[] = [];
-              for (const file of Array.from(files)) {
-                try {
-                  await importQuestFromMarkdown(file, resolvedAgentId);
-                } catch (e) {
-                  failures.push(
-                    `${file.name}: ${e instanceof Error ? e.message : "import failed"}`,
-                  );
-                }
-              }
-              onCreated();
-              if (failures.length > 0) setErr(failures.join("; "));
-            }}
-            onBlueprintSpawned={onCreated}
-          />
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => onCompose()}
-            title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
-            leadingIcon={<Icon icon={Plus} size="sm" />}
-          >
-            {boardScopeId ? "New subquest" : "New"}
-          </Button>
-        </div>
-      </header>
-      <div className="ideas-list-head">
-        <div className="ideas-toolbar">
-          <span className="ideas-list-search-field">
-            <svg
-              className="ideas-list-search-glyph"
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <circle cx="5.2" cy="5.2" r="3.2" />
-              <path d="M7.6 7.6 L10 10" />
-            </svg>
-            <input
-              ref={searchRef}
-              className="ideas-list-search"
-              type="text"
-              placeholder="Search quests"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  if (search) {
-                    setSearch("");
-                  } else {
-                    (e.target as HTMLInputElement).blur();
+      <PrimitivePageHeader
+        title="Quests"
+        actions={
+          <>
+            <ImportMenu
+              size="md"
+              trustId={trustId}
+              parts={["quests"]}
+              blueprintTitle="Import quests from a Blueprint"
+              onMarkdownPicked={async (files) => {
+                setErr(null);
+                const failures: string[] = [];
+                for (const file of Array.from(files)) {
+                  try {
+                    await importQuestFromMarkdown(file, resolvedAgentId);
+                  } catch (e) {
+                    failures.push(
+                      `${file.name}: ${e instanceof Error ? e.message : "import failed"}`,
+                    );
                   }
                 }
+                onCreated();
+                if (failures.length > 0) setErr(failures.join("; "));
               }}
+              onBlueprintSpawned={onCreated}
             />
-            {!search && (
-              <kbd className="ideas-list-search-kbd" aria-hidden>
-                /
-              </kbd>
-            )}
-            {search && (
-              <button
-                type="button"
-                className="ideas-list-search-clear"
-                onClick={() => setSearch("")}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            )}
-          </span>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => onCompose()}
+              title={boardScopeId ? "New subquest in this scope (N)" : "New quest (N)"}
+              leadingIcon={<Icon icon={Plus} size="sm" />}
+            >
+              {boardScopeId ? "New subquest" : "New"}
+            </Button>
+          </>
+        }
+      />
+      <div className="ideas-list-head">
+        <div className="ideas-toolbar">
+          <PrimitiveSearchField
+            inputRef={searchRef}
+            placeholder="Search quests"
+            value={search}
+            onChange={setSearch}
+            showKbdHint
+          />
           <QuestsSortPopover sort={sort} onChange={onSortChange} />
           <QuestsFilterPopover
             agentId={resolvedAgentId}
