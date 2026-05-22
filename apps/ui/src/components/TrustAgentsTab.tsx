@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { MousePointer2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Agent, Quest, Role, RoleEdge } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
@@ -351,73 +351,71 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
           </div>
         )}
 
-        <section className="trust-agents-snapshot" aria-label="Snapshot">
-          <AgentSnapshotCard
-            label={snapshot.total === 1 ? "Agent" : "Agents"}
-            value={snapshot.total}
-            sublabel="Total in this TRUST"
-          />
-          <AgentSnapshotCard
-            label="Active"
-            value={snapshot.active}
-            sublabel={
-              snapshot.active === 0
-                ? "None online"
-                : snapshot.active === snapshot.total
-                  ? "All online"
-                  : "Currently online"
-            }
-          />
-          <AgentSnapshotCard
-            label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
-            value={snapshot.runningQuests}
-            sublabel="In progress now"
-          />
-          <AgentSnapshotCard
-            label="Lifetime spend"
-            value={formatCurrency(snapshot.totalSpend, "USD")}
-            valueVariant="mono"
-            sublabel="Across every inference call"
-          />
+        <section className="trust-agents-snapshot" aria-label="Agent snapshot">
+          <header className="trust-roles-snapshot-header trust-agents-snapshot-header">
+            <span className="trust-roles-snapshot-header-label">Agent roster</span>
+            <span className="trust-roles-snapshot-header-count">
+              {snapshot.total} {snapshot.total === 1 ? "agent" : "agents"}
+            </span>
+          </header>
+          <div className="trust-roles-snapshot-grid trust-agents-snapshot-grid">
+            <AgentSnapshotCard
+              label={snapshot.total === 1 ? "Agent" : "Agents"}
+              value={snapshot.total}
+              sublabel="Total in this TRUST"
+            />
+            <AgentSnapshotCard
+              label="Active"
+              value={snapshot.active}
+              sublabel={
+                snapshot.active === 0
+                  ? "None online"
+                  : snapshot.active === snapshot.total
+                    ? "All online"
+                    : "Currently online"
+              }
+            />
+            <AgentSnapshotCard
+              label={snapshot.runningQuests === 1 ? "Running quest" : "Running quests"}
+              value={snapshot.runningQuests}
+              sublabel="In progress now"
+            />
+            <AgentSnapshotCard
+              label="Lifetime spend"
+              value={formatCurrency(snapshot.totalSpend, "USD")}
+              valueVariant="mono"
+              sublabel="Across every inference call"
+            />
+          </div>
         </section>
 
-        {entityAgents.length === 0 ? (
-          <div className="ideas-list-body">
-            <AgentsEmptyState onNew={openPicker} />
+        <section className="trust-agents-register" aria-label="Agents register">
+          <header className="trust-agents-register-head">
+            <span className="trust-agents-register-title">Agents register</span>
+            <span className="trust-agents-register-count">{filtered.length} visible</span>
+          </header>
+          <div className="trust-agents-register-body">
+            {entityAgents.length === 0 ? (
+              <div className="ideas-list-body">
+                <AgentsEmptyState onNew={openPicker} />
+              </div>
+            ) : view === "list" ? (
+              <AgentsList agents={filtered} onSelect={openAgent} />
+            ) : (
+              <AgentsChart
+                positions={positions}
+                edges={edges}
+                entityAgents={entityAgents}
+                loading={rolesLoading}
+                error={chartError}
+                onSelect={openAgent}
+              />
+            )}
           </div>
-        ) : view === "list" ? (
-          <AgentsList agents={filtered} onSelect={openAgent} />
-        ) : (
-          <AgentsChart
-            positions={positions}
-            edges={edges}
-            entityAgents={entityAgents}
-            loading={rolesLoading}
-            error={chartError}
-            onSelect={openAgent}
-          />
-        )}
+        </section>
 
         <SuggestedAgents onPick={openPicker} />
       </div>
-
-      <aside className="trust-agents-side" aria-label="Selected agent">
-        {/* Placeholder inspector — selection wiring + full Identity /
-           Role & authority / Model & runtime / Capabilities / Activity
-           / Budget / Meta sections land in a follow-up cycle. */}
-        <div className="trust-agents-side-empty">
-          <MousePointer2
-            size={22}
-            strokeWidth={1.5}
-            className="trust-agents-side-empty-icon"
-            aria-hidden
-          />
-          <p className="trust-agents-side-empty-title">Select an agent</p>
-          <p className="trust-agents-side-empty-hint">
-            Click a row to see model, role, runtime, and spend details.
-          </p>
-        </div>
-      </aside>
 
       <BlueprintPickerModal
         open={pickerOpen}
@@ -511,7 +509,7 @@ interface AgentSnapshotCardProps {
 
 /**
  * Snapshot card for the Agents page header strip. Same shape as the
- * Roles page (`trust-roles-snapshot-card`) — label + count, with a
+ * Roles page (`trust-roles-snapshot-cell`) — label + count, with a
  * one-line teaching sublabel. The two pages share the
  * `.trust-roles-snapshot-*` CSS primitives until a generic refactor
  * pulls them under a neutral name.
@@ -527,7 +525,7 @@ function AgentSnapshotCard({
       ? "trust-roles-snapshot-value trust-roles-snapshot-value--mono"
       : "trust-roles-snapshot-value";
   return (
-    <article className="trust-roles-snapshot-card">
+    <article className="trust-roles-snapshot-cell">
       <header className="trust-roles-snapshot-head">
         <span className="trust-roles-snapshot-label">{label}</span>
         <span className={valueClass}>{value}</span>
