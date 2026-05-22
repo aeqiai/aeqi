@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Plus, Settings } from "lucide-react";
+import type { ReactNode } from "react";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
 import { Button, Tooltip } from "@/components/ui";
@@ -25,9 +26,11 @@ import SurfaceHeader from "./SurfaceHeader";
 export default function AgentSurfaceHeader({
   agentId,
   variant = "default",
+  middle,
 }: {
   agentId: string;
   variant?: "default" | "settings";
+  middle?: ReactNode;
 }) {
   const navigate = useNavigate();
   const { entityPath, base } = useNav();
@@ -93,22 +96,7 @@ export default function AgentSurfaceHeader({
             variant="secondary"
             size="sm"
             onClick={() => navigate(settingsHref)}
-            leadingIcon={
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <circle cx="8" cy="8" r="2" />
-                <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4M12.7 12.7l-1.4-1.4M4.7 4.7l-1.4-1.4" />
-              </svg>
-            }
+            leadingIcon={<Settings size={13} strokeWidth={1.5} aria-hidden="true" />}
           >
             Settings
           </Button>
@@ -118,20 +106,7 @@ export default function AgentSurfaceHeader({
             variant="primary"
             size="sm"
             onClick={handleNewSession}
-            leadingIcon={
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 13 13"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                aria-hidden
-              >
-                <path d="M6.5 2.5v8M2.5 6.5h8" />
-              </svg>
-            }
+            leadingIcon={<Plus size={13} strokeWidth={1.5} aria-hidden="true" />}
           >
             New
           </Button>
@@ -145,6 +120,7 @@ export default function AgentSurfaceHeader({
       backLabel={backLabel}
       title={title}
       crumbSuffix={crumbSuffix}
+      middle={middle}
       actions={actions}
     />
   );

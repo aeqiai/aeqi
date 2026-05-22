@@ -1261,6 +1261,19 @@
   background: transparent;
 }
 
+.agent-inbox-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.agent-inbox-shell > .content-body-row {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Sessions rail — legacy shell wrapper for the drilled-agent inbox.
    The chat-specific rule below upgrades this into the same white-card
    master column used by `/inbox`; the base shape stays quiet for any
@@ -1291,12 +1304,6 @@
   box-shadow: var(--card-elevation);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
-}
-
-.content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed)
-  .sessions-rail-col
-  .sessions-toolbar {
-  flex-shrink: 0;
 }
 @media (max-width: 768px) {
   .sessions-rail-col {
@@ -2939,6 +2946,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  flex: 0 1 auto;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
@@ -2993,11 +3001,42 @@
   font-weight: 500;
 }
 
+.agent-surface-header-middle {
+  flex: 1 1 420px;
+  min-width: 240px;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+}
+
+.agent-surface-header-middle .ideas-list-head {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.agent-surface-header-middle .ideas-toolbar {
+  width: 100%;
+}
+
 .agent-surface-header-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+@media (max-width: 1180px) {
+  .agent-inbox-shell > .agent-surface-header {
+    flex-wrap: wrap;
+  }
+
+  .agent-inbox-shell > .agent-surface-header .agent-surface-header-middle {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: none;
+  }
 }
 .agent-page-settings {
   padding: 24px 28px;

@@ -4,6 +4,7 @@ import { Navigate, useLocation, useParams } from "react-router-dom";
 import LeftSidebar from "./shell/LeftSidebar";
 import PageRail from "./PageRail";
 import BootLoader from "./shell/BootLoader";
+import { AgentInboxControlsProvider, AgentInboxToolbar } from "./shell/AgentInboxControls";
 import { useDaemonStore } from "@/store/daemon";
 import { activityKeys, agentKeys, entityKeys, questKeys, runtimeKeys } from "@/queries/keys";
 import { useUIStore } from "@/store/ui";
@@ -19,6 +20,7 @@ import type { Agent, Trust } from "@/lib/types";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
 const AgentPage = lazy(() => import("./AgentPage"));
+const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
 const SessionsRail = lazy(() => import("./shell/SessionsRail"));
 const ComposerRow = lazy(() => import("./shell/ComposerRow"));
 const ShortcutsOverlay = lazy(() => import("./ShortcutsOverlay"));
@@ -421,10 +423,9 @@ export default function AppLayout() {
     if (drilledAgent && agentSettingsSegment) {
       return <AgentSettingsPage agentId={activeAgentId} />;
     }
-    // Default drilled-agent surface: header + chat. AgentPage renders
-    // the AgentSurfaceHeader at the top of the right pane and the
-    // AgentSessionView below; AppLayout mounts the SessionsRail and
-    // ComposerRow as siblings of the chat content column.
+    // Default drilled-agent surface: AppLayout renders the shared inbox
+    // topbar and mounts the SessionsRail / ComposerRow around the chat
+    // content column. AgentPage owns only the selected conversation.
     return <AgentPage agentId={activeAgentId} tab={effectiveTab} itemId={itemId} />;
   })();
 
@@ -463,6 +464,41 @@ export default function AppLayout() {
       ? `${base}/agents/${encodeURIComponent(drilledAgent.id)}/settings`
       : "";
 
+  const contentBody = (
+    <div className="content-body-row">
+      {showAgentRail && (
+        <PageRail
+          tabs={AGENT_RAIL_TABS}
+          defaultTab="overview"
+          title="Agent"
+          basePath={agentRailBase}
+          currentValue={agentRailCurrent}
+        />
+      )}
+      {showSessionsRail && (
+        <aside className="sessions-rail-col">
+          <Suspense fallback={null}>
+            <SessionsRail />
+          </Suspense>
+        </aside>
+      )}
+      <main id="main-content" className="content-main-col">
+        <div className="content-scroll">
+          <Suspense fallback={null}>{mainContent}</Suspense>
+        </div>
+        {showComposer && (
+          <Suspense fallback={null}>
+            <ComposerRow
+              agentId={activeAgentId || null}
+              base={base}
+              sessionsMounted={sessionsMounted}
+            />
+          </Suspense>
+        )}
+      </main>
+    </div>
+  );
+
   return (
     <>
       <a className="skip-link" href="#main-content">
@@ -474,38 +510,18 @@ export default function AppLayout() {
         <div className="content-column">
           <div className="content-card">
             <div className="content-paper">
-              <div className="content-body-row">
-                {showAgentRail && (
-                  <PageRail
-                    tabs={AGENT_RAIL_TABS}
-                    defaultTab="overview"
-                    title="Agent"
-                    basePath={agentRailBase}
-                    currentValue={agentRailCurrent}
-                  />
-                )}
-                {showSessionsRail && (
-                  <aside className="sessions-rail-col">
+              {showSessionsRail ? (
+                <AgentInboxControlsProvider>
+                  <div className="agent-inbox-shell">
                     <Suspense fallback={null}>
-                      <SessionsRail />
+                      <AgentSurfaceHeader agentId={activeAgentId} middle={<AgentInboxToolbar />} />
                     </Suspense>
-                  </aside>
-                )}
-                <main id="main-content" className="content-main-col">
-                  <div className="content-scroll">
-                    <Suspense fallback={null}>{mainContent}</Suspense>
+                    {contentBody}
                   </div>
-                  {showComposer && (
-                    <Suspense fallback={null}>
-                      <ComposerRow
-                        agentId={activeAgentId || null}
-                        base={base}
-                        sessionsMounted={sessionsMounted}
-                      />
-                    </Suspense>
-                  )}
-                </main>
-              </div>
+                </AgentInboxControlsProvider>
+              ) : (
+                contentBody
+              )}
             </div>
           </div>
           <RateLimitBanner />

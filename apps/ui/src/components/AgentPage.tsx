@@ -1,26 +1,14 @@
 import { Suspense, lazy } from "react";
 import { useParams } from "react-router-dom";
-import { useDaemonStore } from "@/store/daemon";
 
 const AgentSessionView = lazy(() => import("./AgentSessionView"));
-const AgentSurfaceHeader = lazy(() => import("./AgentSurfaceHeader"));
 
 /**
  * Default drilled-agent surface (`/trust/<addr>/agents/<agent>/[inbox/<sid>]`).
  *
- * No rail. A header (back-to-Agents · agent name · New session ·
- * Settings) anchors the surface; the body is the canonical inbox
- * chat shape (sessions list rail + active session detail with
- * composer — same surface as before, mounted via SessionsRail in
- * AppLayout). The header is the only breadcrumb at this depth — the
- * rail moved to /settings.
- *
- * AppLayout is responsible for mounting <SessionsRail> and
- * <ComposerRow> as siblings of this body. Here we just render the
- * AgentSurfaceHeader and the AgentSessionView (the chat content
- * column). When the URL is `/trust/<addr>/agents/<aid>/inbox/<sid>`
- * AppLayout passes itemId; otherwise we open the agent without a
- * specific session selected.
+ * AppLayout owns the shared topbar (agent identity, session search,
+ * sort/filter, and actions), plus the sessions rail and composer. This
+ * component owns only the selected conversation area.
  */
 export default function AgentPage({
   agentId,
@@ -39,14 +27,9 @@ export default function AgentPage({
   const itemId = itemIdProp ?? params.itemId;
   const sessionId = itemId || null;
 
-  const agents = useDaemonStore((s) => s.agents);
-  const agent = agents.find((a) => a.id === agentId);
-  const resolvedAgentId = agent?.id || agentId;
-
   return (
     <div className="agent-page">
       <Suspense fallback={null}>
-        <AgentSurfaceHeader agentId={resolvedAgentId} />
         <div className="agent-page-chat">
           <AgentSessionView agentId={agentId} sessionId={sessionId} />
         </div>

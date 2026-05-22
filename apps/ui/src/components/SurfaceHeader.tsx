@@ -22,6 +22,7 @@ export default function SurfaceHeader({
   backLabel,
   title,
   crumbSuffix,
+  middle,
   actions,
 }: {
   backHref: string;
@@ -37,6 +38,8 @@ export default function SurfaceHeader({
    */
   title?: ReactNode;
   crumbSuffix?: ReactNode;
+  /** Center chrome slot for page-level controls such as search/sort/filter. */
+  middle?: ReactNode;
   /** Right-aligned actions slot (toggles, buttons, save/delete, etc.). */
   actions?: ReactNode;
 }) {
@@ -71,6 +74,7 @@ export default function SurfaceHeader({
         )}
         {crumbSuffix}
       </div>
+      {middle && <div className="agent-surface-header-middle">{middle}</div>}
       {actions && <div className="agent-surface-header-actions">{actions}</div>}
     </div>
   );

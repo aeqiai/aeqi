@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChatStore } from "@/store/chat";
 import { useInboxStore } from "@/store/inbox";
@@ -7,15 +7,9 @@ import { recencyBucket, timeShort } from "@/lib/format";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useDaemonStore } from "@/store/daemon";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
-import SessionsToolbar from "@/components/sessions/SessionsToolbar";
-import SessionsSortPopover, { type SessionsSort } from "@/components/sessions/SessionsSortPopover";
-import SessionsFilterPopover, {
-  type SessionsFilterState,
-} from "@/components/sessions/SessionsFilterPopover";
+import { useAgentInboxControls } from "./AgentInboxControls";
 
 const NO_SESSIONS: SessionInfo[] = [];
-
-const DEFAULT_FILTER: SessionsFilterState = { status: "all" };
 
 function sessionStatusLabel(status: string | undefined): string {
   if (!status) return "Session";
@@ -31,12 +25,10 @@ function messageCountLabel(count: number | undefined): string | null {
 
 /**
  * Sessions rail — the left-adjacent index column for the drilled-agent
- * inbox. Renders the canonical `<SessionsToolbar>` (search + sort +
- * filter, slot-based) above the universal `<SessionRail>` primitive.
- * Adapts the chat-store sessions list into `SessionRailRow`s; awaiting
- * rows are flagged via the inbox store. The entity-scope inbox at
- * `/trust/<addr>/inbox` (MeInboxPage) mounts the same primitive pair
- * through `<InboxToolbar>` — both surfaces read as the same chrome shape.
+ * inbox. Adapts the chat-store sessions list into `SessionRailRow`s;
+ * awaiting rows are flagged via the inbox store. Search, sort, and
+ * filter live in the shared AppLayout-level agent inbox header so the
+ * controls govern the whole master/detail surface, not only the rail.
  *
  * Sort: recent (default) / oldest first.
  * Filter: status — all / active / archived. Matches `s.status === "active"`.
@@ -66,14 +58,7 @@ export default function SessionsRail() {
     () => new Set(inboxItems.map((i) => i.session_id)),
     [inboxItems],
   );
-
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SessionsSort>("recent");
-  const [filter, setFilter] = useState<SessionsFilterState>(DEFAULT_FILTER);
-
-  const patchFilter = useCallback((patch: Partial<SessionsFilterState>) => {
-    setFilter((prev) => ({ ...prev, ...patch }));
-  }, []);
+  const { query, sort, filter } = useAgentInboxControls();
 
   const allRows = useMemo<SessionRailRow[]>(() => {
     const mapped = sessions
@@ -134,24 +119,15 @@ export default function SessionsRail() {
   const emptyHint = isFilteringEmpty ? "try a different search term." : "type below to start one";
 
   return (
-    <>
-      <SessionsToolbar
-        query={query}
-        onQuery={setQuery}
-        searchPlaceholder="Search inbox"
-        sort={<SessionsSortPopover sort={sort} onChange={setSort} />}
-        filter={<SessionsFilterPopover filter={filter} onChange={patchFilter} />}
-      />
-      <SessionRail
-        rows={rows}
-        selectedId={itemId ?? null}
-        onSelect={handleSelect}
-        density="comfortable"
-        surface="card"
-        streamingIds={streamingSessions}
-        emptyTitle={emptyTitle}
-        emptyHint={emptyHint}
-      />
-    </>
+    <SessionRail
+      rows={rows}
+      selectedId={itemId ?? null}
+      onSelect={handleSelect}
+      density="comfortable"
+      surface="card"
+      streamingIds={streamingSessions}
+      emptyTitle={emptyTitle}
+      emptyHint={emptyHint}
+    />
   );
 }
