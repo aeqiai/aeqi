@@ -11,6 +11,15 @@ export interface WalletProvider {
 
 export type WelcomeMode = "signup" | "login" | "welcome";
 
+export type WelcomeStage =
+  | "door"
+  | "spawning"
+  | "welcome"
+  | "error"
+  | "check-email"
+  | "waitlist"
+  | "waitlist-sent";
+
 export interface WelcomeCopy {
   title: string;
   subtitle: string;

@@ -543,6 +543,7 @@
   .signup-form-side {
     justify-content: flex-start;
     padding: var(--space-2) var(--space-4) var(--space-6);
+    scroll-margin-top: 64px;
   }
   .auth-mobile-nav + .signup-form-side .auth-logo {
     display: none;

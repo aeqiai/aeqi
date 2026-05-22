@@ -16,7 +16,7 @@ export default function AuthMobileNav({
   className = "",
 }: AuthMobileNavProps) {
   return (
-    <header
+    <nav
       className={["auth-mobile-nav", className].filter(Boolean).join(" ")}
       aria-label={ariaLabel}
     >
@@ -28,6 +28,6 @@ export default function AuthMobileNav({
           {actionLabel}
         </Link>
       )}
-    </header>
+    </nav>
   );
 }

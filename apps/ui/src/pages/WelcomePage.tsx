@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import AuthMobileNav from "@/components/AuthMobileNav";
-import Wordmark from "@/components/Wordmark";
 import { useAuthStore } from "@/store/auth";
 import { goExternal } from "@/lib/navigation";
-import { getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
+import { buildAuthSwitchHref, getRedirectAfterAuth } from "@/lib/redirectAfterAuth";
 import {
   COPY,
   SOLANA_API_URL,
@@ -13,6 +11,7 @@ import {
   type SpawnStep,
   type WalletProvider,
   type WelcomeMode,
+  type WelcomeStage,
 } from "./welcome/types";
 import {
   base58Encode,
@@ -27,34 +26,19 @@ import {
   verifyWelcomeEmailToken,
 } from "./welcome/session";
 import SecretLogin from "./welcome/SecretLogin";
-import DoorView from "./welcome/DoorView";
-import CheckEmailView from "./welcome/CheckEmailView";
-import {
-  ErrorView,
-  SpawningView,
-  WaitlistSentView,
-  WaitlistView,
-  WelcomeView,
-} from "./welcome/views";
+import WelcomeAccountShell from "./welcome/WelcomeAccountShell";
 
 export type { WelcomeMode } from "./welcome/types";
 
 const PENDING_SIGNUP_NAME_KEY = "aeqi_pending_signup_name";
 
-/**
- * Welcome — combined sign-in / sign-up entry point. A user authenticates
- * with wallet, passkey, email, Google, or GitHub; the server resolves or
- * creates the account, provisions the account wallet, and returns a session.
- * Company creation is separate and happens later through the launch flow.
- *
- * Companion to `aeqi-platform`'s `/api/auth/welcome/*` routes (served
- * relative to the current origin in prod; override with
- * VITE_AEQI_SOLANA_API for local smoke testing).
- */
+// Combined sign-in / sign-up entry point backed by `/api/auth/welcome/*`.
 export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode } = {}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const copy = COPY[mode];
+  const authSwitchHref = buildAuthSwitchHref(copy.switchHref, searchParams);
+  const doorCopy = { ...copy, switchHref: authSwitchHref };
 
   // Auth-mode dispatch — self-hosters running with `[web.auth].mode = "secret"`
   // (the default) get a single passphrase form, NOT the email/OAuth flow.
@@ -73,9 +57,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   useEffect(() => {
     if (authModeLoaded && authMode === "none") navigate("/", { replace: true });
   }, [authModeLoaded, authMode, navigate]);
-  const [stage, setStage] = useState<
-    "door" | "spawning" | "welcome" | "error" | "check-email" | "waitlist" | "waitlist-sent"
-  >("door");
+  const [stage, setStage] = useState<WelcomeStage>("door");
   const [picked, setPicked] = useState<Door | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -85,12 +67,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
   const [walletDetected, setWalletDetected] = useState<{ name: string } | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // Manual invite-code entry. The URL `?invite=<code>` query param wins
-  // when present; otherwise the user can paste/type their code into the
-  // door form. The closed beta still gates on the platform side, so the
-  // input is just a UX restoration — empty string sends `undefined` to
-  // the server (which is what the URL-less flow did before the input
-  // came back 2026-05-19).
+  // URL invite wins; otherwise signup can carry a typed invite code.
   const [inviteInput, setInviteInput] = useState("");
   const getInviteCode = (): string | undefined => {
     const fromUrl = searchParams.get("invite");
@@ -104,12 +81,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     return name || undefined;
   };
 
-  /**
-   * OAuth hash landing path: Google + GitHub callbacks redirect to
-   * `/welcome#oauth_token=<jwt>&account=<id>&wallet=<pubkey>&new=<0|1>`.
-   * The fragment never reaches a webserver; the SPA reads it on mount,
-   * persists the session, and rolls into the account-ready view.
-   */
+  // OAuth hash landing path for Google + GitHub callbacks.
   useEffect(() => {
     if (!window.location.hash) return;
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
@@ -163,13 +135,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * Magic-link landing path: when the user clicks the email link, they
-   * arrive at `/welcome?token=<hex>`. Strip the token off the URL so the
-   * page can be safely refreshed/shared, fire `email-verify` against the
-   * platform with the raw token, persist the resulting session, and roll
-   * straight into the account setup animation.
-   */
+  // Magic-link landing path for `/welcome?token=<hex>`.
   useEffect(() => {
     const token = searchParams.get("token");
     if (!token) return;
@@ -304,18 +270,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
   }
 
-  /**
-   * Send email-start: the platform persists a magic-link token + 6-digit
-   * code, mails BOTH to the user, and the SPA transitions to the "check
-   * email" view. The user can either click the magic link in their inbox
-   * (handled by the `?token=` useEffect on mount) OR paste / type the
-   * 6-digit code into the OTP boxes (handled by `spawnViaEmailCode`).
-   * Either path redeems the same row and lands on the same account flow.
-   *
-   * In dev (no SMTP backend), the platform inlines `magic_link_url` in
-   * the response so the smoke test can auto-follow it. In prod that
-   * field is absent and we wait for the user to act on the email.
-   */
+  // Send email-start and move to the code/magic-link redemption step.
   async function submitEmailForCode(emailAddress: string) {
     setStage("check-email");
     setErrorMsg(null);
@@ -365,10 +320,7 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     }
   }
 
-  /**
-   * Verify the 6-digit code from the email. Same downstream flow as the
-   * magic link path: persist session and animate account setup.
-   */
+  // Verify the emailed 6-digit code, then continue through account setup.
   async function spawnViaEmailCode(emailAddress: string, code: string) {
     setStage("spawning");
     setErrorMsg(null);
@@ -528,179 +480,94 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
     setSteps([]);
   }
 
+  function startOAuth(provider: "google" | "github") {
+    const inviteCode = getInviteCode();
+    const qs = new URLSearchParams();
+    if (inviteCode) qs.set("invite_code", inviteCode);
+    const name = getSignupName();
+    if (name) qs.set("name", name);
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    goExternal(`${SOLANA_API_URL}/api/auth/welcome/${provider}/start${query}`);
+  }
+
+  async function resendEmailCode() {
+    const lower = email.trim().toLowerCase();
+    const inviteCode = getInviteCode();
+    await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: lower,
+        invite_code: inviteCode,
+        name: getSignupName(),
+      }),
+    });
+  }
+
+  async function submitWaitlist(emailLower: string) {
+    const res = await fetch(`${SOLANA_API_URL}/api/auth/waitlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailLower, _hp: "" }),
+    });
+    if (!res.ok) {
+      throw new Error(`${res.status}: ${await res.text()}`);
+    }
+    setStage("waitlist-sent");
+  }
+
+  const shellProps = {
+    authSwitchHref,
+    copy: doorCopy,
+    displayName,
+    email,
+    errorMsg,
+    inviteFromUrl: searchParams.get("invite"),
+    inviteInput,
+    mode,
+    outcome,
+    passkeyAvailable,
+    picked,
+    setDisplayName,
+    setEmail,
+    setInviteInput,
+    stage,
+    steps,
+    submitting,
+    waitlistMode,
+    walletDetected,
+    onBack: reset,
+    onEmailSubmit: handleEmailSubmit,
+    onGoogle: () => startOAuth("google"),
+    onGithub: () => startOAuth("github"),
+    onPasskey: handlePasskey,
+    onSwitch: () => navigate(authSwitchHref),
+    onWaitlistSubmit: submitWaitlist,
+    onWallet: handleWalletConnect,
+    onEmailCodeSubmit: (code: string) => spawnViaEmailCode(email.trim().toLowerCase(), code),
+    onEmailResend: resendEmailCode,
+  };
+
   // Dispatch on auth mode AFTER all hooks above have run unconditionally.
   // Self-host default = "secret" → simple passphrase form. SaaS / multi-user
   // teams set "accounts" → fall through to the existing wallet/passkey/email
   // flow. "none" navigates to / via effect; render nothing while it fires.
-  if (!authModeLoaded) {
+  if (!authModeLoaded)
     return (
-      <main className="signup-split">
-        <a className="skip-link" href="#main-content">
-          Skip to main content
-        </a>
-        <AuthMobileNav
-          ariaLabel="Authentication navigation"
-          actionHref={copy.switchHref}
-          actionLabel={copy.switchCta}
-        />
-        <div className="signup-form-side" id="main-content" />
-      </main>
+      <WelcomeAccountShell {...shellProps} authModeLoaded={false} onContinue={() => undefined} />
     );
-  }
   if (authMode === "secret") return <SecretLogin />;
   if (authMode === "none") return null;
 
-  const isWaitlistStage = stage === "waitlist" || stage === "waitlist-sent";
-
   return (
-    <main className="signup-split">
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
-      <AuthMobileNav
-        ariaLabel="Authentication navigation"
-        actionHref={copy.switchHref}
-        actionLabel={copy.switchCta}
-      />
-      <div className="signup-form-side" id="main-content">
-        <div
-          className={isWaitlistStage ? "auth-container auth-container--waitlist" : "auth-container"}
-          role="region"
-          aria-live="polite"
-        >
-          <div className="auth-logo">
-            <Wordmark size={36} />
-          </div>
-
-          {stage === "door" && (
-            <DoorView
-              copy={copy}
-              displayName={displayName}
-              setDisplayName={setDisplayName}
-              showNameField={mode === "signup"}
-              email={email}
-              setEmail={setEmail}
-              inviteInput={inviteInput}
-              setInviteInput={setInviteInput}
-              inviteFromUrl={searchParams.get("invite")}
-              // Invite field only renders during closed-beta / waitlist mode.
-              // When the platform flips `waitlist=false` on /api/auth/mode the
-              // input disappears automatically so open signup stays clean.
-              showInviteField={waitlistMode && mode !== "login"}
-              walletDetected={walletDetected}
-              passkeyAvailable={passkeyAvailable}
-              submitting={submitting}
-              onEmailSubmit={handleEmailSubmit}
-              onWallet={handleWalletConnect}
-              onPasskey={handlePasskey}
-              onGoogle={() => {
-                const inviteCode = getInviteCode();
-                const qs = new URLSearchParams();
-                if (inviteCode) qs.set("invite_code", inviteCode);
-                const name = getSignupName();
-                if (name) qs.set("name", name);
-                const query = qs.toString() ? `?${qs.toString()}` : "";
-                goExternal(`${SOLANA_API_URL}/api/auth/welcome/google/start${query}`);
-              }}
-              onGithub={() => {
-                const inviteCode = getInviteCode();
-                const qs = new URLSearchParams();
-                if (inviteCode) qs.set("invite_code", inviteCode);
-                const name = getSignupName();
-                if (name) qs.set("name", name);
-                const query = qs.toString() ? `?${qs.toString()}` : "";
-                goExternal(`${SOLANA_API_URL}/api/auth/welcome/github/start${query}`);
-              }}
-              onSwitch={() => navigate(copy.switchHref)}
-            />
-          )}
-
-          {stage === "check-email" && (
-            <CheckEmailView
-              email={email}
-              onCodeSubmit={(code) => spawnViaEmailCode(email.trim().toLowerCase(), code)}
-              onResend={async () => {
-                const lower = email.trim().toLowerCase();
-                const inviteCode = getInviteCode();
-                await fetch(`${SOLANA_API_URL}/api/auth/welcome/email-start`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    email: lower,
-                    invite_code: inviteCode,
-                    name: getSignupName(),
-                  }),
-                });
-              }}
-              onBack={reset}
-            />
-          )}
-
-          {stage === "spawning" && <SpawningView steps={steps} picked={picked} />}
-
-          {stage === "welcome" && outcome && (
-            <WelcomeView
-              outcome={outcome}
-              onContinue={() =>
-                navigate(outcome.already_existed ? "/" : "/launch?blueprint=personal-os", {
-                  replace: true,
-                })
-              }
-            />
-          )}
-
-          {stage === "waitlist" && (
-            <WaitlistView
-              email={email}
-              onSubmit={async (emailLower) => {
-                const res = await fetch(`${SOLANA_API_URL}/api/auth/waitlist`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email: emailLower, _hp: "" }),
-                });
-                if (!res.ok) {
-                  throw new Error(`${res.status}: ${await res.text()}`);
-                }
-                setStage("waitlist-sent");
-              }}
-              onBack={reset}
-            />
-          )}
-
-          {stage === "waitlist-sent" && <WaitlistSentView email={email} onBack={reset} />}
-
-          {stage === "error" && (
-            <ErrorView message={errorMsg ?? "Something went wrong."} onBack={reset} />
-          )}
-
-          <div className="auth-footer">
-            <p>
-              By continuing, you agree to the{" "}
-              <a href="https://aeqi.ai/terms" target="_blank" rel="noopener noreferrer">
-                Terms of Service
-              </a>{" "}
-              and{" "}
-              <a href="https://aeqi.ai/privacy" target="_blank" rel="noopener noreferrer">
-                Privacy Policy
-              </a>
-              .
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <aside className={`signup-pitch-side signup-pitch-side--${mode}`} aria-hidden="true">
-        <div className="signup-pitch-scrim" />
-        <div className="signup-pitch-content">
-          <p className="signup-pitch-eyebrow">THE COMPANY OS</p>
-          <h2 className="signup-pitch-heading">
-            <span>Start something</span>
-            <span>that can work</span>
-            <span>without you.</span>
-          </h2>
-          <p className="signup-lead">Humans set direction. Agents execute. Memory compounds.</p>
-        </div>
-      </aside>
-    </main>
+    <WelcomeAccountShell
+      {...shellProps}
+      authModeLoaded
+      onContinue={() =>
+        navigate(outcome?.already_existed ? "/" : "/launch?blueprint=personal-os", {
+          replace: true,
+        })
+      }
+    />
   );
 }

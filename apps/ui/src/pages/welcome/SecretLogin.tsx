@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AuthMobileNav from "@/components/AuthMobileNav";
 import Wordmark from "@/components/Wordmark";
 import { Button, Input } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -42,6 +43,7 @@ export default function SecretLogin() {
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
+      <AuthMobileNav ariaLabel="Authentication navigation" />
       <div className="signup-form-side" id="main-content">
         <div className="auth-container" role="region" aria-live="polite">
           <div className="auth-logo">

@@ -9,3 +9,17 @@ export function getRedirectAfterAuth(params: URLSearchParams, fallback: string =
   if (next.includes("://")) return fallback;
   return next;
 }
+
+export function buildAuthSwitchHref(baseHref: string, params: URLSearchParams): string {
+  if (!baseHref) return "";
+
+  const next = getRedirectAfterAuth(params, "");
+  const invite = params.get("invite");
+  const nextParams = new URLSearchParams();
+
+  if (next) nextParams.set("next", next);
+  if (baseHref === "/signup" && invite) nextParams.set("invite", invite);
+
+  const query = nextParams.toString();
+  return query ? `${baseHref}?${query}` : baseHref;
+}
