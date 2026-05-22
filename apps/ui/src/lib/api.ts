@@ -286,7 +286,7 @@ export const api = {
       ok: boolean;
       roles: Role[];
       edges: RoleEdge[];
-    }>(`/roles?trust_id=${encodeURIComponent(trustId)}`);
+    }>(`/roles?trust_id=${encodeURIComponent(trustId)}`, { scopedEntity: trustId });
     return {
       ok: r.ok,
       roles: r.roles,

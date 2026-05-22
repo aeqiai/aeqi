@@ -31,6 +31,7 @@ interface User {
   avatar_url?: string;
   email_verified?: boolean;
   roots?: string[];
+  entities?: string[];
   /** Subscription state from /api/auth/me. "invited" = sandbox tier
    *  (waitlist-redeemed, no billing). "active" = paid Stripe sub. */
   subscription_status?: string;

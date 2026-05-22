@@ -25,6 +25,10 @@ export class RateLimitedError extends ApiError {
   }
 }
 
+export interface ApiRequestOptions extends RequestInit {
+  scopedEntity?: string | null | false;
+}
+
 /**
  * Parse RFC 7231 `Retry-After`. The header is either an integer number
  * of seconds (`Retry-After: 30`) or an HTTP-date; the governor crate emits
@@ -94,23 +98,24 @@ async function parseResponseBody(res: Response): Promise<unknown> {
   }
 }
 
-export async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiRequest<T>(path: string, options?: ApiRequestOptions): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   const token = getToken();
-  const isFormData = typeof FormData !== "undefined" && options?.body instanceof FormData;
+  const { scopedEntity, ...fetchOptions } = options ?? {};
+  const isFormData = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
-    ...(options?.headers as Record<string, string>),
+    ...(fetchOptions.headers as Record<string, string>),
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const trustId = getScopedEntity();
+  const trustId = scopedEntity === false ? null : (scopedEntity ?? getScopedEntity());
   if (trustId && !path.startsWith("/auth/")) {
     headers["X-Trust"] = trustId;
   }
 
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...fetchOptions, headers });
 
   if (res.status === 429) {
     const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
