@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BookOpen, Globe, Plus, Rocket, Settings, Users } from "lucide-react";
+import { ArrowRight, BookOpen, Globe, Plus, Rocket, Users } from "lucide-react";
 import OperatingContextCard from "@/components/trust/OperatingContextCard";
 import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
 import { useAgents } from "@/queries/agents";
@@ -22,6 +22,7 @@ import { pickFeaturedRole } from "./startPageUtils";
 import "@/styles/roles.css";
 
 const INBOX_PREVIEW_LIMIT = 4;
+const HERO_STATUS_LINE = "aeqi v0.1 · alpha · online";
 
 export default function StartPage() {
   const navigate = useNavigate();
@@ -78,7 +79,6 @@ export default function StartPage() {
     () => user?.name?.trim() || user?.email?.split("@")[0] || "Operator",
     [user],
   );
-  const actorLine = user?.email || "Personal command surface";
 
   const trustNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -120,23 +120,15 @@ export default function StartPage() {
     <div className="home-page">
       <header className="home-hero">
         <img src="/welcome/start-hero.png" alt="" className="home-hero-image" aria-hidden="true" />
-        <Link
-          to="/account"
-          className="home-hero-settings"
-          aria-label="Open account settings"
-          title="Account settings"
-        >
-          <Settings size={16} strokeWidth={1.6} />
-        </Link>
         <div className="home-hero-overlay">
           <div className="home-hero-identity">
             <span className="home-hero-avatar" aria-hidden="true">
-              <UserAvatar name={actorName} size={58} src={user?.avatar_url} />
+              <UserAvatar name={actorName} size={64} src={user?.avatar_url} />
             </span>
             <div className="home-hero-text">
-              <p className="home-hero-eyebrow">Welcome back</p>
+              <p className="home-hero-eyebrow">Operator shell</p>
               <h1 className="home-hero-title">{actorName}</h1>
-              <p className="home-hero-subtitle">{actorLine}</p>
+              <p className="home-hero-subtitle">{HERO_STATUS_LINE}</p>
             </div>
           </div>
         </div>

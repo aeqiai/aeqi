@@ -8472,10 +8472,9 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   box-sizing: border-box;
 }
 
-/* Hero — wide image (start-hero.png) with greeting overlay on the
-   lighter left third. Account avatar floats in the top-right of the
-   overlay so the path to /account stays one click from the surface
-   the user lands on. */
+/* Hero — wide image (start-hero.png) with a quiet operator identity
+   overlay on the lighter left third. The hero is orientation and mood;
+   cards below own actions and current TRUST context. */
 .home-hero {
   position: relative;
 }
@@ -8508,24 +8507,24 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
   position: absolute;
   inset: 0 24px 0 24px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 36px 48px;
+  padding: 36px 56px;
   pointer-events: none;
 }
 .home-hero-identity {
   display: flex;
   align-items: center;
-  gap: 16px;
-  max-width: 560px;
+  gap: 18px;
+  max-width: 620px;
 }
 .home-hero-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 999px;
   overflow: hidden;
   background: var(--color-card-muted);
@@ -8534,7 +8533,7 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 .home-hero-eyebrow {
@@ -8549,53 +8548,14 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
 .home-hero-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 300;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   color: var(--color-text-primary);
   line-height: 1.05;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-/* Top-right gear: shortcut to /account. White pill so it reads as a
-   real affordance against the warm hero photo, sized to the same 32px
-   row rhythm as the rest of the chrome. pointer-events re-enabled
-   because the overlay container disables them. */
-.home-hero-settings {
-  /* `.home-hero` carries 24px horizontal padding (shared with the row
-     wrappers below), and absolute children resolve against the padding
-     box edge. `right: 24px` was therefore touching the image's right
-     edge with zero gap. Bumping to 44px = 24px padding + 20px breathing
-     room — same applies vertically (top: 20px stays inside the image
-     since there's no vertical padding on `.home-hero`). */
-  position: absolute;
-  top: 20px;
-  right: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--color-card-elevated);
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  pointer-events: auto;
-  transition:
-    transform 0.12s ease,
-    color 0.12s ease,
-    filter 0.12s ease;
-  z-index: 1;
-}
-.home-hero-settings:hover {
-  color: var(--color-text-primary);
-  transform: translateY(-1px);
-  filter: brightness(1.04);
-}
-.home-hero-settings:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
 }
 /* Card shell — shared by trust card, inbox, economy, and thesis.
    Generous padding (28px) so every card reads as a deliberate
@@ -9184,16 +9144,8 @@ button.home-card:focus-visible {
     inset: 0 16px;
     padding: 24px 24px;
   }
-  .home-hero-avatar {
-    width: 44px;
-    height: 44px;
-  }
   .home-hero-title {
     font-size: 26px;
-  }
-  .home-hero-settings {
-    top: 12px;
-    right: 32px;
   }
   .home-thesis-card {
     grid-template-columns: 1fr;
@@ -10031,8 +9983,8 @@ button.home-card:focus-visible {
   }
 
   .home-hero-identity {
-    max-width: calc(100% - 52px);
     gap: 10px;
+    max-width: 100%;
   }
 
   .home-hero-text {
@@ -10042,11 +9994,6 @@ button.home-card:focus-visible {
   .home-hero-title {
     white-space: normal;
     overflow-wrap: anywhere;
-  }
-
-  .home-hero-settings {
-    top: 12px;
-    right: 28px;
   }
 
   .home-card {

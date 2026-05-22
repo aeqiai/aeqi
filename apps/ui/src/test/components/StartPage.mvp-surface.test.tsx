@@ -181,7 +181,9 @@ describe("StartPage MVP surface", () => {
     const secondary = within(trustSection).getByRole("link", { name: /browse blueprints/i });
 
     expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
-    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
+    expect(screen.getByText("Operator shell")).toBeInTheDocument();
+    expect(screen.getByText("aeqi v0.1 · alpha · online")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
     expect(screen.getByText("No active TRUST")).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
@@ -203,7 +205,9 @@ describe("StartPage MVP surface", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Ada Founder" })).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: "Account snapshot" })).not.toBeInTheDocument();
-    expect(screen.getByText("ada@aeqi.ai")).toBeInTheDocument();
+    expect(screen.getByText("Operator shell")).toBeInTheDocument();
+    expect(screen.getByText("aeqi v0.1 · alpha · online")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
 
     expect(
       within(trustSection).getByRole("heading", { level: 2, name: "TRUST" }),
