@@ -12,6 +12,7 @@ import type { Role, Trust } from "@/lib/types";
 import { useDaemonStore } from "@/store/daemon";
 
 type RoleContextCardVariant = "card" | "map";
+type RoleContextCardTitleMode = "role" | "holder";
 
 interface RoleContextCardProps {
   variant?: RoleContextCardVariant;
@@ -25,6 +26,7 @@ interface RoleContextCardProps {
   routeCount?: number;
   agentName?: string;
   showPathMeta?: boolean;
+  titleMode?: RoleContextCardTitleMode;
   className?: string;
   style?: CSSProperties;
   onClick?: () => void;
@@ -44,6 +46,7 @@ export default function RoleContextCard({
   routeCount = 1,
   agentName,
   showPathMeta = true,
+  titleMode = "role",
   className,
   style,
   onClick,
@@ -60,9 +63,13 @@ export default function RoleContextCard({
       ? entities.find((entity) => entity.id === role.occupant_id)?.name
       : undefined;
   const occupant = describeOccupant(role, agentName, trustOccupantName);
+  const roleLabel = role.title || roleTypeLabel(role.role_type);
+  const titleLabel = titleMode === "holder" ? occupant.label : roleLabel;
+  const subtitleLabel = titleMode === "holder" ? roleLabel : trust.name;
   const classNames = [
     "role-context-card",
     `role-context-card--${variant}`,
+    `role-context-card--${titleMode}-title`,
     onClick ? "is-clickable" : "",
     selected ? "is-selected" : "",
     activePath ? "is-active-path" : "",
@@ -70,9 +77,9 @@ export default function RoleContextCard({
   ]
     .filter(Boolean)
     .join(" ");
-  const label = `${role.title || roleTypeLabel(role.role_type)} in ${trust.name}, held by ${
-    occupant.label
-  }, ${relationLabel(terminalRelation)}`;
+  const label = `${roleLabel} in ${trust.name}, held by ${occupant.label}, ${relationLabel(
+    terminalRelation,
+  )}`;
   const routeLabel =
     terminalStatus === "ambiguous"
       ? `${terminalRouteCount} routes`
@@ -84,31 +91,37 @@ export default function RoleContextCard({
   const body = (
     <>
       <span className="role-context-card-head">
-        <span className="role-context-card-trust-avatar" aria-hidden="true">
-          <TrustAvatar name={trust.name} size={variant === "map" ? 28 : 38} />
-        </span>
+        {titleMode === "holder" ? (
+          <OccupantAvatar role={role} label={occupant.label} />
+        ) : (
+          <span className="role-context-card-trust-avatar" aria-hidden="true">
+            <TrustAvatar name={trust.name} size={variant === "map" ? 28 : 38} />
+          </span>
+        )}
         <span className="role-context-card-copy">
           {showPathMeta ? (
             <span className="role-context-card-kicker">{relationLabel(terminalRelation)}</span>
           ) : null}
-          <span className="role-context-card-title">
-            {role.title || roleTypeLabel(role.role_type)}
-          </span>
-          <span className="role-context-card-trust-name">{trust.name}</span>
+          <span className="role-context-card-title">{titleLabel}</span>
+          <span className="role-context-card-trust-name">{subtitleLabel}</span>
         </span>
         <span className={`role-context-card-pill role-context-card-pill--${role.role_type}`}>
           {roleTypeLabel(role.role_type)}
         </span>
       </span>
-      <span className="role-context-card-foot">
-        <span className="role-context-card-holder">
-          <OccupantAvatar role={role} label={occupant.label} />
-          <span className="role-context-card-holder-label">{occupant.label}</span>
+      {titleMode === "role" || (showPathMeta && routeLabel) ? (
+        <span className="role-context-card-foot">
+          {titleMode === "role" ? (
+            <span className="role-context-card-holder">
+              <OccupantAvatar role={role} label={occupant.label} />
+              <span className="role-context-card-holder-label">{occupant.label}</span>
+            </span>
+          ) : null}
+          {showPathMeta && routeLabel ? (
+            <span className="role-context-card-route">{routeLabel}</span>
+          ) : null}
         </span>
-        {showPathMeta && routeLabel ? (
-          <span className="role-context-card-route">{routeLabel}</span>
-        ) : null}
-      </span>
+      ) : null}
     </>
   );
 
