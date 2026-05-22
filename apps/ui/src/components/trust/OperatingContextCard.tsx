@@ -47,6 +47,7 @@ export default function OperatingContextCard({
 }: OperatingContextCardProps) {
   const contextTrust = roleContext?.trust ?? activeTrust;
   const contextRole = roleContext?.role ?? activeRole;
+  const hasFooter = metrics.length > 0 || !!latestActivity;
 
   if (variant === "inline") {
     return (
@@ -143,21 +144,23 @@ export default function OperatingContextCard({
             </div>
           )}
         </div>
-        <div className="home-context-footer">
-          {metrics.length > 0 ? (
-            <dl className="home-context-metrics" aria-label="TRUST activity overview">
-              {metrics.map((metric) => (
-                <div key={metric.label}>
-                  <dt>{metric.label}</dt>
-                  <dd>{metric.value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-          {latestActivity ? (
-            <p className="home-context-line">Latest activity: {latestActivity}</p>
-          ) : null}
-        </div>
+        {hasFooter ? (
+          <div className="home-context-footer">
+            {metrics.length > 0 ? (
+              <dl className="home-context-metrics" aria-label="TRUST activity overview">
+                {metrics.map((metric) => (
+                  <div key={metric.label}>
+                    <dt>{metric.label}</dt>
+                    <dd>{metric.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {latestActivity ? (
+              <p className="home-context-line">Latest activity: {latestActivity}</p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
     </article>
   );

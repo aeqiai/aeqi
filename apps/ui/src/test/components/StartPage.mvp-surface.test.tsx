@@ -5,14 +5,11 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import StartPage from "@/pages/StartPage";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
-import { useVisibleIdeas } from "@/queries/ideas";
-import { useQuests } from "@/queries/quests";
 import { useAuthStore } from "@/store/auth";
-import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import { api, type InboxItem } from "@/lib/api";
-import type { ActivityEntry, Agent, Idea, Quest, Role } from "@/lib/types";
+import type { Agent, Role } from "@/lib/types";
 import type { Trust } from "@/lib/types";
 
 vi.mock("@/queries/agents", () => ({
@@ -21,14 +18,6 @@ vi.mock("@/queries/agents", () => ({
 
 vi.mock("@/queries/entities", () => ({
   useEntities: vi.fn(),
-}));
-
-vi.mock("@/queries/ideas", () => ({
-  useVisibleIdeas: vi.fn(),
-}));
-
-vi.mock("@/queries/quests", () => ({
-  useQuests: vi.fn(),
 }));
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -104,38 +93,7 @@ const ALPHA_ROLE: Role = {
   updated_at: null,
 };
 
-const ALPHA_QUEST: Quest = {
-  id: "quest-alpha",
-  status: "in_progress",
-  priority: "high",
-  cost_usd: 0,
-  created_at: "2026-05-21T09:00:00Z",
-};
-
-const ALPHA_IDEAS: Idea[] = [
-  {
-    id: "idea-alpha-1",
-    name: "Launch context",
-    content: "Home should show the current TRUST.",
-  },
-  {
-    id: "idea-alpha-2",
-    name: "Screenshot framework",
-    content: "Judge screenshots by page job, object, action, and MVP surface.",
-  },
-];
-
-const ALPHA_EVENT: ActivityEntry = {
-  id: 1,
-  timestamp: new Date().toISOString(),
-  decision_type: "session:quest_result",
-  summary: "Launch review completed",
-  agent: "Janus",
-  metadata: { root: "alpha" },
-};
-
 const initialAuthState = useAuthStore.getState();
-const initialDaemonState = useDaemonStore.getState();
 const initialInboxState = useInboxStore.getState();
 const initialUIState = useUIStore.getState();
 
@@ -168,16 +126,11 @@ function renderStartPage() {
 function primeStartPage(trusts: Trust[], inboxItems: InboxItem[] = []) {
   vi.mocked(useEntities).mockReturnValue(trusts);
   vi.mocked(useAgents).mockReturnValue(trusts.length > 0 ? [ALPHA_AGENT] : []);
-  vi.mocked(useVisibleIdeas).mockReturnValue({
-    data: trusts.length > 0 ? ALPHA_IDEAS : [],
-  } as never);
-  vi.mocked(useQuests).mockReturnValue(trusts.length > 0 ? [ALPHA_QUEST] : []);
   vi.mocked(api.getRoles).mockResolvedValue(
     trusts.length > 0
       ? { ok: true, roles: [ALPHA_ROLE], edges: [] }
       : { ok: true, roles: [], edges: [] },
   );
-  useDaemonStore.setState({ events: trusts.length > 0 ? [ALPHA_EVENT] : [] } as never);
   useAuthStore.setState({ user: USER } as never);
   useUIStore.setState({ activeEntity: trusts[0]?.id ?? "" } as never);
   useInboxStore.setState({
@@ -208,14 +161,12 @@ describe("StartPage MVP surface", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.mocked(useEntities).mockReset();
-    vi.mocked(useVisibleIdeas).mockReset();
   });
 
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
     useAuthStore.setState(initialAuthState, true);
-    useDaemonStore.setState(initialDaemonState, true);
     useInboxStore.setState(initialInboxState, true);
     useUIStore.setState(initialUIState, true);
   });
@@ -262,13 +213,11 @@ describe("StartPage MVP surface", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /Director .* Ada Founder/i })).toBeInTheDocument(),
     );
-    expect(screen.getByText("Quests")).toBeInTheDocument();
-    expect(screen.getByText("Ideas")).toBeInTheDocument();
-    expect(screen.getByText("Events")).toBeInTheDocument();
-    expect(screen.getByText("Agents")).toBeInTheDocument();
-    expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(3);
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText(/Latest activity:/i)).toBeInTheDocument();
+    expect(screen.queryByText("Quests")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ideas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Events")).not.toBeInTheDocument();
+    expect(screen.queryByText("Agents")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Latest activity:/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Beta Trust/i)).not.toBeInTheDocument();
 
     const yourTrusts = screen.getByRole("link", { name: /your trusts/i });

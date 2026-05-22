@@ -8372,34 +8372,6 @@ button.home-card:focus-visible {
   font-weight: 600;
   letter-spacing: -0.005em;
 }
-.home-card-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-/* Inbox card meta dot — same 7px / 999px shape as the shared rail cue,
-   so the label string in the card head mirrors the row markers below. */
-.home-card-meta-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  background: var(--color-text-muted);
-}
-.home-card-meta-dot--progress {
-  background: var(--state-progress);
-}
-.home-card-meta-dot--review {
-  background: var(--state-review);
-}
-.home-card-meta-dot--idle {
-  background: var(--color-text-muted);
-  opacity: 0.45;
-}
 .home-card-link {
   display: inline-flex;
   align-items: center;
@@ -9308,18 +9280,6 @@ button.home-card:focus-visible {
   letter-spacing: 0;
   line-height: 1.1;
   color: var(--color-text-primary);
-}
-
-.home-inbox-signal {
-  flex-shrink: 0;
-}
-
-.home-inbox-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 24px;
-  margin-top: auto;
 }
 
 .home-inbox-cta {

@@ -4,8 +4,6 @@ import { ArrowRight, BookOpen, Globe, Plus, Rocket, Settings, Users } from "luci
 import OperatingContextCard from "@/components/trust/OperatingContextCard";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
-import { useVisibleIdeas } from "@/queries/ideas";
-import { useQuests } from "@/queries/quests";
 import {
   makeRailRow,
   SessionRailEmptyState,
@@ -20,11 +18,10 @@ import type { InboxItem } from "@/lib/api";
 import type { Role, Trust } from "@/lib/types";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useAuthStore } from "@/store/auth";
-import { useDaemonStore } from "@/store/daemon";
 import { useInboxStore } from "@/store/inbox";
 import { useUIStore } from "@/store/ui";
 import { LEARN_POSTS } from "./startPageLearnPosts";
-import { latestActivityLabel, pickFeaturedRole } from "./startPageUtils";
+import { pickFeaturedRole } from "./startPageUtils";
 import "@/styles/roles.css";
 
 const INBOX_PREVIEW_LIMIT = 4;
@@ -35,7 +32,6 @@ export default function StartPage() {
   const activeEntityId = useUIStore((s) => s.activeEntity);
   const entities = useEntities();
   const agents = useAgents();
-  const events = useDaemonStore((s) => s.events);
   const inboxItems = useInboxStore((s) => s.items);
   const fetchInbox = useInboxStore((s) => s.fetchInbox);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -54,13 +50,6 @@ export default function StartPage() {
     }
     return entities[0] ?? null;
   }, [activeEntityId, entities]);
-
-  const questParams = useMemo(
-    () => (activeTrust ? { root: activeTrust.id } : undefined),
-    [activeTrust],
-  );
-  const quests = useQuests(questParams);
-  const { data: visibleIdeas = [] } = useVisibleIdeas(Boolean(activeTrust));
 
   useEffect(() => {
     if (!activeTrust) {
@@ -94,43 +83,16 @@ export default function StartPage() {
   );
   const actorLine = user?.email || "Personal command surface";
 
-  const inboxCount = inboxItems.length;
-  const awaitingCount = useMemo(
-    () => inboxItems.filter((item) => !!item.awaiting_at).length,
-    [inboxItems],
-  );
-  const inboxLabel =
-    awaitingCount > 0
-      ? `${awaitingCount} awaiting`
-      : inboxCount > 0
-        ? `${inboxCount} in Inbox`
-        : "Inbox clear";
-  const inboxPillState: "review" | "progress" | "idle" =
-    awaitingCount > 0 ? "review" : inboxCount > 0 ? "progress" : "idle";
-
   const trustNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const entity of entities) map.set(entity.id, entity.name);
     return map;
   }, [entities]);
 
-  const activeInboxItems = useMemo(() => {
-    if (!activeTrust) return [];
-    return inboxItems.filter((item) => item.trust_id === activeTrust.id);
-  }, [activeTrust, inboxItems]);
-
   const currentAgents = useMemo(() => {
     if (!activeTrust) return [];
     return agents.filter((agent) => !agent.trust_id || agent.trust_id === activeTrust.id);
   }, [activeTrust, agents]);
-
-  const runningAgents = useMemo(
-    () =>
-      currentAgents.filter((agent) =>
-        ["active", "online", "running"].includes(agent.status.toLowerCase()),
-      ),
-    [currentAgents],
-  );
 
   const agentNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -145,32 +107,6 @@ export default function StartPage() {
     }
     return map;
   }, [currentAgents]);
-
-  const currentAgentNames = useMemo(
-    () => new Set(currentAgents.map((agent) => agent.name)),
-    [currentAgents],
-  );
-
-  const currentQuests = useMemo(
-    () => quests.filter((quest) => quest.status !== "done" && quest.status !== "cancelled"),
-    [quests],
-  );
-
-  const recentEventCount = useMemo(() => {
-    if (!activeTrust) return 0;
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    return events.filter((event) => {
-      const timestamp = Date.parse(event.timestamp || event.created_at || "");
-      if (Number.isNaN(timestamp) || timestamp < cutoff) return false;
-      if (event.metadata?.root === activeTrust.id) return true;
-      return Boolean(event.agent && currentAgentNames.has(event.agent));
-    }).length;
-  }, [activeTrust, currentAgentNames, events]);
-
-  const latestActivity = useMemo(
-    () => latestActivityLabel(activeTrust, activeInboxItems, currentQuests),
-    [activeTrust, activeInboxItems, currentQuests],
-  );
 
   const activeRole = useMemo(() => pickFeaturedRole(roles, user?.id), [roles, user?.id]);
   const handleSelectRole = useCallback(
@@ -214,13 +150,6 @@ export default function StartPage() {
           activeTrust={activeTrust}
           activeRole={activeRole}
           rolesLoading={rolesLoading}
-          latestActivity={latestActivity}
-          metrics={[
-            { label: "Quests", value: currentQuests.length },
-            { label: "Agents", value: runningAgents.length },
-            { label: "Events", value: recentEventCount },
-            { label: "Ideas", value: visibleIdeas.length },
-          ]}
           agentNames={agentNames}
           agentAvatars={agentAvatars}
           onSelectRole={handleSelectRole}
@@ -232,8 +161,6 @@ export default function StartPage() {
         <InboxPreviewCard
           entities={entities}
           inboxItems={inboxPreview}
-          inboxLabel={inboxLabel}
-          inboxPillState={inboxPillState}
           trustNameById={trustNameById}
         />
         <EconomyCard />
@@ -278,18 +205,10 @@ function LaunchTrustCard() {
 interface InboxPreviewCardProps {
   entities: ReadonlyArray<Trust>;
   inboxItems: ReadonlyArray<InboxItem>;
-  inboxLabel: string;
-  inboxPillState: "review" | "progress" | "idle";
   trustNameById: ReadonlyMap<string, string>;
 }
 
-function InboxPreviewCard({
-  entities,
-  inboxItems,
-  inboxLabel,
-  inboxPillState,
-  trustNameById,
-}: InboxPreviewCardProps) {
+function InboxPreviewCard({ entities, inboxItems, trustNameById }: InboxPreviewCardProps) {
   return (
     <article className="home-card home-card--inbox">
       <header className="home-inbox-head">
@@ -314,19 +233,10 @@ function InboxPreviewCard({
         <SessionRailEmptyState
           title="Inbox clear"
           hint="No reviews, approvals, failed events, or agent handoffs need attention."
-          signal={inboxPillState}
+          signal="idle"
           variant="panel"
         />
       )}
-      <footer className="home-inbox-footer">
-        <span className="home-card-meta home-inbox-signal">
-          <span
-            className={`home-card-meta-dot home-card-meta-dot--${inboxPillState}`}
-            aria-hidden="true"
-          />
-          {inboxLabel}
-        </span>
-      </footer>
     </article>
   );
 }
