@@ -233,10 +233,12 @@ export function buildRoleContexts(
   const byTrust = new Map(bundles.map((bundle) => [bundle.trust.id, bundle]));
   const allRoles = bundles.flatMap((bundle) => bundle.roles.map((role) => ({ bundle, role })));
   const controlledTrusts = new Set(controlledTrustIds);
+  const humanPrincipalIds = new Set([userId, ...controlledTrustIds].filter(Boolean));
   const directRoutes: AuthoritySegment[][] = allRoles
     .filter(
       ({ role }) =>
-        (role.occupant_kind === "human" && role.occupant_id === userId) ||
+        (role.occupant_kind === "human" &&
+          (role.occupant_id ? humanPrincipalIds.has(role.occupant_id) : false)) ||
         (role.occupant_kind === "trust" &&
           (role.occupant_id ? controlledTrusts.has(role.occupant_id) : false)),
     )
