@@ -10728,6 +10728,22 @@ button.role-context-card:disabled {
   overflow: hidden;
 }
 
+.trust-context-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-content: start;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+  background: var(--bg-row);
+}
+
+.trust-context-grid-card.trust-role-option-card {
+  min-height: 136px;
+}
+
 .trust-context-map-viewport {
   position: relative;
   width: 100%;
@@ -10949,10 +10965,20 @@ button.role-context-card:disabled {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
+  overflow: auto;
 }
 
 .trust-context-enter {
   width: 100%;
+}
+
+.trust-context-inspector-card.trust-role-option-card {
+  flex-shrink: 0;
+}
+
+.trust-context-inspector-card.trust-role-option-card.is-selected {
+  border-color: var(--color-border-subtle);
+  box-shadow: none;
 }
 
 .trust-context-inspector-block {
@@ -10966,6 +10992,39 @@ button.role-context-card:disabled {
   font-weight: 700;
   color: var(--color-text-secondary);
   text-transform: uppercase;
+}
+
+.trust-context-facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.trust-context-facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
+}
+
+.trust-context-facts span,
+.trust-context-facts strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trust-context-facts span {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.trust-context-facts strong {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
 }
 
 .trust-context-route-steps {

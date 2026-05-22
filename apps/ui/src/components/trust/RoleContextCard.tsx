@@ -65,7 +65,7 @@ export default function RoleContextCard({
   const occupant = describeOccupant(role, agentName, trustOccupantName);
   const roleLabel = role.title || roleTypeLabel(role.role_type);
   const titleLabel = titleMode === "holder" ? occupant.label : roleLabel;
-  const subtitleLabel = titleMode === "holder" ? roleLabel : trust.name;
+  const subtitleLabel = titleMode === "holder" ? "" : trust.name;
   const classNames = [
     "role-context-card",
     `role-context-card--${variant}`,
@@ -103,7 +103,9 @@ export default function RoleContextCard({
             <span className="role-context-card-kicker">{relationLabel(terminalRelation)}</span>
           ) : null}
           <span className="role-context-card-title">{titleLabel}</span>
-          <span className="role-context-card-trust-name">{subtitleLabel}</span>
+          {subtitleLabel ? (
+            <span className="role-context-card-trust-name">{subtitleLabel}</span>
+          ) : null}
         </span>
         <span className={`role-context-card-pill role-context-card-pill--${role.role_type}`}>
           {roleTypeLabel(role.role_type)}

@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Plus, ShieldCheck } from "lucide-react";
+import { ArrowDownAZ, Filter, LayoutGrid, Network, Plus, ShieldCheck } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
+import TrustContextInspector from "@/components/trust/TrustContextInspector";
 import TrustGraphZoomViewport from "@/components/trust/TrustGraphZoomViewport";
 import TrustRoleOptionCard from "@/components/trust/TrustRoleOptionCard";
-import { Button, PrimitivePageHeader, PrimitiveSearchField } from "@/components/ui";
+import {
+  Button,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+  ToolbarRadioPopover,
+} from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
 import {
@@ -14,6 +20,7 @@ import {
   buildTrustMapLayout,
   persistRoleContext,
   pickDefaultContext,
+  relationLabel,
   roleTypeLabel,
   SELF_NODE_ID,
   type RoleBundle,
@@ -27,6 +34,29 @@ import { useAuthStore } from "@/store/auth";
 import { useUIStore } from "@/store/ui";
 
 const EMPTY_BUNDLES: RoleBundle[] = [];
+type TrustRoleFilter = "all" | "owner" | "director" | "operational" | "advisor";
+type TrustRoleSort = "trust" | "holder" | "role" | "path";
+type TrustRoleView = "map" | "cards";
+
+const ROLE_FILTER_OPTIONS: Array<{ id: TrustRoleFilter; label: string }> = [
+  { id: "all", label: "All roles" },
+  { id: "owner", label: "Owners" },
+  { id: "director", label: "Directors" },
+  { id: "operational", label: "Operators" },
+  { id: "advisor", label: "Advisors" },
+];
+
+const ROLE_SORT_OPTIONS: Array<{ id: TrustRoleSort; label: string }> = [
+  { id: "trust", label: "TRUST" },
+  { id: "holder", label: "Holder" },
+  { id: "role", label: "Role" },
+  { id: "path", label: "Path depth" },
+];
+
+const ROLE_VIEW_OPTIONS: Array<{ id: TrustRoleView; label: string }> = [
+  { id: "map", label: "Map" },
+  { id: "cards", label: "Cards" },
+];
 
 export default function TrustPage() {
   const navigate = useNavigate();
@@ -37,6 +67,9 @@ export default function TrustPage() {
   const trusts = useTrusts();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<TrustRoleFilter>("all");
+  const [sort, setSort] = useState<TrustRoleSort>("trust");
+  const [view, setView] = useState<TrustRoleView>("map");
   const controlledTrustIds = useMemo(
     () => Array.from(new Set([...(user?.roots ?? []), ...(user?.entities ?? [])])),
     [user?.entities, user?.roots],
@@ -63,11 +96,13 @@ export default function TrustPage() {
 
   const filteredContexts = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return roleContexts.filter((ctx) => {
+    const next = roleContexts.filter((ctx) => {
+      if (roleFilter !== "all" && ctx.role.role_type !== roleFilter) return false;
       if (!normalized) return true;
       return [
         ctx.role.title,
         roleTypeLabel(ctx.role.role_type),
+        holderLabel(ctx, trusts, user?.name || user?.email),
         ctx.trust.name,
         ctx.status,
         ...ctx.route.flatMap((segment) => [segment.role.title, segment.trust.name]),
@@ -76,7 +111,21 @@ export default function TrustPage() {
         .toLowerCase()
         .includes(normalized);
     });
-  }, [query, roleContexts]);
+
+    return next.sort((a, b) => compareContexts(a, b, sort, trusts, user?.name || user?.email));
+  }, [query, roleContexts, roleFilter, sort, trusts, user?.email, user?.name]);
+
+  const selectedHolder = selected ? holderLabel(selected, trusts, user?.name || user?.email) : "";
+  const selectedRoleLabel = selected
+    ? selected.role.title || roleTypeLabel(selected.role.role_type)
+    : "";
+  const selectedRelation = selected
+    ? relationLabel(selected.route.at(-1)?.relation ?? "direct")
+    : "";
+  const sortLabel = ROLE_SORT_OPTIONS.find((option) => option.id === sort)?.label ?? "TRUST";
+  const filterLabel =
+    ROLE_FILTER_OPTIONS.find((option) => option.id === roleFilter)?.label ?? "All roles";
+  const viewLabel = ROLE_VIEW_OPTIONS.find((option) => option.id === view)?.label ?? "Map";
 
   const handleEnter = (ctx: RoleContextOption) => {
     persistRoleContext(ctx, user?.id ?? null);
@@ -110,6 +159,37 @@ export default function TrustPage() {
             placeholder="Search TRUSTs or roles"
             onEscapeEmpty={(event) => event.currentTarget.blur()}
           />
+          <ToolbarRadioPopover
+            label="Sort"
+            current={sortLabel}
+            glyph={<ArrowDownAZ size={15} strokeWidth={1.7} />}
+            options={ROLE_SORT_OPTIONS}
+            value={sort}
+            onChange={setSort}
+          />
+          <ToolbarRadioPopover
+            label="Filter"
+            current={filterLabel}
+            glyph={<Filter size={15} strokeWidth={1.7} />}
+            options={ROLE_FILTER_OPTIONS}
+            value={roleFilter}
+            onChange={setRoleFilter}
+            indicator={roleFilter !== "all"}
+          />
+          <ToolbarRadioPopover
+            label="View"
+            current={viewLabel}
+            glyph={
+              view === "map" ? (
+                <Network size={15} strokeWidth={1.7} />
+              ) : (
+                <LayoutGrid size={15} strokeWidth={1.7} />
+              )
+            }
+            options={ROLE_VIEW_OPTIONS}
+            value={view}
+            onChange={setView}
+          />
         </div>
       </div>
 
@@ -121,7 +201,7 @@ export default function TrustPage() {
               <strong>Resolving roles</strong>
               <span>Reading the TRUSTs connected to your account.</span>
             </div>
-          ) : filteredContexts.length > 0 ? (
+          ) : filteredContexts.length > 0 && view === "map" ? (
             <TrustContextMap
               contexts={filteredContexts}
               trusts={trusts}
@@ -129,6 +209,23 @@ export default function TrustPage() {
               onSelect={setSelectedId}
               onEnter={handleEnter}
             />
+          ) : filteredContexts.length > 0 ? (
+            <div className="trust-context-card-grid" aria-label="TRUST role cards">
+              {filteredContexts.map((context) => (
+                <TrustRoleOptionCard
+                  key={context.id}
+                  trust={context.trust}
+                  role={context.role}
+                  roleContext={context}
+                  selected={context.id === selected?.id}
+                  activePath={context.id === selected?.id}
+                  routeCount={context.routeCount}
+                  className="trust-context-grid-card"
+                  onClick={() => setSelectedId(context.id)}
+                  onDoubleClick={() => handleEnter(context)}
+                />
+              ))}
+            </div>
           ) : (
             <div className="trust-context-empty">
               <ShieldCheck size={20} strokeWidth={1.6} />
@@ -142,82 +239,14 @@ export default function TrustPage() {
           )}
         </section>
 
-        <aside className="trust-context-inspector" aria-label="Selected role">
-          {selected ? (
-            <>
-              <div className="trust-context-inspector-head">
-                <p className="trust-context-kicker">Selected role</p>
-                <h2>{selected.role.title}</h2>
-                <span>{selected.trust.name}</span>
-              </div>
-              <button
-                type="button"
-                className="trust-context-enter"
-                onClick={() => handleEnter(selected)}
-              >
-                Enter role
-                <ArrowRight size={15} strokeWidth={1.8} />
-              </button>
-              <InspectorBlock title="Path">
-                <ol className="trust-context-route-steps">
-                  <li>
-                    <span>You</span>
-                    <small>{user?.email ?? "Operator"}</small>
-                  </li>
-                  {selected.route.map((segment) => (
-                    <li key={`${segment.trust.id}:${segment.role.id}:${segment.relation}`}>
-                      <span>
-                        {segment.trust.name} / {segment.role.title}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </InspectorBlock>
-              <InspectorBlock title="Grants">
-                <div className="trust-context-grants">
-                  {selected.role.grants.length > 0 ? (
-                    selected.role.grants
-                      .slice(0, 5)
-                      .map((grant) => <span key={grant}>{grant}</span>)
-                  ) : (
-                    <>
-                      <span>Quests</span>
-                      <span>Agents</span>
-                      <span>Events</span>
-                      <span>Review</span>
-                    </>
-                  )}
-                </div>
-              </InspectorBlock>
-              <InspectorBlock title="Route">
-                <p className="trust-context-inspector-copy">
-                  {selected.status === "ambiguous"
-                    ? `${selected.routeCount} paths can reach this role.`
-                    : selected.route.length > 1
-                      ? "This role is reached through another TRUST."
-                      : selected.route[0]?.relation === "identity"
-                        ? "This role is held by a TRUST identity connected to your account."
-                        : "This role is held directly by your account."}
-                </p>
-              </InspectorBlock>
-              <InspectorBlock title="Entry points">
-                <div className="trust-context-entry-grid">
-                  {["Overview", "Roles", "Quests", "Ideas", "Events", "Assets", "Quorum"].map(
-                    (item) => (
-                      <span key={item}>{item}</span>
-                    ),
-                  )}
-                </div>
-              </InspectorBlock>
-            </>
-          ) : (
-            <div className="trust-context-empty trust-context-empty--inspector">
-              <ShieldCheck size={20} strokeWidth={1.6} />
-              <strong>No role selected</strong>
-              <span>Select a role on the map to inspect its path.</span>
-            </div>
-          )}
-        </aside>
+        <TrustContextInspector
+          selected={selected}
+          holderLabel={selectedHolder}
+          roleLabel={selectedRoleLabel}
+          relation={selectedRelation}
+          userEmail={user?.email}
+          onEnter={handleEnter}
+        />
       </main>
     </div>
   );
@@ -498,15 +527,54 @@ function TrustMapNodeButton({
   );
 }
 
-function trustNodeId(trustId: string) {
-  return `trust:${trustId}`;
+function compareContexts(
+  a: RoleContextOption,
+  b: RoleContextOption,
+  sort: TrustRoleSort,
+  trusts: Trust[],
+  fallbackHolder?: string,
+) {
+  if (sort === "holder") {
+    return holderLabel(a, trusts, fallbackHolder).localeCompare(
+      holderLabel(b, trusts, fallbackHolder),
+    );
+  }
+  if (sort === "role") {
+    return roleSortLabel(a).localeCompare(roleSortLabel(b));
+  }
+  if (sort === "path") {
+    return a.route.length - b.route.length || a.trust.name.localeCompare(b.trust.name);
+  }
+  return (
+    a.trust.name.localeCompare(b.trust.name) || roleSortLabel(a).localeCompare(roleSortLabel(b))
+  );
 }
 
-function InspectorBlock({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="trust-context-inspector-block">
-      <h3>{title}</h3>
-      {children}
-    </section>
-  );
+function roleSortLabel(ctx: RoleContextOption) {
+  return [
+    ctx.role.title || roleTypeLabel(ctx.role.role_type),
+    roleTypeLabel(ctx.role.role_type),
+  ].join(":");
+}
+
+function holderLabel(ctx: RoleContextOption, trusts: Trust[], fallbackHolder?: string) {
+  const role = ctx.role;
+  if (role.occupant_kind === "human") {
+    return role.occupant_name || fallbackHolder || compactId(role.occupant_id) || "Human";
+  }
+  if (role.occupant_kind === "trust") {
+    return trusts.find((trust) => trust.id === role.occupant_id)?.name || "TRUST";
+  }
+  if (role.occupant_kind === "agent") return "Agent";
+  return "Vacant";
+}
+
+function compactId(value: string | null) {
+  if (!value) return "";
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function trustNodeId(trustId: string) {
+  return `trust:${trustId}`;
 }
