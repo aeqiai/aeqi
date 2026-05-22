@@ -189,9 +189,39 @@
   justify-content: center;
 }
 
-.session-detail-placeholder {
+.inbox-empty-canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 240px;
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+}
+
+.inbox-empty-canvas-icon {
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+
+.inbox-empty-canvas-title {
+  margin: 2px 0 0;
+  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  color: var(--color-ink-muted);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+}
+
+.inbox-empty-canvas-hint {
+  margin: 0;
+  max-width: 320px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-text-muted);
 }
 
 /* Detail header — title on a larger line; subtitle + activity stack on a
@@ -717,6 +747,15 @@
   .inbox-pane-detail {
     display: none;
     border-radius: var(--radius-sm);
+  }
+
+  .inbox-shell.is-empty .inbox-pane-list {
+    display: none;
+  }
+
+  .inbox-shell.is-empty .inbox-pane-detail {
+    display: flex;
+    min-height: 560px;
   }
 
   .inbox-shell.has-selection .inbox-pane-list {

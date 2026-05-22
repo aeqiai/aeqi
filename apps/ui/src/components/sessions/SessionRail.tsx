@@ -47,6 +47,8 @@ export interface SessionRailProps {
   emptyTitle: string;
   /** Empty-state hint underneath. */
   emptyHint?: string;
+  /** Optional class for surface-specific empty-state tuning. */
+  emptyStateClassName?: string;
   /** Listen on `window` for `<eventName>` `CustomEvent<{direction}>` to drive
    * j/k traversal from a parent keyboard handler. Inbox owns its own keyboard
    * handler today; agent-rail uses URL navigation, no keyboard handler. */
@@ -111,6 +113,7 @@ export default function SessionRail({
   streamingIds,
   emptyTitle,
   emptyHint,
+  emptyStateClassName,
   traversalEventName,
 }: SessionRailProps) {
   const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -154,7 +157,11 @@ export default function SessionRail({
     return (
       <div className={railClassName}>
         <div className="sessions-rail-list">
-          <SessionRailEmptyState title={emptyTitle} hint={emptyHint} />
+          <SessionRailEmptyState
+            title={emptyTitle}
+            hint={emptyHint}
+            className={emptyStateClassName}
+          />
         </div>
       </div>
     );

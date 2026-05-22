@@ -1741,6 +1741,16 @@
 .sessions-rail-empty--rail {
   margin: var(--space-2);
 }
+.sessions-rail-empty--rail.sessions-rail-empty--compact {
+  flex: 1;
+  justify-content: center;
+  min-height: 200px;
+  margin: 0;
+  padding: var(--space-6) var(--space-3);
+  align-items: center;
+  background: transparent;
+  text-align: center;
+}
 .sessions-rail-empty--panel {
   flex: 1;
   min-height: 0;
@@ -1755,6 +1765,9 @@
   background: var(--color-text-muted);
   opacity: 0.45;
   flex-shrink: 0;
+}
+.sessions-rail-empty--compact .sessions-rail-empty-mark {
+  margin-top: 0;
 }
 .sessions-rail-empty-mark--progress {
   background: var(--state-progress);

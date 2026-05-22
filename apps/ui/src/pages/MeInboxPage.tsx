@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, CornerUpLeft, Plus } from "lucide-react";
+import { Archive, ArrowLeft, CornerUpLeft, ExternalLink, Plus } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
+import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
 import SessionRail, { type SessionRailRow } from "@/components/sessions/SessionRail";
 import SessionDetail from "@/components/sessions/SessionDetail";
 import StreamingMessage from "@/components/session/StreamingMessage";
@@ -414,12 +415,28 @@ export default function MeInboxPage() {
     });
   }
 
+  const hasActiveNarrowing =
+    search.trim().length > 0 ||
+    filter.kind !== "all" ||
+    filter.trustId !== null ||
+    filter.unreadOnly;
+  const emptyInboxTitle = hasActiveNarrowing ? "No matching inbox items" : "Inbox clear";
+  const emptyInboxHint = hasActiveNarrowing
+    ? "Adjust search or filters to return to the full inbox."
+    : "No reviews, approvals, failed events, or agent handoffs need attention.";
+
   // ── Right-pane render shape (only when a row is selected) ────────────
   const renderDetail = () => {
     if (!selectedRow) {
+      const isEmptyInbox = visible.length === 0 && !loading;
+      const title = isEmptyInbox ? emptyInboxTitle : "Select a thread";
+      const hint = isEmptyInbox
+        ? emptyInboxHint
+        : "Choose an inbox item from the rail to review the conversation and reply.";
+
       return (
         <div className="session-detail session-detail--empty">
-          <span className="session-detail-placeholder">Nothing selected.</span>
+          <InboxEmptyCanvas title={title} hint={hint} kind={isEmptyInbox ? "empty" : "select"} />
         </div>
       );
     }
@@ -472,21 +489,7 @@ export default function MeInboxPage() {
           className="inbox-detail-back"
           onClick={() => setSelectedId(null)}
           aria-label="Back to inbox list"
-          leadingIcon={
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M7.5 2L3 6l4.5 4" />
-            </svg>
-          }
+          leadingIcon={<ArrowLeft size={12} strokeWidth={1.8} aria-hidden />}
         >
           Back
         </Button>
@@ -495,21 +498,7 @@ export default function MeInboxPage() {
           size="sm"
           onClick={() => navigate(deepUrl)}
           title="View full session"
-          trailingIcon={
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M2 10 L10 2M6 2h4v4" />
-            </svg>
-          }
+          trailingIcon={<ExternalLink size={12} strokeWidth={1.8} aria-hidden />}
           trailingIconMode="inline"
         >
           Full session
@@ -637,7 +626,15 @@ export default function MeInboxPage() {
         </div>
       )}
 
-      <div className={["inbox-shell", selectedId ? "has-selection" : ""].filter(Boolean).join(" ")}>
+      <div
+        className={[
+          "inbox-shell",
+          selectedId ? "has-selection" : "",
+          visible.length === 0 && !loading ? "is-empty" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         {/* Left pane: inbox item cards */}
         <div className="inbox-pane-list">
           <div className="inbox-pane-list-scroll">
@@ -652,8 +649,8 @@ export default function MeInboxPage() {
                 onSelect={setSelectedId}
                 density="comfortable"
                 surface="card"
-                emptyTitle="Inbox clear"
-                emptyHint="No reviews, approvals, failed events, or agent handoffs need attention."
+                emptyTitle={hasActiveNarrowing ? "No matches" : "No items"}
+                emptyStateClassName="sessions-rail-empty--compact"
               />
             ) : (
               <SessionRail
@@ -683,8 +680,8 @@ export default function MeInboxPage() {
                 onSelect={setSelectedId}
                 density="comfortable"
                 surface="card"
-                emptyTitle="Inbox clear"
-                emptyHint="No reviews, approvals, failed events, or agent handoffs need attention."
+                emptyTitle={emptyInboxTitle}
+                emptyHint={emptyInboxHint}
                 traversalEventName="inbox:traverse"
               />
             )}
