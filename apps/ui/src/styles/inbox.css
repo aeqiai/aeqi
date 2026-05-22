@@ -153,6 +153,20 @@
   border-radius: var(--radius-lg);
 }
 
+/* Empty state: the rail has no rows to organize, so let the detail canvas
+   own the full available width instead of duplicating empty copy on the left. */
+.inbox-shell.is-empty {
+  gap: 0;
+}
+
+.inbox-shell.is-empty .inbox-pane-list {
+  display: none;
+}
+
+.inbox-shell.is-empty .inbox-pane-detail {
+  min-height: 560px;
+}
+
 /* Loading state — shown when first fetch is in-flight and list is empty */
 .inbox-list-loading {
   display: flex;
@@ -752,12 +766,7 @@
     border-radius: var(--radius-sm);
   }
 
-  .inbox-shell.is-empty .inbox-pane-list {
-    display: none;
-  }
-
   .inbox-shell.is-empty .inbox-pane-detail {
-    display: flex;
     min-height: 560px;
   }
 
