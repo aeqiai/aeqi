@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpen, Globe, Plus, Rocket, Settings, Users } from "lucide-react";
+import OperatingContextCard from "@/components/trust/OperatingContextCard";
 import { useAgents } from "@/queries/agents";
 import { useEntities } from "@/queries/entities";
 import { useVisibleIdeas } from "@/queries/ideas";
 import { useQuests } from "@/queries/quests";
-import RoleNode from "@/components/roles/RoleNode";
 import {
   makeRailRow,
   SessionRailEmptyState,
   SessionRailRowContent,
 } from "@/components/sessions/SessionRail";
-import TrustAvatar from "@/components/TrustAvatar";
 import UserAvatar from "@/components/UserAvatar";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
@@ -215,11 +214,13 @@ export default function StartPage() {
           activeTrust={activeTrust}
           activeRole={activeRole}
           rolesLoading={rolesLoading}
-          questCount={currentQuests.length}
-          ideaCount={visibleIdeas.length}
-          eventCount={recentEventCount}
-          agentCount={runningAgents.length}
           latestActivity={latestActivity}
+          metrics={[
+            { label: "Quests", value: currentQuests.length },
+            { label: "Agents", value: runningAgents.length },
+            { label: "Events", value: recentEventCount },
+            { label: "Ideas", value: visibleIdeas.length },
+          ]}
           agentNames={agentNames}
           agentAvatars={agentAvatars}
           onSelectRole={handleSelectRole}
@@ -240,127 +241,6 @@ export default function StartPage() {
 
       <LearnAeqiSection />
     </div>
-  );
-}
-
-interface OperatingContextCardProps {
-  activeTrust: Trust | null;
-  activeRole: Role | null;
-  rolesLoading: boolean;
-  questCount: number;
-  ideaCount: number;
-  eventCount: number;
-  agentCount: number;
-  latestActivity: string;
-  agentNames: ReadonlyMap<string, string>;
-  agentAvatars: ReadonlyMap<string, string>;
-  onSelectRole: (role: Role) => void;
-}
-
-function OperatingContextCard({
-  activeTrust,
-  activeRole,
-  rolesLoading,
-  questCount,
-  ideaCount,
-  eventCount,
-  agentCount,
-  latestActivity,
-  agentNames,
-  agentAvatars,
-  onSelectRole,
-}: OperatingContextCardProps) {
-  if (!activeTrust) {
-    return (
-      <article className="home-card home-card--context home-card--empty">
-        <div className="home-context-panel" aria-label="Current TRUST">
-          <h2 className="home-context-heading">TRUST</h2>
-          <div className="home-context-empty">
-            <span className="home-context-avatar home-context-avatar--ghost" aria-hidden="true">
-              <Plus size={26} strokeWidth={1.5} />
-            </span>
-            <h3 className="home-context-title">No active TRUST</h3>
-            <p className="home-context-line">
-              Launch a TRUST to create an operating context for roles, agents, quests, and memory.
-            </p>
-          </div>
-          <Link to="/launch" className="home-primary-action">
-            Launch TRUST
-            <ArrowRight size={14} strokeWidth={1.8} />
-          </Link>
-        </div>
-      </article>
-    );
-  }
-
-  return (
-    <article className="home-card home-card--context">
-      <section className="home-context-panel" aria-label="Current TRUST">
-        <header className="home-context-head">
-          <h2 className="home-context-heading">TRUST</h2>
-          <Link to="/trust" className="home-context-cta">
-            Your TRUSTs
-            <ArrowRight size={14} strokeWidth={1.8} />
-          </Link>
-        </header>
-        <div className="home-context-representation" aria-label="Active TRUST role representation">
-          <div className="home-context-identity">
-            <span className="home-context-avatar" aria-hidden="true">
-              <TrustAvatar name={activeTrust.name} size={52} />
-            </span>
-            <div className="home-context-copy">
-              <span className="home-context-kicker">Active TRUST</span>
-              <h3 className="home-context-title">{activeTrust.name}</h3>
-            </div>
-          </div>
-          {activeRole ? (
-            <RoleNode
-              role={activeRole}
-              agentName={
-                activeRole.occupant_id ? agentNames.get(activeRole.occupant_id) : undefined
-              }
-              agentAvatar={
-                activeRole.occupant_id ? agentAvatars.get(activeRole.occupant_id) : undefined
-              }
-              onClick={() => onSelectRole(activeRole)}
-              className="home-context-role-node"
-            />
-          ) : (
-            <div className="home-context-role-empty">
-              <span className="home-context-role-empty-title">
-                {rolesLoading ? "Loading role" : "No active role"}
-              </span>
-              <span className="home-context-role-empty-copy">
-                {rolesLoading
-                  ? "Resolving this TRUST's current holder."
-                  : "Create a role to connect authority, agents, and operators."}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="home-context-footer">
-          <dl className="home-context-metrics" aria-label="TRUST activity overview">
-            <div>
-              <dt>Quests</dt>
-              <dd>{questCount}</dd>
-            </div>
-            <div>
-              <dt>Agents</dt>
-              <dd>{agentCount}</dd>
-            </div>
-            <div>
-              <dt>Events</dt>
-              <dd>{eventCount}</dd>
-            </div>
-            <div>
-              <dt>Ideas</dt>
-              <dd>{ideaCount}</dd>
-            </div>
-          </dl>
-          <p className="home-context-line">Latest activity: {latestActivity}</p>
-        </div>
-      </section>
-    </article>
   );
 }
 

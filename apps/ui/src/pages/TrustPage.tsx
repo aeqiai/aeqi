@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, GitBranch, Plus, Route, ShieldCheck } from "lucide-react";
 import TrustAvatar from "@/components/TrustAvatar";
+import OperatingContextCard from "@/components/trust/OperatingContextCard";
 import { Button, PrimitivePageHeader, PrimitiveSearchField } from "@/components/ui";
 import { api } from "@/lib/api";
 import { entityPath } from "@/lib/entityPath";
@@ -131,21 +132,7 @@ export default function TrustPage() {
           </Button>
         }
       >
-        <div className="trust-context-active" aria-label="Active role context">
-          <span className="trust-context-active-avatar" aria-hidden="true">
-            <TrustAvatar name={activeTrust?.name ?? selected?.trust.name ?? "TRUST"} size={32} />
-          </span>
-          <span className="trust-context-active-copy">
-            <span className="trust-context-kicker">Acting as</span>
-            <span className="trust-context-active-title">
-              {selected
-                ? `${selected.role.title} in ${selected.trust.name}`
-                : activeTrust
-                  ? `${activeTrust.name} has no assumable role loaded`
-                  : "Choose an assumable role"}
-            </span>
-          </span>
-        </div>
+        <OperatingContextCard variant="inline" activeTrust={activeTrust} roleContext={selected} />
       </PrimitivePageHeader>
 
       <div
