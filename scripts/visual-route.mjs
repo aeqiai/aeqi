@@ -34,7 +34,7 @@ Options:
   --no-auth                    Do not seed auth localStorage.
   --require-auth               Fail if no token can be seeded.
   --token <jwt>                JWT to seed. Falls back to AEQI_TOKEN.
-  --user-id <id>               JWT subject when minting from AEQI_WEB_SECRET.
+  --user-id <id>               JWT subject/user_id when minting from AEQI_WEB_SECRET.
   --email <email>              JWT email when minting from AEQI_WEB_SECRET.
   --ttl <seconds>              Minted token TTL. Default: 1800.
   --entity <id>                Optional aeqi_entity localStorage value.
@@ -110,6 +110,7 @@ function mintToken({ secret, userId, email, ttlSeconds }) {
   const payload = b64url(
     JSON.stringify({
       sub: userId,
+      user_id: userId,
       email,
       iat: now,
       exp: now + ttlSeconds,
