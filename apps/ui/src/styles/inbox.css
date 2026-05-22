@@ -109,7 +109,9 @@
   overflow: visible;
 }
 
-/* Left pane — fixed width, full height, contains toolbar + scrollable list */
+/* Left pane — fixed-width recessed lane. Session rows lift back to the
+   elevated card tier inside it, matching the quest-board column/card
+   hierarchy instead of reading as loose text on page paper. */
 .inbox-pane-list {
   display: flex;
   flex-direction: column;
@@ -117,9 +119,9 @@
   min-width: 280px;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--color-card);
+  background: var(--bg-row);
   border-radius: var(--radius-sm);
-  padding: var(--space-3);
+  padding: var(--space-2);
 }
 
 /* Pass-through flex column — `<SessionRail>` inside owns the actual

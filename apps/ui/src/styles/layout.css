@@ -1563,7 +1563,8 @@
   margin: 0 0 var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--bg-row);
+  background: var(--color-card-elevated);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 .sessions-rail--card.sessions-rail--compact .sessions-rail-row {
@@ -1576,14 +1577,16 @@
 }
 .sessions-rail--card .sessions-rail-row:hover,
 .sessions-rail--card .sessions-rail-row:focus-visible {
-  background: var(--color-card-subtle);
+  background: var(--color-card);
   border-color: var(--border-faint);
-  box-shadow: none;
+  box-shadow: var(--shadow-md);
 }
 .sessions-rail--card .sessions-rail-row.active {
   background: var(--color-card-elevated);
-  border-color: transparent;
-  box-shadow: inset 0 0 0 1px var(--border-hover);
+  border-color: var(--border-hover);
+  box-shadow:
+    inset 0 0 0 1px var(--accent-dim),
+    var(--shadow-sm);
 }
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-body {
   gap: var(--space-1);
