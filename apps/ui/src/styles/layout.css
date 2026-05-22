@@ -9907,13 +9907,14 @@ button.role-context-card:disabled {
 .trust-role-option-card-role.role-context-card {
   width: 100%;
   min-height: 0;
-  padding: 0;
+  padding: 10px 12px;
   border: 0;
-  background: transparent;
-  border-radius: 0;
+  background: var(--bg-row);
+  border-radius: var(--radius-sm);
 }
 
 .trust-role-option-card-role.role-context-card.is-clickable:hover {
+  background: var(--color-card-muted);
   box-shadow: none;
 }
 
@@ -9933,7 +9934,7 @@ button.role-context-card:disabled {
 
 .trust-role-option-card--map .trust-role-option-card-role.role-context-card {
   min-height: 0;
-  padding: 0;
+  padding: 8px 10px;
 }
 
 .home-card--launch {
