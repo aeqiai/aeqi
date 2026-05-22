@@ -205,14 +205,8 @@
   color: var(--color-text-secondary);
 }
 
-.inbox-shell .sessions-rail-row-status {
-  width: 6px;
-  height: 6px;
-  margin-top: 6px;
-}
-
-.inbox-shell .sessions-rail-row.active .sessions-rail-row-status {
-  background: var(--accent);
+.inbox-shell .sessions-rail-row--multi .sessions-rail-row-status {
+  min-height: 52px;
 }
 
 .inbox-shell .sessions-rail-row.active .sessions-rail-row-secondary {

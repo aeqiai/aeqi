@@ -199,17 +199,18 @@ export function SessionRailRowContent({
   item: SessionRailRow;
   isStreaming?: boolean;
 }) {
+  const statusClass = item.awaiting
+    ? " sessions-rail-row-status--awaiting"
+    : item.status === "active"
+      ? " sessions-rail-row-status--active"
+      : " sessions-rail-row-status--idle";
+
   return (
     <>
       {isStreaming ? (
         <ThinkingDot size="md" className="sessions-rail-row-thinking" />
       ) : (
-        <span
-          className={`sessions-rail-row-status${
-            item.status === "active" ? "" : " sessions-rail-row-status--idle"
-          }`}
-          aria-hidden="true"
-        />
+        <span className={`sessions-rail-row-status${statusClass}`} aria-hidden="true" />
       )}
       <span className="sessions-rail-row-body">
         <span className="sessions-rail-row-primary-line">

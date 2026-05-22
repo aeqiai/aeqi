@@ -1493,11 +1493,9 @@
   background: var(--border);
   opacity: 0.5;
 }
-/* Row — single-line dense: [live dot] [name, flex] [badge?] [time].
-   36px min-height creates a calmer cadence than the old 48px + pill
-   layout. Selection is carried by background tint + name weight alone
-   — no left-edge accent stripe. The live dot marks sessions that are
-   still active. */
+/* Row — single-line dense by default; multi-line surfaces opt into a
+   deliberate left state rail. Selection stays separate from state so
+   unread/review/open do not change meaning when a row is active. */
 .sessions-rail-row {
   display: grid;
   /* 3 columns: status gutter | body stack | time anchor. Body stack
@@ -1530,14 +1528,11 @@
   align-items: center;
 }
 .sessions-rail-row--multi {
+  grid-template-columns: 4px minmax(0, 1fr) auto;
   padding-top: 8px;
   padding-bottom: 8px;
+  gap: 12px;
 }
-/* No left-edge accent rail. The colored side-stripe pattern is the
-   single most-overused "design touch" in admin UIs and is on impeccable's
-   absolute-ban list. AEQI memory also flags it as rejected-and-reverted
-   on tabs/primitives. Active state is carried by `--state-selected` bg +
-   font-weight shift on the row name. */
 .sessions-rail-row:hover,
 .sessions-rail-row:focus-visible {
   background: var(--state-hover);
@@ -1607,8 +1602,33 @@
   flex-shrink: 0;
   justify-self: center;
 }
+.sessions-rail-row-status--active {
+  background: var(--state-progress);
+}
 .sessions-rail-row-status--idle {
   background: transparent;
+}
+.sessions-rail-row-status--awaiting {
+  background: var(--state-review);
+}
+.sessions-rail-row--multi .sessions-rail-row-status {
+  width: 3px;
+  height: auto;
+  min-height: 100%;
+  margin-top: 0;
+  border-radius: 999px;
+  justify-self: start;
+  align-self: stretch;
+  background: var(--border-hover);
+  opacity: 0.55;
+}
+.sessions-rail-row--multi .sessions-rail-row-status--active {
+  background: var(--state-progress);
+  opacity: 1;
+}
+.sessions-rail-row--multi .sessions-rail-row-status--awaiting {
+  background: var(--state-review);
+  opacity: 1;
 }
 .sessions-rail-row-thinking {
   justify-self: center;
@@ -1632,22 +1652,28 @@
   color: var(--color-text-secondary);
 }
 .sessions-rail-empty {
-  padding: 32px 20px;
-  text-align: center;
+  min-height: 160px;
+  padding: 28px 24px;
+  text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
 }
 .sessions-rail-empty-title {
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 .sessions-rail-empty-hint {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  line-height: 1.45;
+  max-width: 280px;
 }
 
 /* Real-time arrival pulse — adopters set `pulseNew` on a row when it
@@ -8580,22 +8606,21 @@ button.home-card:focus-visible {
   color: var(--color-text-secondary);
 }
 .home-inbox-link.sessions-rail-row .sessions-rail-row-status {
-  width: 6px;
-  height: 6px;
-  margin-top: 6px;
+  min-height: 46px;
 }
 .home-inbox-link.sessions-rail-row .sessions-rail-row-time {
   font-size: var(--font-size-2xs);
 }
-/* Inbox empty state — a calm operating-state panel, not an illustration. */
+/* Home only needs a quiet summary when the inbox is empty; the full empty
+   state belongs on the dedicated /inbox route. */
 .home-inbox-empty {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  align-items: flex-start;
+  gap: var(--space-3);
   flex: 1;
-  padding: 18px;
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-row);
+  padding: var(--space-3) 0 0;
+  border-top: 1px solid var(--border-faint);
+  background: transparent;
   text-align: left;
 }
 .home-inbox-empty-dot {
@@ -8617,23 +8642,23 @@ button.home-card:focus-visible {
 .home-inbox-empty-copy {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: var(--space-1);
   min-width: 0;
 }
 .home-inbox-empty-title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 300;
-  letter-spacing: -0.015em;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--color-text-primary);
 }
 .home-inbox-empty-hint {
   margin: 0;
   max-width: 280px;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 /* First-touch quiet variant. The Inbox card stays in its column so the
    home-row-two grid keeps its two-column composition during onboarding,

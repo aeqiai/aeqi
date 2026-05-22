@@ -649,7 +649,8 @@ export default function MeInboxPage() {
                 rows={[]}
                 selectedId={null}
                 onSelect={setSelectedId}
-                emptyTitle="inbox is clear"
+                emptyTitle="Inbox clear"
+                emptyHint="No reviews, approvals, failed events, or agent handoffs need attention."
               />
             ) : (
               <SessionRail
@@ -677,7 +678,8 @@ export default function MeInboxPage() {
                 })}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                emptyTitle="inbox is clear"
+                emptyTitle="Inbox clear"
+                emptyHint="No reviews, approvals, failed events, or agent handoffs need attention."
                 traversalEventName="inbox:traverse"
               />
             )}
