@@ -27,6 +27,7 @@ import IdeaCommentComposer from "./IdeaCommentComposer";
 
 interface IdeaConversationPanelProps {
   ideaId: string;
+  showActivity?: boolean;
   activityRefreshKey?: unknown;
 }
 
@@ -95,6 +96,7 @@ function CheckIcon() {
 
 export default function IdeaConversationPanel({
   ideaId,
+  showActivity = true,
   activityRefreshKey,
 }: IdeaConversationPanelProps) {
   const user = useAuthStore((s) => s.user);
@@ -229,21 +231,23 @@ export default function IdeaConversationPanel({
         </div>
       </section>
 
-      <section
-        className="idea-convo-card idea-convo-card--activity idea-convo-activity-peek"
-        aria-label="Recent activity"
-      >
-        <div className="idea-convo-peek-head">
-          <span>Activity</span>
-          <span className="idea-convo-section-count">{activityCount}</span>
-        </div>
-        <IdeaActivityFeed
-          ideaId={ideaId}
-          refreshKey={activityRefreshKey}
-          limit={4}
-          onCount={setActivityCount}
-        />
-      </section>
+      {showActivity && (
+        <section
+          className="idea-convo-card idea-convo-card--activity idea-convo-activity-peek"
+          aria-label="Recent activity"
+        >
+          <div className="idea-convo-peek-head">
+            <span>Activity</span>
+            <span className="idea-convo-section-count">{activityCount}</span>
+          </div>
+          <IdeaActivityFeed
+            ideaId={ideaId}
+            refreshKey={activityRefreshKey}
+            limit={4}
+            onCount={setActivityCount}
+          />
+        </section>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { MoreHorizontal, Save, Trash2, X } from "lucide-react";
 import { blockTreeToPlainText } from "@/components/editor/blockEditorContent";
 import IdeaLinksPanel from "@/components/IdeaLinksPanel";
@@ -6,6 +6,7 @@ import TagsEditor from "@/components/TagsEditor";
 import { formatDateTime } from "@/lib/i18n";
 import type { Idea, ScopeValue } from "@/lib/types";
 import { Button, Icon, IconButton, Menu } from "../ui";
+import IdeaActivityFeed from "./IdeaActivityFeed";
 import IdeaPropertyChips from "./IdeaPropertyChips";
 import { SCOPE_HINT, SCOPE_LABEL, SCOPE_PICKER_VALUES, relativeTime } from "./types";
 
@@ -56,6 +57,7 @@ export default function IdeaWorkspaceInspector({
   onSave,
   onCancel,
 }: IdeaWorkspaceInspectorProps) {
+  const [activityCount, setActivityCount] = useState(0);
   const words = idea
     ? blockTreeToPlainText(idea.content).trim().split(/\s+/).filter(Boolean).length
     : 0;
@@ -207,6 +209,12 @@ export default function IdeaWorkspaceInspector({
           <p>Available after save.</p>
         )}
       </div>
+      {idea && (
+        <div className="quest-detail-context ideas-workspace-section ideas-workspace-activity">
+          <h2>Activity · {activityCount}</h2>
+          <IdeaActivityFeed ideaId={idea.id} limit={6} onCount={setActivityCount} />
+        </div>
+      )}
       <div className="quest-detail-context ideas-workspace-section ideas-workspace-import">
         <h2>Import</h2>
         {importMenu}

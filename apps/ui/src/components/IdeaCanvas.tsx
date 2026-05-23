@@ -741,15 +741,15 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
               />
             </div>
 
-            {isEdit && idea && (
+            {isEdit && idea && !hideMetaStrip && (
               <IdeaChildrenList ideaId={idea.id} agentId={agentId} scope={idea.scope} />
             )}
           </div>
         </div>
-        {/* Conversation panel — only shown when viewing an existing idea */}
         {isEdit && idea && (
           <IdeaConversationPanel
             ideaId={idea.id}
+            showActivity={!hideMetaStrip}
             activityRefreshKey={conversationActivityRefreshKey}
           />
         )}

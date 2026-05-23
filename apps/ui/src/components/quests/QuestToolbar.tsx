@@ -41,6 +41,7 @@ export default function QuestToolbar({
   linkedIdeaSlot,
   trailingSlot,
   breadcrumbLabel,
+  showLifecycleControls = true,
   statusOpen,
   onStatusOpenChange,
   priorityOpen,
@@ -77,6 +78,7 @@ export default function QuestToolbar({
   linkedIdeaSlot?: React.ReactNode;
   trailingSlot?: React.ReactNode;
   breadcrumbLabel?: string;
+  showLifecycleControls?: boolean;
   /** Controlled-open hooks. Threaded so the parent (ViewCanvas) can pop
    * the popovers via the S / P / A / D keyboard shortcuts. Optional —
    * uncontrolled by default so ComposeCanvas keeps its existing UX. */
@@ -150,65 +152,69 @@ export default function QuestToolbar({
         </Tooltip>
       )}
       {linkedIdeaSlot}
-      <QuestStatusPopover
-        status={status}
-        onChange={onStatusChange}
-        open={statusOpen}
-        onOpenChange={onStatusOpenChange}
-      />
-      <QuestPriorityPopover
-        priority={priority}
-        onChange={onPriorityChange}
-        open={priorityOpen}
-        onOpenChange={onPriorityOpenChange}
-      />
-      <AssigneePicker
-        assignee={assignee}
-        agents={agents}
-        users={users}
-        onChange={onAssigneeChange}
-        open={assigneeOpen}
-        onOpenChange={onAssigneeOpenChange}
-        renderTrigger={({ open, display }) => (
-          <Button
-            variant="secondary"
-            size="sm"
-            className={`ideas-scope-btn quest-assignee-btn${open ? " open" : ""}`}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            title={display ? `Assigned to ${display.name}` : "Unassigned"}
-            leadingIcon={
-              <AssigneeAvatar assignee={assignee} agents={agents} users={users} size={16} />
-            }
-            trailingIconMode="inline"
-            trailingIcon={
-              <svg
-                className="ideas-scope-btn-chevron"
-                width="9"
-                height="9"
-                viewBox="0 0 9 9"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
+      {showLifecycleControls && (
+        <>
+          <QuestStatusPopover
+            status={status}
+            onChange={onStatusChange}
+            open={statusOpen}
+            onOpenChange={onStatusOpenChange}
+          />
+          <QuestPriorityPopover
+            priority={priority}
+            onChange={onPriorityChange}
+            open={priorityOpen}
+            onOpenChange={onPriorityOpenChange}
+          />
+          <AssigneePicker
+            assignee={assignee}
+            agents={agents}
+            users={users}
+            onChange={onAssigneeChange}
+            open={assigneeOpen}
+            onOpenChange={onAssigneeOpenChange}
+            renderTrigger={({ open, display }) => (
+              <Button
+                variant="secondary"
+                size="sm"
+                className={`ideas-scope-btn quest-assignee-btn${open ? " open" : ""}`}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                title={display ? `Assigned to ${display.name}` : "Unassigned"}
+                leadingIcon={
+                  <AssigneeAvatar assignee={assignee} agents={agents} users={users} size={16} />
+                }
+                trailingIconMode="inline"
+                trailingIcon={
+                  <svg
+                    className="ideas-scope-btn-chevron"
+                    width="9"
+                    height="9"
+                    viewBox="0 0 9 9"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M2 3.5 L4.5 6 L7 3.5" />
+                  </svg>
+                }
               >
-                <path d="M2 3.5 L4.5 6 L7 3.5" />
-              </svg>
-            }
-          >
-            <span className="quest-assignee-btn-name">{display?.name ?? "Unassigned"}</span>
-          </Button>
-        )}
-      />
-      <QuestDueDatePopover
-        due_at={due_at}
-        onChange={onDueChange}
-        open={dueOpen}
-        onOpenChange={onDueOpenChange}
-      />
-      <IdeasScopePopover scope={scope} onChange={onScopeChange} />
+                <span className="quest-assignee-btn-name">{display?.name ?? "Unassigned"}</span>
+              </Button>
+            )}
+          />
+          <QuestDueDatePopover
+            due_at={due_at}
+            onChange={onDueChange}
+            open={dueOpen}
+            onOpenChange={onDueOpenChange}
+          />
+          <IdeasScopePopover scope={scope} onChange={onScopeChange} />
+        </>
+      )}
       {trailingSlot}
       <div className="ideas-toolbar-spacer" aria-hidden />
       {saving && (

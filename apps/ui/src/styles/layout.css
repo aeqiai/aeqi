@@ -7003,20 +7003,143 @@
 
 .quest-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 264px;
-  gap: 16px;
+  grid-template-columns: 236px minmax(0, 1fr) 280px;
+  gap: 14px;
   flex: 1;
   min-height: 0;
-  padding: 16px 20px 20px;
+  padding: 12px 20px 20px;
   overflow: hidden;
+}
+
+.quest-detail-rail {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-card-elevated);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-md);
+}
+
+.quest-detail-rail-list {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.quest-detail-rail-current,
+.quest-detail-rail-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 3px;
+  min-height: 48px;
+  padding: 7px 8px;
+  color: var(--color-text-primary);
+  background: var(--bg-row);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  text-align: left;
+}
+
+.quest-detail-rail-row {
+  cursor: pointer;
+}
+
+.quest-detail-rail-row:hover,
+.quest-detail-rail-row:focus-visible {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-hover, var(--border-subtle));
+  outline: none;
+}
+
+.quest-detail-rail-current > .quest-status-dot,
+.quest-detail-rail-row > .quest-status-dot {
+  grid-row: 1 / -1;
+}
+
+.quest-detail-rail-current {
+  background: var(--color-card);
+}
+
+.quest-detail-rail-current span,
+.quest-detail-rail-row span {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quest-detail-rail-current strong,
+.quest-detail-rail-row strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-detail-rail-current small,
+.quest-detail-rail-row small,
+.quest-detail-rail-section h2 {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.quest-detail-rail-current code,
+.quest-detail-rail-row code {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-detail-rail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quest-detail-rail-section h2 {
+  margin: 2px 2px 0;
+}
+
+.quest-detail-rail-empty {
+  margin: 0;
+  padding: 4px 2px;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .quest-detail-document {
   display: flex;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   background: var(--color-card-muted, var(--bg-surface));
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
@@ -7025,6 +7148,17 @@
 
 .quest-detail-document > .ideas-canvas {
   min-height: 100%;
+}
+
+.quest-detail-document .ideas-canvas-frame {
+  margin: 0;
+}
+
+.quest-detail-document .ideas-canvas-paper {
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .quest-detail-document .ideas-canvas-content {
@@ -7042,10 +7176,11 @@
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  align-self: start;
+  align-self: stretch;
+  height: 100%;
   max-height: 100%;
   overflow-y: auto;
-  padding: 14px;
+  padding: 0 0 12px;
   background: var(--color-card-elevated);
   border: 1px solid var(--border-subtle, var(--border-faint));
   border-radius: var(--radius-md);
@@ -7087,7 +7222,7 @@
 
 .quest-detail-meta-row {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   min-height: 30px;
@@ -7119,6 +7254,20 @@
   white-space: nowrap;
 }
 
+.quest-detail-settings .quest-detail-meta {
+  margin-top: 0;
+}
+
+.quest-detail-settings .ideas-scope-btn,
+.quest-detail-field-btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.quest-detail-settings .quest-assignee-btn-name {
+  max-width: 132px;
+}
+
 .quest-detail-context {
   margin-top: 14px;
   padding-top: 12px;
@@ -7145,6 +7294,10 @@
   .quest-detail-layout {
     grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
+  }
+
+  .quest-detail-rail {
+    max-height: 260px;
   }
 
   .quest-detail-document {

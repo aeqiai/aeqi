@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import * as ideasApi from "@/api/ideas";
 import { useNav } from "@/hooks/useNav";
 import { useAgentIdeas } from "@/queries/ideas";
 import { useAuthStore } from "@/store/auth";
@@ -10,8 +11,10 @@ import type { Idea, Quest, QuestPriority, QuestStatus, ScopeValue, User } from "
 import { Events, useTrack } from "@/lib/analytics";
 import IdeaCanvas, { type IdeaCanvasHandle } from "./IdeaCanvas";
 import QuestDetailSummary from "./quests/QuestDetailSummary";
+import QuestDetailRail from "./quests/QuestDetailRail";
 import QuestToolbar from "./quests/QuestToolbar";
 import LinkedIdeaPicker from "./quests/LinkedIdeaPicker";
+import { isDirectChildOf, questParentId } from "./quests/agentQuestsHelpers";
 
 const QUEST_STATUS_VALUES: QuestStatus[] = [
   "backlog",
@@ -262,7 +265,9 @@ function ViewCanvas({
   const { goEntity, trustId } = useNav();
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const agents = useDaemonStore((s) => s.agents);
+  const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const currentUser = useAuthStore((s) => s.user);
+  const { data: ideas = [] } = useAgentIdeas(quest.agent_id ?? resolvedAgentId);
   const assigneeUsers = useMemo<Pick<User, "id" | "name" | "email" | "avatar_url">[]>(
     () =>
       currentUser
@@ -283,6 +288,7 @@ function ViewCanvas({
   const [assignee, setAssignee] = useState<string | null>(quest.assignee ?? null);
   const [scope, setScope] = useState<ScopeValue>(quest.scope ?? "self");
   const [dueAt, setDueAt] = useState<string | null>(quest.due_at ?? null);
+  const [ideaTags, setIdeaTags] = useState<string[]>(quest.idea?.tags ?? []);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [bodyDirty, setBodyDirty] = useState(false);
   const [activityRefreshSeq, setActivityRefreshSeq] = useState(0);
@@ -317,8 +323,18 @@ function ViewCanvas({
     setAssignee(quest.assignee ?? null);
     setScope(quest.scope ?? "self");
     setDueAt(quest.due_at ?? null);
+    setIdeaTags(quest.idea?.tags ?? []);
     setSaveState("idle");
-  }, [quest.id, quest.status, quest.priority, quest.assignee, quest.scope, quest.due_at]);
+  }, [
+    quest.id,
+    quest.status,
+    quest.priority,
+    quest.assignee,
+    quest.scope,
+    quest.due_at,
+    quest.idea?.id,
+    quest.idea?.tags,
+  ]);
 
   const persistLifecycle = useCallback(async () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -358,6 +374,81 @@ function ViewCanvas({
   const handleRevertBody = useCallback(() => {
     canvasRef.current?.revert();
   }, []);
+
+  const handleStatusChange = useCallback(
+    (next: QuestStatus) => {
+      setStatus(next);
+      if (next === "in_progress" && !assignee && defaultAssignee) {
+        setAssignee(defaultAssignee);
+      }
+      scheduleLifecycleSave();
+    },
+    [assignee, defaultAssignee, scheduleLifecycleSave],
+  );
+
+  const handlePriorityChange = useCallback(
+    (next: QuestPriority) => {
+      setPriority(next);
+      scheduleLifecycleSave();
+    },
+    [scheduleLifecycleSave],
+  );
+
+  const handleAssigneeChange = useCallback(
+    (next: string | null) => {
+      setAssignee(next);
+      scheduleLifecycleSave();
+    },
+    [scheduleLifecycleSave],
+  );
+
+  const handleScopeChange = useCallback(
+    (next: ScopeValue) => {
+      setScope(next);
+      scheduleLifecycleSave();
+    },
+    [scheduleLifecycleSave],
+  );
+
+  const handleDueChange = useCallback(
+    (next: string | null) => {
+      setDueAt(next);
+      scheduleLifecycleSave();
+    },
+    [scheduleLifecycleSave],
+  );
+
+  const persistIdeaTags = useCallback(
+    async (nextTags: string[]) => {
+      if (!quest.idea) return;
+      const previous = ideaTags;
+      setIdeaTags(nextTags);
+      try {
+        await ideasApi.updateIdea(quest.idea.id, { tags: nextTags });
+        await fetchQuests();
+        setActivityRefreshSeq((n) => n + 1);
+      } catch {
+        setIdeaTags(previous);
+      }
+    },
+    [fetchQuests, ideaTags, quest.idea],
+  );
+
+  const handleTagAdd = useCallback(
+    (tag: string) => {
+      const key = tag.toLowerCase();
+      if (ideaTags.some((item) => item.toLowerCase() === key)) return;
+      void persistIdeaTags([...ideaTags, tag]);
+    },
+    [ideaTags, persistIdeaTags],
+  );
+
+  const handleTagRemove = useCallback(
+    (tag: string) => {
+      void persistIdeaTags(ideaTags.filter((item) => item !== tag));
+    },
+    [ideaTags, persistIdeaTags],
+  );
 
   // S / P / A shortcuts. Skip when focus is inside an editable
   // element (BlockEditor, search input, etc.) and when any modifier
@@ -421,6 +512,28 @@ function ViewCanvas({
 
   const backToQuests = () => goEntity(trustId, "quests", undefined, { replace: true });
   const newQuest = () => goEntity(trustId, "quests", "new", { replace: false });
+  const openQuest = (id: string) => goEntity(trustId, "quests", id, { replace: false });
+  const tagSuggestions = Array.from(
+    new Set(ideas.flatMap((idea) => idea.tags ?? []).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b));
+  const parentId = questParentId(quest.id);
+  const parentQuest = parentId ? allQuests.find((q) => q.id === parentId) : undefined;
+  const childQuests = allQuests.filter((q) => isDirectChildOf(q, quest.id));
+  const siblingIds = new Set(quest.sibling_quest_ids ?? []);
+  const siblingQuests = allQuests.filter(
+    (q) =>
+      q.id !== quest.id &&
+      (siblingIds.has(q.id) || (quest.idea_id != null && q.idea_id === quest.idea_id)),
+  );
+  const displayQuest: Quest = quest.idea
+    ? {
+        ...quest,
+        idea: {
+          ...quest.idea,
+          tags: ideaTags,
+        },
+      }
+    : quest;
 
   return (
     <div className="asv-main quest-detail-page">
@@ -441,29 +554,12 @@ function ViewCanvas({
           saveTitle="Save (⌘↵)"
           saveDisabled={false}
           showCancelSave={bodyDirty}
-          onStatusChange={(next) => {
-            setStatus(next);
-            if (next === "in_progress" && !assignee && defaultAssignee) {
-              setAssignee(defaultAssignee);
-            }
-            scheduleLifecycleSave();
-          }}
-          onPriorityChange={(next) => {
-            setPriority(next);
-            scheduleLifecycleSave();
-          }}
-          onAssigneeChange={(next) => {
-            setAssignee(next);
-            scheduleLifecycleSave();
-          }}
-          onScopeChange={(next) => {
-            setScope(next);
-            scheduleLifecycleSave();
-          }}
-          onDueChange={(next) => {
-            setDueAt(next);
-            scheduleLifecycleSave();
-          }}
+          showLifecycleControls={false}
+          onStatusChange={handleStatusChange}
+          onPriorityChange={handlePriorityChange}
+          onAssigneeChange={handleAssigneeChange}
+          onScopeChange={handleScopeChange}
+          onDueChange={handleDueChange}
           onBack={backToQuests}
           onNew={newQuest}
           onCancel={handleRevertBody}
@@ -490,20 +586,28 @@ function ViewCanvas({
         />
       </div>
       <div className="quest-detail-layout">
+        <QuestDetailRail
+          quest={displayQuest}
+          parentQuest={parentQuest}
+          childQuests={childQuests}
+          siblingQuests={siblingQuests}
+          onOpenQuest={openQuest}
+        />
         <main className="quest-detail-document">
           <IdeaCanvas
             ref={canvasRef}
             agentId={quest.agent_id ?? resolvedAgentId}
-            idea={quest.idea}
+            idea={displayQuest.idea}
             activityRefreshKey={activityRefreshSeq}
             onBack={backToQuests}
             onNew={newQuest}
             onDirtyChange={setBodyDirty}
             embedded
+            hideMetaStrip
           />
         </main>
         <QuestDetailSummary
-          quest={quest}
+          quest={displayQuest}
           status={status}
           priority={priority}
           assignee={assignee}
@@ -511,6 +615,24 @@ function ViewCanvas({
           dueAt={dueAt}
           agents={agents}
           users={assigneeUsers}
+          tagSuggestions={tagSuggestions}
+          childQuests={childQuests}
+          activityRefreshKey={activityRefreshSeq}
+          onStatusChange={handleStatusChange}
+          onPriorityChange={handlePriorityChange}
+          onAssigneeChange={handleAssigneeChange}
+          onScopeChange={handleScopeChange}
+          onDueChange={handleDueChange}
+          onTagAdd={handleTagAdd}
+          onTagRemove={handleTagRemove}
+          statusOpen={statusOpen}
+          onStatusOpenChange={setStatusOpen}
+          priorityOpen={priorityOpen}
+          onPriorityOpenChange={setPriorityOpen}
+          assigneeOpen={assigneeOpen}
+          onAssigneeOpenChange={setAssigneeOpen}
+          dueOpen={dueOpen}
+          onDueOpenChange={setDueOpen}
         />
       </div>
     </div>
