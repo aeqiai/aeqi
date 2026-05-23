@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldBlockDirectSolanaRpc } from "@/solana/client";
+import { assertDirectSolanaRpcEnabled, shouldBlockDirectSolanaRpc } from "@/solana/client";
 
 describe("Solana browser RPC guard", () => {
   it("blocks the localnet fallback from hosted browsers", () => {
@@ -28,5 +28,14 @@ describe("Solana browser RPC guard", () => {
         protocol: "https:",
       }),
     ).toBe(false);
+  });
+
+  it("prevents Connection construction against hosted loopback RPC", () => {
+    expect(() =>
+      assertDirectSolanaRpcEnabled("http://127.0.0.1:9120", {
+        hostname: "app.aeqi.ai",
+        protocol: "https:",
+      }),
+    ).toThrow("Direct Solana RPC is disabled");
   });
 });

@@ -34,7 +34,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PublicKey } from "@solana/web3.js";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import { AEQI_GOVERNANCE_PROGRAM_ID } from "@/solana/pdas";
 
 /**
@@ -52,7 +52,7 @@ export function useGovernanceSubscription(trustAddress: string | null | undefine
   const qc = useQueryClient();
 
   useEffect(() => {
-    if (!trustAddress) return;
+    if (!trustAddress || !isDirectSolanaRpcEnabled()) return;
 
     const conn = getConnection();
     let trustPda: PublicKey;

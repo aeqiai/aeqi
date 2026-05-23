@@ -24,7 +24,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { PublicKey, type ConfirmedSignatureInfo } from "@solana/web3.js";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 
 const STALE_TIME_MS = 30_000;
 /** Tail length. The chain answers in milliseconds at this size; 1000 is
@@ -91,7 +91,7 @@ export function useVaultActivity(
   options: UseVaultActivityOptions = {},
 ): UseVaultActivityResult {
   const windowDays = options.windowDays ?? 30;
-  const enabled = !!vaultAuthorityPda;
+  const enabled = !!vaultAuthorityPda && isDirectSolanaRpcEnabled();
 
   const query = useQuery({
     queryKey: ["assets", "vault-activity", vaultAuthorityPda ?? null, windowDays],

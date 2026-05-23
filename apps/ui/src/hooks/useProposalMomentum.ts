@@ -36,7 +36,7 @@ import { useMemo } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import type { VoteRecordWithPda } from "@/solana";
 
 /** Maximum number of records we'll resolve per proposal. Soft-cap that
@@ -121,6 +121,7 @@ export interface UseProposalMomentumResult {
  */
 export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalMomentumResult {
   const { voteRecords, voteStart, voteEnd, trustAddress } = args;
+  const directRpcEnabled = isDirectSolanaRpcEnabled();
 
   // Stable list of (pda, weight, choice) tuples that survives identity
   // churn on the raw VoteRecordWithPda array. We use a memoized key so
@@ -253,7 +254,7 @@ export function useProposalMomentum(args: UseProposalMomentumArgs): UseProposalM
     // gives us a zeroed-buckets reading the sparkline can render as a
     // flat baseline. The trust+window key changes when the parent
     // navigates, which triggers a fresh fetch.
-    enabled: trustAddress.length > 0 && voteEnd > voteStart,
+    enabled: directRpcEnabled && trustAddress.length > 0 && voteEnd > voteStart,
     staleTime: STALE_TIME_MS,
     // We re-resolve only when the PDA list grows; the per-record value
     // is immutable once created so the gcTime stays generous.

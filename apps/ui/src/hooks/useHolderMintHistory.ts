@@ -38,7 +38,7 @@ import {
   type PartiallyDecodedInstruction,
 } from "@solana/web3.js";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 
 const SIGNATURE_LIMIT = 50;
 /** Hard cap on parsed-tx decodes. Keeps the worst-case drawer open
@@ -211,7 +211,7 @@ function decodeForAta(
  * pass `holder?.tokenAccount.toBase58() ?? null` directly.
  */
 export function useHolderMintHistory(tokenAccount: string | null): UseHolderMintHistoryResult {
-  const enabled = !!tokenAccount;
+  const enabled = !!tokenAccount && isDirectSolanaRpcEnabled();
 
   const sigQuery = useQuery({
     queryKey: ["equity", "holder-mint-history", "sigs", tokenAccount ?? null],
@@ -255,7 +255,7 @@ export function useHolderMintHistory(tokenAccount: string | null): UseHolderMint
           return null;
         }
       },
-      enabled: !!tokenAccount,
+      enabled,
       staleTime: STALE_TIME_MS,
     })),
   });

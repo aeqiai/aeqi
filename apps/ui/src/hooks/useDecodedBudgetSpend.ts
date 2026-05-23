@@ -35,7 +35,7 @@ import {
 } from "@solana/web3.js";
 import bs58 from "bs58";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import { AEQI_BUDGET_PROGRAM_ID } from "@/solana/pdas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 
@@ -379,6 +379,7 @@ export function useDecodedBudgetSpend(
   limit: number = DECODE_LIMIT,
 ): UseDecodedBudgetSpendResult {
   const targetSigs = useMemo(() => signatures.slice(0, limit), [signatures, limit]);
+  const directRpcEnabled = isDirectSolanaRpcEnabled();
 
   const queries = useQueries({
     queries: targetSigs.map((sig) => ({
@@ -438,7 +439,7 @@ export function useDecodedBudgetSpend(
           };
         }
       },
-      enabled: !!budgetPda && targetSigs.length > 0,
+      enabled: directRpcEnabled && !!budgetPda && targetSigs.length > 0,
       staleTime: STALE_TIME_MS,
     })),
   });

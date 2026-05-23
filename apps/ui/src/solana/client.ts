@@ -82,12 +82,23 @@ function resolveRpcUrl(): string {
   return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_RPC_URL;
 }
 
+export function assertDirectSolanaRpcEnabled(
+  rpcUrl: string = resolveRpcUrl(),
+  location: BrowserLocation | null = currentBrowserLocation(),
+): void {
+  if (!shouldBlockDirectSolanaRpc(rpcUrl, location)) return;
+  throw new Error(
+    "Direct Solana RPC is disabled for hosted browsers without a browser-reachable VITE_SOLANA_RPC_URL.",
+  );
+}
+
 /**
  * Returns a process-wide `Connection` configured with `confirmed`
  * commitment. Memoized so we don't re-construct the WebSocket subscription
  * tracker on every render.
  */
 export function getConnection(): Connection {
+  assertDirectSolanaRpcEnabled();
   if (!cachedConnection) {
     cachedConnection = new Connection(resolveRpcUrl(), DEFAULT_COMMITMENT);
   }

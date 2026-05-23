@@ -47,7 +47,7 @@ import { useQueries } from "@tanstack/react-query";
 import type { ParsedInstruction, PartiallyDecodedInstruction } from "@solana/web3.js";
 import bs58 from "bs58";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import { AEQI_TRUST_PROGRAM_ID } from "@/solana/pdas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 
@@ -247,6 +247,7 @@ export function useDecodedModuleActivity(
   limit: number = DECODE_LIMIT,
 ): UseDecodedModuleActivityResult {
   const targetSigs = useMemo(() => signatures.slice(0, limit), [signatures, limit]);
+  const directRpcEnabled = isDirectSolanaRpcEnabled();
 
   const queries = useQueries({
     queries: targetSigs.map((sig) => ({
@@ -299,7 +300,7 @@ export function useDecodedModuleActivity(
           };
         }
       },
-      enabled: !!moduleAddress && targetSigs.length > 0,
+      enabled: directRpcEnabled && !!moduleAddress && targetSigs.length > 0,
       staleTime: STALE_TIME_MS,
     })),
   });

@@ -39,7 +39,7 @@ import {
   type PartiallyDecodedInstruction,
 } from "@solana/web3.js";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import type { ResolvedTokenMeta } from "@/hooks/useTokenMetas";
 import type { VaultSignature } from "@/hooks/useVaultActivity";
 
@@ -304,6 +304,7 @@ export function useDecodedVaultActivity(
   limit: number = DECODE_LIMIT,
 ): UseDecodedVaultActivityResult {
   const targetSigs = useMemo(() => signatures.slice(0, limit), [signatures, limit]);
+  const directRpcEnabled = isDirectSolanaRpcEnabled();
 
   const queries = useQueries({
     queries: targetSigs.map((sig) => ({
@@ -358,7 +359,7 @@ export function useDecodedVaultActivity(
           };
         }
       },
-      enabled: !!vaultAuthority && targetSigs.length > 0,
+      enabled: directRpcEnabled && !!vaultAuthority && targetSigs.length > 0,
       staleTime: STALE_TIME_MS,
     })),
   });

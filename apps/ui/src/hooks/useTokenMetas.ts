@@ -28,7 +28,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, getMint } from "@solana/spl-token";
 
-import { getConnection } from "@/solana/client";
+import { getConnection, isDirectSolanaRpcEnabled } from "@/solana/client";
 import { TOKEN_REGISTRY } from "@/solana/assets";
 
 export interface ResolvedTokenMeta {
@@ -139,6 +139,7 @@ async function resolveOne(mint: string): Promise<ResolvedTokenMeta> {
  */
 export function useTokenMetas(mints: string[]): Record<string, ResolvedTokenMeta> {
   const unique = useMemo(() => Array.from(new Set(mints)), [mints]);
+  const directRpcEnabled = isDirectSolanaRpcEnabled();
 
   // Resolve each mint via a dedicated query. We collapse the array into
   // one query so the hook returns a single object — but cache keys are
@@ -154,6 +155,9 @@ export function useTokenMetas(mints: string[]): Record<string, ResolvedTokenMeta
               mint,
               { symbol: reg.symbol, decimals: reg.decimals, resolvedOnChain: false },
             ] as const;
+          }
+          if (!directRpcEnabled) {
+            return [mint, EMPTY_META] as const;
           }
           const meta = await resolveOne(mint);
           return [mint, meta] as const;
