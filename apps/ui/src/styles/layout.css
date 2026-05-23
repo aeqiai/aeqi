@@ -7064,7 +7064,7 @@
 .quest-detail-toolbar {
   width: 100%;
 }
-.quest-detail-toolbar-context {
+.quest-detail-toolbar-pill {
   display: inline-flex;
   align-items: center;
   min-width: 0;
@@ -7078,15 +7078,7 @@
   border-radius: 999px;
   font-family: var(--font-sans);
 }
-.quest-detail-toolbar-context-label {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.quest-detail-toolbar-context-title {
+.quest-detail-toolbar-pill-title {
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-secondary);

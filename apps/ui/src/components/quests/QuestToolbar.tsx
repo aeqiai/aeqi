@@ -123,15 +123,12 @@ export default function QuestToolbar({
       </Tooltip>
       {breadcrumbLabel && (
         <span
-          className={isDetailToolbar ? "quest-detail-toolbar-context" : "quest-detail-breadcrumb"}
+          className={isDetailToolbar ? "quest-detail-toolbar-pill" : "quest-detail-breadcrumb"}
           aria-label="Quest detail"
           title={breadcrumbLabel}
         >
           {isDetailToolbar ? (
-            <>
-              <span className="quest-detail-toolbar-context-label">Quest</span>
-              <span className="quest-detail-toolbar-context-title">{breadcrumbLabel}</span>
-            </>
+            <span className="quest-detail-toolbar-pill-title">{breadcrumbLabel}</span>
           ) : (
             <>
               <span className="quest-detail-breadcrumb-sep" aria-hidden>
