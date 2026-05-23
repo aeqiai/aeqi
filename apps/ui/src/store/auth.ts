@@ -32,8 +32,8 @@ interface User {
   email_verified?: boolean;
   roots?: string[];
   entities?: string[];
-  /** Subscription state from /api/auth/me. "invited" = invite tier
-   *  (waitlist-redeemed, no billing). "active" = paid Stripe sub. */
+  /** Subscription state from /api/auth/me. "invited" = invite-only
+   *  access (waitlist-redeemed, no billing). "active" = paid Stripe sub. */
   subscription_status?: string;
   subscription_plan?: string;
   /** Admin flag — only set on the founder account. Gates the invite

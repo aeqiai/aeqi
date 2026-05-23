@@ -10,7 +10,7 @@ interface InviteCode {
 /**
  * Settings → Invites tab. Admin-only — renders nothing for regular users.
  * Founder mints invite codes on demand to onboard friends and family on
- * the invite tier (no billing) before public launch.
+ * the invite-only path (no billing) before public launch.
  */
 export default function InvitesPanel() {
   const [codes, setCodes] = useState<InviteCode[]>([]);
@@ -57,8 +57,8 @@ export default function InvitesPanel() {
   return (
     <>
       <p className="account-field-desc account-invites-desc">
-        Mint single-use invite codes for friends and family. Redeemers join on the invite tier — no
-        billing, no recursive invites.
+        Mint single-use invite codes for friends and family. Redeemers join on the invite-only path
+        — no billing, no recursive invites.
       </p>
       <div className="account-invites-actions">
         <Button variant="primary" size="sm" onClick={generate} disabled={creating}>

@@ -286,8 +286,8 @@ export default function WelcomePage({ mode = "welcome" }: { mode?: WelcomeMode }
       });
       if (!startRes.ok) {
         // 403 with invite_code error → fall through to the waitlist
-        // signup form. Closed beta is invite-only; everyone else gets
-        // a chance to drop their email so we can email them later.
+        // signup form. Invite-only users continue through signup; everyone
+        // else can drop their email so we can follow up later.
         if (startRes.status === 403) {
           const errBody = await startRes.text();
           if (/invite_code/i.test(errBody)) {
