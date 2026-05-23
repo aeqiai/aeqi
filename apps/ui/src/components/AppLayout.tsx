@@ -61,9 +61,10 @@ const BLUEPRINT_KINDS = new Set(["companies", "agents", "events", "quests", "ide
 // Tabs that route through TrustTabPage. Each is now a top-level sidebar
 // row in the Phase-1 lock — TrustTabPage is a thin per-tab dispatcher.
 // Inbox is the company-scoped action queue; Overview is the cockpit;
-// Roles is the only company organization row that still has a surface.
+// Roles and Apps sit together in the Trust group: authority first,
+// capabilities directly beneath it.
 //
-// The runtime primitive tabs (agents/apps/events/quests/ideas) ALSO route through
+// The runtime primitive tabs (agents/events/quests/ideas) ALSO route through
 // TrustTabPage at the entity scope. Without this, `/trust/<addr>/agents`
 // falls through to AgentPage(defaultAgent) — which ignores its `tab` prop
 // and renders the default agent's chat surface instead of the entity-scope
@@ -82,8 +83,8 @@ const COMPANY_PAGE_TABS = new Set([
   // Roles is its own peer slot (sits directly under Trust, outside both
   // Ownership and Execution groups) — renders TrustRolesTab.
   "roles",
-  "agents",
   "apps",
+  "agents",
   "events",
   "quests",
   "ideas",

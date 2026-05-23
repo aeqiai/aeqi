@@ -342,9 +342,9 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
         </nav>
 
         {/* ── Trust group — folds the identity selector (the operating-
-            context ID badge) and the trust-scoped tabs (Overview, Roles)
+            context ID badge) and the trust-scoped tabs (Overview, Roles, Apps)
             into one coherent block. Viewing the current trust and the
-            role you hold in it are the SAME concern — splitting them
+            role/capabilities it exposes are the SAME concern — splitting them
             into "Identity" + "Trust" groups was redundant. The selector
             sits at the top of the group (click to switch context), then
             the trust-scoped tabs below. ── */}
@@ -372,12 +372,18 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   Trust group alongside Overview; both describe what the
                   Trust IS rather than what it owns or what it does. */}
               {navItem("roles", "Roles", <RolesIcon />)}
+              {/* Apps — Trust capabilities/connectors. This sits directly
+                  under Roles so the shell matches the overview: authority
+                  first, then capabilities, before day-to-day Operations. */}
+              {navItem("apps", "Apps", <AppsIcon />, {
+                locked: runtimeLocked,
+              })}
             </nav>
 
             {/* IA order on the sidebar mirrors the user-facing mental
-                model: Roles (TRUST section above) → Operations (who runs
+                model: Roles + Apps (TRUST section above) → Operations (who runs
                 it) → Ownership (who owns it). Operations sits closer
-                to the TRUST/Roles section because day-to-day work
+                to the TRUST section because day-to-day work
                 lives there; ownership is the longer-term layer below.
                 "Operations" replaced "Execution" 2026-05-20 as part
                 of the Owners/Directors/Operators role-tier pivot —
@@ -394,9 +400,6 @@ export default function LeftSidebar({ trustId, path }: LeftSidebarProps) {
                   navigate(`${base}/agents`);
                   setTimeout(() => window.dispatchEvent(new CustomEvent("aeqi:create")), 0);
                 }),
-              })}
-              {navItem("apps", "Apps", <AppsIcon />, {
-                locked: runtimeLocked,
               })}
               {navItem("events", "Events", <EventsIcon />, {
                 locked: runtimeLocked,
