@@ -6,6 +6,7 @@ import { sessionDeepUrlFromId } from "@/lib/sessionUrl";
 import { useAuthStore } from "@/store/auth";
 import { useInboxStore, probeDismissEndpoint } from "@/store/inbox";
 import { useDaemonStore } from "@/store/daemon";
+import { useNav } from "@/hooks/useNav";
 import InboxToolbar from "@/components/inbox/InboxToolbar";
 import InboxEmptyCanvas from "@/components/inbox/InboxEmptyCanvas";
 import { inboxMessagesAdapter } from "@/components/inbox/inboxMessagesAdapter";
@@ -45,6 +46,7 @@ const KIND_ITEM_LABEL: Record<string, string> = {
 export default function MeInboxPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { trustId } = useNav();
 
   // Store subscriptions — field-level to avoid selector churn
   const allItems = useInboxStore((s) => s.items);
@@ -246,6 +248,7 @@ export default function MeInboxPage() {
     token,
     agentId: selectedRow?.agent_id ?? "",
     agentName: agentNameForStream,
+    trustId,
     activeSessionId,
     sessionIdRef,
     prevSessionRef,
@@ -266,7 +269,7 @@ export default function MeInboxPage() {
     let cancelled = false;
     setContextLoading(true);
     api
-      .getSessionMessages(selectedRow.id, 10)
+      .getSessionMessages(selectedRow.id, 10, trustId || undefined)
       .then((raw: Record<string, unknown>) => {
         if (cancelled) return;
         setContextMessages(inboxMessagesAdapter(raw, selectedRow.from.name));
@@ -282,7 +285,7 @@ export default function MeInboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRow]);
+  }, [selectedRow, trustId]);
 
   // ── Dismiss / archive endpoint probe ─────────────────────────────────
   // Same lifecycle as the prior InboxComposer probe — fired once at

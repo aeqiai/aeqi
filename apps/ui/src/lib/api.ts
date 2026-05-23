@@ -597,29 +597,36 @@ export const api = {
 
   getQuest: (id: string) => request<{ ok: boolean; quest: Quest; idea?: Idea }>(`/quests/${id}`),
 
-  getSessions: (agentId?: string) => {
+  getSessions: (agentId?: string, scopedEntity?: string | null) => {
     const q = new URLSearchParams();
     if (agentId) q.set("agent_id", agentId);
     const qs = q.toString();
-    return request<Record<string, unknown>>(`/sessions${qs ? `?${qs}` : ""}`);
+    return request<Record<string, unknown>>(`/sessions${qs ? `?${qs}` : ""}`, {
+      scopedEntity,
+    });
   },
-  createSession: (agentId: string) =>
+  createSession: (agentId: string, scopedEntity?: string | null) =>
     request<Record<string, unknown>>("/sessions", {
       method: "POST",
       body: JSON.stringify({ agent_id: agentId }),
+      scopedEntity,
     }),
-  sendSessionMessage: (data: {
-    message: string;
-    agent?: string;
-    agent_id?: string;
-    session_id?: string;
-    session_ideas?: string[];
-    quest_id?: string;
-    files?: Array<{ name: string; content: string }>;
-  }) =>
+  sendSessionMessage: (
+    data: {
+      message: string;
+      agent?: string;
+      agent_id?: string;
+      session_id?: string;
+      session_ideas?: string[];
+      quest_id?: string;
+      files?: Array<{ name: string; content: string }>;
+    },
+    scopedEntity?: string | null,
+  ) =>
     request<Record<string, unknown>>("/sessions/send", {
       method: "POST",
       body: JSON.stringify(data),
+      scopedEntity,
     }),
 
   // Blueprints — pre-threaded company bundles. Spawn creates an entity
@@ -1566,8 +1573,10 @@ export const api = {
   getSessionChildren: (sessionId: string) =>
     request<Record<string, unknown>>(`/sessions/${sessionId}/children`),
 
-  getSessionMessages: (sessionId: string, limit = 50) =>
-    request<Record<string, unknown>>(`/sessions/${sessionId}/messages?limit=${limit}`),
+  getSessionMessages: (sessionId: string, limit = 50, scopedEntity?: string | null) =>
+    request<Record<string, unknown>>(`/sessions/${sessionId}/messages?limit=${limit}`, {
+      scopedEntity,
+    }),
 
   generateApiKey: () =>
     request<{ ok: boolean; id: string; api_key: string; rotated: boolean }>("/account/api-key", {

@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import { logError } from "@/lib/logging";
 import { useAuthStore } from "@/store/auth";
 import { useDaemonStore } from "@/store/daemon";
+import { useNav } from "@/hooks/useNav";
 import { createDraftId, useChatStore, type PendingMessage } from "@/store/chat";
 import { useMessageProcessor } from "./session/useMessageProcessor";
 import { useSessionManager } from "./session/useSessionManager";
@@ -83,10 +84,12 @@ interface AgentSessionProps {
 export default function AgentSessionView({ agentId, sessionId: urlSessionId }: AgentSessionProps) {
   const token = useAuthStore((s) => s.token);
   const agents = useDaemonStore((s) => s.agents);
+  const { trustId: routeTrustId } = useNav();
 
   const agentInfo = agents.find((a) => a.id === agentId);
   const agentName = agentInfo?.name || agentId;
   const displayName = agentName;
+  const trustId = routeTrustId || agentInfo?.trust_id || null;
 
   const [sessionIdeas, setSessionIdeas] = useState<string[]>([]);
   const [sessionTask, setSessionTask] = useState<{ id: string; name: string } | null>(null);
@@ -118,6 +121,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     token,
     agentId,
     agentName,
+    trustId,
     activeSessionId: sessionManager.activeSessionId,
     sessionIdRef: sessionManager.sessionIdRef,
     prevSessionRef: sessionManager.prevSessionRef,
@@ -430,6 +434,7 @@ export default function AgentSessionView({ agentId, sessionId: urlSessionId }: A
     >
       <SessionDetail
         sessionId={activeSessionId}
+        trustId={trustId || undefined}
         agentId={agentId}
         title={title}
         subtitle={subtitle}

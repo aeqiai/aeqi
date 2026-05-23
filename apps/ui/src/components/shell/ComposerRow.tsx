@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Composer from "@/components/composer/Composer";
+import { useNav } from "@/hooks/useNav";
 import { api } from "@/lib/api";
 import { createDraftId, useChatStore } from "@/store/chat";
 import { useDaemonStore } from "@/store/daemon";
@@ -43,6 +44,7 @@ export default function ComposerRow({
 }: ComposerRowProps) {
   const navigate = useNavigate();
   const { tab, itemId } = useParams<{ tab?: string; itemId?: string }>();
+  const { trustId } = useNav();
   const agents = useDaemonStore((s) => s.agents);
   const setPendingMessage = useChatStore((s) => s.setPendingMessage);
 
@@ -151,7 +153,7 @@ export default function ComposerRow({
     }
     let cancelled = false;
     api
-      .getSessionMessages(currentSessionId, 500)
+      .getSessionMessages(currentSessionId, 500, trustId || undefined)
       .then((d: Record<string, unknown>) => {
         if (cancelled) return;
         const raw = (d.messages as Array<Record<string, unknown>>) || [];
@@ -167,7 +169,7 @@ export default function ComposerRow({
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId]);
+  }, [currentSessionId, trustId]);
 
   // Keyboard shortcut `c` jumps focus into the composer without touching
   // the current input — lets a power user start typing from anywhere in

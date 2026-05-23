@@ -60,13 +60,13 @@ export function useSessionManager({
   useEffect(() => {
     if (!agentId) return;
     api
-      .getSessions(agentId)
+      .getSessions(agentId, trustId || undefined)
       .then((d: Record<string, unknown>) => {
         const list: SessionInfo[] = (d.sessions as SessionInfo[]) || [];
         setSessions(list);
       })
       .catch(() => setSessions([]));
-  }, [agentId]);
+  }, [agentId, trustId]);
 
   // Mirror the session list into chat store so the SessionsRail can
   // render it without a duplicate fetch.
@@ -140,7 +140,7 @@ export function useSessionManager({
     prevSessionRef.current = activeSessionId;
 
     api
-      .getSessionMessages(activeSessionId, 1000)
+      .getSessionMessages(activeSessionId, 1000, trustId || undefined)
       .then((d: Record<string, unknown>) => {
         const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
         if (loaded.length > 0) {
@@ -148,7 +148,7 @@ export function useSessionManager({
         }
       })
       .catch((e) => logError("session-manager.load-history", e));
-  }, [activeSessionId, processRawMessages]);
+  }, [activeSessionId, processRawMessages, trustId]);
 
   // Poll for new messages on sessions not driven by local WebSocket.
   // Uses streamingRef so the interval checks latest streaming state without
@@ -170,7 +170,7 @@ export function useSessionManager({
       if (useChatStore.getState().streamingSessions[activeSessionId]) return;
       if (isRateLimited()) return;
       api
-        .getSessionMessages(activeSessionId, 1000)
+        .getSessionMessages(activeSessionId, 1000, trustId || undefined)
         .then((d: Record<string, unknown>) => {
           const loaded = processRawMessages((d.messages as Array<Record<string, unknown>>) || []);
           if (loaded.length > 0) {
@@ -180,7 +180,7 @@ export function useSessionManager({
         .catch((e) => logError("session-manager.poll-history", e));
     }, 10000);
     return () => clearInterval(iv);
-  }, [activeSessionId, processRawMessages]);
+  }, [activeSessionId, processRawMessages, trustId]);
 
   return {
     sessions,
