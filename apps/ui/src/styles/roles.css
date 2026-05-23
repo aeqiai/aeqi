@@ -571,9 +571,8 @@
 }
 
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
- * Header + snapshot + content row with inspector. The toolbar above
- * the content uses the shared `.ideas-list-head` grammar so the page
- * matches Ideas/Quests rhythm. */
+ * Header + snapshot + content row with inspector. The header uses the
+ * Ideas-style single-row chrome: title, search, controls, CTAs. */
 
 /* Shell — shared between Roles and Agents pages. Grid layout with
    a full-width header row above two columns: discovery on the left,
@@ -590,10 +589,9 @@
 .trust-roles {
   grid-template-columns: minmax(0, 1fr) 340px;
   column-gap: var(--space-4);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     "header header"
-    "toolbar toolbar"
     "main side";
   padding: 0;
 }
@@ -611,10 +609,34 @@
 .trust-agents-page-header {
   grid-area: header;
 }
+.trust-roles-page-header {
+  display: grid;
+  grid-template-columns: auto minmax(280px, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px var(--space-6) 10px;
+}
+.trust-roles-page-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
 .trust-roles-toolbar,
 .trust-agents-toolbar {
   grid-area: toolbar;
   min-width: 0;
+}
+.trust-roles-toolbar {
+  grid-area: auto;
+}
+.trust-roles-toolbar > .ideas-list-search-field {
+  min-width: 180px;
 }
 .trust-roles-main,
 .trust-agents-main {
@@ -629,6 +651,7 @@
 }
 .trust-roles-main {
   padding-left: var(--space-6);
+  padding-top: var(--space-1);
   padding-bottom: var(--space-5);
 }
 .trust-agents-main {
@@ -1594,7 +1617,6 @@
   padding-bottom: var(--space-5);
 }
 .trust-roles--editing .trust-roles-page-header,
-.trust-roles--editing .trust-roles-toolbar,
 .trust-roles--editing .trust-roles-main {
   display: none;
 }
@@ -1615,8 +1637,8 @@
 .role-editor-head {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-3);
   background: var(--bg-row);
 }
 .role-editor-breadcrumb {
@@ -1669,9 +1691,12 @@
 }
 .role-editor-title-row {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+}
+.role-editor-title-copy {
+  min-width: 0;
 }
 .role-editor-eyebrow {
   margin: 0 0 4px;
@@ -1691,13 +1716,26 @@
   line-height: 1.1;
   color: var(--color-text-primary);
 }
+.role-editor-title-copy p {
+  margin: 6px 0 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
 .role-editor-form {
   display: grid;
-  grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1.2fr);
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: var(--space-4);
+  align-content: start;
   min-height: 0;
   padding: var(--space-5) var(--space-6);
   overflow: auto;
+}
+.role-editor-content {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(360px, 1.22fr);
+  gap: var(--space-4);
+  min-width: 0;
 }
 .role-editor-section {
   display: flex;
@@ -1707,6 +1745,46 @@
   padding: var(--space-5);
   border-radius: var(--radius-md);
   background: var(--color-card);
+}
+.role-editor-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-self: start;
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+.role-editor-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+.role-editor-summary-list div {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+.role-editor-summary-list dt {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.role-editor-summary-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-primary);
 }
 .role-editor-section--grants {
   min-height: 0;
@@ -1830,10 +1908,9 @@
     grid-template-columns: 1fr;
     grid-template-areas:
       "header"
-      "toolbar"
       "main"
       "side";
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
   .trust-agents {
     grid-template-columns: 1fr;
@@ -1852,6 +1929,9 @@
   .role-editor-form {
     grid-template-columns: 1fr;
   }
+  .role-editor-content {
+    grid-template-columns: 1fr;
+  }
   .role-editor-grants {
     grid-template-columns: 1fr;
   }
@@ -1861,6 +1941,16 @@
   .trust-roles,
   .trust-agents {
     padding: var(--space-4);
+  }
+  .trust-roles-page-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: var(--space-4);
+  }
+  .trust-roles-toolbar {
+    flex-wrap: wrap;
+  }
+  .trust-roles-toolbar > .ideas-list-search-field {
+    flex-basis: 100%;
   }
   .trust-roles-snapshot {
     display: flex;

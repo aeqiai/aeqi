@@ -7,7 +7,7 @@ import { useDaemonStore } from "@/store/daemon";
 import { useAuthStore } from "@/store/auth";
 import { entityPathFromId, entityBasePath } from "@/lib/entityPath";
 import "@/styles/roles.css";
-import { Button, EmptyState, Loading, PrimitivePageHeader, PrimitiveSearchField } from "./ui";
+import { Button, EmptyState, Loading, PrimitiveSearchField } from "./ui";
 import RolesChart from "./roles/RolesChart";
 import RolesCards from "./roles/RolesCards";
 import RolesList from "./roles/RolesList";
@@ -30,10 +30,9 @@ const OCCUPANT_RANK: Record<string, number> = { agent: 0, human: 1, vacant: 2 };
  * Roles — the trust's authority graph.
  *
  * v2 composition (2026-05-20, "canonical" pass):
- *   1. Page header (h1 "Roles" + subtitle) + two CTAs (+ Invite, + Role)
+ *   1. Page chrome — title + search + sort/filter/view + CTAs in one row
  *   2. Snapshot strip — total / founders / operational / vacant
- *   3. Toolbar — search + sort + filter + view (chart | cards | list)
- *   4. Content row — graph on the left, RoleInspector on the right
+ *   3. Content row — graph on the left, RoleInspector on the right
  *      (always-rendered; default selection = viewer's own role, fallback
  *      to a founder if the viewer holds no role)
  *
@@ -310,33 +309,9 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
 
   return (
     <div className={isEditingRole ? "trust-roles trust-roles--editing" : "trust-roles"}>
-      <PrimitivePageHeader
-        title="Roles"
-        className="trust-roles-page-header"
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-              leadingIcon={<Mail size={14} strokeWidth={1.6} />}
-            >
-              Invite
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-              leadingIcon={<Plus size={14} strokeWidth={1.8} />}
-            >
-              Role
-            </Button>
-          </>
-        }
-      />
-
-      <div className="trust-roles-toolbar ideas-list-head">
-        <div className="ideas-toolbar">
+      <header className="trust-roles-page-header">
+        <h1 className="trust-roles-page-title">Roles</h1>
+        <div className="ideas-toolbar trust-roles-toolbar" aria-label="Role controls">
           <PrimitiveSearchField
             placeholder="Search roles"
             value={search}
@@ -350,8 +325,24 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             onChange={setFilter}
           />
           <RolesViewPopover view={view} onChange={setView} />
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
+            leadingIcon={<Mail size={14} strokeWidth={1.6} />}
+          >
+            Invite
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+            leadingIcon={<Plus size={14} strokeWidth={1.8} />}
+          >
+            Role
+          </Button>
         </div>
-      </div>
+      </header>
 
       <div className="trust-roles-main">
         <RoleSnapshotBand

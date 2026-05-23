@@ -37,6 +37,14 @@ export default function RoleEditorPane({ role, onBack, onSaved }: RoleEditorPane
     setGrants((prev) => (checked ? [...prev, grantId] : prev.filter((g) => g !== grantId)));
   };
 
+  const selectedType = ROLE_TYPE_OPTIONS.find((option) => option.value === roleType);
+  const currentType = ROLE_TYPE_OPTIONS.find((option) => option.value === role.role_type);
+  const holderLabel =
+    role.occupant_kind === "vacant"
+      ? "Seat open"
+      : role.occupant_name ||
+        (role.occupant_id ? compactAddress(role.occupant_id) : role.occupant_kind);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedTitle = title.trim();
@@ -87,9 +95,10 @@ export default function RoleEditorPane({ role, onBack, onSaved }: RoleEditorPane
           <span>Edit</span>
         </div>
         <div className="role-editor-title-row">
-          <div>
+          <div className="role-editor-title-copy">
             <p className="role-editor-eyebrow">Selected role</p>
             <h2 className="role-editor-title">Edit role</h2>
+            <p>{role.title || "Untitled role"}</p>
           </div>
           <Button
             type="submit"
@@ -105,77 +114,108 @@ export default function RoleEditorPane({ role, onBack, onSaved }: RoleEditorPane
       </header>
 
       <form id="role-editor-form" className="role-editor-form" onSubmit={handleSubmit}>
-        <section className="role-editor-section">
-          <div className="role-editor-section-head">
-            <h3>Identity</h3>
-            <p>Rename the authority seat and choose the tier it belongs to.</p>
-          </div>
-          <label className="role-editor-field" htmlFor="role-editor-title">
-            <span>
-              Title <em>*</em>
-            </span>
-            <Input
-              id="role-editor-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              autoFocus
-            />
-          </label>
-          <div className="role-editor-radio-grid" role="radiogroup" aria-label="Role type">
-            {ROLE_TYPE_OPTIONS.map((option) => (
-              <label
-                key={option.value}
-                className={
-                  roleType === option.value
-                    ? "role-editor-radio role-editor-radio--selected"
-                    : "role-editor-radio"
-                }
-              >
-                <input
-                  type="radio"
-                  name="role-editor-type"
-                  value={option.value}
-                  checked={roleType === option.value}
-                  onChange={() => setRoleType(option.value)}
-                />
-                <span>
-                  <strong>{option.label}</strong>
-                  <small>{option.desc}</small>
-                </span>
-              </label>
-            ))}
-          </div>
-        </section>
-
-        <section className="role-editor-section role-editor-section--grants">
-          <div className="role-editor-section-head">
-            <h3>Authority grants</h3>
-            <p>{grants.length} grants selected for this role.</p>
-          </div>
-          <div className="role-editor-grants">
-            {GRANT_CATALOG.map((grant) => {
-              const checked = grants.includes(grant.id);
-              return (
+        <div className="role-editor-content">
+          <section className="role-editor-section">
+            <div className="role-editor-section-head">
+              <h3>Identity</h3>
+              <p>Rename the authority seat and choose the tier it belongs to.</p>
+            </div>
+            <label className="role-editor-field" htmlFor="role-editor-title">
+              <span>
+                Title <em>*</em>
+              </span>
+              <Input
+                id="role-editor-title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                autoFocus
+              />
+            </label>
+            <div className="role-editor-radio-grid" role="radiogroup" aria-label="Role type">
+              {ROLE_TYPE_OPTIONS.map((option) => (
                 <label
-                  key={grant.id}
+                  key={option.value}
                   className={
-                    checked ? "role-editor-grant role-editor-grant--checked" : "role-editor-grant"
+                    roleType === option.value
+                      ? "role-editor-radio role-editor-radio--selected"
+                      : "role-editor-radio"
                   }
                 >
                   <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => toggleGrant(grant.id, event.target.checked)}
+                    type="radio"
+                    name="role-editor-type"
+                    value={option.value}
+                    checked={roleType === option.value}
+                    onChange={() => setRoleType(option.value)}
                   />
                   <span>
-                    <strong>{grant.label}</strong>
-                    <small>{grant.desc}</small>
+                    <strong>{option.label}</strong>
+                    <small>{option.desc}</small>
                   </span>
                 </label>
-              );
-            })}
+              ))}
+            </div>
+          </section>
+
+          <section className="role-editor-section role-editor-section--grants">
+            <div className="role-editor-section-head">
+              <h3>Authority grants</h3>
+              <p>{grants.length} grants selected for this role.</p>
+            </div>
+            <div className="role-editor-grants">
+              {GRANT_CATALOG.map((grant) => {
+                const checked = grants.includes(grant.id);
+                return (
+                  <label
+                    key={grant.id}
+                    className={
+                      checked ? "role-editor-grant role-editor-grant--checked" : "role-editor-grant"
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => toggleGrant(grant.id, event.target.checked)}
+                    />
+                    <span>
+                      <strong>{grant.label}</strong>
+                      <small>{grant.desc}</small>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <aside className="role-editor-summary" aria-label="Role edit summary">
+          <div className="role-editor-section-head">
+            <h3>Current role</h3>
+            <p>Changes save back to the selected seat.</p>
           </div>
-        </section>
+          <dl className="role-editor-summary-list">
+            <div>
+              <dt>Seat</dt>
+              <dd>{role.title || "Untitled role"}</dd>
+            </div>
+            <div>
+              <dt>Holder</dt>
+              <dd>{holderLabel}</dd>
+            </div>
+            <div>
+              <dt>Current tier</dt>
+              <dd>{currentType?.label ?? role.role_type}</dd>
+            </div>
+            <div>
+              <dt>New tier</dt>
+              <dd>{selectedType?.label ?? roleType}</dd>
+            </div>
+            <div>
+              <dt>Grants</dt>
+              <dd>{grants.length}</dd>
+            </div>
+          </dl>
+        </aside>
 
         {error && (
           <div className="role-editor-error" role="alert">
@@ -194,4 +234,9 @@ export default function RoleEditorPane({ role, onBack, onSaved }: RoleEditorPane
       </form>
     </section>
   );
+}
+
+function compactAddress(value: string): string {
+  if (value.length <= 14) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
