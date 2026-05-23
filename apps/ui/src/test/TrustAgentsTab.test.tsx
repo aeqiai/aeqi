@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import TrustAgentsTab from "@/components/TrustAgentsTab";
 import { api } from "@/lib/api";
@@ -76,5 +76,19 @@ describe("TrustAgentsTab", () => {
     expect(screen.queryByLabelText("Selected agent")).toBeNull();
     expect(snapshot.compareDocumentPosition(register)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(register.compareDocumentPosition(suggestions)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("opens the blueprint picker from an entire suggestion card", () => {
+    render(
+      <MemoryRouter initialEntries={["/trust/root-1/agents"]}>
+        <Routes>
+          <Route path="/trust/:trustAddress/agents" element={<TrustAgentsTab trustId="root-1" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Research Agent" }));
+
+    expect(screen.getByRole("dialog", { name: "Add agents from a Blueprint" })).toBeInTheDocument();
   });
 });

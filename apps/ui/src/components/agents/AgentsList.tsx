@@ -25,6 +25,12 @@ function livenessOf(raw: string | undefined): Liveness {
   return "idle";
 }
 
+function formatSpendDisplay(usd: number): string {
+  if (!Number.isFinite(usd) || usd === 0) return "$0.00";
+  if (Math.abs(usd) < 1) return formatSpendUsd(usd);
+  return `$${usd.toFixed(2)}`;
+}
+
 export default function AgentsList({
   agents,
   onSelect,
@@ -95,7 +101,7 @@ export default function AgentsList({
                 spend > 0 ? "agents-list-spend" : "agents-list-spend agents-list-spend--zero"
               }
             >
-              {formatSpendUsd(spend)}
+              {formatSpendDisplay(spend)}
             </span>
           );
         },
@@ -132,6 +138,8 @@ export default function AgentsList({
         data={agents}
         rowKey={(a) => a.id}
         onRowClick={(a) => onSelect(a.id)}
+        density="compact"
+        scrollWidth="sm"
         ariaLabel="Agents"
       />
     </div>

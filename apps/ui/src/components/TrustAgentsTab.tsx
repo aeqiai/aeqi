@@ -474,19 +474,20 @@ function SuggestedAgents({ onPick }: { onPick: () => void }) {
       </header>
       <div className="trust-agents-suggest-grid">
         {SUGGESTED_AGENTS.map((s) => (
-          <article key={s.title} className="trust-agents-suggest-card">
+          <button
+            key={s.title}
+            type="button"
+            className="trust-agents-suggest-card"
+            onClick={onPick}
+            aria-label={`Add ${s.title}`}
+          >
             <h3 className="trust-agents-suggest-card-title">{s.title}</h3>
             <p className="trust-agents-suggest-card-desc">{s.desc}</p>
-            <button
-              type="button"
-              className="trust-agents-suggest-card-cta"
-              onClick={onPick}
-              aria-label={`Add ${s.title}`}
-            >
+            <span className="trust-agents-suggest-card-cta" aria-hidden>
               <Plus size={12} strokeWidth={1.8} />
               Add agent
-            </button>
-          </article>
+            </span>
+          </button>
         ))}
       </div>
     </section>

@@ -542,6 +542,7 @@
 }
 .agents-list-spend {
   font-family: var(--font-mono);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
 }
@@ -549,46 +550,24 @@
   color: var(--color-text-muted);
 }
 
-/* Agents-table column-header band — tinted slab register scoped to
-   `.agents-list` only. The shared Notion-minimal Table primitive paints
-   thead transparent so headers float on paper; on the Agents page the
-   thead row sits on a `--bg-row` substrate (the same slab vocabulary
-   the Quest kanban columns use) so the column band reads as a unified
-   header surface anchoring the rows below. Keeps Notion typography
-   (tiny uppercase muted via Table.module.css); only the substrate is
-   page-scoped, no font / weight / spacing override on the labels.
-   Rounded top-corners match the body row register; the bottom edge
-   meets the first row flush so the slab + table read as one shape. */
+/* Agents register table — keep the primitive's quiet uppercase header,
+   but tighten the row body so the slab reads like an operational register
+   instead of a generic report table. Exact micro-spend remains in the
+   cell tooltip; the visible row value is deliberately calmer. */
 .agents-list table thead th {
-  background: var(--bg-row);
+  padding: 10px 14px 8px;
+  background: var(--color-card-elevated);
 }
-.agents-list table thead th:first-child {
-  border-top-left-radius: var(--radius-sm);
-  border-bottom-left-radius: var(--radius-sm);
+.agents-list table tbody td {
+  padding: 10px 14px;
 }
-.agents-list table thead th:last-child {
-  border-top-right-radius: var(--radius-sm);
-  border-bottom-right-radius: var(--radius-sm);
+.agents-list table tbody tr {
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
-
-/* Agents-table column-header typography parity with `.quest-col-label`.
-   The shared Notion-minimal Table primitive paints thead labels as tiny
-   uppercase muted text — quiet so the data dominates. On the Agents page
-   the column-header band sits on a `--bg-row` slab matched to the Quest
-   kanban column-header register; lifting the labels into the same
-   sentence-case 13.5px / 620-weight / primary-color vocabulary the
-   Quests page uses anchors the slab so it reads as a confident section
-   label instead of muted noise floating on a tinted shelf. Vertical
-   padding tightens because the labels now carry weight on their own;
-   tracking pulls in slightly to match the Quest header optics. */
-.agents-list table thead th {
-  font-size: 13.5px;
-  font-weight: 620;
-  letter-spacing: -0.01em;
-  text-transform: none;
-  color: var(--color-text-primary);
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
+.agents-list table tbody tr:hover {
+  background: var(--color-card);
 }
 
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
@@ -656,7 +635,6 @@
   padding-left: var(--space-6);
   padding-bottom: var(--space-5);
 }
-.trust-roles-side,
 .trust-roles-side {
   grid-area: side;
   display: flex;
@@ -682,6 +660,7 @@
 .trust-agents-register {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   min-width: 0;
   min-height: 0;
   border-radius: var(--radius-sm);
@@ -723,7 +702,7 @@
 }
 .trust-agents-register-body {
   margin: 0 8px 8px;
-  min-height: 260px;
+  min-height: 0;
   min-width: 0;
   border-radius: var(--radius-sm);
   background: var(--color-card-elevated);
@@ -741,7 +720,9 @@
 .trust-agents-suggest {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 0;
+  margin-top: auto;
   padding: 0;
   border-radius: var(--radius-sm);
   background: var(--bg-row);
@@ -830,6 +811,12 @@
   margin: 0 8px 8px;
 }
 .trust-agents-suggest-card {
+  appearance: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -851,6 +838,12 @@
 .trust-agents-suggest-card:hover .trust-agents-suggest-card-cta {
   color: var(--color-text-primary);
 }
+.trust-agents-suggest-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  position: relative;
+  z-index: 1;
+}
 .trust-agents-suggest-card-title {
   margin: 0;
   font-family: var(--font-sans);
@@ -869,23 +862,16 @@
 /* Quiet inline action — no dashed-border hairline. The card itself is the
    surface that lights up; the CTA is just a labeled affordance. */
 .trust-agents-suggest-card-cta {
-  appearance: none;
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  border: 0;
-  background: transparent;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text-secondary);
-  cursor: pointer;
   transition: color 0.12s ease;
-}
-.trust-agents-suggest-card-cta:hover {
-  color: var(--color-text-primary);
 }
 
 @media (max-width: 900px) {
@@ -938,6 +924,7 @@
 .trust-agents-snapshot {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   background: var(--bg-row);
   overflow: hidden;
