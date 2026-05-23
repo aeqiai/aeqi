@@ -190,6 +190,9 @@ describe("StartPage MVP surface", () => {
     expect(screen.queryByText(/aeqi v0\.1/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open account settings/i })).not.toBeInTheDocument();
     expect(screen.getByText("No active TRUST")).toBeInTheDocument();
+    expect(
+      screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
+    ).toBeInTheDocument();
     expect(primary).toBeInTheDocument();
     expect(secondary).toBeInTheDocument();
     expect(
@@ -243,6 +246,9 @@ describe("StartPage MVP surface", () => {
     expect(reviewInbox).toBeInTheDocument();
     expect(launchTrust).toBeInTheDocument();
     expect(browseBlueprints).toBeInTheDocument();
+    expect(
+      screen.getByText(/operating container for ownership, agents, quests, and ideas/i),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open trust/i })).not.toBeInTheDocument();
     expect(screen.getByText("Review launch result")).toBeInTheDocument();
     expect(screen.getByText(/Awaiting reply · Janus · Alpha Trust/i)).toBeInTheDocument();

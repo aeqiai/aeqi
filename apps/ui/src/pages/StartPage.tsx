@@ -174,7 +174,7 @@ function LaunchTrustCard() {
       <div className="home-launch-body">
         <h3 className="home-launch-title">Launch a TRUST</h3>
         <p className="home-launch-hint">
-          Start from a blueprint or create a blank programmable company.
+          Create the operating container for ownership, agents, quests, and ideas.
         </p>
       </div>
       <div className="home-launch-actions">

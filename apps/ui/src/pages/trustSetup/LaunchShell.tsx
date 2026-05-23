@@ -11,8 +11,8 @@ export interface LaunchPitchContent {
 
 const DEFAULT_PITCH: LaunchPitchContent = {
   eyebrow: "LAUNCH A TRUST",
-  lines: ["Programmable", "company", "vehicle."],
-  lead: "A TRUST aligns stakeholders, ownership, and operations inside one programmable company — so everyone moves toward the same outcome: creating value.",
+  lines: ["Company", "operating", "system."],
+  lead: "A TRUST is the container for ownership, agents, quests, and ideas. Humans set direction; AEQI keeps the work, memory, and proof in one runtime.",
 };
 
 function LaunchPitch({ pitch = DEFAULT_PITCH }: { pitch?: LaunchPitchContent }) {

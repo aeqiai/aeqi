@@ -42,6 +42,8 @@ describe("TrustSetupFlow", () => {
 
     expect(backButton.closest(".launch-flow-card")).toBeNull();
     expect(screen.getAllByRole("button", { name: "Back" })).toHaveLength(2);
+    expect(screen.getByText(/AEQI keeps the work, memory, and proof/i)).toBeInTheDocument();
+    expect(screen.getByText(/ownership, agents, quests, and ideas/i)).toBeInTheDocument();
   });
 
   it("falls back to the TRUST path when opened without app history", async () => {
