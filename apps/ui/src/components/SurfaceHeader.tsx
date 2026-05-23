@@ -25,7 +25,7 @@ export default function SurfaceHeader({
   middle,
   actions,
 }: {
-  backHref: string;
+  backHref?: string;
   backLabel: string;
   /**
    * Title slot. Plain string renders muted/bold inside the breadcrumb;
@@ -44,26 +44,30 @@ export default function SurfaceHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="agent-surface-header">
+    <header className="agent-surface-header">
       <div className="agent-surface-header-crumbs">
-        <Tooltip content={`Back to ${backLabel}`}>
-          <Link to={backHref} className="agent-surface-header-back">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M10 12L6 8l4-4" />
-            </svg>
-            {backLabel}
-          </Link>
-        </Tooltip>
+        {backHref ? (
+          <Tooltip content={`Back to ${backLabel}`}>
+            <Link to={backHref} className="agent-surface-header-back">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M10 12L6 8l4-4" />
+              </svg>
+              {backLabel}
+            </Link>
+          </Tooltip>
+        ) : (
+          <h1 className="agent-surface-header-root">{backLabel}</h1>
+        )}
         {title != null && (
           <>
             <span className="agent-surface-header-sep" aria-hidden>
@@ -76,6 +80,6 @@ export default function SurfaceHeader({
       </div>
       {middle && <div className="agent-surface-header-middle">{middle}</div>}
       {actions && <div className="agent-surface-header-actions">{actions}</div>}
-    </div>
+    </header>
   );
 }

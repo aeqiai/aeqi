@@ -27,8 +27,22 @@ function livenessOf(raw: string | undefined): Liveness {
 
 function formatSpendDisplay(usd: number): string {
   if (!Number.isFinite(usd) || usd === 0) return "$0.00";
-  if (Math.abs(usd) < 1) return formatSpendUsd(usd);
+  if (Math.abs(usd) < 0.01) return formatSpendUsd(usd);
   return `$${usd.toFixed(2)}`;
+}
+
+function formatModel(model: string | undefined): string {
+  if (!model) return "";
+  const slug = model.split("/").pop() ?? model;
+  return slug
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => (part.length <= 3 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)))
+    .join(" ");
+}
+
+function shortId(id: string): string {
+  return id.length > 10 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id;
 }
 
 export default function AgentsList({
@@ -42,16 +56,30 @@ export default function AgentsList({
     () => [
       {
         key: "name",
-        header: "Name",
-        width: "30%",
+        header: "Agent",
+        width: "34%",
         sortable: true,
         sortAccessor: (a) => a.name.toLowerCase(),
-        cell: (a) => (
-          <span className="agents-list-name">
-            <AgentAvatar name={a.name} src={a.avatar} />
-            <span>{a.name}</span>
-          </span>
-        ),
+        cell: (a) => {
+          const liveness = livenessOf(a.status);
+          const model = formatModel(a.model);
+          return (
+            <span className="agents-list-identity">
+              <span className="agents-list-avatar">
+                <AgentAvatar name={a.name} src={a.avatar} />
+              </span>
+              <span className="agents-list-identity-main">
+                <span className="agents-list-name">{a.name}</span>
+                <span className="agents-list-subline">
+                  {a.execution_mode || "Runtime"} · {shortId(a.id)}
+                </span>
+                <span className="agents-list-mobile-meta">
+                  {model || "No model"} · {LIVENESS_LABEL[liveness]}
+                </span>
+              </span>
+            </span>
+          );
+        },
       },
       {
         key: "model",
@@ -59,7 +87,14 @@ export default function AgentsList({
         width: "22%",
         sortable: true,
         sortAccessor: (a) => (a.model ?? "").toLowerCase(),
-        cell: (a) => a.model ?? <span className="agents-list-muted">—</span>,
+        cell: (a) =>
+          a.model ? (
+            <span className="agents-list-model" title={a.model}>
+              {formatModel(a.model)}
+            </span>
+          ) : (
+            <span className="agents-list-muted">—</span>
+          ),
       },
       {
         key: "status",
@@ -70,7 +105,7 @@ export default function AgentsList({
         cell: (a) => {
           const liveness = livenessOf(a.status);
           return (
-            <span className="agent-liveness">
+            <span className={`agent-liveness agent-liveness--${liveness}`}>
               <span className={`agent-liveness-dot agent-liveness-dot--${liveness}`} aria-hidden />
               {LIVENESS_LABEL[liveness]}
             </span>

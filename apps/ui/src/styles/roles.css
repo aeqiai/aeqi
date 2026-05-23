@@ -477,8 +477,16 @@
 .agent-liveness {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--bg-row);
   color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
 }
 .agent-liveness-dot {
   display: inline-block;
@@ -497,6 +505,14 @@
 .agent-liveness-dot--offline {
   background: var(--color-text-muted);
   opacity: 0.6;
+}
+
+.agent-liveness--online {
+  background: var(--state-progress-bg);
+}
+
+.agent-liveness--idle {
+  background: var(--state-review-bg);
 }
 
 /* Active liveness-filter chip — the chip strip below the toolbar
@@ -530,15 +546,62 @@
    so the agent identity reads as the primary affordance, matching the
    `QuestActiveCard` title register. Avatar + label live on the same
    baseline with an 8px gap that matches the liveness dot register. */
-.agents-list-name {
+.agents-list-identity {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+.agents-list-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.agents-list-identity-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.agents-list-name {
   font-weight: 500;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-list-subline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.agents-list-mobile-meta {
+  display: none;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.25;
 }
 .agents-list-muted {
   color: var(--color-text-muted);
+}
+.agents-list-model {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--bg-row);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .agents-list-spend {
   font-family: var(--font-mono);
@@ -555,11 +618,12 @@
    instead of a generic report table. Exact micro-spend remains in the
    cell tooltip; the visible row value is deliberately calmer. */
 .agents-list table thead th {
-  padding: 10px 14px 8px;
+  padding: 12px 16px 9px;
   background: var(--color-card-elevated);
 }
 .agents-list table tbody td {
-  padding: 10px 14px;
+  height: 58px;
+  padding: 11px 16px;
 }
 .agents-list table tbody tr {
   transition:
@@ -567,7 +631,7 @@
     color 0.12s ease;
 }
 .agents-list table tbody tr:hover {
-  background: var(--color-card);
+  background: var(--bg-row);
 }
 
 /* ── Canonical Roles page (2026-05-20) ─────────────────────────────────
@@ -604,8 +668,7 @@
     "main";
   padding: 0;
 }
-.trust-roles-page-header,
-.trust-agents-page-header {
+.trust-roles-page-header {
   grid-area: header;
   align-items: center;
   padding: var(--space-5) var(--space-6) var(--space-2);
@@ -673,7 +736,7 @@
   min-width: 0;
   min-height: 0;
   border-radius: var(--radius-sm);
-  background: var(--bg-row);
+  background: var(--color-card-muted);
   overflow: hidden;
 }
 .trust-agents-register-head {
@@ -715,6 +778,7 @@
   min-width: 0;
   border-radius: var(--radius-sm);
   background: var(--color-card-elevated);
+  box-shadow: inset 0 0 0 1px var(--border);
   overflow-x: auto;
   overflow-y: visible;
 }
@@ -734,7 +798,7 @@
   margin-top: auto;
   padding: 0;
   border-radius: var(--radius-sm);
-  background: var(--bg-row);
+  background: var(--color-card-muted);
   overflow: hidden;
 }
 .trust-agents-suggest-head {
@@ -888,46 +952,6 @@
     grid-template-columns: 1fr;
   }
 }
-/* Page-title count badge — anchors the H1 with the entity weight it
-   represents, mirroring the `label · count` kanban-column grammar the
-   Quests page uses for every column header (and the `Suggested agents`
-   subhead immediately below). Reads the page as a saved view over a
-   concrete count rather than as a bare label hanging on paper. Sits on
-   the title baseline so the heading + badge read as one unit; tabular-
-   nums mono pill keeps the digit width steady as agents come online or
-   spin down. */
-.trust-agents-title-row {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.trust-agents-title-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--bg-subtle);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.trust-roles-header-actions,
-.trust-agents-header-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
 /* Agents snapshot — one slab, matching Roles. The metrics are cells
    inside a single row surface rather than separate floating cards. */
 .trust-agents-snapshot {
@@ -1981,6 +2005,45 @@
   .role-editor-head,
   .role-editor-form {
     padding-inline: var(--space-4);
+  }
+
+  .agents-list [data-scroll-width="sm"] {
+    overflow-x: visible;
+  }
+
+  .agents-list [data-scroll-width="sm"] table {
+    min-width: 0 !important;
+  }
+
+  .agents-list table col:nth-child(2),
+  .agents-list table col:nth-child(3),
+  .agents-list table col:nth-child(4),
+  .agents-list table thead th:nth-child(2),
+  .agents-list table thead th:nth-child(3),
+  .agents-list table thead th:nth-child(4),
+  .agents-list table tbody td:nth-child(2),
+  .agents-list table tbody td:nth-child(3),
+  .agents-list table tbody td:nth-child(4) {
+    display: none;
+  }
+
+  .agents-list table thead th,
+  .agents-list table tbody td {
+    padding-inline: var(--space-3);
+  }
+
+  .agents-list table tbody td {
+    height: auto;
+    padding-block: 12px;
+  }
+
+  .agents-list-identity {
+    gap: var(--space-2);
+  }
+
+  .agents-list-mobile-meta {
+    display: block;
+    white-space: normal;
   }
 }
 

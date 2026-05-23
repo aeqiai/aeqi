@@ -53,6 +53,8 @@ describe("TrustAgentsTab", () => {
     const search = screen.getByPlaceholderText("Search agents");
     const snapshot = screen.getByRole("region", { name: "Agent snapshot" });
 
+    expect(heading.closest(".agent-surface-header")).not.toBeNull();
+    expect(screen.queryByRole("link", { name: "Agents" })).not.toBeInTheDocument();
     expect(search.closest(".trust-agents-toolbar")).not.toBeNull();
     expect(heading.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(search.compareDocumentPosition(snapshot)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);

@@ -7,18 +7,12 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatCurrency } from "@/lib/i18n";
 import "@/styles/roles.css"; // shared trust-snapshot card primitives
-import {
-  Button,
-  Icon,
-  PrimitivePageHeader,
-  PrimitiveSearchField,
-  Tooltip,
-  ToolbarRadioPopover,
-} from "./ui";
+import { Button, Icon, PrimitiveSearchField, Tooltip, ToolbarRadioPopover } from "./ui";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import AgentsEmptyState from "./agents/AgentsEmptyState";
 import AgentsList from "./agents/AgentsList";
 import AgentsChart from "./agents/AgentsChart";
+import SurfaceHeader from "./SurfaceHeader";
 
 type ViewMode = "list" | "chart";
 type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active" | "spend";
@@ -247,22 +241,9 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-agents">
-      <PrimitivePageHeader
-        className="trust-agents-page-header"
-        title={
-          <span className="trust-agents-title-row">
-            <span>Agents</span>
-            {entityAgents.length > 0 && (
-              <span
-                className="trust-agents-title-count"
-                aria-label={`${entityAgents.length} ${entityAgents.length === 1 ? "agent" : "agents"} in this TRUST`}
-              >
-                {entityAgents.length}
-              </span>
-            )}
-          </span>
-        }
-        children={
+      <SurfaceHeader
+        backLabel="Agents"
+        middle={
           <div className="trust-agents-toolbar ideas-toolbar">
             <PrimitiveSearchField
               inputRef={searchRef}
