@@ -53,13 +53,13 @@ function userFallbackName(user: { name?: string | null; email?: string | null } 
   return user?.name?.trim() || user?.email?.split("@")[0] || "You";
 }
 
-function defaultTrustName(
+export function defaultTrustName(
   user: { name?: string | null; email?: string | null } | null,
   blueprint: Blueprint | null,
 ): string {
   const base = userFallbackName(user);
   if (blueprint && blueprintId(blueprint) !== FIRST_RUN_BLUEPRINT_SLUG) {
-    return blueprint.root?.name || blueprint.name || `${base} TRUST`;
+    return `${base} TRUST`;
   }
   return `${base}'s TRUST`;
 }
