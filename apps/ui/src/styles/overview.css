@@ -685,6 +685,8 @@
 
 .trust-apps-page > .trust-cockpit-card {
   margin: 0 var(--space-6) var(--space-5);
+  background: var(--bg-row);
+  box-shadow: var(--card-elevation);
 }
 
 .trust-app-card-icon {
@@ -712,7 +714,7 @@
   min-width: 86px;
   min-height: 54px;
   padding: var(--space-2) var(--space-3);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   border-radius: var(--radius-md);
 }
 
@@ -761,8 +763,9 @@
   gap: var(--space-4);
   min-width: 0;
   padding: var(--space-4);
-  background: var(--color-card);
+  background: var(--color-card-elevated);
   border-radius: var(--radius-md);
+  box-shadow: var(--card-elevation);
 }
 
 .trust-app-card[data-selected="true"] {

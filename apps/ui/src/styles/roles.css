@@ -1641,7 +1641,10 @@
   min-height: 0;
   height: 100%;
   flex: 1;
-  background: var(--color-card-elevated);
+  /* Edit mode is the full-height shell, so the outer panel should read as
+     recessed slab rather than another floating card. The actual form cards
+     inside carry the white paper tier. */
+  background: var(--bg-row);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }

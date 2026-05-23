@@ -180,17 +180,13 @@ function LaunchTrustCard() {
         </p>
       </div>
       <div className="home-launch-actions">
-        <Link to="/blueprints" className="home-step-btn home-step-btn--primary">
-          <span className="home-step-btn-label">Browse Blueprints</span>
-          <span className="home-step-btn-icon">
-            <ArrowRight size={16} strokeWidth={1.8} />
-          </span>
+        <Link to="/blueprints" className="home-primary-action home-primary-action--secondary">
+          Browse Blueprints
+          <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
-        <Link to="/launch" className="home-step-btn">
-          <span className="home-step-btn-label">Launch</span>
-          <span className="home-step-btn-icon">
-            <Plus size={16} strokeWidth={1.8} />
-          </span>
+        <Link to="/launch" className="home-primary-action">
+          <Plus size={16} strokeWidth={1.8} />
+          Launch
         </Link>
       </div>
     </article>
@@ -316,11 +312,12 @@ function EconomyCard() {
             TRUST listings, open roles, blueprints, and funding opportunities live here.
           </p>
         </div>
-        <Link to="/economy" className="home-economy-cta">
-          <span className="home-step-btn-label">Explore Economy</span>
-          <span className="home-step-btn-icon">
-            <ArrowRight size={16} strokeWidth={1.8} />
-          </span>
+        <Link
+          to="/economy"
+          className="home-primary-action home-primary-action--secondary home-economy-cta"
+        >
+          Explore Economy
+          <ArrowRight size={16} strokeWidth={1.8} />
         </Link>
       </div>
     </article>
