@@ -83,7 +83,7 @@ export default function IdeasWorkspaceView({
   const searchRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<IdeaCanvasHandle>(null);
   const { goEntity, trustId } = useNav();
-  const { patchIdea, removeIdea, invalidateIdeas } = useAgentIdeasCache(agentId);
+  const { patchIdea, removeIdea, invalidateIdeas } = useAgentIdeasCache(agentId, trustId);
   const [expandedIdeas, setExpandedIdeas] = useState<Record<string, boolean>>({});
   const [composeScope, setComposeScope] = useState<ScopeValue>("self");
   const [canvasDirty, setCanvasDirty] = useState(false);
@@ -154,13 +154,13 @@ export default function IdeasWorkspaceView({
       if (!activeIdea) return;
       setInspectorError(null);
       try {
-        await ideasApi.updateIdea(activeIdea.id, { tags: nextTags });
+        await ideasApi.updateIdea(activeIdea.id, { tags: nextTags }, trustId);
         patchIdea(activeIdea.id, { tags: nextTags });
       } catch (error) {
         setInspectorError(error instanceof Error ? error.message : "Tag update failed");
       }
     },
-    [activeIdea, patchIdea],
+    [activeIdea, patchIdea, trustId],
   );
 
   const handleScopeChange = useCallback(
@@ -174,7 +174,7 @@ export default function IdeasWorkspaceView({
       setInspectorError(null);
       setInspectorBusy(true);
       try {
-        await ideasApi.updateIdea(activeIdea.id, { scope: next });
+        await ideasApi.updateIdea(activeIdea.id, { scope: next }, trustId);
         patchIdea(activeIdea.id, { scope: next });
       } catch (error) {
         setInspectorError(error instanceof Error ? error.message : "Scope update failed");
@@ -182,7 +182,7 @@ export default function IdeasWorkspaceView({
         setInspectorBusy(false);
       }
     },
-    [activeIdea, activeScope, composing, patchIdea, rootSelected],
+    [activeIdea, activeScope, composing, patchIdea, rootSelected, trustId],
   );
 
   const handleSave = useCallback(async () => {
@@ -220,7 +220,7 @@ export default function IdeasWorkspaceView({
     setInspectorError(null);
     setInspectorBusy(true);
     try {
-      const res = await ideasApi.deleteIdea(activeIdea.id);
+      const res = await ideasApi.deleteIdea(activeIdea.id, trustId);
       if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
         const ids = res.quest_ids;
         const formatted = ids.length === 1 ? `quest ${ids[0]}` : `${ids.length} quests`;
@@ -241,7 +241,7 @@ export default function IdeasWorkspaceView({
     } finally {
       setInspectorBusy(false);
     }
-  }, [activeIdea, onSelect, removeIdea, rootIdea]);
+  }, [activeIdea, onSelect, removeIdea, rootIdea, trustId]);
 
   const handleFileImport = useCallback(
     async (files: FileList | File[]) => {
@@ -261,22 +261,28 @@ export default function IdeasWorkspaceView({
             const summary = typeof data.summary === "string" ? data.summary.trim() : "";
             const content =
               summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
-            await ideasApi.storeIdea({
-              name,
-              content,
-              tags: asStringArray(data.tags),
-              agent_id: agentId,
-              scope: importIdeaScope(data) ?? activeScope,
-              parent_idea_id: parentIdeaId,
-              properties: importIdeaProperties(data, file.name),
-            });
+            await ideasApi.storeIdea(
+              {
+                name,
+                content,
+                tags: asStringArray(data.tags),
+                agent_id: agentId,
+                scope: importIdeaScope(data) ?? activeScope,
+                parent_idea_id: parentIdeaId,
+                properties: importIdeaProperties(data, file.name),
+              },
+              trustId,
+            );
           } else {
-            const upload = await ideasApi.uploadFileToIdea({
-              agentId,
-              file,
-              scope: activeScope,
-              parentIdeaId,
-            });
+            const upload = await ideasApi.uploadFileToIdea(
+              {
+                agentId,
+                file,
+                scope: activeScope,
+                parentIdeaId,
+              },
+              trustId,
+            );
             if (!upload.ok) throw new Error(upload.error || "upload failed");
           }
         } catch (error) {
@@ -288,7 +294,7 @@ export default function IdeasWorkspaceView({
       await invalidateIdeas();
       if (failures.length > 0) setInspectorError(failures.join("; "));
     },
-    [activeIdea?.id, activeScope, agentId, invalidateIdeas, rootIdea?.id],
+    [activeIdea?.id, activeScope, agentId, invalidateIdeas, rootIdea?.id, trustId],
   );
 
   return (

@@ -66,7 +66,7 @@ function ComposeCanvas({ agentId, resolvedAgentId }: { agentId: string; resolved
   const presetStatus = parseQuestStatus(searchParams.get("status"));
   const parentQuestId = searchParams.get("parent") ?? null;
 
-  const { data: ideas = [] } = useAgentIdeas(resolvedAgentId);
+  const { data: ideas = [] } = useAgentIdeas(resolvedAgentId, true, trustId);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const fetchQuests = useDaemonStore((s) => s.fetchQuests);
   const agents = useDaemonStore((s) => s.agents);
@@ -267,7 +267,7 @@ function ViewCanvas({
   const agents = useDaemonStore((s) => s.agents);
   const allQuests = useDaemonStore((s) => s.quests) as unknown as Quest[];
   const currentUser = useAuthStore((s) => s.user);
-  const { data: ideas = [] } = useAgentIdeas(quest.agent_id ?? resolvedAgentId);
+  const { data: ideas = [] } = useAgentIdeas(quest.agent_id ?? resolvedAgentId, true, trustId);
   const assigneeUsers = useMemo<Pick<User, "id" | "name" | "email" | "avatar_url">[]>(
     () =>
       currentUser
@@ -424,14 +424,14 @@ function ViewCanvas({
       const previous = ideaTags;
       setIdeaTags(nextTags);
       try {
-        await ideasApi.updateIdea(quest.idea.id, { tags: nextTags });
+        await ideasApi.updateIdea(quest.idea.id, { tags: nextTags }, trustId);
         await fetchQuests();
         setActivityRefreshSeq((n) => n + 1);
       } catch {
         setIdeaTags(previous);
       }
     },
-    [fetchQuests, ideaTags, quest.idea],
+    [fetchQuests, ideaTags, quest.idea, trustId],
   );
 
   const handleTagAdd = useCallback(

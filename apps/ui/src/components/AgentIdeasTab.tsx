@@ -62,7 +62,7 @@ export default function AgentIdeasTab({
   const { itemId } = useParams<{ itemId?: string }>();
   const selectedId = itemId || null;
   const [searchParams, setSearchParams] = useSearchParams();
-  const { addIdea } = useAgentIdeasCache(agentId);
+  const { addIdea } = useAgentIdeasCache(agentId, trustId);
   const rootCreateRef = useRef(false);
   const [rootCreateError, setRootCreateError] = useState<string | null>(null);
   const view: IdeasView = ((): IdeasView => {
@@ -134,8 +134,8 @@ export default function AgentIdeasTab({
     [patchParams],
   );
 
-  const agentIdeas = useAgentIdeas(agentId, scope === "agent");
-  const visibleIdeas = useVisibleIdeas(scope === "entity");
+  const agentIdeas = useAgentIdeas(agentId, scope === "agent", trustId);
+  const visibleIdeas = useVisibleIdeas(scope === "entity", trustId);
   const ideasQuery = scope === "entity" ? visibleIdeas : agentIdeas;
   const { data: ideas = NO_IDEAS, isLoading: ideasLoading } = ideasQuery;
   const trustName = (scope === "entity" ? entity?.name : null) || "TRUST";
@@ -151,13 +151,16 @@ export default function AgentIdeasTab({
     rootCreateRef.current = true;
     setRootCreateError(null);
     const name = trustName.trim() || "TRUST";
-    storeIdea({
-      name,
-      content: "",
-      tags: ["trust"],
-      scope: "global",
-      properties: trustRootProperties(trustId),
-    })
+    storeIdea(
+      {
+        name,
+        content: "",
+        tags: ["trust"],
+        scope: "global",
+        properties: trustRootProperties(trustId),
+      },
+      trustId,
+    )
       .then((res) => {
         addIdea({
           id: res.id,
@@ -309,7 +312,7 @@ export default function AgentIdeasTab({
   useEffect(() => {
     if (view !== "graph") return;
     setGraphLoading(true);
-    getIdeaGraph({ agent_id: scope === "entity" ? undefined : agentId, limit: 200 })
+    getIdeaGraph({ agent_id: scope === "entity" ? undefined : agentId, limit: 200 }, trustId)
       .then((d) => {
         setGraphData({
           nodes: ((d.nodes || []) as GraphNode[]).map((n) => ({
@@ -321,7 +324,7 @@ export default function AgentIdeasTab({
       })
       .catch(() => setGraphData({ nodes: [], edges: [] }))
       .finally(() => setGraphLoading(false));
-  }, [view, agentId, scope]);
+  }, [view, agentId, scope, trustId]);
 
   // Cross-view filter projection — the list already honors scope + tag +
   // search against the full `ideas` store; the graph view receives the

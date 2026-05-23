@@ -24,7 +24,7 @@ import { SCOPE_LABEL } from "../ideas/types";
 
 export function SessionMarkdown({ body }: { body: string }) {
   const { trustId } = useNav();
-  const { data: ideas } = useAgentIdeas(trustId);
+  const { data: ideas } = useAgentIdeas(trustId, true, trustId);
   const ideasByName = useMemo(() => buildIdeasByName(ideas), [ideas]);
   return <RichMarkdown body={body} variant="session" ideasByName={ideasByName} agentId={trustId} />;
 }

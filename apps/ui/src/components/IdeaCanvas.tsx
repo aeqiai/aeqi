@@ -26,6 +26,7 @@ import IdeaChildrenList from "./ideas/IdeaChildrenList";
 import IdeaCanvasToolbar from "./ideas/IdeaCanvasToolbar";
 import IdeaCanvasDecisionPanel from "./ideas/IdeaCanvasDecisionPanel";
 import { isMarkdownFile } from "./ideas/ideaImport";
+import { mergeTags } from "./ideas/ideaTagUtils";
 import { ImportMenu } from "./blueprints/ImportMenu";
 
 /**
@@ -47,27 +48,6 @@ export type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 export type DecisionState = "idle" | "saving" | "done";
 
 const SAVED_FLASH_MS = 1200;
-
-function extractHashtags(text: string): string[] {
-  const re = /(?:^|\s)#([a-z0-9_-]+)/gi;
-  const out = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) out.add(m[1].toLowerCase());
-  return Array.from(out);
-}
-
-function mergeTags(body: string, typed: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const t of [...typed, ...extractHashtags(body)]) {
-    const key = t.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(t);
-    }
-  }
-  return out;
-}
 
 /**
  * Apple Notes-style idea canvas. Always-editable, borderless. Explicit save.
@@ -152,8 +132,8 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
 ) {
   const { goEntity, trustId } = useNav();
   const track = useTrack();
-  const { data: ideas } = useAgentIdeas(agentId);
-  const { patchIdea, removeIdea, addIdea, invalidateIdeas } = useAgentIdeasCache(agentId);
+  const { data: ideas } = useAgentIdeas(agentId, true, trustId);
+  const { patchIdea, removeIdea, addIdea, invalidateIdeas } = useAgentIdeasCache(agentId, trustId);
   // All tags the agent has used elsewhere — ranked by frequency — power the
   // tag-autocomplete dropdown. Self-tags are excluded in TagsEditor.
   const tagSuggestions = useMemo(() => {
@@ -260,11 +240,15 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setSaveState("saving");
     setError(null);
     try {
-      await ideasApi.updateIdea(idea.id, {
-        name: effectiveName,
-        content: snapshot.content,
-        tags,
-      });
+      await ideasApi.updateIdea(
+        idea.id,
+        {
+          name: effectiveName,
+          content: snapshot.content,
+          tags,
+        },
+        trustId,
+      );
       patchIdea(idea.id, {
         name: effectiveName,
         content: snapshot.content,
@@ -283,7 +267,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     } finally {
       inflightRef.current = false;
     }
-  }, [idea, patchIdea]);
+  }, [idea, patchIdea, trustId]);
 
   // Flush on unmount / idea switch so accidental navigation doesn't lose work.
   // No debounced autosave while typing — the Save button / Cmd+Enter is the
@@ -313,14 +297,17 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setSaveState("saving");
     setError(null);
     try {
-      const res = await ideasApi.storeIdea({
-        name: effectiveName,
-        content: snapshot.content,
-        tags,
-        agent_id: agentId,
-        scope: composeScope,
-        parent_idea_id: parentIdeaId ?? undefined,
-      });
+      const res = await ideasApi.storeIdea(
+        {
+          name: effectiveName,
+          content: snapshot.content,
+          tags,
+          agent_id: agentId,
+          scope: composeScope,
+          parent_idea_id: parentIdeaId ?? undefined,
+        },
+        trustId,
+      );
       const created: Idea = {
         id: res.id,
         name: effectiveName,
@@ -345,7 +332,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
         void Promise.all(
           pendingRefs.map((r) =>
             ideasApi
-              .addIdeaEdge(res.id, r.target_id, "adjacent")
+              .addIdeaEdge(res.id, r.target_id, "adjacent", trustId)
               .catch((e) => logError("idea-canvas.add-adjacent-edge", e)),
           ),
         );
@@ -444,7 +431,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
   const handleDelete = async () => {
     if (!idea) return;
     try {
-      const res = await ideasApi.deleteIdea(idea.id);
+      const res = await ideasApi.deleteIdea(idea.id, trustId);
       // FK pre-flight: backend reports `in_use` + the offending quest ids.
       // Surface them inline so the user can click through and detach.
       if (!res.ok && res.error === "in_use" && res.quest_ids?.length) {
@@ -475,7 +462,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     setDecisionError(null);
     const nextTags = [...(idea.tags ?? []).filter((t) => t !== "candidate"), "promoted"];
     try {
-      await ideasApi.updateIdea(idea.id, { tags: nextTags });
+      await ideasApi.updateIdea(idea.id, { tags: nextTags }, trustId);
       patchIdea(idea.id, { tags: nextTags });
       setTypedTags(nextTags);
       setActivityRefreshSeq((n) => n + 1);
@@ -484,7 +471,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setDecisionState("idle");
       setDecisionError(e instanceof Error ? e.message : "Promote failed");
     }
-  }, [idea, patchIdea]);
+  }, [idea, patchIdea, trustId]);
 
   const handleReject = useCallback(async () => {
     if (!idea || !rejectRationale.trim()) return;
@@ -498,7 +485,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
     const flat = blockTreeToPlainText(content).trimEnd();
     const nextContent = flat + "\n\n## Rejection rationale\n" + rejectRationale.trim();
     try {
-      await ideasApi.updateIdea(idea.id, { tags: nextTags, content: nextContent });
+      await ideasApi.updateIdea(idea.id, { tags: nextTags, content: nextContent }, trustId);
       patchIdea(idea.id, { tags: nextTags, content: nextContent });
       setTypedTags(nextTags);
       setContent(nextContent);
@@ -509,7 +496,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setDecisionState("idle");
       setDecisionError(e instanceof Error ? e.message : "Reject failed");
     }
-  }, [idea, patchIdea, content, rejectRationale]);
+  }, [idea, patchIdea, content, rejectRationale, trustId]);
 
   const inlineTags = mergeTags(blockTreeToPlainText(content), typedTags);
   // Resolved scope for display in the header popover. In compose mode the
@@ -568,21 +555,27 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
             const summary = typeof data.summary === "string" ? data.summary.trim() : "";
             const importedContent =
               summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
-            await ideasApi.storeIdea({
-              name: importedName,
-              content: importedContent,
-              tags: asStringArray(data.tags),
-              agent_id: agentId,
-              scope: idea.scope ?? headerScope,
-              parent_idea_id: idea.id,
-            });
+            await ideasApi.storeIdea(
+              {
+                name: importedName,
+                content: importedContent,
+                tags: asStringArray(data.tags),
+                agent_id: agentId,
+                scope: idea.scope ?? headerScope,
+                parent_idea_id: idea.id,
+              },
+              trustId,
+            );
           } else {
-            const upload = await ideasApi.uploadFileToIdea({
-              agentId,
-              file,
-              scope: idea.scope ?? headerScope,
-              parentIdeaId: idea.id,
-            });
+            const upload = await ideasApi.uploadFileToIdea(
+              {
+                agentId,
+                file,
+                scope: idea.scope ?? headerScope,
+                parentIdeaId: idea.id,
+              },
+              trustId,
+            );
             if (!upload.ok) throw new Error(upload.error || "upload failed");
           }
         } catch (e) {
@@ -593,7 +586,7 @@ const IdeaCanvas = forwardRef<IdeaCanvasHandle, IdeaCanvasProps>(function IdeaCa
       setActivityRefreshSeq((n) => n + 1);
       if (failures.length > 0) setError(failures.join("; "));
     },
-    [agentId, headerScope, idea, invalidateIdeas],
+    [agentId, headerScope, idea, invalidateIdeas, trustId],
   );
   const handleDropFiles = (event: DragEvent) => {
     if (!idea || event.dataTransfer.files.length === 0) return;

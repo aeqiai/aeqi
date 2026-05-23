@@ -37,7 +37,7 @@ export default function AgentHealthPage({ agentId }: { agentId: string }) {
   const { metrics, isLoading, error } = useTrustHealthMetrics(addr, DEFAULT_HEALTH_WINDOW_DAYS, {
     agentId,
   });
-  const goalsQuery = useVisibleIdeas();
+  const goalsQuery = useVisibleIdeas(true, entity?.id ?? null);
 
   const goals = useMemo(() => {
     return (goalsQuery.data ?? []).filter((idea) => isGoalForAgent(idea, agentId));

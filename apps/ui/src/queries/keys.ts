@@ -1,8 +1,11 @@
 export const ideaKeys = {
   all: ["ideas"] as const,
-  visible: ["ideas", "visible"] as const,
-  byAgent: (agentId: string) => ["ideas", "agent", agentId] as const,
-  graph: (agentId?: string) => ["ideas", "graph", agentId ?? "global"] as const,
+  visible: (scopedEntity?: string | null) =>
+    ["ideas", "visible", scopedEntity ?? "global"] as const,
+  byAgent: (agentId: string, scopedEntity?: string | null) =>
+    ["ideas", "agent", agentId, scopedEntity ?? "global"] as const,
+  graph: (agentId?: string, scopedEntity?: string | null) =>
+    ["ideas", "graph", agentId ?? "global", scopedEntity ?? "global"] as const,
 };
 
 export const eventKeys = {

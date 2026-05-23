@@ -34,34 +34,44 @@ export interface UploadIdeaFileResponse {
   error?: string;
 }
 
-export function listIdeas(params?: {
-  root?: string;
-  query?: string;
-  limit?: number;
-  agent_id?: string;
-}): Promise<IdeasResponse> {
+export function listIdeas(
+  params?: {
+    root?: string;
+    query?: string;
+    limit?: number;
+    agent_id?: string;
+  },
+  scopedEntity?: string | null,
+): Promise<IdeasResponse> {
   const q = new URLSearchParams();
   if (params?.root) q.set("root", params.root);
   if (params?.query) q.set("query", params.query);
   if (params?.limit) q.set("limit", String(params.limit));
   if (params?.agent_id) q.set("agent_id", params.agent_id);
   const qs = q.toString();
-  return apiRequest<IdeasResponse>(`/ideas${qs ? `?${qs}` : ""}`);
+  return apiRequest<IdeasResponse>(`/ideas${qs ? `?${qs}` : ""}`, { scopedEntity });
 }
 
-export function storeIdea(data: StoreIdeaRequest): Promise<{ ok: boolean; id: string }> {
+export function storeIdea(
+  data: StoreIdeaRequest,
+  scopedEntity?: string | null,
+): Promise<{ ok: boolean; id: string }> {
   return apiRequest<{ ok: boolean; id: string }>("/ideas", {
     method: "POST",
     body: JSON.stringify(data),
+    scopedEntity,
   });
 }
 
-export function uploadFileToIdea(options: {
-  agentId: string;
-  file: File;
-  parentIdeaId?: string | null;
-  scope?: ScopeValue;
-}): Promise<UploadIdeaFileResponse> {
+export function uploadFileToIdea(
+  options: {
+    agentId: string;
+    file: File;
+    parentIdeaId?: string | null;
+    scope?: ScopeValue;
+  },
+  scopedEntity?: string | null,
+): Promise<UploadIdeaFileResponse> {
   const form = new FormData();
   form.append("agent_id", options.agentId);
   if (options.scope) form.append("scope", options.scope);
@@ -72,51 +82,67 @@ export function uploadFileToIdea(options: {
   return apiRequest<UploadIdeaFileResponse>(path, {
     method: "POST",
     body: form,
+    scopedEntity,
   });
 }
 
 export function updateIdea(
   id: string,
   body: Record<string, unknown>,
+  scopedEntity?: string | null,
 ): Promise<Record<string, unknown>> {
   return apiRequest<Record<string, unknown>>(`/ideas/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
+    scopedEntity,
   });
 }
 
 export function deleteIdea(
   id: string,
+  scopedEntity?: string | null,
 ): Promise<{ ok: boolean; error?: string; quest_ids?: string[] }> {
   return apiRequest<{ ok: boolean; error?: string; quest_ids?: string[] }>(
     `/ideas/${encodeURIComponent(id)}`,
-    { method: "DELETE" },
+    { method: "DELETE", scopedEntity },
   );
 }
 
-export function getIdeaGraph(params?: {
-  agent_id?: string;
-  limit?: number;
-}): Promise<Record<string, unknown>> {
+export function getIdeaGraph(
+  params?: {
+    agent_id?: string;
+    limit?: number;
+  },
+  scopedEntity?: string | null,
+): Promise<Record<string, unknown>> {
   const q = new URLSearchParams();
   if (params?.agent_id) q.set("agent_id", params.agent_id);
   if (params?.limit) q.set("limit", String(params.limit));
   const qs = q.toString();
-  return apiRequest<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`);
+  return apiRequest<Record<string, unknown>>(`/ideas/graph${qs ? `?${qs}` : ""}`, {
+    scopedEntity,
+  });
 }
 
-export function getIdeaProfile(params?: { root?: string }): Promise<Record<string, unknown>> {
+export function getIdeaProfile(
+  params?: { root?: string },
+  scopedEntity?: string | null,
+): Promise<Record<string, unknown>> {
   const q = new URLSearchParams();
   if (params?.root) q.set("root", params.root);
   const qs = q.toString();
-  return apiRequest<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`);
+  return apiRequest<Record<string, unknown>>(`/ideas/profile${qs ? `?${qs}` : ""}`, {
+    scopedEntity,
+  });
 }
 
 // Tables-in-Ideas Phase 2.
 
 /** Direct children of an Idea, newest first. */
-export function listIdeaChildren(id: string): Promise<IdeasResponse> {
-  return apiRequest<IdeasResponse>(`/ideas/${encodeURIComponent(id)}/children`);
+export function listIdeaChildren(id: string, scopedEntity?: string | null): Promise<IdeasResponse> {
+  return apiRequest<IdeasResponse>(`/ideas/${encodeURIComponent(id)}/children`, {
+    scopedEntity,
+  });
 }
 
 /**
@@ -127,12 +153,14 @@ export function listIdeaChildren(id: string): Promise<IdeasResponse> {
 export function setIdeaProperties(
   id: string,
   properties: Record<string, unknown>,
+  scopedEntity?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   return apiRequest<{ ok: boolean; error?: string }>(
     `/ideas/${encodeURIComponent(id)}/properties`,
     {
       method: "PUT",
       body: JSON.stringify(properties),
+      scopedEntity,
     },
   );
 }
@@ -140,8 +168,8 @@ export function setIdeaProperties(
 // Idea graph edges.
 
 /** Edges + backlinks for a single idea (outgoing links, incoming refs). */
-export function getIdeaEdges(id: string): Promise<IdeaEdges> {
-  return apiRequest<IdeaEdges>(`/ideas/${encodeURIComponent(id)}/edges`);
+export function getIdeaEdges(id: string, scopedEntity?: string | null): Promise<IdeaEdges> {
+  return apiRequest<IdeaEdges>(`/ideas/${encodeURIComponent(id)}/edges`, { scopedEntity });
 }
 
 /** Create a typed edge from one idea to another. */
@@ -149,10 +177,12 @@ export function addIdeaEdge(
   sourceId: string,
   targetId: string,
   relation: string = "adjacent",
+  scopedEntity?: string | null,
 ): Promise<{ ok: boolean }> {
   return apiRequest<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
     method: "POST",
     body: JSON.stringify({ target_id: targetId, relation }),
+    scopedEntity,
   });
 }
 
@@ -161,9 +191,11 @@ export function removeIdeaEdge(
   sourceId: string,
   targetId: string,
   relation?: string,
+  scopedEntity?: string | null,
 ): Promise<{ ok: boolean }> {
   return apiRequest<{ ok: boolean }>(`/ideas/${encodeURIComponent(sourceId)}/edges`, {
     method: "DELETE",
     body: JSON.stringify(relation ? { target_id: targetId, relation } : { target_id: targetId }),
+    scopedEntity,
   });
 }

@@ -6,11 +6,11 @@ import { ideaKeys } from "./keys";
 
 const EMPTY_IDEAS: Idea[] = [];
 
-export function useVisibleIdeas(enabled = true) {
+export function useVisibleIdeas(enabled = true, scopedEntity?: string | null) {
   return useQuery({
-    queryKey: ideaKeys.visible,
+    queryKey: ideaKeys.visible(scopedEntity),
     queryFn: async () => {
-      const data = await ideasApi.listIdeas();
+      const data = await ideasApi.listIdeas(undefined, scopedEntity);
       return data.ideas ?? EMPTY_IDEAS;
     },
     enabled,
@@ -18,11 +18,15 @@ export function useVisibleIdeas(enabled = true) {
   });
 }
 
-export function useAgentIdeas(agentId: string | null | undefined, enabled = true) {
+export function useAgentIdeas(
+  agentId: string | null | undefined,
+  enabled = true,
+  scopedEntity?: string | null,
+) {
   return useQuery({
-    queryKey: ideaKeys.byAgent(agentId ?? ""),
+    queryKey: ideaKeys.byAgent(agentId ?? "", scopedEntity),
     queryFn: async () => {
-      const data = await ideasApi.listIdeas({ agent_id: agentId ?? "" });
+      const data = await ideasApi.listIdeas({ agent_id: agentId ?? "" }, scopedEntity);
       return data.ideas ?? EMPTY_IDEAS;
     },
     enabled: enabled && Boolean(agentId),
@@ -30,25 +34,26 @@ export function useAgentIdeas(agentId: string | null | undefined, enabled = true
   });
 }
 
-export function useAgentIdeasCache(agentId: string) {
+export function useAgentIdeasCache(agentId: string, scopedEntity?: string | null) {
   const queryClient = useQueryClient();
-  const key = useMemo(() => ideaKeys.byAgent(agentId), [agentId]);
+  const key = useMemo(() => ideaKeys.byAgent(agentId, scopedEntity), [agentId, scopedEntity]);
+  const visibleKey = useMemo(() => ideaKeys.visible(scopedEntity), [scopedEntity]);
 
   const invalidateIdeas = useCallback(() => {
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: key }),
-      queryClient.invalidateQueries({ queryKey: ideaKeys.visible }),
+      queryClient.invalidateQueries({ queryKey: visibleKey }),
     ]);
-  }, [queryClient, key]);
+  }, [queryClient, key, visibleKey]);
 
   const patchIdea = useCallback(
     (id: string, patch: Partial<Idea>) => {
       const applyPatch = (current: Idea[] | undefined) =>
         current?.map((idea) => (idea.id === id ? { ...idea, ...patch } : idea));
       queryClient.setQueryData<Idea[]>(key, applyPatch);
-      queryClient.setQueryData<Idea[]>(ideaKeys.visible, applyPatch);
+      queryClient.setQueryData<Idea[]>(visibleKey, applyPatch);
     },
-    [queryClient, key],
+    [queryClient, key, visibleKey],
   );
 
   const addIdea = useCallback(
@@ -61,9 +66,9 @@ export function useAgentIdeasCache(agentId: string) {
         return [idea, ...existing];
       };
       queryClient.setQueryData<Idea[]>(key, addToList);
-      queryClient.setQueryData<Idea[]>(ideaKeys.visible, addToList);
+      queryClient.setQueryData<Idea[]>(visibleKey, addToList);
     },
-    [queryClient, key],
+    [queryClient, key, visibleKey],
   );
 
   const removeIdea = useCallback(
@@ -71,9 +76,9 @@ export function useAgentIdeasCache(agentId: string) {
       const removeFromList = (current: Idea[] | undefined) =>
         current?.filter((idea) => idea.id !== id);
       queryClient.setQueryData<Idea[]>(key, removeFromList);
-      queryClient.setQueryData<Idea[]>(ideaKeys.visible, removeFromList);
+      queryClient.setQueryData<Idea[]>(visibleKey, removeFromList);
     },
-    [queryClient, key],
+    [queryClient, key, visibleKey],
   );
 
   return { invalidateIdeas, patchIdea, addIdea, removeIdea };

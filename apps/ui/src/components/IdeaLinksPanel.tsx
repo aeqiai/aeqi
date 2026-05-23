@@ -17,19 +17,19 @@ const NO_IDEAS: Idea[] = [];
  */
 export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; agentId: string }) {
   const { goEntity, trustId } = useNav();
-  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId);
+  const { data: ideas = NO_IDEAS } = useAgentIdeas(agentId, true, trustId);
   const [edges, setEdges] = useState<IdeaEdges>(NO_EDGES);
 
   const loadEdges = useMemo(
     () => async () => {
       try {
-        const res = await getIdeaEdges(ideaId);
+        const res = await getIdeaEdges(ideaId, trustId);
         setEdges(res ?? NO_EDGES);
       } catch {
         setEdges(NO_EDGES);
       }
     },
-    [ideaId],
+    [ideaId, trustId],
   );
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
 
   const handleAdd = async (target: Idea) => {
     try {
-      await addIdeaEdge(ideaId, target.id, "adjacent");
+      await addIdeaEdge(ideaId, target.id, "adjacent", trustId);
       await loadEdges();
     } catch {
       /* user retries via picker */
@@ -68,7 +68,7 @@ export default function IdeaLinksPanel({ ideaId, agentId }: { ideaId: string; ag
   const handleRemove = async ({ target_id, relation }: { target_id: string; relation: string }) => {
     if (relation !== "adjacent") return;
     try {
-      await removeIdeaEdge(ideaId, target_id, relation);
+      await removeIdeaEdge(ideaId, target_id, relation, trustId);
       await loadEdges();
     } catch {
       /* leave chip — user can retry */

@@ -115,7 +115,7 @@ export default function IdeasListView({
   );
   const clearAll = () => onFilter({ search: "", scope: "all", tags: [], needsReview: false });
 
-  const { invalidateIdeas } = useAgentIdeasCache(agentId);
+  const { invalidateIdeas } = useAgentIdeasCache(agentId, trustId);
   const [importError, setImportError] = useState<string | null>(null);
 
   const handleFileImport = async (files: FileList | File[], parentIdeaId?: string | null) => {
@@ -139,21 +139,27 @@ export default function IdeasListView({
           // duplicated in the body — the Idea schema has no `summary` field.
           const content =
             summary && !body.startsWith(summary) ? `${summary}\n\n${body.trim()}` : body.trim();
-          await storeIdea({
-            name,
-            content,
-            tags,
-            agent_id: agentId,
-            scope,
-            parent_idea_id: parentIdeaId ?? undefined,
-            properties: importIdeaProperties(data, file.name),
-          });
+          await storeIdea(
+            {
+              name,
+              content,
+              tags,
+              agent_id: agentId,
+              scope,
+              parent_idea_id: parentIdeaId ?? undefined,
+              properties: importIdeaProperties(data, file.name),
+            },
+            trustId,
+          );
         } else {
-          const upload = await uploadFileToIdea({
-            agentId,
-            file,
-            parentIdeaId,
-          });
+          const upload = await uploadFileToIdea(
+            {
+              agentId,
+              file,
+              parentIdeaId,
+            },
+            trustId,
+          );
           if (!upload.ok) throw new Error(upload.error || "upload failed");
         }
       } catch (e) {

@@ -46,7 +46,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listIdeaChildren(ideaId)
+    listIdeaChildren(ideaId, trustId)
       .then((res) => {
         if (cancelled) return;
         setChildren(res.ideas ?? []);
@@ -62,10 +62,10 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
     return () => {
       cancelled = true;
     };
-  }, [ideaId]);
+  }, [ideaId, trustId]);
 
   async function refresh() {
-    const res = await listIdeaChildren(ideaId);
+    const res = await listIdeaChildren(ideaId, trustId);
     setChildren(res.ideas ?? []);
     await queryClient.invalidateQueries({ queryKey: ideaKeys.all });
   }
@@ -146,6 +146,7 @@ export default function IdeaChildrenList({ ideaId, agentId, scope }: IdeaChildre
           parentIdeaId={ideaId}
           agentId={agentId}
           scope={scope}
+          trustId={trustId}
           onClose={() => setShowAdd(false)}
           onCreated={async () => {
             setShowAdd(false);
@@ -161,11 +162,19 @@ interface AddChildModalProps {
   parentIdeaId: string;
   agentId: string;
   scope?: ScopeValue;
+  trustId: string;
   onClose: () => void;
   onCreated: () => Promise<void> | void;
 }
 
-function AddChildModal({ parentIdeaId, agentId, scope, onClose, onCreated }: AddChildModalProps) {
+function AddChildModal({
+  parentIdeaId,
+  agentId,
+  scope,
+  trustId,
+  onClose,
+  onCreated,
+}: AddChildModalProps) {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,13 +189,16 @@ function AddChildModal({ parentIdeaId, agentId, scope, onClose, onCreated }: Add
     setSubmitting(true);
     setError(null);
     try {
-      await storeIdea({
-        name: trimmed,
-        content: "",
-        agent_id: agentId,
-        scope: scope ?? "self",
-        parent_idea_id: parentIdeaId,
-      });
+      await storeIdea(
+        {
+          name: trimmed,
+          content: "",
+          agent_id: agentId,
+          scope: scope ?? "self",
+          parent_idea_id: parentIdeaId,
+        },
+        trustId,
+      );
       await onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
