@@ -9763,6 +9763,9 @@ button.ideas-tag-chip.active .ideas-tag-chip-count {
     transform 0.12s ease,
     filter 0.12s ease;
 }
+.home-card--recessed {
+  background: var(--bg-row);
+}
 button.home-card {
   cursor: pointer;
 }
@@ -10381,6 +10384,12 @@ button.home-card:focus-visible {
   padding: 22px;
 }
 
+.home-card--recessed.home-card--context,
+.home-card--recessed.home-card--inbox,
+.home-card--recessed.home-card--learn {
+  background: var(--bg-row);
+}
+
 .home-context-panel {
   display: flex;
   flex-direction: column;
@@ -10467,6 +10476,10 @@ button.home-card:focus-visible {
   padding: 12px;
   border-radius: var(--radius-md, 10px);
   background: var(--bg-row);
+}
+
+.home-card--recessed .home-context-representation {
+  background: var(--color-card-elevated);
 }
 
 .home-context-role-card.trust-role-option-card {
@@ -10998,6 +11011,19 @@ button.role-context-card:disabled {
   padding: 22px;
 }
 
+.home-card--recessed .home-inbox-link.sessions-rail-row {
+  background: var(--color-card-elevated);
+}
+
+.home-card--recessed .home-inbox-link.sessions-rail-row:hover,
+.home-card--recessed .home-inbox-link.sessions-rail-row:focus-visible {
+  background: var(--color-card);
+}
+
+.home-card--recessed .home-inbox-empty-canvas {
+  background: var(--color-card-elevated);
+}
+
 .home-inbox-head {
   display: flex;
   align-items: flex-start;
@@ -11167,6 +11193,16 @@ button.role-context-card:disabled {
 .home-card--learn {
   gap: 12px;
   padding: 18px;
+}
+
+.home-card--recessed .home-learn-carousel,
+.home-card--recessed .home-learn-rail-card {
+  background: var(--color-card-elevated);
+}
+
+.home-card--recessed .home-learn-carousel:hover,
+.home-card--recessed .home-learn-rail-card:hover {
+  background: var(--color-card);
 }
 
 .home-learn-head {

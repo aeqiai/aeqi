@@ -146,6 +146,7 @@ export default function StartPage() {
           rolesLoading={rolesLoading}
           agentNames={agentNames}
           onSelectRole={handleSelectRole}
+          className="home-card--recessed"
         />
         <LaunchTrustCard />
       </section>
@@ -211,7 +212,7 @@ function InboxPreviewCard({
 }: InboxPreviewCardProps) {
   const inboxHref = activeTrust ? entityPath(activeTrust, "inbox") : "/trust";
   return (
-    <article className="home-card home-card--inbox">
+    <article className="home-card home-card--inbox home-card--recessed">
       <header className="home-inbox-head">
         <h2 className="home-inbox-title">Inbox</h2>
         <Link to={inboxHref} className="home-inbox-cta">
@@ -339,7 +340,7 @@ function LearnAeqiSection() {
 
   return (
     <section className="home-learn" aria-label="Learn aeqi">
-      <article className="home-card home-card--learn">
+      <article className="home-card home-card--learn home-card--recessed">
         <div className="home-learn-head">
           <h2 className="home-learn-title">Learn more</h2>
         </div>
