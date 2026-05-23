@@ -3001,31 +3001,25 @@
 }
 .quest-status-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 6px;
   margin: 0;
-  padding: var(--space-2);
+  padding: 0;
   border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
 }
 
 .quest-status-summary-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 7px;
   min-width: 0;
-  height: 28px;
-  padding: 0 var(--space-2);
+  height: 26px;
+  padding: 0 8px;
   border-radius: var(--radius-sm);
-  background: var(--color-card);
-  border: 0;
+  background: var(--bg-row);
+  border: 1px solid var(--border-subtle, var(--border-faint));
   font: inherit;
   color: inherit;
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease,
-    opacity 0.12s ease;
 }
 
 .quest-status-summary-item[data-status="in_progress"] {
@@ -3038,24 +3032,6 @@
 
 .quest-status-summary-item[data-status="done"] {
   background: var(--state-verified-bg);
-}
-
-.quest-status-summary-item:hover {
-  background: var(--color-card-elevated);
-}
-
-.quest-status-summary-item:focus-visible {
-  outline: 2px solid var(--accent-dim);
-  outline-offset: -2px;
-}
-
-.quest-status-summary-item[data-collapsed] {
-  background: transparent;
-  opacity: 0.58;
-}
-
-.quest-status-summary-item[data-collapsed]:hover {
-  opacity: 0.82;
 }
 
 .quest-status-summary-label {
@@ -3323,24 +3299,36 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
-  padding: 10px 14px;
+  min-height: 42px;
+  padding: 9px 14px;
 }
 
-/* Align with .quest-col-label so the scope band header reads as the
-   same register as a column header above the board — same size,
-   weight, and optical tracking. Pre-fix the label sat at 13px/600
-   with -0.005em, half a step lighter than the column labels (13.5px
-   /620 with -0.01em), so the band looked subtly weaker than the
-   columns it anchors. */
-.quest-scope-header-label {
+.quest-scope-header-copy {
+  display: flex;
+  min-width: 0;
   flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quest-scope-header-label {
   min-width: 0;
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 620;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
+}
+
+.quest-scope-header-note {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quest-scope-header-actions {
@@ -3351,33 +3339,23 @@
 }
 
 .quest-scope-summary {
-  margin: 0 8px 8px;
+  margin: 0 8px 6px;
 }
 
-/* The slot sits inside the slab with a small inset so the slab
- * border still reads around the body. On scoped state the
- * QuestActiveCard fills the slot; on empty state the slot itself
- * becomes the dashed-border drop placeholder. */
 .quest-scope-slot {
   display: flex;
   align-items: stretch;
   margin: 0 8px 8px;
-  min-height: 76px;
+  min-height: 52px;
   border-radius: var(--radius-sm);
   transition:
     background 0.15s ease,
     outline-color 0.15s ease;
 }
 
-/* Empty scope slot reads as a "drop here" affordance — the dashed
-   border is doing the work of telegraphing that. Pre-fix sat at
-   25% mix on text-secondary which on `--bg-row` came in too quiet
-   to register as an obvious target. Lifting to 38% gives the border
-   real presence without crossing into ornament; the slab still
-   reads as part of the board chrome, not a louder modal-style
-   dropzone. */
 .quest-scope-slot[data-empty] {
-  border: 1.5px dashed color-mix(in oklch, var(--color-text-secondary) 38%, transparent);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  background: color-mix(in oklch, var(--color-card) 44%, transparent);
 }
 
 .quest-scope-slot[data-drop-target] {
@@ -3393,51 +3371,23 @@
 }
 
 .quest-scope-empty {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(168px, 220px) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
   width: 100%;
-  padding: 14px 20px;
-}
-
-/* Scope-empty icon — sits on the same dashed-border slab as the title.
-   Pre-fix the backplate painted `--color-card` (pure white paper), which
-   on `--bg-row` punched a stark white tile inside a dashed dropzone and
-   visually disagreed with the chrome it anchors. Aligning the backplate
-   with the dashed border (a transparent tint of `--color-text-secondary`)
-   lets the icon read as part of the dropzone surface itself — same hue
-   family, no fighting tier. The glyph stays at secondary-text strength;
-   the slot's accent-tint on `[data-drop-target]` still does the active-
-   drop work. */
-.quest-scope-empty-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklch, var(--color-text-secondary) 10%, transparent);
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-/* Active drop target — icon brightens to the accent vocabulary the slot
-   itself adopts (`--color-accent-bg` + accent outline). Keeps the icon
-   visually integrated with the dropzone wash rather than reading as a
-   detached tile during the drag. */
-.quest-scope-slot[data-drop-target] .quest-scope-empty-icon {
-  background: color-mix(in oklch, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
+  padding: 8px;
 }
 
 .quest-scope-empty-copy {
   display: flex;
+  justify-content: center;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  padding: 6px 10px;
+  border: 1.5px dashed color-mix(in oklch, var(--color-text-secondary) 38%, transparent);
+  border-radius: var(--radius-sm);
 }
 
 .quest-scope-empty-title {
@@ -3448,12 +3398,6 @@
   letter-spacing: 0;
 }
 
-/* Scope-band hint — projects-below count is rendered as the same
-   `.quest-child-count` chip the on-board cards use, so the empty-state
-   metadata reads in the card vocabulary (folder glyph + tabular
-   numeral) instead of a plain second-line sentence. The trailing
-   word ("project below" / "projects below") sits as a muted suffix
-   for grammatical anchoring. */
 .quest-scope-empty-hint {
   display: inline-flex;
   align-items: center;
@@ -3464,13 +3408,88 @@
   color: var(--color-text-secondary);
   letter-spacing: 0;
 }
-.quest-scope-empty-hint-suffix {
+
+.quest-scope-projects {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.quest-scope-project {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  row-gap: 2px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 8px;
+  color: var(--color-text-primary);
+  background: var(--color-card);
+  border: 1px solid var(--border-subtle, var(--border-faint));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.quest-scope-project:hover,
+.quest-scope-project:focus-visible {
+  background: var(--color-card-elevated);
+  border-color: var(--border-hover, var(--border-subtle));
+  outline: none;
+}
+
+.quest-scope-project > .quest-status-dot {
+  grid-row: 1 / -1;
+}
+
+.quest-scope-project span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-scope-project small {
+  display: inline-flex;
+  grid-column: 2;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
   color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-scope-project-more {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 6px 8px;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
 }
 
 @media (max-width: 860px) {
   .quest-scope {
     margin: 10px 14px 0;
+  }
+
+  .quest-scope-empty {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

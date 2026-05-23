@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { Loading } from "./ui";
 import QuestCanvas from "./QuestCanvas";
 import type { Quest, QuestStatus, User } from "@/lib/types";
-import type { QuestsView } from "./quests/QuestsViewPopover";
+import type { QuestsView } from "./quests/questView";
 import type { QuestSort } from "./quests/QuestsSortPopover";
 import QuestBoard from "./quests/QuestBoard";
 import {

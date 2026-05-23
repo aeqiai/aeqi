@@ -6,7 +6,7 @@ import { ImportMenu } from "../blueprints/ImportMenu";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import { formatAssignee } from "@/lib/assignee";
 import { useRelativeNow } from "@/hooks/useRelativeNow";
-import QuestsViewPopover, { type QuestsView } from "./QuestsViewPopover";
+import type { QuestsView } from "./questView";
 import QuestsSortPopover, { type QuestSort } from "./QuestsSortPopover";
 import QuestsFilterPopover from "./QuestsFilterPopover";
 import StatusDot from "./StatusDot";
@@ -246,10 +246,7 @@ export default function QuestBoard({
     }
     return buckets;
   }, [sortedVisibleQuests, optimistic]);
-  const scopeSummary =
-    view === "list"
-      ? { columns, grouped, collapsed: collapsedListGroups, onToggle: toggleListGroup }
-      : { columns, grouped, collapsed: collapsedCols, onToggle: toggleColumn };
+  const scopeSummary = view === "list" ? { columns, grouped } : { columns, grouped };
   const hasSearch = search.trim().length > 0;
   const hasBoardNarrowing = scopeFilter !== "all" || !!boardScopeId;
 
@@ -361,7 +358,6 @@ export default function QuestBoard({
               filter={scopeFilter}
               onChange={onScopeChange}
             />
-            <QuestsViewPopover view={view} onChange={onViewChange} />
           </div>
         }
         actions={
@@ -411,6 +407,7 @@ export default function QuestBoard({
             : null
         }
         projectCount={scopeOptions.length}
+        scopeOptions={scopeOptions}
         summary={scopeSummary}
         dragging={dragging}
         dropActive={scopeDropActive}
@@ -420,6 +417,7 @@ export default function QuestBoard({
           setDragging(null);
           setDropTarget(null);
         }}
+        onScopeSelect={onBoardScopeChange}
         onUp={() =>
           onBoardScopeChange(
             boardScopeAncestors.length > 0

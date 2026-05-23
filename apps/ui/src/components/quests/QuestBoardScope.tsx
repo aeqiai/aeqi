@@ -3,12 +3,11 @@ import { Button, Icon, IconButton } from "../ui";
 import type { Quest, QuestStatus, User } from "@/lib/types";
 import QuestActiveCard from "./QuestActiveCard";
 import QuestStatusSummary from "./QuestStatusSummary";
+import StatusDot from "./StatusDot";
 
 type ScopeSummary = {
   columns: Array<{ status: QuestStatus; label: string }>;
   grouped: Record<QuestStatus, Quest[]>;
-  collapsed: Partial<Record<QuestStatus, boolean>>;
-  onToggle: (status: QuestStatus) => void;
 };
 
 /**
@@ -40,11 +39,13 @@ export interface QuestBoardScopeProps {
   childCount: number;
   parentScopeId: string | null;
   projectCount: number;
+  scopeOptions: Quest[];
   summary?: ScopeSummary;
   dragging: string | null;
   dropActive: boolean;
   onDropActiveChange: (next: boolean) => void;
   onDrop: (questId: string) => void;
+  onScopeSelect: (questId: string) => void;
   onUp: () => void;
   onClear: () => void;
   onOpen: () => void;
@@ -64,11 +65,13 @@ export default function QuestBoardScope({
   childCount,
   parentScopeId,
   projectCount,
+  scopeOptions,
   summary,
   dragging,
   dropActive,
   onDropActiveChange,
   onDrop,
+  onScopeSelect,
   onUp,
   onClear,
   onOpen,
@@ -82,6 +85,8 @@ export default function QuestBoardScope({
   agents,
   users,
 }: QuestBoardScopeProps) {
+  const shownScopeOptions = scopeOptions.slice(0, 6);
+  const hiddenScopeOptions = Math.max(0, scopeOptions.length - shownScopeOptions.length);
   const dragProps = {
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
       if (!dragging) return;
@@ -105,9 +110,19 @@ export default function QuestBoardScope({
   return (
     <section className="quest-scope" aria-label="Board scope">
       <header className="quest-scope-header">
-        <span className="quest-scope-header-label">Scope</span>
+        <span className="quest-scope-header-copy">
+          <span className="quest-scope-header-label">Scope</span>
+          <span className="quest-scope-header-note">
+            {scope
+              ? `${childCount} ${childCount === 1 ? "child quest" : "child quests"} visible`
+              : `${projectCount} ${projectCount === 1 ? "project can" : "projects can"} focus this board`}
+          </span>
+        </span>
         {scope && (
           <span className="quest-scope-header-actions">
+            <Button size="sm" variant="secondary" onClick={onOpen} title="Open scoped quest">
+              Open
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -131,12 +146,7 @@ export default function QuestBoardScope({
       </header>
       {summary && (
         <div className="quest-scope-summary">
-          <QuestStatusSummary
-            columns={summary.columns}
-            grouped={summary.grouped}
-            collapsed={summary.collapsed}
-            onToggle={summary.onToggle}
-          />
+          <QuestStatusSummary columns={summary.columns} grouped={summary.grouped} />
         </div>
       )}
       <div
@@ -164,28 +174,33 @@ export default function QuestBoardScope({
           />
         ) : (
           <div className="quest-scope-empty">
-            <span className="quest-scope-empty-icon" aria-hidden>
-              <FolderOpen size={18} strokeWidth={1.6} />
-            </span>
             <span className="quest-scope-empty-copy">
-              <span className="quest-scope-empty-title">
-                Drop a quest here to scope the board to its children
-              </span>
-              {projectCount > 0 && (
-                <span className="quest-scope-empty-hint">
-                  <span
-                    className="quest-child-count"
-                    aria-label={`${projectCount} ${projectCount === 1 ? "project" : "projects"} below`}
-                  >
-                    <Icon icon={FolderOpen} size="xs" />
-                    {projectCount}
-                  </span>
-                  <span className="quest-scope-empty-hint-suffix">
-                    {projectCount === 1 ? "project below" : "projects below"}
-                  </span>
-                </span>
-              )}
+              <span className="quest-scope-empty-title">Focus the board by project</span>
+              <span className="quest-scope-empty-hint">Drop a quest here, or pick one below.</span>
             </span>
+            {shownScopeOptions.length > 0 && (
+              <div className="quest-scope-projects" aria-label="Project scopes">
+                {shownScopeOptions.map((q) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    className="quest-scope-project"
+                    onClick={() => onScopeSelect(q.id)}
+                    title={`Scope to ${q.idea?.name ?? q.id}`}
+                  >
+                    <StatusDot status={q.status} />
+                    <span>{q.idea?.name ?? q.id}</span>
+                    <small>
+                      <Icon icon={FolderOpen} size="xs" />
+                      {q.id}
+                    </small>
+                  </button>
+                ))}
+                {hiddenScopeOptions > 0 && (
+                  <span className="quest-scope-project-more">+{hiddenScopeOptions} more</span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

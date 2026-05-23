@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import AgentQuestsTab from "@/components/AgentQuestsTab";
@@ -244,8 +244,9 @@ describe("AgentQuestsTab smoke", () => {
 
     expect(screen.getByRole("button", { name: /Open board for Root quest/ })).toBeInTheDocument();
     expect(screen.queryByText("Child quest")).not.toBeInTheDocument();
+    expect(screen.getByText("Focus the board by project")).toBeInTheDocument();
     expect(
-      screen.getByText("Drop a quest here to scope the board to its children"),
+      within(screen.getByLabelText("Project scopes")).getByRole("button", { name: /Root quest/ }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Open board for Root quest/ }));
@@ -284,7 +285,7 @@ describe("AgentQuestsTab smoke", () => {
     expect(screen.getByText("Review quest")).toBeInTheDocument();
   });
 
-  it("scope status toggles collapse matching list groups", () => {
+  it("scope status summary stays informational while list groups collapse", () => {
     useDaemonStore.setState({
       quests: [
         questFixture("67-review", "Review quest", "in_review"),
@@ -306,8 +307,13 @@ describe("AgentQuestsTab smoke", () => {
     );
 
     expect(screen.getByText("Review quest")).toBeInTheDocument();
+    const summary = within(screen.getByLabelText("Quest status counts"));
 
-    fireEvent.click(screen.getByRole("button", { name: /Hide In review column/ }));
+    expect(summary.getByText("In review")).toBeInTheDocument();
+    expect(summary.getByText("Done")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Hide In review column/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^In review\s+1$/ }));
 
     expect(screen.queryByText("Review quest")).not.toBeInTheDocument();
     expect(screen.getByText("Done quest")).toBeInTheDocument();
