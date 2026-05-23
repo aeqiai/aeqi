@@ -113,9 +113,8 @@
   overflow: visible;
 }
 
-/* Left pane — fixed-width white card surface. Session rows inside are
-   recessed cards, so the rail reads as one deliberate vertical card with
-   item wells on top. */
+/* Left pane — fixed-width recessed slab, matching the active conversation
+   canvas. Session rows lift to white tiles on top. */
 .inbox-pane-list {
   display: flex;
   flex-direction: column;
@@ -123,14 +122,10 @@
   min-width: 280px;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--color-card-elevated);
+  background: var(--color-card-muted);
   box-shadow: var(--card-elevation);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
-}
-
-.inbox-pane-list:has(.sessions-rail--dark) {
-  background: var(--color-ink-card);
 }
 
 /* Pass-through flex column — `<SessionRail>` inside owns the actual
@@ -732,14 +727,6 @@
   height: 6px;
   border-radius: 999px;
   background: var(--color-warmth);
-  box-shadow: 0 0 0 2px var(--color-card-elevated);
-}
-
-.sessions-rail--dark .sessions-rail-awaiting-dot {
-  box-shadow: 0 0 0 2px var(--color-ink-card);
-}
-
-.sessions-rail--dark .sessions-rail-row.active .sessions-rail-awaiting-dot {
   box-shadow: 0 0 0 2px var(--color-card-elevated);
 }
 

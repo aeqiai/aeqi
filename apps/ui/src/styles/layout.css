@@ -1290,7 +1290,7 @@
 }
 
 /* Drilled-agent inbox = the same master/detail geometry as `/inbox`:
-   a raised white rail card with recessed row cards, then the recessed
+   a recessed rail slab with raised white row tiles, then the recessed
    conversation canvas to the right. */
 .content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) {
   gap: var(--space-3);
@@ -1300,7 +1300,7 @@
 .content-body-row:has(.sessions-rail-col):has(.asv .session-detail--recessed) .sessions-rail-col {
   width: clamp(300px, 32vw, 420px);
   min-width: 280px;
-  background: var(--color-ink-card);
+  background: var(--color-card-muted);
   box-shadow: var(--card-elevation);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
@@ -1617,66 +1617,27 @@
   box-shadow: inset 0 0 0 1px var(--accent-dim);
 }
 
-.sessions-rail--dark {
-  color: var(--color-ink-card-text);
-}
-
-.sessions-rail--dark .sessions-rail-group-label,
-.sessions-rail--dark .sessions-rail-row-secondary,
-.sessions-rail--dark .sessions-rail-row-time,
-.sessions-rail--dark .sessions-rail-empty-hint {
-  color: var(--color-ink-card-text-muted);
-}
-
-.sessions-rail--card.sessions-rail--dark.sessions-rail--comfortable .sessions-rail-row-secondary,
-.sessions-rail--card.sessions-rail--dark.sessions-rail--comfortable .sessions-rail-row-time {
-  color: var(--color-ink-card-text-muted);
-}
-
-.sessions-rail--dark .sessions-rail-group-rule {
-  background: var(--color-ink-card-border);
-  opacity: 1;
-}
-
-.sessions-rail--card.sessions-rail--dark .sessions-rail-row {
-  background: var(--color-ink-card-chip);
-  border-color: transparent;
-  color: var(--color-ink-card-text);
-}
-
-.sessions-rail--card.sessions-rail--dark .sessions-rail-row:hover,
-.sessions-rail--card.sessions-rail--dark .sessions-rail-row:focus-visible {
-  background: color-mix(in srgb, var(--color-ink-card-text) 11%, transparent);
-  border-color: var(--color-ink-card-border);
-}
-
-.sessions-rail--card.sessions-rail--dark .sessions-rail-row.active {
+.sessions-rail--card.sessions-rail--recessed .sessions-rail-row {
   background: var(--color-card-elevated);
-  border-color: var(--color-card-elevated);
+  border-color: var(--border-faint);
   color: var(--color-text-primary);
   box-shadow: none;
 }
 
-.sessions-rail--dark .sessions-rail-row-primary {
-  color: currentColor;
+.sessions-rail--card.sessions-rail--recessed .sessions-rail-row:hover,
+.sessions-rail--card.sessions-rail--recessed .sessions-rail-row:focus-visible {
+  background: var(--color-card-elevated);
+  border-color: var(--border-hover);
 }
 
-.sessions-rail--card.sessions-rail--dark .sessions-rail-row.active .sessions-rail-row-secondary,
-.sessions-rail--card.sessions-rail--dark .sessions-rail-row.active .sessions-rail-row-time {
-  color: var(--color-text-secondary);
+.sessions-rail--card.sessions-rail--recessed .sessions-rail-row.active {
+  background: var(--color-card-elevated);
+  border-color: var(--border-hover);
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
 }
 
-.sessions-rail--dark .sessions-rail-empty {
-  background: var(--color-ink-card-chip);
-}
-
-.sessions-rail--dark .sessions-rail-empty-title {
-  color: var(--color-ink-card-text);
-}
-
-.sessions-rail--dark .sessions-rail-empty-mark {
-  background: var(--color-ink-card-text-muted);
-  opacity: 1;
+.sessions-rail--recessed .sessions-rail-empty {
+  background: var(--color-card-elevated);
 }
 
 .sessions-rail--card.sessions-rail--comfortable .sessions-rail-row-body {

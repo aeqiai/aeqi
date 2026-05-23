@@ -41,8 +41,8 @@ export interface SessionRailProps {
   density?: "compact" | "comfortable";
   /** Surface treatment: plain legacy rail, or card rows on a recessed lane. */
   surface?: "plain" | "card";
-  /** Color treatment: light by default, dark for focused inbox/session rails. */
-  tone?: "light" | "dark";
+  /** Color treatment: light by default, recessed for inbox/session rails on a chat slab. */
+  tone?: "light" | "recessed";
   /** Sessions that are currently streaming — drive the ThinkingDot. */
   streamingIds?: Record<string, boolean>;
   /** Empty-state title (e.g. "no sessions yet" / "inbox is clear"). */
