@@ -111,11 +111,10 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
       )
         return;
       set({ entities: nextEntities, initialLoaded: true });
-      // Trust-first migration (2026-05-17): trust_address IS the trust_id
-      // at the platform boundary now, so the prior trust→entity mirror is
-      // retired. `getScopedEntity` reads the URL slug directly.
-      // Clear any stale map from pre-migration browser sessions so the
-      // first page after deploy doesn't 404 on a now-invalid lookup.
+      // Trust roots are cached locally so route-scoped fetches can resolve
+      // `/trust/:trustAddress` to the canonical trust id before setting
+      // X-Trust. Clear any stale map from pre-migration browser sessions so
+      // the first page after deploy doesn't 404 on a now-invalid lookup.
       try {
         localStorage.removeItem("aeqi_trust_to_entity");
       } catch {
