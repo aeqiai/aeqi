@@ -224,11 +224,9 @@ export default function RoleEditorPane({ role, onBack, onSaved }: RoleEditorPane
         )}
 
         <footer className="role-editor-footer">
+          <span>{role.title || "Untitled role"}</span>
           <Button type="button" variant="secondary" onClick={onBack} disabled={submitting}>
             Cancel
-          </Button>
-          <Button type="submit" variant="primary" loading={submitting}>
-            Save changes
           </Button>
         </footer>
       </form>
