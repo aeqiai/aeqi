@@ -30,6 +30,7 @@ import {
   type TokenModuleStateAccount,
   type VestingPositionWithPda,
 } from "@/solana/equity";
+import { isDirectSolanaRpcEnabled } from "@/solana/client";
 
 const STALE_TIME_MS = 30_000;
 
@@ -70,7 +71,7 @@ export interface UseEquityResult {
  * for the pre-bridge state.
  */
 export function useEquity(trustAddress: string | null | undefined): UseEquityResult {
-  const enabled = !!trustAddress;
+  const enabled = !!trustAddress && isDirectSolanaRpcEnabled();
   const mintAddress = enabled ? deriveCapTableMintPda(trustAddress as string).toBase58() : null;
 
   // (1) TokenModuleState — Foundation discriminator. Drives subsequent queries.

@@ -6,7 +6,7 @@
  * so the future indexer HTTP layer can slip in without touching every
  * caller.
  */
-export { getConnection, getAnchorProvider } from "./client";
+export { getConnection, getAnchorProvider, isDirectSolanaRpcEnabled } from "./client";
 export {
   getProgram,
   getBudgetProgram,

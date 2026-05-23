@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import {
   isGovernanceProgramDeployed,
+  isDirectSolanaRpcEnabled,
   readAllVoteRecords,
   readGovernanceConfigs,
   readProposals,
@@ -77,7 +78,7 @@ export interface UseQuorumResult {
  * failure.
  */
 export function useQuorum(trustAddress: string | null | undefined): UseQuorumResult {
-  const enabled = !!trustAddress;
+  const enabled = !!trustAddress && isDirectSolanaRpcEnabled();
 
   // Probe the program first. The other three reads have no point if the
   // program isn't deployed — `getProgramAccounts` against a missing

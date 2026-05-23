@@ -10,9 +10,10 @@
  * and `program.account.<name>.fetch(...)` are the only safe surfaces.
  *
  * RPC URL is sourced from `VITE_SOLANA_RPC_URL` (Vite injects `import.meta.env`
- * at build time). Default `http://127.0.0.1:9120` matches the localnet
- * validator port declared in `projects/aeqi-solana/Anchor.toml`. Set the env
- * var to a mainnet RPC URL when the cluster flips.
+ * at build time). Local development falls back to `http://127.0.0.1:9120`,
+ * matching the validator port declared in `projects/aeqi-solana/Anchor.toml`.
+ * Hosted browsers must opt into a browser-reachable RPC; otherwise direct reads
+ * are disabled so production never tries loopback/private-network RPC.
  */
 import { AnchorProvider, type Wallet } from "@coral-xyz/anchor";
 import {
@@ -30,13 +31,54 @@ const DEFAULT_COMMITMENT: Commitment = "confirmed";
 let cachedConnection: Connection | null = null;
 let cachedProvider: AnchorProvider | null = null;
 
-function resolveRpcUrl(): string {
+function configuredRpcUrl(): string | undefined {
   // import.meta.env is Vite-injected at build time; falls back to default on
   // bare Node (e.g. tests that import this module without vite's define).
-  const fromEnv =
+  return (
     typeof import.meta !== "undefined" &&
     (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
-      ?.VITE_SOLANA_RPC_URL;
+      ?.VITE_SOLANA_RPC_URL
+  );
+}
+
+type BrowserLocation = Pick<Location, "hostname" | "protocol">;
+
+function currentBrowserLocation(): BrowserLocation | null {
+  if (typeof window === "undefined") return null;
+  return window.location;
+}
+
+function isHostedBrowser(location: BrowserLocation | null): boolean {
+  if (!location) return false;
+  const { hostname, protocol } = location;
+  if (protocol === "file:") return false;
+  return hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1";
+}
+
+function isLoopbackRpcUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+export function isDirectSolanaRpcEnabled(): boolean {
+  const fromEnv = configuredRpcUrl();
+  const rpcUrl = fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_RPC_URL;
+  return !shouldBlockDirectSolanaRpc(rpcUrl, currentBrowserLocation());
+}
+
+export function shouldBlockDirectSolanaRpc(
+  rpcUrl: string,
+  location: BrowserLocation | null,
+): boolean {
+  return isHostedBrowser(location) && isLoopbackRpcUrl(rpcUrl);
+}
+
+function resolveRpcUrl(): string {
+  const fromEnv = configuredRpcUrl();
   return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_RPC_URL;
 }
 
