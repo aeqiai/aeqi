@@ -102,7 +102,7 @@ export function reduceStreamEvent(state: StreamState, event: RawEvent): ReduceRe
     case "EntityRef":
       return {
         kind: "next",
-        state: appendSegment(state, { kind: "entity_ref", ref: entityRefFromEvent(event) }),
+        state: appendEntityRef(state, entityRefFromEvent(event)),
       };
     case "ToolStart":
       return {
@@ -231,14 +231,26 @@ function appendStatus(state: StreamState, text: string): StreamState {
 }
 
 /**
- * Recognises `[Agent: Name]` / `[Quest: Name]` / `[Idea: Name]` /
- * `[Event: Name]` in a TextDelta and splits them into structured
- * `entity_ref` segments. Backend-emitted `EntityRef` events are the
- * canonical path (they carry the real trust_id); this is the fallback
- * when only a label is on the wire. Stateless — uses `matchAll`, not a
- * shared regex with `lastIndex` mutation.
+ * Recognises canonical `[[quest:id|Label]]` tokens plus legacy
+ * `[Quest: Name]` text and splits them into structured `entity_ref`
+ * segments. Backend-emitted `EntityRef` events remain the canonical
+ * path; canonical text tokens are the model-facing fallback; label-only
+ * legacy tokens are display-only until render-time lookup resolves them.
  */
-const ENTITY_REF_RE = /\[(Agent|Quest|Idea|Event):\s*([^\]]+?)\]/g;
+const ENTITY_REF_RE =
+  /\[\[(agent|quest|idea|event):\s*([^|\]]+?)(?:\|([^\]]+?))?\]\]|\[(Agent|Quest|Idea|Event):\s*([^\]]+?)\]/gi;
+
+function entityRefDisplay(ref: EntityRef): string {
+  return ref.label || ref.slug || ref.id;
+}
+
+function appendEntityRef(state: StreamState, ref: EntityRef): StreamState {
+  return {
+    ...state,
+    segments: [...state.segments, { kind: "entity_ref", ref }],
+    fullText: state.fullText + entityRefDisplay(ref),
+  };
+}
 
 function appendTextWithEntityParsing(state: StreamState, delta: string): StreamState {
   if (!delta) return state;
@@ -249,13 +261,13 @@ function appendTextWithEntityParsing(state: StreamState, delta: string): StreamS
     if (start > cursor) {
       next = appendText(next, delta.slice(cursor, start));
     }
-    next = appendSegment(next, {
-      kind: "entity_ref",
-      ref: {
-        primitive: match[1].toLowerCase() as EntityPrimitive,
-        trustId: "",
-        label: match[2].trim(),
-      },
+    const canonicalKind = match[1]?.toLowerCase() as EntityPrimitive | undefined;
+    const legacyKind = match[4]?.toLowerCase() as EntityPrimitive | undefined;
+    next = appendEntityRef(next, {
+      kind: canonicalKind ?? legacyKind ?? "agent",
+      id: canonicalKind ? match[2].trim() : "",
+      label: canonicalKind ? match[3]?.trim() || undefined : match[5].trim(),
+      source: "parser",
     });
     cursor = start + match[0].length;
   }
@@ -270,11 +282,31 @@ function entityRefFromEvent(event: RawEvent): EntityRef {
   const primitive = (ENTITY_PRIMITIVES as readonly string[]).includes(raw)
     ? (raw as EntityPrimitive)
     : "agent";
+  const id =
+    typeof event.ref_id === "string"
+      ? event.ref_id
+      : typeof event.entity_id === "string"
+        ? event.entity_id
+        : typeof event.target_id === "string"
+          ? event.target_id
+          : typeof event[`${primitive}_id`] === "string"
+            ? (event[`${primitive}_id`] as string)
+            : typeof event.id === "string"
+              ? event.id
+              : "";
   return {
-    primitive,
-    trustId: typeof event.trust_id === "string" ? event.trust_id : "",
-    label: String(event.label ?? event.name ?? ""),
+    kind: primitive,
+    id,
+    trustId: typeof event.trust_id === "string" ? event.trust_id : undefined,
+    label:
+      typeof event.label === "string"
+        ? event.label
+        : typeof event.name === "string"
+          ? event.name
+          : undefined,
+    slug: typeof event.slug === "string" ? event.slug : undefined,
     status: typeof event.status === "string" ? event.status : undefined,
+    source: event.source === "tool" ? "tool" : "model",
   };
 }
 

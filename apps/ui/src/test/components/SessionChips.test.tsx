@@ -1,8 +1,45 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import type { ReactNode } from "react";
 import { SegmentRenderer } from "@/components/session/SegmentRenderer";
 import type { MessageSegment } from "@/components/session/types";
+import { useDaemonStore } from "@/store/daemon";
+
+function renderInTrustRoute(ui: ReactNode) {
+  useDaemonStore.setState({
+    entities: [
+      {
+        id: "trust-1",
+        name: "Trust",
+        type: "trust",
+        status: "active",
+        trust_address: "trust-slug",
+        created_at: "2026-05-23T00:00:00.000Z",
+      },
+    ],
+    agents: [{ id: "agent-1", name: "Builder", status: "active" }],
+    quests: [
+      {
+        id: "ae-096",
+        idea: { id: "idea-quest", name: "Reference primitive work", content: "", tags: [] },
+        status: "in_progress",
+        priority: "normal",
+        cost_usd: 0,
+        created_at: "2026-05-23T00:00:00.000Z",
+      },
+    ],
+  });
+
+  return render(
+    <MemoryRouter initialEntries={["/trust/trust-slug"]}>
+      <Routes>
+        <Route path="/trust/:trustAddress" element={ui} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
 
 describe("FileChangedChip", () => {
   it("renders a created chip with op label and filename", () => {
@@ -136,5 +173,46 @@ describe("ToolSummarizedChip", () => {
     expect(screen.getByText("Done.")).toBeInTheDocument();
     await user.click(screen.getByTitle("Hide summary"));
     expect(screen.queryByText("Done.")).toBeNull();
+  });
+});
+
+describe("EntityRefInline", () => {
+  it("renders canonical quest refs as clickable primitive chips", () => {
+    const segments: MessageSegment[] = [
+      { kind: "text", text: "Open " },
+      {
+        kind: "entity_ref",
+        ref: {
+          kind: "quest",
+          id: "ae-096",
+          label: "Reference primitive work",
+          trustId: "trust-1",
+          status: "in progress",
+        },
+      },
+    ];
+
+    const { container } = renderInTrustRoute(<SegmentRenderer segments={segments} />);
+
+    const link = screen.getByRole("link", { name: /quest reference primitive work/i });
+    expect(link).toHaveAttribute("href", "/trust/trust-slug/quests/ae-096");
+    expect(container.querySelector(".asv-entity-ref--quest")).not.toBeNull();
+    expect(screen.getByText("in progress")).toBeInTheDocument();
+  });
+
+  it("renders unresolved label-only refs as non-link primitive chips", () => {
+    const segments: MessageSegment[] = [
+      {
+        kind: "entity_ref",
+        ref: { kind: "idea", id: "", label: "Missing idea", source: "parser" },
+      },
+    ];
+
+    const { container } = renderInTrustRoute(<SegmentRenderer segments={segments} />);
+
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Idea")).toBeInTheDocument();
+    expect(screen.getByText("Missing idea")).toBeInTheDocument();
+    expect(container.querySelector(".asv-entity-ref--unresolved")).not.toBeNull();
   });
 });

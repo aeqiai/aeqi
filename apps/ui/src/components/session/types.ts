@@ -38,20 +38,20 @@ export interface EventFire {
 }
 
 /**
- * Structured reference to an AEQI primitive (agent / quest / idea / event).
- * The protocol-shaped representation a final assistant message uses to refer
- * to a real entity: type + id + label, with optional status for hover/preview
- * extensions. Resolves at render time via daemon-store lookup; falls back to
- * plain label text if the entity can't be resolved.
+ * Structured reference to an aeqi primitive (agent / quest / idea / event).
+ * IDs are canonical: labels and slugs are display metadata only. Label-only
+ * parser fallbacks are allowed, but render unresolved until local state can
+ * map them to a real id.
  */
 export type EntityPrimitive = "agent" | "quest" | "idea" | "event";
 export interface EntityRef {
-  primitive: EntityPrimitive;
-  /** Backend-supplied entity ID. May be empty when the ref came from a
-   * label-only parse — render falls back to plain text in that case. */
-  trustId: string;
-  label: string;
+  kind: EntityPrimitive;
+  id: string;
+  trustId?: string;
+  label?: string;
+  slug?: string;
   status?: string;
+  source?: "tool" | "model" | "parser";
 }
 
 export type MessageSegment =

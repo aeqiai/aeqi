@@ -617,24 +617,63 @@
   display: block;
 }
 
-/* ── Entity reference inline link — lightweight mention treatment ──
-   Subtle inline link styled via text-decoration only (no border-as-separator
-   hairlines). Underline only on hover keeps the resting prose calm; each
-   primitive can later carry its own accent without changing layout. */
+/* ── Entity reference inline link — compact primitive chip ── */
 .asv-entity-ref {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(100%, 360px);
+  min-height: 24px;
+  gap: var(--space-1);
+  padding: 1px var(--space-2);
+  margin: 0 1px;
+  vertical-align: baseline;
   color: var(--color-text-primary);
-  text-decoration: underline;
-  text-decoration-color: var(--color-text-muted);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  transition: text-decoration-color 0.12s ease;
+  background: var(--color-card-elevated);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  line-height: 1.2;
+  transition:
+    background var(--transition-normal),
+    border-color var(--transition-normal),
+    color var(--transition-normal);
 }
 .asv-entity-ref:hover {
-  text-decoration-color: var(--color-text-primary);
+  background: var(--color-card);
+  border-color: var(--border);
+  color: var(--color-text-primary);
+}
+.asv-entity-ref-kind {
+  flex-shrink: 0;
+  font-size: var(--font-size-3xs);
+  font-weight: 650;
+  line-height: 1;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.asv-entity-ref-label {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  font-weight: 550;
+}
+.asv-entity-ref-status {
+  flex-shrink: 0;
+  font-size: var(--font-size-3xs);
+  color: var(--color-text-muted);
+}
+.asv-entity-ref-status::before {
+  content: "\00b7";
+  margin-right: var(--space-1);
+  color: var(--color-text-faint);
 }
 .asv-entity-ref--unresolved {
   color: var(--color-text-secondary);
-  text-decoration: none;
+  background: var(--bg-row);
+  border-color: transparent;
 }
 
 /* Agent prose — sans-serif at 15px/1.65, same family as UI chrome so the
@@ -1078,9 +1117,9 @@
    chevron rotates, detail unfolds inline, no nested card chrome. */
 .asv-trail {
   margin: 4px 0 2px;
-  background: var(--bg-row);
-  border-left: 2px solid var(--color-border-hover);
-  border-radius: var(--radius-md);
+  background: var(--color-card-subtle);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
   transition:
     background var(--transition-normal),
     border-color var(--transition-normal);
@@ -1089,23 +1128,11 @@
   border-color: var(--border);
 }
 .asv-trail--fail {
-  border-left-color: var(--accent-bar-blocked);
+  border-color: var(--accent-bar-blocked);
 }
-/* Live variant — the trail is actively streaming content. The left bar
-   pulses in the accent colour so the user reads it as "still working"
-   without any extra chrome. */
 .asv-trail--live {
-  border-left-color: var(--accent);
-  animation: asv-trail-pulse 1.6s ease-in-out infinite;
-}
-@keyframes asv-trail-pulse {
-  0%,
-  100% {
-    border-left-color: var(--accent);
-  }
-  50% {
-    border-left-color: var(--color-border-hover);
-  }
+  background: var(--color-card);
+  border-color: var(--border);
 }
 .asv-trail-toggle {
   display: flex;
@@ -1120,7 +1147,7 @@
   font-size: var(--font-size-micro);
   color: var(--color-text-muted);
   text-align: left;
-  border-radius: calc(var(--radius-md) - 1px);
+  border-radius: var(--radius-sm);
   transition:
     background var(--transition-normal),
     color var(--transition-normal);

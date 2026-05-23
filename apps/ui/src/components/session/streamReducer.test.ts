@@ -60,6 +60,80 @@ describe("reduceStreamEvent", () => {
     expect(s.fullText).toBe("hello world");
   });
 
+  it("parses canonical entity refs from TextDelta events", () => {
+    const s = drive([
+      {
+        type: "TextDelta",
+        text: "Open [[quest:ae-096|Reference primitive work]] after [[agent:agent-1|Builder]].",
+      },
+    ]);
+
+    expect(s.segments).toEqual([
+      { kind: "text", text: "Open " },
+      {
+        kind: "entity_ref",
+        ref: {
+          kind: "quest",
+          id: "ae-096",
+          label: "Reference primitive work",
+          source: "parser",
+        },
+      },
+      { kind: "text", text: " after " },
+      {
+        kind: "entity_ref",
+        ref: {
+          kind: "agent",
+          id: "agent-1",
+          label: "Builder",
+          source: "parser",
+        },
+      },
+      { kind: "text", text: "." },
+    ]);
+    expect(s.fullText).toBe("Open Reference primitive work after Builder.");
+  });
+
+  it("keeps legacy bracket refs as label-only parser fallbacks", () => {
+    const s = drive([{ type: "TextDelta", text: "See [Quest: Follow-up]." }]);
+    expect(s.segments).toEqual([
+      { kind: "text", text: "See " },
+      {
+        kind: "entity_ref",
+        ref: { kind: "quest", id: "", label: "Follow-up", source: "parser" },
+      },
+      { kind: "text", text: "." },
+    ]);
+    expect(s.fullText).toBe("See Follow-up.");
+  });
+
+  it("normalizes backend EntityRef events with canonical ids", () => {
+    const s = drive([
+      {
+        type: "EntityRef",
+        kind: "idea",
+        entity_id: "idea-1",
+        trust_id: "trust-1",
+        label: "Runtime guide",
+        status: "active",
+      },
+    ]);
+    expect(s.segments).toEqual([
+      {
+        kind: "entity_ref",
+        ref: {
+          kind: "idea",
+          id: "idea-1",
+          trustId: "trust-1",
+          label: "Runtime guide",
+          status: "active",
+          source: "model",
+        },
+      },
+    ]);
+    expect(s.fullText).toBe("Runtime guide");
+  });
+
   it("returns referentially equal state on unknown events", () => {
     const a = initialStreamState(0);
     const result = reduceStreamEvent(a, { type: "Status" });

@@ -12,48 +12,80 @@ const TAB_BY_PRIMITIVE: Record<EntityPrimitive, string> = {
   event: "events",
 };
 
+const LABEL_BY_PRIMITIVE: Record<EntityPrimitive, string> = {
+  agent: "Agent",
+  quest: "Quest",
+  idea: "Idea",
+  event: "Event",
+};
+
 /**
- * Inline mention for an AEQI primitive. Resolves via backend-supplied
- * trustId first, falling back to daemon-store name lookup for agent/quest.
- * Renders unresolved refs as plain text — no link, no chip.
+ * Inline mention for an aeqi primitive. Canonical refs provide `kind + id`;
+ * label-only parser fallbacks resolve opportunistically from local state.
  */
 export default function EntityRefInline({ ref }: { ref: EntityRef }) {
-  const { trustId } = useNav();
+  const { trustId: routeTrustId } = useNav();
   const entities = useDaemonStore((s) => s.entities);
   const agents = useDaemonStore((s) => s.agents);
   const quests = useDaemonStore((s) => s.quests);
 
   const resolved = useMemo(() => {
-    if (ref.trustId) return ref.trustId;
-    const lc = ref.label.trim().toLowerCase();
+    if (ref.id) return ref.id;
+    const lc = (ref.label ?? ref.slug ?? "").trim().toLowerCase();
     if (!lc) return "";
-    if (ref.primitive === "agent") {
+    if (ref.kind === "agent") {
       return agents.find((a) => (a.name ?? "").toLowerCase() === lc)?.id ?? "";
     }
-    if (ref.primitive === "quest") {
-      return quests.find((q) => (q.idea?.name ?? "").toLowerCase() === lc)?.id ?? "";
+    if (ref.kind === "quest") {
+      return (
+        quests.find((q) => q.id.toLowerCase() === lc || (q.idea?.name ?? "").toLowerCase() === lc)
+          ?.id ?? ""
+      );
     }
     return "";
-  }, [ref.trustId, ref.label, ref.primitive, agents, quests]);
+  }, [ref.id, ref.label, ref.slug, ref.kind, agents, quests]);
 
-  if (!trustId || !resolved) {
-    return <span className="asv-entity-ref asv-entity-ref--unresolved">{ref.label}</span>;
+  const displayLabel = useMemo(() => {
+    if (ref.label) return ref.label;
+    if (ref.kind === "agent") return agents.find((a) => a.id === resolved)?.name ?? ref.slug;
+    if (ref.kind === "quest") return quests.find((q) => q.id === resolved)?.idea?.name ?? ref.slug;
+    return ref.slug || ref.id;
+  }, [ref.label, ref.slug, ref.id, ref.kind, resolved, agents, quests]);
+
+  const scopeTrustId = ref.trustId || routeTrustId;
+  const role = LABEL_BY_PRIMITIVE[ref.kind];
+  const body = (
+    <>
+      <span className="asv-entity-ref-kind">{role}</span>
+      <span className="asv-entity-ref-label">{displayLabel || role}</span>
+      {ref.status && <span className="asv-entity-ref-status">{ref.status}</span>}
+    </>
+  );
+
+  if (!scopeTrustId || !resolved) {
+    return (
+      <span
+        className={`asv-entity-ref asv-entity-ref--${ref.kind} asv-entity-ref--unresolved`}
+        title={`${role}: ${displayLabel || "unresolved"}`}
+      >
+        {body}
+      </span>
+    );
   }
 
   const href = entityPathFromId(
     entities,
-    trustId,
-    TAB_BY_PRIMITIVE[ref.primitive],
+    scopeTrustId,
+    TAB_BY_PRIMITIVE[ref.kind],
     encodeURIComponent(resolved),
   );
-  const role = ref.primitive[0].toUpperCase() + ref.primitive.slice(1);
   return (
     <Link
       to={href}
-      className={`asv-entity-ref asv-entity-ref--${ref.primitive}`}
-      title={`${role}: ${ref.label}${ref.status ? ` (${ref.status})` : ""}`}
+      className={`asv-entity-ref asv-entity-ref--${ref.kind}`}
+      title={`${role}: ${displayLabel || resolved}${ref.status ? ` (${ref.status})` : ""}`}
     >
-      {ref.label}
+      {body}
     </Link>
   );
 }

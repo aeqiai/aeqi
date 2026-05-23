@@ -272,7 +272,13 @@
 
 .session-detail--recessed .asv-msg-user .asv-msg-content .asv-entity-ref {
   color: var(--btn-primary-text);
-  text-decoration-color: color-mix(in srgb, var(--btn-primary-text) 62%, transparent);
+  background: color-mix(in srgb, var(--btn-primary-text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--btn-primary-text) 18%, transparent);
+}
+
+.session-detail--recessed .asv-msg-user .asv-msg-content .asv-entity-ref-kind,
+.session-detail--recessed .asv-msg-user .asv-msg-content .asv-entity-ref-status {
+  color: color-mix(in srgb, var(--btn-primary-text) 68%, transparent);
 }
 
 .session-detail--recessed .asv-msg-user .asv-msg-chrome-meta {
