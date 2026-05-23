@@ -101,4 +101,24 @@ describe("TrustSetupFlow", () => {
 
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
   });
+
+  it("shows the Sandbox operations option only when admin sandbox is available", () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <TrustSetupFlow {...baseProps} exitHref={null} adminSandboxAvailable={false} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("radio", { name: /Sandbox/i })).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <TrustSetupFlow {...baseProps} operations="sandbox" exitHref={null} adminSandboxAvailable />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("radio", { name: /Sandbox/i })).toBeChecked();
+    expect(screen.getByText("No Stripe checkout")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Launch sandbox/i })).toBeInTheDocument();
+  });
 });

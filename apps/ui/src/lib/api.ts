@@ -669,10 +669,10 @@ export const api = {
     }>("/blueprints/spawn-into", { method: "POST", body: JSON.stringify(data) }),
 
   // Platform-side launch — mints the canonical trust_id (UUID) on the
-  // platform host and provisions a sandbox runtime. Only callable by users
-  // with subscription_status="invited" (sandbox tier) or "active" (paid).
-  // Anyone else gets 402 PAYMENT_REQUIRED — they go through Stripe via
-  // createCheckoutSession instead.
+  // platform host and provisions a sandbox runtime. Callable by users with
+  // subscription_status="invited" (sandbox tier), "active" (paid), or admins
+  // explicitly requesting plan="sandbox". Anyone else gets 402 and goes
+  // through Stripe via createCheckoutSession instead.
   startLaunch: (data: {
     template: string;
     display_name: string;

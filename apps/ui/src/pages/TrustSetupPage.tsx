@@ -23,7 +23,7 @@ import "@/styles/blueprint-launch-picker.css";
 const FIRST_RUN_BLUEPRINT_SLUG = DEFAULT_BLUEPRINT_SLUG;
 
 type LaunchEntry = "standard" | "personal";
-type OperationsChoice = "free" | "paid";
+type OperationsChoice = "free" | "paid" | "sandbox";
 
 type NameCheckState =
   | { status: "idle" }
@@ -83,8 +83,6 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const setActiveEntity = useUIStore((s) => s.setActiveEntity);
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.user?.is_admin === true);
-  const canSkipCheckout = isAdmin;
-
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -94,6 +92,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
   const [trustName, setTrustName] = useState("");
   const [trustNameTouched, setTrustNameTouched] = useState(false);
   const [operations, setOperations] = useState<OperationsChoice>("paid");
+  const [operationsTouched, setOperationsTouched] = useState(false);
   const [plan, setPlan] = useState<LaunchPlanId>(DEFAULT_LAUNCH_PLAN);
   const [nameCheck, setNameCheck] = useState<NameCheckState>({ status: "idle" });
 
@@ -164,6 +163,16 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
     if (trustNameTouched || !blueprint) return;
     setTrustName(defaultTrustName(user, blueprint));
   }, [blueprint, trustNameTouched, user]);
+
+  useEffect(() => {
+    if (isAdmin && !operationsTouched) {
+      setOperations("sandbox");
+      return;
+    }
+    if (!isAdmin && operations === "sandbox") {
+      setOperations("paid");
+    }
+  }, [isAdmin, operations, operationsTouched]);
 
   const selectedLaunchPlan = useMemo(
     () => LAUNCH_PLANS.find((p) => p.id === plan) ?? LAUNCH_PLANS[0],
@@ -282,12 +291,12 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
     setSubmitting(true);
 
     try {
-      if (canSkipCheckout) {
+      if (operations === "sandbox" && isAdmin) {
         const resp = await api.startLaunch({
           template: blueprintId(blueprint),
           display_name: displayName,
           mission: "",
-          plan,
+          plan: "sandbox",
         });
 
         setSearchParams(
@@ -308,7 +317,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       });
       goExternal(url);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 402) {
+      if (operations !== "sandbox" && e instanceof ApiError && e.status === 402) {
         try {
           const { url } = await api.createCheckoutSession({
             blueprint: blueprintId(blueprint),
@@ -328,7 +337,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
     } finally {
       setSubmitting(false);
     }
-  }, [blueprint, canSkipCheckout, nameCheck.status, plan, setSearchParams, trustName]);
+  }, [blueprint, isAdmin, nameCheck.status, operations, plan, setSearchParams, trustName]);
 
   const handleLaunch = () => {
     if (operations === "free") {
@@ -369,6 +378,7 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
       operations={operations}
       plan={plan}
       selectedLaunchPlan={selectedLaunchPlan}
+      adminSandboxAvailable={isAdmin}
       exitHref={exitHref}
       canSubmit={canSubmit}
       submitting={submitting}
@@ -376,7 +386,10 @@ export default function TrustSetupPage({ entry = "standard" }: { entry?: LaunchE
         setTrustNameTouched(true);
         setTrustName(value);
       }}
-      onOperationsChange={setOperations}
+      onOperationsChange={(value) => {
+        setOperationsTouched(true);
+        setOperations(value);
+      }}
       onPlanChange={setPlan}
       onLaunch={handleLaunch}
     />

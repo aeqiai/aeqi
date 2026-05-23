@@ -7,7 +7,7 @@ import { LAUNCH_PLANS } from "@/lib/pricing";
 import type { SingleBlueprint as Blueprint } from "@/lib/types";
 import { LaunchShell } from "./LaunchShell";
 
-type OperationsChoice = "free" | "paid";
+type OperationsChoice = "free" | "paid" | "sandbox";
 
 interface TrustSetupFlowProps {
   blueprint: Blueprint;
@@ -20,6 +20,7 @@ interface TrustSetupFlowProps {
   operations: OperationsChoice;
   plan: LaunchPlanId;
   selectedLaunchPlan: LaunchPlan;
+  adminSandboxAvailable?: boolean;
   exitHref?: string | null;
   canSubmit: boolean;
   submitting: boolean;
@@ -130,9 +131,13 @@ function BlueprintSection({
 function OperationsSection({
   operations,
   plan,
+  adminSandboxAvailable = false,
   onOperationsChange,
   onPlanChange,
-}: Pick<TrustSetupFlowProps, "operations" | "plan" | "onOperationsChange" | "onPlanChange">) {
+}: Pick<
+  TrustSetupFlowProps,
+  "operations" | "plan" | "adminSandboxAvailable" | "onOperationsChange" | "onPlanChange"
+>) {
   const standardPlan = LAUNCH_PLANS.find((item) => item.id === "starter") ?? LAUNCH_PLANS[0];
   const proPlan = LAUNCH_PLANS.find((item) => item.id === "growth") ?? LAUNCH_PLANS[0];
   const choices: Array<{
@@ -153,6 +158,19 @@ function OperationsSection({
       selected: operations === "free",
       onSelect: () => onOperationsChange("free"),
     },
+    ...(adminSandboxAvailable
+      ? [
+          {
+            key: "sandbox",
+            title: "Sandbox",
+            price: "Admin",
+            copy: "Internal runtime for testing launches.",
+            detail: "No Stripe checkout",
+            selected: operations === "sandbox",
+            onSelect: () => onOperationsChange("sandbox"),
+          },
+        ]
+      : []),
     {
       key: "starter",
       title: "Operating",
@@ -236,6 +254,7 @@ export function TrustSetupFlow({
   operations,
   plan,
   selectedLaunchPlan,
+  adminSandboxAvailable,
   exitHref,
   canSubmit,
   submitting,
@@ -297,6 +316,7 @@ export function TrustSetupFlow({
         <OperationsSection
           operations={operations}
           plan={plan}
+          adminSandboxAvailable={adminSandboxAvailable}
           onOperationsChange={onOperationsChange}
           onPlanChange={onPlanChange}
         />
@@ -320,7 +340,9 @@ export function TrustSetupFlow({
                   ? `${selectedLaunchPlan.dueToday} today`
                   : `${selectedLaunchPlan.dueToday}/mo`
               }`
-            : "Launch TRUST"}
+            : operations === "sandbox"
+              ? "Launch sandbox"
+              : "Launch TRUST"}
         </Button>
       </footer>
     </LaunchShell>
