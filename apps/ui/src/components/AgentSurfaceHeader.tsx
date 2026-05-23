@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { BarChart3, Plus, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { MessagesSquare, Plus, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNav } from "@/hooks/useNav";
 import { useDaemonStore } from "@/store/daemon";
@@ -10,14 +10,13 @@ import SurfaceHeader from "./SurfaceHeader";
 /**
  * Header for the drilled-agent default surface. Wraps the shared
  * SurfaceHeader primitive with agent-specific data (avatar + name) and
- * actions (Settings, New).
+ * mode switcher (Sessions / Settings) and actions.
  *
  * Variants:
  *   - "default" (drilled-agent landing) → [← Agents] · <Agent name> ·
- *     [Settings] · [+ New]  (New is the ink primary CTA, matching the
- *     canonical +New button on Ideas / Quests toolbars)
- *   - "settings" (settings sub-surface) → [← Back to <Agent>] ·
- *     <Agent name> / Settings (breadcrumb)
+ *     [Sessions | Settings] · [+ New]
+ *   - "settings" (settings sub-surface) → [← Agents] · <Agent name> ·
+ *     [Sessions | Settings]
  *
  * The chat surface lives one level beneath the header — sessions rail
  * to the left of the chat column (mounted by AppLayout), composer at
@@ -32,24 +31,17 @@ export default function AgentSurfaceHeader({
   variant?: "default" | "settings";
   middle?: ReactNode;
 }) {
-  const navigate = useNavigate();
   const { entityPath, base } = useNav();
   const agents = useDaemonStore((s) => s.agents);
   const agent = agents.find((a) => a.id === agentId);
   const agentName = agent?.name || agentId;
   const trustId = agent?.trust_id || "";
 
-  // Back link target. Default surface goes back to the entity's
-  // Agents list; settings goes back to the agent's default (chat).
-  const backHref =
-    variant === "settings"
-      ? `${base}/agents/${encodeURIComponent(agentId)}`
-      : trustId
-        ? entityPath(trustId, "agents")
-        : "/";
-  const backLabel = variant === "settings" ? agentName : "Agents";
+  const encodedAgentId = encodeURIComponent(agentId);
+  const backHref = trustId ? entityPath(trustId, "agents") : base ? `${base}/agents` : "/";
+  const sessionHref = `${base}/agents/${encodedAgentId}`;
   const settingsHref = `${base}/agents/${encodeURIComponent(agentId)}/settings`;
-  const healthHref = `${base}/agents/${encodeURIComponent(agentId)}/health`;
+  const activeMode = variant === "settings" ? "settings" : "sessions";
 
   // "New" — broadcast the same custom event the type-anywhere shortcut
   // uses. AgentSessionView listens for this and resets the active
@@ -68,58 +60,58 @@ export default function AgentSurfaceHeader({
     </span>
   );
 
-  const crumbSuffix =
-    variant === "settings" ? (
-      <>
-        <span className="agent-surface-header-sep" aria-hidden>
-          /
-        </span>
-        <span className="agent-surface-header-crumb">Settings</span>
-      </>
-    ) : undefined;
-
-  const actions =
-    variant === "default" ? (
-      <>
-        <Tooltip content="Agent health — productivity, quality, goals">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate(healthHref)}
-            leadingIcon={<BarChart3 size={13} strokeWidth={1.5} aria-hidden="true" />}
+  const actions = (
+    <>
+      <div className="agent-surface-header-switcher" role="tablist" aria-label="Agent detail">
+        <Tooltip content="Agent sessions inbox">
+          <Link
+            to={sessionHref}
+            role="tab"
+            aria-selected={activeMode === "sessions"}
+            className={`agent-surface-header-switch${
+              activeMode === "sessions" ? " is-active" : ""
+            }`}
           >
-            Health
-          </Button>
+            <MessagesSquare size={13} strokeWidth={1.5} aria-hidden="true" />
+            Sessions
+          </Link>
         </Tooltip>
-        <Tooltip content="Agent settings — model, tools, channels">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate(settingsHref)}
-            leadingIcon={<Settings size={13} strokeWidth={1.5} aria-hidden="true" />}
+        <Tooltip content="Agent settings">
+          <Link
+            to={settingsHref}
+            role="tab"
+            aria-selected={activeMode === "settings"}
+            className={`agent-surface-header-switch${
+              activeMode === "settings" ? " is-active" : ""
+            }`}
           >
+            <Settings size={13} strokeWidth={1.5} aria-hidden="true" />
             Settings
-          </Button>
+          </Link>
         </Tooltip>
-        <Tooltip content="Start a fresh conversation with this agent">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleNewSession}
-            leadingIcon={<Plus size={13} strokeWidth={1.5} aria-hidden="true" />}
-          >
-            New
-          </Button>
-        </Tooltip>
-      </>
-    ) : undefined;
+      </div>
+      {variant === "default" && (
+        <>
+          <Tooltip content="Start a fresh conversation with this agent">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleNewSession}
+              leadingIcon={<Plus size={13} strokeWidth={1.5} aria-hidden="true" />}
+            >
+              New
+            </Button>
+          </Tooltip>
+        </>
+      )}
+    </>
+  );
 
   return (
     <SurfaceHeader
       backHref={backHref}
-      backLabel={backLabel}
+      backLabel="Agents"
       title={title}
-      crumbSuffix={crumbSuffix}
       middle={middle}
       actions={actions}
     />

@@ -2955,18 +2955,27 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-card-elevated);
+  box-shadow: inset 0 0 0 1px var(--border);
   text-decoration: none;
   transition:
     color 0.12s ease,
-    background 0.12s ease;
+    background 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .agent-surface-header-back:hover {
   color: var(--color-text-primary);
-  background: var(--color-card-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-strong, var(--border));
+}
+
+.agent-surface-header-back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .agent-surface-header-sep {
@@ -3027,21 +3036,265 @@
   flex-shrink: 0;
 }
 
+.agent-surface-header-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 30px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.agent-surface-header-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 26px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.agent-surface-header-switch:hover {
+  color: var(--color-text-primary);
+}
+
+.agent-surface-header-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.agent-surface-header-switch.is-active {
+  color: var(--color-text-primary);
+  background: var(--color-card-elevated);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
 @media (max-width: 1180px) {
-  .agent-inbox-shell > .agent-surface-header {
+  .agent-surface-header {
     flex-wrap: wrap;
   }
 
-  .agent-inbox-shell > .agent-surface-header .agent-surface-header-middle {
+  .agent-surface-header .agent-surface-header-middle {
     order: 3;
     flex: 1 0 100%;
     max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .agent-surface-header {
+    padding: var(--space-3);
+  }
+
+  .agent-surface-header-actions {
+    flex-wrap: wrap;
   }
 }
 .agent-page-settings {
   padding: 24px 28px;
   max-width: 600px;
 }
+
+.agent-settings-surface {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agent-settings-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-row);
+}
+
+.agent-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-card-elevated);
+  box-shadow: var(--card-elevation);
+}
+
+.agent-settings-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.agent-settings-card-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 620;
+  color: var(--color-text-primary);
+  letter-spacing: 0;
+}
+
+.agent-settings-card-subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.agent-settings-toast {
+  flex-shrink: 0;
+  margin: var(--space-3) var(--space-4) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--success, var(--color-success));
+  color: var(--btn-primary-text);
+  font-size: 13px;
+}
+
+.agent-settings-toast--error {
+  background: var(--color-error);
+}
+
+.agent-settings-tools-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-row);
+}
+
+.agent-settings-tool-row {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.agent-settings-tool-row:last-child {
+  border-bottom: 0;
+}
+
+.agent-settings-tool-row:hover {
+  background: var(--state-hover);
+}
+
+.agent-settings-tool-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  position: relative;
+  z-index: 1;
+}
+
+.agent-settings-tool-row:disabled {
+  cursor: wait;
+}
+
+.agent-settings-tool-row.is-off {
+  opacity: 0.58;
+}
+
+.agent-settings-tool-cat {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.agent-settings-tool-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agent-settings-tool-name {
+  font-size: 13px;
+  font-weight: 540;
+  color: var(--color-text-primary);
+}
+
+.agent-settings-tool-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.agent-settings-tool-state {
+  min-width: 48px;
+  text-align: right;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--success);
+}
+
+.agent-settings-tool-row.is-off .agent-settings-tool-state {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .agent-settings-page {
+    padding: var(--space-3);
+  }
+
+  .agent-settings-card {
+    padding: var(--space-3);
+  }
+
+  .agent-settings-card-head {
+    flex-direction: column;
+  }
+
+  .agent-settings-tool-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .agent-settings-tool-cat {
+    display: none;
+  }
+
+  .agent-settings-tool-desc {
+    white-space: normal;
+  }
+}
+
 .agent-settings-section {
   margin-bottom: 32px;
 }

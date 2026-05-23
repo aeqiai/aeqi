@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react
 import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import LeftSidebar from "./shell/LeftSidebar";
-import PageRail from "./PageRail";
 import BootLoader from "./shell/BootLoader";
 import { AgentInboxControlsProvider, AgentInboxToolbar } from "./shell/AgentInboxControls";
 import { useDaemonStore } from "@/store/daemon";
@@ -15,7 +14,6 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { isRateLimited } from "@/lib/rateLimit";
 import RateLimitBanner from "./shell/RateLimitBanner";
 import { useCurrentTrust } from "@/hooks/useCurrentTrust";
-import { AGENT_RAIL_TABS } from "@/components/agentRailTabs";
 import type { Agent, Trust } from "@/lib/types";
 
 const CommandPalette = lazy(() => import("./CommandPalette"));
@@ -42,9 +40,9 @@ const RoleInvitePage = lazy(() => import("@/pages/RoleInvitePage"));
 const AgentHealthPage = lazy(() => import("@/pages/AgentHealthPage"));
 const AgentSettingsPage = lazy(() => import("@/pages/AgentSettingsPage"));
 
-// Tab segments that moved under `/trust/<addr>/agents/<aid>/settings/<tab>`.
-// These trigger a SPA replace-navigate (the closest equivalent to a
-// 308) so existing bookmarks survive the relocation.
+// Legacy drilled-agent segments. MVP agent detail exposes only Sessions
+// and Settings; stale deep links collapse to Settings rather than
+// duplicating full primitive pages under an agent.
 const RELOCATED_AGENT_TABS = new Set([
   "overview",
   "quests",
@@ -290,7 +288,7 @@ export default function AppLayout() {
   // Drilled-agent default is the inbox/chat shape (no rail) — bare
   // `/trust/<addr>/agents/<aid>/` opens the agent into the chat surface.
   // The settings sub-surface lives at `/trust/<addr>/agents/<aid>/settings`
-  // with the rail; clicking ⚙ on the agent header navigates there.
+  // as a small model/tools surface.
   const isEntityRoute = !!routeTrustAddress;
   // Are we on the agent's settings sub-surface? The route shape is
   // `agents/:agentId/settings[/:settingsTab[/:itemId]]`. We detect via
@@ -327,26 +325,26 @@ export default function AppLayout() {
     return <Navigate to={`${base}${agentSeg}${suffix}${search}`} replace />;
   }
 
-  // Personality was dropped from the agent settings rail 2026-05-08 —
-  // Ideas (HOW per the four W-primitives) is the canonical surface for
-  // an agent's identity/instructions/memories. Replace-navigate any
-  // stale `/personality` URL onto `/settings/ideas`.
+  // Personality and the old drilled-agent primitive tabs no longer have a
+  // scoped settings rail. Replace-navigate stale links onto Settings.
   if (
     drilledAgent &&
     (tab === "personality" || (agentSettingsSegment && settingsTab === "personality"))
   ) {
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
-    return <Navigate to={`${base}${agentSeg}/settings/ideas${search}`} replace />;
+    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
   }
 
-  // The drilled-agent rail tabs (Overview, Quests, Events, Ideas,
-  // Channels, Tools, Integrations) now live under
-  // `/trust/<addr>/agents/<agent>/settings/<tab>`.
+  if (drilledAgent && agentSettingsSegment && settingsTab) {
+    const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
+    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
+  }
+
+  // Old drilled-agent primitive tabs collapse to Settings instead of
+  // recreating the whole app under an agent.
   if (drilledAgent && tab && RELOCATED_AGENT_TABS.has(tab) && !agentSettingsSegment) {
     const agentSeg = `/agents/${encodeURIComponent(drilledAgent.id)}`;
-    const sub = `/settings/${tab}`;
-    const trailing = itemId ? `/${encodeURIComponent(itemId)}` : "";
-    return <Navigate to={`${base}${agentSeg}${sub}${trailing}${search}`} replace />;
+    return <Navigate to={`${base}${agentSeg}/settings${search}`} replace />;
   }
 
   if (drilledAgent && tab === "treasury" && !agentSettingsSegment) {
@@ -418,9 +416,7 @@ export default function AppLayout() {
     if (drilledAgent && tab === "health") {
       return <AgentHealthPage agentId={activeAgentId} />;
     }
-    // Drilled-agent settings sub-surface — dedicated page that owns
-    // the PageRail. Bare trust-scope `/agents/<aid>/settings` defaults to
-    // the Overview sub-tab.
+    // Drilled-agent settings sub-surface — simple model + tools page.
     if (drilledAgent && agentSettingsSegment) {
       return <AgentSettingsPage agentId={activeAgentId} />;
     }
@@ -455,27 +451,8 @@ export default function AppLayout() {
   const showComposer = sessionsMounted;
   const showSessionsRail = sessionsMounted && !!isEntityRoute;
 
-  // Drilled-agent PageRail — only mounted on the settings sub-surface.
-  // The default agent surface (chat) shows no rail; its breadcrumbs
-  // live in the AgentSurfaceHeader at the top of the right pane.
-  const showAgentRail = !!drilledAgent && agentSettingsSegment;
-  const agentRailCurrent = settingsTab || "overview";
-  const agentRailBase =
-    drilledAgent && encodedEntityId
-      ? `${base}/agents/${encodeURIComponent(drilledAgent.id)}/settings`
-      : "";
-
   const contentBody = (
     <div className="content-body-row">
-      {showAgentRail && (
-        <PageRail
-          tabs={AGENT_RAIL_TABS}
-          defaultTab="overview"
-          title="Agent"
-          basePath={agentRailBase}
-          currentValue={agentRailCurrent}
-        />
-      )}
       {showSessionsRail && (
         <aside className="sessions-rail-col">
           <Suspense fallback={null}>
