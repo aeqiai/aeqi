@@ -70,19 +70,19 @@
 .xs {
   width: 22px;
   height: 22px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
 }
 
 .sm {
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
 }
 
 .md {
   width: var(--input-h);
   height: var(--input-h);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
 }
 
 /* Icon sizing */

@@ -7,12 +7,18 @@ import { useDaemonStore } from "@/store/daemon";
 import { entityPathFromId } from "@/lib/entityPath";
 import { formatCurrency } from "@/lib/i18n";
 import "@/styles/roles.css"; // shared trust-snapshot card primitives
-import { Button, Icon, PrimitiveSearchField, Tooltip, ToolbarRadioPopover } from "./ui";
+import {
+  Button,
+  Icon,
+  PrimitivePageHeader,
+  PrimitiveSearchField,
+  Tooltip,
+  ToolbarRadioPopover,
+} from "./ui";
 import { BlueprintPickerModal } from "@/components/blueprints/BlueprintPickerModal";
 import AgentsEmptyState from "./agents/AgentsEmptyState";
 import AgentsList from "./agents/AgentsList";
 import AgentsChart from "./agents/AgentsChart";
-import SurfaceHeader from "./SurfaceHeader";
 
 type ViewMode = "list" | "chart";
 type SortMode = "recent" | "alpha-asc" | "alpha-desc" | "active" | "spend";
@@ -241,51 +247,10 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
 
   return (
     <div className="trust-agents">
-      <SurfaceHeader
-        backLabel="Agents"
-        middle={
-          <div className="trust-agents-toolbar ideas-toolbar">
-            <PrimitiveSearchField
-              inputRef={searchRef}
-              placeholder="Search agents"
-              value={search}
-              onChange={(next) => setSearchParam("q", next)}
-              showKbdHint
-              onEscapeEmpty={(e) => e.currentTarget.blur()}
-            />
-
-            <ToolbarRadioPopover
-              label="Sort"
-              current={SORT_LABELS[sort]}
-              glyph={GLYPHS.sort}
-              options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
-              value={sort}
-              onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
-            />
-
-            <ToolbarRadioPopover
-              label="Filter"
-              current={LIVENESS_FILTER_LABELS[status]}
-              glyph={GLYPHS.filter}
-              options={LIVENESS_FILTER_ORDER.map((s) => ({
-                id: s,
-                label: LIVENESS_FILTER_LABELS[s],
-              }))}
-              value={status}
-              onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
-              indicator={status !== "all"}
-            />
-
-            <ToolbarRadioPopover
-              label="View"
-              current={VIEW_LABELS[view]}
-              glyph={GLYPHS.view}
-              options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
-              value={view}
-              onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
-            />
-          </div>
-        }
+      <PrimitivePageHeader
+        className="trust-roles-page-header"
+        title="Agents"
+        aria-label="Agent controls"
         actions={
           <Tooltip content="New agent (N)">
             <Button
@@ -298,7 +263,49 @@ export default function TrustAgentsTab({ trustId }: { trustId: string }) {
             </Button>
           </Tooltip>
         }
-      />
+      >
+        <div className="trust-agents-toolbar ideas-toolbar">
+          <PrimitiveSearchField
+            inputRef={searchRef}
+            placeholder="Search agents"
+            value={search}
+            onChange={(next) => setSearchParam("q", next)}
+            showKbdHint
+            onEscapeEmpty={(e) => e.currentTarget.blur()}
+          />
+
+          <ToolbarRadioPopover
+            label="Sort"
+            current={SORT_LABELS[sort]}
+            glyph={GLYPHS.sort}
+            options={SORT_ORDER.map((s) => ({ id: s, label: SORT_LABELS[s] }))}
+            value={sort}
+            onChange={(next) => setSearchParam("sort", next === "recent" ? null : next)}
+          />
+
+          <ToolbarRadioPopover
+            label="Filter"
+            current={LIVENESS_FILTER_LABELS[status]}
+            glyph={GLYPHS.filter}
+            options={LIVENESS_FILTER_ORDER.map((s) => ({
+              id: s,
+              label: LIVENESS_FILTER_LABELS[s],
+            }))}
+            value={status}
+            onChange={(next) => setSearchParam("status", next === "all" ? null : next)}
+            indicator={status !== "all"}
+          />
+
+          <ToolbarRadioPopover
+            label="View"
+            current={VIEW_LABELS[view]}
+            glyph={GLYPHS.view}
+            options={VIEW_ORDER.map((v) => ({ id: v, label: VIEW_LABELS[v] }))}
+            value={view}
+            onChange={(next) => setSearchParam("view", next === "list" ? null : next)}
+          />
+        </div>
+      </PrimitivePageHeader>
 
       <div className="trust-agents-main">
         {activeChips.length > 0 && (

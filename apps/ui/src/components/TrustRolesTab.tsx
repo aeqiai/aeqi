@@ -313,6 +313,26 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
         className="trust-roles-page-header"
         title="Roles"
         aria-label="Role controls"
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
+              leadingIcon={<Mail size={14} strokeWidth={1.6} />}
+            >
+              Invite
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
+              leadingIcon={<Plus size={14} strokeWidth={1.8} />}
+            >
+              Role
+            </Button>
+          </>
+        }
       >
         <div className="ideas-toolbar trust-roles-toolbar">
           <PrimitiveSearchField
@@ -328,22 +348,6 @@ export default function TrustRolesTab({ trustId }: { trustId: string }) {
             onChange={setFilter}
           />
           <RolesViewPopover view={view} onChange={setView} />
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "invite"))}
-            leadingIcon={<Mail size={14} strokeWidth={1.6} />}
-          >
-            Invite
-          </Button>
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => navigate(entityPathFromId(entities, trustId, "roles", "new"))}
-            leadingIcon={<Plus size={14} strokeWidth={1.8} />}
-          >
-            Role
-          </Button>
         </div>
       </PrimitivePageHeader>
 

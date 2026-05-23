@@ -2961,13 +2961,12 @@
    on the default surface; the settings sub-surface has the rail mounted
    by AppLayout as a sibling. */
 .agent-surface-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 760px) minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-6);
   background: var(--color-card);
-  box-shadow: inset 0 -1px 0 var(--border);
   flex-shrink: 0;
 }
 
@@ -3058,11 +3057,11 @@
 }
 
 .agent-surface-header-middle {
-  flex: 1 1 420px;
   min-width: 240px;
-  max-width: 560px;
+  width: min(100%, 760px);
   display: flex;
   align-items: center;
+  justify-self: center;
 }
 
 .agent-surface-header-middle .ideas-list-head {
@@ -3081,6 +3080,7 @@
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+  justify-self: end;
 }
 
 .agent-surface-header-switcher {
@@ -3130,13 +3130,14 @@
 
 @media (max-width: 1180px) {
   .agent-surface-header {
+    display: flex;
     flex-wrap: wrap;
   }
 
   .agent-surface-header .agent-surface-header-middle {
     order: 3;
     flex: 1 0 100%;
-    max-width: none;
+    width: 100%;
   }
 }
 
@@ -4414,7 +4415,6 @@
   flex-shrink: 0;
   padding: var(--space-3) var(--space-6);
   background: var(--color-card);
-  box-shadow: inset 0 -1px 0 var(--border);
 }
 
 .ideas-workspace-head h1 {
@@ -4806,6 +4806,7 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
+  justify-content: center;
 }
 
 .ideas-toolbar--inline {
@@ -4816,8 +4817,9 @@
    filter / view) and the labeled `+ New <primitive>` pill sit
    together on the right edge, pushed there by the search's grow. */
 .ideas-toolbar > .ideas-list-search-field {
-  flex: 1;
+  flex: 0 1 var(--toolbar-search-max, 560px);
   min-width: 0;
+  max-width: var(--toolbar-search-max, 560px);
 }
 /* Quiet meta label sometimes used inside the toolbar (graph view's
    nodes/edges count). Mono, tabular-nums, lives between the search
@@ -4862,7 +4864,7 @@
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -5650,7 +5652,7 @@
   color: var(--color-text-primary);
   background: var(--input-bg, var(--bg-base));
   border: 1px solid var(--input-border, var(--border));
-  border-radius: var(--input-radius, var(--radius-md));
+  border-radius: var(--radius-full);
   outline: none;
   transition:
     border-color 0.15s,
@@ -5737,6 +5739,17 @@
 }
 .ideas-list-search:focus ~ .ideas-list-search-kbd {
   opacity: 0;
+}
+
+@media (max-width: 720px) {
+  .ideas-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .ideas-toolbar > .ideas-list-search-field {
+    flex: 1 0 100%;
+    max-width: none;
+  }
 }
 .ideas-list-tags {
   display: flex;
@@ -7095,7 +7108,6 @@
   flex-shrink: 0;
   padding: var(--space-3) var(--space-6);
   background: var(--color-card);
-  box-shadow: inset 0 -1px 0 var(--border);
 }
 
 .quest-detail-head .ideas-canvas-toolbar {

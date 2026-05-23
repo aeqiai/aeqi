@@ -40,7 +40,7 @@ describe("TrustAgentsTab", () => {
     vi.restoreAllMocks();
   });
 
-  it("places the search toolbar directly below the title row", () => {
+  it("places the search toolbar in the primitive header first row", () => {
     render(
       <MemoryRouter initialEntries={["/trust/root-1/agents"]}>
         <Routes>
@@ -53,7 +53,7 @@ describe("TrustAgentsTab", () => {
     const search = screen.getByPlaceholderText("Search agents");
     const snapshot = screen.getByRole("region", { name: "Agent snapshot" });
 
-    expect(heading.closest(".agent-surface-header")).not.toBeNull();
+    expect(screen.getByLabelText("Agent controls")).toContainElement(heading);
     expect(screen.queryByRole("link", { name: "Agents" })).not.toBeInTheDocument();
     expect(search.closest(".trust-agents-toolbar")).not.toBeNull();
     expect(heading.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
