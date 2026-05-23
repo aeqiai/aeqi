@@ -37,7 +37,7 @@ export default function TrustOverviewTab({ trustId }: { trustId: string }) {
         <TrustExecutionGroup trustId={trustId} basePath={basePath} />
         <TrustOwnershipGroup trustAddress={trustAddress} basePath={basePath} />
       </div>
-      <TrustPublicRow />
+      <TrustPublicRow basePath={basePath} />
     </div>
   );
 }
