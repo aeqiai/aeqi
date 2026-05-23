@@ -18,6 +18,7 @@ import { entityPath } from "@/lib/entityPath";
 import {
   buildRoleContexts,
   buildTrustMapLayout,
+  collapseRoleContextsByTerminal,
   persistRoleContext,
   pickDefaultContext,
   relationLabel,
@@ -81,14 +82,18 @@ export default function TrustPage() {
     () => buildRoleContexts(bundles, user?.id ?? "", controlledTrustIds),
     [bundles, controlledTrustIds, user?.id],
   );
+  const visibleRoleContexts = useMemo(
+    () => collapseRoleContextsByTerminal(roleContexts),
+    [roleContexts],
+  );
 
   const selected = useMemo(() => {
     if (selectedId) {
-      const match = roleContexts.find((ctx) => ctx.id === selectedId);
+      const match = visibleRoleContexts.find((ctx) => ctx.id === selectedId);
       if (match) return match;
     }
-    return pickDefaultContext(roleContexts, activeTrust);
-  }, [activeTrust, roleContexts, selectedId]);
+    return pickDefaultContext(visibleRoleContexts, activeTrust);
+  }, [activeTrust, selectedId, visibleRoleContexts]);
 
   useEffect(() => {
     if (!selected && selectedId) setSelectedId(null);
@@ -112,7 +117,9 @@ export default function TrustPage() {
         .includes(normalized);
     });
 
-    return next.sort((a, b) => compareContexts(a, b, sort, trusts, user?.name || user?.email));
+    return collapseRoleContextsByTerminal(next).sort((a, b) =>
+      compareContexts(a, b, sort, trusts, user?.name || user?.email),
+    );
   }, [query, roleContexts, roleFilter, sort, trusts, user?.email, user?.name]);
 
   const selectedHolder = selected ? holderLabel(selected, trusts, user?.name || user?.email) : "";

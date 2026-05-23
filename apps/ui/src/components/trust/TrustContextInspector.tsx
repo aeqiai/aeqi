@@ -1,6 +1,13 @@
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import type { ReactNode } from "react";
-import TrustRoleOptionCard from "@/components/trust/TrustRoleOptionCard";
+import TrustAvatar from "@/components/TrustAvatar";
+import {
+  Button,
+  InspectorChips,
+  InspectorField,
+  InspectorHeader,
+  InspectorPanel,
+  InspectorSection,
+} from "@/components/ui";
 import { relationLabel, roleTypeLabel, type RoleContextOption } from "@/lib/trustRoleContext";
 
 interface TrustContextInspectorProps {
@@ -21,44 +28,33 @@ export default function TrustContextInspector({
   onEnter,
 }: TrustContextInspectorProps) {
   return (
-    <aside className="trust-context-inspector" aria-label="Selected role">
+    <InspectorPanel className="trust-context-inspector" ariaLabel="Selected role">
       {selected ? (
         <>
-          <TrustRoleOptionCard
-            trust={selected.trust}
-            role={selected.role}
-            roleContext={selected}
-            selected
-            activePath
-            routeCount={selected.routeCount}
-            className="trust-context-inspector-card"
-            onClick={() => undefined}
+          <InspectorHeader
+            eyebrow="Selected role"
+            title={roleLabel}
+            subtitle={`${selected.trust.name} · held by ${holderLabel}`}
+            media={<TrustAvatar name={selected.trust.name} src={selected.trust.avatar} size={42} />}
+            actions={
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                trailingIcon={<ArrowRight size={13} strokeWidth={1.8} />}
+                trailingIconMode="forward"
+                onClick={() => onEnter(selected)}
+              >
+                Enter
+              </Button>
+            }
           />
-          <button type="button" className="trust-context-enter" onClick={() => onEnter(selected)}>
-            Enter role
-            <ArrowRight size={15} strokeWidth={1.8} />
-          </button>
-          <InspectorBlock title="Selection">
-            <div className="trust-context-facts">
-              <div>
-                <span>Holder</span>
-                <strong>{holderLabel}</strong>
-              </div>
-              <div>
-                <span>Role</span>
-                <strong>{roleLabel}</strong>
-              </div>
-              <div>
-                <span>TRUST</span>
-                <strong>{selected.trust.name}</strong>
-              </div>
-              <div>
-                <span>Connection</span>
-                <strong>{relation}</strong>
-              </div>
-            </div>
-          </InspectorBlock>
-          <InspectorBlock title="Path">
+          <InspectorSection title="Identity">
+            <InspectorField label="Holder">{holderLabel}</InspectorField>
+            <InspectorField label="Trust">{selected.trust.name}</InspectorField>
+            <InspectorField label="Connection">{relation}</InspectorField>
+          </InspectorSection>
+          <InspectorSection title="Path">
             <ol className="trust-context-route-steps">
               <li>
                 <span>You</span>
@@ -78,9 +74,9 @@ export default function TrustContextInspector({
                 </li>
               ))}
             </ol>
-          </InspectorBlock>
-          <InspectorBlock title="Grants">
-            <div className="trust-context-grants">
+          </InspectorSection>
+          <InspectorSection title="Authority">
+            <InspectorChips className="trust-context-grants">
               {selected.role.grants.length > 0 ? (
                 selected.role.grants.slice(0, 5).map((grant) => <span key={grant}>{grant}</span>)
               ) : (
@@ -91,9 +87,9 @@ export default function TrustContextInspector({
                   <span>Review</span>
                 </>
               )}
-            </div>
-          </InspectorBlock>
-          <InspectorBlock title="Route">
+            </InspectorChips>
+          </InspectorSection>
+          <InspectorSection title="Route">
             <p className="trust-context-inspector-copy">
               {selected.status === "ambiguous"
                 ? `${selected.routeCount} paths can reach this role.`
@@ -103,16 +99,7 @@ export default function TrustContextInspector({
                     ? "This role is held by a TRUST connected to your account."
                     : "This role is held directly by your account."}
             </p>
-          </InspectorBlock>
-          <InspectorBlock title="Entry points">
-            <div className="trust-context-entry-grid">
-              {["Overview", "Roles", "Quests", "Ideas", "Events", "Assets", "Quorum"].map(
-                (item) => (
-                  <span key={item}>{item}</span>
-                ),
-              )}
-            </div>
-          </InspectorBlock>
+          </InspectorSection>
         </>
       ) : (
         <div className="trust-context-empty trust-context-empty--inspector">
@@ -121,15 +108,6 @@ export default function TrustContextInspector({
           <span>Select a role on the map to inspect its path.</span>
         </div>
       )}
-    </aside>
-  );
-}
-
-function InspectorBlock({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="trust-context-inspector-block">
-      <h3>{title}</h3>
-      {children}
-    </section>
+    </InspectorPanel>
   );
 }

@@ -296,6 +296,18 @@ export function buildRoleContexts(
     .sort(compareRoleContexts);
 }
 
+export function collapseRoleContextsByTerminal(contexts: RoleContextOption[]): RoleContextOption[] {
+  const byTerminal = new Map<string, RoleContextOption>();
+  for (const context of contexts) {
+    const key = terminalContextKey(context);
+    const current = byTerminal.get(key);
+    if (!current || compareRouteRepresentatives(context, current) < 0) {
+      byTerminal.set(key, context);
+    }
+  }
+  return [...byTerminal.values()].sort(compareRoleContexts);
+}
+
 export function pickDefaultContext(contexts: RoleContextOption[], activeTrust: Trust | null) {
   if (contexts.length === 0) return null;
   if (activeTrust) {
@@ -373,4 +385,13 @@ function contextSortKey(ctx: RoleContextOption) {
     ctx.role.id,
     ctx.route.map((segment) => `${segment.trust.id}:${segment.role.id}`).join(">"),
   ].join(":");
+}
+
+function terminalContextKey(ctx: RoleContextOption) {
+  return `${ctx.trust.id}:${ctx.role.id}`;
+}
+
+function compareRouteRepresentatives(a: RoleContextOption, b: RoleContextOption) {
+  if (a.route.length !== b.route.length) return b.route.length - a.route.length;
+  return contextSortKey(a).localeCompare(contextSortKey(b));
 }

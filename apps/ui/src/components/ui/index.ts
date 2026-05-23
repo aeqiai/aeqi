@@ -63,6 +63,21 @@ export type { TagListProps } from "./TagList";
 export { DetailField } from "./DetailField";
 export type { DetailFieldProps } from "./DetailField";
 
+export {
+  InspectorChips,
+  InspectorField,
+  InspectorHeader,
+  InspectorPanel,
+  InspectorSection,
+} from "./InspectorPanel";
+export type {
+  InspectorChipsProps,
+  InspectorFieldProps,
+  InspectorHeaderProps,
+  InspectorPanelProps,
+  InspectorSectionProps,
+} from "./InspectorPanel";
+
 export { ErrorBoundary } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
 

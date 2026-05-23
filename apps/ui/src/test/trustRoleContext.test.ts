@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildRoleContexts, type RoleBundle } from "@/lib/trustRoleContext";
+import {
+  buildRoleContexts,
+  collapseRoleContextsByTerminal,
+  type RoleBundle,
+} from "@/lib/trustRoleContext";
 import type { Role, Trust } from "@/lib/types";
 
 function trust(id: string, name = id): Trust {
@@ -98,5 +102,48 @@ describe("buildRoleContexts", () => {
       "nested",
     ]);
     expect(directorContexts.every((context) => context.routeCount === 2)).toBe(true);
+  });
+
+  it("collapses duplicate visible options by terminal role while keeping the richer route", () => {
+    const rootTrust = trust("trust-root", "53455");
+    const aeTrust = trust("trust-aeqi", "AEQI");
+    const bundles: RoleBundle[] = [
+      {
+        trust: rootTrust,
+        roles: [
+          role({
+            id: "founder",
+            trust_id: rootTrust.id,
+            title: "Founder",
+            occupant_kind: "human",
+            occupant_id: "user-operator",
+            founder: true,
+          }),
+        ],
+        edges: [],
+      },
+      {
+        trust: aeTrust,
+        roles: [
+          role({
+            id: "aeqi-director",
+            trust_id: aeTrust.id,
+            title: "Director",
+            occupant_kind: "trust",
+            occupant_id: rootTrust.id,
+          }),
+        ],
+        edges: [],
+      },
+    ];
+
+    const contexts = buildRoleContexts(bundles, "user-operator", [rootTrust.id]);
+    const visible = collapseRoleContextsByTerminal(contexts);
+    const director = visible.find((context) => context.role.id === "aeqi-director");
+
+    expect(visible.filter((context) => context.role.id === "aeqi-director")).toHaveLength(1);
+    expect(director?.route.map((segment) => segment.trust.id)).toEqual([rootTrust.id, aeTrust.id]);
+    expect(director?.routeCount).toBe(2);
+    expect(director?.status).toBe("ambiguous");
   });
 });
