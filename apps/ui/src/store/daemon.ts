@@ -26,6 +26,7 @@ interface DaemonState {
   wsConnected: boolean;
   loading: boolean;
   initialLoaded: boolean;
+  agentsLoaded: boolean;
 
   fetchStatus: () => Promise<void>;
   fetchDashboard: () => Promise<void>;
@@ -68,6 +69,7 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
   wsConnected: false,
   loading: false,
   initialLoaded: false,
+  agentsLoaded: false,
 
   fetchStatus: async () => {
     try {
@@ -131,14 +133,18 @@ export const useDaemonStore = create<DaemonState>((set, get) => ({
     // active X-Trust and returns the full subtree. We fetch both so the
     // sidebar has roots to show on `/` (where no X-Trust is set) and the
     // agent subtree is available for per-company pages.
-    const nextAgents = await agentsApi.listAgentDirectory();
+    try {
+      const nextAgents = await agentsApi.listAgentDirectory();
 
-    if (nextAgents.length === 0) {
-      // Both failed — keep existing state rather than blanking the tree.
-      return;
+      if (nextAgents.length > 0) {
+        set({ agents: nextAgents });
+      }
+    } finally {
+      // Mark the directory load as settled so drilled-agent routes can
+      // decide whether a missing agent is a real miss versus a hydration
+      // gap on refresh.
+      set({ agentsLoaded: true });
     }
-
-    set({ agents: nextAgents });
   },
 
   fetchQuests: async () => {

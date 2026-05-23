@@ -392,6 +392,7 @@ describe("shell components smoke", () => {
       wsConnected: false,
       loading: false,
       initialLoaded: true,
+      agentsLoaded: true,
     });
   });
 

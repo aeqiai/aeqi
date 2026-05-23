@@ -214,6 +214,7 @@ export default function AppLayout() {
   });
 
   const initialLoaded = useDaemonStore((s) => s.initialLoaded);
+  const agentsLoaded = useDaemonStore((s) => s.agentsLoaded);
   const appMode = useAuthStore((s) => s.appMode);
 
   const {
@@ -240,6 +241,14 @@ export default function AppLayout() {
 
   if (entities.length === 0 && (isHome || isStart)) {
     return <Navigate to="/launch?blueprint=personal-os" replace />;
+  }
+
+  // Drilled-agent pages depend on the agent directory itself, not just the
+  // trust root. Hold the shell on the loader until that directory has
+  // settled so a refresh does not bounce the user back to the trust cockpit
+  // before the agent rows finish hydrating.
+  if (routeAgentId && !agentsLoaded) {
+    return <BootLoader />;
   }
 
   // Stale entity ref after a data reset would point at a non-existent
@@ -324,7 +333,7 @@ export default function AppLayout() {
 
   // Defensive: route should be unreachable if `agents/<agent>` resolves
   // to nothing — bounce up to the company shell.
-  if (routeAgentId && !drilledAgent && encodedEntityId) {
+  if (routeAgentId && agentsLoaded && !drilledAgent && encodedEntityId) {
     return <Navigate to={`${base}${search}`} replace />;
   }
 
